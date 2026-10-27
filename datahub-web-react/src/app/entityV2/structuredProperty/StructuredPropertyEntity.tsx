@@ -4,7 +4,7 @@ import * as React from 'react';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { urlEncodeUrn } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 

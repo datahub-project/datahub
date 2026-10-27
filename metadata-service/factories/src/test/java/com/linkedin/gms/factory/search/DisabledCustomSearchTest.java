@@ -39,9 +39,10 @@ import org.testng.annotations.Test;
 @Import(DisabledCustomSearchTest.TestConfig.class)
 public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
 
+  @MockitoBean public MetricUtils metricUtils;
+
   @TestConfiguration
   static class TestConfig {
-    @MockitoBean public MetricUtils metricUtils;
 
     @Bean(name = "settingsBuilder")
     @Primary
@@ -85,6 +86,15 @@ public class DisabledCustomSearchTest extends AbstractTestNGSpringContextTests {
               com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim
                   .PARTIAL_NGRAM_CONFIG);
       return mock;
+    }
+
+    @Bean(name = "searchClusterRegistry")
+    @Primary
+    public SearchClusterRegistry searchClusterRegistry(SearchClientShim<?> searchClientShim) {
+      SearchClusterRegistry registry =
+          Mockito.mock(SearchClusterRegistry.class, Mockito.RETURNS_MOCKS);
+      Mockito.doReturn(searchClientShim).when(registry).clientFor(Mockito.any());
+      return registry;
     }
 
     @Bean(name = IndexConventionFactory.INDEX_CONVENTION_BEAN)

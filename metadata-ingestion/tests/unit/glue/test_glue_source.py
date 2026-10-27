@@ -1,7 +1,19 @@
 import base64
+import copy
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -15,9 +27,10 @@ import datahub.metadata.schema_classes as models
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
-from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mce_builder import make_schema_field_urn, make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
@@ -27,9 +40,11 @@ from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    TargetPlatformConfig,
     _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
 )
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -430,7 +445,7 @@ def test_catalog_to_platform_instance_is_region_specific():
     )
 
 
-def test_resource_link_emits_upstream_edge_to_owner():
+def test_resource_link_upstream_urn_uses_owner_instance():
     # A Lake Formation resource link (shared-transactions) points at transactions in the owner
     # account 432143214321. The consumer-instance table should get an upstream edge to the owner's
     # table URN, stamped with the owner account's instance.
@@ -448,17 +463,14 @@ def test_resource_link_emits_upstream_edge_to_owner():
             },
         ),
     )
-    upstreams = source._resource_link_owner_upstreams(
+    owner_urn = source._resource_link_upstream_urn(
         resource_link_table_in_mixed_database, "urn:li:dataset:(consumer)"
     )
 
-    assert [u.dataset for u in upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
-    ]
-    assert upstreams[0].type == models.DatasetLineageTypeClass.COPY
+    assert owner_urn == OWNER_TABLE_URN
 
 
-def test_resource_link_owner_upstreams_handles_malformed_target():
+def test_resource_link_upstream_urn_handles_malformed_target():
     # A TargetTable missing its Name must not crash the whole run; it should be skipped with a
     # reported warning and no upstream produced.
     source = GlueSource(
@@ -471,26 +483,59 @@ def test_resource_link_owner_upstreams_handles_malformed_target():
         "TargetTable": {"CatalogId": "432143214321", "DatabaseName": "test-database"},
     }
 
-    upstreams = source._resource_link_owner_upstreams(
+    owner_urn = source._resource_link_upstream_urn(
         malformed, "urn:li:dataset:(consumer)"
     )
 
-    assert upstreams == []
+    assert owner_urn is None
     assert source.report.warnings
     assert source.report.num_resource_link_missing_target == 1
 
 
-def test_resource_link_upstream_merged_with_storage_lineage():
-    # A resource link with a backfilled StorageDescriptor (so storage lineage also fires) must not
-    # lose either edge: the owner upstream and the S3 storage upstream must land in a SINGLE
-    # UpstreamLineage aspect on the dataset, not two aspects that clobber each other.
+def test_database_resource_link_without_owner_catalog_reports_missing_target() -> None:
+    # Neither TargetDatabase nor the table carries the owning CatalogId. The owner can't be
+    # identified, so the table must be reported as a missing target rather than attempting a
+    # cross-account glue:GetTable with CatalogId=None (which would surface as a misleading
+    # permissions warning).
+    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    databases_response["DatabaseList"][0]["TargetDatabase"] = {
+        "DatabaseName": "test-database"
+    }
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    del tables_response["TableList"][0]["CatalogId"]
+    del tables_response["TableList"][0]["StorageDescriptor"]
+
+    source, _, wus = _ingest_database_resource_link(
+        {}, tables_response, databases_response
+    )
+
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.resource-link-test-database.transactions,PROD)"
+    )
+    assert _upstream_urns(wus, link_urn) == []
+    assert source.report.num_resource_link_missing_target == 1
+    titles = [w.title for w in source.report.warnings]
+    assert "Resource link missing target identifiers" in titles
+    assert "Failed to read resource-link owner schema from Glue" not in titles
+
+
+@pytest.mark.parametrize("include_column_lineage", [True, False])
+def test_resource_link_upstream_merged_with_storage_lineage(
+    include_column_lineage: bool,
+) -> None:
+    # Glue's GetTables returns a table-level resource link with its target's StorageDescriptor, so
+    # storage lineage also fires. The link must not lose either edge: the owner upstream and the
+    # S3 storage upstream must land in a single UpstreamLineage aspect on the dataset, not two
+    # aspects that clobber each other. With column lineage on, that aspect must carry both the
+    # storage and the owner column edges.
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
             aws_region="us-east-1",
             platform_instance="consumer_inst",
             emit_storage_lineage=True,
-            include_column_lineage=False,
+            include_column_lineage=include_column_lineage,
             use_s3_bucket_tags=False,
             use_s3_object_tags=False,
             catalog_to_platform_instance={
@@ -523,12 +568,18 @@ def test_resource_link_upstream_merged_with_storage_lineage():
         and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
     ]
     assert len(upstream_aspects) == 1
-    datasets = {u.dataset for u in upstream_aspects[0].upstreams}
-    assert (
-        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
-        in datasets
+    storage_urn = make_s3_urn_for_lineage("s3://owner-bucket/transactions", "PROD")
+    assert {u.dataset for u in upstream_aspects[0].upstreams} == {
+        OWNER_TABLE_URN,
+        storage_urn,
+    }
+
+    expected_column_edges = _same_name_column_edges(
+        OWNER_TABLE_URN, CONSUMER_LINK_URN, ["txn_id"]
+    ) | _same_name_column_edges(storage_urn, CONSUMER_LINK_URN, ["txn_id"])
+    assert _column_edges(upstream_aspects[0]) == (
+        expected_column_edges if include_column_lineage else set()
     )
-    assert any("dataPlatform:s3" in d for d in datasets)
 
 
 def test_resource_link_no_self_lineage_when_owner_unresolved():
@@ -551,12 +602,19 @@ def test_resource_link_no_self_lineage_when_owner_unresolved():
     }
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,acct.db.shared,PROD)"
 
-    upstreams = source._resource_link_owner_upstreams(table, dataset_urn)
+    owner_urn = source._resource_link_upstream_urn(table, dataset_urn)
 
-    assert upstreams == []
+    assert owner_urn is None
     assert source.report.num_resource_link_self_referential == 1
+    assert "Resource link owner catalog not mapped" in [
+        w.title for w in source.report.warnings
+    ]
 
 
+OWNER_CATALOG_MAPPING = {
+    "arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}
+}
+ColumnEdge = Tuple[Tuple[str, ...], Tuple[str, ...]]
 CONSUMER_LINK_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:glue,"
     "consumer_inst.mixed-database.shared-transactions,PROD)"
@@ -817,9 +875,12 @@ def test_resource_link_schema_not_resolved_when_disabled():
     graph.get_schema_metadata.assert_not_called()
 
 
-def test_resource_link_downstream_direction_emits_separate_dataset_aspect():
+@pytest.mark.parametrize("include_column_lineage", [True, False])
+def test_resource_link_downstream_direction_emits_separate_dataset_aspect(
+    include_column_lineage: bool,
+) -> None:
     # In downstream storage-lineage mode the storage aspect targets the S3 URN, so the resource-link
-    # owner edge must be emitted as its own aspect on the dataset URN (no clobber, no merge).
+    # owner edge, and its column edges, must be emitted as their own aspect on the dataset URN.
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
@@ -827,7 +888,7 @@ def test_resource_link_downstream_direction_emits_separate_dataset_aspect():
             platform_instance="consumer_inst",
             emit_storage_lineage=True,
             glue_storage_lineage_direction="downstream",
-            include_column_lineage=False,
+            include_column_lineage=include_column_lineage,
             use_s3_bucket_tags=False,
             use_s3_object_tags=False,
             catalog_to_platform_instance={
@@ -858,13 +919,18 @@ def test_resource_link_downstream_direction_emits_separate_dataset_aspect():
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
     }
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_inst.mixed-database.shared-transactions,PROD)"
-    # One aspect on the S3 URN (storage downstream) and one on the dataset URN (resource link).
-    assert any(e and "dataPlatform:s3" in e for e in by_entity)
-    assert dataset_urn in by_entity
-    assert [u.dataset for u in by_entity[dataset_urn].upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
+    storage_urn = make_s3_urn_for_lineage("s3://owner-bucket/transactions", "PROD")
+    assert set(by_entity) == {storage_urn, CONSUMER_LINK_URN}
+    assert by_entity[storage_urn].fineGrainedLineages is None
+    assert [u.dataset for u in by_entity[CONSUMER_LINK_URN].upstreams] == [
+        OWNER_TABLE_URN
     ]
+    expected_column_edges = _same_name_column_edges(
+        OWNER_TABLE_URN, CONSUMER_LINK_URN, ["txn_id"]
+    )
+    assert _column_edges(by_entity[CONSUMER_LINK_URN]) == (
+        expected_column_edges if include_column_lineage else set()
+    )
 
 
 def test_dataflow_node_uses_owning_catalog_instance():
@@ -1267,13 +1333,7 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
     assert all("owner_db" not in urn for urn in snapshot_urns)
 
     # (2) The resource link stitches back to the owner account's URN via TargetTable.CatalogId.
-    upstreams = [
-        aspect
-        for wu in wus
-        if wu.get_urn() == shared_events_urn
-        for aspect in [wu.get_aspect_of_type(models.UpstreamLineageClass)]
-        if aspect is not None
-    ]
+    upstreams = _upstream_lineage(wus, shared_events_urn)
     assert len(upstreams) == 1
     assert [u.dataset for u in upstreams[0].upstreams] == [owner_urn]
 
@@ -1294,14 +1354,21 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
     assert source.report.num_resource_link_schema_from_glue == 1
 
 
-@pytest.mark.parametrize(
-    "ignore_resource_links, all_databases_and_tables_result",
-    [
-        (True, ([], [])),
-        (False, ([resource_link_database], target_database_tables)),
-    ],
-)
-def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_result):
+def _expected_database_link_tables() -> List[Dict[str, Any]]:
+    expected = copy.deepcopy(target_database_tables)
+    for table in expected:
+        table["TargetTable"] = {
+            "CatalogId": "432143214321",
+            "DatabaseName": "test-database",
+            "Name": table["Name"],
+        }
+        table["DatabaseName"] = "resource-link-test-database"
+        table["CatalogId"] = "123412341234"
+    return expected
+
+
+@pytest.mark.parametrize("ignore_resource_links", [True, False])
+def test_ignore_resource_links(ignore_resource_links: bool) -> None:
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
@@ -1310,19 +1377,29 @@ def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_r
         ),
     )
 
+    # Stubber hands back the response objects themselves and get_tables_from_database
+    # rewrites tables in place, so pass copies to keep the shared stubs pristine.
     with Stubber(source.glue_client) as glue_stubber:
         glue_stubber.add_response(
             "get_databases",
-            get_databases_response_with_resource_link,
+            copy.deepcopy(get_databases_response_with_resource_link),
             {},
         )
         glue_stubber.add_response(
             "get_tables",
-            get_tables_response_for_target_database,
+            copy.deepcopy(get_tables_response_for_target_database),
             {"DatabaseName": "resource-link-test-database"},
         )
 
-        assert source.get_all_databases_and_tables() == all_databases_and_tables_result
+        databases, tables = source.get_all_databases_and_tables()
+
+    if ignore_resource_links:
+        assert (databases, tables) == ([], [])
+    else:
+        assert databases == [resource_link_database]
+        assert tables == _expected_database_link_tables()
+    # An ignored resource link is never listed, so it is not reported as dropped.
+    assert list(source.report.databases.dropped_entities) == []
 
 
 @pytest.mark.parametrize(
@@ -1372,6 +1449,409 @@ def test_ignore_resource_links_filters_table_level_links(
 
     assert databases == [mixed_database]
     assert tables == expected_tables
+
+
+def _ingest_database_resource_link(
+    catalog_to_platform_instance: Dict[str, Dict[str, str]],
+    tables_response: Optional[Dict[str, Any]] = None,
+    databases_response: Optional[Dict[str, Any]] = None,
+    graph: Optional[DataHubGraph] = None,
+    owner_get_table_response: Optional[Dict[str, Any]] = None,
+    include_column_lineage: bool = True,
+    resolve_resource_link_schema: bool = True,
+) -> Tuple[GlueSource, List[Dict[str, Any]], List[MetadataWorkUnit]]:
+    # resource-link-test-database (catalog 123412341234) is a database-level link to
+    # test-database in 432143214321; Glue returns its tables with the owner's CatalogId and
+    # DatabaseName and no TargetTable. owner_get_table_response, when given, is served only
+    # for a cross-account get_table on that owner table.
+    databases: Dict[str, Any] = copy.deepcopy(
+        databases_response or get_databases_response_with_resource_link
+    )
+    link_database_name = databases["DatabaseList"][0]["Name"]
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            catalog_to_platform_instance=catalog_to_platform_instance,
+            include_column_lineage=include_column_lineage,
+            resolve_resource_link_schema=resolve_resource_link_schema,
+        ),
+    )
+    source.ctx.graph = graph
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", databases, {})
+        glue_stubber.add_response(
+            "get_tables",
+            copy.deepcopy(tables_response or get_tables_response_for_target_database),
+            {"DatabaseName": link_database_name},
+        )
+        if owner_get_table_response is not None:
+            glue_stubber.add_response(
+                "get_table",
+                owner_get_table_response,
+                {
+                    "CatalogId": "432143214321",
+                    "DatabaseName": "test-database",
+                    "Name": "transactions",
+                },
+            )
+        _, tables = source.get_all_databases_and_tables()
+        # Generate inside the Stubber so any Glue call made while building workunits (e.g. a
+        # cross-account get_table for a schemaless link) hits the stub, never real AWS.
+        wus = [wu for table in tables for wu in source._gen_table_wu(table)]
+        glue_stubber.assert_no_pending_responses()
+    return source, tables, wus
+
+
+def _upstream_lineage(
+    wus: List[MetadataWorkUnit], dataset_urn: str
+) -> List[models.UpstreamLineageClass]:
+    return [
+        aspect
+        for wu in wus
+        if wu.get_urn() == dataset_urn
+        for aspect in [wu.get_aspect_of_type(models.UpstreamLineageClass)]
+        if aspect is not None
+    ]
+
+
+def _upstream_urns(wus: List[MetadataWorkUnit], dataset_urn: str) -> List[str]:
+    return [
+        upstream.dataset
+        for aspect in _upstream_lineage(wus, dataset_urn)
+        for upstream in aspect.upstreams
+    ]
+
+
+def _column_edges(lineage: models.UpstreamLineageClass) -> Set[ColumnEdge]:
+    return {
+        (tuple(fgl.upstreams or []), tuple(fgl.downstreams or []))
+        for fgl in lineage.fineGrainedLineages or []
+    }
+
+
+def _same_name_column_edges(
+    upstream_urn: str, downstream_urn: str, columns: Iterable[str]
+) -> Set[ColumnEdge]:
+    return {
+        (
+            (make_schema_field_urn(upstream_urn, column),),
+            (make_schema_field_urn(downstream_urn, column),),
+        )
+        for column in columns
+    }
+
+
+def test_database_resource_link_tables_rekeyed_to_link() -> None:
+    source, tables, _ = _ingest_database_resource_link({})
+
+    assert len(tables) == 1
+    assert tables[0]["DatabaseName"] == "resource-link-test-database"
+    assert tables[0]["CatalogId"] == "123412341234"
+    assert tables[0]["TargetTable"] == {
+        "CatalogId": "432143214321",
+        "DatabaseName": "test-database",
+        "Name": "transactions",
+    }
+    assert source.report.num_resource_link_database_tables == 1
+
+
+def test_database_resource_link_emits_owner_lineage_with_catalog_mapping() -> None:
+    source, _, wus = _ingest_database_resource_link(OWNER_CATALOG_MAPPING)
+
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.resource-link-test-database.transactions,PROD)"
+    )
+    # The link keeps the ingesting catalog's instance rather than the owner's mapped instance,
+    # so it can never collide with the owner's own dataset.
+    assert {
+        wu.get_urn() for wu in wus if wu.get_urn().startswith("urn:li:dataset")
+    } == {link_urn}
+    assert _upstream_urns(wus, link_urn) == [OWNER_TABLE_URN]
+
+    properties = [
+        aspect
+        for wu in wus
+        for aspect in [wu.get_aspect_of_type(models.DatasetPropertiesClass)]
+        if aspect is not None
+    ]
+    assert [p.qualifiedName for p in properties] == [
+        "arn:aws:glue:us-east-1:123412341234:table/resource-link-test-database/transactions"
+    ]
+    assert source.report.num_resource_link_self_referential == 0
+
+
+def test_database_resource_link_without_catalog_mapping_keeps_link_urn() -> None:
+    _, _, wus = _ingest_database_resource_link({})
+
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.resource-link-test-database.transactions,PROD)"
+    )
+    assert link_urn in {wu.get_urn() for wu in wus}
+    # Without a mapping the owner falls back to the source's own instance, matching the existing
+    # table-level link behaviour.
+    assert _upstream_urns(wus, link_urn) == [
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.test-database.transactions,PROD)"
+    ]
+
+
+def test_database_resource_link_same_name_unmapped_owner_warns_once() -> None:
+    # Common setup: the link database has the owner's name. Without the owner in
+    # catalog_to_platform_instance every table resolves to its own URN, so no lineage is emitted;
+    # the run report must say so, as one grouped entry rather than one per table.
+    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    databases_response["DatabaseList"][0]["Name"] = "test-database"
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    second_table = copy.deepcopy(tables_response["TableList"][0])
+    second_table["Name"] = "orders"
+    tables_response["TableList"].append(second_table)
+
+    source, _, wus = _ingest_database_resource_link(
+        {}, tables_response, databases_response
+    )
+
+    for name in ("transactions", "orders"):
+        link_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:glue,"
+            f"consumer_inst.test-database.{name},PROD)"
+        )
+        assert _upstream_urns(wus, link_urn) == []
+    assert source.report.num_resource_link_self_referential == 2
+
+    unmapped = [
+        w
+        for w in source.report.warnings
+        if w.title == "Resource link owner catalog not mapped"
+    ]
+    assert len(unmapped) == 1
+    assert len(unmapped[0].context) == 2
+
+
+def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner() -> (
+    None
+):
+    # The link database has the owner's name and the owner is mapped. The link must keep the
+    # ingesting catalog's instance so its URN cannot collide with the owner's dataset.
+    databases_response = copy.deepcopy(get_databases_response_with_resource_link)
+    databases_response["DatabaseList"][0]["Name"] = "test-database"
+
+    source, _, wus = _ingest_database_resource_link(
+        OWNER_CATALOG_MAPPING,
+        databases_response=databases_response,
+    )
+
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.test-database.transactions,PROD)"
+    )
+    assert {
+        wu.get_urn() for wu in wus if wu.get_urn().startswith("urn:li:dataset")
+    } == {link_urn}
+    assert _upstream_urns(wus, link_urn) == [OWNER_TABLE_URN]
+    assert source.report.num_resource_link_self_referential == 0
+
+
+@pytest.mark.parametrize("missing_key", ["CatalogId", "DatabaseName"])
+def test_database_resource_link_target_falls_back_to_owner_table_identity(
+    missing_key: str,
+) -> None:
+    # When TargetDatabase omits a field, the owner's value comes from the table as Glue returned
+    # it. It must be read before the table is re-keyed to the link, or the owner would resolve
+    # to the link itself.
+    databases_response: Dict[str, Any] = copy.deepcopy(
+        get_databases_response_with_resource_link
+    )
+    del databases_response["DatabaseList"][0]["TargetDatabase"][missing_key]
+
+    source, tables, wus = _ingest_database_resource_link(
+        OWNER_CATALOG_MAPPING,
+        databases_response=databases_response,
+    )
+
+    assert tables[0]["TargetTable"] == {
+        "CatalogId": "432143214321",
+        "DatabaseName": "test-database",
+        "Name": "transactions",
+    }
+    link_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:glue,"
+        "consumer_inst.resource-link-test-database.transactions,PROD)"
+    )
+    assert _upstream_urns(wus, link_urn) == [OWNER_TABLE_URN]
+    assert source.report.num_resource_link_self_referential == 0
+
+
+DB_LINK_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:glue,"
+    "consumer_inst.resource-link-test-database.transactions,PROD)"
+)
+
+
+def _schemaless_database_link_tables() -> Dict[str, Any]:
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    del tables_response["TableList"][0]["StorageDescriptor"]
+    return tables_response
+
+
+def _link_schema(
+    wus: List[MetadataWorkUnit], dataset_urn: str
+) -> Optional[models.SchemaMetadataClass]:
+    schemas = [
+        aspect
+        for wu in wus
+        if wu.get_urn() == dataset_urn
+        for aspect in [wu.get_aspect_of_type(models.SchemaMetadataClass)]
+        if aspect is not None
+    ]
+    assert len(schemas) <= 1
+    return schemas[0] if schemas else None
+
+
+@pytest.mark.parametrize("owner_in_datahub", [True, False])
+def test_database_resource_link_schema_resolved_from_owner(
+    owner_in_datahub: bool,
+) -> None:
+    # A schemaless link copies the owner's schema: from DataHub (looked up by the owner's URN,
+    # no Glue call) when the owner is already ingested, otherwise from a cross-account
+    # get_table. That stub only matches the owner's catalog and database name, so the Glue
+    # case fails if the synthesized TargetTable carried the link's database name instead.
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = _owner_schema()
+
+    source, _, wus = _ingest_database_resource_link(
+        OWNER_CATALOG_MAPPING,
+        tables_response=_schemaless_database_link_tables(),
+        graph=graph if owner_in_datahub else None,
+        owner_get_table_response=None
+        if owner_in_datahub
+        else {
+            "Table": {
+                "Name": "transactions",
+                "DatabaseName": "test-database",
+                "StorageDescriptor": {
+                    "Columns": [
+                        {"Name": "txn_id", "Type": "bigint"},
+                        {"Name": "amount", "Type": "double"},
+                    ]
+                },
+            }
+        },
+    )
+
+    schema = _link_schema(wus, DB_LINK_URN)
+    assert schema is not None
+    assert schema.schemaName == "resource-link-test-database.transactions"
+    fields = {f.fieldPath.split(".")[-1] for f in schema.fields}
+    expected_columns = ["txn_id"] if owner_in_datahub else ["txn_id", "amount"]
+    assert fields == set(expected_columns)
+    if owner_in_datahub:
+        graph.get_schema_metadata.assert_called_once_with(OWNER_TABLE_URN)
+        assert source.report.num_resource_link_schema_from_datahub == 1
+    else:
+        assert source.report.num_resource_link_schema_from_glue == 1
+
+    lineage = _upstream_lineage(wus, DB_LINK_URN)
+    assert len(lineage) == 1
+    assert _column_edges(lineage[0]) == _same_name_column_edges(
+        OWNER_TABLE_URN, DB_LINK_URN, expected_columns
+    )
+
+
+def test_database_resource_link_table_placed_in_link_database_container() -> None:
+    # Through the full pipeline, the link table must sit in the container emitted for the local
+    # link database, not in one keyed by the owner's database name.
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="us-east-1",
+            platform_instance="consumer_inst",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+        ),
+    )
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases",
+            copy.deepcopy(get_databases_response_with_resource_link),
+            {},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            copy.deepcopy(get_tables_response_for_target_database),
+            {"DatabaseName": "resource-link-test-database"},
+        )
+        wus = list(source.get_workunits())
+        glue_stubber.assert_no_pending_responses()
+
+    link_container_urn = source.gen_database_key("resource-link-test-database").as_urn()
+    assert link_container_urn in {
+        wu.get_urn()
+        for wu in wus
+        if wu.get_aspect_of_type(models.ContainerPropertiesClass) is not None
+    }
+    containers = [
+        aspect.container
+        for wu in wus
+        if wu.get_urn() == DB_LINK_URN
+        for aspect in [wu.get_aspect_of_type(models.ContainerClass)]
+        if aspect is not None
+    ]
+    assert containers == [link_container_urn]
+
+
+@pytest.mark.parametrize("include_column_lineage", [True, False])
+def test_database_resource_link_emits_column_lineage_to_owner(
+    include_column_lineage: bool,
+) -> None:
+    # A resource link is a 1:1 copy of the owner's table, so each link column maps to the
+    # same-named owner column, on the same aspect as the table-level edge.
+    _, _, wus = _ingest_database_resource_link(
+        OWNER_CATALOG_MAPPING,
+        include_column_lineage=include_column_lineage,
+    )
+
+    lineage = _upstream_lineage(wus, DB_LINK_URN)
+    assert len(lineage) == 1
+    assert [u.dataset for u in lineage[0].upstreams] == [OWNER_TABLE_URN]
+    assert lineage[0].upstreams[0].type == models.DatasetLineageTypeClass.COPY
+    expected = _same_name_column_edges(OWNER_TABLE_URN, DB_LINK_URN, ["id", "name"])
+    assert _column_edges(lineage[0]) == (expected if include_column_lineage else set())
+
+
+def test_schemaless_resource_link_gets_table_lineage_only() -> None:
+    # Without a schema there are no columns to map, so the link keeps only its table-level edge.
+    _, _, wus = _ingest_database_resource_link(
+        OWNER_CATALOG_MAPPING,
+        tables_response=_schemaless_database_link_tables(),
+        resolve_resource_link_schema=False,
+    )
+
+    lineage = _upstream_lineage(wus, DB_LINK_URN)
+    assert len(lineage) == 1
+    assert [u.dataset for u in lineage[0].upstreams] == [OWNER_TABLE_URN]
+    assert lineage[0].fineGrainedLineages is None
+
+
+def test_database_resource_link_preserves_existing_target_table() -> None:
+    tables_response = copy.deepcopy(get_tables_response_for_target_database)
+    explicit_target = {
+        "CatalogId": "999999999999",
+        "DatabaseName": "other-database",
+        "Name": "other-table",
+    }
+    tables_response["TableList"][0]["TargetTable"] = explicit_target
+
+    _, tables, _ = _ingest_database_resource_link({}, tables_response)
+
+    assert tables[0]["TargetTable"] == explicit_target
 
 
 def test_platform_must_be_valid():
@@ -2367,8 +2847,12 @@ def test_propagated_table_tag_is_marked_as_propagated() -> None:
     assert global_tags is not None
     by_urn = {a.tag: a for a in global_tags.tags}
 
-    # Directly-assigned table tag is not marked as propagated.
-    assert by_urn[make_tag_urn("DataClassification:Sensitive")].attribution is None
+    # Directly-assigned table tag carries Lake Formation attribution (not propagated),
+    # so it can be told apart from a tag added in the DataHub UI.
+    direct = by_urn[make_tag_urn("DataClassification:Sensitive")]
+    assert direct.attribution is not None
+    assert direct.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in direct.attribution.sourceDetail
     # Inherited database tag is marked as propagated, with origin + legacy context.
     propagated = by_urn[make_tag_urn("Owner:DataTeam")]
     assert propagated.attribution is not None
@@ -2411,8 +2895,12 @@ def test_propagated_column_tag_is_marked_as_propagated() -> None:
         for f in schema.fields
         if f.globalTags
     }
-    # Inherited tag on customer_id is marked propagated; its own pii tag is not.
-    assert by_field["customer_id"][make_tag_urn("pii:true")].attribution is None
+    # customer_id's own pii tag is directly assigned: Lake Formation attribution,
+    # not propagated. The inherited DataClassification tag is marked propagated.
+    own = by_field["customer_id"][make_tag_urn("pii:true")]
+    assert own.attribution is not None
+    assert own.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in own.attribution.sourceDetail
     inherited = by_field["customer_id"][make_tag_urn("DataClassification:Sensitive")]
     assert inherited.attribution is not None
     assert inherited.attribution.sourceDetail["propagated"] == "true"
@@ -2421,6 +2909,66 @@ def test_propagated_column_tag_is_marked_as_propagated() -> None:
         by_field["id"][make_tag_urn("DataClassification:Sensitive")].attribution
         is not None
     )
+
+
+def test_direct_table_tag_carries_lake_formation_attribution() -> None:
+    # A directly-assigned Lake Formation tag is stamped with attribution so it
+    # can be distinguished from a tag added in the DataHub UI (which has none).
+    source = glue_source(extract_lakeformation_tags=True)
+    direct = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c"),
+        LakeFormationTag(key="Owner", value="DataTeam", catalog="c"),
+    ]
+    global_tags = source._build_lf_global_tags(direct)
+    assert global_tags is not None
+    for assoc in global_tags.tags:
+        assert assoc.attribution is not None
+        assert assoc.attribution.source == "urn:li:dataPlatform:glue"
+        assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+        assert assoc.attribution.sourceDetail["external"] == "true"
+        assert "propagated" not in assoc.attribution.sourceDetail
+        # Legacy context mirrors sourceDetail for older readers.
+        assert assoc.context is not None
+        assert json.loads(assoc.context)["origin"] == "lake-formation"
+
+
+def test_direct_column_tag_carries_lake_formation_attribution() -> None:
+    source = glue_source(extract_lakeformation_tags=True)
+    table = {
+        "Name": "sales",
+        "StorageDescriptor": {"Columns": [{"Name": "customer_id", "Type": "string"}]},
+    }
+    column_tags = {
+        "customer_id": [LakeFormationTag(key="pii", value="true", catalog="c")]
+    }
+    schema = source._get_glue_schema_metadata(table, "sales", column_tags)
+    assert schema is not None
+    field = next(f for f in schema.fields if f.fieldPath.endswith("customer_id"))
+    assert field.globalTags is not None
+    assoc = field.globalTags.tags[0]
+    assert assoc.tag == make_tag_urn("pii:true")
+    assert assoc.attribution is not None
+    assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in assoc.attribution.sourceDetail
+
+
+def test_direct_tag_precedence_keeps_direct_attribution_over_propagated() -> None:
+    # The same tag URN assigned directly and inherited: the direct assignment
+    # wins, so the association keeps Lake Formation (not propagated) attribution.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    same = LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c")
+    global_tags = source._build_lf_global_tags(
+        [same], [same], propagated_origin="urn:li:container:db"
+    )
+    assert global_tags is not None
+    assert len(global_tags.tags) == 1
+    assoc = global_tags.tags[0]
+    assert assoc.attribution is not None
+    assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in assoc.attribution.sourceDetail
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2938,6 +3486,280 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
         result["urn"]
         == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
     )
+
+
+def _make_dynamodb_node(
+    node_id: str,
+    node_type: str,
+    connection_options: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {"Name": "connection_type", "Value": '"dynamodb"', "Param": False},
+            {
+                "Name": "connection_options",
+                "Value": json.dumps(connection_options),
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "connection_options, expected_name",
+    [
+        pytest.param(
+            {
+                "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+                "dynamodb.sts.roleArn": "arn:aws:iam::444455556666:role/GlueCrossAccountRole",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-account-wins",
+        ),
+        pytest.param(
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.sts.region": "us-east-1",
+                "dynamodb.sts.roleArn": "arn:aws:iam::444455556666:role/GlueCrossAccountRole",
+            },
+            "444455556666.us-east-1.orders",
+            id="role-arn-account",
+        ),
+        pytest.param(
+            {"dynamodb.input.tableName": "orders", "dynamodb.region": "us-west-2"},
+            "999888777666.us-west-2.orders",
+            id="caller-account-not-catalog-id",
+        ),
+        pytest.param(
+            {"dynamodb.output.tableName": "orders"},
+            "999888777666.us-west-2.orders",
+            id="output-table-falls-back-to-source-region",
+        ),
+        pytest.param(
+            {
+                "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+                "dynamodb.sts.roleArn": "args['ROLE_ARN']",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-wins-over-malformed-role-arn",
+        ),
+        pytest.param(
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.sts.region": "us-gov-west-1",
+                "dynamodb.sts.roleArn": " arn:aws-us-gov:iam::444455556666:role/GlueRole\n",
+            },
+            "444455556666.us-gov-west-1.orders",
+            id="govcloud-role-arn-with-whitespace",
+        ),
+        pytest.param(
+            {
+                "dynamodb.tableArn": " arn:aws:dynamodb:us-east-1:123456789012:table/customers\n",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-with-whitespace",
+        ),
+    ],
+)
+def test_process_dataflow_node_dynamodb_account_precedence(
+    connection_options: Dict[str, Any], expected_name: str
+) -> None:
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-dynamodb-account"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2", extract_transforms=True, catalog_id="111122223333"
+        ),
+    )
+    node = _make_dynamodb_node("DataSource0", "DataSource", connection_options)
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is not None
+    assert result["urn"] == (
+        f"urn:li:dataset:(urn:li:dataPlatform:dynamodb,{expected_name},PROD)"
+    )
+
+
+def test_process_dataflow_node_dynamodb_target_platform_config() -> None:
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-dynamodb-target"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=True,
+            target_platform_configs={
+                "dynamodb": TargetPlatformConfig(platform_instance="ddb-prod"),
+            },
+        ),
+    )
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id") as mock_account_id:
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    mock_account_id.assert_not_called()
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,ddb-prod.us-west-2.orders,PROD)"
+    )
+
+
+@pytest.mark.parametrize(
+    "connection_options, warning_title",
+    [
+        pytest.param(
+            {"dynamodb.region": "us-west-2"},
+            "Missing DynamoDB table name or region for node",
+            id="missing-table",
+        ),
+        pytest.param(
+            # An unparseable ARN must not fall through to tableName and the caller's account.
+            {
+                "dynamodb.tableArn": (
+                    "arn:aws:dynamodb:us-east-1:123456789012:table/customers/export/abc"
+                ),
+                "dynamodb.input.tableName": "customers",
+                "dynamodb.region": "us-east-1",
+            },
+            "Failed to parse DynamoDB table ARN for node",
+            id="malformed-table-arn",
+        ),
+        pytest.param(
+            # A role ARN means a cross-account read, so the caller's account would be wrong.
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.region": "us-east-1",
+                "dynamodb.sts.roleArn": "args['ROLE_ARN']",
+            },
+            "Failed to parse DynamoDB cross-account role ARN for node",
+            id="malformed-role-arn",
+        ),
+    ],
+)
+def test_process_dataflow_node_dynamodb_is_skipped(
+    connection_options: Dict[str, Any], warning_title: str
+) -> None:
+    source = glue_source()
+    node = _make_dynamodb_node("DataSource0", "DataSource", connection_options)
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is None
+    assert [w.title for w in source.report.warnings] == [warning_title]
+
+
+def test_process_dataflow_graph_dynamodb_sink_populates_output_datasets() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    transform = {
+        "Id": "Transform0",
+        "NodeType": "ApplyMapping",
+        "Args": [],
+        "LineNumber": 1,
+    }
+    sink = _make_dynamodb_node(
+        node_id="DataSink0",
+        node_type="DataSink",
+        connection_options={
+            "dynamodb.output.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+    graph = {
+        "DagNodes": [transform, sink],
+        "DagEdges": [{"Source": "Transform0", "Target": "DataSink0"}],
+    }
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        nodes = source.process_dataflow_graph(graph, flow_urn)
+
+    sink_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "999888777666.us-west-2.orders,PROD)"
+    )
+    assert nodes["DataSink0"]["urn"] == sink_urn
+    assert nodes["Transform0"]["outputDatasets"] == [sink_urn]
+
+
+def test_process_dataflow_node_dynamodb_unresolved_account_is_skipped() -> None:
+    source = glue_source()
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id", return_value=None):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is None
+    assert [w.title for w in source.report.warnings] == [
+        "Could not resolve DynamoDB account id for node"
+    ]
+
+
+def test_get_aws_account_id_caches_success() -> None:
+    source = glue_source()
+    # Patch on the class, not the pydantic-v2 config instance (instance setattr is intercepted).
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        mock_sts.return_value.get_caller_identity.return_value = {
+            "Account": "999999999999"
+        }
+        assert source._get_aws_account_id() == "999999999999"
+        assert source._get_aws_account_id() == "999999999999"
+        # A successful lookup is cached: STS is called once, not per node.
+        assert mock_sts.return_value.get_caller_identity.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "sts_result",
+    [
+        pytest.param(Exception("throttled"), id="sts-error"),
+        pytest.param({}, id="no-account-in-response"),
+    ],
+)
+def test_get_aws_account_id_failure_is_cached_and_warned_once(
+    sts_result: Union[Exception, Dict[str, str]],
+) -> None:
+    source = glue_source()
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        get_caller_identity = mock_sts.return_value.get_caller_identity
+        if isinstance(sts_result, Exception):
+            get_caller_identity.side_effect = sts_result
+        else:
+            get_caller_identity.return_value = sts_result
+        assert source._get_aws_account_id() is None
+        assert source._get_aws_account_id() is None
+        assert get_caller_identity.call_count == 1
+    account_id_warnings = [
+        w
+        for w in source.report.warnings
+        if w.title == "Could not resolve AWS account id via STS"
+    ]
+    assert len(account_id_warnings) == 1
+    assert len(account_id_warnings[0].context) == 1
 
 
 @pytest.mark.parametrize(

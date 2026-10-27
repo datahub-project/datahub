@@ -3,6 +3,7 @@ import * as QueryString from 'query-string';
 import React from 'react';
 import styled from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import filtersToQueryStringParams from '@app/search/utils/filtersToQueryStringParams';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
@@ -109,7 +110,7 @@ export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry:
 };
 
 export const navigateToDomainEntities = (urn, type, history, entityRegistry) => {
-    history.push(`${entityRegistry.getEntityUrl(type, urn)}/Assets`);
+    history.push(`${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.ASSETS}`);
 };
 
 export function getDomainEntitiesFilterUrl(urn, type, entityRegistry, types, subTypes): string {
@@ -131,9 +132,11 @@ export function getDomainEntitiesFilterUrl(urn, type, entityRegistry, types, sub
 
     const search = QueryString.stringify(filtersToQueryStringParams(filters), { arrayFormat: 'comma' });
 
-    return `${entityRegistry.getEntityUrl(type, urn)}/Assets?${search}`;
+    return `${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.ASSETS}?${search}`;
 }
 
 export const navigateToDomainDataProducts = (urn, type, history, entityRegistry, isAdd = false) => {
-    history.push(`${entityRegistry.getEntityUrl(type, urn)}/Data Products${isAdd ? '?createModal=true' : ''}`);
+    history.push(
+        `${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.DATA_PRODUCTS}${isAdd ? '?createModal=true' : ''}`,
+    );
 };

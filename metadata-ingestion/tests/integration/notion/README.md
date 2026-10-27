@@ -107,28 +107,27 @@ All test pages are automatically archived after the test session completes. If c
 
 ## What Gets Tested
 
-### 1. SyncBlock Monkeypatch
+### 1. Synced blocks
 
 **Test**: `test_notion_synced_blocks_ingestion`
 
 - Creates a page with synced blocks
 - Validates that ingestion succeeds without `KeyError: 'children'`
-- Confirms "Applied monkeypatch to SyncBlock" log message
+- Relies on unstructured-ingest 1.4.28's native SyncBlock dispatcher
 
-### 2. NumberedListItem Monkeypatch
+### 2. Numbered lists
 
 **Test**: `test_notion_numbered_lists_ingestion`
 
 - Creates a page with numbered list items
-- Validates that new Notion API fields are handled (`list_start_index`, `list_format`)
-- Confirms "Applied monkeypatch to NumberedListItem" log message
+- Extra Notion API fields are dropped by the generic unknown-field filter
 
 ### 3. Full Ingestion
 
 **Test**: `test_notion_full_ingestion`
 
 - Ingests all test pages together
-- Validates all monkeypatches are applied
+- Validates remaining monkeypatches (database titles, icon dispatcher, unknown-field filter)
 - Confirms successful ingestion of multiple pages
 
 ### 4. Credential Validation

@@ -154,7 +154,8 @@ public class IngestPoliciesUpgradeStep implements UpgradeStep {
     // (UnsupportedOperationException) — skip gracefully so the step doesn't crash on
     // Postgres-only profiles.
     try {
-      if (_entitySearchService.docCount(systemOperationContext, Constants.POLICY_ENTITY_NAME)
+      if (_entitySearchService.docCount(
+              systemOperationContext.withSkipTemplateExecution(true), Constants.POLICY_ENTITY_NAME)
           == 0) {
         updatePolicyIndex(systemOperationContext);
       }
@@ -233,14 +234,14 @@ public class IngestPoliciesUpgradeStep implements UpgradeStep {
       return;
     }
 
-    final String docId =
+    final String v2DocId =
         systemOperationContext
             .getSearchContext()
             .getIndexConvention()
             .getEntityDocumentId(entityResponse.getUrn());
 
     _entitySearchService.upsertDocument(
-        systemOperationContext, Constants.POLICY_ENTITY_NAME, searchDocument.get(), docId);
+        systemOperationContext, Constants.POLICY_ENTITY_NAME, searchDocument.get(), v2DocId);
   }
 
   private void ingestPolicy(

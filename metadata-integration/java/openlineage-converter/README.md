@@ -2,7 +2,7 @@
 
 ## Overview
 
-It converts arbitary Openlineage events to a DataHub Aspects.
+It converts arbitrary Openlineage events to a DataHub Aspects.
 
 ## Known Issues
 

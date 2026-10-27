@@ -3,7 +3,6 @@ import functools
 import io
 import logging
 import os
-import pathlib
 import posixpath
 import re
 import time
@@ -52,8 +51,13 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
 from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
+from datahub.ingestion.source.data_lake_common.path_listing import (
+    get_prefix,
+    listing_prefix,
+    resolve_templated_folders,
+    table_marker_prefix,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import (
-    SUPPORTED_COMPRESSIONS,
     SUPPORTED_FILE_TYPES,
     FolderTraversalMethod,
     PathSpec,
@@ -61,6 +65,7 @@ from datahub.ingestion.source.data_lake_common.path_spec import (
 from datahub.ingestion.source.data_lake_common.seekable_file import SeekableRangeFile
 from datahub.ingestion.source.data_lake_common.zip_utils import (
     ZipEntry,
+    is_zip_path,
     read_first_supported_zip_entry,
 )
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
@@ -231,6 +236,10 @@ class TableData:
     SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
 )
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class S3Source(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
@@ -387,33 +396,21 @@ class S3Source(StatefulIngestionSourceBase):
                 self.source_config.verify_ssl
             )
 
-        extension = pathlib.Path(table_data.full_path).suffix
         content_type = table_data.content_type
-
-        if path_spec.enable_compression and extension[1:] in SUPPORTED_COMPRESSIONS:
-            if extension[1:] == "zip":
-                entry = self._open_zip_entry(table_data.full_path, s3_client, path_spec)
-                if entry is None:
-                    return []
-                file: IO[bytes] = io.BytesIO(entry.data)
-                extension = entry.suffix
-                # A zip's content type describes the archive, not the member we
-                # just unwrapped, so it must not drive inference of the inner file.
-                content_type = None
-            else:
-                # .gz / .bz2 — smart_open decompresses transparently. Keep the
-                # object's content type: for these single-file compressions it
-                # describes the inner payload (e.g. application/json for a
-                # .json.gz) and is the only inference signal when the inner
-                # extension is absent.
-                file = self._smart_open(table_data.full_path, s3_client)
-                # Strip the compression suffix to reveal the inner format (.json.gz -> .json)
-                extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
+        if path_spec.enable_compression and is_zip_path(table_data.full_path):
+            entry = self._open_zip_entry(table_data.full_path, s3_client, path_spec)
+            if entry is None:
+                return []
+            file: IO[bytes] = io.BytesIO(entry.data)
+            extension = entry.suffix
+            # A zip's content type describes the archive, not the member we
+            # just unwrapped, so it must not drive inference of the inner file.
+            content_type = None
         else:
+            # smart_open decompresses .gz / .bz2 transparently. Their content type
+            # describes the inner payload (e.g. application/json for a .json.gz).
             file = self._smart_open(table_data.full_path, s3_client)
-
-        if extension == "" and path_spec.default_extension:
-            extension = f".{path_spec.default_extension}"
+            extension = path_spec.resolve_format_extension(table_data.full_path)
 
         fields = []
         inferrer = self._get_inferrer(extension, content_type)
@@ -539,8 +536,6 @@ class S3Source(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         aspects: List[Optional[_Aspect]] = []
 
-        logger.info(f"Extracting table schema from file: {table_data.full_path}")
-
         # remove protocol and any leading or trailing slashes
         browse_path = re.sub(URI_SCHEME_REGEX, "", table_data.table_path).strip("/")
 
@@ -565,7 +560,17 @@ class S3Source(StatefulIngestionSourceBase):
             )
             aspects.append(data_platform_instance)
 
-        customProperties = {"schema_inferred_from": str(table_data.full_path)}
+        # Schema is only inferred when the flag is on and the file is non-empty
+        # (see the schema block below). Keep schema_inferred_from in lockstep so a
+        # dataset never names a source file whose schema was not actually emitted.
+        schema_will_be_inferred = (
+            self.source_config.enable_schema_inference and table_data.size_in_bytes > 0
+        )
+
+        customProperties: Dict[str, str] = {}
+        if schema_will_be_inferred:
+            logger.info(f"Extracting table schema from file: {table_data.full_path}")
+            customProperties["schema_inferred_from"] = str(table_data.full_path)
 
         min_partition: Optional[Folder] = None
         max_partition: Optional[Folder] = None
@@ -607,7 +612,12 @@ class S3Source(StatefulIngestionSourceBase):
             externalUrl=self.get_external_url(table_data),
         )
         aspects.append(dataset_properties)
-        if table_data.size_in_bytes > 0:
+        if not self.source_config.enable_schema_inference:
+            logger.debug(
+                f"Skipping schema inference for {table_data.display_name} "
+                "because enable_schema_inference is set to False"
+            )
+        elif schema_will_be_inferred:
             try:
                 with PerfTimer() as schema_timer:
                     fields = self.get_fields(table_data, path_spec)
@@ -631,6 +641,9 @@ class S3Source(StatefulIngestionSourceBase):
                     exc=e,
                     log=False,
                 )
+                # Schema was not emitted, so drop the property that names the
+                # source file to avoid a dangling schema_inferred_from.
+                dataset_properties.customProperties.pop("schema_inferred_from", None)
         else:
             logger.info(
                 f"Skipping schema extraction for empty file {table_data.full_path}"
@@ -684,11 +697,7 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
     def get_prefix(self, relative_path: str) -> str:
-        index = re.search(r"[\*|\{]", relative_path)
-        if index:
-            return relative_path[: index.start()]
-        else:
-            return relative_path
+        return get_prefix(relative_path)
 
     def extract_table_name_and_path(
         self, path_spec: PathSpec, path: str
@@ -738,31 +747,7 @@ class S3Source(StatefulIngestionSourceBase):
         )
 
     def resolve_templated_folders(self, prefix: str) -> Iterable[str]:
-        folder_split: List[str] = prefix.split("*", 1)
-        # If the len of split is 1 it means we don't have * in the prefix
-        if len(folder_split) == 1:
-            yield prefix
-            return
-
-        basename_startswith = folder_split[0].split("/")[-1]
-        dirname = folder_split[0].removesuffix(basename_startswith)
-
-        folders = list_folders_path(
-            dirname,
-            startswith=basename_startswith,
-            aws_config=self.source_config.aws_config,
-        )
-        for folder in folders:
-            # Ensure proper path joining - folders from list_folders path never include a
-            # trailing slash, but we need to handle the case where folder_split[1] might
-            # start with a slash
-            remaining_pattern = folder_split[1]
-            if remaining_pattern.startswith("/"):
-                remaining_pattern = remaining_pattern[1:]
-
-            yield from self.resolve_templated_folders(
-                f"{folder.path}/{remaining_pattern}"
-            )
+        return resolve_templated_folders(prefix, self.source_config.aws_config)
 
     def _process_folders(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
         """Emit folder Containers for a folders-only path spec, to the depth defined by
@@ -1009,34 +994,7 @@ class S3Source(StatefulIngestionSourceBase):
             logger.info("No {table} marker found in path")
             return
 
-        # STEP 1: Replace template placeholders with stars (except {table}) to enable folder resolution
-        # This is the crucial missing logic from the original implementation
-        matches = re.finditer(r"{\s*\w+\s*}", path_spec.include, re.MULTILINE)
-        matches_list = list(matches)
-
-        if matches_list:
-            # Replace all templates with stars except keep {table} as the marker
-            max_start: int = -1
-            include: str = path_spec.include
-            max_match: str = ""
-
-            for match in matches_list:
-                pos = include.find(match.group())
-                if pos > max_start:
-                    if max_match:
-                        include = include.replace(max_match, "*")
-                    max_start = match.start()
-                    max_match = match.group()
-                    # We stop at {table}
-                    if max_match == "{table}":
-                        break
-
-            logger.info(f"Template replacement: {path_spec.include} -> {include}")
-        else:
-            include = path_spec.include
-
-        # Split the path at {table} to get the prefix that needs wildcard resolution
-        prefix_before_table = include.split(table_marker)[0]
+        prefix_before_table = table_marker_prefix(path_spec.include)
         logger.info(f"Prefix before table: {prefix_before_table}")
 
         try:
@@ -1198,10 +1156,7 @@ class S3Source(StatefulIngestionSourceBase):
         path_spec.sample_files = False  # Disable sampling for simple paths
 
         # Extract the prefix from the path spec (stops at first wildcard)
-        prefix = self.get_prefix(path_spec.include)
-
-        basename_startswith = prefix.split("/")[-1]
-        dirname = prefix.removesuffix(basename_startswith)
+        dirname, basename_startswith = listing_prefix(path_spec.include)
 
         # Iterate through all objects in the bucket matching the prefix
         for obj in list_objects_recursive_path(

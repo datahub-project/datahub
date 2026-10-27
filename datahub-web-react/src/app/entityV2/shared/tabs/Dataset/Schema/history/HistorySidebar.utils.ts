@@ -62,11 +62,11 @@ export { ChangeCategoryType, ChangeOperationType };
 
 // Category value type — includes generated enum values plus string constants
 // for categories that may not yet be in the locally generated TypeScript types.
-export type ChangeCategoryValue = ChangeCategoryType | string;
+type ChangeCategoryValue = ChangeCategoryType | string;
 
 export type CategoryOption = { value: ChangeCategoryValue; label: string };
 
-export function getAllCategoryOptions(): CategoryOption[] {
+function getAllCategoryOptions(): CategoryOption[] {
     return [
         {
             value: ChangeCategoryType.TechnicalSchema,
@@ -105,8 +105,10 @@ export function getAllCategoryOptions(): CategoryOption[] {
     ];
 }
 
-// Supported categories per entity type, matching the backend registry in TimelineServiceImpl.java
-export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategoryValue>>> = {
+// Supported categories per entity type. Entries for the catalog entities are derived from the aspects each
+// entity carries in the entity registry; the backend registers the matching categories via
+// TimelineServiceImpl.registerCatalogEntity.
+const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategoryValue>>> = {
     [EntityType.Dataset]: new Set([
         ChangeCategoryType.TechnicalSchema,
         ChangeCategoryType.Documentation,
@@ -120,6 +122,7 @@ export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeC
     ]),
     [EntityType.GlossaryTerm]: new Set([
         ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
         ChangeCategoryType.GlossaryTerm,
         ChangeCategoryType.Ownership,
         CATEGORY_DOMAIN,
@@ -141,6 +144,140 @@ export const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeC
         CATEGORY_STRUCTURED_PROPERTY,
         CATEGORY_APPLICATION,
         CATEGORY_ASSET_MEMBERSHIP,
+    ]),
+    [EntityType.DataFlow]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.DataJob]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Chart]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Dashboard]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Metric]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.SemanticModel]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Mlmodel]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+        CATEGORY_VERSIONING,
+    ]),
+    [EntityType.MlmodelGroup]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Mlfeature]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.MlfeatureTable]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.MlprimaryKey]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Container]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.GlossaryNode]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_APPLICATION,
+    ]),
+    [EntityType.Application]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+    ]),
+    [EntityType.Api]: new Set([
+        ChangeCategoryType.Documentation,
+        ChangeCategoryType.Tag,
+        ChangeCategoryType.GlossaryTerm,
+        ChangeCategoryType.Ownership,
+        CATEGORY_DOMAIN,
+        CATEGORY_STRUCTURED_PROPERTY,
+        CATEGORY_VERSIONING,
     ]),
 };
 

@@ -91,7 +91,9 @@ public class MapperReadsCoveredByAnnotationsTest {
     "metrics.graphql",
     "runs.graphql",
     "lifecycle.graphql",
-    "dataProduct.graphql"
+    "dataProduct.graphql",
+    "api.graphql",
+    "repository.graphql"
   };
 
   /**
@@ -162,6 +164,13 @@ public class MapperReadsCoveredByAnnotationsTest {
             (c, ctx) ->
                 new com.linkedin.datahub.graphql.types.application.ApplicationType(c)
                     .batchLoad(List.of("urn:li:application:guard"), ctx)));
+    cases.add(
+        new Case(
+            "Api",
+            "urn:li:api:guard",
+            (c, ctx) ->
+                new com.linkedin.datahub.graphql.types.api.ApiType(c)
+                    .batchLoad(List.of("urn:li:api:guard"), ctx)));
     cases.add(
         new Case(
             "Assertion",
@@ -477,6 +486,13 @@ public class MapperReadsCoveredByAnnotationsTest {
             (c, ctx) ->
                 new com.linkedin.datahub.graphql.types.role.DataHubRoleType(c)
                     .batchLoad(List.of("urn:li:dataHubRole:guard"), ctx)));
+    cases.add(
+        new Case(
+            "Repository",
+            "urn:li:repository:guard",
+            (c, ctx) ->
+                new com.linkedin.datahub.graphql.types.repository.RepositoryType(c)
+                    .batchLoad(List.of("urn:li:repository:guard"), ctx)));
     cases.add(
         new Case(
             "Role",

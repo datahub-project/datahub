@@ -1,4 +1,4 @@
-import { BuildOutlined } from '@ant-design/icons';
+import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
 import i18next from 'i18next';
 import React from 'react';
 
@@ -16,7 +16,7 @@ export class HasSiblingsRenderer implements FilterRenderer {
         return <HasSiblingsFilter {...props} icon={this.icon()} />;
     };
 
-    icon = () => <BuildOutlined />;
+    icon = () => <Wrench />;
 
     valueLabel = (value: string) => {
         if (value === 'true') {

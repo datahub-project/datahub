@@ -1,5 +1,5 @@
 import { useSelectedSortOption } from '@app/search/context/SearchContext';
-import { RELEVANCE, SORT_OPTIONS } from '@app/search/context/constants';
+import { RELEVANCE, getSortOptions } from '@app/search/context/constants';
 
 export default function useSortInput() {
     const selectedSortOption = useSelectedSortOption();
@@ -7,7 +7,8 @@ export default function useSortInput() {
     // do not return a sortInput if the option is our default/recommended
     if (!selectedSortOption || selectedSortOption === RELEVANCE) return undefined;
 
-    const sortOption = selectedSortOption in SORT_OPTIONS ? SORT_OPTIONS[selectedSortOption] : null;
+    const sortOptions = getSortOptions();
+    const sortOption = selectedSortOption in sortOptions ? sortOptions[selectedSortOption] : null;
 
     return sortOption ? { sortCriterion: { field: sortOption.field, sortOrder: sortOption.sortOrder } } : undefined;
 }

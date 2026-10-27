@@ -13,7 +13,7 @@ from urllib3.util.retry import Retry
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_5
 
@@ -158,7 +158,23 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
             timeout=90,
             checker=check_prometheus_ready,
         )
-        wait_for_port(docker_services, "grafana", 3000, timeout=180)
+
+        # Checked over HTTP from the host rather than with wait_for_port's
+        # in-container bash probe: Grafana 13.3 images ship without /bin/bash.
+        def check_grafana_ready():
+            try:
+                response = requests.get(f"{BASE_URL}/api/health", timeout=5)
+                return response.status_code == 200
+            except requests.exceptions.RequestException:
+                return False
+
+        wait_for_port(
+            docker_services,
+            "grafana",
+            3000,
+            timeout=180,
+            checker=check_grafana_ready,
+        )
 
         # Additional verification that Grafana API is fully accessible
         verify_grafana_api_ready(docker_services)
@@ -167,8 +183,6 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
         verify_grafana_entities_provisioned(timeout=180)
 
         yield docker_services
-
-    cleanup_image("grafana/grafana")
 
 
 def verify_grafana_api_ready(docker_services: pytest_docker.plugin.Services) -> None:

@@ -8,13 +8,11 @@ import VerificationAuditStamp from '@app/entity/shared/containers/profile/sideba
 import {
     CTAWrapper,
     FlexWrapper,
-    StyledIcon,
+    GreenSealCheck,
+    PurpleSealCheck,
     StyledReadOutlined,
     Title,
 } from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
-
-import GreenVerificationLogo from '@images/verificationGreen.svg?react';
-import PurpleVerificationLogo from '@images/verificationPurple.svg?react';
 
 const StyledLink = styled(Link)`
     margin-top: 8px;
@@ -40,17 +38,16 @@ export default function CompletedView({
     openFormModal,
 }: Props) {
     const { t } = useTranslation('entity.shared.containers');
+
+    let statusIcon = <StyledReadOutlined addLineHeight />;
+    if (showVerificationStyles) {
+        statusIcon = shouldDisplayBackground ? <PurpleSealCheck addLineHeight /> : <GreenSealCheck addLineHeight />;
+    }
+
     return (
         <CTAWrapper shouldDisplayBackground={shouldDisplayBackground}>
             <FlexWrapper>
-                {showVerificationStyles ? (
-                    <StyledIcon
-                        component={shouldDisplayBackground ? PurpleVerificationLogo : GreenVerificationLogo}
-                        addLineHeight
-                    />
-                ) : (
-                    <StyledReadOutlined addLineHeight />
-                )}
+                {statusIcon}
                 <div>
                     <Title>
                         {showVerificationStyles

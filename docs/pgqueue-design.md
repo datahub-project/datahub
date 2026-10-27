@@ -270,7 +270,6 @@ Each logical consumer job has a named consumer group string, identical to its Ka
 
 - `generic-mce-consumer-job-client` (MCP — **one** consumer group on `MetadataChangeProposal_v1`, configurable via `METADATA_CHANGE_PROPOSAL_KAFKA_CONSUMER_GROUP_ID`)
 - `generic-mae-consumer-job-client` plus **per-hook** groups (MCL versioned/timeseries — multiple groups read the same MCL topics)
-- `generic-duhe-consumer-job-client` (Upgrade History)
 - Platform Event consumer group (when enabled)
 
 ### Offset Tracking
@@ -561,7 +560,7 @@ Retention        → purge when all registered groups advanced (aggressive) or t
 
 Dequeue (simplified): head-of-line per priority (`MIN(enqueue_seq)` above the offset with no active lease); `INSERT ... ON CONFLICT ... WHERE locked_until < NOW()` on `*_message_group_lease` (do not skip past a leased head at the same priority); on ack, delete leases and advance `offset_value` only across contiguous `enqueue_seq` — the message row remains until retention runs.
 
-**Implication for DataHub:** **MCL** topics (`MetadataChangeLog_*`) are read by many independent consumer groups on the same stream (base MAE group plus per-hook groups). **MCP** is consumed by a **single** MCE group. Other topics (upgrade history, platform events) typically have one group each. PGMQ has no native per-group offsets on one queue — modeling MCL on PGMQ would need duplicate queues or separate offset tracking per group.
+**Implication for DataHub:** **MCL** topics (`MetadataChangeLog_*`) are read by many independent consumer groups on the same stream (base MAE group plus per-hook groups). **MCP** is consumed by a **single** MCE group. Other topics (platform events) typically have one group each. PGMQ has no native per-group offsets on one queue — modeling MCL on PGMQ would need duplicate queues or separate offset tracking per group.
 
 #### Delivery, ordering, and retention
 

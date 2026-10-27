@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AcceptRoleInput;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.identity.InviteToken;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -40,16 +41,15 @@ public class AcceptRoleResolver implements DataFetcher<CompletableFuture<Boolean
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            final Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenStr);
-            if (!_inviteTokenService.isInviteTokenValid(
-                context.getOperationContext(), inviteTokenUrn)) {
+            final InviteToken inviteToken =
+                _inviteTokenService.getVerifiedInviteToken(
+                    context.getOperationContext(), inviteTokenStr);
+            if (inviteToken == null) {
               throw new RuntimeException(
                   String.format("Invite token %s is invalid", inviteTokenStr));
             }
 
-            final Urn roleUrn =
-                _inviteTokenService.getInviteTokenRole(
-                    context.getOperationContext(), inviteTokenUrn);
+            final Urn roleUrn = inviteToken.hasRole() ? inviteToken.getRole() : null;
             // The grant is authorized by the invite token, not by the accepting user, who holds no
             // privileges at this point. Assigning as the system actor keeps the write out of scope
             // for PrivilegeGrantAuthorizationValidator, which requires Manage Policies for a user

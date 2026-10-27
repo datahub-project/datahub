@@ -1,7 +1,9 @@
 package com.datahub.authentication.group;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -38,18 +40,27 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.key.CorpGroupKey;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -67,6 +78,10 @@ public class GroupServiceTest {
   private static final int RESTORE_INDICES_BATCH_SIZE = 100;
   private static final int MEMBERSHIP_CLEANUP_BATCH_SIZE = 100;
   private static final long ASPECT_MODIFIED_MS = 1_700_000_000_000L;
+  private static final long MEMBERSHIP_VERSION_READ = 3L;
+  private static final int WRITE_LIMIT = 3;
+  private static final String MEMBERSHIP_CLEANUP_FAILED_METRIC =
+      "auth.group.native_group_membership_cleanup_failed";
   // The delete's own boundary, necessarily later than the aspects it is cleaning up.
   private static final Urn USER_URN = new CorpuserUrn(EMAIL);
   private static final Urn OTHER_USER_URN = new CorpuserUrn("other@email.com");
@@ -84,6 +99,18 @@ public class GroupServiceTest {
   private GraphClient _graphClient;
   private GraphService _graphService;
   private GroupService _groupService;
+
+  // Primary storage for members' nativeGroupMembership, used by the conditional sweep tests: each
+  // write carries If-Version-Match, and a member with pending adds gains a group just before the
+  // next write to it, as a concurrent writer's add would land.
+  private Map<Urn, List<Urn>> storedGroups;
+  private Map<Urn, Long> storedVersions;
+  private Map<Urn, Integer> pendingAdds;
+  private List<MetadataChangeProposal> conditionalWrites;
+  // Members whose writes always fail without the aspect moving, and whether a failed write is
+  // reported as null (dropped, as outside a request) rather than thrown.
+  private Set<Urn> failingMembers;
+  private boolean failedWritesReturnNull;
 
   private OperationContext opContext =
       TestOperationContexts.userContextNoSearchAuthorization(SYSTEM_AUTHENTICATION);
@@ -132,6 +159,13 @@ public class GroupServiceTest {
     _graphService = mock(GraphService.class);
 
     _groupService = new GroupService(_entityClient, _entityService, _graphClient, _graphService);
+
+    storedGroups = new HashMap<>();
+    storedVersions = new HashMap<>();
+    pendingAdds = new HashMap<>();
+    conditionalWrites = new ArrayList<>();
+    failingMembers = new HashSet<>();
+    failedWritesReturnNull = false;
   }
 
   @Test
@@ -393,15 +427,16 @@ public class GroupServiceTest {
   }
 
   @Test
-  public void testRemoveExistingNativeGroupMembersNoOpWhenAspectMissing() throws Exception {
+  public void testRemoveGroupMembersNoOpWhenAspectMissing() throws Exception {
     when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(Map.of());
 
-    _groupService.removeExistingNativeGroupMembers(
+    _groupService.removeGroupMembers(
         opContext, Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST);
 
-    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
+    verify(_entityClient, never())
+        .batchIngestProposals(any(OperationContext.class), anyCollection(), anyBoolean());
   }
 
   @Test
@@ -413,7 +448,8 @@ public class GroupServiceTest {
     _groupService.removeExistingGroupMembers(
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST);
 
-    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any());
+    verify(_entityClient, never())
+        .batchIngestProposals(any(OperationContext.class), anyCollection(), anyBoolean());
   }
 
   @Test
@@ -439,40 +475,71 @@ public class GroupServiceTest {
   }
 
   @Test
-  public void testRemoveExistingNativeGroupMembersNullArguments() {
+  public void testRemoveGroupMembersNullArguments() {
     assertThrows(
-        () ->
-            _groupService.removeExistingNativeGroupMembers(
-                mock(OperationContext.class), null, USER_URN_LIST));
+        () -> _groupService.removeGroupMembers(mock(OperationContext.class), null, USER_URN_LIST));
     assertThrows(
-        () ->
-            _groupService.removeExistingNativeGroupMembers(
-                mock(OperationContext.class), _groupUrn, null));
+        () -> _groupService.removeGroupMembers(mock(OperationContext.class), _groupUrn, null));
   }
 
   @Test
-  public void testRemoveExistingNativeGroupMembersGroupNotInNativeGroupMembership()
-      throws Exception {
+  public void testRemoveGroupMembersRevokesLegacyMembership() throws Exception {
+    // The fixture user holds EXTERNAL_GROUP through groupMembership only - an unmigrated member.
+    // Stripping just nativeGroupMembership would write nothing and still report success.
     when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
-    _groupService.removeExistingNativeGroupMembers(
-        mock(OperationContext.class),
-        Urn.createFromString(EXTERNAL_GROUP_URN_STRING),
-        USER_URN_LIST);
-    verify(_entityClient, never()).ingestProposal(any(), any(), anyBoolean());
+    _groupService.removeGroupMembers(
+        opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST);
+
+    assertEquals(
+        aspectNames(capturedBatchProposals(1)), ImmutableList.of(GROUP_MEMBERSHIP_ASPECT_NAME));
   }
 
   @Test
-  public void testRemoveExistingNativeGroupMembersPasses() throws Exception {
+  public void testRemoveGroupMembersRevokesBothAspectsWhenHeldTwice() throws Exception {
+    Urn bothWaysGroup = Urn.createFromString(NATIVE_GROUP_URN_STRING);
+    NativeGroupMembership nativeGroupMembership = new NativeGroupMembership();
+    nativeGroupMembership.setNativeGroups(new UrnArray(bothWaysGroup));
+    GroupMembership groupMembership = new GroupMembership();
+    groupMembership.setGroups(new UrnArray(bothWaysGroup));
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(
+            ImmutableMap.of(
+                USER_URN,
+                new EntityResponse()
+                    .setEntityName(CORP_USER_ENTITY_NAME)
+                    .setUrn(USER_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(nativeGroupMembership.data())),
+                                GROUP_MEMBERSHIP_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(groupMembership.data())))))));
+
+    _groupService.removeGroupMembers(opContext, bothWaysGroup, USER_URN_LIST);
+
+    assertEquals(
+        aspectNames(capturedBatchProposals(1)),
+        ImmutableList.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, GROUP_MEMBERSHIP_ASPECT_NAME));
+  }
+
+  @Test
+  public void testRemoveGroupMembersPasses() throws Exception {
     when(_entityClient.batchGetV2NoCache(
             any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
         .thenReturn(_entityResponseMap);
 
-    _groupService.removeExistingNativeGroupMembers(
+    _groupService.removeGroupMembers(
         opContext, Urn.createFromString(NATIVE_GROUP_URN_STRING), USER_URN_LIST);
-    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+    assertEquals(
+        aspectNames(capturedBatchProposals(1)),
+        ImmutableList.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME));
   }
 
   @Test
@@ -500,10 +567,12 @@ public class GroupServiceTest {
 
     _groupService.migrateGroupMembershipToNativeGroupMembership(
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
-    // Two single writes of its own - dropping the legacy membership and stamping the native origin
-    // - plus the batched write that addUsersToNativeGroup now issues.
-    verify(_entityClient, times(2)).ingestProposal(any(OperationContext.class), any());
-    assertEquals(capturedBatchProposals(1).size(), 1);
+    // One single write of its own - stamping the native origin - plus the two batched writes,
+    // granting native membership and dropping the legacy membership.
+    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+    assertEquals(
+        aspectNames(capturedBatchProposals(2)),
+        ImmutableList.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME, GROUP_MEMBERSHIP_ASPECT_NAME));
   }
 
   @Test
@@ -543,14 +612,13 @@ public class GroupServiceTest {
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
 
     // Must not throw despite the stale OTHER_USER_URN edge, and must still migrate the member
-    // that does exist: one removeExistingGroupMembers proposal for USER_URN, one
-    // createNativeGroupOrigin proposal, and one addUsersToNativeGroup proposal for USER_URN.
+    // that does exist: one createNativeGroupOrigin proposal, plus the batched native-membership
+    // and legacy-membership writes for USER_URN.
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(_entityClient, times(2))
-        .ingestProposal(any(OperationContext.class), proposalCaptor.capture());
+    verify(_entityClient).ingestProposal(any(OperationContext.class), proposalCaptor.capture());
     List<MetadataChangeProposal> written = new ArrayList<>(proposalCaptor.getAllValues());
-    written.addAll(capturedBatchProposals(1));
+    written.addAll(capturedBatchProposals(2));
     assertTrue(
         written.stream()
             .anyMatch(
@@ -559,6 +627,75 @@ public class GroupServiceTest {
                         && NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME.equals(proposal.getAspectName())));
     assertTrue(
         written.stream().noneMatch(proposal -> OTHER_USER_URN.equals(proposal.getEntityUrn())));
+  }
+
+  @Test
+  public void testMigrateGroupMembershipWritesOriginLast() throws Exception {
+    mockMigrationDependencies();
+
+    _groupService.migrateGroupMembershipToNativeGroupMembership(
+        opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString());
+
+    // Grant before revoke, since the member list is read from GroupMembership-derived edges.
+    // Origin last so an interrupted run stays re-migratable.
+    InOrder inOrder = inOrder(_entityClient);
+    inOrder
+        .verify(_entityClient)
+        .batchIngestProposals(
+            any(OperationContext.class),
+            argThat(
+                batch ->
+                    aspectNames(batch)
+                        .equals(ImmutableList.of(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))),
+            eq(false));
+    inOrder
+        .verify(_entityClient)
+        .batchIngestProposals(
+            any(OperationContext.class),
+            argThat(
+                batch -> aspectNames(batch).equals(ImmutableList.of(GROUP_MEMBERSHIP_ASPECT_NAME))),
+            eq(false));
+    inOrder
+        .verify(_entityClient)
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(mcp -> ORIGIN_ASPECT_NAME.equals(mcp.getAspectName())));
+  }
+
+  @Test
+  public void testMigrateGroupMembershipInterruptedLeavesOriginUnset() throws Exception {
+    mockMigrationDependencies();
+    // The grant used to run after the Origin write, so failing here left members in no group at
+    // all and ineligible for re-migration.
+    when(_entityClient.batchIngestProposals(
+            any(OperationContext.class), anyCollection(), eq(false)))
+        .thenThrow(new RuntimeException("Migration interrupted"));
+
+    assertThrows(
+        () ->
+            _groupService.migrateGroupMembershipToNativeGroupMembership(
+                opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN.toString()));
+
+    // Leaving Origin unset is what lets the next call retry.
+    verify(_entityClient, never())
+        .ingestProposal(
+            any(OperationContext.class),
+            argThat(mcp -> ORIGIN_ASPECT_NAME.equals(mcp.getAspectName())));
+  }
+
+  private void mockMigrationDependencies() throws Exception {
+    when(_graphClient.getRelatedEntities(
+            eq(EXTERNAL_GROUP_URN_STRING),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenReturn(_entityRelationships);
+    when(_entityClient.batchGetV2NoCache(any(), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenReturn(_entityResponseMap);
+    when(_entityService.exists(any(OperationContext.class), anyCollection(), eq(true)))
+        .thenReturn(Set.of(USER_URN));
   }
 
   @Test
@@ -615,6 +752,63 @@ public class GroupServiceTest {
   }
 
   @Test
+  public void testGetExistingGroupMembersPagesPastTheFirstPage() {
+    // First page comes back full, so a second page must be requested.
+    EntityRelationships fullPage = relationshipsPage(0, 500, 501);
+    EntityRelationships lastPage = relationshipsPage(500, 1, 501);
+    when(_graphClient.getRelatedEntities(
+            eq(GROUP_URN_STRING),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            eq(0),
+            anyInt(),
+            any()))
+        .thenReturn(fullPage);
+    when(_graphClient.getRelatedEntities(
+            eq(GROUP_URN_STRING),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            eq(500),
+            anyInt(),
+            any()))
+        .thenReturn(lastPage);
+
+    assertEquals(_groupService.getExistingGroupMembers(_groupUrn, USER_URN.toString()).size(), 501);
+  }
+
+  @Test
+  public void testGetExistingGroupMembersStopsAtTheOffsetPagingCeiling() {
+    // A graph that always returns a full page would otherwise loop forever.
+    when(_graphClient.getRelatedEntities(
+            eq(GROUP_URN_STRING),
+            eq(ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME)),
+            eq(RelationshipDirection.INCOMING),
+            anyInt(),
+            anyInt(),
+            any()))
+        .thenReturn(relationshipsPage(0, 500, Integer.MAX_VALUE));
+
+    assertEquals(
+        _groupService.getExistingGroupMembers(_groupUrn, USER_URN.toString()).size(), 10_000);
+  }
+
+  private static EntityRelationships relationshipsPage(int start, int count, int total) {
+    List<EntityRelationship> page =
+        IntStream.range(0, count)
+            .mapToObj(
+                i ->
+                    new EntityRelationship()
+                        .setEntity(new CorpuserUrn("user" + (start + i) + "@email.com"))
+                        .setType(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME))
+            .collect(Collectors.toList());
+    return new EntityRelationships()
+        .setStart(start)
+        .setCount(count)
+        .setTotal(total)
+        .setRelationships(new EntityRelationshipArray(page));
+  }
+
+  @Test
   public void testRemoveExistingGroupMembersNullArguments() {
     assertThrows(
         () ->
@@ -644,7 +838,8 @@ public class GroupServiceTest {
 
     _groupService.removeExistingGroupMembers(
         opContext, Urn.createFromString(EXTERNAL_GROUP_URN_STRING), USER_URN_LIST);
-    verify(_entityClient).ingestProposal(any(OperationContext.class), any());
+    assertEquals(
+        aspectNames(capturedBatchProposals(1)), ImmutableList.of(GROUP_MEMBERSHIP_ASPECT_NAME));
   }
 
   @Test
@@ -909,6 +1104,352 @@ public class GroupServiceTest {
         .batchIngestProposals(any(OperationContext.class), anyCollection(), anyBoolean());
   }
 
+  @Test
+  public void testConditionalSweepFirstAttemptIsOneBatch() throws Exception {
+    storeMembership(USER_URN, _groupUrn);
+    storeMembership(OTHER_USER_URN, _groupUrn);
+    fakeMembershipStore();
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(opContext, _groupUrn, List.of(USER_URN, OTHER_USER_URN));
+
+    verify(_entityClient, times(1))
+        .batchIngestProposals(any(OperationContext.class), anyCollection(), eq(false));
+    verify(_entityClient, never())
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean());
+    assertEquals(conditionalWrites.size(), 2);
+    for (MetadataChangeProposal proposal : conditionalWrites) {
+      assertEquals(ifVersionMatch(proposal), String.valueOf(MEMBERSHIP_VERSION_READ));
+    }
+    assertEquals(storedGroups.get(USER_URN), List.of());
+    assertEquals(storedGroups.get(OTHER_USER_URN), List.of());
+  }
+
+  @Test
+  public void testConditionalSweepKeepsAGroupAddedBetweenReadAndWrite() throws Exception {
+    storeMembership(USER_URN, _groupUrn);
+    pendingAdds.put(USER_URN, 1);
+    fakeMembershipStore();
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(opContext, _groupUrn, List.of(USER_URN));
+
+    assertEquals(
+        conditionalWrites.stream()
+            .map(GroupServiceTest::ifVersionMatch)
+            .collect(Collectors.toList()),
+        List.of(
+            String.valueOf(MEMBERSHIP_VERSION_READ), String.valueOf(MEMBERSHIP_VERSION_READ + 1)));
+    assertEquals(storedGroups.get(USER_URN), List.of(addedGroup(MEMBERSHIP_VERSION_READ)));
+  }
+
+  /** One member keeps changing past the write limit: counted, and the next batch is still swept. */
+  @Test
+  public void testConditionalSweepCountsAMemberStillChangingAtTheLimitAndSweepsTheNextBatch()
+      throws Exception {
+    List<Urn> captured = new ArrayList<>();
+    for (int i = 0; i <= MEMBERSHIP_CLEANUP_BATCH_SIZE; i++) {
+      Urn member = new CorpuserUrn("member" + i + "@email.com");
+      storeMembership(member, _groupUrn);
+      captured.add(member);
+    }
+    Urn changing = captured.get(0);
+    Urn inNextBatch = captured.get(MEMBERSHIP_CLEANUP_BATCH_SIZE);
+    pendingAdds.put(changing, Integer.MAX_VALUE);
+    fakeMembershipStore();
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    OperationContext meteredContext = spy(opContext);
+    doReturn(Optional.of(metricUtils)).when(meteredContext).getMetricUtils();
+
+    conditionalGroupService().removeStaleNativeGroupMembership(meteredContext, _groupUrn, captured);
+
+    assertEquals(writesTo(changing), WRITE_LIMIT);
+    assertTrue(storedGroups.get(changing).contains(_groupUrn));
+    assertEquals(storedGroups.get(inNextBatch), List.of());
+    verify(metricUtils, times(1))
+        .incrementMicrometer(eq(MEMBERSHIP_CLEANUP_FAILED_METRIC), eq(1.0));
+  }
+
+  @Test
+  public void testConditionalSweepDoesNotWriteAMemberNotNamingTheGroup() throws Exception {
+    storeMembership(USER_URN, Urn.createFromString(EXTERNAL_GROUP_URN_STRING));
+    fakeMembershipStore();
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(opContext, _groupUrn, List.of(USER_URN));
+
+    assertTrue(conditionalWrites.isEmpty());
+    verify(_entityClient, never())
+        .batchIngestProposals(any(OperationContext.class), anyCollection(), anyBoolean());
+  }
+
+  @Test
+  public void testConditionalSweepDoesNotTreatADroppedWriteAsSuccessWhenTheAspectMoved()
+      throws Exception {
+    storeMembership(USER_URN, _groupUrn);
+    pendingAdds.put(USER_URN, 1);
+    failedWritesReturnNull = true;
+    fakeMembershipStore();
+    MetricUtils metricUtils = mock(MetricUtils.class);
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(
+            meteredContext(metricUtils), _groupUrn, List.of(USER_URN));
+
+    // The first write is dropped (null) because a concurrent add moved the version. Reading null as
+    // success would leave the deleted group in place next to the added one.
+    assertEquals(writesTo(USER_URN), 2);
+    assertEquals(storedGroups.get(USER_URN), List.of(addedGroup(MEMBERSHIP_VERSION_READ)));
+    verifyNoInteractions(metricUtils);
+  }
+
+  @Test
+  public void testConditionalSweepReadsTheBatchAndTheRereadFromPrimary() throws Exception {
+    storeMembership(USER_URN, _groupUrn);
+    pendingAdds.put(USER_URN, 1);
+    fakeMembershipStore();
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(
+            opContext.withReadPreference(ReadPreference.READ), _groupUrn, List.of(USER_URN));
+
+    // A lagging replica can hide the deleted group from a member, so both reads must use primary.
+    assertEquals(
+        readPreferencesOfMembershipReads(),
+        List.of(ReadPreference.PRIMARY, ReadPreference.PRIMARY));
+  }
+
+  @Test
+  public void testConditionalSweepStopsAtOnceWhenAThrownWriteFailsWithoutTheAspectMoving()
+      throws Exception {
+    storeMembership(USER_URN, _groupUrn);
+    failingMembers.add(USER_URN);
+    fakeMembershipStore();
+    MetricUtils metricUtils = mock(MetricUtils.class);
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(
+            meteredContext(metricUtils), _groupUrn, List.of(USER_URN));
+
+    // Nothing changed the aspect, so another write would hit the same failure.
+    assertEquals(writesTo(USER_URN), 1);
+    assertTrue(storedGroups.get(USER_URN).contains(_groupUrn));
+    verify(metricUtils, times(1))
+        .incrementMicrometer(eq(MEMBERSHIP_CLEANUP_FAILED_METRIC), eq(1.0));
+  }
+
+  @Test
+  public void testConditionalSweepRetriesMembersAThrownBatchDidNotCommit() throws Exception {
+    storeMembership(USER_URN, _groupUrn);
+    storeMembership(OTHER_USER_URN, _groupUrn);
+    failingMembers.add(USER_URN);
+    fakeMembershipStore();
+    MetricUtils metricUtils = mock(MetricUtils.class);
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(
+            meteredContext(metricUtils), _groupUrn, List.of(USER_URN, OTHER_USER_URN));
+
+    // The thrown batch committed neither member. The one whose write failed stays; the other is
+    // cleared by its own write.
+    assertEquals(writesTo(USER_URN), 2);
+    assertTrue(storedGroups.get(USER_URN).contains(_groupUrn));
+    assertEquals(storedGroups.get(OTHER_USER_URN), List.of());
+    verify(metricUtils, times(1))
+        .incrementMicrometer(eq(MEMBERSHIP_CLEANUP_FAILED_METRIC), eq(1.0));
+  }
+
+  @Test
+  public void testConditionalSweepStopsAtOnceWhenADroppedWriteLeavesTheAspectUnmoved()
+      throws Exception {
+    storeMembership(USER_URN, _groupUrn);
+    failingMembers.add(USER_URN);
+    failedWritesReturnNull = true;
+    fakeMembershipStore();
+    MetricUtils metricUtils = mock(MetricUtils.class);
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(
+            meteredContext(metricUtils), _groupUrn, List.of(USER_URN));
+
+    assertEquals(writesTo(USER_URN), 1);
+    assertTrue(storedGroups.get(USER_URN).contains(_groupUrn));
+    verify(metricUtils, times(1))
+        .incrementMicrometer(eq(MEMBERSHIP_CLEANUP_FAILED_METRIC), eq(1.0));
+  }
+
+  @Test
+  public void testConditionalSweepCountsTheWholeBatchWhenItsReadFails() throws Exception {
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenThrow(new RuntimeException("simulated storage failure"));
+    MetricUtils metricUtils = mock(MetricUtils.class);
+
+    conditionalGroupService()
+        .removeStaleNativeGroupMembership(
+            meteredContext(metricUtils), _groupUrn, List.of(USER_URN, OTHER_USER_URN));
+
+    verify(metricUtils, times(1))
+        .incrementMicrometer(eq(MEMBERSHIP_CLEANUP_FAILED_METRIC), eq(2.0));
+    verify(_entityClient, never()).ingestProposal(any(OperationContext.class), any(), anyBoolean());
+    verify(_entityClient, never())
+        .batchIngestProposals(any(OperationContext.class), anyCollection(), anyBoolean());
+  }
+
+  @Test
+  public void testWithTheFlagOffTheSweepIsOneUnconditionalBatchWrite() throws Exception {
+    mockNativeGroupMembershipReads(_groupUrn);
+    GroupService unconditional =
+        new GroupService(_entityClient, _entityService, _graphClient, _graphService, false, 3);
+
+    unconditional.removeStaleNativeGroupMembership(
+        opContext, _groupUrn, List.of(USER_URN, OTHER_USER_URN));
+
+    List<MetadataChangeProposal> proposals = capturedBatchProposals(1);
+    assertEquals(proposals.size(), 2);
+    for (MetadataChangeProposal proposal : proposals) {
+      assertFalse(
+          proposal.hasHeaders() && proposal.getHeaders().containsKey(HTTP_HEADER_IF_VERSION_MATCH));
+    }
+    verify(_entityClient, never())
+        .ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), anyBoolean());
+  }
+
+  @Test
+  public void testWithTheFlagOffTheBatchReadKeepsTheCallersReadPreference() throws Exception {
+    mockNativeGroupMembershipReads(_groupUrn);
+    GroupService unconditional =
+        new GroupService(_entityClient, _entityService, _graphClient, _graphService, false, 3);
+
+    unconditional.removeStaleNativeGroupMembership(
+        opContext.withReadPreference(ReadPreference.READ), _groupUrn, List.of(USER_URN));
+
+    assertEquals(readPreferencesOfMembershipReads(), List.of(ReadPreference.READ));
+  }
+
+  private List<ReadPreference> readPreferencesOfMembershipReads() throws Exception {
+    ArgumentCaptor<OperationContext> contexts = ArgumentCaptor.forClass(OperationContext.class);
+    verify(_entityClient, atLeastOnce())
+        .batchGetV2NoCache(contexts.capture(), eq(CORP_USER_ENTITY_NAME), any(), any());
+    return contexts.getAllValues().stream()
+        .map(context -> context.getPrimaryStorageContext().getReadPreference())
+        .collect(Collectors.toList());
+  }
+
+  private GroupService conditionalGroupService() {
+    return new GroupService(
+        _entityClient, _entityService, _graphClient, _graphService, true, WRITE_LIMIT);
+  }
+
+  private void storeMembership(Urn userUrn, Urn... groups) {
+    storedGroups.put(userUrn, new ArrayList<>(Arrays.asList(groups)));
+    storedVersions.put(userUrn, MEMBERSHIP_VERSION_READ);
+  }
+
+  private void fakeMembershipStore() throws Exception {
+    when(_entityClient.batchGetV2NoCache(
+            any(OperationContext.class), eq(CORP_USER_ENTITY_NAME), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> requested = invocation.getArgument(2);
+              Map<Urn, EntityResponse> responses = new HashMap<>();
+              for (Urn userUrn : requested) {
+                if (storedGroups.containsKey(userUrn)) {
+                  responses.put(userUrn, storedMembershipResponse(userUrn));
+                }
+              }
+              return responses;
+            });
+    when(_entityClient.ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), eq(false)))
+        .thenAnswer(invocation -> ingestMembership(invocation.getArgument(1)));
+    when(_entityClient.batchIngestProposals(
+            any(OperationContext.class), anyCollection(), eq(false)))
+        .thenAnswer(
+            invocation -> {
+              Collection<MetadataChangeProposal> proposals = invocation.getArgument(1);
+              List<String> results = new ArrayList<>();
+              for (MetadataChangeProposal proposal : proposals) {
+                results.add(ingestMembership(proposal));
+              }
+              return results;
+            });
+  }
+
+  private String ingestMembership(MetadataChangeProposal proposal) {
+    conditionalWrites.add(proposal);
+    Urn userUrn = proposal.getEntityUrn();
+    int pending = pendingAdds.getOrDefault(userUrn, 0);
+    if (pending > 0) {
+      pendingAdds.put(userUrn, pending - 1);
+      List<Urn> edited = new ArrayList<>(storedGroups.get(userUrn));
+      edited.add(addedGroup(storedVersions.get(userUrn)));
+      storedGroups.put(userUrn, edited);
+      storedVersions.merge(userUrn, 1L, Long::sum);
+    }
+    if (failingMembers.contains(userUrn)) {
+      return failWrite("simulated storage failure");
+    }
+    if (!String.valueOf(storedVersions.get(userUrn)).equals(ifVersionMatch(proposal))) {
+      return failWrite("version mismatch");
+    }
+    NativeGroupMembership written =
+        GenericRecordUtils.deserializeAspect(
+            proposal.getAspect().getValue(),
+            proposal.getAspect().getContentType(),
+            NativeGroupMembership.class);
+    storedGroups.put(userUrn, new ArrayList<>(written.getNativeGroups()));
+    storedVersions.merge(userUrn, 1L, Long::sum);
+    return userUrn.toString();
+  }
+
+  private String failWrite(String reason) {
+    if (failedWritesReturnNull) {
+      return null;
+    }
+    throw new RuntimeException(reason);
+  }
+
+  private OperationContext meteredContext(MetricUtils metricUtils) {
+    OperationContext metered = spy(opContext);
+    doReturn(Optional.of(metricUtils)).when(metered).getMetricUtils();
+    return metered;
+  }
+
+  private EntityResponse storedMembershipResponse(Urn userUrn) {
+    NativeGroupMembership membership =
+        new NativeGroupMembership().setNativeGroups(new UrnArray(storedGroups.get(userUrn)));
+    return new EntityResponse()
+        .setEntityName(CORP_USER_ENTITY_NAME)
+        .setUrn(userUrn)
+        .setAspects(
+            new EnvelopedAspectMap(
+                ImmutableMap.of(
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME,
+                    new EnvelopedAspect()
+                        .setName(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME)
+                        .setValue(new Aspect(membership.data()))
+                        .setSystemMetadata(
+                            new SystemMetadata()
+                                .setVersion(String.valueOf(storedVersions.get(userUrn)))))));
+  }
+
+  private long writesTo(Urn userUrn) {
+    return conditionalWrites.stream()
+        .filter(proposal -> proposal.getEntityUrn().equals(userUrn))
+        .count();
+  }
+
+  private static Urn addedGroup(long version) {
+    return UrnUtils.getUrn("urn:li:corpGroup:addedAtVersion" + version);
+  }
+
+  private static String ifVersionMatch(MetadataChangeProposal proposal) {
+    return proposal.hasHeaders() ? proposal.getHeaders().get(HTTP_HEADER_IF_VERSION_MATCH) : null;
+  }
+
   @SuppressWarnings("rawtypes")
   private List<MetadataChangeProposal> capturedBatchProposals(int expectedBatches)
       throws Exception {
@@ -922,6 +1463,12 @@ public class GroupServiceTest {
       }
     }
     return proposals;
+  }
+
+  private static List<String> aspectNames(Collection<?> proposals) {
+    return proposals.stream()
+        .map(proposal -> ((MetadataChangeProposal) proposal).getAspectName())
+        .collect(Collectors.toList());
   }
 
   private void mockNativeGroupMembershipReads(Urn... groups) throws Exception {

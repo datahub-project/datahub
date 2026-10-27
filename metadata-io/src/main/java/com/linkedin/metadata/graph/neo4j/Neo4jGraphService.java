@@ -104,9 +104,10 @@ public class Neo4jGraphService implements GraphService {
       return;
     }
     log.debug(
-        String.format(
-            "Adding Edge source: %s, destination: %s, type: %s",
-            edge.getSource(), edge.getDestination(), edge.getRelationshipType()));
+        "Adding Edge source: {}, destination: {}, type: {}",
+        edge.getSource(),
+        edge.getDestination(),
+        edge.getRelationshipType());
 
     final String sourceType = edge.getSource().getEntityType();
     final String destinationType = edge.getDestination().getEntityType();
@@ -241,9 +242,10 @@ public class Neo4jGraphService implements GraphService {
       return;
     }
     log.debug(
-        String.format(
-            "Deleting Edge source: %s, destination: %s, type: %s",
-            edge.getSource(), edge.getDestination(), edge.getRelationshipType()));
+        "Deleting Edge source: {}, destination: {}, type: {}",
+        edge.getSource(),
+        edge.getDestination(),
+        edge.getRelationshipType());
 
     final String sourceType = edge.getSource().getEntityType();
     final String destinationType = edge.getDestination().getEntityType();

@@ -1,4 +1,4 @@
-import { cloneDeep } from 'lodash';
+import cloneDeep from 'lodash/cloneDeep';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
@@ -22,7 +22,7 @@ export const useGetEntityWithSchema = (skip?: boolean) => {
         variables: {
             urn,
         },
-        skip: skip || !shouldLoadSchema(entityType, entityData),
+        skip: skip || !urn || !shouldLoadSchema(entityType, entityData),
         fetchPolicy: 'cache-first',
     });
     const isHideSiblingMode = useIsSeparateSiblingsMode();

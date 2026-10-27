@@ -1,4 +1,5 @@
 import { LineageEntity, NodeContext, isUrnTransformational } from '@app/lineageV3/common';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -18,15 +19,17 @@ export interface OrderNodesOptions {
  * @param urn Root node urn.
  * @param direction Direction in which to perform BFS.
  * @param context Lineage node context.
+ * @param entityRegistry Resolves child urns to entity types, to order transformations last.
  * @param options Optional child comparator and seed nodes.
  */
 export default function orderNodes(
     urn: string,
     direction: LineageDirection,
     { nodes, adjacencyList, rootType }: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'rootType'>,
+    entityRegistry: EntityRegistry,
     options: OrderNodesOptions = {},
 ): LineageEntity[] {
-    const compareNodes = options.compareNodes ?? generateCompareNodesFunction(rootType);
+    const compareNodes = options.compareNodes ?? generateCompareNodesFunction(rootType, entityRegistry);
     const orderedNodes: string[] = [];
     const seenNodes = new Set<string>([urn]);
     const queue = [urn]; // Note: uses array for queue, slow for large graphs
@@ -47,10 +50,10 @@ export default function orderNodes(
     return orderedNodes.map((id) => nodes.get(id)).filter((node): node is LineageEntity => !!node);
 }
 
-export function generateCompareNodesFunction(rootType: EntityType) {
+export function generateCompareNodesFunction(rootType: EntityType, entityRegistry: EntityRegistry) {
     return function compareNodes(a: string, b: string): number {
-        const isATransformation = isUrnTransformational(a, rootType);
-        const isBTransformation = isUrnTransformational(b, rootType);
+        const isATransformation = isUrnTransformational(a, rootType, entityRegistry);
+        const isBTransformation = isUrnTransformational(b, rootType, entityRegistry);
         if (isATransformation && !isBTransformation) return 1;
         if (!isATransformation && isBTransformation) return -1;
         return a.localeCompare(b);

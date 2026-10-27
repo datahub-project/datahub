@@ -48,6 +48,10 @@ _CAPPABLE_COMPRESS_TYPES: frozenset = frozenset(
 )
 
 
+def is_zip_path(path: str) -> bool:
+    return path.lower().endswith(".zip")
+
+
 @dataclasses.dataclass
 class ZipEntry:
     """A single file extracted from a zip archive."""

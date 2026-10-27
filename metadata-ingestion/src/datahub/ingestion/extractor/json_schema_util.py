@@ -273,6 +273,15 @@ class JsonSchemaTranslator:
         pass
 
     @staticmethod
+    def _is_map_schema(schema: Dict) -> bool:
+        # An open-ended map declares a schema-valued `additionalProperties` and no
+        # named `properties`. Named properties win because the map extraction path
+        # only walks `additionalProperties` and would otherwise drop them.
+        return isinstance(schema.get("additionalProperties"), dict) and not schema.get(
+            "properties"
+        )
+
+    @staticmethod
     def _get_type_from_schema(schema: Dict) -> str:
         """Returns a generic json type from a schema."""
         if Ellipsis in schema:
@@ -286,18 +295,26 @@ class JsonSchemaTranslator:
                 # we have an array of types
                 # if only one type, short-circuit
                 if len(schema["type"]) == 1:
-                    return schema["type"][0]
+                    resolved_type = schema["type"][0]
                 # if this is a union with null, short-circuit
                 elif len(schema["type"]) == 2 and "null" in schema["type"]:
-                    return [t for t in schema["type"] if t != "null"][0]
+                    resolved_type = [t for t in schema["type"] if t != "null"][0]
                 else:
                     return "union"
+                if resolved_type == "object" and JsonSchemaTranslator._is_map_schema(
+                    schema
+                ):
+                    return "map"
+                return resolved_type
             elif schema["type"] != "object":
                 return schema["type"]
-            elif "additionalProperties" in schema and isinstance(
-                schema["additionalProperties"], dict
-            ):
+            elif JsonSchemaTranslator._is_map_schema(schema):
                 return "map"
+        # A typeless map (`additionalProperties` schema with no declared `type`) is
+        # valid JSON Schema / OpenAPI 3.1; detect it here too so its value type is
+        # extracted rather than resolving to an empty object.
+        elif JsonSchemaTranslator._is_map_schema(schema):
+            return "map"
 
         return "object"
 

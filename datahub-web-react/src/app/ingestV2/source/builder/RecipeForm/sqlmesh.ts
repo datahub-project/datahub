@@ -1,5 +1,5 @@
 import i18next from 'i18next';
-import { get } from 'lodash';
+import get from 'lodash/get';
 
 import { FieldType, FilterRecipeField, FilterRule, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 

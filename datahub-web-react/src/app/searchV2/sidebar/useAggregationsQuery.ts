@@ -1,6 +1,8 @@
 import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
 import { MAX_AGGREGATION_VALUES } from '@app/searchV2/sidebar/constants';
 import { useSidebarFilters } from '@app/searchV2/sidebar/useSidebarFilters';
+import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
+import { useIsSearchViewReady } from '@app/searchV2/useIsSearchViewReady';
 import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -16,6 +18,13 @@ type Props = {
 const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) => {
     const registry = useEntityRegistry();
     const sidebarFilters = useSidebarFilters();
+    const { viewUrn: liveViewUrn } = useGetSearchQueryInputs();
+    const isViewReady = useIsSearchViewReady();
+    // useSidebarFilters copies the live inputs in an effect, so on the render where the
+    // default view lands the copy still has no view. Hold view-scoped aggregations until
+    // the copy matches, or the first request goes out unfiltered and a second follows.
+    // The base aggregation does not send a view, so it does not wait for that copy.
+    const sidebarViewMatchesLive = sidebarFilters.viewUrn === liveViewUrn;
 
     const {
         data: newData,
@@ -24,7 +33,7 @@ const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) =
         error,
         refetch,
     } = useAggregateAcrossEntitiesQuery({
-        skip,
+        skip: skip || !isViewReady || (!excludeFilters && !sidebarViewMatchesLive),
         fetchPolicy: 'cache-first',
         variables: {
             input: {

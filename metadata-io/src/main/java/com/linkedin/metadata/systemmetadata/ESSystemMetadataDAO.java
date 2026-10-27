@@ -8,9 +8,12 @@ import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataSe
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.SystemMetadataServiceConfig;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -66,6 +69,10 @@ public class ESSystemMetadataDAO {
   private final int numRetries;
   private final SystemMetadataServiceConfig systemMetadataServiceConfig;
 
+  private String indexName(@Nonnull OperationContext opContext) {
+    return indexConvention.getIndexName(opContext, SearchComponent.SYSTEM_METADATA, INDEX_NAME);
+  }
+
   /**
    * Gets the status of a Task running in ElasticSearch
    *
@@ -92,7 +99,7 @@ public class ESSystemMetadataDAO {
   public void upsertDocument(
       @Nonnull OperationContext opContext, @Nonnull String docId, @Nonnull String document) {
     final UpdateRequest updateRequest =
-        new UpdateRequest(indexConvention.getIndexName(opContext, INDEX_NAME), docId)
+        new UpdateRequest(indexName(opContext), docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
@@ -105,8 +112,7 @@ public class ESSystemMetadataDAO {
 
   public DeleteResponse deleteByDocId(
       @Nonnull OperationContext opContext, @Nonnull final String docId) {
-    DeleteRequest deleteRequest =
-        new DeleteRequest(indexConvention.getIndexName(opContext, INDEX_NAME), docId);
+    DeleteRequest deleteRequest = new DeleteRequest(indexName(opContext), docId);
 
     try {
       final DeleteResponse deleteResponse =
@@ -125,8 +131,7 @@ public class ESSystemMetadataDAO {
     finalQuery.must(QueryBuilders.termQuery("urn", urn));
 
     final Optional<BulkByScrollResponse> deleteResponse =
-        bulkProcessor.deleteByQuery(
-            opContext, finalQuery, indexConvention.getIndexName(opContext, INDEX_NAME));
+        bulkProcessor.deleteByQuery(opContext, finalQuery, indexName(opContext));
 
     return deleteResponse.orElse(null);
   }
@@ -140,8 +145,7 @@ public class ESSystemMetadataDAO {
     finalQuery.filter(QueryBuilders.termQuery("aspect", aspect));
 
     final Optional<BulkByScrollResponse> deleteResponse =
-        bulkProcessor.deleteByQuery(
-            opContext, finalQuery, indexConvention.getIndexName(opContext, INDEX_NAME));
+        bulkProcessor.deleteByQuery(opContext, finalQuery, indexName(opContext));
 
     return deleteResponse.orElse(null);
   }
@@ -173,11 +177,14 @@ public class ESSystemMetadataDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(indexName(opContext));
 
     try {
       final SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return searchResponse;
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
@@ -215,11 +222,14 @@ public class ESSystemMetadataDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(indexName(opContext));
 
     try {
       final SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return searchResponse;
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
@@ -255,10 +265,13 @@ public class ESSystemMetadataDAO {
     searchSourceBuilder.sort(FIELD_URN).sort(FIELD_ASPECT);
 
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(indexName(opContext));
 
     try {
-      return client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      return SearchTookMetrics.time(
+          opContext,
+          SearchOperation.SYSTEM_METADATA,
+          () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
     } catch (IOException e) {
       log.error("Error while searching by params.", e);
     }
@@ -290,10 +303,14 @@ public class ESSystemMetadataDAO {
 
     SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(indexName(opContext));
 
     try {
-      SearchResponse response = client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+      SearchResponse response =
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       if (response == null
           || response.getHits() == null
           || response.getHits().getTotalHits() == null) {
@@ -359,11 +376,14 @@ public class ESSystemMetadataDAO {
 
     searchRequest.source(searchSourceBuilder);
 
-    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(indexName(opContext));
 
     try {
       final SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return searchResponse;
     } catch (IOException e) {
       e.printStackTrace();
@@ -384,11 +404,14 @@ public class ESSystemMetadataDAO {
 
     SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(indexName(opContext));
 
     try {
       SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return parseRemovalStatusFiltersAggregation(searchResponse);
     } catch (IOException e) {
       log.error("Key aspect count query failed for aspect {}", keyAspectName, e);
@@ -423,11 +446,14 @@ public class ESSystemMetadataDAO {
 
     SearchRequest searchRequest = new SearchRequest();
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(opContext, INDEX_NAME));
+    searchRequest.indices(indexName(opContext));
 
     try {
       SearchResponse searchResponse =
-          client.search(opContext, searchRequest, RequestOptions.DEFAULT);
+          SearchTookMetrics.time(
+              opContext,
+              SearchOperation.SYSTEM_METADATA,
+              () -> client.search(opContext, searchRequest, RequestOptions.DEFAULT));
       return parseKeyAspectTermsAggregation(searchResponse, keyAspectNames);
     } catch (IOException e) {
       log.error("Key aspect batch count query failed", e);

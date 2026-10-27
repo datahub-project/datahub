@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable import/newline-after-import */
 const path = require('path');
 
 // --------------------------------------------------------------------------
@@ -7,6 +9,7 @@ const path = require('path');
 // whole codebase (all src/**, except COLOR_RULE_EXCLUDED_FILES) so color flows
 // through theme.colors.* tokens that repaint for theming / dark mode.
 // --------------------------------------------------------------------------
+
 const rulesDirPlugin = require('eslint-plugin-rulesdir');
 rulesDirPlugin.RULES_DIR = path.join(__dirname, 'eslint-rules');
 
@@ -60,6 +63,7 @@ const COLOR_ENFORCEMENT_RULES = {
         },
     ],
     'rulesdir/no-hardcoded-colors': 'error',
+    'rulesdir/no-background-token-in-border': 'error',
 };
 
 // --------------------------------------------------------------------------
@@ -76,9 +80,8 @@ const I18N_RULE_EXCLUDED_FILES = [
     // live and dead code interleave (no clean glob) — same rationale as this
     // directory's exclusion from COLOR_RULE_EXCLUDED_FILES below.
     'src/app/ingest/**',
-    // Generated GraphQL types/mocks — not authored, not user-facing UI copy.
+    // Generated GraphQL types — not authored, not user-facing UI copy.
     'src/graphql/**',
-    'src/graphql-mock/**',
     // Mock fixtures, tests, and Storybook demos — never production UI.
     '**/__tests__/**',
     '**/*.test.ts',
@@ -177,11 +180,7 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
 // Permanent exemptions: tests/stories, generated GraphQL, and alchemy wrappers
 // that still wrap antd. Existing app files that already imported antd on the
 // PR base are grandfathered by the rule's git baseline.
-const ANTD_IMPORT_RULE_EXCLUDED_FILES = [
-    '**/*.{test,stories}.*',
-    'src/graphql/**',
-    'src/alchemy-components/**',
-];
+const ANTD_IMPORT_RULE_EXCLUDED_FILES = ['**/*.{test,stories}.*', 'src/graphql/**', 'src/alchemy-components/**'];
 
 // Files that legitimately need raw color values, or where migration is deferred.
 const COLOR_RULE_EXCLUDED_FILES = [
@@ -191,19 +190,21 @@ const COLOR_RULE_EXCLUDED_FILES = [
     'src/alchemy-components/theme/**',
     // Legacy v1 UI superseded by the V2 redesign (entityV2/searchV2/lineageV3/glossaryV2/…).
     // Migration is deferred here because live and dead code interleave (no clean glob).
+    // NOTE: app/entity is mostly dead v1 pages, but its `shared/**` layer is still imported and
+    // rendered by V2, so do not assume app/entity is fully dead.
     'src/app/entity/**',
     'src/app/search/**',
-    'src/app/lineage/**',
     'src/app/glossary/**',
-    'src/app/analyticsDashboard/**',
+    // Moved from the old analyticsDashboard folder; chart crosshair color not yet migrated.
+    'src/app/analyticsDashboardV2/components/TimeSeriesChart.tsx',
     'src/app/ingest/**',
-    // Mock fixtures, tests, and Storybook demos — never production UI.
-    'src/graphql-mock/**',
+    // Tests and Storybook demos — never production UI.
     '**/*.test.ts',
     '**/*.test.tsx',
     '**/__tests__/**',
     '**/*.stories.tsx',
-    // Deferred to a design-led pass: chart series palette.
+    // Deferred to a design-led pass (un-exclude when migrated):
+    //  - dataviz: chart series palette → charts* tokens needs design sign-off.
     'src/app/dataviz/**',
 ];
 
@@ -269,6 +270,12 @@ module.exports = {
                         message:
                             "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
                     },
+                    {
+                        name: 'lodash',
+                        message:
+                            "Import lodash functions individually for tree-shaking: import x from 'lodash/x' instead of import { x } from 'lodash'. Type-only imports from 'lodash' are allowed.",
+                        allowTypeImports: true,
+                    },
                 ],
             },
         ],
@@ -308,7 +315,6 @@ module.exports = {
                     { alias: '@app/', matcher: '^src/app/' },
                     { alias: '@conf/', matcher: '^src/conf/' },
                     { alias: '@graphql/', matcher: '^src/graphql/' },
-                    { alias: '@graphql-mock/', matcher: '^src/graphql-mock/' },
                     { alias: '@images/', matcher: '^src/images/' },
                     { alias: '@providers/', matcher: '^src/providers/' },
                     { alias: '@utils/', matcher: '^src/utils/' },

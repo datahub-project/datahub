@@ -1,0 +1,25 @@
+import pytest
+
+from tests.e2e.test_result_msg import add_datahub_stats
+from utilities.domains import Domain
+from utilities.metadata_operations import list_ingestion_sources
+
+pytestmark = [pytest.mark.domain(Domain.INGESTION), pytest.mark.p0]
+
+
+@pytest.mark.read_only
+def test_policies_are_accessible(auth_session):
+    res_data = list_ingestion_sources(auth_session)
+    assert res_data, f"Received listIngestionSources were {res_data}"
+    add_datahub_stats("num-ingestion-sources", res_data["total"])
+
+    if res_data["total"] > 0:
+        for ingestion_source in res_data.get("ingestionSources"):
+            name = ingestion_source.get("name")
+            source_type = ingestion_source.get("type")
+            urn = ingestion_source.get("urn")
+            version = ingestion_source.get("config", {}).get("version")
+            add_datahub_stats(
+                f"ingestion-source-{urn}",
+                {"name": name, "version": version, "source_type": source_type},
+            )
