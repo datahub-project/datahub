@@ -2,7 +2,7 @@ import copy
 import json
 import logging
 from enum import auto
-from typing import Any, Iterable, List, Optional, Set, Tuple, cast
+from typing import Dict, Iterable, List, Optional, Set, Tuple, cast
 
 from pydantic import Field, field_validator, model_validator
 
@@ -11,10 +11,7 @@ from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mce_builder import Aspect, make_schema_field_urn
 from datahub.emitter.mcp_patch_builder import _Patch
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
-from datahub.ingestion.transformer.base_transformer import (
-    BaseTransformer,
-    SingleAspectTransformer,
-)
+from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     GenericAspectClass,
@@ -26,6 +23,11 @@ from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
+
+# One JSON Patch operation ({"op", "path", "value"}) from a decoded patch payload.
+# Values are JSON whose shape depends on the path, so they stay `object` and are
+# narrowed with isinstance where they are read.
+_PatchOperation = Dict[str, object]
 
 _PLATFORM_URN_PREFIX = "urn:li:dataPlatform:"
 # These are encoded inside a URN, so a platform name containing one would not
@@ -138,7 +140,7 @@ class RewriteUpstreamUrnsConfig(ConfigModel):
         return self
 
 
-class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
+class RewriteUpstreamUrns(DatasetTransformer):
     """Rewrite dataset URNs inside an upstreamLineage aspect.
 
     Table-level upstreams and fine-grained upstreams are rewritten. Fine-grained
@@ -159,9 +161,6 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "RewriteUpstreamUrns":
         config = RewriteUpstreamUrnsConfig.model_validate(config_dict)
         return cls(config, ctx)
-
-    def entity_types(self) -> List[str]:
-        return ["dataset"]
 
     def aspect_name(self) -> str:
         return "upstreamLineage"
@@ -300,7 +299,7 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         if aspect.contentType != JSON_PATCH_CONTENT_TYPE:
             return None
         try:
-            payload = json.loads(aspect.value)
+            payload: object = json.loads(aspect.value)
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
             logger.warning(
                 f"Not rewriting upstream URNs for {entity_urn}: "
@@ -308,9 +307,10 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
             )
             return None
 
+        container: Optional[Dict[str, object]]
         if isinstance(payload, dict) and isinstance(payload.get("patch"), list):
-            operations = payload["patch"]
-            container: Any = payload
+            operations: List[object] = payload["patch"]
+            container = payload
         elif isinstance(payload, list):
             operations = payload
             container = None
@@ -331,28 +331,28 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
         if rewritten_operations == operations:
             return None
 
+        encoded: object
         if container is None:
             encoded = rewritten_operations
         else:
-            container = copy.deepcopy(container)
-            container["patch"] = rewritten_operations
-            encoded = container
+            encoded = {**container, "patch": rewritten_operations}
         aspect.value = json.dumps(encoded).encode()
         return aspect
 
-    def _rewrite_patch_operation(self, operation: dict) -> List[dict]:
-        components = _pointer_components(operation.get("path", ""))
+    def _rewrite_patch_operation(
+        self, operation: _PatchOperation
+    ) -> List[_PatchOperation]:
+        path = operation.get("path")
+        components = _pointer_components(path) if isinstance(path, str) else []
         value = operation.get("value")
         if not components:
             return [operation]
 
         if components[0] == "upstreams" and len(components) >= 2:
             original_urn = components[1]
-            rewritten_value = _rewrite_upstream_value(self, value)
-            new_urn = (
-                rewritten_value.get("dataset", original_urn)
-                if isinstance(rewritten_value, dict)
-                else self._rewrite_urn(original_urn)
+            rewritten_value = self._rewrite_upstream_value(value)
+            new_urn = _upstream_dataset(rewritten_value) or self._rewrite_urn(
+                original_urn
             )
             if new_urn == original_urn and rewritten_value == value:
                 return [operation]
@@ -366,46 +366,7 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
             return [rewritten]
 
         if components == ["upstreams"] and isinstance(value, list):
-            # Same rule as _rewrite_upstreams: an upstream that is already listed
-            # keeps its own entry, and the first of two colliding rewrites wins.
-            pairs = [
-                (item, _rewrite_upstream_value(self, item))
-                for item in value
-                if isinstance(item, dict) and isinstance(item.get("dataset"), str)
-            ]
-            if self.config.mode == RewriteUpstreamMode.ADD:
-                already_listed = {item["dataset"] for item, _ in pairs}
-            else:
-                already_listed = {
-                    item["dataset"]
-                    for item, new_item in pairs
-                    if new_item["dataset"] == item["dataset"]
-                }
-            new_items = {id(item): new_item for item, new_item in pairs}
-
-            rewritten_value = []
-            seen_datasets: Set[str] = set()
-
-            def _keep(item: dict) -> None:
-                if item["dataset"] not in seen_datasets:
-                    seen_datasets.add(item["dataset"])
-                    rewritten_value.append(item)
-
-            for item in value:
-                if id(item) not in new_items:
-                    rewritten_value.append(item)
-                    continue
-                new_item = new_items[id(item)]
-                if new_item["dataset"] == item["dataset"]:
-                    _keep(item)
-                    continue
-                if self.config.mode == RewriteUpstreamMode.ADD:
-                    _keep(item)
-                if new_item["dataset"] not in already_listed:
-                    _keep(new_item)
-            if rewritten_value == value:
-                return [operation]
-            return [_replace_operation(operation, components, rewritten_value)]
+            return [self._rewrite_upstream_list_operation(operation, value)]
 
         # The upstream field URN is the last component. The downstream field URN
         # sits earlier in the path and belongs to the dataset being ingested.
@@ -423,8 +384,84 @@ class RewriteUpstreamUrns(BaseTransformer, SingleAspectTransformer):
 
         return [operation]
 
+    def _rewrite_upstream_list_operation(
+        self, operation: _PatchOperation, upstreams: List[object]
+    ) -> _PatchOperation:
+        """Rewrite an operation that sets the whole upstreams list.
 
-def _drop_colliding_operations(operations: List[Tuple[Any, bool]]) -> List[Any]:
+        Same rule as _rewrite_upstreams: an upstream that is already listed keeps
+        its own entry, and the first of two colliding rewrites wins.
+        """
+        new_datasets: Dict[int, Tuple[object, str]] = {}
+        for item in upstreams:
+            dataset = _upstream_dataset(item)
+            if dataset is not None:
+                new_item = self._rewrite_upstream_value(item)
+                new_datasets[id(item)] = (
+                    new_item,
+                    _upstream_dataset(new_item) or dataset,
+                )
+        if self.config.mode == RewriteUpstreamMode.ADD:
+            already_listed = {
+                _upstream_dataset(item)
+                for item in upstreams
+                if id(item) in new_datasets
+            }
+        else:
+            already_listed = {
+                _upstream_dataset(item)
+                for item in upstreams
+                if id(item) in new_datasets
+                and new_datasets[id(item)][1] == _upstream_dataset(item)
+            }
+
+        rewritten_value: List[object] = []
+        seen_datasets: Set[str] = set()
+
+        def _keep(item: object, dataset: str) -> None:
+            if dataset not in seen_datasets:
+                seen_datasets.add(dataset)
+                rewritten_value.append(item)
+
+        for item in upstreams:
+            if id(item) not in new_datasets:
+                rewritten_value.append(item)
+                continue
+            dataset = _upstream_dataset(item)
+            assert dataset is not None
+            new_item, new_dataset = new_datasets[id(item)]
+            if new_dataset == dataset:
+                _keep(item, dataset)
+                continue
+            if self.config.mode == RewriteUpstreamMode.ADD:
+                _keep(item, dataset)
+            if new_dataset not in already_listed:
+                _keep(new_item, new_dataset)
+        if rewritten_value == upstreams:
+            return operation
+        return _replace_operation(operation, ["upstreams"], rewritten_value)
+
+    def _rewrite_upstream_value(self, value: object) -> object:
+        """Rewrite the dataset of an upstream entry in a patch; other values pass through."""
+        dataset = _upstream_dataset(value)
+        if dataset is None or not isinstance(value, dict):
+            return value
+        rewritten = copy.deepcopy(value)
+        rewritten["dataset"] = self._rewrite_urn(dataset)
+        return rewritten
+
+
+def _upstream_dataset(value: object) -> Optional[str]:
+    if isinstance(value, dict):
+        dataset = value.get("dataset")
+        if isinstance(dataset, str):
+            return dataset
+    return None
+
+
+def _drop_colliding_operations(
+    operations: List[Tuple[object, bool]],
+) -> List[object]:
     """Drop rewritten patch operations that land on a path already written.
 
     Each item is an operation and whether it is the original, unchanged
@@ -437,8 +474,8 @@ def _drop_colliding_operations(operations: List[Tuple[Any, bool]]) -> List[Any]:
         for operation, is_original in operations
         if is_original and isinstance(operation, dict)
     }
-    kept: List[Any] = []
-    rewritten_paths: Set[str] = set()
+    kept: List[object] = []
+    rewritten_paths: Set[object] = set()
     for operation, is_original in operations:
         if not is_original and isinstance(operation, dict):
             path = operation.get("path")
@@ -459,16 +496,7 @@ def _pointer(components: List[str]) -> str:
     return "/" + "/".join(_Patch.quote_path_component(part) for part in components)
 
 
-def _replace_operation(operation: dict, components: List[str], value: Any) -> dict:
-    rewritten = dict(operation)
-    rewritten["path"] = _pointer(components)
-    rewritten["value"] = value
-    return rewritten
-
-
-def _rewrite_upstream_value(transformer: RewriteUpstreamUrns, value: Any) -> Any:
-    if not isinstance(value, dict) or not isinstance(value.get("dataset"), str):
-        return value
-    rewritten = copy.deepcopy(value)
-    rewritten["dataset"] = transformer._rewrite_urn(value["dataset"])
-    return rewritten
+def _replace_operation(
+    operation: _PatchOperation, components: List[str], value: object
+) -> _PatchOperation:
+    return {**operation, "path": _pointer(components), "value": value}
