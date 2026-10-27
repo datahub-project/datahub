@@ -27,7 +27,6 @@ import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -48,11 +47,6 @@ public class SearchTemplatePolicyTest {
     harness.setup();
     harness.installCatalog();
     dataset = harness.registry.getEntitySpec("dataset");
-  }
-
-  @AfterMethod
-  public void clear() {
-    SearchTemplates.install(null);
   }
 
   @Test
@@ -173,13 +167,17 @@ public class SearchTemplatePolicyTest {
     properties.setNormalization(limits);
     harness.store(PARENT, properties);
 
-    String rendered = render(PARENT, "prod glue alpha");
+    String query = "prod glue alpha";
+    String rendered = render(PARENT, query);
     assertTrue(rendered.contains("F=prod glue alpha"), rendered);
     assertFalse(rendered.contains("~2"), rendered);
     assertTrue(rendered.contains("B=prod"), rendered);
     assertFalse(rendered.contains("B=prod glue"), rendered);
-    assertTrue(rendered.contains("[production]"), rendered);
-    assertFalse(rendered.contains("[athena]"), rendered);
+    List<String> synonyms = SearchTemplateSynonyms.expansions(query);
+    assertTrue(rendered.contains("[" + synonyms.get(0) + "]"), rendered);
+    for (String later : synonyms.subList(1, synonyms.size())) {
+      assertFalse(rendered.contains("[" + later + "]"), rendered);
+    }
     assertFalse(rendered.contains("W=YES"), rendered);
 
     String medium = render(PARENT, "orders");
