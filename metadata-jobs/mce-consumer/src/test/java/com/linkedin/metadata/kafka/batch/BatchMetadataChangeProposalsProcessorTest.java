@@ -484,6 +484,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
   @Test
   public void testIngestionFailure() throws Exception {
+    // Behavior with tolerance off; the class default tolerates unknown data.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
     // Disable inner batching
     when(mockProvider.getMetadataChangeProposal())
         .thenReturn(
@@ -1306,6 +1308,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
   @Test
   public void testValidationFailureDeadLettersOnlyTheRejectedProposal() throws Exception {
+    // Behavior with tolerance off; the class default tolerates unknown data.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
     MetadataChangeProposal rejected = statusMcp("second").setAspectName("notAnAspect");
     threeProposalsInGroupsOfTwo(rejected);
     ArgumentCaptor<AspectsBatch> written = ArgumentCaptor.forClass(AspectsBatch.class);
