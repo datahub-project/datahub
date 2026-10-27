@@ -23,9 +23,10 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     MetadataChangeProposalClass,
     UpstreamLineageClass,
+    _Aspect,
 )
 
-_AspectT = TypeVar("_AspectT")
+_AspectT = TypeVar("_AspectT", bound=_Aspect)
 
 AGENT_ASPECTS = {
     "aiAgentInfo",
