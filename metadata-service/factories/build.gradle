@@ -51,6 +51,7 @@ dependencies {
   implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
+  implementation externalDependency.awsMskIamAuth
 
   // AWS SDK for S3 file serving
   implementation platform(externalDependency.awsSdk2Bom)
@@ -88,6 +89,11 @@ dependencies {
   testImplementation externalDependency.testContainersElasticsearch
   testImplementation externalDependency.testContainersCassandra
   testImplementation testFixtures(project(':metadata-io'))
+  // EmbeddingProviderFactoryTest mocks OnnxEmbeddingProvider; Mockito loads the class whose
+  // field/ctor descriptors reference ai.onnxruntime/ai.djl, which are now compileOnlyApi upstream.
+  testRuntimeOnly externalDependency.onnxRuntime
+  testRuntimeOnly externalDependency.djlApi
+  testRuntimeOnly externalDependency.djlHuggingFaceTokenizers
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   testCompileOnly externalDependency.lombok

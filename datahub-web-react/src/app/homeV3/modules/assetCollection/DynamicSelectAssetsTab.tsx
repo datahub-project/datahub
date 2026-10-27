@@ -7,7 +7,7 @@ import { getViewAllSupport } from '@app/homeV3/modules/assetCollection/useAssetC
 import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuilder';
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { properties } from '@app/sharedV2/queryBuilder/properties';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 /** Start with one blank condition row so users can immediately pick a property. */
 const DEFAULT_FILTER: LogicalPredicate = {
@@ -27,7 +27,7 @@ type Props = {
 
 const DynamicSelectAssetsTab = ({ dynamicFilter, setDynamicFilter }: Props) => {
     const { t } = useTranslation('modules');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const viewAllSupport = useMemo(
         () => getViewAllSupport(dynamicFilter, (name) => entityRegistry.getTypeFromGraphName(name)),

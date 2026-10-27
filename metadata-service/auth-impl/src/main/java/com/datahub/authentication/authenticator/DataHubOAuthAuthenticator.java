@@ -235,14 +235,14 @@ public class DataHubOAuthAuthenticator implements Authenticator {
       trustedIssuers.add(issuer);
 
       Jws<Claims> claims =
-          Jwts.parserBuilder()
+          Jwts.parser()
               .setSigningKeyResolver(
                   new DataHubOAuthSigningKeyResolver(
                       trustedIssuers, matchingProvider.getJwksUri(), providerAlgorithm))
               .build()
-              .parseClaimsJws(token);
+              .parseSignedClaims(token);
 
-      Claims body = claims.getBody();
+      Claims body = claims.getPayload();
 
       // Extract subject (userIdClaim)
       final String subject = body.get(providerUserIdClaim, String.class);

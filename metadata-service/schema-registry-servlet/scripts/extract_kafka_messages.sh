@@ -9,7 +9,6 @@ OUTPUT_DIR="../src/test/resources/v1"
 
 # Topics to extract (add or remove as needed)
 TOPICS=(
-    "DataHubUpgradeHistory_v1"
     "FailedMetadataChangeProposal_v1"
     "MetadataChangeLog_Timeseries_v1"
     "MetadataChangeLog_Versioned_v1"

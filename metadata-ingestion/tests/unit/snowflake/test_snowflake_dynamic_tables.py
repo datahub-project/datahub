@@ -3,11 +3,16 @@ from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+import sqlglot
 
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import (
     SnowflakeObjectDomain,
     SnowflakeShowKind,
+)
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeIdentifierConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
@@ -19,6 +24,16 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
+    _extract_custom_incremental_merge,
+    _normalize_self_reference,
+)
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+)
+from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    QueryLogSetting,
+    SqlParsingAggregator,
 )
 
 
@@ -303,6 +318,49 @@ def test_get_dynamic_tables_with_definitions_inputs_non_list_json(
     assert result["PUBLIC"][0].upstream_tables == []
 
 
+def test_get_dynamic_tables_with_definitions_null_kind(mock_snowflake_data_dictionary):
+    """An INPUTS entry with an explicit null (or missing) kind must not crash the scan;
+    kind falls back to "Table" so downstream domain resolution stays safe."""
+    mock_snowflake_data_dictionary.get_dynamic_table_graph_info = MagicMock(
+        return_value={
+            "TEST_DB.PUBLIC.DYNAMIC_TABLE1": {
+                "inputs": [
+                    {"name": "TEST_DB.PUBLIC.SRC_NULL", "kind": None},
+                    {"name": "TEST_DB.PUBLIC.SRC_MISSING"},
+                ],
+            }
+        }
+    )
+
+    mock_cursor = MagicMock()
+    mock_cursor.__iter__.return_value = [
+        {
+            "name": "DYNAMIC_TABLE1",
+            "schema_name": "PUBLIC",
+            "database_name": "TEST_DB",
+            "owner": "TEST_USER",
+            "comment": "",
+            "created_on": "2024-01-01 00:00:00",
+            "text": "SELECT 1",
+            "target_lag": "1 minute",
+            "warehouse": "TEST_WH",
+            "bytes": 0,
+            "rows": 0,
+        }
+    ]
+    mock_snowflake_data_dictionary.connection.query.return_value = mock_cursor
+
+    result = mock_snowflake_data_dictionary.get_dynamic_tables_with_definitions(
+        "TEST_DB"
+    )
+
+    dt = result["PUBLIC"][0]
+    assert dt.upstream_tables == [
+        SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SRC_NULL", "Table"),
+        SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SRC_MISSING", "Table"),
+    ]
+
+
 @pytest.mark.parametrize(
     "kind,expected_domain",
     [
@@ -582,3 +640,584 @@ def test_dynamic_table_invalid_response_handling(mock_snowflake_data_dictionary)
     table_info = result.get("TEST_DB.PUBLIC.DYNAMIC_TABLE1", {})
     assert table_info.get("target_lag_type") is None
     assert table_info.get("scheduling_state") is None
+
+
+def test_dynamic_table_input_urns_filtered_by_pattern():
+    """An INPUTS source outside the dataset pattern is excluded; others kept."""
+    gen = SnowflakeSchemaGenerator.__new__(SnowflakeSchemaGenerator)
+    gen.identifiers = MagicMock()
+    gen.identifiers.get_dataset_identifier_from_qualified_name = lambda n: n.lower()
+    gen.identifiers.gen_dataset_urn = lambda ident: f"urn:{ident}"
+    gen.filters = MagicMock()
+    gen.filters.is_dataset_pattern_allowed = lambda ident, domain: "src_b" not in ident
+
+    table = SnowflakeDynamicTable(
+        name="DT",
+        created=None,
+        last_altered=None,
+        size_in_bytes=0,
+        rows_count=0,
+        comment="",
+        is_dynamic=True,
+        type="DYNAMIC TABLE",
+        upstream_tables=[
+            SnowflakeDynamicTableInput("DB.SCHEMA.SRC_A", "Table"),
+            SnowflakeDynamicTableInput("DB.SCHEMA.SRC_B", "Table"),
+        ],
+    )
+
+    assert gen._dynamic_table_input_urns(table) == ["urn:db.schema.src_a"]
+
+
+def _make_gen_with_mocks():
+    gen = SnowflakeSchemaGenerator.__new__(SnowflakeSchemaGenerator)
+    gen.aggregator = MagicMock()
+    gen.report = MagicMock()
+    gen.identifiers = MagicMock()
+    gen.identifiers.get_dataset_identifier = lambda name, schema, db: (
+        f"{db}.{schema}.{name}".lower()
+    )
+    gen.identifiers.gen_dataset_urn = lambda ident: f"urn:{ident}"
+    gen.identifiers.get_dataset_identifier_from_qualified_name = lambda n: n.lower()
+    gen.filters = MagicMock()
+    gen.filters.is_dataset_pattern_allowed = lambda ident, domain: True
+    return gen
+
+
+def _dt(definition):
+    return SnowflakeDynamicTable(
+        name="DT",
+        created=None,
+        last_altered=None,
+        size_in_bytes=0,
+        rows_count=0,
+        comment="",
+        is_dynamic=True,
+        type="DYNAMIC TABLE",
+        definition=definition,
+        upstream_tables=[
+            SnowflakeDynamicTableInput("DB.SCHEMA.SRC_A", "Table"),
+            SnowflakeDynamicTableInput("DB.SCHEMA.SRC_B", "Table"),
+        ],
+    )
+
+
+def test_dynamic_table_with_definition_wires_inputs_as_fallback():
+    """A dynamic table WITH a definition passes its INPUTS to add_view_definition as the table-level
+    fallback (the schema-gen -> aggregator wiring for the parse-failure path)."""
+    gen = _make_gen_with_mocks()
+    gen._register_dynamic_table_upstreams(_dt("merge into self ..."), "DB", "SCHEMA")
+
+    gen.aggregator.add_view_definition.assert_called_once()
+    kwargs = gen.aggregator.add_view_definition.call_args.kwargs
+    assert kwargs["table_level_fallback_upstreams"] == [
+        "urn:db.schema.src_a",
+        "urn:db.schema.src_b",
+    ]
+    gen.aggregator.add_known_lineage_mapping.assert_not_called()
+
+
+def test_custom_incremental_dynamic_table_parses_extracted_merge():
+    """A CUSTOM_INCREMENTAL dynamic table wraps its MERGE in REFRESH USING(...), which sqlglot
+    can't parse inside CREATE DYNAMIC TABLE. We hand the extracted MERGE body to
+    add_view_definition instead of the unparseable full DDL, so real lineage is recovered."""
+    gen = _make_gen_with_mocks()
+    ddl = (
+        "create or replace dynamic table db.schema.dt (a) "
+        "target_lag='1 hour' refresh_mode=CUSTOM_INCREMENTAL warehouse=wh "
+        "refresh using (merge into self as tgt using (select a from db.schema.src_a) as src "
+        "on tgt.a=src.a when matched then update set tgt.a=src.a)"
+    )
+    gen._register_dynamic_table_upstreams(_dt(ddl), "DB", "SCHEMA")
+
+    view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
+        "view_definition"
+    ]
+    # `self` is normalized to the DT's qualified name (see the self-reference test below).
+    assert view_definition.lower().startswith("merge into db.schema.dt")
+    assert "refresh using" not in view_definition.lower()
+
+
+def test_non_custom_incremental_dynamic_table_definition_unchanged():
+    """A dynamic table without a REFRESH USING clause passes its definition through unchanged."""
+    gen = _make_gen_with_mocks()
+    definition = "create dynamic table db.schema.dt as select a from db.schema.src_a"
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    assert (
+        gen.aggregator.add_view_definition.call_args.kwargs["view_definition"]
+        == definition
+    )
+
+
+def test_refresh_using_with_non_merge_body_is_not_rewritten():
+    """Extraction fires only when the REFRESH USING body is a MERGE. A real (non-comment) REFRESH
+    USING whose body is not a MERGE is rejected by the merge-body guard, so the full definition passes
+    through unchanged. (Blanking of a decoy hidden in a comment/string is covered separately.)"""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL "
+        "refresh using (select a from db.schema.src_a)"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    assert (
+        gen.aggregator.add_view_definition.call_args.kwargs["view_definition"]
+        == definition
+    )
+
+
+def test_dynamic_table_comment_with_full_merge_does_not_hijack():
+    """A complete, valid MERGE hidden in a comment on an ordinary dynamic table must not be extracted
+    as the definition: the comment is blanked before the scan, so the real SELECT is kept and the
+    phantom upstream never appears."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create dynamic table db.schema.dt as select a from db.schema.real_src "
+        "-- refresh using (merge into arch using (select a from db.schema.phantom_src) s "
+        "on arch.a=s.a when matched then update set arch.a=s.a)"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    assert (
+        gen.aggregator.add_view_definition.call_args.kwargs["view_definition"]
+        == definition
+    )
+
+
+def test_dynamic_table_decoy_refresh_using_before_real_clause_uses_real_merge():
+    """A 'refresh using (' inside a COMMENT clause string before the real clause must be skipped (it
+    is blanked), so extraction returns the real MERGE instead of aborting to the full DDL."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt "
+        "comment='migrated: refresh using (legacy cron), see runbook' "
+        "refresh_mode=CUSTOM_INCREMENTAL warehouse=wh "
+        "refresh using (merge into self as tgt using (select a from db.schema.real_src) as src "
+        "on tgt.a=src.a when matched then update set tgt.a=src.a)"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
+        "view_definition"
+    ]
+    assert view_definition.lower().startswith("merge into db.schema.dt")
+    assert "real_src" in view_definition
+    assert "legacy cron" not in view_definition
+
+
+def test_dynamic_table_self_reference_normalized_to_qualified_name():
+    """`self` (the DT referring to itself) is rewritten to the DT's real qualified name before
+    add_view_definition -- as the MERGE target AND on the source side -- so the aggregator's
+    self-reference guards drop it instead of emitting a phantom `<db>.<schema>.self` upstream. Without
+    this, a source-side `self` leaks a nonexistent dataset into lineage (ING-3378)."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL warehouse=wh "
+        "refresh using (merge into self as tgt using ("
+        "select a from db.schema.src_a union all "
+        "select a from self where a not in (select a from db.schema.src_a)) as src "
+        "on tgt.a=src.a when matched then update set tgt.a=src.a)"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
+        "view_definition"
+    ].lower()
+    # both the target `self` and the source-side `from self` became the DT's qualified name
+    assert "into self" not in view_definition
+    assert "from self" not in view_definition
+    assert view_definition.count("db.schema.dt") == 2
+
+
+def test_dynamic_table_merge_with_unbalanced_paren_in_string_not_truncated():
+    """An unbalanced ')' inside a string literal in the MERGE body must not truncate extraction: the
+    string is blanked for the paren scan, so the body through the final clause is returned intact."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL warehouse=wh "
+        "refresh using (merge into self as tgt using (select a from db.schema.src_a) as src "
+        "on tgt.a=src.a when matched then update set tgt.note='unmatched paren )' "
+        "when not matched then insert (a) values (src.a))"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
+        "view_definition"
+    ]
+    assert "when not matched" in view_definition.lower()
+    assert "values (src.a)" in view_definition.lower()
+
+
+def test_dynamic_table_dollar_quoted_decoy_does_not_hijack():
+    """A `refresh using (merge into ...)` inside a $$-quoted string on an ordinary dynamic table must
+    not be extracted: dollar-quoted strings are blanked before the scan, so the real SELECT is kept."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create dynamic table db.schema.dt as select "
+        "$$refresh using (merge into arch using (select a from db.schema.phantom) s "
+        "on arch.a=s.a when matched then update set arch.a=s.a)$$ as note "
+        "from db.schema.real_src"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    assert (
+        gen.aggregator.add_view_definition.call_args.kwargs["view_definition"]
+        == definition
+    )
+
+
+def test_dynamic_table_quoted_self_identifier_not_rewritten():
+    """A double-quoted "self" is a user identifier, not the DT keyword, so self-normalization must
+    leave it untouched as a table reference, a column qualifier, and a column alias, while the bare
+    `self` target keyword is still rewritten to the DT's qualified name."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL warehouse=wh "
+        'refresh using (merge into self as tgt using (select "self".a as "self" from "self") s '
+        "on tgt.a=s.a when matched then update set tgt.a=s.a)"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
+        "view_definition"
+    ]
+    lowered = view_definition.lower()
+    assert lowered.startswith("merge into db.schema.dt")  # bare `self` target rewritten
+    assert (
+        'from "self"' in lowered
+    )  # quoted table reference preserved (not rewritten to the DT)
+    assert '"self".a' in view_definition  # quoted column qualifier preserved
+    assert 'as "self"' in lowered  # quoted column alias preserved
+    assert '"db.schema.dt"' not in view_definition
+
+
+def test_dynamic_table_unbalanced_paren_in_quoted_identifier_not_truncated():
+    """An unbalanced ')' inside a double-quoted identifier must not truncate extraction: quoted
+    identifiers are blanked for the paren scan, so the full MERGE body is returned."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL warehouse=wh "
+        'refresh using (merge into self t using (select a as "x)" from db.schema.src) s '
+        "on t.a=s.a when matched then update set t.a=s.a "
+        "when not matched then insert (a) values (s.a))"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
+        "view_definition"
+    ]
+    assert "when not matched" in view_definition.lower()
+    assert '"x)"' in view_definition  # the quoted identifier survived intact
+
+
+def test_dynamic_table_backslash_escaped_comment_decoy_uses_real_merge():
+    """A backslash-escaped quote inside a COMMENT (ordinary in "it's" / "user's") must not desync the
+    scan; the decoy `refresh using (...)` in the comment is ignored and the real clause is used."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL warehouse=wh "
+        r"comment='it\'s refresh using (merge into phantom using (select 1 a) x on 1=1)' "
+        "refresh using (merge into self as tgt using (select a from db.schema.real_src) s "
+        "on tgt.a=s.a when matched then update set tgt.a=s.a)"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
+        "view_definition"
+    ]
+    assert "real_src" in view_definition
+    assert "phantom" not in view_definition
+
+
+def test_dynamic_table_unterminated_string_falls_back_to_full_definition():
+    """Malformed DDL (an unterminated string) makes the tokenizer raise; extraction returns None and
+    the caller falls back to the full definition instead of crashing."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL "
+        "refresh using (merge into self using (select a from db.schema.src where note='oops "
+        "never closes) s on 1=1)"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    assert (
+        gen.aggregator.add_view_definition.call_args.kwargs["view_definition"]
+        == definition
+    )
+
+
+def test_dynamic_table_self_reference_with_special_char_name_is_quoted():
+    """A DT whose name needs Snowflake quoting (a hyphen here) must still yield parseable normalized
+    SQL: the AST rewrite emits the name quoted, so column lineage is recovered instead of the parse
+    failing and dropping to the INPUTS fallback (cursor Finding 1)."""
+    gen = _make_gen_with_mocks()
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL "
+        "refresh using (merge into self as tgt using (select a from db.schema.src_a) as src "
+        "on tgt.a=src.a when matched then update set tgt.a=src.a)"
+    )
+    dt = _dt(definition)
+    dt.name = "weird-table"
+    gen._register_dynamic_table_upstreams(dt, "DB", "SCHEMA")
+
+    view_definition = gen.aggregator.add_view_definition.call_args.kwargs[
+        "view_definition"
+    ]
+    assert '"weird-table"' in view_definition  # emitted quoted
+    assert "into self" not in view_definition.lower()  # self rewritten to the real name
+    sqlglot.parse_one(
+        view_definition, dialect="snowflake"
+    )  # parses (an unquoted hyphen would not)
+
+
+def test_dynamic_table_without_definition_wires_inputs_as_known_lineage():
+    """A dynamic table WITHOUT a definition emits its INPUTS via add_known_lineage_mapping and does
+    not call add_view_definition."""
+    gen = _make_gen_with_mocks()
+    gen._register_dynamic_table_upstreams(_dt(None), "DB", "SCHEMA")
+
+    gen.aggregator.add_view_definition.assert_not_called()
+    got = [
+        c.kwargs["upstream_urn"]
+        for c in gen.aggregator.add_known_lineage_mapping.call_args_list
+    ]
+    assert got == ["urn:db.schema.src_a", "urn:db.schema.src_b"]
+
+
+def test_process_tables_collects_dynamic_table_identifiers():
+    """_process_tables records dynamic-table identifiers (handed to the queries extractor to suppress
+    their query-log lineage), and does so regardless of include_technical_schema."""
+    gen = _make_gen_with_mocks()
+    gen.config = MagicMock()
+    gen.config.include_technical_schema = (
+        False  # skip the gated body; only collection runs
+    )
+    gen.dynamic_table_identifiers = set()
+
+    dynamic = _dt("select 1")  # SnowflakeDynamicTable named "DT"
+    regular = MagicMock()  # not a SnowflakeDynamicTable
+
+    list(
+        gen._process_tables(
+            [dynamic, regular],
+            snowflake_schema=MagicMock(),
+            db_name="DB",
+            schema_name="SCH",
+        )
+    )
+
+    assert gen.dynamic_table_identifiers == {"db.sch.dt"}
+
+
+def test_process_tables_registers_lineage_without_technical_schema():
+    """Dynamic-table definition/INPUTS lineage is registered even when include_technical_schema is
+    False (mirroring views). Otherwise a lineage-only run suppresses the DT's query-log rows but gives
+    it no upstreams at all."""
+    gen = _make_gen_with_mocks()
+    gen.config = MagicMock()
+    gen.config.include_technical_schema = False
+    gen.dynamic_table_identifiers = set()
+
+    list(
+        gen._process_tables(
+            [_dt("select 1")],
+            snowflake_schema=MagicMock(),
+            db_name="DB",
+            schema_name="SCHEMA",
+        )
+    )
+
+    # Lineage was registered despite the technical-schema gate being off.
+    gen.aggregator.add_view_definition.assert_called_once()
+
+
+def test_process_tables_one_failing_dynamic_table_does_not_abort_siblings():
+    """A failure registering one dynamic table's lineage is caught and reported, so sibling tables in
+    the same schema are still processed -- the loop runs inside a ThreadedIteratorExecutor worker where
+    an unhandled error would abort the whole schema scan."""
+    gen = _make_gen_with_mocks()
+    gen.config = MagicMock()
+    gen.config.include_technical_schema = False
+    gen.dynamic_table_identifiers = set()
+
+    bad = _dt("boom")
+    good = _dt("select 1")
+    good.name = "GOOD_DT"
+    attempted = []
+
+    def fake_register(dt, db, schema):
+        attempted.append(dt.name)
+        if dt is bad:
+            raise ValueError("boom")
+
+    gen._register_dynamic_table_upstreams = fake_register
+
+    list(
+        gen._process_tables(
+            [bad, good],
+            snowflake_schema=MagicMock(),
+            db_name="DB",
+            schema_name="SCHEMA",
+        )
+    )
+
+    assert attempted == [
+        "DT",
+        "GOOD_DT",
+    ]  # sibling still processed after the first raised
+    gen.report.warning.assert_called_once()  # structured_reporter is a property over self.report
+    warn = gen.report.warning.call_args
+    assert (
+        warn.args[1] == "DB.SCHEMA.DT"
+    )  # the failed table is named, not the surviving sibling
+    assert isinstance(
+        warn.kwargs.get("exc"), ValueError
+    )  # the traceback is forwarded, not dropped
+
+
+def test_source_wires_dynamic_table_identifiers_into_queries_extractor():
+    """The source hands schema-gen's collected dynamic_table_identifiers to the queries extractor as
+    dynamic_table_identifiers, the seam that connects dynamic-table discovery to query-log suppression. A
+    refactor that drops or renames this kwarg would pass every other unit test and silently disable
+    suppression, so pin it here."""
+    from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+
+    src = SnowflakeV2Source.__new__(SnowflakeV2Source)
+    src.connection = MagicMock()
+    src.config = MagicMock()
+    src.report = MagicMock()
+    src.filters = MagicMock()
+    src.identifiers = MagicMock()
+    src.discovered_datasets = []
+    src.ctx = MagicMock()
+
+    schema_extractor = MagicMock()
+    schema_extractor.dynamic_table_identifiers = {"db.schema.dt"}
+
+    base = "datahub.ingestion.source.snowflake.snowflake_v2"
+    with (
+        patch(f"{base}.SnowflakeQueriesExtractor") as mock_qe,
+        patch(f"{base}.SnowflakeQueriesExtractorConfig"),
+        patch(f"{base}.BaseTimeWindowConfig"),
+    ):
+        src._create_queries_extractor(MagicMock(), None, schema_extractor)
+
+    assert mock_qe.call_args.kwargs["dynamic_table_identifiers"] == {"db.schema.dt"}
+
+
+def test_register_dynamic_table_excludes_self_from_inputs():
+    """INPUTS that list the dynamic table itself (e.g. a MERGE INTO SELF definition) must not become a
+    self-loop upstream. Uses a real SnowflakeIdentifierBuilder so the filter is exercised against the
+    genuine normalization of both forms -- the DT's own name via get_dataset_identifier and the INPUTS
+    name via get_dataset_identifier_from_qualified_name -- rather than two stubs forced to agree."""
+    gen = _make_gen_with_mocks()
+    gen.identifiers = SnowflakeIdentifierBuilder(
+        identifier_config=SnowflakeIdentifierConfig(),
+        structured_reporter=SourceReport(),
+    )
+    table = SnowflakeDynamicTable(
+        name="DT",
+        created=None,
+        last_altered=None,
+        size_in_bytes=0,
+        rows_count=0,
+        comment="",
+        is_dynamic=True,
+        type="DYNAMIC TABLE",
+        definition="select 1",
+        upstream_tables=[
+            SnowflakeDynamicTableInput("DB.SCHEMA.DT", "Table"),  # the table itself
+            SnowflakeDynamicTableInput("DB.SCHEMA.SRC_A", "Table"),
+        ],
+    )
+
+    gen._register_dynamic_table_upstreams(table, db_name="DB", schema_name="SCHEMA")
+
+    fallback = gen.aggregator.add_view_definition.call_args.kwargs[
+        "table_level_fallback_upstreams"
+    ]
+    ids = gen.identifiers
+    dt_urn = ids.gen_dataset_urn(ids.get_dataset_identifier("DT", "SCHEMA", "DB"))
+    src_urn = ids.gen_dataset_urn(
+        ids.get_dataset_identifier_from_qualified_name("DB.SCHEMA.SRC_A")
+    )
+    assert (
+        dt_urn not in fallback
+    )  # self-loop dropped via real-identifier reconciliation
+    assert fallback == [src_urn]
+
+
+def test_self_reference_dropped_end_to_end_through_real_aggregator():
+    """A self-referencing CUSTOM_INCREMENTAL DT, run through a real SqlParsingAggregator, must yield
+    exactly its base table with column lineage. The framework self-guard fails open on URN drift, so
+    the connector and framework halves tested in isolation can both pass while the headline bug
+    regresses."""
+    ids = SnowflakeIdentifierBuilder(
+        identifier_config=SnowflakeIdentifierConfig(),
+        structured_reporter=SourceReport(),
+    )
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        query_log=QueryLogSetting.STORE_ALL,
+    )
+    gen = _make_gen_with_mocks()
+    gen.identifiers = ids
+    gen.aggregator = aggregator
+    definition = (
+        "create or replace dynamic table db.schema.dt refresh_mode=CUSTOM_INCREMENTAL "
+        "refresh using (merge into self as tgt using ("
+        "select a, b from db.schema.src_a union all "
+        "select a, b from self where a not in (select a from db.schema.src_a)) as src "
+        "on tgt.a = src.a when matched then update set tgt.b = src.b "
+        "when not matched then insert (a, b) values (src.a, src.b))"
+    )
+    gen._register_dynamic_table_upstreams(_dt(definition), "DB", "SCHEMA")
+
+    dt_urn = ids.gen_dataset_urn(ids.get_dataset_identifier("DT", "SCHEMA", "DB"))
+    src_a_urn = ids.gen_dataset_urn(
+        ids.get_dataset_identifier_from_qualified_name("DB.SCHEMA.SRC_A")
+    )
+    upstreams = None
+    fine_grained = 0
+    for mcp in aggregator.gen_metadata():
+        if getattr(mcp, "entityUrn", None) != dt_urn:
+            continue
+        aspect = getattr(mcp, "aspect", None)
+        if isinstance(aspect, UpstreamLineageClass):
+            upstreams = {u.dataset for u in aspect.upstreams}
+            fine_grained = len(aspect.fineGrainedLineages or [])
+    assert upstreams is not None
+    # Exact set catches both a self-loop (db.schema.dt) and the phantom db.schema.self that an
+    # un-normalized `self` would resolve to.
+    assert upstreams == {src_a_urn}
+    assert fine_grained > 0  # column lineage recovered from the extracted MERGE
+
+
+def test_normalize_self_reference_rewrites_bare_column_qualifier():
+    """A bare `self.a` column qualifier (self not aliased) is rewritten to the DT's qualified name."""
+    out = _normalize_self_reference(
+        "merge into x as t using (select self.a from self) as s "
+        "on t.a = s.a when matched then update set t.a = s.a",
+        "db.schema.dt",
+    ).lower()
+    assert "self.a" not in out
+    assert "db.schema.dt.a" in out
+
+
+def test_normalize_self_reference_returns_body_unchanged_when_unparseable():
+    """An unparseable body is returned unchanged, so the caller falls back to INPUTS lineage."""
+    body = "merge into self using ("
+    assert _normalize_self_reference(body, "db.schema.dt") == body
+
+
+def test_extract_custom_incremental_merge_unbalanced_parens_returns_none():
+    """A REFRESH USING ( whose parenthesis never closes (truncated DDL) yields None, not a slice."""
+    definition = (
+        "create dynamic table db.schema.dt refresh using "
+        "(merge into self using (select a from db.schema.src"
+    )
+    assert _extract_custom_incremental_merge(definition) is None

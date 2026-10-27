@@ -6,7 +6,6 @@ import com.linkedin.datahub.upgrade.system.semanticsearch.CopyDocumentsToSemanti
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,7 +22,6 @@ public class CopyDocumentsToSemanticIndicesConfig {
   @Bean(name = "copyDocumentsToSemanticIndices")
   public BlockingSystemUpgrade copyDocumentsToSemanticIndices(
       @Qualifier("systemOperationContext") final OperationContext opContext,
-      final SearchClientShim<?> searchClient,
       final EntityService<?> entityService,
       final ConfigurationProvider configurationProvider,
       final IndexConvention indexConvention,
@@ -31,7 +29,6 @@ public class CopyDocumentsToSemanticIndicesConfig {
 
     return new CopyDocumentsToSemanticIndices(
         opContext,
-        searchClient,
         entityService,
         configurationProvider.getElasticSearch().getEntityIndex().getSemanticSearch(),
         indexConvention,

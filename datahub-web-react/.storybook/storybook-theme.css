@@ -70,7 +70,6 @@ body {
 
 .sb-bar {
 	box-shadow: none !important;
-	border-bottom: 1px solid hsla(203, 50%, 30%, 0.15) !important;
 }
 
 .sbdocs-preview,
@@ -86,6 +85,9 @@ body {
 	margin: 1rem 0 !important;
 }
 
+/* Colors are intentionally omitted throughout this file: it is loaded in both the
+   manager and the preview, so any hardcoded value overrides whichever theme is
+   active. Layout-only rules belong here; colors come from the Storybook themes. */
 .sidebar-item,
 .sidebar-item[data-selected="true"] {
 	height: 32px !important;
@@ -95,11 +97,6 @@ body {
 	padding: 6px 12px !important;
 	font-size: 15px !important;
 	margin-bottom: 4px !important;
-	color: #000 !important;
-}
-
-.sidebar-item:hover {
-	background-color: #eff8fc !important;
 }
 
 .sidebar-item>a {
@@ -140,17 +137,8 @@ body {
 	content: '→' !important;
 }
 
-[data-nodetype="document"][data-parent-id]:hover,
-[data-nodetype="story"][data-parent-id]:hover,
-[data-nodetype="document"][data-parent-id][data-selected="true"]:hover,
-[data-nodetype="story"][data-parent-id][data-selected="true"]:hover {
-	background-color: #fff !important;
-	color: #4da1bf !important;
-}
-
 [data-nodetype="document"][data-parent-id][data-selected="true"],
 [data-nodetype="story"][data-parent-id][data-selected="true"] {
-	background-color: #fff !important;
 	height: 18px !important;
 	min-height: auto !important;
 	font-weight: 400 !important;
@@ -176,7 +164,6 @@ li:has(a[href="#sandbox"]) {
 
 [data-nodetype="component"][aria-expanded="true"],
 [data-nodetype="document"][data-selected="true"] {
-	color: #000 !important;
 	background-color: transparent !important;
 	font-weight: 700 !important;
 }
@@ -185,16 +172,10 @@ li:has(a[href="#sandbox"]) {
 	background-color: transparent !important;
 }
 
-[data-nodetype="document"][data-selected="true"],
-[data-nodetype="document"][data-parent-id][data-selected="true"] {
-	color: #4da1bf !important;
-}
-
 .sidebar-subheading {
 	font-size: 12px !important;
 	font-weight: 600 !important;
 	letter-spacing: 1px !important;
-	color: #a9adbd !important;
 }
 
 .sbdocs-wrapper {
@@ -204,7 +185,6 @@ li:has(a[href="#sandbox"]) {
 table,
 tr,
 tbody>tr>* {
-	border-color: hsla(203, 50%, 30%, 0.15) !important;
 	background-color: transparent;
 }
 
@@ -228,9 +208,6 @@ h2#stories {
 	border-bottom: none !important
 }
 
-.tabbutton.tabbutton-active {
-	color: rgb(120, 201, 230) !important;
-}
 
 .toc-wrapper {
 	margin-top: -2.5rem !important;

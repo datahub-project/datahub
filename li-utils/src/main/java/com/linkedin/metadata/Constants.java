@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 /** Static class containing commonly-used constants across DataHub services. */
 public class Constants {
@@ -13,6 +14,8 @@ public class Constants {
   // Use on specific MCP to request an synchronous index update avoid the kafka lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
+  // MCP header carrying the caller of a queued write; only trusted from system writers.
+  public static final String ATTRIBUTED_ACTOR_HEADER_NAME = "X-DataHub-Attributed-Actor";
 
   public static final String URN_LI_PREFIX = "urn:li:";
 
@@ -135,6 +138,7 @@ public class Constants {
   public static final String METRIC_INFO_ASPECT_NAME = "metricInfo";
   public static final String METRIC_RELATIONSHIPS_ASPECT_NAME = "metricRelationships";
   public static final String METRIC_UPSTREAMS_ASPECT_NAME = "metricUpstreams";
+  public static final String UPSTREAM_METRICS_ASPECT_NAME = "upstreamMetrics";
   public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
   public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
   public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
@@ -189,6 +193,10 @@ public class Constants {
   public static final String GLOBAL_TAGS_ASPECT_NAME = "globalTags";
   public static final String GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms";
   public static final String STATUS_ASPECT_NAME = "status";
+  // Lifecycle stage urns. Stages are defined in
+  // metadata-service/configuration/src/main/resources/bootstrap_mcps/lifecycle-stages.yaml.
+  public static final String LIFECYCLE_STAGE_TYPE_URN_PREFIX = "urn:li:lifecycleStageType:";
+  public static final String DRAFT_LIFECYCLE_STAGE_URN = LIFECYCLE_STAGE_TYPE_URN_PREFIX + "DRAFT";
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String OPERATION_ASPECT_NAME = "operation";
@@ -499,6 +507,7 @@ public class Constants {
 
   // Relationships
   public static final String IS_PART_OF_RELATIONSHIP_NAME = "IsPartOf";
+  public static final String APPLICATION_PART_OF_RELATIONSHIP_NAME = "ApplicationPartOf";
   public static final String IS_CHILD_OF_RELATIONSHIP_NAME = "IsChildOf";
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
@@ -567,6 +576,36 @@ public class Constants {
       "dataHubPageTemplateProperties";
   public static final String DATAHUB_PAGE_TEMPLATE_KEY_ASPECT_NAME = "dataHubPageTemplateKey";
 
+  // Search query templates
+  public static final String SEARCH_TEMPLATE_ENTITY_NAME = "searchTemplate";
+  public static final String SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME = "searchTemplateProperties";
+  public static final String SEARCH_TEMPLATE_KEY_ASPECT_NAME = "searchTemplateKey";
+  public static final String SEARCH_TEMPLATE_FULLTEXT_URN = "urn:li:searchTemplate:fulltext";
+  public static final String SEARCH_TEMPLATE_LIGHT_URN = "urn:li:searchTemplate:light";
+  public static final String SEARCH_TEMPLATE_LIST_URN = "urn:li:searchTemplate:list";
+  public static final String SEARCH_TEMPLATE_LIST_BY_URN_URN = "urn:li:searchTemplate:listUrn";
+  public static final String SEARCH_TEMPLATE_STRUCTURED_URN = "urn:li:searchTemplate:structured";
+  public static final String SEARCH_TEMPLATE_EXACT_URN = "urn:li:searchTemplate:exact";
+  public static final String SEARCH_TEMPLATE_STRUCTURED_EXACT_URN =
+      "urn:li:searchTemplate:structuredExact";
+  public static final String SEARCH_TEMPLATE_IDENTITY_URN = "urn:li:searchTemplate:identity";
+  public static final String SEARCH_TEMPLATE_SEARCH_URN = "urn:li:searchTemplate:search";
+  public static final String SEARCH_TEMPLATE_AUTOCOMPLETE_URN =
+      "urn:li:searchTemplate:autocomplete";
+  public static final Set<String> SEARCH_TEMPLATE_SYSTEM_IDS =
+      Set.of(
+          "fulltext",
+          "light",
+          "list",
+          "listUrn",
+          "structured",
+          "exact",
+          "structuredExact",
+          "identity",
+          "search",
+          "searchLight",
+          "autocomplete");
+
   // Module
   public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";
   public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
@@ -629,6 +668,8 @@ public class Constants {
 
   // Index names
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
+  public static final String GRAPH_SERVICE_INDEX = "graph_service_v1";
+  public static final String SYSTEM_METADATA_SERVICE_INDEX = "system_metadata_service_v1";
 
   // Logging MDC
   public static final String MDC_ENTITY_URN = "entityUrn";
@@ -641,6 +682,16 @@ public class Constants {
       "DataHub is currently in read only mode and this write will be dropped.";
 
   public static final String RESTLI_SUCCESS = "success";
+
+  // The emit-mode marker is the same system-metadata key/value convention already
+  // published by the Python REST emitter (EMIT_MODE_MARKER_KEY /
+  // EMIT_MODE_MARKER_SYNC in datahub.emitter.request_helper): a per-MCP marker
+  // that pins a write to synchronous routing regardless of the caller's
+  // configured emit mode. Stamping it server-side (rather than requiring a producer
+  // to set it directly) lets externally-originated sync writes propagate that pin
+  // through MCL -> platform events -> downstream event consumers.
+  public static final String EMIT_MODE_MARKER_KEY = "emitModeMarker";
+  public static final String EMIT_MODE_MARKER_SYNC = "sync";
 
   // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
   // EntityPrivilegesResolver

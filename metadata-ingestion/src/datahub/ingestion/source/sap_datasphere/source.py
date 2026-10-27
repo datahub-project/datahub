@@ -1,7 +1,20 @@
 import itertools
 import json
 import logging
-from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Set, Type, Union
+from typing import (
+    Callable,
+    ClassVar,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import requests
 
@@ -37,6 +50,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.sap_common.labels import description_from_source_label
 from datahub.ingestion.source.sap_common.models import (
     EdmxParseResult,
     UnknownColumnType,
@@ -58,6 +72,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES,
     CSN_ANN_AGGREGATION_DEFAULT,
     CSN_ANN_MEASURE_TYPE,
+    CSN_ATTR_LABEL,
     CSN_KEY_BUSINESS_LAYER,
     CSN_KEY_DEFINITIONS,
     CSN_KEY_ELEMENTS,
@@ -88,6 +103,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     PROP_SPACE_NAME,
     PROP_VALUE_FALSE,
     PROP_VALUE_TRUE,
+    SAP_OBJECT_NAMESPACE,
     SCALE_WARNING_URN_THRESHOLD,
     SCHEMA_FIELD_URN_PREFIX,
     SEMANTIC_CURRENCY,
@@ -100,16 +116,20 @@ from datahub.ingestion.source.sap_datasphere.csn_parser import (
 )
 from datahub.ingestion.source.sap_datasphere.edmx_parser import EdmxParser
 from datahub.ingestion.source.sap_datasphere.flows import parse_flow
+from datahub.ingestion.source.sap_datasphere.formula import (
+    extract_calculated_column_formulas,
+    make_description_with_formula,
+)
 from datahub.ingestion.source.sap_datasphere.graph_resolver import (
     ExternalUrnGraphResolver,
 )
 from datahub.ingestion.source.sap_datasphere.lineage import (
     CsnLineageExtractor,
-    is_qualified,
     parse_remote_table_source,
 )
 from datahub.ingestion.source.sap_datasphere.models import (
     AssetCsn,
+    CatalogListing,
     ColumnLineageContext,
     ColumnLineagePair,
     CsnSchemaResult,
@@ -118,6 +138,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     FlowEndpoint,
     FlowTask,
     JsonDict,
+    ObjectLocator,
     ParsedFlow,
     ResolvedPlatform,
     ResolveSkipReason,
@@ -125,6 +146,7 @@ from datahub.ingestion.source.sap_datasphere.models import (
     TransformOp,
     UpstreamRef,
     dedup_preserving_order,
+    is_sap_generated_object,
 )
 from datahub.ingestion.source.sap_datasphere.platform_mapping import (
     PlatformMappingResolver,
@@ -184,7 +206,10 @@ _FLOW_EMITTED_ATTR: Dict[str, str] = {
 }
 
 
-def _chunked(iterable: Iterable[Dict], size: int) -> Iterator[List[Dict]]:
+_T = TypeVar("_T")
+
+
+def _chunked(iterable: Iterable[_T], size: int) -> Iterator[List[_T]]:
     # Lazy chunking keeps peak memory bounded: only the current chunk is materialized.
     iterator = iter(iterable)
     while True:
@@ -204,6 +229,14 @@ _JOB_SUBTYPE_BY_FLOW: Dict[DataFlowSubTypes, DataJobSubTypes] = {
 }
 
 
+def _space_name(space: object) -> Optional[str]:
+    if isinstance(space, dict):
+        name = space.get(CATALOG_FIELD_NAME)
+        if isinstance(name, str) and name:
+            return name
+    return None
+
+
 @platform_name("SAP Datasphere")
 @config_class(SapDatasphereConfig)
 @support_status(SupportStatus.ALPHA)
@@ -215,7 +248,10 @@ _JOB_SUBTYPE_BY_FLOW: Dict[DataFlowSubTypes, DataJobSubTypes] = {
     "Per-connection platform_instance via connection_to_platform_map",
 )
 @capability(SourceCapability.CONTAINERS, "Spaces emitted as containers")
-@capability(SourceCapability.SCHEMA_METADATA, "Columns from OData EDMX")
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Columns from OData EDMX; CSN elements when an asset has no consumption URL",
+)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Field descriptions from EDMX Common.Label annotations",
@@ -277,10 +313,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # resolution; stays None when the feature is off or no graph is available.
         self._graph_resolver: Optional[ExternalUrnGraphResolver] = None
         self._graph_resolver_unavailable_warned = False
-        # Source object (space-qualified name) -> {column: typed SchemaField}, used
-        # to copy scalar types into analytic-model elements (which carry none). One
-        # CSN fetch per distinct source object, reused across analytic models.
+        # `space.name` of a source object -> {column: typed SchemaField}; copies
+        # scalar types into analytic-model elements, which carry none. One CSN
+        # fetch per distinct source object, reused across analytic models.
         self._source_field_type_cache: Dict[str, Dict[str, SchemaFieldClass]] = {}
+        self._reported_sap_refs: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SapDatasphereSource":
@@ -317,12 +354,20 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 context=str(e),
             )
 
-    def _safe_list_assets(self, space_name: str) -> Iterator[Dict]:
+    def _safe_list_assets(
+        self, space_name: str, listing: CatalogListing
+    ) -> Iterator[Dict]:
         # Soften transport errors into a warning so one space's outage doesn't
         # abort the run.
         try:
-            yield from self._client.list_assets(space_name)
+            for asset in self._client.list_assets(space_name):
+                if isinstance(asset, dict) and asset.get(CATALOG_FIELD_NAME):
+                    listing.dataset_names.add(
+                        self._build_dataset_name(space_name, asset[CATALOG_FIELD_NAME])
+                    )
+                yield asset
         except requests.RequestException as e:
+            listing.failed = True
             self.report.warning(
                 title="Failed to list assets in space",
                 message=(
@@ -358,14 +403,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self._sap_tags_emitted = True
 
         for space in self._safe_list_spaces():
-            if not isinstance(space, dict) or not space.get(CATALOG_FIELD_NAME):
+            space_name = _space_name(space)
+            if space_name is None:
                 self.report.warning(
                     title="Skipped malformed Datasphere space record",
                     message="Space record from catalog API is missing the 'name' field; skipping.",
                     context=str(space),
                 )
                 continue
-            space_name: str = space[CATALOG_FIELD_NAME]
             space_label: str = space.get(CATALOG_FIELD_LABEL) or space_name
             self.report.spaces_scanned += 1
             if not self.config.space_pattern.allowed(space_name):
@@ -383,7 +428,17 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
             try:
                 yield from self._emit_space(space_name, space_label)
-                yield from self._emit_assets_in_space(space_name)
+                catalog = CatalogListing()
+                yield from self._emit_assets_in_space(space_name, catalog)
+
+                if (
+                    self.config.discover_unexposed_views
+                    and not self.config.expose_for_consumption_only
+                    and not catalog.failed
+                ):
+                    yield from self._emit_non_consumption_views_for_space(
+                        space_name, catalog.dataset_names
+                    )
 
                 if self.config.include_local_tables:
                     yield from self._emit_local_tables_for_space(space_name)
@@ -405,7 +460,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # overwrites between flows writing the same target.
         yield from self._emit_flow_downstream_lineage()
 
-    def _emit_assets_in_space(self, space_name: str) -> Iterable[MetadataWorkUnit]:
+    def _emit_assets_in_space(
+        self, space_name: str, catalog: CatalogListing
+    ) -> Iterable[MetadataWorkUnit]:
         def _emit_asset_with_isolation(
             asset: JsonDict,
         ) -> Iterable[MetadataWorkUnit]:
@@ -429,20 +486,77 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     context=f"{space_name}.{asset_name}: {type(e).__name__}: {e}",
                 )
 
+        yield from self._run_asset_workers(
+            _emit_asset_with_isolation,
+            ((asset,) for asset in self._safe_list_assets(space_name, catalog)),
+        )
+
+    def _run_asset_workers(
+        self,
+        worker_func: Callable[..., Iterable[MetadataWorkUnit]],
+        args_list: Iterable[tuple],
+    ) -> Iterable[MetadataWorkUnit]:
         if self.config.max_workers_assets > 1:
             # Bounded chunks cap peak memory at ~asset_batch_size live tasks
             # (ThreadedIteratorExecutor otherwise submits every task up front).
-            for chunk in _chunked(
-                self._safe_list_assets(space_name), self.config.asset_batch_size
-            ):
+            for chunk in _chunked(args_list, self.config.asset_batch_size):
                 yield from ThreadedIteratorExecutor.process(
-                    worker_func=_emit_asset_with_isolation,
-                    args_list=((asset,) for asset in chunk),
+                    worker_func=worker_func,
+                    args_list=chunk,
                     max_workers=self.config.max_workers_assets,
                 )
         else:
-            for asset in self._safe_list_assets(space_name):
-                yield from _emit_asset_with_isolation(asset)
+            for args in args_list:
+                yield from worker_func(*args)
+
+    def _emit_non_consumption_views_for_space(
+        self, space_name: str, catalog_dataset_names: Set[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit design-time Views / Analytic Models missing from the catalog."""
+        # Skip by catalog dataset name, not emitted URN: a federated catalog View
+        # lives on its remote platform's URN, and skipped catalog assets have none.
+        # Neither may be re-emitted here as non-consumption. Routing (and any
+        # unmapped-connection skip) is decided per object by _emit_asset.
+        pending: List[Tuple[str, str, bool]] = []
+        for object_type, is_analytic in (
+            (OBJECT_TYPE_VIEWS, False),
+            (OBJECT_TYPE_ANALYTIC_MODELS, True),
+        ):
+            entries = self._safe_list_objects(
+                space_name,
+                object_type,
+                entity_label=object_type,
+                impact=(
+                    f"unexposed {object_type} in this space will remain "
+                    f"dangling lineage targets."
+                ),
+            )
+            for technical_name in self._iter_allowed_technical_names(entries or []):
+                dataset_name = self._build_dataset_name(space_name, technical_name)
+                if dataset_name not in catalog_dataset_names:
+                    pending.append((object_type, technical_name, is_analytic))
+
+        def _emit_design_time_object(
+            object_type: str, technical_name: str, is_analytic: bool
+        ) -> Iterable[MetadataWorkUnit]:
+            asset: JsonDict = {
+                CATALOG_FIELD_NAME: technical_name,
+                CATALOG_FIELD_LABEL: technical_name,
+                CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES: is_analytic,
+            }
+            # _emit_asset yields nothing when it skips, so any workunit means the
+            # dataset was emitted. Tracked per worker, not via a shared counter.
+            emitted = False
+            for wu in self._isolate(
+                f"{space_name}.{object_type}.{technical_name}",
+                self._emit_asset(space_name, asset),
+            ):
+                emitted = True
+                yield wu
+            if emitted:
+                self.report.non_consumption_views_emitted += 1
+
+        yield from self._run_asset_workers(_emit_design_time_object, pending)
 
     def _emit_local_tables_for_space(
         self, space_name: str
@@ -1276,21 +1390,40 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[List[SchemaFieldClass]]:
         # Prefer the relational EDMX schema; fall back to the CSN elements map for
         # analytic models, which expose no relational metadata URL for EDMX.
+        fields: Optional[List[SchemaFieldClass]]
         if parse_result is not None and parse_result.fields:
             self.report.assets_schema_fetched += 1
-            return self._decorate_fields(parse_result)
-        if csn_def is not None:
-            return self._schema_fields_from_csn(space_name, asset_name, csn_def)
-        return None
+            fields = self._decorate_fields(parse_result)
+        elif csn_def is not None:
+            fields = self._schema_fields_from_csn(space_name, asset_name, csn_def)
+        else:
+            return None
+        # Formulas live in the CSN even when the schema came from EDMX, so decorate
+        # on both paths. The field list is already column_pattern-filtered here.
+        # Skip SQL-editor views: their body is raw SQL, not a CQN tree to render.
+        if fields and csn_def is not None and not csn_def.get(CSN_KEY_SQL_EDITOR_QUERY):
+            self._apply_calculated_column_formulas(
+                space_name, asset_name, csn_def, fields
+            )
+        return fields
 
     def _fetch_asset_csn(
-        self, space_name: str, asset: JsonDict, asset_name: str
+        self,
+        space_name: str,
+        asset: JsonDict,
+        asset_name: str,
+        *,
+        require_csn: bool = False,
     ) -> AssetCsn:
-        # Fetch the View / Analytic Model CSN (for lineage, view definitions, or
-        # @remote.source detection) and resolve the routing connection.
+        # CSN is used for lineage, view definitions, schema without EDMX, and
+        # @remote.source routing.
         csn_obj: Optional[JsonDict] = None
         csn_def: Optional[JsonDict] = None
-        if self.config.include_lineage or self.config.include_view_definitions:
+        if (
+            require_csn
+            or self.config.include_lineage
+            or self.config.include_view_definitions
+        ):
             object_type = (
                 OBJECT_TYPE_ANALYTIC_MODELS
                 if asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES)
@@ -1356,6 +1489,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
         asset_name: str = asset_name_opt
+        # Display name: the catalog's own label, falling back to the technical name.
         asset_label: str = asset.get(CATALOG_FIELD_LABEL) or asset_name
         self.report.assets_scanned += 1
 
@@ -1368,7 +1502,12 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.assets_filtered += 1
             return
 
-        asset_csn = self._fetch_asset_csn(space_name, asset, asset_name)
+        asset_csn = self._fetch_asset_csn(
+            space_name,
+            asset,
+            asset_name,
+            require_csn=not bool(metadata_url),
+        )
         csn_obj = asset_csn.csn_obj
         csn_def = asset_csn.csn_def
         connection_name = asset_csn.connection_name
@@ -1389,14 +1528,20 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         if metadata_url:
             parse_result = self._parse_schema(space_name, asset_name, metadata_url)
 
-        description: Optional[str] = None
         custom_properties = self._base_asset_custom_properties(
             space_name, asset_name, asset, metadata_url
         )
         if parse_result is not None:
-            if parse_result.entity_label:
-                description = parse_result.entity_label
             custom_properties.update(parse_result.entity_custom_props)
+
+        source_label = (
+            parse_result.entity_label if parse_result is not None else None
+        ) or (csn_def.get(CSN_ATTR_LABEL) if csn_def is not None else None)
+        # The display name is the catalog label (or the technical name when the catalog
+        # has none); the EDMX/CSN business label is the dataset's description, suppressed
+        # when it just repeats that name. Keeping the label out of the name avoids
+        # surfacing SAP's auto-generated projection labels as the asset title.
+        description = description_from_source_label(source_label, asset_label)
 
         if asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES):
             sub_type: str = DatasetSubTypes.SAP_ANALYTICAL_MODEL
@@ -1517,10 +1662,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _business_layer_upstream_urn(self, space_name: str, key: str) -> str:
-        # Bare same-space BL keys need the AM's space; dotted keys are already
-        # space-qualified (same heuristic as query-FROM lineage).
         return self._qualified_upstream_urn(
-            key if is_qualified(key) else f"{space_name}.{key}"
+            self._locate(key, space_name).qualified_name
         )
 
     def _apply_business_layer_guarded(
@@ -1660,7 +1803,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             if association_targets:
                 self.report.association_upstreams_emitted += len(association_targets)
                 # A ref in both FROM and an association resolves to the same URN,
-                # so dedup by name (qualified refs already in upstream_refs win).
+                # so dedup by name; FROM refs come first.
                 existing = {ref.name for ref in upstream_refs}
                 upstream_refs.extend(
                     ref for ref in association_targets if ref.name not in existing
@@ -1715,13 +1858,13 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         upstreams: List[UpstreamClass] = []
         upstream_urn_by_name: Dict[str, str] = {}
         for ref in upstream_refs:
-            if ref.qualified:
-                # Already space-qualified (cross-space or built-in association
-                # target): use as-is on the sap-datasphere platform.
-                upstream_urn = self._qualified_upstream_urn(ref.name)
+            locator = self._locate(ref.name, space_name)
+            if locator.explicit_space:
+                upstream_urn = self._qualified_upstream_urn(locator.qualified_name)
             else:
-                upstream_name = self._maybe_lower(f"{space_name}.{ref.name}")
-                upstream_urn = self._dataset_urn(resolved, upstream_name)
+                upstream_urn = self._dataset_urn(
+                    resolved, self._build_dataset_name(space_name, locator.name)
+                )
             upstream_urn_by_name[ref.name] = upstream_urn
             upstreams.append(
                 UpstreamClass(
@@ -1918,8 +2061,11 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         try:
             source_columns = extract_projection_source_columns(csn_def)
         except Exception as e:
-            logger.debug(
-                "Could not map %s.%s projection: %s", space_name, asset_name, e
+            self.report.warning(
+                title="Could not map analytic-model projection",
+                message="Column types could not be copied from the projection's source objects.",
+                context=f"{space_name}.{asset_name}",
+                exc=e,
             )
             return missing
         elements = csn_def.get(CSN_KEY_ELEMENTS)
@@ -1969,22 +2115,33 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         field.nativeDataType = "DECIMAL"
         return True
 
+    def _locate(self, ref: str, default_space: str) -> ObjectLocator:
+        locator = ObjectLocator.from_ref(ref, default_space)
+        if (
+            locator.explicit_space
+            and locator.space == SAP_OBJECT_NAMESPACE
+            and not is_sap_generated_object(locator.name)
+            and ref not in self._reported_sap_refs
+        ):
+            self._reported_sap_refs.add(ref)
+            self.report.sap_refs_outside_generated_prefixes.append(ref)
+        return locator
+
     def _source_object_field_types(
         self, default_space: str, source_object: str
     ) -> Dict[str, SchemaFieldClass]:
-        cached = self._source_field_type_cache.get(source_object)
+        # Only VIEWS is probed (its 404 retry also covers analytic models); a
+        # local/remote table source is not resolved and its columns fall back to
+        # the measure heuristic or stay NullType.
+        locator = self._locate(source_object, default_space)
+        cached = self._source_field_type_cache.get(locator.qualified_name)
         if cached is not None:
             return cached
-        # A projection ref is space-qualified (``SPACE.name``); a bare name is a
-        # same-space source. NOTE: only VIEWS is probed (its 404 retry also covers
-        # analytic models) — a local/remote-table source is not resolved and its
-        # columns fall back to the measure heuristic or stay NullType.
-        space, _, name = source_object.partition(".")
-        if not name:
-            space, name = default_space, source_object
         field_map: Dict[str, SchemaFieldClass] = {}
-        csn_obj = self._client.fetch_object_definition(space, OBJECT_TYPE_VIEWS, name)
-        definition = self._csn_definition(csn_obj, name)
+        csn_obj = self._client.fetch_object_definition(
+            locator.space, OBJECT_TYPE_VIEWS, locator.name
+        )
+        definition = self._csn_definition(csn_obj, locator.name)
         elements = definition.get(CSN_KEY_ELEMENTS) if definition is not None else None
         if isinstance(elements, dict):
             result = parse_csn_elements_to_schema_fields(elements)
@@ -1994,7 +2151,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             field_map = {
                 f.fieldPath: f for f in result.fields if f.fieldPath not in typeless
             }
-        self._source_field_type_cache[source_object] = field_map
+        self._source_field_type_cache[locator.qualified_name] = field_map
         return field_map
 
     def _apply_column_pattern(
@@ -2035,6 +2192,48 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             return None
         self.report.assets_schema_from_csn += 1
         return filtered
+
+    def _apply_calculated_column_formulas(
+        self,
+        space_name: str,
+        asset_name: str,
+        csn_def: JsonDict,
+        fields: List[SchemaFieldClass],
+    ) -> None:
+        # The renderer is defensively guarded, so an escaping exception is a
+        # renderer bug, not malformed CSN — warn (with traceback), don't swallow.
+        try:
+            formulas = extract_calculated_column_formulas(csn_def)
+        except Exception as e:
+            self.report.assets_formula_extraction_failed.append(
+                f"{space_name}.{asset_name}"
+            )
+            self.report.warning(
+                title="Failed to extract calculated-column formulas",
+                message=(
+                    "Column descriptions for this asset will omit calculation "
+                    "formulas; the rest of its metadata is unaffected"
+                ),
+                context=f"{space_name}.{asset_name}",
+                exc=e,
+            )
+            return
+        if not formulas:
+            return
+        field_by_path = {f.fieldPath: f for f in fields}
+        for column_name, formula in formulas.items():
+            field = field_by_path.get(column_name)
+            if field is None:
+                # Usually column_pattern dropped it; a systemic count flags a
+                # UNION name-alignment regression.
+                self.report.formula_columns_unmatched.append(
+                    f"{space_name}.{asset_name}.{column_name}"
+                )
+                continue
+            field.description = make_description_with_formula(
+                field.description, formula
+            )
+            self.report.calculated_column_formulas_emitted += 1
 
     def _decorate_fields(self, result: EdmxParseResult) -> List[SchemaFieldClass]:
         decorated: List[SchemaFieldClass] = []

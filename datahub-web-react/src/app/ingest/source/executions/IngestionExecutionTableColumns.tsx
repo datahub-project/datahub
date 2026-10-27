@@ -1,5 +1,5 @@
-import { CopyOutlined } from '@ant-design/icons';
 import { Avatar, Text, Tooltip } from '@components';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -130,7 +130,7 @@ export function ButtonsColumn({
                 <Tooltip title="Copy Execution Request URN">
                     <Button
                         style={{ marginRight: 16 }}
-                        icon={<CopyOutlined />}
+                        icon={<Copy />}
                         onClick={() => {
                             navigator.clipboard.writeText(record.urn);
                         }}

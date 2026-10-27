@@ -50,6 +50,18 @@ class ProcedureLineageStream:
 
 
 @dataclass
+class ProcedureDependencies:
+    """Catalogue dependencies per direction; None where the query couldn't be read.
+
+    None and an empty stream are different: the caller omits the property for None so
+    an unreadable direction isn't reported as "no dependencies".
+    """
+
+    upstream: Optional[ProcedureLineageStream]
+    downstream: Optional[ProcedureLineageStream]
+
+
+@dataclass
 class MSSQLJob:
     db: str
     platform_instance: Optional[str]

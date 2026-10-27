@@ -32,8 +32,9 @@ SQL expression is captured in `customAssertion.logic`.
 Monte Carlo rules can carry several independent comparisons, but DataHub's assertion model is
 single-comparison. The connector maps `comparisons[0]` onto the structured fields above and folds
 any remaining comparisons into `customAssertion.logic` as JSON, so a compound rule is still fully
-represented. This preserves the one-monitor → one-assertion-URN scheme, so alert and run-event
-wiring is unchanged.
+represented. Monitors with an explicit entity list and custom SQL rules keep one assertion URN per
+monitor. TABLE monitors resolved through asset selection fan out to one assertion per covered table
+(see [Limitations](#limitations)).
 
 Monitors for which no `comparisons` are returned (or the comparisons are malformed) fall back to
 `scope = DATASET_ROWS` with `_NATIVE_` operator/aggregation, so they still render through the
@@ -83,6 +84,59 @@ Run events are emitted with `is_primary_source = False`, so stale entity removal
 them — the assertion entity itself is still subject to soft-deletion (via the monitor-definition
 path) if the monitor disappears from Monte Carlo, but its run history is preserved.
 
+#### What you'll see when Monte Carlo changes its schema
+
+Before each run the connector introspects Monte Carlo's live GraphQL schema and compares it to
+the fields it expects. Each checked type gets a **PROCEED**, **DEGRADED**, or **ABORT** verdict.
+Verdicts apply **per ingestion phase**, not to the whole run:
+
+- **Monitors** (including warehouse table resolution for dataset URNs)
+- **Custom rules**
+- **Alerts** (and schema-change metadata used to enrich alert run events, when alerts are enabled)
+- **TABLE monitor scope** (`evaluateAssetSelection`), checked the first time a pattern-scoped TABLE
+  monitor is resolved in the run
+- **Run history** (`getJobExecutions` / `getMetricsV4`), only when `run_events_lookback_days` is set
+
+| Verdict      | What happens                                                                                                                                                                                                                                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PROCEED**  | The live schema exposes every field the connector requests for that type. Ingestion uses the dynamic query shape.                                                                                                                                                                                                      |
+| **DEGRADED** | One or more **non-critical** fields are missing. The connector drops them, continues the phase, and emits a **warning** titled `Monte Carlo schema drift (<type>)`. The message lists each missing field and, when known, what you lose (for example an empty native slot on the assertion).                           |
+| **ABORT**    | A **critical** field is missing, the GraphQL type itself is gone, or `strict_schema_drift` is enabled and (any requested field is missing or introspection failed). The connector **skips that phase** and records a **failure** so stateful stale removal does not treat the run as complete. Other phases still run. |
+
+**Failure titles you may see on ABORT:**
+
+- `Monte Carlo schema drift: critical fields missing (...)` — a field required to build valid records
+  for that phase is absent (listed in the title).
+- `Monte Carlo schema drift: strict mode: drift detected` — `strict_schema_drift: true` and at least
+  one non-critical field is missing for that type.
+- `Monte Carlo schema drift: type <Name> not found in the Monte Carlo schema` — introspection returned
+  no such type (Monte Carlo removed or renamed it).
+- `Monte Carlo schema drift: could not verify schema` — introspection failed (network, auth, or API
+  error); the connector does not fall back silently when strict mode is on.
+
+For alerts, a phase ABORT means **no alerts are ingested for that run** (one failure explains schema
+drift rather than one warning per alert row).
+
+**`strict_schema_drift`:** Leave it `false` (default) to ingest with warnings when Monte Carlo drops
+optional fields. Set it `true` if any missing field — critical or not — should stop the affected phase
+instead of degrading.
+
+**Stale-removal lock:** When stateful ingestion is enabled, assertions that disappear from a run can
+be soft-deleted at the end. The connector skips that cleanup when the run recorded **failures** that
+mean the ingest was incomplete, including:
+
+- A schema-drift **ABORT** on monitors, custom rules, or alerts (phase skipped).
+- **Partial build failures** — transient errors while resolving tables or building assertions (`Partial
+build failures; skipping stale entity removal`).
+
+That lock protects assertions that still exist in Monte Carlo but were missing from a bad or partial
+run. Permanent skips (for example a table that is genuinely gone) do not trip the lock.
+
+**What you should do:** If you see schema-drift warnings or failures after Monte Carlo upgrades their
+API, upgrade to a DataHub release that includes an updated Monte Carlo connector, then re-run ingestion.
+If you are already on the latest connector, report the drift message (type name and missing fields) so
+the connector can be updated for the new schema.
+
 ### Limitations
 
 - **Run history is opt-in:** Without `run_events_lookback_days`, the connector emits only
@@ -92,6 +146,19 @@ path) if the monitor disappears from Monte Carlo, but its run history is preserv
   table-level metrics, so a per-run join is not possible. The measured value is attached to the
   latest SUCCESS run as a best-effort temporal correlation ("most recent measurement" on "most
   recent successful run"), not a proven same-run match.
+- **TABLE monitor scope:** Pattern-scoped TABLE monitors (tags, activity, table-name filters) are
+  resolved via Monte Carlo's `evaluateAssetSelection` API. Each covered table becomes its own
+  assertion. Coverage is capped by `table_monitor_max_assets` (default 100) after sorting the
+  resolved tables, so the same tables are kept each run; remaining tables are skipped with a
+  warning.
+- **Catalog schema history is not ingested as assertions:** Monte Carlo's Schema changes panel
+  (`getSchemaChanges`) is per-table catalog history, not a monitor. Unmonitored tables with
+  schema-change history do not get an assertion in DataHub. Schema-change _alerts_ raised by TABLE
+  monitors are ingested as assertion failures on the covered tables. For those alerts the connector
+  joins `getSchemaChanges` by table MCON and timestamp (closest event within 2 hours, from the
+  first 50 catalog events per table in the alert window) so `fieldsAdded` / `fieldsRemoved` /
+  `fieldTypeChanges` land on the run event's `nativeResults`. Alerts with no matching event are
+  ingested without the field-level diff and a warning names the cause.
 - **MCON resolution:** Each monitored asset requires one `getTable` call to resolve its MCON to a
   warehouse table (results are cached per MCON). Assets whose warehouse is not in
   `connection_to_platform_map` are skipped with a warning unless `auto_map_connection_types` is
@@ -102,6 +169,9 @@ path) if the monitor disappears from Monte Carlo, but its run history is preserv
   (`scope`/`operator`/`aggregation`/`fields`/`parameters`) and the native type/parameters are
   carried on `nativeType`/`nativeParameters`, but the assertions are not coerced into DataHub's
   typed freshness/volume/SQL/field assertion schemas.
+- **Monitor SQL body:** On the current Monte Carlo gateway the `Monitor` type has no SQL body field
+  the connector reads, so `customAssertion.logic` stays empty for monitors. Row filters appear on
+  `nativeParameters` as `whereCondition`. Custom SQL rules still populate `logic` from `customSql`.
 - **Monte Carlo Cloud only:** Requires a Monte Carlo Cloud account and API key pair. Self-hosted
   deployments are not supported.
 - **Incidents stay ACTIVE:** When `emit_incidents_on_failure` is enabled, each Monte Carlo
@@ -159,8 +229,9 @@ A few specifics that commonly cause silent mis-attachment:
 Verify that:
 
 1. The API key has read access to monitors, custom rules, and alerts in the Monte Carlo UI.
-2. At least one monitor is active and has fired an alert (the connector ingests only monitors that
-   have associated assets and alerts).
+2. At least one monitor is active and its scope resolves to warehouse table(s) (the connector
+   ingests assertions only for monitors whose assets resolve to dataset URNs; alerts are optional
+   and controlled separately by `include_alerts`).
 3. The `connection_to_platform_map` covers the warehouse connections used by your monitored assets.
 
 #### Stateful ingestion and soft-deletion

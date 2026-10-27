@@ -1,9 +1,9 @@
-import { FolderFilled } from '@ant-design/icons';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import i18next from 'i18next';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { TagColor } from '@app/searchV2/filters/FilterOption';
@@ -48,9 +48,9 @@ import {
     TYPE_NAMES_FILTER_NAME,
     UNIT_SEPARATOR,
 } from '@app/searchV2/utils/constants';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
 import {
     DATE_TYPE_URN,
@@ -58,8 +58,8 @@ import {
     RICH_TEXT_TYPE_URN,
     STRING_TYPE_URN,
     URN_TYPE_URN,
-} from '@src/app/shared/constants';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+} from '@src/app/sharedV2/constants';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
 import dayjs from '@utils/dayjs';
 
@@ -272,7 +272,7 @@ export function getFilterIconAndLabel(
         }
         label = filterEntity ? entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity) : filterValue;
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
-        icon = <FolderFilled style={{ fontSize: size }} />;
+        icon = <Folder size={size} weight="fill" />;
         label = getLastBrowseEntryFromFilterValue(filterValue);
     } else if (filterEntity) {
         const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
@@ -760,7 +760,7 @@ export function useElementDimensions(ref) {
 }
 
 export function useFilterDisplayName(filter: FacetMetadata | FilterField, predicateDisplayName?: string) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     if (filter.entity) {
         return entityRegistry.getDisplayName(filter.entity.type, filter.entity);

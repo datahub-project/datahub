@@ -85,7 +85,8 @@ public class DataHubUsageEventsProcessorTest {
     DataHubUsageEventTransformer.TransformedDocument transformedDoc =
         new DataHubUsageEventTransformer.TransformedDocument(TEST_EVENT_ID, transformedDocument);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.of(transformedDoc));
 
     processor.consume(Collections.singletonList(mockRecord));
@@ -105,7 +106,8 @@ public class DataHubUsageEventsProcessorTest {
 
     stubRecord(mockRecord, TEST_KEY, TEST_TOPIC, 0, TEST_OFFSET, TEST_TIMESTAMP, 50, eventJson);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.empty());
 
     processor.consume(Collections.singletonList(mockRecord));
@@ -140,7 +142,8 @@ public class DataHubUsageEventsProcessorTest {
     DataHubUsageEventTransformer.TransformedDocument transformedDoc =
         new DataHubUsageEventTransformer.TransformedDocument(TEST_EVENT_ID, transformedDocument);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.of(transformedDoc));
 
     processor.consume(Collections.singletonList(mockRecord));
@@ -160,7 +163,8 @@ public class DataHubUsageEventsProcessorTest {
     DataHubUsageEventTransformer.TransformedDocument transformedDoc =
         new DataHubUsageEventTransformer.TransformedDocument(TEST_EVENT_ID, transformedDocument);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.of(transformedDoc));
 
     processor.consume(Collections.singletonList(mockRecord));
@@ -188,7 +192,8 @@ public class DataHubUsageEventsProcessorTest {
     DataHubUsageEventTransformer.TransformedDocument transformedDoc =
         new DataHubUsageEventTransformer.TransformedDocument(TEST_EVENT_ID, transformedDocument);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.of(transformedDoc));
 
     processor.consume(Collections.singletonList(mockRecord));
@@ -217,7 +222,8 @@ public class DataHubUsageEventsProcessorTest {
         new DataHubUsageEventTransformer.TransformedDocument(
             eventIdWithSpecialChars, transformedDocument);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.of(transformedDoc));
 
     processor.consume(Collections.singletonList(mockRecord));
@@ -243,10 +249,11 @@ public class DataHubUsageEventsProcessorTest {
     stubRecord(r2, "k2", TEST_TOPIC, 0, 101L, TEST_TIMESTAMP, 50, "{\"a\":2}");
     stubRecord(r3, "k3", TEST_TOPIC, 0, 102L, TEST_TIMESTAMP, 50, "{\"a\":3}");
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(any(String.class)))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), any(String.class)))
         .thenAnswer(
             inv -> {
-              String json = inv.getArgument(0);
+              String json = inv.getArgument(1);
               return Optional.of(
                   new DataHubUsageEventTransformer.TransformedDocument(
                       "id-" + json.charAt(json.length() - 2), json));
@@ -263,7 +270,8 @@ public class DataHubUsageEventsProcessorTest {
   public void testConsumeWithNullRecordValue() {
     stubRecord(mockRecord, TEST_KEY, TEST_TOPIC, 0, TEST_OFFSET, TEST_TIMESTAMP, 0, null);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(null))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(null)))
         .thenReturn(Optional.empty());
 
     processor.consume(Collections.singletonList(mockRecord));
@@ -280,7 +288,8 @@ public class DataHubUsageEventsProcessorTest {
 
     stubRecord(mockRecord, TEST_KEY, TEST_TOPIC, 0, TEST_OFFSET, recordTimestamp, 50, eventJson);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.empty());
 
     processor.consume(Collections.singletonList(mockRecord));
@@ -308,7 +317,8 @@ public class DataHubUsageEventsProcessorTest {
     DataHubUsageEventTransformer.TransformedDocument transformedDoc =
         new DataHubUsageEventTransformer.TransformedDocument(TEST_EVENT_ID, transformedDocument);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.of(transformedDoc));
 
     processor.consume(Collections.singletonList(mockRecord));
@@ -343,7 +353,8 @@ public class DataHubUsageEventsProcessorTest {
     DataHubUsageEventTransformer.TransformedDocument transformedDoc =
         new DataHubUsageEventTransformer.TransformedDocument(TEST_EVENT_ID, transformedDocument);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.of(transformedDoc));
 
     long now = System.currentTimeMillis();
@@ -404,7 +415,8 @@ public class DataHubUsageEventsProcessorTest {
     when(mockRecord.topic()).thenReturn("DataHubUsageEvent_v1");
     when(mockRecord.value()).thenReturn(eventJson);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.empty());
 
     processor.consume(Collections.singletonList(mockRecord));
@@ -438,7 +450,8 @@ public class DataHubUsageEventsProcessorTest {
     DataHubUsageEventTransformer.TransformedDocument transformedDoc =
         new DataHubUsageEventTransformer.TransformedDocument(TEST_EVENT_ID, transformedDocument);
 
-    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+    when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+            any(OperationContext.class), eq(eventJson)))
         .thenReturn(Optional.of(transformedDoc));
 
     long[] queueTimes = {100, 500, 1000, 2000, 5000};
@@ -494,7 +507,8 @@ public class DataHubUsageEventsProcessorTest {
         Mockito.mockStatic(PgQueueStringDecode.class)) {
       mockedDecode.when(() -> PgQueueStringDecode.decodeAsUtf8(msg)).thenReturn(eventJson);
 
-      when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+      when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+              any(OperationContext.class), eq(eventJson)))
           .thenReturn(Optional.of(transformedDoc));
 
       processor.consume(TEST_TOPIC, Collections.singletonList(msg));
@@ -520,7 +534,8 @@ public class DataHubUsageEventsProcessorTest {
         Mockito.mockStatic(PgQueueStringDecode.class)) {
       mockedDecode.when(() -> PgQueueStringDecode.decodeAsUtf8(msg)).thenReturn(eventJson);
 
-      when(dataHubUsageEventTransformer.transformDataHubUsageEvent(eventJson))
+      when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+              any(OperationContext.class), eq(eventJson)))
           .thenReturn(Optional.empty());
 
       processor.consume(TEST_TOPIC, Collections.singletonList(msg));
@@ -547,10 +562,11 @@ public class DataHubUsageEventsProcessorTest {
                 return new String(m.payload(), StandardCharsets.UTF_8);
               });
 
-      when(dataHubUsageEventTransformer.transformDataHubUsageEvent(any(String.class)))
+      when(dataHubUsageEventTransformer.transformDataHubUsageEvent(
+              any(OperationContext.class), any(String.class)))
           .thenAnswer(
               inv -> {
-                String json = inv.getArgument(0);
+                String json = inv.getArgument(1);
                 return Optional.of(
                     new DataHubUsageEventTransformer.TransformedDocument(
                         "id-" + json.charAt(json.length() - 2), json));

@@ -56,8 +56,7 @@ public class ListPoliciesResolver implements DataFetcher<CompletableFuture<ListP
               .map(AndFilterInput::getAnd)
               .flatMap(List::stream)
               .collect(Collectors.toList());
-      log.debug(
-          "User {} listing policies with filters {}", context.getActorUrn(), filters.toString());
+      log.debug("User {} listing policies with filters {}", context.getActorUrn(), filters);
 
       final Filter filter = ResolverUtils.buildFilter(facetFilters, Collections.emptyList());
 

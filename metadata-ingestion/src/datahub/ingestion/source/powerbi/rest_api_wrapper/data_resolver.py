@@ -97,14 +97,10 @@ class DataResolverBase(ABC):
         environment: PowerBiEnvironment = PowerBiEnvironment.COMMERCIAL,
     ):
         self._environment = environment
-        urls = (
-            self.GOVERNMENT_URLS
-            if environment == PowerBiEnvironment.GOVERNMENT
-            else self.COMMERCIAL_URLS
-        )
+        urls = self.urls_for(environment)
 
         self._scope = urls["SCOPE"]
-        self._my_org_url = urls["MY_ORG_URL"]
+        self._my_org_url = self.my_org_url_for(environment)
         self._base_url = f"{self._my_org_url}/groups"
         self._admin_base_url = f"{self._my_org_url}/admin"
         self._authority = urls["AUTHORITY"]
@@ -139,6 +135,25 @@ class DataResolverBase(ABC):
                 )
             ),
         )
+
+    @classmethod
+    def urls_for(cls, environment: PowerBiEnvironment) -> Dict[str, str]:
+        """The one environment-to-URL mapping: the resolver's scope and
+        authority and the probe's API base all read from it."""
+        if environment == PowerBiEnvironment.GOVERNMENT:
+            return cls.GOVERNMENT_URLS
+        return cls.COMMERCIAL_URLS
+
+    @classmethod
+    def my_org_url_for(cls, environment: PowerBiEnvironment) -> str:
+        return cls.urls_for(environment)["MY_ORG_URL"]
+
+    @property
+    def request_session(self) -> requests.Session:
+        # The session carries the retry adapter and default timeout mounted in
+        # __init__; a caller outside this class (the probe's `api` command)
+        # must reuse it rather than open a bare one.
+        return self._request_session
 
     @abstractmethod
     def get_groups_endpoint(self) -> str:

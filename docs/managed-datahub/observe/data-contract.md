@@ -69,7 +69,7 @@ When creating a Data Contract via UI, the Freshness, Schema, and Data Quality as
 
 ### API
 
-_API guide on creating data contract is coming soon!_
+See the [Data Contracts API guide](/docs/api/tutorials/data-contracts.md) to create and manage data contracts with GraphQL.
 
 ## How to Run Data Contracts
 

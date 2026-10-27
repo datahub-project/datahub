@@ -1,7 +1,9 @@
 import json
+import re
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List
+from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -11,9 +13,31 @@ from requests_mock import Mocker
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.sac.sac import SACSource, SACSourceConfig
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.sac.sac import (
+    ConnectionMappingConfig,
+    SACSource,
+    SACSourceConfig,
+)
 from datahub.ingestion.source.sac.sac_common import ResourceModel
+from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    DatasetKeyClass,
+    NumberTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemalessClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    SubTypesClass,
+    UpstreamLineageClass,
+)
 from datahub.testing import mce_helpers
+
+DWC_MODEL_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:sac,"
+    "t.3.C1ekdhlvx11ts0000000000000:C1ekdhlvx11ts0000000000000,PROD)"
+)
 
 MOCK_TENANT_URL = "http://tenant"
 MOCK_TOKEN_URL = "http://tenant.authentication/oauth/token"
@@ -149,6 +173,41 @@ def test_query_odata_entities_follows_pagination(requests_mock):
     source = SACSource(config, PipelineContext(run_id="sac-pagination-test"))
 
     results = list(source._query_odata_entities("Resources", select="resourceId"))
+
+    assert [entity["resourceId"] for entity in results] == ["A", "B"]
+
+
+def test_query_odata_entities_follows_relative_v4_next_link(requests_mock):
+    # The File Repository service is OData v4, and CAP tenants can return a *relative*
+    # @odata.nextLink. The pager must resolve it against the request URL rather than
+    # handing a relative path to session.get, which would fail and silently truncate
+    # folder-type enrichment after the first page.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+
+    page_1 = {
+        "value": [{"resourceId": "A"}],
+        "@odata.nextLink": "Resources?$skiptoken=PAGE2",
+    }
+    page_2 = {"value": [{"resourceId": "B"}]}
+
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/filerepository/Resources",
+        [{"json": page_1}, {"json": page_2}],
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+    )
+    source = SACSource(
+        config, PipelineContext(run_id="sac-v4-relative-pagination-test")
+    )
+
+    results = list(
+        source._query_odata_entities("filerepository/Resources", select="resourceId")
+    )
 
     assert [entity["resourceId"] for entity in results] == ["A", "B"]
 
@@ -371,6 +430,400 @@ def test_connection_skips_data_export_service_when_disabled(requests_mock):
     assert not any("dataexport" in req.url for req in requests_mock.request_history)
 
 
+def _dwc_source(
+    requests_mock: Any,
+    connection_mapping: Dict[str, ConnectionMappingConfig],
+    resolve_datasphere_lineage: bool = True,
+    graph: Any = None,
+) -> SACSource:
+    # SACSource.__init__ eagerly fetches an OAuth token, so the token endpoint is mocked.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        connection_mapping=connection_mapping,
+        resolve_datasphere_lineage=resolve_datasphere_lineage,
+    )
+    return SACSource(config, PipelineContext(run_id="sac-dwc-test", graph=graph))
+
+
+def _dwc_model(name: str) -> ResourceModel:
+    # DWC live models carry an empty externalId; only the name links to the Datasphere object.
+    return ResourceModel(
+        namespace="t.3.C1ekdhlvx11ts0000000000000",
+        model_id="C1ekdhlvx11ts0000000000000",
+        name=name,
+        description=name,
+        system_type="DWC",
+        connection_id="DWCPROD",
+        external_id="",
+        is_import=False,
+    )
+
+
+def test_resolve_datasphere_upstream_builds_urn_from_configured_space(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Fax_Mart"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+    )
+
+
+def test_resolve_datasphere_upstream_honors_platform_instance_and_env(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {
+            "DWCPROD": ConnectionMappingConfig(
+                datasphere_space="bdap_sac",
+                platform_instance="prod_ds",
+                env="DEV",
+            )
+        },
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Analytics_3658_Results"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,prod_ds.bdap_sac.analytics_3658_results,DEV)"
+    )
+
+
+def test_resolve_datasphere_upstream_preserves_case_when_lowercase_disabled(
+    requests_mock,
+):
+    # Mirrors the airbyte/sigma per-connection convert_urns_to_lowercase override:
+    # when the upstream connector was run without lower-casing, casing is preserved.
+    source = _dwc_source(
+        requests_mock,
+        {
+            "DWCPROD": ConnectionMappingConfig(
+                datasphere_space="BDAP_SAC",
+                convert_urns_to_lowercase=False,
+            )
+        },
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("Fax_Mart"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,BDAP_SAC.Fax_Mart,PROD)"
+    )
+
+
+def test_resolve_datasphere_upstream_no_space_is_skipped(requests_mock):
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(platform_instance="prod_ds")},
+    )
+
+    assert source._resolve_datasphere_upstream(_dwc_model("Fax_Mart")) is None
+    assert source.report.dwc_lineage_skipped_no_space == 1
+
+
+def test_resolve_datasphere_upstream_synthetic_name_is_unresolved(requests_mock):
+    # SAC falls back to `<namespace>:<model_id>` when OData exposes no real technical name;
+    # that value cannot identify the Datasphere object, so no lineage is emitted.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+    synthetic_name = "t.3.C1ekdhlvx11ts0000000000000:C1ekdhlvx11ts0000000000000"
+
+    assert source._resolve_datasphere_upstream(_dwc_model(synthetic_name)) is None
+    assert source.report.dwc_lineage_unresolved == 1
+
+
+def test_resolve_datasphere_upstream_trims_suffix_when_base_exists(requests_mock):
+    base_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart,PROD)"
+    )
+    graph = MagicMock()
+    graph.get_aspect.side_effect = lambda urn, aspect_type: (
+        _datasphere_upstream_schema() if urn == base_urn else None
+    )
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("SALES_MART2"))
+
+    assert urn == base_urn
+    assert source.report.dwc_lineage_suffix_corrected == 1
+
+
+def test_resolve_datasphere_upstream_keeps_name_ending_in_digit_when_it_exists(
+    requests_mock,
+):
+    as_is_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fact_v2,PROD)"
+    )
+    graph = MagicMock()
+    graph.get_aspect.side_effect = lambda urn, aspect_type: (
+        _datasphere_upstream_schema() if urn == as_is_urn else None
+    )
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("FACT_V2"))
+
+    assert urn == as_is_urn
+    assert source.report.dwc_lineage_suffix_corrected == 0
+
+
+def test_resolve_datasphere_upstream_keeps_as_is_when_nothing_in_graph(requests_mock):
+    graph = MagicMock()
+    graph.get_aspect.return_value = None
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("SALES_MART2"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart2,PROD)"
+    )
+    assert source.report.dwc_lineage_suffix_corrected == 0
+
+
+def test_resolve_datasphere_upstream_trims_multi_digit_suffix(requests_mock):
+    # SALES_MART12 must peel two digits: SALES_MART1 is absent, SALES_MART exists.
+    base_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart,PROD)"
+    )
+    graph = MagicMock()
+    graph.get_aspect.side_effect = lambda urn, aspect_type: (
+        _datasphere_upstream_schema() if urn == base_urn else None
+    )
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("SALES_MART12"))
+
+    assert urn == base_urn
+    assert source.report.dwc_lineage_suffix_corrected == 1
+
+
+def test_resolve_datasphere_upstream_keeps_as_is_on_graph_error(requests_mock):
+    # A transient GMS error must degrade to the as-is urn, not abort the run.
+    graph = MagicMock()
+    graph.get_aspect.side_effect = Exception("boom")
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("SALES_MART2"))
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart2,PROD)"
+    )
+    assert source.report.dwc_lineage_suffix_corrected == 0
+    assert source.report.dwc_lineage_graph_errors >= 1
+
+
+def test_resolve_datasphere_upstream_does_not_correct_when_as_is_lookup_errors(
+    requests_mock,
+):
+    # The as-is dataset exists, but only its lookup fails. A failed lookup must not be
+    # mistaken for "not ingested" and trigger a rewrite onto the suffix-trimmed sibling.
+    as_is_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart2,PROD)"
+    )
+    base_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.sales_mart,PROD)"
+    )
+
+    def get_aspect(urn, aspect_type):
+        if urn == as_is_urn:
+            raise Exception("boom")
+        return _datasphere_upstream_schema() if urn == base_urn else None
+
+    graph = MagicMock()
+    graph.get_aspect.side_effect = get_aspect
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    urn = source._resolve_datasphere_upstream(_dwc_model("SALES_MART2"))
+
+    assert urn == as_is_urn
+    assert source.report.dwc_lineage_suffix_corrected == 0
+    assert source.report.dwc_lineage_graph_errors >= 1
+
+
+def test_get_model_workunits_emits_datasphere_upstream_and_subtype(requests_mock):
+    # Drives a DWC model through the full workunit emission (not just the resolver) so the
+    # UpstreamLineage MCP and the SAC_LIVE_DATA_MODEL subtype gate are exercised end-to-end.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    expected_upstream = (
+        "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+    )
+
+    upstream = _first_aspect(workunits, UpstreamLineageClass)
+    assert upstream is not None
+    assert [u.dataset for u in upstream.upstreams] == [expected_upstream]
+
+    # The upstream key is materialized so the Datasphere node exists even if that
+    # connector has not run yet (order-independent lineage).
+    key_workunits = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(DatasetKeyClass) is not None
+        and wu.get_urn() == expected_upstream
+    ]
+    assert len(key_workunits) == 1
+
+    subtype = _first_aspect(workunits, SubTypesClass)
+    assert subtype is not None
+    assert subtype.typeNames == [DatasetSubTypes.SAC_LIVE_DATA_MODEL]
+    assert source.report.dwc_lineage_resolved == 1
+
+    # The Models browse path is emitted for every model, including live/DWC ones.
+    browse_v2 = _first_aspect(workunits, BrowsePathsV2Class)
+    assert browse_v2 is not None
+    assert [entry.id for entry in browse_v2.path] == ["Models"]
+
+
+def test_get_model_workunits_skips_dwc_lineage_when_disabled(requests_mock):
+    # With the flag off a DWC model must not emit upstream lineage and, crucially, must not
+    # fall through to the generic "Unknown system type" warning (DWC is a known type).
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        resolve_datasphere_lineage=False,
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    assert _first_aspect(workunits, UpstreamLineageClass) is None
+    subtype = _first_aspect(workunits, SubTypesClass)
+    assert subtype is not None
+    assert subtype.typeNames == [DatasetSubTypes.SAC_LIVE_DATA_MODEL]
+    assert list(source.report.warnings) == []
+
+
+_DATASPHERE_UPSTREAM_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:sap-datasphere,bdap_sac.fax_mart,PROD)"
+)
+
+
+def _datasphere_upstream_schema() -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="fax_mart",
+        platform="urn:li:dataPlatform:sap-datasphere",
+        version=0,
+        hash="",
+        platformSchema=SchemalessClass(),
+        fields=[
+            SchemaFieldClass(
+                fieldPath="revenue",
+                type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                nativeDataType="DECIMAL",
+            ),
+            SchemaFieldClass(
+                fieldPath="region",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="NVARCHAR",
+            ),
+        ],
+        primaryKeys=["region"],
+    )
+
+
+def test_dwc_column_lineage_mirrors_upstream_schema_and_emits_fgl(requests_mock):
+    # SAC exposes no columns for a live model, so the schema is resolved from the upstream
+    # Datasphere dataset in the graph, mirrored onto the SAC dataset, and mapped 1:1.
+    graph = MagicMock()
+    graph.get_aspect.return_value = _datasphere_upstream_schema()
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+        graph=graph,
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    graph.get_aspect.assert_called_once_with(
+        _DATASPHERE_UPSTREAM_URN, SchemaMetadataClass
+    )
+
+    sac_schema = _first_aspect(workunits, SchemaMetadataClass)
+    assert sac_schema is not None
+    assert [f.fieldPath for f in sac_schema.fields] == ["revenue", "region"]
+
+    upstream = _first_aspect(workunits, UpstreamLineageClass)
+    assert upstream.fineGrainedLineages is not None
+    edges = {
+        (fgl.upstreams[0], fgl.downstreams[0]) for fgl in upstream.fineGrainedLineages
+    }
+    assert edges == {
+        (
+            f"urn:li:schemaField:({_DATASPHERE_UPSTREAM_URN},revenue)",
+            f"urn:li:schemaField:({DWC_MODEL_URN},revenue)",
+        ),
+        (
+            f"urn:li:schemaField:({_DATASPHERE_UPSTREAM_URN},region)",
+            f"urn:li:schemaField:({DWC_MODEL_URN},region)",
+        ),
+    }
+    assert source.report.dwc_column_lineage_resolved == 1
+
+
+def test_dwc_column_lineage_degrades_to_table_level_without_graph(requests_mock):
+    # No graph -> table-level lineage only, no fabricated schema, counted as unresolved.
+    source = _dwc_source(
+        requests_mock,
+        {"DWCPROD": ConnectionMappingConfig(datasphere_space="BDAP_SAC")},
+    )
+
+    workunits = list(source.get_model_workunits(DWC_MODEL_URN, _dwc_model("Fax_Mart")))
+
+    upstream = _first_aspect(workunits, UpstreamLineageClass)
+    assert upstream is not None
+    assert upstream.fineGrainedLineages is None
+    assert _first_aspect(workunits, SchemaMetadataClass) is None
+    assert source.report.dwc_column_lineage_unresolved == 1
+
+
+def _first_aspect(workunits: List[Any], aspect_type: Any) -> Any:
+    for workunit in workunits:
+        aspect = workunit.get_aspect_of_type(aspect_type)
+        if aspect is not None:
+            return aspect
+    return None
+
+
 def match_token_url(request, context):
     form = parse_qs(request.text, strict_parsing=True)
 
@@ -457,7 +910,9 @@ def match_resources(request, context):
                     "modifiedTime": "/Date(1673279414272)/",
                     "isMobile": 0,
                     "openURL": "/sap/fpa/ui/tenants/3c44c/bo/story/EOYLU41PIILXTH4JCE36NLYPU9XRYM26",
-                    "ancestorPath": '["Public","Folder 1","Folder 2"]',
+                    # Localized to German, yet this resource's golden still asserts
+                    # /sac/Public/Folder 1/Folder 2: revert the canonicalization and it fails.
+                    "ancestorPath": '["Öffentlich","Folder 1","Folder 2"]',
                 },
             ],
         },
@@ -617,3 +1072,296 @@ def match_model_metadata(request, context):
     }
 
     return json
+
+
+def _private_content_resource(
+    resource_id: str, ancestor_path: List[str], is_public: bool = True
+) -> Dict[str, Any]:
+    return {
+        "name": f"Story {resource_id}",
+        "description": None,
+        "resourceId": resource_id,
+        "resourceType": "STORY",
+        "resourceSubtype": "",
+        "storyId": f"STORY:t.4:{resource_id}",
+        "createdTime": "/Date(1667544309783)/",
+        "createdBy": "JOHN_DOE",
+        "modifiedBy": "JOHN_DOE",
+        "modifiedTime": "/Date(1673067981272)/",
+        "isMobile": 0,
+        "isPublic": 1 if is_public else 0,
+        "openURL": f"/sap/fpa/ui/tenants/3c44c/bo/story/{resource_id}",
+        "ancestorPath": json.dumps(ancestor_path),
+    }
+
+
+def test_canonical_root_folder_name_maps_folder_types(requests_mock):
+    source = _make_source(requests_mock, "sac-canonical-root-test")
+
+    # Public-only ingestion: the isPublic gate guarantees a public root regardless of the
+    # (unfetched) folderType, so the public name always applies.
+    assert source._canonical_root_folder_name(None, False) == "Public"
+    assert source._canonical_root_folder_name("PRIVATE", False) == "Public"
+
+    source.config.ingest_private_content = True
+    assert source._canonical_root_folder_name("PUBLIC", False) == "Public"
+    assert source._canonical_root_folder_name("PRIVATE", False) == "My Files"
+    # Team folders / samples are left to their localized name.
+    assert source._canonical_root_folder_name("TEAM", False) is None
+    # A missing folderType (a File Repository join miss) still canonicalizes public
+    # content from the row's own isPublic flag, and otherwise leaves the localized name.
+    assert source._canonical_root_folder_name(None, True) == "Public"
+    assert source._canonical_root_folder_name(None, False) is None
+
+
+@pytest.mark.integration
+def test_get_resources_ingests_private_content_with_canonical_roots(requests_mock):
+    # With private ingestion enabled the isPublic gate is dropped, applyManagePrivilege is
+    # forwarded to both endpoints, and each resource's folderType (from the File Repository
+    # API) decides which canonical root name replaces the localized first ancestor segment.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={"models": []}
+    )
+
+    captured: Dict[str, Any] = {}
+
+    def resources_matcher(request, context):
+        params = query_params(request)
+        captured["filter"] = params["$filter"][0]
+        captured["resources_manage"] = params.get("applyManagePrivilege", [None])[0]
+        return {
+            "d": {
+                "results": [
+                    _private_content_resource("PUB1", ["Öffentlich", "Sales"]),
+                    _private_content_resource(
+                        "PRIV1", ["Meine Dateien", "Drafts"], is_public=False
+                    ),
+                ]
+            }
+        }
+
+    requests_mock.get(f"{MOCK_TENANT_URL}/api/v1/Resources", json=resources_matcher)
+
+    def filerepo_matcher(request, context):
+        params = query_params(request)
+        captured["filerepo_manage"] = params.get("applyManagePrivilege", [None])[0]
+        # The File Repository service is OData v4: results live under "value", not the
+        # v2 "d"/"results" envelope the classic Resources service uses.
+        return {
+            "value": [
+                {"resourceId": "PUB1", "folderType": "PUBLIC"},
+                {"resourceId": "PRIV1", "folderType": "PRIVATE"},
+            ]
+        }
+
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/filerepository/Resources", json=filerepo_matcher
+    )
+
+    def resource_models_matcher(request, context):
+        params = query_params(request)
+        captured["models_manage"] = params.get("applyManagePrivilege", [None])[0]
+        return {"d": {"results": []}}
+
+    requests_mock.get(
+        re.compile(r".+/Resources\('[^']+'\)/resourceModels"),
+        json=resource_models_matcher,
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        ingest_private_content=True,
+        apply_manage_privilege=True,
+    )
+    source = SACSource(config, PipelineContext(run_id="sac-private-content-test"))
+
+    resources = {r.resource_id: r for r in source.get_resources()}
+
+    assert "isPublic" not in captured["filter"]
+    assert captured["resources_manage"] == "true"
+    assert captured["filerepo_manage"] == "true"
+    # applyManagePrivilege must reach the per-resource model expansion too, otherwise a
+    # privately-visible story cannot expand its models.
+    assert captured["models_manage"] == "true"
+    assert resources["PUB1"].ancestor_path == "Public/Sales"
+    assert resources["PRIV1"].ancestor_path == "My Files/Drafts"
+
+
+@pytest.mark.integration
+def test_get_resources_canonicalizes_public_root_outside_aliases_via_folder_type(
+    requests_mock,
+):
+    # A successful File Repository join reporting folderType PUBLIC is authoritative, so the
+    # public root is canonicalized even when its localized label (here French "Publique") is
+    # not in public_root_folder_aliases. The alias gate only guards the join-miss fallback.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={"models": []}
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
+        json=lambda request, context: {
+            "d": {
+                "results": [
+                    _private_content_resource("PUB1", ["Publique", "Sales"]),
+                ]
+            }
+        },
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/filerepository/Resources",
+        json={"value": [{"resourceId": "PUB1", "folderType": "PUBLIC"}]},
+    )
+    requests_mock.get(
+        re.compile(r".+/Resources\('[^']+'\)/resourceModels"),
+        json={"d": {"results": []}},
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        ingest_private_content=True,
+    )
+    source = SACSource(
+        config, PipelineContext(run_id="sac-public-outside-aliases-test")
+    )
+
+    resources = {r.resource_id: r for r in source.get_resources()}
+
+    assert resources["PUB1"].ancestor_path == "Public/Sales"
+
+
+@pytest.mark.integration
+def test_get_resources_canonicalizes_public_root_on_folder_type_join_miss(
+    requests_mock,
+):
+    # A public story missing from the File Repository join (permission skew between Story
+    # Listing and File Repository, paging truncation, or a null folderType) must still get
+    # its canonical public root from the row's own isPublic flag, so folder_pattern rules
+    # written for `Public/...` keep matching it instead of a localized `Öffentlich/...`.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={"models": []}
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
+        json=lambda request, context: {
+            "d": {
+                "results": [
+                    _private_content_resource("PUB1", ["Öffentlich", "Sales"]),
+                ]
+            }
+        },
+    )
+    # File Repository returns no row for PUB1 (the join misses).
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/filerepository/Resources",
+        json={"value": []},
+    )
+    requests_mock.get(
+        re.compile(r".+/Resources\('[^']+'\)/resourceModels"),
+        json={"d": {"results": []}},
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        ingest_private_content=True,
+    )
+    source = SACSource(config, PipelineContext(run_id="sac-public-join-miss-test"))
+
+    resources = {r.resource_id: r for r in source.get_resources()}
+
+    assert resources["PUB1"].ancestor_path == "Public/Sales"
+
+
+@pytest.mark.integration
+def test_get_resources_keeps_localized_root_when_folder_types_unavailable(
+    requests_mock,
+):
+    # If the File Repository API is unreachable, folderType is unknown, so a non-public root
+    # keeps its raw localized name rather than aborting ingestion or being mislabeled public.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={"models": []}
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
+        json=lambda request, context: {
+            "d": {
+                "results": [
+                    _private_content_resource(
+                        "PRIV1", ["Meine Dateien", "Drafts"], is_public=False
+                    ),
+                ]
+            }
+        },
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/filerepository/Resources", status_code=500
+    )
+    requests_mock.get(
+        re.compile(r".+/Resources\('[^']+'\)/resourceModels"),
+        json={"d": {"results": []}},
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+        ingest_private_content=True,
+    )
+    source = SACSource(config, PipelineContext(run_id="sac-folder-type-degrade-test"))
+
+    resources = list(source.get_resources())
+
+    assert len(resources) == 1
+    assert resources[0].ancestor_path == "Meine Dateien/Drafts"
+    assert source.report.warnings
+
+
+@pytest.mark.integration
+def test_get_resources_degrades_when_model_expansion_fails(requests_mock):
+    # A story that lists fine but whose model expansion fails (e.g. a private story
+    # surfaced only via applyManagePrivilege that the client cannot expand) must not abort
+    # the whole run: the resource is still emitted, just without its models, and a warning
+    # is recorded.
+    requests_mock.post(MOCK_TOKEN_URL, json=match_token_url)
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/dataimport/models", json={"models": []}
+    )
+    requests_mock.get(
+        f"{MOCK_TENANT_URL}/api/v1/Resources",
+        json=lambda request, context: {
+            "d": {"results": [_private_content_resource("PUB1", ["Public", "Sales"])]}
+        },
+    )
+    requests_mock.get(
+        re.compile(r".+/Resources\('[^']+'\)/resourceModels"),
+        status_code=500,
+    )
+
+    config = SACSourceConfig(
+        tenant_url=MOCK_TENANT_URL,
+        token_url=MOCK_TOKEN_URL,
+        client_id=MOCK_CLIENT_ID,
+        client_secret=MOCK_CLIENT_SECRET,
+    )
+    source = SACSource(
+        config, PipelineContext(run_id="sac-model-expansion-degrade-test")
+    )
+
+    resources = list(source.get_resources())
+
+    assert len(resources) == 1
+    assert resources[0].resource_models == set()
+    assert source.report.warnings
