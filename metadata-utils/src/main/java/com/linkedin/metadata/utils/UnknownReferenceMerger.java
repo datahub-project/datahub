@@ -172,14 +172,53 @@ public final class UnknownReferenceMerger {
           }
         } else {
           // Readers saw it without its unknown references; if the client kept it, keep them too.
-          final int index =
-              request.indexOf(
-                  UnknownEntityUrnStripper.strippedCopy(element, items, entityRegistry));
+          final Object seen = UnknownEntityUrnStripper.strippedCopy(element, items, entityRegistry);
+          int index = request.indexOf(seen);
+          if (index < 0) {
+            // The client may have edited fields of the element it saw (e.g. an owner's type).
+            index = indexBySeenUrns(request, stored, seen, items);
+          }
           if (index >= 0) {
             request.set(index, merge(request.get(index), element, items));
           }
         }
       }
+    }
+
+    /**
+     * The index of the request element holding exactly the urns readers saw in a stored element, or
+     * -1 unless that stored element and that request element are the only ones holding them.
+     */
+    private int indexBySeenUrns(
+        @Nonnull final DataList request,
+        @Nonnull final DataList stored,
+        @Nonnull final Object seen,
+        @Nonnull final DataSchema items) {
+      final Set<String> seenUrns = UnknownEntityUrnStripper.urns(seen, items, entityRegistry);
+      if (seenUrns.isEmpty()) {
+        return -1;
+      }
+      int storedHolding = 0;
+      for (Object other : stored) {
+        final Object otherSeen =
+            UnknownEntityUrnStripper.strippedCopy(other, items, entityRegistry);
+        if (seenUrns.equals(UnknownEntityUrnStripper.urns(otherSeen, items, entityRegistry))) {
+          storedHolding++;
+        }
+      }
+      if (storedHolding != 1) {
+        return -1;
+      }
+      int index = -1;
+      for (int i = 0; i < request.size(); i++) {
+        if (seenUrns.equals(UnknownEntityUrnStripper.urns(request.get(i), items, entityRegistry))) {
+          if (index >= 0) {
+            return -1;
+          }
+          index = i;
+        }
+      }
+      return index;
     }
 
     private void mergeMap(

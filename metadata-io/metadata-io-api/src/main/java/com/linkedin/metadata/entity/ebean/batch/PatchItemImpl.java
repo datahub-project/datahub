@@ -418,6 +418,7 @@ public class PatchItemImpl implements PatchMCP {
         // not as the IllegalArgumentException batch building treats as "skip silently".
         entitySpec(ValidationApiUtils.validateEntity(entityRegistry, this.urn.getEntityType()));
         log.debug("entity spec = {}", this.entitySpec);
+        ValidationApiUtils.validateKeyEntityTypes(entityRegistry, this.urn);
 
         urn(ValidationApiUtils.validateUrn(entityRegistry, this.urn));
         log.debug("entity type = {}", this.urn.getEntityType());

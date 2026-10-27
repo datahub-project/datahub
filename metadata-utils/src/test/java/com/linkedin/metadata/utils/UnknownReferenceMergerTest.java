@@ -123,6 +123,38 @@ public class UnknownReferenceMergerTest {
   }
 
   @Test
+  public void testEditedElementKeepsTheUnknownUrnsTheClientCouldNotSee() {
+    final Ownership stored = ownership(ALICE);
+    stored.getOwners().get(0).setAttribution(new MetadataAttribution().setTime(0L).setActor(BOT));
+    final Ownership request = ownership(ALICE);
+    request.getOwners().get(0).setType(OwnershipType.TECHNICAL_OWNER);
+
+    final UnknownReferenceMerger.MergeResult result =
+        UnknownReferenceMerger.merge(request, stored, registry);
+
+    assertEquals(result.preserved(), 1);
+    final Owner owner = request.getOwners().get(0);
+    assertEquals(owner.getType(), OwnershipType.TECHNICAL_OWNER);
+    assertEquals(owner.getAttribution().getActor(), BOT);
+  }
+
+  @Test
+  public void testEditedElementIsNotMatchedWhenAnotherStoredElementHoldsTheSameUrns() {
+    // Two stored owners hold only alice, so the edited one can't be told apart.
+    final Ownership stored = ownership(ALICE, ALICE);
+    stored.getOwners().get(0).setAttribution(new MetadataAttribution().setTime(0L).setActor(BOT));
+    stored.getOwners().get(1).setType(OwnershipType.TECHNICAL_OWNER);
+    final Ownership request = ownership(ALICE, ALICE);
+    request.getOwners().get(0).setType(OwnershipType.BUSINESS_OWNER);
+    request.getOwners().get(1).setType(OwnershipType.TECHNICAL_OWNER);
+
+    UnknownReferenceMerger.merge(request, stored, registry);
+
+    assertFalse(request.getOwners().get(0).hasAttribution());
+    assertFalse(request.getOwners().get(1).hasAttribution());
+  }
+
+  @Test
   public void testClearedListOfElementsTheClientSawStaysAbsent() {
     final IncidentInfo request = incident();
 
