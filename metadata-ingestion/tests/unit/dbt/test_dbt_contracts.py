@@ -447,8 +447,9 @@ def test_enforced_by_follows_dbt_adapter_matrix(
         # BigQuery enforces NOT NULL but only defines primary keys, and
         # declaring one does not make its columns NOT NULL there.
         ("bigquery", "dbt_contract"),
-        # Snowflake enforces the NOT NULL property of a primary key.
+        # Snowflake and Databricks enforce the NOT NULL of a primary key.
         ("snowflake", "database"),
+        ("databricks", "database"),
     ],
 )
 def test_primary_key_not_null_half_enforcement(adapter: str, expected: str) -> None:
@@ -830,6 +831,54 @@ def test_relationships_test_matches_foreign_key_target(constraint_to: str) -> No
     )
     assert source._make_test_assertion_urn(matched, orders.dbt_name, 2) in urns
     assert source._make_test_assertion_urn(mismatched, orders.dbt_name, 1) not in urns
+
+
+def test_relationships_test_attaches_only_to_its_declaring_model() -> None:
+    # orders.manager_id -> employees.id has the same shape as employees'
+    # self-referencing foreign key, but the column is orders'.
+    source = _make_source()
+    employees = _make_model(
+        name="employees",
+        columns=[
+            _column(
+                "manager_id",
+                DBTConstraint(
+                    type="foreign_key", to="ref('employees')", to_columns=["id"]
+                ),
+            )
+        ],
+    )
+    orders = _make_model(name="orders")
+    test_node = _make_test(
+        "relationships_orders_manager_id",
+        [orders.dbt_name, employees.dbt_name],
+        qualified_test_name="relationships",
+        column_name="manager_id",
+        kw_args={"to": "ref('employees')", "field": "id"},
+        attached_node=orders.dbt_name,
+    )
+    by_entity = _dq_urns_by_entity(
+        _contract_mcps(source, [orders, employees], [test_node])
+    )
+    employees_urn = employees.get_urn("dbt", source.config.env, None)
+    assert (
+        source._make_test_assertion_urn(test_node, employees.dbt_name, 2)
+        not in by_entity[employees_urn]
+    )
+
+
+def test_quoted_test_column_matches_constraint() -> None:
+    # With ``quote: true`` dbt passes the quoted column name to tests.
+    source = _make_source()
+    model = _make_model(columns=[_column("ID", DBTConstraint(type="not_null"))])
+    test_node = _make_test(
+        "not_null_orders_id",
+        [model.dbt_name],
+        qualified_test_name="not_null",
+        column_name='"ID"',
+    )
+    urns = _dq_urns(_contract_mcps(source, [model], [test_node]))
+    assert source._make_test_assertion_urn(test_node, model.dbt_name, 1) in urns
 
 
 @pytest.mark.parametrize(

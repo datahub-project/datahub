@@ -7,7 +7,7 @@ from collections import Counter, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum, auto
+from enum import auto
 from functools import cached_property
 from typing import (
     Any,
@@ -184,6 +184,7 @@ from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.server_config_util import ServiceFeature
+from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
@@ -1143,7 +1144,7 @@ def parse_dbt_constraint(constraint_dict: Dict[str, Any]) -> DBTConstraint:
     )
 
 
-class DBTConstraintType(str, Enum):
+class DBTConstraintType(StrEnum):
     NOT_NULL = "not_null"
     UNIQUE = "unique"
     PRIMARY_KEY = "primary_key"
@@ -1152,7 +1153,7 @@ class DBTConstraintType(str, Enum):
     CUSTOM = "custom"
 
 
-class ConstraintEnforcement(str, Enum):
+class ConstraintEnforcement(StrEnum):
     """Where a contract constraint is enforced, per dbt's adapter matrix."""
 
     # dbt emits DDL and the warehouse validates the constraint on write.
@@ -1170,7 +1171,7 @@ _ENFORCEMENT_STRENGTH: Dict[Optional[ConstraintEnforcement], int] = {
 }
 
 
-class ConstraintScope(str, Enum):
+class ConstraintScope(StrEnum):
     COLUMN = "column"
     MODEL = "model"
 
@@ -1196,8 +1197,9 @@ def _column_key(name: str) -> str:
     # Contract identity and matching ignore column case: dbt and most
     # warehouses treat unquoted identifiers case-insensitively, and an
     # assertion URN must not change when convert_column_urns_to_lowercase is
-    # toggled. Field URNs on the assertions still follow that setting.
-    return name.lower()
+    # toggled. Field URNs on the assertions still follow that setting. Quotes
+    # are dropped too: with ``quote: true`` dbt passes tests ``"ID"``.
+    return _unquote_identifier(name).lower()
 
 
 _REF_OR_SOURCE_RE = re.compile(r"""\b(ref|source)\s*\(""", re.IGNORECASE)
@@ -5789,7 +5791,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         "athena": frozenset(),
     }
     # Adapters whose primary key makes its columns NOT NULL in the warehouse.
-    _PK_ENFORCES_NOT_NULL = frozenset({"postgres", "snowflake"})
+    _PK_ENFORCES_NOT_NULL = frozenset({"postgres", "snowflake", "databricks"})
     _CONSTRAINT_DDL_ENFORCED: Dict[str, FrozenSet[str]] = {
         "postgres": _ALL_STANDARD_CONSTRAINTS,
         "snowflake": _NOT_NULL_ONLY,
@@ -6110,17 +6112,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         num_upstreams: int,
         tagged: bool,
     ) -> bool:
+        # A multi-model test (e.g. relationships) belongs to the model it is
+        # declared on, not to every model it reads; its column is that model's.
+        attached_node = (
+            test_node.test_info.attached_node if test_node.test_info else None
+        )
+        if attached_node is not None and attached_node != model_node.dbt_name:
+            return False
         if tagged:
-            # A tagged multi-model test (e.g. relationships) belongs to the
-            # model it is declared on, not to every model it reads.
-            attached_node = (
-                test_node.test_info.attached_node if test_node.test_info else None
-            )
-            if attached_node is not None:
-                return attached_node == model_node.dbt_name
-            # The declaring model is unknown (dbt Cloud, singular tests), so
+            # When the declaring model is unknown (dbt Cloud, singular tests),
             # only a test that reads this model alone is attached.
-            return num_upstreams == 1
+            return attached_node is not None or num_upstreams == 1
         return self._test_matches_model_constraint(test_node, declared, resolver)
 
     def _test_matches_model_constraint(
