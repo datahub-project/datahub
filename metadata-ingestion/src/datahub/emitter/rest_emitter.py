@@ -127,6 +127,10 @@ _DATAHUB_EMITTER_TRACE = get_emitter_trace()
 
 _DEFAULT_CLIENT_MODE: ClientMode = ClientMode.SDK
 
+# Servers already warned about not receiving system credentials. The rest sink builds one
+# emitter per worker thread, so without this the same warning repeats per thread.
+_SYSTEM_AUTH_SKIPPED_SERVERS: set[str] = set()
+
 TRACE_PENDING_STATUS = "PENDING"
 TRACE_INITIAL_BACKOFF = 1.0  # Start with 1 second
 TRACE_MAX_BACKOFF = 300.0  # Cap at 5 minutes
@@ -584,7 +588,8 @@ class DataHubRestEmitter(Closeable, Emitter):
                     env_url, self._gms_server
                 ):
                     headers["Authorization"] = system_auth
-                else:
+                elif self._gms_server not in _SYSTEM_AUTH_SKIPPED_SERVERS:
+                    _SYSTEM_AUTH_SKIPPED_SERVERS.add(self._gms_server)
                     logger.warning(
                         "Not sending DATAHUB_SYSTEM_CLIENT_ID/DATAHUB_SYSTEM_CLIENT_SECRET "
                         "credentials to %s: it does not match the env-configured server %s. "

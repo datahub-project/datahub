@@ -20,7 +20,7 @@ import os
 import re
 import shutil
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any
 
 import pydantic
@@ -32,7 +32,7 @@ from datahub.executor.common.config import PermissiveConfigModel
 from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
 from datahub.executor.execution import venv_utils
-from datahub.executor.execution.runner import referenced_env_values
+from datahub.executor.execution.runner import _expand_pip_req, referenced_env_values
 from datahub.executor.execution.task import TaskError
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.secret_registry import SecretRegistry
@@ -59,11 +59,27 @@ _PROTECTED_ENV_VARS = frozenset(
 # Env-configured OAuth for DataHub clients (DATAHUB_AUTH_TYPE, DATAHUB_AUTH_CLIENT_ID, ...).
 _PROTECTED_ENV_VAR_PREFIX = "DATAHUB_AUTH_"
 
-# ${NAME}, ${NAME:-default} and $NAME references to the executor's DataHub credentials. Recipe
-# placeholders and pip requirement templates are filled from the executor's environment.
+# ${NAME}, ${NAME:-default} and $NAME references to the executor's DataHub credentials or its
+# env-configured OAuth settings. Recipe placeholders and pip requirement templates are filled
+# from the executor's environment.
 _CREDENTIAL_ENV_REFERENCE = re.compile(
-    r"\$\{?\s*(DATAHUB_SYSTEM_CLIENT_ID|DATAHUB_SYSTEM_CLIENT_SECRET|DATAHUB_GMS_TOKEN)\b"
+    r"\$\{?\s*(DATAHUB_SYSTEM_CLIENT_ID|DATAHUB_SYSTEM_CLIENT_SECRET|DATAHUB_GMS_TOKEN"
+    r"|DATAHUB_AUTH_\w+)\b"
 )
+# ${!NAME} expands the variable named by NAME's value, so the text does not show which variable
+# it reads. Recipes have no need for it.
+_INDIRECT_ENV_REFERENCE = re.compile(r"\$\{\s*!")
+
+# Credentials whose values must not appear in a resolved recipe or pip requirement, whatever
+# placeholder syntax produced them. Values shorter than the minimum are not compared, since
+# they would match unrelated text.
+_CREDENTIAL_ENV_VARS = (
+    "DATAHUB_SYSTEM_CLIENT_SECRET",
+    "DATAHUB_GMS_TOKEN",
+    "DATAHUB_AUTH_CLIENT_SECRET",
+    "DATAHUB_AUTH_AZURE_CLIENT_SECRET",
+)
+_MIN_COMPARED_CREDENTIAL_LENGTH = 8
 
 # Recipe keys whose value is a DataHub client config (DatahubClientConfig or a subclass).
 _DATAHUB_CLIENT_CONFIG_KEYS = frozenset({"datahub_api", "datahub", "rest_fallback"})
@@ -80,9 +96,15 @@ def find_credential_redirects(
 
     - a DataHub client config in the recipe whose server is not the env-configured one and
       that has no token or auth of its own;
-    - references to the credential environment variables in the recipe or pip settings;
+    - references to the credential environment variables in the recipe or pip settings,
+      including indirect ${!NAME} references, and credential values in the resolved recipe
+      or pip requirements;
     - extra_env_vars that redirect the configured server, replace its credentials or set a
       proxy.
+
+    This checks configuration only. It is not an isolation boundary: the subprocess still
+    inherits the executor's environment, so a run that installs its own code (pip
+    requirements, plugins, or a CLI version without the client-side check) can read it.
     """
     problems = [
         f"extra_env_vars.{name}"
@@ -97,13 +119,31 @@ def find_credential_redirects(
     ):
         problems.extend(_credential_references(value, label))
 
-    # Check the servers and tokens the subprocess will actually see, placeholders filled in.
+    # Check the servers, tokens and values the subprocess will actually see, placeholders
+    # filled in. If resolution fails here, the reference checks above still apply.
     try:
         effective_recipe = resolve_env_variables(
             recipe, environ={**args.get_combined_env_vars(), **secret_values}
         )
     except Exception:
         effective_recipe = recipe
+    credential_values = [
+        credential
+        for name in _CREDENTIAL_ENV_VARS
+        if (credential := os.environ.get(name))
+        and len(credential) >= _MIN_COMPARED_CREDENTIAL_LENGTH
+    ]
+    if credential_values:
+        problems.extend(
+            _paths_containing(effective_recipe, "recipe", credential_values)
+        )
+        problems.extend(
+            _paths_containing(
+                [_expand_pip_req_or_raw(req) for req in args.extra_pip_requirements],
+                "extra_pip_requirements",
+                credential_values,
+            )
+        )
     env_url = config_utils.get_url_from_env()
     for path, client_config in _datahub_client_configs(effective_recipe, ""):
         server = client_config.get("server")
@@ -114,7 +154,8 @@ def find_credential_redirects(
         if env_url is not None and is_same_gms_origin(env_url, server):
             continue
         problems.append(f"{path}.server")
-    return problems
+    # A reference that resolves to a credential is reported once, not per check.
+    return list(dict.fromkeys(problems))
 
 
 def check_credential_redirects(
@@ -130,20 +171,43 @@ def check_credential_redirects(
         )
 
 
+def _references_credential(text: str) -> bool:
+    return bool(
+        _CREDENTIAL_ENV_REFERENCE.search(text) or _INDIRECT_ENV_REFERENCE.search(text)
+    )
+
+
 def _credential_references(value: Any, path: str) -> list[str]:
+    return _matching_paths(value, path, _references_credential)
+
+
+def _paths_containing(value: Any, path: str, needles: list[str]) -> list[str]:
+    return _matching_paths(value, path, lambda text: any(n in text for n in needles))
+
+
+def _matching_paths(value: Any, path: str, matches: Callable[[str], bool]) -> list[str]:
+    """Paths of the strings (dict keys included) in `value` for which `matches` is true."""
     if isinstance(value, str):
-        return [path] if _CREDENTIAL_ENV_REFERENCE.search(value) else []
+        return [path] if matches(value) else []
     found: list[str] = []
     if isinstance(value, dict):
         for key, child in value.items():
             child_path = f"{path}.{key}"
-            if isinstance(key, str) and _CREDENTIAL_ENV_REFERENCE.search(key):
+            if isinstance(key, str) and matches(key):
                 found.append(child_path)
-            found.extend(_credential_references(child, child_path))
+            found.extend(_matching_paths(child, child_path, matches))
     elif isinstance(value, list):
         for i, child in enumerate(value):
-            found.extend(_credential_references(child, f"{path}[{i}]"))
+            found.extend(_matching_paths(child, f"{path}[{i}]", matches))
     return found
+
+
+def _expand_pip_req_or_raw(req: str) -> str:
+    # setup_venv expands pip requirements the same way and fails the run on a bad template.
+    try:
+        return _expand_pip_req(req)
+    except RuntimeError:
+        return req
 
 
 def _datahub_client_configs(value: Any, path: str) -> list[tuple[str, dict]]:

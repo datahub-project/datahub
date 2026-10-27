@@ -398,7 +398,11 @@ def is_same_gms_origin(configured_url: str, server: str) -> bool:
     """Whether credentials meant for ``configured_url`` may be sent to ``server``.
 
     Uses requests' redirect rule: the same origin, or an http->https upgrade on default
-    ports, matches; any other scheme, host or port does not.
+    ports, matches; any other scheme, host or port does not. The path is ignored.
+
+    A URL without a scheme (the legacy DATAHUB_GMS_HOST-as-URL form) parses with no host,
+    so two such URLs compare equal whatever their port. requests cannot connect to a
+    scheme-less URL, so no request carrying the credentials is made in that case.
     """
     return not SessionRedirectMixin().should_strip_auth(
         fixup_gms_url(configured_url), fixup_gms_url(server)

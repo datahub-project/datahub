@@ -589,3 +589,48 @@ class TestFindCredentialRedirects:
             check_credential_redirects(
                 recipe, SubProcessRecipeTaskArgs(recipe="{}"), {}
             )
+
+
+class TestCredentialReferenceBypasses:
+    """Placeholder forms that would otherwise reach the credentials without naming them."""
+
+    SECRET = "system-secret-value"
+
+    @pytest.fixture(autouse=True)
+    def _env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("DATAHUB_GMS_URL", "http://datahub-gms:8080")
+        monkeypatch.setenv("DATAHUB_SYSTEM_CLIENT_SECRET", self.SECRET)
+
+    @staticmethod
+    def _find(recipe: dict, **args: object) -> list:
+        task_args = SubProcessRecipeTaskArgs(recipe="{}", **args)  # type: ignore[arg-type]
+        return find_credential_redirects(recipe, task_args, {})
+
+    def test_indirect_reference_is_rejected(self) -> None:
+        recipe = {"source": {"config": {"password": "${!A}"}}}
+        problems = self._find(
+            recipe, extra_env_vars={"A": "DATAHUB_SYSTEM_CLIENT_SECRET"}
+        )
+        assert problems == ["recipe.source.config.password"]
+
+    @pytest.mark.parametrize(
+        "name", ["DATAHUB_AUTH_CLIENT_SECRET", "DATAHUB_AUTH_AZURE_CLIENT_SECRET"]
+    )
+    def test_env_oauth_reference_is_rejected(self, name: str) -> None:
+        recipe = {"source": {"config": {"password": "${" + name + "}"}}}
+        assert self._find(recipe) == ["recipe.source.config.password"]
+
+    def test_credential_value_reached_another_way_is_rejected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Any variable that holds the same value counts, whatever its name.
+        monkeypatch.setenv("COPY_OF_SECRET", self.SECRET)
+        recipe = {"source": {"config": {"password": "${COPY_OF_SECRET}"}}}
+        assert self._find(recipe) == ["recipe.source.config.password"]
+        assert self._find(
+            {}, extra_pip_requirements=["pkg @ https://x/${COPY_OF_SECRET}/pkg.whl"]
+        ) == ["extra_pip_requirements[0]"]
+
+    def test_reference_found_twice_is_reported_once(self) -> None:
+        recipe = {"source": {"config": {"password": "${DATAHUB_SYSTEM_CLIENT_SECRET}"}}}
+        assert self._find(recipe) == ["recipe.source.config.password"]

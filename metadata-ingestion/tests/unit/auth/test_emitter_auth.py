@@ -2,6 +2,8 @@ import pytest
 
 from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.emitter.token_provider import StaticTokenProvider, TokenProviderAuth
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import DatahubClientConfig
 
 
 def test_emitter_installs_session_auth_and_skips_static_header():
@@ -64,3 +66,17 @@ def test_system_credentials_not_sent_without_configured_server(
 def test_explicit_token_sent_to_any_server() -> None:
     emitter = DataHubRestEmitter(gms_server="http://other:8080", token="tok")
     assert emitter._session.headers.get("Authorization") == "Bearer tok"
+
+
+@pytest.mark.usefixtures("system_credentials")
+def test_server_from_env_gets_system_credentials() -> None:
+    emitter = DataHubRestEmitter(gms_server="__from_env__")
+    assert emitter._session.headers.get("Authorization") == "Basic system:secret"
+
+
+@pytest.mark.usefixtures("system_credentials")
+def test_graph_follows_the_same_rule() -> None:
+    graph = DataHubGraph(DatahubClientConfig(server="http://gms:8080"))
+    assert graph._session.headers.get("Authorization") == "Basic system:secret"
+    other = DataHubGraph(DatahubClientConfig(server="http://other:8080"))
+    assert "Authorization" not in other._session.headers
