@@ -541,6 +541,7 @@ def extract_dbt_entities(
                 schema=manifest_node["schema"],
                 name=name,
                 alias=manifest_node.get("alias"),
+                identifier=manifest_node.get("identifier"),
                 dbt_file_path=manifest_node["original_file_path"],
                 node_type=manifest_node["resource_type"],
                 max_loaded_at=max_loaded_at,

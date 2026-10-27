@@ -1122,6 +1122,12 @@ class DBTConstraint:
     warn_unsupported: Optional[bool] = None
 
 
+def _normalize_constraint_type(value: str) -> str:
+    # The Discovery API types ``type`` as a free string, so accept
+    # ``NOT_NULL`` / ``PrimaryKey`` / ``primary_key`` alike.
+    return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", value.strip()).lower()
+
+
 def parse_dbt_constraint(constraint_dict: Dict[str, Any]) -> DBTConstraint:
     """Parse a manifest or Discovery API constraint object."""
     to_columns = constraint_dict.get("to_columns")
@@ -1135,7 +1141,7 @@ def parse_dbt_constraint(constraint_dict: Dict[str, Any]) -> DBTConstraint:
         warn_unsupported = constraint_dict.get("warnUnsupported")
     columns = constraint_dict.get("columns")
     return DBTConstraint(
-        type=constraint_dict.get("type") or "unknown",
+        type=_normalize_constraint_type(constraint_dict.get("type") or "unknown"),
         name=constraint_dict.get("name"),
         expression=constraint_dict.get("expression"),
         columns=list(columns) if columns else None,
@@ -1195,27 +1201,12 @@ _FK_EXPRESSION_RE = re.compile(
 )
 
 
-@dataclass(frozen=True)
-class _DeclaredConstraint:
-    type: str
-    columns: FrozenSet[str]
-    to: Optional[str] = None
-    to_columns: FrozenSet[str] = field(default_factory=frozenset)
-
-    @classmethod
-    def of(
-        cls, constraint: "DBTConstraint", columns: FrozenSet[str]
-    ) -> "_DeclaredConstraint":
-        to = constraint.to
-        to_columns = frozenset(constraint.to_columns or [])
-        if not to and constraint.expression:
-            match = _FK_EXPRESSION_RE.match(constraint.expression)
-            if match:
-                to = match.group(1)
-                to_columns = frozenset(
-                    c.strip() for c in match.group(2).split(",") if c.strip()
-                )
-        return cls(type=constraint.type, columns=columns, to=to, to_columns=to_columns)
+def _column_key(name: str) -> str:
+    # Contract identity and matching ignore column case: dbt and most
+    # warehouses treat unquoted identifiers case-insensitively, and an
+    # assertion URN must not change when convert_column_urns_to_lowercase is
+    # toggled. Field URNs on the assertions still follow that setting.
+    return name.lower()
 
 
 _REF_OR_SOURCE_RE = re.compile(r"""\b(ref|source)\s*\(""", re.IGNORECASE)
@@ -1272,11 +1263,19 @@ class _RelationResolver:
         # (package, name) -> version -> relation; version is "" if unversioned.
         self._refs: Dict[Tuple[str, str], Dict[str, _RelationKey]] = {}
         self._by_source: Dict[Tuple[str, str], _RelationKey] = {}
+        self._relations: Set[_RelationKey] = set()
         for node in nodes:
+            # A source's relation is its identifier, which may differ from
+            # its name; compiled ``to`` values use the identifier.
+            relation_name = node.identifier or node.name
             key = tuple(
-                part.lower() for part in (node.database, node.schema, node.name) if part
+                part.lower()
+                for part in (node.database, node.schema, relation_name)
+                if part
             )
             id_parts = node.dbt_name.lower().split(".")
+            if node.node_type in {"source", "model", "seed", "snapshot"}:
+                self._relations.add(key)
             if node.node_type == "source" and len(id_parts) >= 4:
                 self._by_source[(id_parts[2], id_parts[3])] = key
             elif node.node_type in {"model", "seed", "snapshot"} and len(id_parts) >= 3:
@@ -1331,7 +1330,28 @@ class _RelationResolver:
                     else None
                 ),
             )
-        return _split_relation_name(value) or None
+        # A compiled or bare relation name resolves to the one known relation
+        # it names, so it matches the raw ref()/source() form.
+        relation = _split_relation_name(value)
+        matches = [
+            key for key in self._relations if _relation_keys_match(key, relation)
+        ]
+        return matches[0] if len(matches) == 1 else None
+
+    @staticmethod
+    def relation_name(value: Optional[str]) -> Optional[str]:
+        """Last relation part of a raw or compiled target, lowercased.
+
+        Identifies a target that cannot be resolved the same way whether dbt
+        rendered it raw (``ref('pkg', 'x')``) or compiled (``"db"."s"."x"``).
+        """
+        if not value:
+            return None
+        if _REF_OR_SOURCE_RE.search(value):
+            args = _QUOTED_ARG_RE.findall(_REF_VERSION_RE.sub("", value))
+            return args[-1].lower() if args else None
+        parts = _split_relation_name(value)
+        return parts[-1] if parts else None
 
 
 _ALL_STANDARD_CONSTRAINTS = frozenset(
@@ -1387,6 +1407,74 @@ _AUTO_LINKABLE_TEST_NAMES = (
 
 
 @dataclass(frozen=True)
+class _NormalizedConstraint:
+    """A declared constraint in the one form used for assertion URNs, dedupe
+    and test matching, so a value dbt can render two ways (raw ``ref()`` vs
+    compiled relation, ``ID`` vs ``id``) has one identity."""
+
+    constraint: DBTConstraint
+    scope: ConstraintScope
+    # As declared; foreign key columns pair positionally with ``to_columns``.
+    columns: Tuple[str, ...]
+    to_columns: Tuple[str, ...] = ()
+    # Foreign key target: the resolved relation, and the target's relation
+    # name, which identifies a target that cannot be resolved.
+    to: Optional[_RelationKey] = None
+    to_name: Optional[str] = None
+
+    @property
+    def type(self) -> str:
+        return self.constraint.type
+
+    @property
+    def column_keys(self) -> FrozenSet[str]:
+        return frozenset(_column_key(column) for column in self.columns)
+
+    @property
+    def column_pairs(self) -> Tuple[Tuple[str, str], ...]:
+        """Sorted ``(column, to_column)`` keys, kept together so sorting never
+        breaks the pairing."""
+        if len(self.columns) != len(self.to_columns):
+            return ()
+        return tuple(
+            sorted(
+                zip(
+                    map(_column_key, self.columns),
+                    map(_column_key, self.to_columns),
+                    strict=True,
+                )
+            )
+        )
+
+
+def _normalize_constraint(
+    constraint: DBTConstraint,
+    scope: ConstraintScope,
+    columns: Sequence[str],
+    resolver: _RelationResolver,
+) -> _NormalizedConstraint:
+    to = constraint.to
+    to_columns = constraint.to_columns or []
+    if (
+        constraint.type == DBTConstraintType.FOREIGN_KEY
+        and not to
+        and constraint.expression
+    ):
+        match = _FK_EXPRESSION_RE.match(constraint.expression)
+        if match:
+            to = match.group(1)
+            to_columns = [c.strip() for c in match.group(2).split(",") if c.strip()]
+    return _NormalizedConstraint(
+        constraint=constraint,
+        scope=scope,
+        columns=tuple(columns),
+        to_columns=tuple(to_columns),
+        to=resolver.resolve(to),
+        to_name=_RelationResolver.relation_name(to),
+    )
+
+
+@dataclass(frozen=True)
 class _ContractAssertion:
     urn: str
     mcps: List[MetadataChangeProposalWrapper]
@@ -1418,44 +1506,37 @@ def _make_data_contract_urn(entity_urn: str) -> str:
 
 def _test_column_set(test_info: DBTTest) -> Optional[FrozenSet[str]]:
     if test_info.column_name:
-        return frozenset({test_info.column_name})
+        return frozenset({_column_key(test_info.column_name)})
     combo = (test_info.kw_args or {}).get("combination_of_columns")
     if isinstance(combo, list) and combo:
-        return frozenset(str(column) for column in combo)
+        return frozenset(_column_key(str(column)) for column in combo)
     kw_column = (test_info.kw_args or {}).get("column_name")
     if kw_column:
-        return frozenset({str(kw_column)})
+        return frozenset({_column_key(str(kw_column))})
     return None
 
 
 def _foreign_key_matches_test(
     test_node: "DBTNode",
-    constraint: _DeclaredConstraint,
+    constraint: "_NormalizedConstraint",
     resolver: _RelationResolver,
 ) -> bool:
     test_info = test_node.test_info
-    if test_info is None:
-        return False
-    test_columns = _test_column_set(test_info)
-    if test_columns and constraint.columns and test_columns != constraint.columns:
+    # A target that cannot be resolved (or a foreign key without one) is not
+    # assumed to match.
+    if test_info is None or constraint.to is None:
         return False
     kw_args = test_info.kw_args or {}
-    # Both targets must resolve to the same relation; a target that cannot be
-    # resolved (or a foreign key without one) is not assumed to match.
-    test_to = resolver.resolve(kw_args.get("to"))
-    constraint_to = resolver.resolve(constraint.to)
-    if (
-        test_to is None
-        or constraint_to is None
-        or not _relation_keys_match(test_to, constraint_to)
-    ):
+    if resolver.resolve(kw_args.get("to")) != constraint.to:
+        return False
+    # A relationships test checks one column, so it proves a single-column
+    # foreign key only, and only for the paired referenced column.
+    test_columns = _test_column_set(test_info)
+    if test_columns and test_columns != constraint.column_keys:
         return False
     test_field = kw_args.get("field")
-    if (
-        test_field
-        and constraint.to_columns
-        and str(test_field) not in constraint.to_columns
-    ):
+    to_keys = {to_column for _, to_column in constraint.column_pairs}
+    if test_field and to_keys and _column_key(str(test_field)) not in to_keys:
         return False
     return True
 
@@ -1989,6 +2070,8 @@ class DBTNode:
     # below are derived from it; this keeps the structure (entity kinds,
     # aggregations, time granularities) that flattening throws away.
     semantic_model_def: Optional[DBTSemanticModelDefinition] = None
+    # A source's warehouse table name, when it differs from its name.
+    identifier: Optional[str] = None
 
     columns: List[DBTColumn] = field(default_factory=list)
     upstream_nodes: List[str] = field(default_factory=list)  # list of upstream dbt_name
@@ -5627,30 +5710,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         The same check declared twice (e.g. ``not_null`` and ``primary_key``
         on one column) is emitted once, with the strongest enforcement.
         """
-        resolver = resolver or _RelationResolver([])
         results: List[_ContractAssertion] = []
-        for col in self._contract_columns(node):
-            for constraint in col.constraints:
-                results.extend(
-                    self._build_constraint_assertions(
-                        node=node,
-                        entity_urn=entity_urn,
-                        constraint=constraint,
-                        columns=[col.name],
-                        scope=ConstraintScope.COLUMN,
-                        resolver=resolver,
-                    )
-                )
-        for constraint in node.model_constraints:
+        for declared in self._declared_constraints(
+            node, resolver or _RelationResolver([])
+        ):
             results.extend(
-                self._build_constraint_assertions(
-                    node=node,
-                    entity_urn=entity_urn,
-                    constraint=constraint,
-                    columns=constraint.columns or [],
-                    scope=ConstraintScope.MODEL,
-                    resolver=resolver,
-                )
+                self._build_constraint_assertions(node, entity_urn, declared)
             )
         deduped: Dict[str, _ContractAssertion] = {}
         for assertion in results:
@@ -5664,75 +5729,39 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         node: DBTNode,
         entity_urn: str,
-        constraint: DBTConstraint,
-        columns: List[str],
-        scope: ConstraintScope,
-        resolver: _RelationResolver,
+        declared: _NormalizedConstraint,
     ) -> List[_ContractAssertion]:
-        """Dispatch a single ``DBTConstraint`` to the builder for its type."""
-        ctype = constraint.type
-        if ctype in _COLUMN_LIST_CONSTRAINTS and not columns:
-            self._record_unsupported_constraint(node, constraint, "no columns")
+        """Dispatch a single declared constraint to the builder for its type."""
+        ctype = declared.type
+        if ctype in _COLUMN_LIST_CONSTRAINTS and not declared.columns:
+            self._record_unsupported_constraint(node, declared.constraint, "no columns")
             return []
 
         if ctype == DBTConstraintType.NOT_NULL:
             return [
-                self._build_not_null_assertion(
-                    node=node,
-                    entity_urn=entity_urn,
-                    constraint=constraint,
-                    column_name=col_name,
-                    scope=scope,
-                )
-                for col_name in columns
+                self._build_not_null_assertion(node, entity_urn, declared, column)
+                for column in declared.columns
             ]
         if ctype == DBTConstraintType.UNIQUE:
-            return [
-                self._build_unique_assertion(
-                    node=node,
-                    entity_urn=entity_urn,
-                    constraint=constraint,
-                    column_names=columns,
-                    scope=scope,
-                )
-            ]
+            return [self._build_unique_assertion(node, entity_urn, declared)]
         if ctype == DBTConstraintType.PRIMARY_KEY:
             # Uniqueness over the column set plus a not-null per column, so the
             # two halves can be evaluated and reported independently.
             return [
-                self._build_unique_assertion(
-                    node=node,
-                    entity_urn=entity_urn,
-                    constraint=constraint,
-                    column_names=columns,
-                    scope=scope,
-                ),
+                self._build_unique_assertion(node, entity_urn, declared),
                 *(
-                    self._build_not_null_assertion(
-                        node=node,
-                        entity_urn=entity_urn,
-                        constraint=constraint,
-                        column_name=col_name,
-                        scope=scope,
-                    )
-                    for col_name in columns
+                    self._build_not_null_assertion(node, entity_urn, declared, column)
+                    for column in declared.columns
                 ),
             ]
         if ctype in _NATIVE_CONSTRAINT_TYPES:
             # No DataHub std operator maps to these. FKs carry ``to`` /
             # ``to_columns`` (not ``expression``) on custom properties.
-            return [
-                self._build_native_constraint_assertion(
-                    node=node,
-                    entity_urn=entity_urn,
-                    constraint=constraint,
-                    columns=columns,
-                    scope=scope,
-                    resolver=resolver,
-                )
-            ]
+            return [self._build_native_constraint_assertion(node, entity_urn, declared)]
 
-        self._record_unsupported_constraint(node, constraint, f"unknown type '{ctype}'")
+        self._record_unsupported_constraint(
+            node, declared.constraint, f"unknown type '{ctype}'"
+        )
         return []
 
     # Per https://docs.getdbt.com/reference/resource-properties/constraints.
@@ -5803,17 +5832,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             custom_props["warn_unsupported"] = str(constraint.warn_unsupported).lower()
         return custom_props
 
+    def _contract_field_urn(self, entity_urn: str, column: str) -> str:
+        # Same casing rule as the dataset's schema fields.
+        if self.config.convert_column_urns_to_lowercase:
+            column = column.lower()
+        return mce_builder.make_schema_field_urn(entity_urn, column)
+
     def _build_not_null_assertion(
         self,
         node: DBTNode,
         entity_urn: str,
-        constraint: DBTConstraint,
+        declared: _NormalizedConstraint,
         column_name: str,
-        scope: ConstraintScope,
     ) -> _ContractAssertion:
+        constraint = declared.constraint
         assertion_urn = self._make_contract_assertion_urn(
             node,
-            {"check": "not_null", "columns": [column_name]},
+            {"check": "not_null", "columns": [_column_key(column_name)]},
         )
         # The not-null half of a primary key is labelled with the primary
         # key's enforcement: on adapters that only define PKs (e.g. BigQuery),
@@ -5822,14 +5857,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         assertion_info = make_contract_assertion_info(
             name=constraint.name,
             custom_properties=self._constraint_custom_properties(
-                node, constraint, scope, enforced_by
+                node, constraint, declared.scope, enforced_by
             ),
             custom_assertion=make_custom_assertion_info(
                 entity_urn=entity_urn,
                 scope=DatasetAssertionScopeClass.DATASET_COLUMN,
                 operator=AssertionStdOperatorClass.NOT_NULL,
                 aggregation=AssertionStdAggregationClass.IDENTITY,
-                fields=[mce_builder.make_schema_field_urn(entity_urn, column_name)],
+                fields=[self._contract_field_urn(entity_urn, column_name)],
                 native_type="dbt_constraint_not_null",
             ),
         )
@@ -5843,9 +5878,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         node: DBTNode,
         entity_urn: str,
-        constraint: DBTConstraint,
-        column_names: List[str],
-        scope: ConstraintScope,
+        declared: _NormalizedConstraint,
     ) -> _ContractAssertion:
         """Uniqueness over one or more columns.
 
@@ -5853,16 +5886,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         with parameter ``1.0``, the same encoding ``dbt_tests.py`` uses for
         native ``unique`` tests.
         """
-        # Sorted so (a, b) and (b, a) produce the same URN.
-        sorted_columns = sorted(column_names)
+        constraint = declared.constraint
         assertion_urn = self._make_contract_assertion_urn(
             node,
-            {"check": "unique", "columns": sorted_columns},
+            {"check": "unique", "columns": sorted(declared.column_keys)},
         )
         enforced_by = self._enforced_by_for_constraint(node, constraint.type)
         custom_props = self._constraint_custom_properties(
-            node, constraint, scope, enforced_by
+            node, constraint, declared.scope, enforced_by
         )
+        sorted_columns = sorted(declared.columns)
         custom_props["columns"] = ",".join(sorted_columns)
         assertion_info = make_contract_assertion_info(
             name=constraint.name,
@@ -5877,8 +5910,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 operator=AssertionStdOperatorClass.EQUAL_TO,
                 aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
                 fields=[
-                    mce_builder.make_schema_field_urn(entity_urn, col)
-                    for col in sorted_columns
+                    self._contract_field_urn(entity_urn, col) for col in sorted_columns
                 ],
                 native_type="dbt_constraint_unique",
                 parameters=AssertionStdParametersClass(
@@ -5899,39 +5931,36 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         node: DBTNode,
         entity_urn: str,
-        constraint: DBTConstraint,
-        columns: List[str],
-        scope: ConstraintScope,
-        resolver: _RelationResolver,
+        declared: _NormalizedConstraint,
     ) -> _ContractAssertion:
-        sorted_columns = sorted(columns)
+        constraint = declared.constraint
         # A named constraint is identified by its name, so its URN survives
-        # changes to its expression or to how dbt renders ``to`` (raw ref vs
-        # compiled relation, depending on what the run compiled).
+        # changes to its expression or to how dbt renders ``to``.
         identity: Dict[str, Any] = {
             "constraint": constraint.type,
-            "name": constraint.name,
-            "columns": sorted_columns,
+            "columns": sorted(declared.column_keys),
         }
-        if not constraint.name:
-            resolved_to = resolver.resolve(constraint.to)
-            identity.update(
-                expression=constraint.expression,
-                to=list(resolved_to) if resolved_to else constraint.to,
-                to_columns=constraint.to_columns,
-            )
+        if constraint.name:
+            identity["name"] = constraint.name
+        elif declared.to_name:
+            identity["to"] = list(declared.to) if declared.to else declared.to_name
+            identity["to_columns"] = [list(pair) for pair in declared.column_pairs]
+        else:
+            identity["expression"] = constraint.expression
         assertion_urn = self._make_contract_assertion_urn(node, identity)
         enforced_by = self._enforced_by_for_constraint(node, constraint.type)
         custom_props = self._constraint_custom_properties(
-            node, constraint, scope, enforced_by
+            node, constraint, declared.scope, enforced_by
         )
+        # Declared order, so foreign key columns line up with ``to_columns``.
+        columns = list(declared.columns)
         native_parameters: Dict[str, str] = {}
         if constraint.expression:
             native_parameters["expression"] = constraint.expression
         if constraint.name:
             native_parameters["constraint_name"] = constraint.name
-        if sorted_columns:
-            native_parameters["columns"] = ",".join(sorted_columns)
+        if columns:
+            native_parameters["columns"] = ",".join(columns)
         if constraint.to:
             native_parameters["to"] = constraint.to
         if constraint.to_columns:
@@ -5945,15 +5974,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 entity_urn=entity_urn,
                 scope=(
                     DatasetAssertionScopeClass.DATASET_COLUMN
-                    if sorted_columns
+                    if columns
                     else DatasetAssertionScopeClass.DATASET_ROWS
                 ),
                 operator=AssertionStdOperatorClass._NATIVE_,
                 aggregation=AssertionStdAggregationClass._NATIVE_,
-                fields=[
-                    mce_builder.make_schema_field_urn(entity_urn, col)
-                    for col in sorted_columns
-                ],
+                fields=[self._contract_field_urn(entity_urn, col) for col in columns],
                 native_type=f"dbt_constraint_{constraint.type}",
                 logic=constraint.expression,
                 native_parameters=native_parameters or None,
@@ -6021,16 +6047,27 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 tests_by_upstream.setdefault(upstream, []).append(test_node)
         return tests_by_upstream
 
-    def _declared_constraints(self, model_node: DBTNode) -> List[_DeclaredConstraint]:
-        declared: List[_DeclaredConstraint] = []
+    def _declared_constraints(
+        self, model_node: DBTNode, resolver: _RelationResolver
+    ) -> List[_NormalizedConstraint]:
+        """Column- and model-level constraints, normalized once for URNs,
+        dedupe and test matching."""
+        declared: List[_NormalizedConstraint] = []
         for column in self._contract_columns(model_node):
             for constraint in column.constraints:
                 declared.append(
-                    _DeclaredConstraint.of(constraint, frozenset({column.name}))
+                    _normalize_constraint(
+                        constraint, ConstraintScope.COLUMN, [column.name], resolver
+                    )
                 )
         for constraint in model_node.model_constraints:
             declared.append(
-                _DeclaredConstraint.of(constraint, frozenset(constraint.columns or []))
+                _normalize_constraint(
+                    constraint,
+                    ConstraintScope.MODEL,
+                    constraint.columns or [],
+                    resolver,
+                )
             )
         return declared
 
@@ -6038,7 +6075,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         test_node: DBTNode,
         model_node: DBTNode,
-        declared: Sequence[_DeclaredConstraint],
+        declared: Sequence[_NormalizedConstraint],
         resolver: _RelationResolver,
         num_upstreams: int,
     ) -> bool:
@@ -6059,7 +6096,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _test_matches_model_constraint(
         self,
         test_node: DBTNode,
-        declared: Sequence[_DeclaredConstraint],
+        declared: Sequence[_NormalizedConstraint],
         resolver: _RelationResolver,
     ) -> bool:
         if not test_node.test_info:
@@ -6076,7 +6113,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 return False
             return any(
                 constraint.type in _NOT_NULL_IMPLYING_CONSTRAINTS
-                and test_columns <= constraint.columns
+                and test_columns <= constraint.column_keys
                 for constraint in declared
             )
         if qname in _UNIQUE_TEST_NAMES:
@@ -6084,7 +6121,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 return False
             return any(
                 constraint.type in _UNIQUE_IMPLYING_CONSTRAINTS
-                and constraint.columns == test_columns
+                and constraint.column_keys == test_columns
                 for constraint in declared
             )
         if qname == _RELATIONSHIPS_TEST_NAME:
@@ -6276,7 +6313,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # depends on the *filtered* upstream set, not the raw manifest list.
         test_urns: List[str] = []
         if self.config.entities_enabled.can_emit_test_definitions:
-            declared = self._declared_constraints(node)
+            declared = self._declared_constraints(node, resolver)
             for test_node in contract_tests:
                 filtered_upstreams = filtered_upstreams_for(test_node)
                 if node.dbt_name not in filtered_upstreams:
@@ -6299,15 +6336,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         constraint_assertions: List[_ContractAssertion] = []
         if self.config.ingest_column_constraints_as_assertions:
-            seen_constraint_urns: Set[str] = set()
             for assertion in self._create_constraint_assertions(
                 node=node, entity_urn=entity_urn, resolver=resolver
             ):
-                # The same constraint declared at both column and model
-                # level yields the same URN; emit it once.
-                if assertion.urn in seen_constraint_urns:
-                    continue
-                seen_constraint_urns.add(assertion.urn)
                 constraint_assertions.append(assertion)
                 assertion_urns.append(assertion.urn)
                 mcps.extend(assertion.mcps)

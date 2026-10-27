@@ -508,6 +508,115 @@ def test_named_constraint_urn_ignores_expression() -> None:
     assert urn("age >= 0") == urn("age > 0")
 
 
+def _fixture_contract(kind: str) -> Tuple[List[str], List[str], int]:
+    """Contract assertion URNs, contract entries and NOT_NULL count from a
+    real dbt manifest (``dbt parse`` or ``dbt compile`` of the same project)."""
+    manifest = json.loads(
+        (
+            Path(__file__).parent / "artifacts" / "contracts" / f"manifest_{kind}.json"
+        ).read_text()
+    )
+    nodes = extract_dbt_entities(
+        all_manifest_entities={**manifest["nodes"], **manifest["sources"]},
+        all_catalog_entities={},
+        sources_results=[],
+        manifest_adapter="duckdb",
+        use_identifiers=False,
+        tag_prefix="dbt:",
+        only_include_if_in_catalog=False,
+        include_database_name=True,
+        report=DBTSourceReport(),
+    )
+    tests = [n for n in nodes if n.node_type == "test"]
+    others = [n for n in nodes if n.node_type != "test"]
+    (orders,) = [n for n in others if n.dbt_name.endswith(".orders")]
+    mcps = _contract_mcps(_make_source(), [orders], tests, others)
+    infos = _assertion_infos(mcps)
+    not_null = [
+        info
+        for info in infos.values()
+        if info.customAssertion is not None
+        and info.customAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+    ]
+    return sorted(infos), _dq_urns(mcps), len(not_null)
+
+
+def test_parsed_and_compiled_manifests_give_the_same_contract() -> None:
+    # The compiled manifest renders foreign key targets (a ref and a source
+    # with an identifier) as relations; the parsed one keeps ref()/source().
+    parsed = _fixture_contract("parse")
+    assert parsed == _fixture_contract("compile")
+    assertion_urns, contract_entries, num_not_null = parsed
+    # Schema, PK unique, not-null on ID (column ``ID`` and PK ``[id]``), two
+    # foreign keys and a check.
+    assert len(assertion_urns) == 6
+    assert num_not_null == 1
+    # Plus the matching not_null and relationships (to a source) tests.
+    assert len(contract_entries) == 8
+
+
+def test_composite_foreign_key_keeps_column_pairs() -> None:
+    source = _make_source()
+
+    def fk(columns: List[str], to_columns: List[str]) -> Tuple[str, AssertionInfoClass]:
+        node = _make_model(
+            model_constraints=[
+                DBTConstraint(
+                    type="foreign_key",
+                    columns=columns,
+                    to="ref('dim')",
+                    to_columns=to_columns,
+                )
+            ]
+        )
+        (assertion,) = source._create_constraint_assertions(node, _ENTITY_URN)
+        (info,) = _assertion_infos(assertion.mcps).values()
+        return assertion.urn, info
+
+    urn, info = fk(["b_id", "a_id"], ["y", "x"])
+    assert urn == fk(["a_id", "b_id"], ["x", "y"])[0]
+    assert urn != fk(["a_id", "b_id"], ["y", "x"])[0]
+    assert info.customProperties is not None
+    assert info.customProperties["columns"] == "b_id,a_id"
+    assert info.customProperties["to_columns"] == "y,x"
+
+
+def test_unresolvable_foreign_key_target_has_one_identity() -> None:
+    source = _make_source()
+
+    def urn(to: str) -> str:
+        node = _make_model(
+            columns=[_column("x_id", DBTConstraint(type="foreign_key", to=to))]
+        )
+        (assertion,) = source._create_constraint_assertions(node, _ENTITY_URN)
+        return assertion.urn
+
+    # A ref to another project, raw and as compiled.
+    assert urn("ref('other_project', 'dim_x')") == urn('"db"."other"."dim_x"')
+
+
+def test_column_case_does_not_split_assertions() -> None:
+    source = _make_source()
+    node = _make_model(
+        columns=[_column("ID", DBTConstraint(type="not_null"))],
+        model_constraints=[DBTConstraint(type="primary_key", columns=["id"])],
+    )
+    # One unique plus one not-null, not a not-null per spelling.
+    assert len(source._create_constraint_assertions(node, _ENTITY_URN)) == 2
+
+
+def test_cloud_enum_style_constraint_types_are_supported() -> None:
+    source = _make_source()
+    node = _make_model(
+        model_constraints=[
+            parse_dbt_constraint({"type": "PrimaryKey", "columns": ["id"]}),
+            parse_dbt_constraint({"type": "NOT_NULL", "columns": ["email"]}),
+        ]
+    )
+    assert len(source._create_constraint_assertions(node, _ENTITY_URN)) == 3
+    assert not source.report.contract_constraints_skipped_unsupported
+
+
 def test_unknown_constraint_type_is_reported_not_raised() -> None:
     source = _make_source()
     node = _make_model(columns=[_column("id", DBTConstraint(type="exclusion"))])

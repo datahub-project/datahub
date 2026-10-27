@@ -1357,6 +1357,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             schema=node.get("schema"),
             name=name,
             alias=node.get("alias"),
+            identifier=node.get("identifier"),
             dbt_file_path=None,  # TODO: Get this from the dbt API.
             node_type=resource_type,
             max_loaded_at=max_loaded_at,

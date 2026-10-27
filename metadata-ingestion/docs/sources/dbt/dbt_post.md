@@ -808,7 +808,7 @@ When a dbt model has `contract.enforced: true`, DataHub creates:
    - `unique` → a unique-proportion assertion with parameter `1.0`
    - `primary_key` → **both** a unique assertion and a not-null assertion (PK = unique AND not null)
    - Composite primary keys produce a single multi-column unique assertion over the tuple, plus per-column not-null assertions
-   - The same check declared more than once (for example `not_null` and `primary_key` on one column) produces one assertion, labelled with the strongest enforcement
+   - The same check declared more than once (for example `not_null` and `primary_key` on one column) produces one assertion, labelled with the strongest enforcement. Column names are compared case-insensitively, and a foreign key's target is identified by the relation it resolves to, so manifests from `dbt parse` and `dbt compile` produce the same assertions
    - `foreign_key` carries `to` (referenced model) and `to_columns` on custom properties. dbt foreign keys do **not** use `expression`.
    - `check` and `custom` carry the expression on custom properties
 3. **Matching dbt tests** — existing test assertions (already CUSTOM + run events) are attached when tagged or when the test type and column match a declared constraint.
