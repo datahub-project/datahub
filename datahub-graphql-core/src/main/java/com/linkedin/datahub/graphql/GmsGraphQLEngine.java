@@ -116,6 +116,7 @@ import com.linkedin.datahub.graphql.resolvers.form.VerifyFormResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.AddRelatedTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryTermResolver;
+import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryTermVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.DeleteGlossaryEntityResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.GetRootGlossaryNodesResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.GetRootGlossaryTermsResolver;
@@ -978,6 +979,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(DATA_PRODUCT_MARKETPLACE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(RUNS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LIFECYCLE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(GLOSSARY_VERSION_SCHEMA_FILE))
         .addSchema(fileBasedSchema(DATA_PRODUCT_SCHEMA_FILE))
         .addSchema(fileBasedSchema(API_SCHEMA_FILE))
         .addSchema(fileBasedSchema(REPOSITORY_SCHEMA_FILE));
@@ -1591,7 +1593,8 @@ public class GmsGraphQLEngine {
                   new UpdateParentNodeResolver(this.entityService, this.entityClient))
               .dataFetcher(
                   "deleteGlossaryEntity",
-                  new DeleteGlossaryEntityResolver(this.entityClient, this.entityService))
+                  new DeleteGlossaryEntityResolver(
+                      this.entityClient, this.entityService, this.entityVersioningService))
               .dataFetcher(
                   "updateName", new UpdateNameResolver(this.entityService, this.entityClient))
               .dataFetcher(
@@ -1766,8 +1769,14 @@ public class GmsGraphQLEngine {
                     new LinkAssetVersionResolver(this.entityVersioningService, this.featureFlags))
                 .dataFetcher(
                     "unlinkAssetVersion",
-                    new UnlinkAssetVersionResolver(
-                        this.entityVersioningService, this.featureFlags));
+                    new UnlinkAssetVersionResolver(this.entityVersioningService, this.featureFlags))
+                .dataFetcher(
+                    "createGlossaryTermVersion",
+                    new CreateGlossaryTermVersionResolver(
+                        this.entityClient,
+                        this.entityService,
+                        this.entityVersioningService,
+                        this.featureFlags));
           }
           return typeWiring;
         });
