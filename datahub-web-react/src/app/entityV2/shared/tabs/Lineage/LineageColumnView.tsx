@@ -14,7 +14,6 @@ import styled, { keyframes, useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import ColumnsLineageSelect from '@app/entityV2/shared/tabs/Lineage/ColumnLineageSelect';
 import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
@@ -22,6 +21,7 @@ import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabC
 import LineageTabTimeSelector from '@app/entityV2/shared/tabs/Lineage/LineageTabTimeSelector';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import ManageLineageMenuForImpactAnalysis from '@src/app/entityV2/shared/tabs/Lineage/ManageLineageMenuFromImpactAnalysis';

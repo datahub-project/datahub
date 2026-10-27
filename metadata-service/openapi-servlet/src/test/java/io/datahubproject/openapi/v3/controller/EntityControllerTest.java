@@ -1176,6 +1176,164 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testScrollEntitiesPassesTemplateAndReturnsRouteChain() throws Exception {
+    List<Urn> urns =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(
+                testSearchResultMetadata()
+                    .setRouteChain(new StringArray("urn:li:searchTemplate:list")))
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(urns.get(0)))));
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(Map.of());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "urn:li:searchTemplate:list")
+                .param("includeExplain", "true")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.routeChain[0]").value("urn:li:searchTemplate:list"));
+
+    SearchFlags flags = opContextCaptor.getValue().getSearchContext().getSearchFlags();
+    assertEquals(flags.getSearchTemplate().toString(), "urn:li:searchTemplate:list");
+    assertTrue(flags.isIncludeExplain());
+  }
+
+  @Test
+  public void testEntityScrollReturnsTheRouteChainWithoutFacets() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(
+                testSearchResultMetadata()
+                    .setRouteChain(new StringArray("urn:li:searchTemplate:list")))
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(urn))));
+
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(Map.of());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/entity/dataset")
+                .param("includeExplain", "true")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.routeChain[0]").value("urn:li:searchTemplate:list"))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.facets").isEmpty());
+  }
+
+  @Test
+  public void testScrollEntitiesRejectsANonUrnTemplate() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "not-a-urn")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testScrollEntitiesRejectsADatasetTemplate() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param(
+                    "searchTemplate",
+                    "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testScrollEntitiesRejectsABlankTemplate() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testScrollEntitiesAcceptsSearchTemplate() throws Exception {
+    List<Urn> urns =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(urns.get(0)))));
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(Map.of());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "urn:li:searchTemplate:search")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    SearchFlags flags = opContextCaptor.getValue().getSearchContext().getSearchFlags();
+    assertEquals(flags.getSearchTemplate().toString(), "urn:li:searchTemplate:search");
+  }
+
+  @Test
   public void testScrollEntitiesWithMissingValueParam() throws Exception {
     List<Urn> TEST_URNS =
         List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));

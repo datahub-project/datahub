@@ -73,6 +73,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
+import com.linkedin.metadata.entity.semantic.SemanticNoOpComparator;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -204,6 +205,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private final boolean syncIngestStampingEnabled;
 
+  /**
+   * Compiled at startup. Disabled until {@link #setSemanticNoOpComparator} installs rules, so
+   * unconfigured writes stay on {@code DataTemplateUtil.areEqual}.
+   */
+  @Nonnull
+  private SemanticNoOpComparator semanticNoOpComparator = SemanticNoOpComparator.disabled();
+
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
 
@@ -237,6 +245,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
    */
   public void setEntityWriteLock(@Nonnull final EntityWriteLock entityWriteLock) {
     this.entityWriteLock = entityWriteLock;
+  }
+
+  /** Installed by {@code EntityServiceFactory} after startup validation. */
+  public void setSemanticNoOpComparator(@Nonnull SemanticNoOpComparator semanticNoOpComparator) {
+    this.semanticNoOpComparator = semanticNoOpComparator;
+  }
+
+  @VisibleForTesting
+  SemanticNoOpComparator getSemanticNoOpComparator() {
+    return semanticNoOpComparator;
   }
 
   /** Shared no-op handle for the non-scoped path — avoids null-guarding every gate call site. */
@@ -314,6 +332,22 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull List<com.linkedin.metadata.aspect.SystemAspectValidator> systemAspectValidators,
       @Nullable com.linkedin.metadata.config.AspectSizeValidationConfiguration validationConfig,
       @Nullable io.datahubproject.metadata.context.OperationContext opContext) {
+    return applyUpsert(
+        changeMCP,
+        latestAspect,
+        systemAspectValidators,
+        validationConfig,
+        opContext,
+        SemanticNoOpComparator.disabled());
+  }
+
+  static SystemAspect applyUpsert(
+      ChangeMCP changeMCP,
+      SystemAspect latestAspect,
+      @Nonnull List<com.linkedin.metadata.aspect.SystemAspectValidator> systemAspectValidators,
+      @Nullable com.linkedin.metadata.config.AspectSizeValidationConfiguration validationConfig,
+      @Nullable io.datahubproject.metadata.context.OperationContext opContext,
+      @Nonnull SemanticNoOpComparator semanticNoOpComparator) {
 
     try {
       // This is the proposed version for this MCP, it can never be 0 (even if stored with row
@@ -355,8 +389,42 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         latestSystemMetadata.setSchemaVersion(
             changeSystemMetadata.getSchemaVersion(), SetMode.IGNORE_NULL);
 
-        if (!DataTemplateUtil.areEqual(
-            latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate())) {
+        // A write hook can change the proposal after the pre-merge comparison. That decision is
+        // marked stale, including the version it collapsed and the metrics it counted.
+        int rememberedMask = changeMCP.getSemanticNoOpStrategyMask();
+        if ((rememberedMask & ChangeMCP.SEMANTIC_NO_OP_REWIND) != 0) {
+          semanticNoOpComparator.rewindSuppression(
+              changeMCP.getAspectName(), rememberedMask & ~ChangeMCP.SEMANTIC_NO_OP_REWIND);
+          changeMCP.setSemanticNoOpStrategyMask(0);
+        }
+
+        // Check strict equality first. Besides avoiding a needless walk, this distinguishes a
+        // semantic suppression from the persist-time rematch after a real update has already
+        // copied the incoming body onto latestAspect.
+        boolean bodiesEqual =
+            DataTemplateUtil.areEqual(
+                latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate());
+        boolean keepStoredVersion = bodiesEqual || changeMCP.isSemanticNoOp();
+        if (!keepStoredVersion && semanticNoOpComparator.hasRules(changeMCP.getAspectName())) {
+          int decision =
+              semanticNoOpComparator.decide(
+                  changeMCP.getAspectName(),
+                  latestAspect.getRecordTemplate().data(),
+                  changeMCP.getRecordTemplate().data());
+          keepStoredVersion = decision >= 0;
+          changeMCP.setSemanticNoOp(keepStoredVersion);
+          if (keepStoredVersion) {
+            changeMCP.setSemanticNoOpStrategyMask(decision);
+            if (changeMCP.getSemanticNoOpProposedVersion() == 0) {
+              changeMCP.setSemanticNoOpProposedVersion(rowNextVersion);
+            }
+          } else {
+            changeMCP.setSemanticNoOpStrategyMask(0);
+            changeMCP.setSemanticNoOpProposedVersion(0);
+          }
+        }
+
+        if (!keepStoredVersion) {
 
           // update aspect, version, and audit info
           latestAspect.setRecordTemplate(changeMCP.getRecordTemplate());
@@ -1093,6 +1161,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         && updatedLatestAspects
                             .get(r.getUrn().toString())
                             .containsKey(r.getRequest().getAspectName())))
+        .filter(r -> !r.isSemanticNoOp())
         .filter(
             r -> {
               RecordTemplate oldAspect = r.getOldValue();
@@ -1690,7 +1759,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                               systemAspect,
                                               aspectDao.getSystemAspectValidators(),
                                               aspectDao.getValidationConfig(),
-                                              opContext));
+                                              opContext,
+                                              semanticNoOpComparator));
 
                               // Fetch additional information if needed
                               final List<ChangeMCP> changeMCPs;
@@ -1740,7 +1810,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                                             sysAspect,
                                                             aspectDao.getSystemAspectValidators(),
                                                             aspectDao.getValidationConfig(),
-                                                            opContext));
+                                                            opContext,
+                                                            semanticNoOpComparator));
                                               }
                                             })
                                         .collect(Collectors.toList());
@@ -1815,9 +1886,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               }
 
                               // Database Upsert successfully validated results
-                              log.debug(
-                                  "Ingesting aspects batch to database: {}",
-                                  AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+                              if (log.isDebugEnabled()) {
+                                log.debug(
+                                    "Ingesting aspects batch to database: {}",
+                                    AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+                              }
 
                               List<UpdateAspectResult> upsertResults =
                                   exceptions
@@ -2618,6 +2691,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull Consumer<String> logger) {
     logger.accept(String.format("Args are %s", args));
     return aspectDao.countAspect(opContext, args);
+  }
+
+  @Override
+  public int countUrnRows(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    // Same store the delete ceiling is read from; a lagging replica would under-count.
+    return aspectDao.countUrnRows(primaryRead(opContext), urn.toString());
   }
 
   @Nonnull
@@ -3474,8 +3553,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               result.getNewValue(),
                               result.getOldSystemMetadata(),
                               result.getNewSystemMetadata(),
-                              // TODO: use properly attributed audit stamp.
-                              createSystemAuditStamp(),
+                              // The caller's stamp, so the changelog names who removed it.
+                              opContext.getAuditStamp(),
                               result.getChangeType())
                           .getFirst();
                     } else {
@@ -3769,10 +3848,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       boolean hardDelete,
       DeletePurpose deletePurpose,
       @Nullable DeleteCeiling ceiling) {
-    final AuditStamp auditStamp =
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis());
+    // The caller's stamp, as on the delete changelog: the soft-delete status and the side-effect
+    // changelogs name who removed it, and the system only when the system runs it.
+    final AuditStamp auditStamp = opContext.getAuditStamp();
 
     // Validate pre-conditions before running queries
     Urn entityUrn = UrnUtils.getUrn(urn);
@@ -4603,7 +4681,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 systemAspect,
                 aspectDao.getSystemAspectValidators(),
                 aspectDao.getValidationConfig(),
-                opContext);
+                opContext,
+                semanticNoOpComparator);
 
     // 1. Convert patches to full upserts 2. Run any entity/aspect level hooks 3. Capture derived
     // (urn, aspect) -> parent base URN(s) so a conflict on a derived MCP recomputes exactly its
@@ -4718,9 +4797,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     // Database Upsert successfully validated results
-    log.debug(
-        "Ingesting aspects batch to database: {}",
-        AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Ingesting aspects batch to database: {}",
+          AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
+    }
 
     final List<AspectWriteResult> writeResults = new ArrayList<>();
     final List<UpdateAspectResult> upsertResults = new ArrayList<>();
@@ -4814,7 +4895,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     latestAspect,
                     aspectDao.getSystemAspectValidators(),
                     aspectDao.getValidationConfig(),
-                    opContext);
+                    opContext,
+                    semanticNoOpComparator);
             int maxVersionsToKeep = resolveMaxVersionsToKeep(opContext, writeItem);
             ConditionalWritePlan plan =
                 aspectDao.planConditionalWrite(
@@ -5072,7 +5154,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             latestAspect,
             aspectDao.getSystemAspectValidators(),
             aspectDao.getValidationConfig(),
-            opContext);
+            opContext,
+            semanticNoOpComparator);
 
     int maxVersionsToKeep = resolveMaxVersionsToKeep(opContext, writeItem);
 
@@ -5193,7 +5276,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   return UpdateAspectResult.builder()
                       .urn(writeItem.getUrn())
                       .oldValue(writeItem.getPreviousRecordTemplate())
-                      .newValue(writeItem.getRecordTemplate())
+                      .newValue(persistedAspectValue(writeItem, upsertAspect))
+                      .semanticNoOp(writeItem.isSemanticNoOp())
                       .oldSystemMetadata(
                           writeItem.getPreviousSystemAspect() == null
                               ? null
@@ -5242,7 +5326,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             latestAspect,
             aspectDao.getSystemAspectValidators(),
             aspectDao.getValidationConfig(),
-            opContext);
+            opContext,
+            semanticNoOpComparator);
 
     // Resolve maxVersionsToKeep from retention policy (per aspect): <= 1 means do not write a new
     // history row (version != 0); we still update the existing version 0 row. When retention
@@ -5319,7 +5404,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               return UpdateAspectResult.builder()
                   .urn(writeItem.getUrn())
                   .oldValue(writeItem.getPreviousRecordTemplate())
-                  .newValue(writeItem.getRecordTemplate())
+                  .newValue(persistedAspectValue(writeItem, upsertAspect))
+                  .semanticNoOp(writeItem.isSemanticNoOp())
                   .oldSystemMetadata(
                       writeItem.getPreviousSystemAspect() == null
                           ? null
@@ -5332,6 +5418,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .build();
             })
         .orElse(null);
+  }
+
+  /**
+   * Semantic no-ops persist the previously stored body. The MCL and retention result must describe
+   * that body, not the incoming clock stamp that was ignored.
+   */
+  @Nonnull
+  private static RecordTemplate persistedAspectValue(
+      @Nonnull ChangeMCP writeItem, @Nonnull SystemAspect upsertAspect) {
+    if (writeItem.isSemanticNoOp() && upsertAspect.getRecordTemplate() != null) {
+      return upsertAspect.getRecordTemplate();
+    }
+    return writeItem.getRecordTemplate();
   }
 
   private static boolean shouldAspectEmitChangeLog(@Nonnull final AspectSpec aspectSpec) {

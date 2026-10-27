@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { DocumentChangeTimelineContent } from '@app/entityV2/document/changeHistory/DocumentChangeTimelineContent';
 import { DocumentChangeTimelineDot } from '@app/entityV2/document/changeHistory/DocumentChangeTimelineDot';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 
 import { DocumentChange } from '@types';
 

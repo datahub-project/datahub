@@ -139,6 +139,10 @@ class VerticaConfig(BasicSQLAlchemyConfig):
     "Enabled by default via stateful ingestion",
     supported=True,
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class VerticaSource(SQLAlchemySource):
     def __init__(self, config: VerticaConfig, ctx: PipelineContext):
         # self.platform = platform

@@ -154,7 +154,6 @@ import com.linkedin.datahub.graphql.resolvers.jobs.EntityRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.jobs.ExecutionRunsResolver;
 import com.linkedin.datahub.graphql.resolvers.lifecycle.ListLifecycleStagesResolver;
 import com.linkedin.datahub.graphql.resolvers.lifecycle.SetLifecycleStageResolver;
-import com.linkedin.datahub.graphql.resolvers.lifecycle.StatusLifecycleStageResolver;
 import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
@@ -347,6 +346,7 @@ import com.linkedin.datahub.graphql.types.incident.IncidentType;
 import com.linkedin.datahub.graphql.types.ingestion.ExecutionRequestType;
 import com.linkedin.datahub.graphql.types.ingestion.IngestionSourceType;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentType;
+import com.linkedin.datahub.graphql.types.lifecycle.LifecycleStageGraphType;
 import com.linkedin.datahub.graphql.types.metric.MetricType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
@@ -430,6 +430,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -578,6 +579,7 @@ public class GmsGraphQLEngine {
   private final ObjectStorageClient objectStorageClient;
 
   private final BusinessAttributeType businessAttributeType;
+  private final LifecycleStageGraphType lifecycleStageGraphType;
 
   /** A list of GraphQL Plugins that extend the core engine */
   private final List<GmsGraphQLPlugin> graphQLPlugins;
@@ -728,6 +730,7 @@ public class GmsGraphQLEngine {
     this.objectStorageClient = args.objectStorageClient;
 
     this.businessAttributeType = new BusinessAttributeType(entityClient);
+    this.lifecycleStageGraphType = new LifecycleStageGraphType(entityClient);
     // Init Lists
     this.entityTypes =
         new ArrayList<>(
@@ -787,6 +790,7 @@ public class GmsGraphQLEngine {
                 dataHubFileType));
     this.loadableTypes = new ArrayList<>(entityTypes);
     this.loadableTypes.add(ingestionSourceType);
+    this.loadableTypes.add(lifecycleStageGraphType);
     // Extend loadable types with types from the plugins
     // This allows us to offer search and browse capabilities out of the box for
     // those types
@@ -1407,12 +1411,20 @@ public class GmsGraphQLEngine {
         "Status",
         typeWiring ->
             typeWiring.dataFetcher(
-                "lifecycleStage", new StatusLifecycleStageResolver(this.entityClient)));
+                "lifecycleStage",
+                new LoadableTypeResolver<>(
+                    lifecycleStageGraphType,
+                    env -> {
+                      com.linkedin.datahub.graphql.generated.Status status = env.getSource();
+                      com.linkedin.datahub.graphql.generated.LifecycleStageType skeleton =
+                          status.getLifecycleStage();
+                      return skeleton != null ? skeleton.getUrn() : null;
+                    })));
     builder.type(
         "Mutation",
         typeWiring ->
             typeWiring.dataFetcher(
-                "setLifecycleStage", new SetLifecycleStageResolver(this.entityClient)));
+                "setLifecycleStage", new SetLifecycleStageResolver(this.entityService)));
   }
 
   private void configureMutationResolvers(final RuntimeWiring.Builder builder) {
@@ -1708,7 +1720,10 @@ public class GmsGraphQLEngine {
               .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
               .dataFetcher(
                   "createDataHubFile",
-                  new CreateDataHubFileResolver(this.dataHubFileService, this.objectStorageClient))
+                  new CreateDataHubFileResolver(
+                      this.dataHubFileService,
+                      this.objectStorageClient,
+                      this.datahubConfiguration.getObjectStorage()))
               .dataFetcher("setLogicalParent", new SetLogicalParentResolver(this.entityClient))
               .dataFetcher(
                   "updateDocPropagationSettings",
@@ -3583,6 +3598,55 @@ public class GmsGraphQLEngine {
                     "lineage",
                     new EntityLineageResultResolver(
                         siblingGraphService, restrictedService, this.authorizationConfiguration)));
+    // Schema-by-reference on the signature: hydrate the input/output Dataset
+    // stubs (Consumes / Produces edges) so the signature can show the datasets'
+    // names, platforms and schemas. Empty list (not null) when absent — the
+    // batch resolver NPEs on a null provider result.
+    builder.type(
+        "ApiSignature",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "inputDatasets",
+                    omitMissingEntities(
+                        new LoadableTypeBatchResolver<>(
+                            datasetType,
+                            (env) -> {
+                              final ApiSignature signature = env.getSource();
+                              return signature.getInputDatasets() == null
+                                  ? new ArrayList<String>()
+                                  : signature.getInputDatasets().stream()
+                                      .map(datasetType.getKeyProvider())
+                                      .collect(Collectors.toList());
+                            })))
+                .dataFetcher(
+                    "outputDatasets",
+                    omitMissingEntities(
+                        new LoadableTypeBatchResolver<>(
+                            datasetType,
+                            (env) -> {
+                              final ApiSignature signature = env.getSource();
+                              return signature.getOutputDatasets() == null
+                                  ? new ArrayList<String>()
+                                  : signature.getOutputDatasets().stream()
+                                      .map(datasetType.getKeyProvider())
+                                      .collect(Collectors.toList());
+                            }))));
+  }
+
+  /**
+   * Drops batch-loaded entries that resolved to null (the referenced entity no longer exists) so a
+   * dangling edge is omitted from a {@code [Entity!]} list instead of failing the whole field.
+   */
+  private static <T> DataFetcher<CompletableFuture<List<T>>> omitMissingEntities(
+      final LoadableTypeBatchResolver<T, ?> resolver) {
+    return env -> {
+      final CompletableFuture<List<T>> loaded = resolver.get(env);
+      return loaded == null
+          ? null
+          : loaded.thenApply(
+              entities -> entities.stream().filter(Objects::nonNull).collect(Collectors.toList()));
+    };
   }
 
   private void configureAssertionResolvers(final RuntimeWiring.Builder builder) {

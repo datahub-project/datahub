@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
+import com.linkedin.datahub.upgrade.loadindices.AspectIndexLoader;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.IncrementalReindex;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -8,10 +9,13 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
+import javax.annotation.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -38,7 +42,10 @@ public class IncrementalReindexConfig {
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
       final GitVersion gitVersion,
-      @Qualifier("revision") final String revision) {
+      @Qualifier("revision") final String revision,
+      @Autowired(required = false) @Nullable @Qualifier("aspectIndexLoader")
+          final AspectIndexLoader aspectIndexLoader,
+      final UpdateIndicesService updateIndicesService) {
 
     String upgradeVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
     return new IncrementalReindex(
@@ -50,6 +57,8 @@ public class IncrementalReindexConfig {
         aspectDao,
         opContext,
         entityService,
-        upgradeVersion);
+        upgradeVersion,
+        aspectIndexLoader,
+        updateIndicesService);
   }
 }

@@ -6,7 +6,7 @@ import styled from 'styled-components/macro';
 
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { getParentEntities } from '@app/search/filters/utils';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
