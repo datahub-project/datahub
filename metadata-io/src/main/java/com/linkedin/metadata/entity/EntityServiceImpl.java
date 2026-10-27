@@ -87,7 +87,6 @@ import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -197,7 +196,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private final Boolean alwaysEmitChangeLog;
   private final Boolean cdcModeChangeLog;
   @Nullable @Getter private SearchIndicesService updateIndicesService;
-  @Nullable private SystemMetadataService systemMetadataService;
   private final PreProcessHooks preProcessHooks;
   protected static final int MAX_KEYS_PER_QUERY = 500;
   protected static final int MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE = 500;
@@ -604,36 +602,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   public void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService) {
     this.updateIndicesService = updateIndicesService;
-  }
-
-  @Override
-  public void setSystemMetadataService(@Nullable SystemMetadataService systemMetadataService) {
-    this.systemMetadataService = systemMetadataService;
-  }
-
-  /**
-   * Names of the aspects stored for a urn, including ones this registry doesn't know (written by a
-   * newer version before a rollback), for stores that delete rows by aspect name. Empty when the
-   * store deletes by urn alone, when unknown data isn't tolerated, or when the lookup fails, which
-   * leaves only the registry's aspects to delete, as before.
-   */
-  @Nonnull
-  private Set<String> storedAspectNames(
-      @Nonnull final OperationContext opContext, @Nonnull final String urn) {
-    if (!handling().toleratesUnknownEntityAspect()
-        || systemMetadataService == null
-        || !aspectDao.deletesUrnByAspectName()) {
-      return Set.of();
-    }
-    try {
-      return systemMetadataService.findByUrn(opContext, urn, true, 0, null).stream()
-          .map(AspectRowSummary::getAspectName)
-          .collect(Collectors.toSet());
-    } catch (RuntimeException e) {
-      log.warn(
-          "Could not list the aspects stored for {}; deleting the registry's aspects only", urn, e);
-      return Set.of();
-    }
   }
 
   public ThrottleControl handleThrottleEvent(ThrottleEvent throttleEvent) {
@@ -4477,13 +4445,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                   urn);
                             }
                           }
-                          final Set<String> storedAspectNames = storedAspectNames(opContext, urn);
                           if (ceiling == null) {
-                            additionalRowsDeleted =
-                                storedAspectNames.isEmpty()
-                                    ? aspectDao.deleteUrn(opContext, txContext, urn)
-                                    : aspectDao.deleteUrnExcept(
-                                        opContext, txContext, urn, Set.of(), storedAspectNames);
+                            additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
                           } else {
                             // Only what was captured, locked by withinCeiling: an aspect created
                             // since (its first row was not there to lock) is left in place, and
@@ -4493,11 +4456,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                     .filter(a -> !ceiling.aspectVersions().containsKey(a))
                                     .collect(Collectors.toSet());
                             additionalRowsDeleted =
-                                storedAspectNames.isEmpty()
-                                    ? aspectDao.deleteUrnExcept(
-                                        opContext, txContext, urn, notCaptured)
-                                    : aspectDao.deleteUrnExcept(
-                                        opContext, txContext, urn, notCaptured, storedAspectNames);
+                                aspectDao.deleteUrnExcept(opContext, txContext, urn, notCaptured);
                             if (!notCaptured.isEmpty()
                                 && !aspectDao
                                     .getLatestAspectsLocked(opContext, Map.of(urn, notCaptured))

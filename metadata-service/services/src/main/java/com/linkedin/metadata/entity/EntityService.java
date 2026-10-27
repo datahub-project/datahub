@@ -19,7 +19,6 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -639,12 +638,6 @@ public interface EntityService<U extends ChangeMCP> {
   SearchIndicesService getUpdateIndicesService();
 
   void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService);
-
-  /**
-   * Lists the aspects stored for a urn at hard delete, so rows of aspects this registry doesn't
-   * know (written by a newer version before a rollback) are deleted too.
-   */
-  void setSystemMetadataService(@Nullable SystemMetadataService systemMetadataService);
 
   /** Flush the Kafka event producer to release buffered messages. */
   void flushEventProducer();
