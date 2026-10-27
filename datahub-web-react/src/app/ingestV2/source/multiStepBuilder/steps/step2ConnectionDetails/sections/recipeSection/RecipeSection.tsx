@@ -1,5 +1,6 @@
-import { Form, message } from 'antd';
+import { LegacyForm as Form, toast } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import YAML from 'yamljs';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRecipe }: Props) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { type } = state;
     const hasForm = useMemo(() => type && CONNECTORS_WITH_FORM_INCLUDING_DYNAMIC_FIELDS.has(type), [type]);
     const [selectedTabKey, setSelectedTabKey] = useState<string>('form');
@@ -46,9 +48,9 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                     setTimeout(runFormValidation, 0); // let form remount and then run validation
                 } catch (e) {
                     const messageText = (e as any).parsedLine
-                        ? `Fix line ${(e as any).parsedLine} in your recipe`
-                        : 'Please fix your recipe';
-                    throw new Error(`Found invalid YAML. ${messageText} in order to switch views.`);
+                        ? t('recipeBuilder.fixLine', { line: (e as any).parsedLine })
+                        : t('recipeBuilder.fixRecipe');
+                    throw new Error(t('recipeBuilder.invalidYaml', { messageText }));
                 }
 
                 if (
@@ -56,25 +58,25 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
                     !!existingIngestionSource &&
                     parsedYaml?.source?.type !== existingIngestionSource.type
                 ) {
-                    throw new Error("It's not possible to change source type for existing ingestion source");
+                    throw new Error(t('multiStep.connection.cannotChangeSourceType'));
                 }
 
                 setSelectedTabKey(activeKey);
             } catch (e: unknown) {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.warn(e.message);
+                    toast.warning(e.message);
                 }
             }
         },
-        [displayRecipe, runFormValidation, existingIngestionSource],
+        [displayRecipe, runFormValidation, existingIngestionSource, t],
     );
 
     const tabs: Tab[] = useMemo(
         () => [
             {
                 key: 'form',
-                name: 'Form',
+                name: t('recipeBuilder.formView'),
                 component: (
                     <RecipeForm
                         state={state}
@@ -88,12 +90,12 @@ export function RecipeSection({ state, displayRecipe, sourceConfigs, setStagedRe
             },
             {
                 key: 'yaml',
-                name: 'YAML',
+                name: t('recipeBuilder.yamlView'),
                 component: <YamlEditor value={displayRecipe} onChange={setStagedRecipe} />,
                 dataTestId: 'yaml-editor-tab',
             },
         ],
-        [displayRecipe, state, sourceConfigs, setStagedRecipe, form, runFormValidation],
+        [displayRecipe, state, sourceConfigs, setStagedRecipe, form, runFormValidation, t],
     );
 
     if (hasForm) {

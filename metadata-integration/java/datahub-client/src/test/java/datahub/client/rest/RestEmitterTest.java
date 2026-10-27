@@ -508,9 +508,14 @@ public class RestEmitterTest {
   @Test
   public void testDisableSslVerification()
       throws IOException, InterruptedException, ExecutionException, URISyntaxException {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    testDataHubServer
+        .getMockServer()
+        .when(request().withMethod("GET").withPath("/tls"))
+        .respond(HttpResponse.response().withStatusCode(HttpStatusCode.OK_200.code()));
     RestEmitter restEmitter =
         new RestEmitter(RestEmitterConfig.builder().disableSslVerification(true).build());
-    final String hostWithSsl = "https://self-signed.badssl.com";
+    final String hostWithSsl = "https://localhost:" + testDataHubServer.getPort() + "/tls";
     final SimpleHttpRequest request = SimpleHttpRequest.create(Method.GET, new URI(hostWithSsl));
 
     final SimpleHttpResponse response = restEmitter.getHttpClient().execute(request, null).get();
@@ -521,9 +526,14 @@ public class RestEmitterTest {
   @Test
   public void testSslVerificationException()
       throws IOException, InterruptedException, ExecutionException, URISyntaxException {
+    TestDataHubServer testDataHubServer = new TestDataHubServer();
+    testDataHubServer
+        .getMockServer()
+        .when(request().withMethod("GET").withPath("/tls"))
+        .respond(HttpResponse.response().withStatusCode(HttpStatusCode.OK_200.code()));
     RestEmitter restEmitter =
         new RestEmitter(RestEmitterConfig.builder().disableSslVerification(false).build());
-    final String hostWithSsl = "https://self-signed.badssl.com";
+    final String hostWithSsl = "https://localhost:" + testDataHubServer.getPort() + "/tls";
     final SimpleHttpRequest request = SimpleHttpRequest.create(Method.GET, new URI(hostWithSsl));
 
     try {

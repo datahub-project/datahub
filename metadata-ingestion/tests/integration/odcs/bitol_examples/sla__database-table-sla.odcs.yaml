@@ -1,0 +1,41 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/sla/database-table-sla.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+apiVersion: v3.1.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553a
+status: active
+name: my_table
+dataProduct: my_quantum
+schema: []
+# SLA
+slaProperties:
+  - property: latency # Property, see list of values in DP QoS
+    value: 4
+    unit: d # d, day, days for days; y, yr, years for years
+    element: tab1.txn_ref_dt
+  - property: generalAvailability
+    value: "2022-05-12T09:30:10-08:00"
+    description: "Initial GA date 15.5.22"
+  - property: endOfSupport
+    value: "2032-05-12T09:30:10-08:00"
+  - property: endOfLife
+    value: "2042-05-12T09:30:10-08:00"
+  - property: retention
+    value: 3
+    unit: y
+    element: tab1.txn_ref_dt
+  - property: frequency
+    value: 1
+    valueExt: 1
+    unit: d
+    element: tab1.txn_ref_dt
+  - property: timeOfAvailability
+    value: 09:00-08:00
+    element: tab1.txn_ref_dt
+    driver: regulatory # Describes the importance of the SLA: [regulatory|analytics|operational|...]
+  - property: timeOfAvailability
+    value: 08:00-08:00
+    element: tab1.txn_ref_dt
+    driver: analytics

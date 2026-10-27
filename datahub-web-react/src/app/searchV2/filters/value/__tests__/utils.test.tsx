@@ -7,13 +7,14 @@ import {
     getDefaultFieldOperatorType,
     getEntityTypeFilterValueDisplayName,
     mapFilterCountsToZero,
+    mergeFilterOptionsInAllowedValuesOrder,
     useLoadAggregationOptions,
 } from '@app/searchV2/filters/value/utils';
 import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
 
 import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
-import { EntityType } from '@types';
+import { AllowedValue, EntityType } from '@types';
 
 // Mock the GraphQL queries
 vi.mock('@graphql/search.generated', () => ({
@@ -99,6 +100,54 @@ describe('deduplicateOptions', () => {
 
         const baseOptions: FilterValueOption[] = [{ value: 'option1', displayName: 'Option 1' }];
         expect(deduplicateOptions(baseOptions, [])).toEqual([]);
+    });
+});
+
+const stringAllowedValue = (value: string): AllowedValue => ({
+    value: { __typename: 'StringValue', stringValue: value },
+    description: null,
+});
+
+describe('mergeFilterOptionsInAllowedValuesOrder', () => {
+    it('preserves definition order instead of aggregation order', () => {
+        const allowedValues = [
+            stringAllowedValue('Zebra'),
+            stringAllowedValue('Delta'),
+            stringAllowedValue('Charlie'),
+            stringAllowedValue('Bravo'),
+            stringAllowedValue('Alpha'),
+        ];
+
+        const aggregationOptions: FilterValueOption[] = [
+            { value: 'Alpha', count: 1, displayName: 'Alpha' },
+            { value: 'Bravo', count: 2, displayName: 'Bravo' },
+            { value: 'Charlie', count: 3, displayName: 'Charlie' },
+            { value: 'Delta', count: 4, displayName: 'Delta' },
+            { value: 'Zebra', count: 5, displayName: 'Zebra' },
+        ];
+
+        const merged = mergeFilterOptionsInAllowedValuesOrder(aggregationOptions, allowedValues, (rawValue) => ({
+            value: rawValue,
+            count: 0,
+            displayName: rawValue,
+        }));
+
+        expect(merged.map((option) => option.value)).toEqual(['Zebra', 'Delta', 'Charlie', 'Bravo', 'Alpha']);
+        expect(merged[0].count).toBe(5);
+        expect(merged[4].count).toBe(1);
+    });
+
+    it('includes definition values missing from aggregations', () => {
+        const allowedValues = [stringAllowedValue('Zebra'), stringAllowedValue('Alpha')];
+
+        const merged = mergeFilterOptionsInAllowedValuesOrder(
+            [{ value: 'Alpha', count: 1, displayName: 'Alpha' }],
+            allowedValues,
+            (rawValue) => ({ value: rawValue, count: 0, displayName: rawValue }),
+        );
+
+        expect(merged.map((option) => option.value)).toEqual(['Zebra', 'Alpha']);
+        expect(merged[0].count).toBe(0);
     });
 });
 
@@ -297,6 +346,85 @@ describe('useLoadAggregationOptions', () => {
         expect(result.current.options.map((opt) => opt.value)).toEqual(['snowflake', 'redshift']);
     });
 
+    it('formats structured-property values using the aggregation facet entity valueType', () => {
+        const structuredPropField: FilterField = {
+            field: 'structuredProperties.io.acryl.privacy.retentionTime',
+            displayName: 'Retention Time',
+            type: FieldType.TEXT,
+            // No entity on the field itself: the definition must come from the facet.
+        };
+        const mockAggregationData = {
+            aggregateAcrossEntities: {
+                facets: [
+                    {
+                        field: structuredPropField.field,
+                        entity: {
+                            __typename: 'StructuredPropertyEntity',
+                            urn: 'urn:li:structuredProperty:io.acryl.privacy.retentionTime',
+                            definition: {
+                                valueType: { urn: 'urn:li:dataType:datahub.number' },
+                            },
+                        },
+                        aggregations: [{ value: '42000.0', count: 3, entity: null }],
+                    },
+                ],
+            },
+        };
+
+        (useAggregateAcrossEntitiesQuery as any).mockReturnValue({
+            data: mockAggregationData,
+            loading: false,
+        });
+
+        const { result } = renderHook(() =>
+            useLoadAggregationOptions({
+                field: structuredPropField,
+                visible: true,
+                includeCounts: true,
+            }),
+        );
+
+        // Raw Elasticsearch double renders as the formatted number, not "42000.0".
+        expect(result.current.options).toHaveLength(1);
+        expect(result.current.options[0].displayName).toEqual('42000');
+    });
+
+    it('falls back to the raw structured-property value when the facet carries no entity', () => {
+        const structuredPropField: FilterField = {
+            field: 'structuredProperties.io.acryl.privacy.retentionTime',
+            displayName: 'Retention Time',
+            type: FieldType.TEXT,
+        };
+        const mockAggregationData = {
+            aggregateAcrossEntities: {
+                facets: [
+                    {
+                        field: structuredPropField.field,
+                        entity: null,
+                        aggregations: [{ value: '42000.0', count: 3, entity: null }],
+                    },
+                ],
+            },
+        };
+
+        (useAggregateAcrossEntitiesQuery as any).mockReturnValue({
+            data: mockAggregationData,
+            loading: false,
+        });
+
+        const { result } = renderHook(() =>
+            useLoadAggregationOptions({
+                field: structuredPropField,
+                visible: true,
+                includeCounts: true,
+            }),
+        );
+
+        // Without a definition the value type is unknown, so the raw value renders verbatim.
+        expect(result.current.options).toHaveLength(1);
+        expect(result.current.options[0].displayName).toEqual('42000.0');
+    });
+
     it('should handle missing facet data', () => {
         const mockAggregationData = {
             aggregateAcrossEntities: {
@@ -403,5 +531,32 @@ describe('getDefaultFieldOperatorType', () => {
 
         expect(getDefaultFieldOperatorType(enumField)).toBe(FilterOperatorType.EQUALS);
         expect(getDefaultFieldOperatorType(booleanField)).toBe(FilterOperatorType.EQUALS);
+    });
+
+    it('should return WITHIN for domains, container, and parentDocument fields', () => {
+        const domainsField: FilterField = {
+            field: 'domains',
+            displayName: 'Domain',
+            type: FieldType.ENTITY,
+            entityTypes: [],
+        };
+
+        const containerField: FilterField = {
+            field: 'container',
+            displayName: 'Container',
+            type: FieldType.ENTITY,
+            entityTypes: [],
+        };
+
+        const parentDocumentField: FilterField = {
+            field: 'parentDocument',
+            displayName: 'Parent Document',
+            type: FieldType.ENTITY,
+            entityTypes: [],
+        };
+
+        expect(getDefaultFieldOperatorType(domainsField)).toBe(FilterOperatorType.WITHIN);
+        expect(getDefaultFieldOperatorType(containerField)).toBe(FilterOperatorType.WITHIN);
+        expect(getDefaultFieldOperatorType(parentDocumentField)).toBe(FilterOperatorType.WITHIN);
     });
 });

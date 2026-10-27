@@ -113,7 +113,6 @@ function MoveGlossaryEntityModal(props: Props) {
                             selectedParentUrn={selectedParentUrn}
                             setSelectedParentUrn={setSelectedParentUrn}
                             isMoving
-                            autofocus
                         />
                     </StyledItem>
                 </Form.Item>

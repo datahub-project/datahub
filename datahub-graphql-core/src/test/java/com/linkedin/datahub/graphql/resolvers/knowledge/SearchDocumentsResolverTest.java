@@ -3,10 +3,11 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DocumentSourceType;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
+import com.linkedin.datahub.graphql.generated.SearchFlags;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -25,16 +27,24 @@ import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.knowledge.DocumentStatus;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.view.DataHubViewDefinition;
+import com.linkedin.view.DataHubViewInfo;
+import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
 import org.mockito.ArgumentCaptor;
@@ -48,9 +58,12 @@ public class SearchDocumentsResolverTest {
   private static final String TEST_GROUP_URN = "urn:li:corpGroup:testGroup";
   private static final String OTHER_USER_URN = "urn:li:corpuser:other";
 
+  private static final String TEST_VIEW_URN = "urn:li:dataHubView:testView";
+  private static final String TEST_DOMAIN_URN = "urn:li:domain:marketing";
+
   private DocumentService mockService;
   private EntityClient mockEntityClient;
-  private GroupService mockGroupService;
+  private ViewService mockViewService;
   private SearchDocumentsResolver resolver;
   private DataFetchingEnvironment mockEnv;
   private SearchDocumentsInput input;
@@ -59,7 +72,7 @@ public class SearchDocumentsResolverTest {
   public void setupTest() throws Exception {
     mockService = mock(DocumentService.class);
     mockEntityClient = mock(EntityClient.class);
-    mockGroupService = mock(GroupService.class);
+    mockViewService = mock(ViewService.class);
     mockEnv = mock(DataFetchingEnvironment.class);
 
     // Setup default input
@@ -84,7 +97,9 @@ public class SearchDocumentsResolverTest {
             any(),
             any(),
             any(Integer.class),
-            any(Integer.class)))
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class)))
         .thenReturn(searchResult);
 
     // Mock EntityClient.batchGetV2 to return a hydrated PUBLISHED entity by default
@@ -96,11 +111,37 @@ public class SearchDocumentsResolverTest {
     when(mockEntityClient.batchGetV2(any(OperationContext.class), any(String.class), any(), any()))
         .thenReturn(entityResponseMap);
 
-    // Mock GroupService to return empty groups by default
-    when(mockGroupService.getGroupsForUser(any(OperationContext.class), any(Urn.class)))
-        .thenReturn(Collections.emptyList());
+    // Session group membership is stubbed via TestUtils.withSessionGroupMembership when needed
+    resolver = new SearchDocumentsResolver(mockService, mockEntityClient, mockViewService);
+  }
 
-    resolver = new SearchDocumentsResolver(mockService, mockEntityClient, mockGroupService);
+  /** Builds a minimal View whose filter scopes to a single domain. */
+  private DataHubViewInfo createViewWithDomainFilter(String domainUrn) {
+    Filter viewFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                CriterionUtils.buildCriterion(
+                                    "domains", Condition.EQUAL, domainUrn)))));
+    DataHubViewDefinition definition =
+        new DataHubViewDefinition()
+            .setEntityTypes(new com.linkedin.data.template.StringArray())
+            .setFilter(viewFilter);
+    return new DataHubViewInfo()
+        .setName("Test View")
+        .setType(DataHubViewType.GLOBAL)
+        .setDefinition(definition)
+        .setCreated(
+            new com.linkedin.common.AuditStamp()
+                .setTime(0L)
+                .setActor(UrnUtils.getUrn(TEST_USER_URN)))
+        .setLastModified(
+            new com.linkedin.common.AuditStamp()
+                .setTime(0L)
+                .setActor(UrnUtils.getUrn(TEST_USER_URN)));
   }
 
   private EntityResponse createPublishedDocumentResponse(String documentUrn, String ownerUrn) {
@@ -208,7 +249,14 @@ public class SearchDocumentsResolverTest {
     // Verify service was called
     verify(mockService, times(1))
         .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
   }
 
   @Test
@@ -227,7 +275,14 @@ public class SearchDocumentsResolverTest {
     // Verify service was called with filters
     verify(mockService, times(1))
         .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
   }
 
   @Test
@@ -245,7 +300,14 @@ public class SearchDocumentsResolverTest {
     // Verify service was called with rootOnly filter
     verify(mockService, times(1))
         .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
   }
 
   @Test
@@ -265,7 +327,14 @@ public class SearchDocumentsResolverTest {
     // Verify service was called (parentDocuments filter should be used, not rootOnly)
     verify(mockService, times(1))
         .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
   }
 
   @Test
@@ -282,7 +351,8 @@ public class SearchDocumentsResolverTest {
 
     // Verify service was called with "*" query
     verify(mockService, times(1))
-        .searchDocuments(any(OperationContext.class), eq("*"), any(), any(), eq(0), eq(10));
+        .searchDocuments(
+            any(OperationContext.class), eq("*"), any(), any(), eq(0), eq(10), isNull(), isNull());
   }
 
   // Note: Search operations don't require special authorization like other entity searches
@@ -300,7 +370,9 @@ public class SearchDocumentsResolverTest {
             any(),
             any(),
             any(Integer.class),
-            any(Integer.class)))
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class)))
         .thenThrow(new RuntimeException("Service error"));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -319,7 +391,14 @@ public class SearchDocumentsResolverTest {
     // Verify service was called (the filter will contain state=PUBLISHED by default)
     verify(mockService, times(1))
         .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
   }
 
   @Test
@@ -340,7 +419,9 @@ public class SearchDocumentsResolverTest {
             filterCaptor.capture(),
             any(),
             eq(0),
-            eq(10));
+            eq(10),
+            isNull(),
+            isNull());
 
     Filter filter = filterCaptor.getValue();
     assertNotNull(filter, "Filter should not be null");
@@ -357,6 +438,43 @@ public class SearchDocumentsResolverTest {
                         && c.getCondition() == Condition.EQUAL);
 
     assertTrue(hasSourceType, "Filter should contain sourceType=NATIVE");
+  }
+
+  @Test
+  public void testSearchDocumentsWithHasDomainFalse() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setHasDomain(false);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            filterCaptor.capture(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
+
+    Filter filter = filterCaptor.getValue();
+    assertNotNull(filter, "Filter should not be null");
+
+    boolean hasUnassignedDomain =
+        filter.getOr().stream()
+            .flatMap(cc -> cc.getAnd().stream())
+            .anyMatch(
+                c ->
+                    "domains".equals(c.getField())
+                        && c.getCondition() == Condition.EXISTS
+                        && Boolean.TRUE.equals(c.isNegated()));
+
+    assertTrue(hasUnassignedDomain, "Filter should contain domains EXISTS negated (unassigned)");
   }
 
   @Test
@@ -377,7 +495,9 @@ public class SearchDocumentsResolverTest {
             filterCaptor.capture(),
             any(),
             eq(0),
-            eq(10));
+            eq(10),
+            isNull(),
+            isNull());
 
     Filter filter = filterCaptor.getValue();
     assertNotNull(filter, "Filter should not be null");
@@ -413,7 +533,9 @@ public class SearchDocumentsResolverTest {
             filterCaptor.capture(),
             any(),
             eq(0),
-            eq(10));
+            eq(10),
+            isNull(),
+            isNull());
 
     Filter filter = filterCaptor.getValue();
     if (filter != null) {
@@ -487,7 +609,9 @@ public class SearchDocumentsResolverTest {
             any(),
             any(),
             any(Integer.class),
-            any(Integer.class)))
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class)))
         .thenReturn(emptySearchResult);
 
     SearchDocumentsResult result = resolver.get(mockEnv).get();
@@ -501,22 +625,17 @@ public class SearchDocumentsResolverTest {
 
   @Test
   public void testUnpublishedDocumentShownToGroupMember() throws Exception {
-    QueryContext mockContext = getMockAllowContext(OTHER_USER_URN);
+    QueryContext mockContext =
+        getMockAllowContext(OTHER_USER_URN, ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
     when(mockEnv.getContext()).thenReturn(mockContext);
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
 
-    // Document is UNPUBLISHED and owned by a GROUP that the current user belongs to
     Map<Urn, EntityResponse> entityResponseMap = new HashMap<>();
     EntityResponse entityResponse =
         createUnpublishedDocumentResponse(TEST_DOCUMENT_URN, TEST_GROUP_URN);
     entityResponseMap.put(UrnUtils.getUrn(TEST_DOCUMENT_URN), entityResponse);
     when(mockEntityClient.batchGetV2(any(OperationContext.class), any(String.class), any(), any()))
         .thenReturn(entityResponseMap);
-
-    // Mock that the current user is part of TEST_GROUP
-    when(mockGroupService.getGroupsForUser(
-            any(OperationContext.class), eq(UrnUtils.getUrn(OTHER_USER_URN))))
-        .thenReturn(ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
 
     SearchDocumentsResult result = resolver.get(mockEnv).get();
 
@@ -546,5 +665,86 @@ public class SearchDocumentsResolverTest {
         result.getDocuments().size(),
         1,
         "PUBLISHED document should be shown to all users regardless of ownership");
+  }
+
+  @Test
+  public void testSearchDocumentsAppliesViewFilter() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setViewUrn(TEST_VIEW_URN);
+    when(mockViewService.getViewInfo(
+            any(OperationContext.class), eq(UrnUtils.getUrn(TEST_VIEW_URN))))
+        .thenReturn(createViewWithDomainFilter(TEST_DOMAIN_URN));
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            filterCaptor.capture(),
+            any(),
+            eq(0),
+            eq(10),
+            isNull(),
+            isNull());
+
+    // The View's domain filter must be conjoined onto every OR clause of the base
+    // (published/unpublished) filter, so every disjunct should carry the domain criterion.
+    Filter filter = filterCaptor.getValue();
+    assertNotNull(filter.getOr(), "Filter OR clause should not be null");
+    boolean everyClauseHasDomain =
+        filter.getOr().stream()
+            .allMatch(
+                cc ->
+                    cc.getAnd().stream()
+                        .anyMatch(
+                            c ->
+                                "domains".equals(c.getField())
+                                    && c.getValues() != null
+                                    && c.getValues().contains(TEST_DOMAIN_URN)));
+    assertTrue(everyClauseHasDomain, "View domain filter should be applied to all filter clauses");
+  }
+
+  @Test
+  public void testSearchDocumentsWithoutViewUrnDoesNotResolveView() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    resolver.get(mockEnv).get();
+
+    verify(mockViewService, never()).getViewInfo(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testSearchDocumentsPassesFacetsAndSearchFlags() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setFacets(ImmutableList.of("domains"));
+    SearchFlags searchFlags = new SearchFlags();
+    searchFlags.setMaxAggValues(100);
+    input.setSearchFlags(searchFlags);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<List> facetsCaptor = ArgumentCaptor.forClass(List.class);
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            any(),
+            any(),
+            eq(0),
+            eq(10),
+            facetsCaptor.capture(),
+            any());
+
+    assertEquals(facetsCaptor.getValue(), ImmutableList.of("domains"));
   }
 }

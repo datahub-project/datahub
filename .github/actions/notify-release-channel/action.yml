@@ -1,0 +1,46 @@
+name: Notify release Slack channel
+description: >
+  Post a message to the version-derived release Slack channel. Callers must
+  check out .github/scripts and this action first (required for a local
+  composite). Slack failures belong on the caller via continue-on-error.
+
+inputs:
+  version:
+    description: Release version or tag used to derive the channel
+    required: true
+  message:
+    description: Slack mrkdwn body
+    required: true
+  emoji:
+    description: "Optional leading emoji, e.g. :rocket:"
+    required: false
+    default: ""
+  slack-bot-token:
+    description: Slack bot token used to post the message
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install requests
+
+    - name: Notify release channel
+      shell: bash
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.slack-bot-token }}
+        PYTHONPATH: ${{ github.workspace }}/.github/scripts:${{ github.workspace }}/.github/scripts/release
+        VERSION: ${{ inputs.version }}
+        EMOJI: ${{ inputs.emoji }}
+        MESSAGE: ${{ inputs.message }}
+      run: |
+        python3 .github/scripts/release/notify_release_channel.py \
+          --version "${VERSION}" \
+          --emoji "${EMOJI}" \
+          --message "${MESSAGE}"

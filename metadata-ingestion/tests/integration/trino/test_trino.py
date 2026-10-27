@@ -5,14 +5,9 @@ import requests
 import time_machine
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.glossary.classifier import (
-    ClassificationConfig,
-    DynamicTypedClassifierConfig,
-)
-from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSinkConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.trino import ConnectorDetail, TrinoConfig
 from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
@@ -77,7 +72,7 @@ def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
                     profile_pattern=AllowDenyPattern(
                         allow=["postgresqldb.librarydb.*"]
                     ),
-                    profiling=GEProfilingConfig(
+                    profiling=ProfilingConfig(
                         enabled=True,
                         include_field_null_count=True,
                         include_field_distinct_count=True,
@@ -90,18 +85,6 @@ def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
                         include_field_distinct_value_frequencies=True,
                         include_field_histogram=True,
                         include_field_sample_values=True,
-                    ),
-                    classification=ClassificationConfig(
-                        enabled=True,
-                        classifiers=[
-                            DynamicTypedClassifierConfig(
-                                type="datahub",
-                                config=DataHubClassifierConfig(
-                                    minimum_values_threshold=1,
-                                ),
-                            )
-                        ],
-                        max_workers=1,
                     ),
                     catalog_to_connector_details={
                         "postgresqldb": ConnectorDetail(
@@ -145,18 +128,6 @@ def test_trino_hive_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_p
                 database="hivedb",
                 username="foo",
                 schema_pattern=AllowDenyPattern(allow=["^db1"]),
-                classification=ClassificationConfig(
-                    enabled=True,
-                    classifiers=[
-                        DynamicTypedClassifierConfig(
-                            type="datahub",
-                            config=DataHubClassifierConfig(
-                                minimum_values_threshold=1,
-                            ),
-                        )
-                    ],
-                    max_workers=1,
-                ),
             ).model_dump(),
         },
         "sink": {

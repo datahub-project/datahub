@@ -18,6 +18,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.function.Function;
 import javax.sql.DataSource;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -43,6 +44,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true, // createTables
             true, // createDatabase
+            true, // createSchema
             false, // createUser
             false, // iamAuthEnabled
             DatabaseType.MYSQL, // dbType
@@ -107,6 +109,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -143,6 +146,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -180,6 +184,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -271,6 +276,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -307,6 +313,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -342,6 +349,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -371,6 +379,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -400,6 +409,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.POSTGRES,
@@ -429,6 +439,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -464,6 +475,7 @@ public class CreateCdcUserStepTest {
           new SqlSetupArgs(
               true,
               true,
+              true, // createSchema
               false,
               false,
               DatabaseType.MYSQL,
@@ -489,11 +501,13 @@ public class CreateCdcUserStepTest {
 
   @Test
   public void testCreateCdcUserSuccess() throws SQLException {
+    when(mockConnection.getAutoCommit()).thenReturn(false);
 
     SqlSetupArgs testArgs =
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -518,8 +532,45 @@ public class CreateCdcUserStepTest {
     verify(mockDatabase).dataSource();
     verify(mockConnection, times(6)).prepareStatement(anyString());
     verify(mockPreparedStatement, times(6)).executeUpdate();
-    // Verify commit is called to persist the transaction
-    verify(mockConnection).commit();
+    InOrder order = inOrder(mockConnection);
+    order.verify(mockConnection).getAutoCommit();
+    order.verify(mockConnection).setAutoCommit(false);
+    order.verify(mockConnection).commit();
+    order.verify(mockConnection).setAutoCommit(false);
+  }
+
+  @Test
+  public void testCreateCdcUserSuccessWithAutoCommitTrue() throws SQLException {
+    when(mockConnection.getAutoCommit()).thenReturn(true);
+
+    SqlSetupArgs testArgs =
+        new SqlSetupArgs(
+            true,
+            true,
+            true, // createSchema
+            false,
+            false,
+            DatabaseType.MYSQL,
+            true,
+            "datahub_cdc",
+            "datahub_cdc",
+            null,
+            null,
+            "localhost",
+            3306,
+            "testdb",
+            null,
+            false,
+            null);
+    SqlSetupResult result = createCdcUserStep.createCdcUser(testArgs);
+
+    assertNotNull(result);
+    assertEquals(result.isCdcUserCreated(), true);
+    InOrder order = inOrder(mockConnection);
+    order.verify(mockConnection).getAutoCommit();
+    order.verify(mockConnection).setAutoCommit(false);
+    order.verify(mockConnection).commit();
+    order.verify(mockConnection).setAutoCommit(true);
   }
 
   @Test
@@ -529,6 +580,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -558,6 +610,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,
@@ -591,6 +644,7 @@ public class CreateCdcUserStepTest {
         new SqlSetupArgs(
             true,
             true,
+            true, // createSchema
             false,
             false,
             DatabaseType.MYSQL,

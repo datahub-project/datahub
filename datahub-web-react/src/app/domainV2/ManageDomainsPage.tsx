@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -48,7 +49,7 @@ export const ManageDomainsPage = () => {
             <PageContainer>
                 <PageHeaderContainer>
                     <PageTitle level={3}>{t('page.title')}</PageTitle>
-                    <Typography.Paragraph type="secondary">{t('page.subtitle')}</Typography.Paragraph>
+                    <Text color="textSecondary">{t('page.subtitle')}</Text>
                 </PageHeaderContainer>
                 <ListContainer>
                     <DomainsList />

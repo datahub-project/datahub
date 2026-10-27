@@ -13,7 +13,6 @@ from __future__ import annotations
 import ast
 import sys
 import os
-import re
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -283,8 +282,6 @@ def parse_setup_py_exec(path: Path) -> Iterator[DepAnalysis]:
     Parse setup.py by executing it and capturing setup() arguments.
     More reliable for complex setups but requires execution.
     """
-    import tempfile
-    import importlib.util
     from unittest.mock import patch
 
     collected_install: list[str] = []
@@ -510,7 +507,7 @@ def print_report(report: AnalysisReport, verbose: bool = False):
     print(f"  Will resolve dynamically:  {len(dynamic)}")
 
     if unpinned:
-        print(f"\n⚠ UNPINNED dependencies (highest risk):")
+        print("\n⚠ UNPINNED dependencies (highest risk):")
         for dep in report.by_level(PinLevel.UNPINNED):
             print(f"    - {dep.name}")
 

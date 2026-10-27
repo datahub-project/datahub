@@ -7,5 +7,20 @@
             <package name="com.linkedin.metadata.sqlsetup.postgres.pgqueue"/>
             <package name="com.linkedin.metadata.entity.storage"/>
         </packages>
+        <classes>
+            <!-- Class (not package): optimistic package also contains the MySQL IT -->
+            <class name="com.linkedin.metadata.entity.ebean.optimistic.EbeanOptimisticLockingPostgresIT"/>
+        </classes>
+    </test>
+    <test name="postgresql-ebean-locking">
+        <classes>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoLockingPostgresIT"/>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoOptimisticLockingPostgresIT"/>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoConditionalBatchIT">
+                <methods>
+                    <include name="postgres"/>
+                </methods>
+            </class>
+        </classes>
     </test>
 </suite>

@@ -151,6 +151,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
 
     // By this point, we know that OIDC is the enabled provider.
     final OidcConfigs oidcConfigs = (OidcConfigs) ssoManager.getSsoProvider().configs();
+    // JIT provision/status writes intentionally use systemOperationContext (system actor +
+    // Authorizer.SYSTEM parity). Session actor would mis-attribute audit before login completes.
     return handleOidcCallback(systemOperationContext, ctx, oidcConfigs, result);
   }
 
@@ -180,7 +182,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
           foundClients != null && foundClients.size() == 1,
           "unable to find one indirect client for the callback: check the callback URL for a client name parameter or suffix path or ensure that your configuration defaults to one indirect client");
       Client foundClient = (Client) foundClients.get(0);
-      LOGGER.debug("foundClient: {}", foundClient);
+      LOGGER.debug(
+          "foundClient: name={}, class={}",
+          foundClient != null ? foundClient.getName() : null,
+          foundClient != null ? foundClient.getClass().getName() : null);
       CommonHelper.assertNotNull("foundClient", foundClient);
       Credentials credentials = (Credentials) foundClient.getCredentials(ctx).orElse(null);
       LOGGER.debug("extracted credentials: {}", credentials);
@@ -249,9 +254,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
             "Failed to authenticate current user. Cannot find valid identity provider profile in session.");
       }
       final CommonProfile profile = (CommonProfile) optProfile.get();
-      log.debug(
-          String.format(
-              "Found authenticated user with profile %s", profile.getAttributes().toString()));
+      log.debug("Found authenticated user with profile {}", profile.getAttributes());
 
       // Extract the User name required to log into DataHub.
       final String userName = extractUserNameOrThrow(oidcConfigs, profile);
@@ -333,13 +336,19 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       CommonProfile profile, String userName, OidcConfigs oidcConfigs) {
     if (!oidcConfigs.getRequiredGroups().isEmpty()) {
       final Set<String> required = oidcConfigs.getRequiredGroups();
-      final String claimName = oidcConfigs.getGroupsClaimName();
+      final List<String> groupsClaimNames =
+          Arrays.stream(oidcConfigs.getGroupsClaimName().split(","))
+              .map(String::trim)
+              .filter(s -> !s.isEmpty())
+              .collect(Collectors.toList());
 
       final Set<String> userGroups = new HashSet<>();
-      if (profile.containsAttribute(claimName)) {
-        Collection<String> groupNames =
-            getGroupNames(profile, profile.getAttribute(claimName), claimName);
-        userGroups.addAll(groupNames);
+      for (final String claimName : groupsClaimNames) {
+        if (profile.containsAttribute(claimName)) {
+          Collection<String> groupNames =
+              getGroupNames(profile, profile.getAttribute(claimName), claimName);
+          userGroups.addAll(groupNames);
+        }
       }
 
       Set<String> matchingGroups = new HashSet<>(userGroups);
@@ -396,9 +405,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
   @VisibleForTesting
   public CorpUserSnapshot extractUser(CorpuserUrn urn, CommonProfile profile) {
 
-    log.debug(
-        String.format(
-            "Attempting to extract user from OIDC profile %s", profile.getAttributes().toString()));
+    log.debug("Attempting to extract user from OIDC profile {}", profile.getAttributes());
 
     // Extracts these based on the default set of OIDC claims, described here:
     // https://developer.okta.com/blog/2017/07/25/oidc-primer-part-1
@@ -473,10 +480,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
 
   @VisibleForTesting
   public List<CorpGroupSnapshot> extractGroups(CommonProfile profile) {
-    log.debug(
-        String.format(
-            "Attempting to extract groups from OIDC profile %s",
-            profile.getAttributes().toString()));
+    log.debug("Attempting to extract groups from OIDC profile {}", profile.getAttributes());
     final OidcConfigs configs = (OidcConfigs) ssoManager.getSsoProvider().configs();
 
     // First, attempt to extract a list of groups from the profile, using the group name attribute
@@ -550,30 +554,27 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
   private void tryProvisionUser(
       @Nonnull OperationContext opContext, CorpUserSnapshot corpUserSnapshot) {
 
-    log.debug(String.format("Attempting to provision user with urn %s", corpUserSnapshot.getUrn()));
+    log.debug("Attempting to provision user with urn {}", corpUserSnapshot.getUrn());
 
     // 1. Check if this user already exists.
     try {
       final Entity corpUser = systemEntityClient.get(opContext, corpUserSnapshot.getUrn());
       final CorpUserSnapshot existingCorpUserSnapshot = corpUser.getValue().getCorpUserSnapshot();
 
-      log.debug(String.format("Fetched GMS user with urn %s", corpUserSnapshot.getUrn()));
+      log.debug("Fetched GMS user with urn {}", corpUserSnapshot.getUrn());
 
       // If we find more than the key aspect, then the entity "exists".
       if (existingCorpUserSnapshot.getAspects().size() <= 1) {
         log.debug(
-            String.format(
-                "Extracted user that does not yet exist %s. Provisioning...",
-                corpUserSnapshot.getUrn()));
+            "Extracted user that does not yet exist {}. Provisioning...",
+            corpUserSnapshot.getUrn());
         // 2. The user does not exist. Provision them.
         final Entity newEntity = new Entity();
         newEntity.setValue(Snapshot.create(corpUserSnapshot));
         systemEntityClient.update(opContext, newEntity);
-        log.debug(String.format("Successfully provisioned user %s", corpUserSnapshot.getUrn()));
+        log.debug("Successfully provisioned user {}", corpUserSnapshot.getUrn());
       }
-      log.debug(
-          String.format(
-              "User %s already exists. Skipping provisioning", corpUserSnapshot.getUrn()));
+      log.debug("User {} already exists. Skipping provisioning", corpUserSnapshot.getUrn());
       // Otherwise, the user exists. Skip provisioning.
     } catch (RemoteInvocationException e) {
       // Failing provisioning is something worth throwing about.
@@ -585,10 +586,11 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
   private void tryProvisionGroups(
       @Nonnull OperationContext opContext, List<CorpGroupSnapshot> corpGroups) {
 
-    log.debug(
-        String.format(
-            "Attempting to provision groups with urns %s",
-            corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toList())));
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Attempting to provision groups with urns {}",
+          corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toList()));
+    }
 
     // 1. Check if this user already exists.
     try {
@@ -596,7 +598,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
           corpGroups.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toSet());
       final Map<Urn, Entity> existingGroups = systemEntityClient.batchGet(opContext, urnsToFetch);
 
-      log.debug(String.format("Fetched GMS groups with urns %s", existingGroups.keySet()));
+      log.debug("Fetched GMS groups with urns {}", existingGroups.keySet());
 
       final List<CorpGroupSnapshot> groupsToCreate = new ArrayList<>();
       for (CorpGroupSnapshot extractedGroup : corpGroups) {
@@ -608,20 +610,16 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
           // If more than the key aspect exists, then the group already "exists".
           if (corpGroupSnapshot.getAspects().size() <= 1) {
             log.debug(
-                String.format(
-                    "Extracted group that does not yet exist %s. Provisioning...",
-                    corpGroupSnapshot.getUrn()));
+                "Extracted group that does not yet exist {}. Provisioning...",
+                corpGroupSnapshot.getUrn());
             groupsToCreate.add(extractedGroup);
           }
-          log.debug(
-              String.format(
-                  "Group %s already exists. Skipping provisioning", corpGroupSnapshot.getUrn()));
+          log.debug("Group {} already exists. Skipping provisioning", corpGroupSnapshot.getUrn());
         } else {
           // Should not occur until we stop returning default Key aspects for unrecognized entities.
           log.debug(
-              String.format(
-                  "Extracted group that does not yet exist %s. Provisioning...",
-                  extractedGroup.getUrn()));
+              "Extracted group that does not yet exist {}. Provisioning...",
+              extractedGroup.getUrn());
           groupsToCreate.add(extractedGroup);
         }
       }
@@ -629,7 +627,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       List<Urn> groupsToCreateUrns =
           groupsToCreate.stream().map(CorpGroupSnapshot::getUrn).collect(Collectors.toList());
 
-      log.debug(String.format("Provisioning groups with urns %s", groupsToCreateUrns));
+      log.debug("Provisioning groups with urns {}", groupsToCreateUrns);
 
       // Now batch create all entities identified to create.
       systemEntityClient.batchUpdate(
@@ -638,7 +636,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
               .map(groupSnapshot -> new Entity().setValue(Snapshot.create(groupSnapshot)))
               .collect(Collectors.toSet()));
 
-      log.debug(String.format("Successfully provisioned groups with urns %s", groupsToCreateUrns));
+      log.debug("Successfully provisioned groups with urns {}", groupsToCreateUrns);
     } catch (RemoteInvocationException e) {
       // Failing provisioning is something worth throwing about.
       throw new RuntimeException(
@@ -651,7 +649,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
 
   private void updateGroupMembership(
       @Nonnull OperationContext opContext, Urn urn, GroupMembership groupMembership) {
-    log.debug(String.format("Updating group membership for user %s", urn));
+    log.debug("Updating group membership for user {}", urn);
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setEntityType(CORP_USER_ENTITY_NAME);
@@ -672,12 +670,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     try {
       final Entity corpUser = systemEntityClient.get(opContext, urn);
 
-      log.debug(String.format("Fetched GMS user with urn %s", urn));
+      log.debug("Fetched GMS user with urn {}", urn);
 
       if (corpUser.getValue().getCorpUserSnapshot().getAspects().size() <= 1) {
-        log.debug(
-            String.format(
-                "Found corp user stub (at most key aspect) for %s. Invalid login attempt.", urn));
+        log.debug("Found corp user stub (at most key aspect) for {}. Invalid login attempt.", urn);
         emitOidcLoginDeniedLog(urn.getId(), LoginDenialReason.NOT_PROVISIONED);
         throw new RuntimeException(
             String.format(

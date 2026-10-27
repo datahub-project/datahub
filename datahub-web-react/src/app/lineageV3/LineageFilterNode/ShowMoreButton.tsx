@@ -1,11 +1,9 @@
-import KeyboardDoubleArrowDownIcon from '@mui/icons-material/KeyboardDoubleArrowDown';
+import { CaretDoubleDown } from '@phosphor-icons/react/dist/csr/CaretDoubleDown';
 import React, { useCallback, useContext, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { LINEAGE_FILTER_PAGINATION, LineageFilter, LineageNodesContext } from '@app/lineageV3/common';
-import { applyOpacity } from '@app/sharedV2/colors/colorUtils';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 const MAX_INCREASE = 100;
 const LINE_HEIGHT = '1.5em';
@@ -18,6 +16,7 @@ const ExtraButtons = styled.div`
     flex-direction: column;
     align-items: end;
     background-color: ${(props) => props.theme.colors.bg};
+    z-index: 2;
 `;
 
 const Wrapper = styled.div`
@@ -41,7 +40,7 @@ const Button = styled.div`
     align-items: center;
     border-radius: 20px;
     background-color: ${(props) => props.theme.colors.bg};
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme.colors.textBrand};
     cursor: pointer;
     display: flex;
     font-size: 10px;
@@ -49,13 +48,8 @@ const Button = styled.div`
     width: fit-content;
 
     :hover {
-        background-color: ${(props) =>
-            applyOpacity(
-                props.theme.styles['primary-color'] || getColor('primary', 500, props.theme),
-                props.theme.colors.bg,
-                10,
-            )};
-        color: ${(props) => props.theme.styles['primary-color']};
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrand};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 
@@ -105,7 +99,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                     <Text>
                         {limit + LINEAGE_FILTER_PAGINATION >= maximum ? t('filter.showAll') : t('filter.showMore')}
                     </Text>
-                    <KeyboardDoubleArrowDownIcon fontSize="inherit" />
+                    <CaretDoubleDown size="1em" />
                 </Button>,
             );
         }
@@ -117,7 +111,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
                     data-testid="show-less"
                 >
                     <Text>{t('filter.showLess')}</Text>
-                    <KeyboardDoubleArrowDownIcon fontSize="inherit" />
+                    <CaretDoubleDown size="1em" />
                 </Button>,
             );
         }
@@ -125,7 +119,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
             list.push(
                 <Button key="show-all" onClick={() => setPagination(maximum)} data-testid="show-all">
                     <Text>{t('filter.showAll')}</Text>
-                    <KeyboardDoubleArrowDownIcon fontSize="inherit" />
+                    <CaretDoubleDown size="1em" />
                 </Button>,
             );
         }
@@ -133,7 +127,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
             list.push(
                 <Button key="show-max" onClick={() => setPagination(limit + MAX_INCREASE)} data-testid="show-max">
                     <Text>{t('filter.showPlusCount', { count: MAX_INCREASE })}</Text>
-                    <KeyboardDoubleArrowDownIcon fontSize="inherit" />
+                    <CaretDoubleDown size="1em" />
                 </Button>,
             );
         }

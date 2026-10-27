@@ -20,7 +20,11 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -128,6 +132,20 @@ public class MutationUtils {
       editableSchemaMetadataArray.add(newFieldInfo);
       return newFieldInfo;
     }
+  }
+
+  /**
+   * Resolves which of the given urns exist using a single call. Batch mutations validate many urns
+   * at once, so resolving them one at a time turns a single request into one round trip per urn.
+   */
+  public static Set<Urn> existingUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<Urn> urns,
+      EntityService<?> entityService) {
+    if (urns.isEmpty()) {
+      return Collections.emptySet();
+    }
+    return entityService.exists(opContext, new LinkedHashSet<>(urns), true);
   }
 
   public static Boolean validateSubresourceExists(

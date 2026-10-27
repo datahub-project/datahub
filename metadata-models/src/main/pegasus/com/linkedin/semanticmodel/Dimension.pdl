@@ -1,0 +1,14 @@
+namespace com.linkedin.semanticmodel
+
+/**
+ * Marks a field as a time dimension within a semantic model dataset.
+ *
+ * NOTE: this record is intentionally minimal, can add more as per needs. 
+ */
+record Dimension {
+
+  /**
+   * Whether this dimension represents a time axis.
+   */
+  isTime: boolean = false
+}

@@ -1,0 +1,19 @@
+apiVersion: v3.1.0
+kind: DataContract
+id: 00000000-0000-0000-0000-000000000001
+version: 1.0.0
+status: active
+servers:
+  - server: prod-snowflake
+    type: snowflake
+    account: acme-prod
+    database: ANALYTICS
+    schema: PUBLIC
+schema:
+  - name: my_table
+    physicalName: my_table
+    properties:
+      - name: id
+        physicalName: id
+        logicalType: number
+        primaryKey: true

@@ -1,6 +1,6 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, StructuredPropertiesEntry } from '@types';
@@ -26,6 +26,16 @@ export function getEntityPlatforms(entityType: EntityType | null, entityData: Ge
     return { platform, platforms };
 }
 
-export function filterForAssetBadge(prop: StructuredPropertiesEntry) {
-    return prop.structuredProperty.settings?.showAsAssetBadge && !prop.structuredProperty.settings?.isHidden;
+export function filterForAssetBadge(prop: StructuredPropertiesEntry, platformUrn?: string | null) {
+    if (!prop.structuredProperty.settings?.showAsAssetBadge || prop.structuredProperty.settings?.isHidden) {
+        return false;
+    }
+    const allowedPlatforms = prop.structuredProperty.definition?.allowedPlatforms;
+    if (!allowedPlatforms || allowedPlatforms.length === 0) {
+        return true;
+    }
+    if (!platformUrn) {
+        return false;
+    }
+    return allowedPlatforms.some((p) => p.urn === platformUrn);
 }

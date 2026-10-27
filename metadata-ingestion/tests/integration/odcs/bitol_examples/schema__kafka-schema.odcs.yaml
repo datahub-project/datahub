@@ -1,0 +1,36 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/schema/kafka-schema.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+apiVersion: v3.0.2
+kind: DataContract
+id: orders
+status: development
+name: Orders Event Stream
+version: 0.0.1
+schema:
+- name: Orders
+  physicalName: orders
+  logicalType: object
+  physicalType: topic
+  description: Orders Kafka topic
+  properties:
+    - name: cust_id
+      businessName: Customer ID
+      logicalType: string
+      physicalType: string
+      required: true
+    - name: prod_id
+      businessName: Product ID
+      logicalType: string
+      physicalType: string
+      required: true      
+    - name: qty
+      businessName: Quantity
+      logicalType: integer
+      physicalType: int
+      required: true        
+servers:
+- server: my-kafka
+  type: kafka
+  format: avro
+  host: kafkabroker1:9092

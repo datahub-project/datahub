@@ -39,4 +39,10 @@ public class TimeseriesAspectServiceConfig {
    * single-URN path automatically.
    */
   @Builder.Default private int topHitsPerBucketLimit = 100;
+
+  /**
+   * Maximum number of URNs per sub-batch ES query for {@code batchGetAggregatedStats}. Number of
+   * batched URNs x cardinality of bucket should be less than Openseach limit 65536
+   */
+  @Builder.Default private int batchAggMaxUrnsPerBatch = 100;
 }

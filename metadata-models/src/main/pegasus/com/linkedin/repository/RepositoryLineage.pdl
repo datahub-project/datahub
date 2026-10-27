@@ -1,0 +1,23 @@
+namespace com.linkedin.repository
+
+import com.linkedin.common.Urn
+
+/**
+ * Provenance edges between Repository entities.
+ */
+@Aspect = {
+  "name": "repositoryLineage"
+}
+record RepositoryLineage {
+
+  /**
+   * The repository this one is a git fork of. A plain provenance edge.
+   */
+  @Relationship = {
+    "name": "RepositoryForkOf",
+    "entityTypes": [ "repository" ],
+    "isLineage": true,
+    "isUpstream": true
+  }
+  forkOf: optional Urn
+}

@@ -19,17 +19,19 @@ export function ApplicationEntitiesTab() {
 
     return (
         <SearchCardContext.Provider value={{ showRemovalFromList: true }}>
-            <EmbeddedListSearchSection
-                fixedFilters={{
-                    unionType: UnionType.OR,
-                    filters: fixedOrFilters,
-                }}
-                emptySearchQuery="*"
-                placeholderText={t('shared.filterAssetsPlaceholder')}
-                skipCache
-                applyView
-                shouldRefetch
-            />
+            <div data-testid="assets-list">
+                <EmbeddedListSearchSection
+                    fixedFilters={{
+                        unionType: UnionType.OR,
+                        filters: fixedOrFilters,
+                    }}
+                    emptySearchQuery="*"
+                    placeholderText={t('shared.filterAssetsPlaceholder')}
+                    skipCache
+                    applyView
+                    shouldRefetch
+                />
+            </div>
         </SearchCardContext.Provider>
     );
 }

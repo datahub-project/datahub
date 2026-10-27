@@ -2,9 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.knowledge;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
-import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -54,7 +54,6 @@ public class RelatedDocumentsResolver
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
-  private final GroupService _groupService;
 
   @Override
   public CompletableFuture<RelatedDocumentsResult> get(final DataFetchingEnvironment environment)
@@ -82,7 +81,8 @@ public class RelatedDocumentsResolver
             // Get current user and their groups for ownership filtering
             final Urn currentUserUrn = Urn.createFromString(context.getActorUrn());
             final List<Urn> userGroupUrns =
-                _groupService.getGroupsForUser(context.getOperationContext(), currentUserUrn);
+                new ArrayList<>(
+                    context.getOperationContext().getSessionActorContext().getGroupMembership());
             final List<String> userAndGroupUrns = new ArrayList<>();
             userAndGroupUrns.add(currentUserUrn.toString());
             userGroupUrns.forEach(groupUrn -> userAndGroupUrns.add(groupUrn.toString()));
@@ -95,9 +95,10 @@ public class RelatedDocumentsResolver
             // Note: applyShowInGlobalContext=false because related documents should show
             // all context documents (those are meant to be discovered through their related
             // entities)
+            final boolean canManageDocuments = AuthorizationUtils.canManageDocuments(context);
             Filter filter =
                 DocumentSearchFilterUtils.buildCombinedFilter(
-                    baseUserCriteria, userAndGroupUrns, false);
+                    baseUserCriteria, userAndGroupUrns, false, canManageDocuments);
 
             // Step 1: Search using service to get URNs
             // Sort by lastModifiedAt descending to show most recently updated documents first

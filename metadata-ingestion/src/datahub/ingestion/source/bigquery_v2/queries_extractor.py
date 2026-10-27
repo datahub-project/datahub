@@ -4,10 +4,13 @@ import pathlib
 import re
 import tempfile
 from datetime import datetime, timedelta, timezone
-from typing import Collection, Dict, Iterable, List, Optional, Set, TypedDict
+from typing import Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
 
+import sqlglot
 from google.cloud.bigquery import Client
-from pydantic import Field, PositiveInt
+from pydantic import Field, PositiveInt, model_validator
+from sqlglot.tokens import Token, TokenType
+from typing_extensions import NotRequired, TypedDict
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.time_window_config import (
@@ -24,6 +27,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    CAPTURE_JOB_LABELS_DESCRIPTION,
     DEFAULT_REGION_QUALIFIERS,
     BigQueryBaseConfig,
 )
@@ -43,14 +47,18 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantQueriesRunSkipHandler,
 )
-from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source.usage.usage_common import (
+    DEFAULT_QUERIES_CHARACTER_LIMIT,
+    BaseUsageConfig,
+    validate_top_n_queries_character_budget,
+)
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
-from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
+from datahub.sql_parsing.sqlglot_utils import get_dialect, get_query_fingerprint
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -74,6 +82,11 @@ class DMLJobStatistics(TypedDict):
     updated_row_count: int
 
 
+class BigQueryJobLabel(TypedDict):
+    key: str
+    value: str
+
+
 class BigQueryJob(TypedDict):
     job_id: str
     project_id: str
@@ -86,6 +99,8 @@ class BigQueryJob(TypedDict):
     statement_type: str
     destination_table: Optional[BigQueryTableReference]
     referenced_tables: List[BigQueryTableReference]
+    # Only selected when capture_job_labels_as_query_properties is enabled.
+    labels: NotRequired[List[BigQueryJobLabel]]
     # NOTE: This does not capture referenced_view unlike GCP Logging Event
 
 
@@ -122,11 +137,30 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         default=10, description="Number of top queries to save to each table."
     )
 
+    format_sql_queries: bool = Field(
+        default=False, description="Whether to format the SQL queries."
+    )
+
+    include_top_n_queries: bool = Field(
+        default=True, description="Whether to ingest the top_n_queries."
+    )
+
+    queries_character_limit: HiddenFromDocs[int] = Field(
+        default=DEFAULT_QUERIES_CHARACTER_LIMIT,
+        description="Total character limit for all queries in a single database call. This is a "
+        "low-level config property which should be touched with care. "
+        "Queries will be truncated to length `queries_character_limit / top_n_queries`.",
+    )
+
     include_lineage: bool = True
     include_queries: bool = True
     include_usage_statistics: bool = True
     include_query_usage_statistics: bool = True
     include_operations: bool = True
+    capture_job_labels_as_query_properties: bool = Field(
+        default=False,
+        description=CAPTURE_JOB_LABELS_DESCRIPTION,
+    )
 
     region_qualifiers: List[str] = Field(
         default_factory=lambda: list(DEFAULT_REGION_QUALIFIERS),
@@ -141,6 +175,19 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         "Defaults to False to avoid unexpected query cost increases. "
         "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
     )
+
+    @model_validator(mode="after")
+    def check_top_n_queries_character_budget(self) -> "BigQueryQueriesExtractorConfig":
+        # The main BigQuery source builds this config from an already-validated
+        # BigQueryUsageConfig (which shares this check via BaseUsageConfig), but the
+        # standalone bigquery-queries source constructs this class directly, so it
+        # needs its own copy of the check to fail at recipe parse time rather than
+        # mid-ingestion inside BaseUsageConfig(...).
+        validate_top_n_queries_character_budget(
+            top_n_queries=self.top_n_queries,
+            queries_character_limit=self.queries_character_limit,
+        )
+        return self
 
 
 class BigQueryQueriesExtractor(Closeable):
@@ -216,11 +263,14 @@ class BigQueryQueriesExtractor(Closeable):
                 end_time=self.end_time,
                 user_email_pattern=self.config.user_email_pattern,
                 top_n_queries=self.config.top_n_queries,
+                format_sql_queries=self.config.format_sql_queries,
+                include_top_n_queries=self.config.include_top_n_queries,
+                queries_character_limit=self.config.queries_character_limit,
             ),
             generate_operations=self.config.include_operations,
             is_temp_table=self.is_temp_table,
             is_allowed_table=self.is_allowed_table,
-            format_queries=False,
+            format_queries=self.config.format_sql_queries,
         )
 
         self.report.sql_aggregator = self.aggregator.report
@@ -318,6 +368,8 @@ class BigQueryQueriesExtractor(Closeable):
         self,
     ) -> Iterable[MetadataWorkUnit]:
         # TODO: Add some logic to check if the cached audit log is stale or not.
+        # The cache key should then also cover capture_job_labels_as_query_properties,
+        # since a cache written with the flag off has no labels to replay.
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
 
@@ -358,7 +410,8 @@ class BigQueryQueriesExtractor(Closeable):
             report_timer = ProgressTimer(timedelta(minutes=5))
 
             for i, (_, query_instances) in enumerate(queries_deduped.items()):
-                for query in query_instances.values():
+                # The aggregator expects each query's observations in time order.
+                for _, query in sorted(query_instances.items()):
                     if log_timer.should_report():
                         logger.info(
                             f"Added {i} deduplicated query log entries to SQL aggregator"
@@ -413,7 +466,16 @@ class BigQueryQueriesExtractor(Closeable):
             # If the query already exists for this time bucket, update its attributes
             if observed_query is not query:
                 observed_query.usage_multiplier += 1
-                observed_query.timestamp = query.timestamp
+                # Entries are time-ordered only within one project and region, so keep
+                # the newest job's timestamp, labels and extra_info (job_id etc.) rather
+                # than the last one read. user and session_id stay first-seen.
+                if observed_query.timestamp is None or (
+                    query.timestamp is not None
+                    and query.timestamp >= observed_query.timestamp
+                ):
+                    observed_query.timestamp = query.timestamp
+                    observed_query.custom_properties = query.custom_properties
+                    observed_query.extra_info = query.extra_info
 
         return queries_deduped
 
@@ -476,6 +538,7 @@ class BigQueryQueriesExtractor(Closeable):
             start_time=self.start_time,
             end_time=self.end_time,
             user_filter=user_filter,
+            include_labels=self.config.capture_job_labels_as_query_properties,
         )
 
         logger.info(f"Fetching query log from BQ Project {project.id} for {region}")
@@ -528,6 +591,11 @@ class BigQueryQueriesExtractor(Closeable):
                 "destination_table": row["destination_table"],
                 "referenced_tables": row["referenced_tables"],
             },
+            custom_properties=(
+                _job_labels_to_custom_properties(row.get("labels"))
+                if self.config.capture_job_labels_as_query_properties
+                else None
+            ),
         )
 
         return entry
@@ -807,28 +875,120 @@ def _build_user_filter(
     return result
 
 
+# `TEMP` and `TEMPORARY` both tokenize as `TokenType.TEMPORARY`; AGGREGATE is
+# not a keyword token, so it is matched by text.
+_AGGREGATE = "AGGREGATE"
+_TEMP_FUNCTION_HEADS: List[List[Union[TokenType, str]]] = [
+    [TokenType.CREATE, TokenType.TEMPORARY, TokenType.FUNCTION],
+    [TokenType.CREATE, TokenType.TEMPORARY, _AGGREGATE, TokenType.FUNCTION],
+    [
+        TokenType.CREATE,
+        TokenType.OR,
+        TokenType.REPLACE,
+        TokenType.TEMPORARY,
+        TokenType.FUNCTION,
+    ],
+    [
+        TokenType.CREATE,
+        TokenType.OR,
+        TokenType.REPLACE,
+        TokenType.TEMPORARY,
+        _AGGREGATE,
+        TokenType.FUNCTION,
+    ],
+]
+_FUNCTION_WORD_RE = re.compile(r"\bFUNCTION\b", re.IGNORECASE)
+_STATEMENT_SEPARATOR = ";"
+
+
 def _extract_query_text(row: BigQueryJob) -> str:
     # We wrap select statements in a CTE to make them parseable as DML statement.
     # This is a workaround to support the case where the user runs a query and inserts the result into a table.
-    # NOTE This will result in showing modified query instead of original query in DataHub UI
+    # NOTE This and the temp-function removal below result in showing modified query instead of original query in DataHub UI
     # Alternatively, this support needs to be added more natively in aggregator.add_observed_query
+    destination = row["destination_table"]
     if (
-        row["statement_type"] == "SELECT"
-        and row["destination_table"]
-        and not row["destination_table"]["table_id"].startswith("anon")
+        row["statement_type"] != "SELECT"
+        or not destination
+        or destination["table_id"].startswith("anon")
     ):
-        table_name = BigqueryTableIdentifier(
-            row["destination_table"]["project_id"],
-            row["destination_table"]["dataset_id"],
-            row["destination_table"]["table_id"],
-        ).raw_table_name()
-        query = f"""CREATE TABLE `{table_name}` AS
+        return _strip_temp_functions(row["query"], strip_semicolons=False)
+    table_name = BigqueryTableIdentifier(
+        destination["project_id"],
+        destination["dataset_id"],
+        destination["table_id"],
+    ).raw_table_name()
+    query = _strip_temp_functions(row["query"], strip_semicolons=True)
+    return f"""CREATE TABLE `{table_name}` AS
                 (
-                    {row["query"]}
+                    {query}
                 )"""
-    else:
-        query = row["query"]
-    return query
+
+
+def _strip_temp_functions(query: str, *, strip_semicolons: bool) -> str:
+    """Remove temp-function statements, and top-level semicolons if asked; keep all other text.
+
+    Returns the text unchanged unless it is one statement plus optional temp functions.
+    """
+    if _STATEMENT_SEPARATOR not in query:
+        return query
+    # Unwrapped text changes only if it defines a temp function.
+    if not strip_semicolons and not _FUNCTION_WORD_RE.search(query):
+        return query
+    # split_statements would cut `UNNEST(x) AS e WITH OFFSET` into two statements.
+    try:
+        tokens = get_dialect(BigQueryIdentifierBuilder.platform).tokenize(query)
+    except (ValueError, TypeError, sqlglot.errors.SqlglotError):
+        return query
+
+    statements: List[List[Token]] = [[]]
+    for token in tokens:
+        statements[-1].append(token)
+        if token.token_type == TokenType.SEMICOLON:
+            statements.append([])
+
+    removed: List[Tuple[int, int]] = []
+    main_statements = 0
+    for statement in statements:
+        if _is_temp_function(statement):
+            removed.append((statement[0].start, statement[-1].end))
+            continue
+        if any(token.token_type != TokenType.SEMICOLON for token in statement):
+            main_statements += 1
+        if strip_semicolons:
+            removed += [
+                (token.start, token.end)
+                for token in statement
+                if token.token_type == TokenType.SEMICOLON
+            ]
+    if main_statements != 1:
+        return query
+
+    kept: List[str] = []
+    position = 0
+    for start, end in removed:
+        kept.append(query[position:start])
+        position = end + 1
+    kept.append(query[position:])
+    return "".join(kept)
+
+
+def _is_temp_function(statement: List[Token]) -> bool:
+    head = [
+        _AGGREGATE if token.text.upper() == _AGGREGATE else token.token_type
+        for token in statement[:6]
+    ]
+    return any(head[: len(form)] == form for form in _TEMP_FUNCTION_HEADS)
+
+
+def _job_labels_to_custom_properties(
+    labels: Optional[List[BigQueryJobLabel]],
+) -> Optional[Dict[str, str]]:
+    if not labels:
+        return None
+    # The STRUCT field is nullable in INFORMATION_SCHEMA.JOBS, and a None value would
+    # fail MCP serialization of the whole Query aspect.
+    return {label["key"]: label["value"] or "" for label in labels}
 
 
 def _build_enriched_query_log_query(
@@ -837,6 +997,7 @@ def _build_enriched_query_log_query(
     start_time: datetime,
     end_time: datetime,
     user_filter: str = "TRUE",
+    include_labels: bool = False,
 ) -> str:
     """
     Build the SQL query to fetch enriched query log from BigQuery INFORMATION_SCHEMA.JOBS.
@@ -849,6 +1010,7 @@ def _build_enriched_query_log_query(
         user_filter: SQL WHERE clause condition for filtering by user_email.
                      Defaults to "TRUE" (no filtering). Use _build_user_filter()
                      to generate this from allow/deny pattern lists.
+        include_labels: Also select the job's `labels` column.
 
     Returns:
         SQL query string to fetch query log
@@ -885,6 +1047,8 @@ def _build_enriched_query_log_query(
     # total_slot_ms, job_type, total_bytes_billed, dml_statistics(inserted_row_count, etc)
     # that may be fetched as required in future. Refer below link for list of all columns
     # https://cloud.google.com/bigquery/docs/information-schema-jobs#schema
+    labels_column = ",\n            labels" if include_labels else ""
+
     return f"""\
         SELECT
             job_id,
@@ -896,7 +1060,7 @@ def _build_enriched_query_log_query(
             query_info.query_hashes.normalized_literals as query_hash,
             statement_type,
             destination_table,
-            referenced_tables
+            referenced_tables{labels_column}
         FROM
             `{project_id}`.`{region}`.INFORMATION_SCHEMA.JOBS
         WHERE

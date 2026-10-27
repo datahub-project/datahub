@@ -3,6 +3,7 @@ package com.linkedin.metadata.config.postgres;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
@@ -21,7 +22,7 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
     props.getPgQueue().setInheritKafkaTopics(true);
     PgQueueTopicOverride uh = new PgQueueTopicOverride();
     uh.setMaxRowsPerTopic(10L);
-    props.getPgQueue().getTopics().put("datahubUpgradeHistory", uh);
+    props.getPgQueue().getTopics().put("failedMetadataChangeProposal", uh);
 
     KafkaConfiguration kafka = new KafkaConfiguration();
     TopicsConfiguration.TopicConfiguration td = new TopicsConfiguration.TopicConfiguration();
@@ -30,9 +31,9 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
 
     Map<String, TopicsConfiguration.TopicConfiguration> kt = new HashMap<>();
     TopicsConfiguration.TopicConfiguration duh = new TopicsConfiguration.TopicConfiguration();
-    duh.setName("DataHubUpgradeHistory_v1");
+    duh.setName("FailedMetadataChangeProposal_v1");
     duh.setConfigProperties(Map.of("retention.ms", "-1"));
-    kt.put("datahubUpgradeHistory", duh);
+    kt.put("failedMetadataChangeProposal", duh);
 
     TopicsConfiguration.TopicConfiguration mcl = new TopicsConfiguration.TopicConfiguration();
     mcl.setName("MetadataChangeLog_Timeseries_v1");
@@ -48,7 +49,7 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
         q.getResolvedTopicCatalog().stream()
             .anyMatch(
                 e ->
-                    "DataHubUpgradeHistory_v1".equals(e.getTopicName())
+                    "FailedMetadataChangeProposal_v1".equals(e.getTopicName())
                         && e.getMaxRowsPerTopic() == 10L
                         && e.getRetentionMaxAgeSeconds() == 0));
     assertTrue(
@@ -70,10 +71,10 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
     props.getPgQueue().getTopics().put("metadataChangeLogTimeseries", ts);
 
     PgQueueTopicOverride uh = new PgQueueTopicOverride();
-    uh.setTopicName("DataHubUpgradeHistory_v1");
+    uh.setTopicName("FailedMetadataChangeProposal_v1");
     uh.setRetentionMaxAgeSeconds(0);
     uh.setMaxRowsPerTopic(10L);
-    props.getPgQueue().getTopics().put("datahubUpgradeHistory", uh);
+    props.getPgQueue().getTopics().put("failedMetadataChangeProposal", uh);
 
     props.validateForUse(DatabaseType.POSTGRES);
 
@@ -90,7 +91,7 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
         q.getResolvedTopicCatalog().stream()
             .anyMatch(
                 e ->
-                    e.getTopicName().equals("DataHubUpgradeHistory_v1")
+                    e.getTopicName().equals("FailedMetadataChangeProposal_v1")
                         && e.getRetentionMaxAgeSeconds() == 0
                         && e.getMaxRowsPerTopic() == 10L));
 
@@ -133,6 +134,50 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
   public void validatePgQueue_rejectsNegativeTopicDefaultConsumerConcurrency() {
     PostgresSqlSetupProperties props = basePgQueueProps();
     props.getPgQueue().getTopicDefaults().setConsumerConcurrency(-1);
+    props.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test
+  public void validatePgQueue_rejectsUnrepresentableCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    enablePgQueueCron(props, 5400);
+    IllegalStateException thrown =
+        expectThrows(
+            IllegalStateException.class, () -> props.validateForUse(DatabaseType.POSTGRES));
+    assertTrue(thrown.getMessage().contains("cannot be expressed as a pg_cron"));
+  }
+
+  @Test
+  public void validatePgQueue_rejectsSevenMinuteCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    enablePgQueueCron(props, 420);
+    IllegalStateException thrown =
+        expectThrows(
+            IllegalStateException.class, () -> props.validateForUse(DatabaseType.POSTGRES));
+    assertTrue(thrown.getMessage().contains("cannot be expressed as a pg_cron"));
+  }
+
+  @Test
+  public void validatePgQueue_rejectsFiveHourCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    enablePgQueueCron(props, 18000);
+    IllegalStateException thrown =
+        expectThrows(
+            IllegalStateException.class, () -> props.validateForUse(DatabaseType.POSTGRES));
+    assertTrue(thrown.getMessage().contains("cannot be expressed as a pg_cron"));
+  }
+
+  @Test
+  public void validatePgQueue_acceptsSixHourCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    enablePgQueueCron(props, 21600);
+    props.validateForUse(DatabaseType.POSTGRES);
+  }
+
+  @Test
+  public void validatePgQueue_acceptsHourlyCronInterval() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    enablePgQueueCron(props, 3600);
     props.validateForUse(DatabaseType.POSTGRES);
   }
 
@@ -231,5 +276,11 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
     props.getPgQueue().getMaintenance().setBatchDeleteLimit(5000);
     props.getPgQueue().setPayloadCompression("SNAPPY");
     return props;
+  }
+
+  private static void enablePgQueueCron(PostgresSqlSetupProperties props, int intervalSeconds) {
+    props.getPgQueue().getMaintenance().setCronEnabled(true);
+    props.getPgQueue().getMaintenance().setIntervalSeconds(intervalSeconds);
+    props.getPgCron().getAdmin().setJdbcUrl("jdbc:postgresql://localhost:5432/postgres");
   }
 }

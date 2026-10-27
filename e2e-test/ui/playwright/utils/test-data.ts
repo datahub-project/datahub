@@ -21,6 +21,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { APIRequestContext } from '@playwright/test';
 import { extractUrn, type Mcp } from '../helpers/seeder-utils';
+import { DATAHUB_GRAPHQL_PATH } from './constants';
 import { createScriptLogger, type DataHubLogger } from './logger';
 
 // ── Public interface ──────────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ async function prefixExists(
   prefix: string,
   gmsToken: string,
 ): Promise<boolean> {
-  const response = await request.post(`${gmsUrl}/api/v2/graphql`, {
+  const response = await request.post(`${gmsUrl}${DATAHUB_GRAPHQL_PATH}`, {
     data: {
       query: `query search($input: SearchInput!) { search(input: $input) { total } }`,
       variables: { input: { type: 'DATASET', query: `${prefix}*`, start: 0, count: 1 } },

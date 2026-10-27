@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -26,6 +27,7 @@ import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -37,6 +39,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.testng.annotations.Test;
 
 public class PatchItemImplTest {
@@ -638,5 +641,221 @@ public class PatchItemImplTest {
         "auditStamp must be present — injected by the registered template default");
     assertFalse(patched.getTerms().isEmpty(), "The added term must be present");
     assertEquals(patched.getTerms().get(0).getUrn().toString(), "urn:li:glossaryTerm:CustomerData");
+  }
+
+  /**
+   * A generic patch must keep the source MCP's headers and system metadata, as a template patch
+   * does. Otherwise a conditional header such as If-Version-Match never reaches the pre-commit
+   * validators and the write goes through unconditionally.
+   */
+  @Test
+  public void testGenericPatchKeepsHeadersAndSystemMetadata() {
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("add");
+    patchOp.setPath("/description");
+    patchOp.setValue("Test description");
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder().patch(List.of(patchOp)).forceGenericPatch(true).build();
+
+    MetadataChangeProposal mcp =
+        conditionalPatchMcp(GenericRecordUtils.serializePatch(genericJsonPatch, objectMapper));
+    PatchItemImpl patchItem = PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
+    assertNotNull(patchItem.getGenericJsonPatch());
+
+    ChangeItemImpl result = patchItem.applyPatch(new DatasetProperties(), aspectRetriever);
+
+    assertEquals(
+        ((DatasetProperties) result.getRecordTemplate()).getDescription(), "Test description");
+    assertEquals(result.getHeader(HTTP_HEADER_IF_VERSION_MATCH), Optional.of("999"));
+    assertEquals(result.getSystemMetadata().getRunId(), "conditional-patch-run");
+  }
+
+  @Test
+  public void testTemplatePatchKeepsHeadersAndSystemMetadata() {
+    MetadataChangeProposal mcp =
+        conditionalPatchMcp(
+            GenericRecordUtils.serializePatch(
+                patchOf(
+                    "[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"Test description\"}]")));
+    PatchItemImpl patchItem = PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
+
+    ChangeItemImpl result = patchItem.applyPatch(new DatasetProperties(), aspectRetriever);
+
+    assertEquals(
+        ((DatasetProperties) result.getRecordTemplate()).getDescription(), "Test description");
+    assertEquals(result.getHeader(HTTP_HEADER_IF_VERSION_MATCH), Optional.of("999"));
+    assertEquals(result.getSystemMetadata().getRunId(), "conditional-patch-run");
+  }
+
+  private MetadataChangeProposal conditionalPatchMcp(GenericAspect patchAspect) {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(urn);
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(patchAspect);
+    mcp.setHeaders(new StringMap(Map.of(HTTP_HEADER_IF_VERSION_MATCH, "999")));
+    mcp.setSystemMetadata(new SystemMetadata().setRunId("conditional-patch-run"));
+    return mcp;
+  }
+
+  // ---------------------------------------------------------------------------
+  // findOversizedContent: diagnostic scan for over-long JSON names / string values.
+  // Uses small thresholds + tiny inputs so the cases are fast and explicit.
+  // ---------------------------------------------------------------------------
+
+  private static JsonPatch patchOf(String json) {
+    return Json.createPatch(Json.createReader(new StringReader(json)).readArray());
+  }
+
+  @Test
+  public void testFindOversizedContent_normalPatch_noFindings() {
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"short\"}]"), 100, 100);
+    assertTrue(found.isEmpty(), "Short keys and values must not be flagged");
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedKey() {
+    String longKey = "k".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/customProperties/"
+                    + longKey
+                    + "\",\"value\":\"v\"}]"),
+            50,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.NAME);
+    assertEquals(found.get(0).length(), 60);
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedTopLevelStringValue() {
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"" + longVal + "\"}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+    assertEquals(found.get(0).length(), 60);
+    assertEquals(found.get(0).path(), "/description");
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedValueNestedInObject() {
+    // Recurse into an object value (e.g. queryProperties statement: { value, language }).
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/statement\",\"value\":{\"value\":\""
+                    + longVal
+                    + "\",\"language\":\"SQL\"}}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+  }
+
+  @Test
+  public void testFindOversizedContent_oversizedValueNestedInArray() {
+    // Recurse into an array value; only the long element is flagged.
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/tags\",\"value\":[\"ok\",\"" + longVal + "\"]}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
+  }
+
+  @Test
+  public void testFindOversizedContent_nonStringValueIgnored() {
+    // Only string values are length-checked; a large number must not be flagged.
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"add\",\"path\":\"/count\",\"value\":123456789012345}]"), 100, 1);
+    assertTrue(found.isEmpty());
+  }
+
+  @Test
+  public void testFindOversizedContent_opWithoutValueDoesNotThrow() {
+    // A remove op carries no "value" — must not NPE or produce a value finding.
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf("[{\"op\":\"remove\",\"path\":\"/description\"}]"), 100, 1);
+    assertTrue(found.isEmpty());
+  }
+
+  @Test
+  public void testFindOversizedContent_multipleOpsMixed() {
+    String longKey = "k".repeat(60);
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/a/"
+                    + longKey
+                    + "\",\"value\":\"v\"},"
+                    + "{\"op\":\"add\",\"path\":\"/b\",\"value\":\""
+                    + longVal
+                    + "\"}]"),
+            50,
+            50);
+    assertEquals(found.size(), 2);
+    assertTrue(found.stream().anyMatch(c -> c.kind() == PatchItemImpl.OversizedContent.Kind.NAME));
+    assertTrue(found.stream().anyMatch(c -> c.kind() == PatchItemImpl.OversizedContent.Kind.VALUE));
+  }
+
+  @Test
+  public void testFindOversizedContent_keyAtThresholdNotFlagged() {
+    // Boundary: a key exactly at the threshold is not flagged (the check is strictly greater-than).
+    String key = "k".repeat(50);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/customProperties/" + key + "\",\"value\":\"v\"}]"),
+            50,
+            50);
+    assertTrue(found.isEmpty(), "A key exactly at the threshold must not be flagged");
+  }
+
+  @Test
+  public void testFindOversizedContent_jsonPointerEscapedKeyDecodedInSample() {
+    // JSON-Pointer escapes (~1 => '/', ~0 => '~') are decoded in the reported sample. The raw
+    // segment "a~1b" x20 = 80 chars contains no real '/', so it stays one segment over the limit.
+    String key = "a~1b".repeat(20);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/customProperties/" + key + "\",\"value\":\"v\"}]"),
+            50,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.NAME);
+    assertTrue(
+        found.get(0).sample().contains("/"), "~1 should be decoded to '/' in the reported sample");
+  }
+
+  @Test
+  public void testFindOversizedContent_deeplyNestedValueFound() {
+    // A string buried in object -> array -> object is still found by the recursive value scan.
+    String longVal = "v".repeat(60);
+    List<PatchItemImpl.OversizedContent> found =
+        PatchItemImpl.findOversizedContent(
+            patchOf(
+                "[{\"op\":\"add\",\"path\":\"/a\",\"value\":{\"b\":[{\"c\":\""
+                    + longVal
+                    + "\"}]}}]"),
+            100,
+            50);
+    assertEquals(found.size(), 1);
+    assertEquals(found.get(0).kind(), PatchItemImpl.OversizedContent.Kind.VALUE);
   }
 }

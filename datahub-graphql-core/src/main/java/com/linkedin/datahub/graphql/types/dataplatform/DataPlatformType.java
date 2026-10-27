@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.dataplatform;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.DATA_PLATFORM_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -17,6 +18,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.dataplatform.mappers.DataPlatformMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -27,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -34,6 +37,8 @@ import javax.annotation.Nullable;
 
 public class DataPlatformType
     implements SearchableEntityType<DataPlatform, String>, EntityType<DataPlatform, String> {
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(DATA_PLATFORM_KEY_ASPECT_NAME, DATA_PLATFORM_INFO_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -54,12 +59,15 @@ public class DataPlatformType
         urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, DATA_PLATFORM_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> dataPlatformMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               DATA_PLATFORM_ENTITY_NAME,
               new HashSet<>(dataPlatformUrns),
-              null);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : dataPlatformUrns) {

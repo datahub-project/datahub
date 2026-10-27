@@ -11,6 +11,7 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -18,6 +19,7 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -46,17 +48,17 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
   private final IndexConvention _indexConvention =
       new IndexConventionImpl(
-          IndexConventionImpl.IndexConventionConfig.builder()
-              .prefix("es_system_metadata_service_test")
-              .hashIdAlgo("MD5")
-              .build(),
+          IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+          new ConfiguredIndexPrefixResolver("es_system_metadata_service_test"),
           SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
   private ElasticSearchSystemMetadataService _client;
 
   @BeforeClass
   public void setup() {
-    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    operationContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(), getSearchClient());
     _client = buildService();
     _client.reindexAll(operationContext, Collections.emptySet());
   }
@@ -64,7 +66,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
   @BeforeMethod
   public void wipe() throws Exception {
     syncAfterWrite(getBulkProcessor());
-    _client.clear();
+    _client.clear(operationContext);
     syncAfterWrite(getBulkProcessor());
   }
 
@@ -96,16 +98,16 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     metadata2.setRunId("abc-456");
     metadata2.setLastObserved(Long.valueOf(240));
 
-    _client.insert(metadata1, "urn:li:chart:1", "chartKey");
-    _client.insert(metadata1, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata1, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:2", "chartKey");
-    _client.insert(metadata2, "urn:li:chart:2", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "Ownership");
 
     syncAfterWrite(getBulkProcessor());
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
+    List<IngestionRunSummary> runs = _client.listRuns(operationContext, 0, 20, false);
 
     assertEquals(runs.size(), 2);
     assertEquals(runs.get(0).getRows(), Long.valueOf(2));
@@ -122,19 +124,19 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     metadata2.setRunId("abc-456");
     metadata2.setLastObserved(Long.valueOf(240));
 
-    _client.insert(metadata1, "urn:li:chart:1", "chartKey");
-    _client.insert(metadata1, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata1, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata2, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:2", "chartKey");
-    _client.insert(metadata2, "urn:li:chart:2", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "Ownership");
 
     syncAfterWrite(getBulkProcessor());
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
+    List<IngestionRunSummary> runs = _client.listRuns(operationContext, 0, 20, false);
 
     assertEquals(runs.size(), 2);
     assertEquals(runs.get(0).getRows(), Long.valueOf(4));
@@ -151,22 +153,74 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     metadata2.setRunId("abc-456");
     metadata2.setLastObserved(Long.valueOf(240L));
 
-    _client.insert(metadata1, "urn:li:chart:1", "chartKey");
-    _client.insert(metadata1, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata1, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata2, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:2", "chartKey");
-    _client.insert(metadata2, "urn:li:chart:2", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "Ownership");
 
     syncAfterWrite(getBulkProcessor());
 
-    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, null);
+    List<AspectRowSummary> rows = _client.findByRunId(operationContext, "abc-456", false, 0, null);
 
     assertEquals(rows.size(), 4);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
+  }
+
+  @Test
+  public void testFindByRunIdAfterPagesThroughEveryRowOnceInUrnAspectOrder() throws Exception {
+    SystemMetadata pagedRun = new SystemMetadata();
+    pagedRun.setRunId("abc-paged");
+    pagedRun.setLastObserved(Long.valueOf(120L));
+
+    SystemMetadata otherRun = new SystemMetadata();
+    otherRun.setRunId("abc-other");
+    otherRun.setLastObserved(Long.valueOf(240L));
+
+    // Five rows for the paged run across three urns and two aspects, inserted out of order.
+    _client.insert(operationContext, pagedRun, "urn:li:chart:3", "chartKey");
+    _client.insert(operationContext, pagedRun, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, pagedRun, "urn:li:chart:2", "Ownership");
+    _client.insert(operationContext, pagedRun, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, pagedRun, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, otherRun, "urn:li:chart:2", "ChartInfo");
+
+    syncAfterWrite(getBulkProcessor());
+
+    final int pageSize = 2;
+    final List<List<AspectRowSummary>> pages = new ArrayList<>();
+    AspectRowSummary after = null;
+    List<AspectRowSummary> page;
+    do {
+      page = _client.findByRunIdAfter(operationContext, "abc-paged", false, after, pageSize);
+      pages.add(page);
+      if (!page.isEmpty()) {
+        after = page.get(page.size() - 1);
+      }
+    } while (page.size() == pageSize && pages.size() < 10);
+
+    final List<String> seen = new ArrayList<>();
+    pages.forEach(
+        p ->
+            p.forEach(
+                row -> {
+                  assertEquals(row.getRunId(), "abc-paged");
+                  seen.add(row.getUrn() + " " + row.getAspectName());
+                }));
+    assertEquals(
+        seen,
+        Arrays.asList(
+            "urn:li:chart:1 Ownership",
+            "urn:li:chart:1 chartKey",
+            "urn:li:chart:2 Ownership",
+            "urn:li:chart:2 chartKey",
+            "urn:li:chart:3 chartKey"));
+    assertEquals(pages.size(), 3);
+    assertTrue(pages.get(pages.size() - 1).size() < pageSize);
   }
 
   @Test
@@ -179,23 +233,23 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     metadata2.setRunId("abc-456");
     metadata2.setLastObserved(Long.valueOf(240L));
 
-    _client.insert(metadata1, "urn:li:chart:1", "chartKey");
-    _client.insert(metadata1, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata1, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata2, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata2, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:2", "chartKey");
-    _client.insert(metadata2, "urn:li:chart:2", "Ownership");
-
-    syncAfterWrite(getBulkProcessor());
-
-    _client.deleteUrn("urn:li:chart:1");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "Ownership");
 
     syncAfterWrite(getBulkProcessor());
 
-    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, null);
+    _client.deleteUrn(operationContext, "urn:li:chart:1");
+
+    syncAfterWrite(getBulkProcessor());
+
+    List<AspectRowSummary> rows = _client.findByRunId(operationContext, "abc-456", false, 0, null);
 
     assertEquals(rows.size(), 2);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
@@ -203,11 +257,11 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
   @Test
   public void testInsertNullData() throws Exception {
-    _client.insert(null, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, null, "urn:li:chart:1", "chartKey");
 
     syncAfterWrite(getBulkProcessor());
 
-    List<IngestionRunSummary> runs = _client.listRuns(0, 20, false);
+    List<IngestionRunSummary> runs = _client.listRuns(operationContext, 0, 20, false);
 
     assertEquals(runs.size(), 0);
   }
@@ -228,15 +282,15 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     metadata2.setRegistryVersion("2.0.0");
 
     // Insert test data
-    _client.insert(metadata1, "urn:li:chart:1", "chartKey");
-    _client.insert(metadata1, "urn:li:chart:1", "ChartInfo");
-    _client.insert(metadata1, "urn:li:chart:1", "Ownership");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "chartKey");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "ChartInfo");
+    _client.insert(operationContext, metadata1, "urn:li:chart:1", "Ownership");
 
-    _client.insert(metadata2, "urn:li:chart:2", "chartKey");
-    _client.insert(metadata2, "urn:li:chart:2", "ChartInfo");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "chartKey");
+    _client.insert(operationContext, metadata2, "urn:li:chart:2", "ChartInfo");
 
-    _client.insert(metadata1, "urn:li:dataset:3", "DatasetKey");
-    _client.insert(metadata1, "urn:li:dataset:3", "DatasetProperties");
+    _client.insert(operationContext, metadata1, "urn:li:dataset:3", "DatasetKey");
+    _client.insert(operationContext, metadata1, "urn:li:dataset:3", "DatasetProperties");
 
     syncAfterWrite(getBulkProcessor());
 
@@ -244,7 +298,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     Map<String, Set<String>> urnAspects1 = new HashMap<>();
     urnAspects1.put("urn:li:chart:1", new HashSet<>(Arrays.asList("chartKey", "ChartInfo")));
 
-    Map<Urn, Map<String, Map<String, Object>>> result1 = _client.raw(null, urnAspects1);
+    Map<Urn, Map<String, Map<String, Object>>> result1 = _client.raw(operationContext, urnAspects1);
 
     assertEquals(result1.size(), 1);
     assertTrue(result1.containsKey(UrnUtils.getUrn("urn:li:chart:1")));
@@ -269,7 +323,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     urnAspects2.put("urn:li:chart:2", new HashSet<>(Arrays.asList("chartKey", "ChartInfo")));
     urnAspects2.put("urn:li:dataset:3", new HashSet<>(Arrays.asList("DatasetKey")));
 
-    Map<Urn, Map<String, Map<String, Object>>> result2 = _client.raw(null, urnAspects2);
+    Map<Urn, Map<String, Map<String, Object>>> result2 = _client.raw(operationContext, urnAspects2);
 
     assertEquals(result2.size(), 3);
     assertTrue(result2.containsKey(UrnUtils.getUrn("urn:li:chart:1")));
@@ -293,37 +347,37 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     Map<String, Set<String>> urnAspects3 = new HashMap<>();
     urnAspects3.put("urn:li:chart:999", new HashSet<>(Arrays.asList("chartKey")));
 
-    Map<Urn, Map<String, Map<String, Object>>> result3 = _client.raw(null, urnAspects3);
+    Map<Urn, Map<String, Map<String, Object>>> result3 = _client.raw(operationContext, urnAspects3);
     assertTrue(result3.isEmpty());
 
     // Test 4: Query for existing URN but non-existent aspect
     Map<String, Set<String>> urnAspects4 = new HashMap<>();
     urnAspects4.put("urn:li:chart:1", new HashSet<>(Arrays.asList("NonExistentAspect")));
 
-    Map<Urn, Map<String, Map<String, Object>>> result4 = _client.raw(null, urnAspects4);
+    Map<Urn, Map<String, Map<String, Object>>> result4 = _client.raw(operationContext, urnAspects4);
     assertTrue(result4.isEmpty());
 
     // Test 5: Empty input map
     Map<String, Set<String>> urnAspects5 = new HashMap<>();
-    Map<Urn, Map<String, Map<String, Object>>> result5 = _client.raw(null, urnAspects5);
+    Map<Urn, Map<String, Map<String, Object>>> result5 = _client.raw(operationContext, urnAspects5);
     assertTrue(result5.isEmpty());
 
     // Test 6: Null input
-    Map<Urn, Map<String, Map<String, Object>>> result6 = _client.raw(null, null);
+    Map<Urn, Map<String, Map<String, Object>>> result6 = _client.raw(operationContext, null);
     assertTrue(result6.isEmpty());
 
     // Test 7: URN with null aspects set
     Map<String, Set<String>> urnAspects7 = new HashMap<>();
     urnAspects7.put("urn:li:chart:1", null);
 
-    Map<Urn, Map<String, Map<String, Object>>> result7 = _client.raw(null, urnAspects7);
+    Map<Urn, Map<String, Map<String, Object>>> result7 = _client.raw(operationContext, urnAspects7);
     assertTrue(result7.isEmpty());
 
     // Test 8: URN with empty aspects set
     Map<String, Set<String>> urnAspects8 = new HashMap<>();
     urnAspects8.put("urn:li:chart:1", new HashSet<>());
 
-    Map<Urn, Map<String, Map<String, Object>>> result8 = _client.raw(null, urnAspects8);
+    Map<Urn, Map<String, Map<String, Object>>> result8 = _client.raw(operationContext, urnAspects8);
     assertTrue(result8.isEmpty());
   }
 }

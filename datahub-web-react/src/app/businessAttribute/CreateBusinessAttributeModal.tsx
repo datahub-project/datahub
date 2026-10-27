@@ -1,4 +1,5 @@
-import { EditOutlined } from '@ant-design/icons';
+import { Text } from '@components';
+import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Button, Collapse, Form, Input, Modal, Select, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
@@ -8,8 +9,8 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { SchemaFieldDataType } from '@app/businessAttribute/businessAttributeUtils';
 import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
-import { validateCustomUrnId } from '@app/shared/textUtil';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { validateCustomUrnId } from '@app/sharedV2/textUtil';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
@@ -216,7 +217,7 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                         }
                     >
                         <StyledButton type="link" onClick={() => setIsDocumentationModalVisible(true)}>
-                            <EditOutlined />
+                            <PencilSimple />
                             {documentation
                                 ? t('businessAttribute.editDocumentation')
                                 : t('businessAttribute.addDocumentation')}
@@ -233,9 +234,9 @@ export default function CreateBusinessAttributeModal({ open, onClose, onCreateBu
                     <Collapse ghost>
                         <Collapse.Panel
                             header={
-                                <Typography.Text type="secondary">
+                                <Text type="span" color="textSecondary">
                                     {t('businessAttribute.advancedSection')}
-                                </Typography.Text>
+                                </Text>
                             }
                             key="1"
                         >

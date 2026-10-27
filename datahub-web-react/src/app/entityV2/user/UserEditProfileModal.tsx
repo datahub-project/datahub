@@ -1,5 +1,5 @@
-import { MoreOutlined } from '@ant-design/icons';
-import { Modal, Tooltip } from '@components';
+import { Modal, Text, Tooltip } from '@components';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -13,7 +13,7 @@ const StyledInput = styled(Input)`
     margin-bottom: 20px;
 `;
 
-const StyledText = styled(Typography.Text)`
+const StyledText = styled(Text)`
     display: block;
     position: absolute;
     bottom: 11.5rem;
@@ -259,12 +259,12 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                         disabled={readOnlyModeEnabled}
                     />
                 </Form.Item>
-                <StyledText type="secondary">
+                <StyledText color="textSecondary">
                     <Trans
                         t={t}
                         i18nKey="user.slackMemberIdHelp"
                         components={{
-                            icon: <MoreOutlined />,
+                            icon: <DotsThreeVertical />,
                             anchor: (
                                 // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
                                 <a

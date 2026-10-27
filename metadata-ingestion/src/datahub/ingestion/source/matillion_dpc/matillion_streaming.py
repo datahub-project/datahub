@@ -9,14 +9,11 @@ from datahub.ingestion.source.matillion_dpc.config import (
     MatillionSourceReport,
 )
 from datahub.ingestion.source.matillion_dpc.constants import (
-    API_PATH_SUFFIX,
     MATILLION_PLATFORM,
-    UI_PATH_STREAMING_PIPELINES,
 )
 from datahub.ingestion.source.matillion_dpc.matillion_container import (
     MatillionContainerHandler,
 )
-from datahub.ingestion.source.matillion_dpc.matillion_utils import MatillionUrnBuilder
 from datahub.ingestion.source.matillion_dpc.models import (
     MatillionProject,
     MatillionStreamingPipeline,
@@ -34,12 +31,10 @@ class MatillionStreamingHandler:
         self,
         config: MatillionSourceConfig,
         report: MatillionSourceReport,
-        urn_builder: MatillionUrnBuilder,
         container_handler: MatillionContainerHandler,
     ):
         self.config = config
         self.report = report
-        self.urn_builder = urn_builder
         self.container_handler = container_handler
 
     def _make_streaming_pipeline_urn(
@@ -83,14 +78,11 @@ class MatillionStreamingHandler:
             "pipeline_type": "streaming",
         }
 
-        base_url = self.config.api_config.get_base_url()
-        if base_url.endswith(API_PATH_SUFFIX):
-            base_url = base_url[: -len(API_PATH_SUFFIX)]
-
+        # The Maia console has no dedicated deep-link route for streaming pipelines,
+        # so no external URL is emitted rather than a link that does not resolve.
         dataflow_info = DataFlowInfoClass(
             name=streaming_pipeline.name,
             customProperties=custom_properties,
-            externalUrl=f"{base_url}/{UI_PATH_STREAMING_PIPELINES}/{pipeline_id}",
         )
 
         yield MetadataChangeProposalWrapper(

@@ -1,0 +1,14 @@
+namespace com.linkedin.ermodelrelation
+
+/**
+ * Cardinality of a relationship between two datasets or logical datasets.
+ * Used by both ERModelRelationship (physical) and SemanticModelRelationship
+ * (semantic-layer join paths). Directionality is carried by the source/from
+ * and destination/to fields on those records, not by this enum.
+ */
+enum ERModelRelationshipCardinality {
+  ONE_ONE
+  ONE_N
+  N_ONE
+  N_N
+}

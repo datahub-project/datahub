@@ -2,7 +2,7 @@
 
 import logging
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Type
 
 from datahub.ingestion.source.pinecone.pinecone_client import VectorRecord
 from datahub.metadata.schema_classes import (
@@ -260,7 +260,7 @@ class MetadataSchemaInferrer:
         Returns:
             SchemaFieldDataTypeClass
         """
-        type_mapping = {
+        type_mapping: Dict[str, Type] = {
             "string": StringTypeClass,
             "number": NumberTypeClass,
             "boolean": BooleanTypeClass,

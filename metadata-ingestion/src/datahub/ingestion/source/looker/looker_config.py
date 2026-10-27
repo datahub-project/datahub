@@ -1,7 +1,16 @@
 import dataclasses
-import os
 import re
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import pydantic
 from looker_sdk.sdk.api40.models import DBConnection
@@ -11,6 +20,8 @@ from datahub.configuration import ConfigModel
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigurationError,
+    Filters,
+    FiltersByRule,
     HiddenFromDocs,
 )
 from datahub.configuration.source_common import (
@@ -19,7 +30,15 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPIConfig
+from datahub.ingestion.source.looker.looker_selection import (
+    DASHBOARD_KIND,
+    EXPLORE_KIND,
+    LOOK_KIND,
+    MODEL_KIND,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -246,13 +265,17 @@ class LookerDashboardSourceConfig(
         "github_info", month="June", year=2023
     )
 
-    dashboard_pattern: AllowDenyPattern = Field(
+    dashboard_pattern: Annotated[
+        AllowDenyPattern, Filters(BIAssetSubTypes.DASHBOARD)
+    ] = Field(
         AllowDenyPattern.allow_all(),
         description="Patterns for selecting dashboard ids that are to be included",
     )
-    chart_pattern: AllowDenyPattern = Field(
-        AllowDenyPattern.allow_all(),
-        description="Patterns for selecting chart ids that are to be included",
+    chart_pattern: Annotated[AllowDenyPattern, Filters(BIAssetSubTypes.LOOKER_LOOK)] = (
+        Field(
+            AllowDenyPattern.allow_all(),
+            description="Patterns for selecting chart ids that are to be included",
+        )
     )
     include_deleted: bool = Field(
         False,
@@ -272,10 +295,6 @@ class LookerDashboardSourceConfig(
         False,
         description="Whether to skip ingestion of dashboards in personal folders. Setting this to True will only "
         "ingest dashboards in the Shared folder space.",
-    )
-    max_threads: int = Field(
-        default_factory=lambda: os.cpu_count() or 40,
-        description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
     )
     external_base_url: Optional[str] = Field(
         None,
@@ -307,7 +326,12 @@ class LookerDashboardSourceConfig(
         description="Extract looks which are not part of any Dashboard. To enable this flag the stateful_ingestion "
         "should also be enabled.",
     )
-    emit_used_explores_only: bool = Field(
+    # Explores and their LookML models follow from what dashboards and looks
+    # query (_make_explore_containers), not from a pattern. Not Enables: True
+    # narrows these kinds rather than emitting them.
+    emit_used_explores_only: Annotated[
+        bool, FiltersByRule(MODEL_KIND), FiltersByRule(EXPLORE_KIND)
+    ] = Field(
         True,
         description="When enabled, only explores that are used by a Dashboard/Look will be ingested.",
     )
@@ -330,6 +354,33 @@ class LookerDashboardSourceConfig(
         "For example, Shared -> Customer Reports -> Sales becomes Shared/Customer Reports/Sales. "
         "Dashboards will only be ingested if they're allowed by both this config and dashboard_pattern.",
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: looker_probe imports this module and looker_source,
+        # which imports this module too, so a top-level import is circular.
+        from datahub.ingestion.source.looker.looker_probe import LookerMetadataProbe
+
+        return LookerMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """No kind here has a --parent for the framework to re-judge: a chart's
+        dashboard facts are stamped on each `charts` record instead, and an
+        explore's model is emitted because of its explores, not the reverse
+        (see looker_probe_verdicts)."""
+        if kind in (DASHBOARD_KIND, LOOK_KIND, MODEL_KIND, EXPLORE_KIND):
+            return ()
+        return None
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Ingestion's rules beyond one pattern; see looker_probe_verdicts."""
+        # Late import: looker_probe_verdicts imports this module, and
+        # ingestion never needs the adapter.
+        from datahub.ingestion.source.looker.looker_probe_verdicts import (
+            looker_verdict,
+        )
+
+        return looker_verdict(self, ctx)
 
     @model_validator(mode="before")
     @classmethod

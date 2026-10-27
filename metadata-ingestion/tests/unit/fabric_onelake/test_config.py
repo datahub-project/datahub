@@ -96,6 +96,36 @@ class TestFabricOneLakeSourceConfig:
         assert config.warehouse_pattern.allowed("warehouse-prod")
         assert not config.warehouse_pattern.allowed("lakehouse-prod")
 
+    def test_schema_pattern_filtering(self) -> None:
+        """Schema pattern should filter correctly."""
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            schema_pattern={"allow": ["^dbo$"], "deny": []},
+        )
+        assert config.schema_pattern.allowed("dbo")
+        assert not config.schema_pattern.allowed("staging")
+        assert not config.schema_pattern.allowed("INFORMATION_SCHEMA")
+
+    def test_schema_pattern_deny(self) -> None:
+        """Schema pattern deny should exclude matching schemas."""
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            schema_pattern={"deny": ["^sys$", "^INFORMATION_SCHEMA$"]},
+        )
+        assert config.schema_pattern.allowed("dbo")
+        assert config.schema_pattern.allowed("staging")
+        assert not config.schema_pattern.allowed("sys")
+        assert not config.schema_pattern.allowed("INFORMATION_SCHEMA")
+
+    def test_schema_pattern_defaults_to_allow_all(self) -> None:
+        """Schema pattern should default to allowing all schemas."""
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+        )
+        assert config.schema_pattern.allowed("dbo")
+        assert config.schema_pattern.allowed("staging")
+        assert config.schema_pattern.allowed("anything")
+
     def test_table_pattern_filtering(self) -> None:
         """Table pattern should filter correctly."""
         config = FabricOneLakeSourceConfig(

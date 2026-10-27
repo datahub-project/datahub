@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
@@ -45,9 +45,7 @@ export default function GroupMembersSidebarSectionContent({
     return (
         <>
             <TagsSection>
-                {relationshipsTotal === 0 && (
-                    <Typography.Paragraph type="secondary">{t('group.noMembersYetEmpty')}</Typography.Paragraph>
-                )}
+                {relationshipsTotal === 0 && <Text color="textSecondary">{t('group.noMembersYetEmpty')}</Text>}
                 {relationshipsTotal > 0 &&
                     groupMemberRelationships?.relationships?.map((item, index) => {
                         const user = item.entity as CorpUser;

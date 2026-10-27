@@ -10,6 +10,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.generated.controller.LineageApi;
 import io.openlineage.client.OpenLineage;
@@ -73,7 +74,8 @@ public class LineageApiImpl implements LineageApi {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    authentication.getActor().toUrnStr(), request, "postRunEventRaw", List.of()),
+                    authentication.getActor().toUrnStr(), request, "postRunEventRaw", List.of())
+                .withUsageOperation(UsageOperation.METADATA_INGEST),
             _authorizerChain,
             authentication,
             true);

@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "Propager la nouvelle documentation des assets en amont vers les assets en aval selon les relations de lineage des données.",
+    "docPropagation.assetLevelTitle": "Propagation au niveau des assets",
+    "docPropagation.backfillButton": "Initialiser",
+    "docPropagation.backfillTitle": "Rétropropager la documentation existante des colonnes/assets en amont vers ceux en aval",
+    "docPropagation.columnLevelDescription": "Propager la nouvelle documentation des colonnes en amont vers les colonnes en aval selon les relations de lineage au niveau des colonnes.",
+    "docPropagation.columnLevelTitle": "Propagation au niveau des colonnes",
+    "docPropagation.comingSoon": "Bientôt disponible!",
+    "docPropagation.description": "Propager automatiquement la documentation des colonnes et assets en amont vers ceux en aval.",
+    "docPropagation.rollbackButton": "Annuler",
+    "docPropagation.rollbackTitle": "Annuler les modifications de propagation",
+    "docPropagation.title": "Propagation de la documentation",
+    "docPropagation.updateError": "Échec de la mise à jour des paramètres de propagation de la documentation",
+    "docPropagation.updateSuccess": "Paramètres de propagation de la documentation mis à jour avec succès",
+    "learnMore": "En savoir plus",
+    "newLabel": "Nouveau!",
+    "onlyOnCloud": "Disponible uniquement sur DataHub Cloud",
+    "pageSubTitle": "Explorer et configurer des fonctionnalités spécifiques",
+    "pageTitle": "Fonctionnalités"
+}

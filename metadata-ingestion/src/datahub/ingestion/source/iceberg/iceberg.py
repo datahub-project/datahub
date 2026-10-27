@@ -66,8 +66,11 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.iceberg.iceberg_common import (
+    FILE_IO_FAILURE,
     IcebergSourceConfig,
     IcebergSourceReport,
+    partition_spec_json,
+    table_custom_properties,
 )
 from datahub.ingestion.source.iceberg.iceberg_profiler import IcebergProfiler
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -127,7 +130,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 
 
 @platform_name("Iceberg")
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @config_class(IcebergSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
@@ -145,6 +148,10 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 )
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class IcebergSource(StatefulIngestionSourceBase):
     """
@@ -236,7 +243,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Error when processing a namespace",
                     message="Skipping the namespace due to errors while processing it.",
                     context=str(namespace),
@@ -326,7 +333,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
             except ValueError as e:
-                if "Could not initialize FileIO" not in str(e):
+                if FILE_IO_FAILURE not in str(e):
                     raise
                 self.report.warning(
                     title="Could not initialize FileIO",
@@ -353,7 +360,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     dataset_path, dataset_name, namespace_urn
                 )
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Error when processing a table",
                     message="Skipping the table due to errors when processing it.",
                     context=str(dataset_path),
@@ -363,7 +370,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         try:
             self.catalog = self.config.get_catalog()
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to initialize catalog object",
                 message="Couldn't start the ingestion due to failure to initialize catalog object.",
                 exc=e,
@@ -373,7 +380,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         try:
             yield from self._process_namespaces()
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to list namespaces",
                 message="Couldn't start the ingestion due to a failure to process the list of the namespaces",
                 exc=e,
@@ -420,11 +427,12 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
             self.namespaces.append((namespace, namespace_urn))
         except NoSuchNamespaceError as e:
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to retrieve namespace properties",
                 message="Couldn't find the namespace, was it deleted during the ingestion?",
                 context=namespace_repr,
                 exc=e,
+                log=False,
             )
             return
         except RESTError as e:
@@ -435,7 +443,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 exc=e,
             )
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to process namespace",
                 message="Unhandled exception happened during processing of the namespace",
                 context=namespace_repr,
@@ -520,23 +528,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             str: JSON representation of the partition spec of the provided table (empty array if table is not partitioned) or `None` if an error occured.
         """
         try:
-            return json.dumps(
-                [
-                    {
-                        "name": partition.name,
-                        "transform": str(partition.transform),
-                        "source": str(
-                            table.schema().find_column_name(partition.source_id)
-                        ),
-                        "source-id": partition.source_id,
-                        "source-type": str(
-                            table.schema().find_type(partition.source_id)
-                        ),
-                        "field-id": partition.field_id,
-                    }
-                    for partition in table.spec().fields
-                ]
-            )
+            return partition_spec_json(table)
         except Exception as e:
             self.report.warning(
                 title="Failed to extract partition information",
@@ -550,14 +542,11 @@ class IcebergSource(StatefulIngestionSourceBase):
         self, dataset_name: str, table: Table
     ) -> DatasetPropertiesClass:
         created: Optional[TimeStampClass] = None
-        custom_properties = table.metadata.properties.copy()
-        custom_properties["location"] = table.metadata.location
-        custom_properties["format-version"] = str(table.metadata.format_version)
-        custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
+        custom_properties = table_custom_properties(
+            table, self._get_partition_aspect(table)
+        )
         last_modified: Optional[int] = table.metadata.last_updated_ms
         if current_snapshot := table.current_snapshot():
-            custom_properties["snapshot-id"] = str(current_snapshot.snapshot_id)
-            custom_properties["manifest-list"] = current_snapshot.manifest_list
             if not last_modified:
                 last_modified = int(current_snapshot.timestamp_ms)
         if "created-at" in custom_properties:

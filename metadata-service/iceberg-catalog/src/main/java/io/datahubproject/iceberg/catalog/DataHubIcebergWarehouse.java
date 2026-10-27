@@ -123,11 +123,11 @@ public class DataHubIcebergWarehouse {
     DataHubSecretValue clientIdValue =
         new DataHubSecretValue(credsMap.get(clientIdUrn).get(0).data());
 
-    String clientId = secretService.decrypt(clientIdValue.getValue());
+    String clientId = secretService.decrypt(operationContext, clientIdValue.getValue());
 
     DataHubSecretValue clientSecretValue =
         new DataHubSecretValue(credsMap.get(clientSecretUrn).get(0).data());
-    String clientSecret = secretService.decrypt(clientSecretValue.getValue());
+    String clientSecret = secretService.decrypt(operationContext, clientSecretValue.getValue());
 
     return new CredentialProvider.StorageProviderCredentials(
         clientId, clientSecret, role, region, expirationSeconds);

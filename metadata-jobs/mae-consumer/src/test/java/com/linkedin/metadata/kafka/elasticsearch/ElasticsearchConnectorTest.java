@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.update.UpdateRequest;
@@ -18,11 +20,13 @@ public class ElasticsearchConnectorTest {
 
   private ESBulkProcessor mockBulkProcessor;
   private ElasticsearchConnector connector;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setUp() {
     mockBulkProcessor = mock(ESBulkProcessor.class);
     connector = new ElasticsearchConnector(mockBulkProcessor, 3);
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   private static JsonElasticEvent makeEvent(String id, ChangeType changeType, String document) {
@@ -37,9 +41,9 @@ public class ElasticsearchConnectorTest {
   public void testCreateRoutesByEventId() {
     JsonElasticEvent event = makeEvent("create-id-1", ChangeType.CREATE, "{\"field\":\"value\"}");
 
-    connector.feedElasticEvent(event);
+    connector.feedElasticEvent(opContext, event);
 
-    verify(mockBulkProcessor).add(eq("create-id-1"), any(IndexRequest.class));
+    verify(mockBulkProcessor).add(eq(opContext), eq("create-id-1"), any(IndexRequest.class));
   }
 
   @Test
@@ -47,34 +51,34 @@ public class ElasticsearchConnectorTest {
     JsonElasticEvent event =
         makeEvent("create-entity-id", ChangeType.CREATE_ENTITY, "{\"field\":\"value\"}");
 
-    connector.feedElasticEvent(event);
+    connector.feedElasticEvent(opContext, event);
 
-    verify(mockBulkProcessor).add(eq("create-entity-id"), any(IndexRequest.class));
+    verify(mockBulkProcessor).add(eq(opContext), eq("create-entity-id"), any(IndexRequest.class));
   }
 
   @Test
   public void testUpdateRoutesByEventId() {
     JsonElasticEvent event = makeEvent("update-id-2", ChangeType.UPDATE, "{\"field\":\"value\"}");
 
-    connector.feedElasticEvent(event);
+    connector.feedElasticEvent(opContext, event);
 
-    verify(mockBulkProcessor).add(eq("update-id-2"), any(UpdateRequest.class));
+    verify(mockBulkProcessor).add(eq(opContext), eq("update-id-2"), any(UpdateRequest.class));
   }
 
   @Test
   public void testDeleteRoutesByEventId() {
     JsonElasticEvent event = makeEvent("delete-id-3", ChangeType.DELETE, "{}");
 
-    connector.feedElasticEvent(event);
+    connector.feedElasticEvent(opContext, event);
 
-    verify(mockBulkProcessor).add(eq("delete-id-3"), any(DeleteRequest.class));
+    verify(mockBulkProcessor).add(eq(opContext), eq("delete-id-3"), any(DeleteRequest.class));
   }
 
   @Test
   public void testUnhandledChangeTypeDoesNotWrite() {
     JsonElasticEvent event = makeEvent("noop-id", ChangeType.RESTATE, "{}");
 
-    connector.feedElasticEvent(event);
+    connector.feedElasticEvent(opContext, event);
 
     verifyNoInteractions(mockBulkProcessor);
   }

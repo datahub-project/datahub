@@ -98,15 +98,39 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "v3" : {
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "name"
+        }
       }
     }, {
       "name" : "description",
       "type" : "string",
       "doc" : "Detailed description about the chart",
       "Searchable" : {
-        "searchTier" : 2
+        "hasValuesFieldName" : "hasDescription",
+        "v3" : {
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "description"
+        }
       }
     }, {
       "name" : "lastModified",
@@ -175,9 +199,25 @@
       },
       "doc" : "Captures information about who created/last modified/deleted this chart and when",
       "Searchable" : {
+        "/created/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME",
+          "v3" : {
+            "mappings" : [ {
+              "type" : "DATETIME"
+            } ],
+            "searchLabel" : "sourceCreatedAt"
+          }
+        },
         "/lastModified/time" : {
           "fieldName" : "lastModifiedAt",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "v3" : {
+            "mappings" : [ {
+              "type" : "DATETIME"
+            } ],
+            "searchLabel" : "sourceLastModifiedAt"
+          }
         }
       }
     }, {
@@ -186,8 +226,7 @@
       "doc" : "URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "KEYWORD",
-        "searchTier" : 4
+        "fieldType" : "KEYWORD"
       }
     }, {
       "name" : "inputs",
@@ -278,8 +317,7 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Chart Type",
-        "searchTier" : 3
+        "filterNameOverride" : "Chart Type"
       }
     }, {
       "name" : "access",
@@ -299,8 +337,7 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Access Level",
-        "searchTier" : 4
+        "filterNameOverride" : "Access Level"
       }
     }, {
       "name" : "lastRefreshed",
@@ -309,7 +346,8 @@
       "optional" : true
     } ],
     "Aspect" : {
-      "name" : "chartInfo"
+      "name" : "chartInfo",
+      "schemaVersion" : 2
     }
   }, {
     "type" : "record",
@@ -356,7 +394,22 @@
       "Searchable" : {
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT",
-        "sanitizeRichText" : true
+        "hasValuesFieldName" : "hasDescription",
+        "sanitizeRichText" : true,
+        "v3" : {
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "description"
+        }
       }
     } ],
     "Aspect" : {
@@ -505,11 +558,11 @@
         "entityType" : "corpGroup",
         "fields" : [ {
           "doc" : "The name of the AD/LDAP group.",
-          "maxLength" : 128,
+          "maxLength" : 250,
           "name" : "groupName",
           "type" : "string"
         } ],
-        "maxLength" : 145,
+        "maxLength" : 267,
         "name" : "CorpGroup",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -692,7 +745,11 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "URN",
-        "filterNameOverride" : "Platform"
+        "filterNameOverride" : "Platform",
+        "v3" : {
+          "copyToOther" : true,
+          "queryByDefault" : false
+        }
       }
     }, {
       "name" : "instance",
@@ -703,11 +760,16 @@
         "addToFilters" : true,
         "fieldName" : "platformInstance",
         "fieldType" : "URN",
-        "filterNameOverride" : "Platform Instance"
+        "filterNameOverride" : "Platform Instance",
+        "v3" : {
+          "copyToOther" : true,
+          "queryByDefault" : false
+        }
       }
     } ],
     "Aspect" : {
-      "name" : "dataPlatformInstance"
+      "name" : "dataPlatformInstance",
+      "schemaVersion" : 2
     }
   }, {
     "type" : "typeref",
@@ -855,8 +917,9 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SIT", "SBX", "SANDBOX" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SIT", "SBX", "SANDBOX", "CERT" ],
     "symbolDocs" : {
+      "CERT" : "Designates certification fabrics",
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
@@ -990,7 +1053,12 @@
           "filterNameOverride" : "Tagged With",
           "hasValuesFieldName" : "hasTags",
           "queryByDefault" : true,
-          "searchTier" : 2
+          "v3" : {
+            "mappings" : [ {
+              "type" : "URN"
+            } ],
+            "searchLabel" : "tags"
+          }
         }
       }
     } ],
@@ -1065,12 +1133,20 @@
       },
       "Searchable" : {
         "addToFilters" : true,
+        "boostScore" : 0.5,
         "fieldName" : "glossaryTerms",
         "fieldType" : "URN",
         "filterNameOverride" : "Glossary Term",
         "hasValuesFieldName" : "hasGlossaryTerms",
         "includeSystemModifiedAt" : true,
-        "systemModifiedAtFieldName" : "termsModifiedAt"
+        "systemModifiedAtFieldName" : "termsModifiedAt",
+        "v3" : {
+          "includeSystemModifiedAt" : false,
+          "mappings" : [ {
+            "type" : "URN"
+          } ],
+          "searchLabel" : "glossaryTerms"
+        }
       }
     }, {
       "name" : "actor",
@@ -1291,7 +1367,13 @@
         "filterNameOverride" : "Owned By",
         "hasValuesFieldName" : "hasOwners",
         "queryByDefault" : false,
-        "searchTier" : 2
+        "v3" : {
+          "hasValuesFieldName" : "hasOwners",
+          "mappings" : [ {
+            "type" : "URN"
+          } ],
+          "searchLabel" : "owners"
+        }
       }
     }, {
       "name" : "type",
@@ -1514,8 +1596,18 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "v3" : {
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "name"
+        }
       }
     }, {
       "name" : "description",
@@ -1525,7 +1617,20 @@
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
         "sanitizeRichText" : true,
-        "searchTier" : 2
+        "v3" : {
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "description"
+        }
       }
     }, {
       "name" : "charts",
@@ -1624,10 +1729,25 @@
       "type" : "com.linkedin.common.ChangeAuditStamps",
       "doc" : "Captures information about who created/last modified/deleted this dashboard and when",
       "Searchable" : {
+        "/created/time" : {
+          "fieldName" : "createdAt",
+          "fieldType" : "DATETIME",
+          "v3" : {
+            "mappings" : [ {
+              "type" : "DATETIME"
+            } ],
+            "searchLabel" : "sourceCreatedAt"
+          }
+        },
         "/lastModified/time" : {
           "fieldName" : "lastModifiedAt",
           "fieldType" : "DATETIME",
-          "searchLabel" : "lastModifiedAt"
+          "v3" : {
+            "mappings" : [ {
+              "type" : "DATETIME"
+            } ],
+            "searchLabel" : "sourceLastModifiedAt"
+          }
         }
       }
     }, {
@@ -1636,8 +1756,7 @@
       "doc" : "URL for the dashboard. This could be used as an external link on DataHub to allow users access/view the dashboard",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "KEYWORD",
-        "searchTier" : 4
+        "fieldType" : "KEYWORD"
       }
     }, {
       "name" : "access",
@@ -1647,8 +1766,7 @@
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD",
-        "filterNameOverride" : "Access Level",
-        "searchTier" : 4
+        "filterNameOverride" : "Access Level"
       }
     }, {
       "name" : "lastRefreshed",
@@ -1657,7 +1775,8 @@
       "optional" : true
     } ],
     "Aspect" : {
-      "name" : "dashboardInfo"
+      "name" : "dashboardInfo",
+      "schemaVersion" : 2
     }
   }, {
     "type" : "record",
@@ -1673,8 +1792,22 @@
       "Searchable" : {
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT",
+        "hasValuesFieldName" : "hasDescription",
         "sanitizeRichText" : true,
-        "searchTier" : 2
+        "v3" : {
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "description"
+        }
       }
     } ],
     "Aspect" : {
@@ -1695,8 +1828,18 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "v3" : {
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "name"
+        }
       }
     }, {
       "name" : "description",
@@ -1707,7 +1850,20 @@
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
         "sanitizeRichText" : true,
-        "searchTier" : 2
+        "v3" : {
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "description"
+        }
       }
     }, {
       "name" : "project",
@@ -1716,8 +1872,7 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "TEXT_PARTIAL",
-        "queryByDefault" : false,
-        "searchTier" : 3
+        "queryByDefault" : false
       }
     }, {
       "name" : "created",
@@ -1728,7 +1883,12 @@
         "/time" : {
           "fieldName" : "createdAt",
           "fieldType" : "DATETIME",
-          "searchLabel" : "createdAt"
+          "v3" : {
+            "mappings" : [ {
+              "type" : "DATETIME"
+            } ],
+            "searchLabel" : "sourceCreatedAt"
+          }
         }
       }
     }, {
@@ -1740,7 +1900,12 @@
         "/time" : {
           "fieldName" : "lastModifiedAt",
           "fieldType" : "DATETIME",
-          "searchLabel" : "lastModifiedAt"
+          "v3" : {
+            "mappings" : [ {
+              "type" : "DATETIME"
+            } ],
+            "searchLabel" : "sourceLastModifiedAt"
+          }
         }
       }
     }, {
@@ -1773,8 +1938,18 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "v3" : {
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "name"
+        }
       }
     }, {
       "name" : "description",
@@ -1785,7 +1960,20 @@
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
         "sanitizeRichText" : true,
-        "searchTier" : 2
+        "v3" : {
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "description"
+        }
       }
     }, {
       "name" : "type",
@@ -1820,7 +2008,12 @@
         "/time" : {
           "fieldName" : "createdAt",
           "fieldType" : "DATETIME",
-          "searchLabel" : "createdAt"
+          "v3" : {
+            "mappings" : [ {
+              "type" : "DATETIME"
+            } ],
+            "searchLabel" : "sourceCreatedAt"
+          }
         }
       }
     }, {
@@ -1832,7 +2025,12 @@
         "/time" : {
           "fieldName" : "lastModifiedAt",
           "fieldType" : "DATETIME",
-          "searchLabel" : "lastModifiedAt"
+          "v3" : {
+            "mappings" : [ {
+              "type" : "DATETIME"
+            } ],
+            "searchLabel" : "sourceLastModifiedAt"
+          }
         }
       }
     }, {
@@ -2133,7 +2331,22 @@
           }, {
             "name" : "query",
             "type" : "com.linkedin.common.Urn",
-            "doc" : "The query that was used to generate this lineage. \nPresent only if the lineage was generated from a detected query.",
+            "doc" : "The query that was used to generate this lineage.\nPresent only if the lineage was generated from a detected query.",
+            "optional" : true
+          }, {
+            "name" : "matchType",
+            "type" : {
+              "type" : "enum",
+              "name" : "LineageMatchType",
+              "doc" : "How an upstream lineage reference's URN was resolved against the entities stored\nin DataHub. Populated by the lineage URN casing normalization processor for\nreferences on a configured upstream platform; absent when the reference is out of\nscope (platform not configured, feature disabled) or was ingested before the\nfeature was enabled.\n\nThis verdict reflects DataHub's knowledge AT THE TIME THE LINEAGE EDGE WAS\nINGESTED, not the current state of the graph. It is a point-in-time record and is\nnot re-evaluated automatically: e.g. a reference recorded as UNRESOLVED (its target\ndid not exist yet) keeps that value even after the target is later ingested and the\nedge in fact resolves exactly — the verdict only refreshes when the referencing\nsource is re-ingested.",
+              "symbols" : [ "EXACT", "NORMALIZED", "UNRESOLVED" ],
+              "symbolDocs" : {
+                "EXACT" : "The reference matched an existing entity exactly, including URN casing.",
+                "NORMALIZED" : "The reference was case-normalized to match an existing entity whose URN uses\ndifferent casing (i.e. the reference was rewritten to heal a casing mismatch).",
+                "UNRESOLVED" : "The reference is on a configured upstream platform but could not be resolved to\na single existing entity — either no entity matched (under any casing), or the\ncasing was ambiguous (multiple entities share the case-insensitive form). The\nreference was left unchanged; this flags potentially broken lineage."
+              }
+            },
+            "doc" : "Aggregate of how the upstream field references' URNs were resolved against the\nentities stored in DataHub. Set by the lineage URN casing normalization processor:\nNORMALIZED if any field was rewritten to heal a casing mismatch, else UNRESOLVED if\nany could not be resolved, else EXACT. Absent when no reconciliation was performed\n(out of scope). Reflects DataHub's knowledge at ingestion time and is not\nre-evaluated later; see LineageMatchType.",
             "optional" : true
           } ]
         }
@@ -2142,7 +2355,8 @@
       "optional" : true
     } ],
     "Aspect" : {
-      "name" : "dataJobInputOutput"
+      "name" : "dataJobInputOutput",
+      "schemaVersion" : 2
     }
   }, {
     "type" : "record",
@@ -2158,8 +2372,22 @@
       "Searchable" : {
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT",
+        "hasValuesFieldName" : "hasDescription",
         "sanitizeRichText" : true,
-        "searchTier" : 2
+        "v3" : {
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "description"
+        }
       }
     } ],
     "Aspect" : {
@@ -2179,8 +2407,22 @@
       "Searchable" : {
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT",
+        "hasValuesFieldName" : "hasDescription",
         "sanitizeRichText" : true,
-        "searchTier" : 2
+        "v3" : {
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "description"
+        }
       }
     } ],
     "Aspect" : {
@@ -2200,8 +2442,18 @@
         "enableAutocomplete" : false,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "v3" : {
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "name"
+        }
       },
       "validate" : {
         "strlen" : {
@@ -2216,7 +2468,19 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "WORD_GRAM"
+        "fieldType" : "WORD_GRAM",
+        "v3" : {
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "name"
+        }
       }
     }, {
       "name" : "type",
@@ -2243,13 +2507,22 @@
       "type" : "string",
       "doc" : "The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle"
     }, {
+      "name" : "logical",
+      "type" : "boolean",
+      "doc" : "Whether datasets on this platform are logical models (hand-authored, no ingestion source).",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "BOOLEAN"
+      }
+    }, {
       "name" : "logoUrl",
       "type" : "com.linkedin.common.Url",
       "doc" : "The URL for a logo associated with the platform",
       "optional" : true
     } ],
     "Aspect" : {
-      "name" : "dataPlatformInfo"
+      "name" : "dataPlatformInfo",
+      "schemaVersion" : 2
     }
   }, "com.linkedin.dataplatform.PlatformType", {
     "type" : "record",
@@ -2392,8 +2665,18 @@
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "entityName",
-        "searchTier" : 1
+        "v3" : {
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "name"
+        }
       }
     }, {
       "name" : "qualifiedName",
@@ -2405,8 +2688,18 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldType" : "WORD_GRAM",
-        "searchLabel" : "qualifiedName",
-        "searchTier" : 1
+        "v3" : {
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "qualifiedName"
+        }
       }
     }, {
       "name" : "description",
@@ -2417,7 +2710,20 @@
         "fieldType" : "TEXT",
         "hasValuesFieldName" : "hasDescription",
         "sanitizeRichText" : true,
-        "searchTier" : 2
+        "v3" : {
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "description"
+        }
       }
     }, {
       "name" : "uri",
@@ -2434,7 +2740,12 @@
         "/time" : {
           "fieldName" : "createdAt",
           "fieldType" : "DATETIME",
-          "searchLabel" : "createdAt"
+          "v3" : {
+            "mappings" : [ {
+              "type" : "DATETIME"
+            } ],
+            "searchLabel" : "sourceCreatedAt"
+          }
         }
       }
     }, {
@@ -2446,7 +2757,12 @@
         "/time" : {
           "fieldName" : "lastModifiedAt",
           "fieldType" : "DATETIME",
-          "searchLabel" : "lastModifiedAt"
+          "v3" : {
+            "mappings" : [ {
+              "type" : "DATETIME"
+            } ],
+            "searchLabel" : "sourceLastModifiedAt"
+          }
         }
       }
     }, {
@@ -2493,8 +2809,22 @@
       "Searchable" : {
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT",
+        "hasValuesFieldName" : "hasDescription",
         "sanitizeRichText" : true,
-        "searchTier" : 2
+        "v3" : {
+          "mappings" : [ {
+            "docValues" : false,
+            "index" : false,
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "description"
+        }
       }
     }, {
       "name" : "name",
@@ -2502,14 +2832,27 @@
       "doc" : "Editable display name of the Dataset",
       "optional" : true,
       "Searchable" : {
+        "boostScore" : 10.0,
         "fieldName" : "editedName",
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "TEXT_PARTIAL",
+        "v3" : {
+          "mappings" : [ {
+            "type" : "KEYWORD"
+          }, {
+            "subfield" : "text",
+            "type" : "TEXT"
+          }, {
+            "subfield" : "stemmed",
+            "type" : "STEMMED"
+          } ],
+          "searchLabel" : "name"
+        }
       }
     } ],
     "Aspect" : {
       "name" : "editableDatasetProperties"
     }
-  }, "com.linkedin.dataset.FineGrainedLineage", "com.linkedin.dataset.FineGrainedLineageDownstreamType", "com.linkedin.dataset.FineGrainedLineageUpstreamType", {
+  }, "com.linkedin.dataset.FineGrainedLineage", "com.linkedin.dataset.FineGrainedLineageDownstreamType", "com.linkedin.dataset.FineGrainedLineageUpstreamType", "com.linkedin.dataset.LineageMatchType", {
     "type" : "typeref",
     "name" : "SchemaFieldPath",
     "namespace" : "com.linkedin.dataset",
@@ -2571,6 +2914,11 @@
       "type" : "com.linkedin.common.Urn",
       "doc" : "If the lineage is generated by a query, a reference to the query",
       "optional" : true
+    }, {
+      "name" : "matchType",
+      "type" : "LineageMatchType",
+      "doc" : "How this upstream reference's URN was resolved against the entities stored in\nDataHub. Set by the lineage URN casing normalization processor: EXACT when the\nreference already matched an existing entity, NORMALIZED when it was rewritten to\nheal a casing mismatch, UNRESOLVED when it could not be resolved to a single\nexisting entity. Absent when no reconciliation was performed (out of scope).\nReflects DataHub's knowledge at ingestion time and is not re-evaluated later; see\nLineageMatchType.",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -2600,7 +2948,8 @@
       }
     } ],
     "Aspect" : {
-      "name" : "upstreamLineage"
+      "name" : "upstreamLineage",
+      "schemaVersion" : 2
     }
   }, {
     "type" : "record",
@@ -2612,10 +2961,7 @@
       "type" : "boolean",
       "doc" : "Whether the view is materialized",
       "Searchable" : {
-        "fieldType" : "BOOLEAN",
-        "weightsPerFieldValue" : {
-          "true" : 0.5
-        }
+        "fieldType" : "BOOLEAN"
       }
     }, {
       "name" : "viewLogic",
@@ -2751,8 +3097,18 @@
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true,
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "email",
@@ -2765,13 +3121,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpuserUrn"
                     },
-                    "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.",
-                    "Relationship" : {
-                      "/*" : {
-                        "entityTypes" : [ "corpuser" ],
-                        "name" : "OwnedBy"
-                      }
-                    },
+                    "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.\nRelationship annotation intentionally omitted so OwnedBy edges are owned solely by the ownership aspect.",
                     "deprecated" : true
                   }, {
                     "name" : "members",
@@ -2808,7 +3158,21 @@
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT_PARTIAL",
-                      "searchTier" : 2
+                      "hasValuesFieldName" : "hasDescription",
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
                     }
                   }, {
                     "name" : "slack",
@@ -2818,19 +3182,23 @@
                   }, {
                     "name" : "created",
                     "type" : "com.linkedin.common.AuditStamp",
-                    "doc" : "Created Audit stamp",
+                    "doc" : "When this group was created in DataHub.\nSearch V3 does not index this time. It is systemMetadata.aspectCreated,\ncopied to _system.created.time.",
                     "optional" : true,
                     "Searchable" : {
                       "/time" : {
                         "fieldName" : "createdTime",
                         "fieldType" : "DATETIME",
-                        "searchLabel" : "createdAt"
+                        "v3" : {
+                          "enabled" : false
+                        }
                       }
-                    }
+                    },
+                    "deprecated" : "Use systemMetadata.aspectCreated instead."
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
-                    "name" : "corpGroupInfo"
+                    "name" : "corpGroupInfo",
+                    "schemaVersion" : 2
                   }
                 }, "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
               }
@@ -2904,8 +3272,18 @@
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
                       "queryByDefault" : true,
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "email",
@@ -2914,8 +3292,7 @@
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "KEYWORD",
-                      "queryByDefault" : true,
-                      "searchTier" : 1
+                      "queryByDefault" : true
                     }
                   }, {
                     "name" : "title",
@@ -2986,6 +3363,15 @@
                       "fieldType" : "BOOLEAN",
                       "queryByDefault" : false
                     }
+                  }, {
+                    "name" : "isSupportUser",
+                    "type" : "boolean",
+                    "doc" : "Whether the corpUser is a support user authenticated through the support OIDC flow.",
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "BOOLEAN",
+                      "queryByDefault" : false
+                    }
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpuserUrn" ],
@@ -3040,7 +3426,19 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "fieldType" : "WORD_GRAM",
-                      "queryByDefault" : true
+                      "queryByDefault" : true,
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "title",
@@ -3343,7 +3741,12 @@
                     "doc" : "Data platform urn associated with the dataset",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "URN"
+                      "fieldType" : "URN",
+                      "v3" : {
+                        "copyToOther" : true,
+                        "queryByDefault" : false,
+                        "searchLabel" : "platform"
+                      }
                     }
                   }, {
                     "name" : "name",
@@ -3353,7 +3756,19 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "id",
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "origin",
@@ -3364,11 +3779,17 @@
                       "fieldType" : "TEXT_PARTIAL",
                       "filterNameOverride" : "Environment",
                       "queryByDefault" : false,
-                      "searchLabel" : "origin"
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        } ],
+                        "searchLabel" : "origin"
+                      }
                     }
                   } ],
                   "Aspect" : {
-                    "name" : "datasetKey"
+                    "name" : "datasetKey",
+                    "schemaVersion" : 2
                   }
                 }, "com.linkedin.dataset.DatasetProperties", "com.linkedin.dataset.EditableDatasetProperties", "com.linkedin.dataset.DatasetDeprecation", "com.linkedin.dataset.DatasetUpstreamLineage", "com.linkedin.dataset.UpstreamLineage", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Ownership", "com.linkedin.common.Status", {
                   "type" : "record",
@@ -3542,7 +3963,21 @@
                             "boostScore" : 1.0,
                             "fieldName" : "fieldPaths",
                             "fieldType" : "TEXT",
-                            "queryByDefault" : "true"
+                            "queryByDefault" : "true",
+                            "v3" : {
+                              "degree" : 1,
+                              "mappings" : [ {
+                                "type" : "KEYWORD"
+                              }, {
+                                "subfield" : "text",
+                                "type" : "TEXT"
+                              }, {
+                                "subfield" : "stemmed",
+                                "type" : "STEMMED"
+                              } ],
+                              "queryByDefault" : false,
+                              "searchLabel" : "name"
+                            }
                           }
                         }, {
                           "name" : "jsonPath",
@@ -3561,10 +3996,28 @@
                           "doc" : "Description",
                           "optional" : true,
                           "Searchable" : {
-                            "boostScore" : 0.1,
+                            "boostScore" : 1.0,
                             "fieldName" : "fieldDescriptions",
                             "fieldType" : "TEXT",
-                            "sanitizeRichText" : true
+                            "hasValuesFieldName" : "hasDescription",
+                            "sanitizeRichText" : true,
+                            "v3" : {
+                              "boostScore" : 0.5,
+                              "degree" : 1,
+                              "mappings" : [ {
+                                "docValues" : false,
+                                "index" : false,
+                                "type" : "KEYWORD"
+                              }, {
+                                "subfield" : "text",
+                                "type" : "TEXT"
+                              }, {
+                                "subfield" : "stemmed",
+                                "type" : "STEMMED"
+                              } ],
+                              "queryByDefault" : false,
+                              "searchLabel" : "description"
+                            }
                           }
                         }, {
                           "name" : "label",
@@ -3573,9 +4026,23 @@
                           "optional" : true,
                           "Deprecated" : true,
                           "Searchable" : {
-                            "boostScore" : 0.2,
+                            "boostScore" : 1.0,
                             "fieldName" : "fieldLabels",
-                            "fieldType" : "TEXT"
+                            "fieldType" : "TEXT",
+                            "v3" : {
+                              "degree" : 1,
+                              "mappings" : [ {
+                                "type" : "KEYWORD"
+                              }, {
+                                "subfield" : "text",
+                                "type" : "TEXT"
+                              }, {
+                                "subfield" : "stemmed",
+                                "type" : "STEMMED"
+                              } ],
+                              "queryByDefault" : false,
+                              "searchLabel" : "name"
+                            }
                           }
                         }, {
                           "name" : "created",
@@ -3730,7 +4197,17 @@
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
                               "fieldName" : "fieldTags",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "hasValuesFieldName" : "hasTags",
+                              "v3" : {
+                                "boostScore" : 0.25,
+                                "degree" : 1,
+                                "mappings" : [ {
+                                  "type" : "URN"
+                                } ],
+                                "queryByDefault" : false,
+                                "searchLabel" : "tags"
+                              }
                             }
                           }
                         }, {
@@ -3763,7 +4240,17 @@
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
                               "fieldName" : "fieldGlossaryTerms",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "hasValuesFieldName" : "hasGlossaryTerms",
+                              "v3" : {
+                                "boostScore" : 0.25,
+                                "degree" : 1,
+                                "mappings" : [ {
+                                  "type" : "URN"
+                                } ],
+                                "queryByDefault" : false,
+                                "searchLabel" : "glossaryTerms"
+                              }
                             }
                           }
                         }, {
@@ -3913,11 +4400,25 @@
                           "doc" : "Description",
                           "optional" : true,
                           "Searchable" : {
-                            "boostScore" : 0.1,
+                            "boostScore" : 1.0,
                             "fieldName" : "editedFieldDescriptions",
                             "fieldType" : "TEXT",
+                            "hasValuesFieldName" : "hasDescription",
                             "sanitizeRichText" : true,
-                            "searchTier" : 2
+                            "v3" : {
+                              "mappings" : [ {
+                                "docValues" : false,
+                                "index" : false,
+                                "type" : "KEYWORD"
+                              }, {
+                                "subfield" : "text",
+                                "type" : "TEXT"
+                              }, {
+                                "subfield" : "stemmed",
+                                "type" : "STEMMED"
+                              } ],
+                              "searchLabel" : "description"
+                            }
                           }
                         }, {
                           "name" : "globalTags",
@@ -3948,7 +4449,14 @@
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
                               "fieldName" : "editedFieldTags",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "hasValuesFieldName" : "hasTags",
+                              "v3" : {
+                                "mappings" : [ {
+                                  "type" : "URN"
+                                } ],
+                                "searchLabel" : "tags"
+                              }
                             }
                           }
                         }, {
@@ -3981,17 +4489,49 @@
                               "boostScore" : 0.5,
                               "fieldName" : "editedFieldGlossaryTerms",
                               "fieldType" : "URN",
+                              "hasValuesFieldName" : "hasGlossaryTerms",
                               "includeSystemModifiedAt" : true,
-                              "systemModifiedAtFieldName" : "schemaFieldTermsModifiedAt"
+                              "systemModifiedAtFieldName" : "schemaFieldTermsModifiedAt",
+                              "v3" : {
+                                "includeSystemModifiedAt" : false,
+                                "mappings" : [ {
+                                  "type" : "URN"
+                                } ],
+                                "searchLabel" : "glossaryTerms"
+                              }
                             }
                           }
                         } ]
                       }
                     },
-                    "doc" : "Client provided a list of fields from document schema."
+                    "doc" : "Client provided a list of fields from document schema. Descriptions, tags and glossary\nterms on these columns are one step from the entity, so they index as degree 1.",
+                    "Searchable" : {
+                      "/*/description" : {
+                        "v3" : {
+                          "boostScore" : 0.5,
+                          "degree" : 1,
+                          "queryByDefault" : false
+                        }
+                      },
+                      "/*/globalTags/tags/*/tag" : {
+                        "v3" : {
+                          "boostScore" : 0.25,
+                          "degree" : 1,
+                          "queryByDefault" : false
+                        }
+                      },
+                      "/*/glossaryTerms/terms/*/urn" : {
+                        "v3" : {
+                          "boostScore" : 0.25,
+                          "degree" : 1,
+                          "queryByDefault" : false
+                        }
+                      }
+                    }
                   } ],
                   "Aspect" : {
-                    "name" : "editableSchemaMetadata"
+                    "name" : "editableSchemaMetadata",
+                    "schemaVersion" : 2
                   }
                 }, "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths", "com.linkedin.common.DataPlatformInstance", "com.linkedin.dataset.ViewProperties", "com.linkedin.common.BrowsePathsV2" ]
               }
@@ -4139,8 +4679,18 @@
                       "fieldName" : "id",
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "origin",
@@ -4208,7 +4758,18 @@
                       "enableAutocomplete" : true,
                       "fieldType" : "WORD_GRAM",
                       "queryByDefault" : true,
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "description",
@@ -4219,7 +4780,20 @@
                       "fieldType" : "TEXT",
                       "hasValuesFieldName" : "hasDescription",
                       "sanitizeRichText" : true,
-                      "searchTier" : 2
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
                     }
                   }, {
                     "name" : "date",
@@ -4230,13 +4804,39 @@
                   }, {
                     "name" : "created",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Audit stamp containing who created this and when",
-                    "optional" : true
+                    "doc" : "When this model was created in the source platform, and by whom.",
+                    "optional" : true,
+                    "Searchable" : {
+                      "/time" : {
+                        "fieldName" : "createdAt",
+                        "fieldType" : "DATETIME",
+                        "queryByDefault" : false,
+                        "v3" : {
+                          "mappings" : [ {
+                            "type" : "DATETIME"
+                          } ],
+                          "searchLabel" : "sourceCreatedAt"
+                        }
+                      }
+                    }
                   }, {
                     "name" : "lastModified",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Date when the MLModel was last modified",
-                    "optional" : true
+                    "doc" : "When this model was last modified in the source platform.",
+                    "optional" : true,
+                    "Searchable" : {
+                      "/time" : {
+                        "fieldName" : "lastModifiedAt",
+                        "fieldType" : "DATETIME",
+                        "queryByDefault" : false,
+                        "v3" : {
+                          "mappings" : [ {
+                            "type" : "DATETIME"
+                          } ],
+                          "searchLabel" : "sourceLastModifiedAt"
+                        }
+                      }
+                    }
                   }, {
                     "name" : "version",
                     "type" : "com.linkedin.common.VersionTag",
@@ -4396,7 +4996,8 @@
                     }
                   } ],
                   "Aspect" : {
-                    "name" : "mlModelProperties"
+                    "name" : "mlModelProperties",
+                    "schemaVersion" : 2
                   }
                 }, {
                   "type" : "record",
@@ -4766,12 +5367,22 @@
                     "type" : "string",
                     "doc" : "Name of the primary key",
                     "Searchable" : {
-                      "boostScore" : 8.0,
+                      "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   } ],
                   "Aspect" : {
@@ -4787,7 +5398,25 @@
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLPrimaryKey",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "hasValuesFieldName" : "hasDescription",
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
+                    }
                   }, {
                     "name" : "dataType",
                     "type" : "com.linkedin.common.MLFeatureDataType",
@@ -4814,7 +5443,8 @@
                     }
                   } ],
                   "Aspect" : {
-                    "name" : "mlPrimaryKeyProperties"
+                    "name" : "mlPrimaryKeyProperties",
+                    "schemaVersion" : 2
                   }
                 }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
               }
@@ -4858,12 +5488,22 @@
                     "type" : "string",
                     "doc" : "Name of the feature",
                     "Searchable" : {
-                      "boostScore" : 8.0,
+                      "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   } ],
                   "Aspect" : {
@@ -4882,7 +5522,21 @@
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
-                      "hasValuesFieldName" : "hasDescription"
+                      "hasValuesFieldName" : "hasDescription",
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
                     }
                   }, {
                     "name" : "dataType",
@@ -4956,12 +5610,22 @@
                     "type" : "string",
                     "doc" : "Name of the feature table",
                     "Searchable" : {
-                      "boostScore" : 8.0,
+                      "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   } ],
                   "Aspect" : {
@@ -4980,7 +5644,21 @@
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
-                      "hasValuesFieldName" : "hasDescription"
+                      "hasValuesFieldName" : "hasDescription",
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
                     }
                   }, {
                     "name" : "mlFeatures",
@@ -4999,7 +5677,11 @@
                     "Searchable" : {
                       "/*" : {
                         "fieldName" : "features",
-                        "fieldType" : "URN"
+                        "fieldType" : "URN",
+                        "v3" : {
+                          "copyToOther" : true,
+                          "queryByDefault" : false
+                        }
                       }
                     }
                   }, {
@@ -5019,7 +5701,11 @@
                     "Searchable" : {
                       "/*" : {
                         "fieldName" : "primaryKeys",
-                        "fieldType" : "URN"
+                        "fieldType" : "URN",
+                        "v3" : {
+                          "copyToOther" : true,
+                          "queryByDefault" : false
+                        }
                       }
                     }
                   } ],
@@ -5069,8 +5755,18 @@
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "origin",
@@ -5099,7 +5795,21 @@
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
-                      "hasValuesFieldName" : "hasDescription"
+                      "hasValuesFieldName" : "hasDescription",
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
                     }
                   }, {
                     "name" : "createdAt",
@@ -5182,8 +5892,18 @@
                       "fieldName" : "id",
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "origin",
@@ -5212,7 +5932,19 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldType" : "WORD_GRAM",
-                      "queryByDefault" : true
+                      "queryByDefault" : true,
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "description",
@@ -5221,7 +5953,21 @@
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
-                      "hasValuesFieldName" : "hasDescription"
+                      "hasValuesFieldName" : "hasDescription",
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
                     }
                   }, {
                     "name" : "createdAt",
@@ -5232,13 +5978,39 @@
                   }, {
                     "name" : "created",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Time and Actor who created the MLModelGroup",
-                    "optional" : true
+                    "doc" : "When this model group was created in the source platform, and by whom.",
+                    "optional" : true,
+                    "Searchable" : {
+                      "/time" : {
+                        "fieldName" : "createdAt",
+                        "fieldType" : "DATETIME",
+                        "queryByDefault" : false,
+                        "v3" : {
+                          "mappings" : [ {
+                            "type" : "DATETIME"
+                          } ],
+                          "searchLabel" : "sourceCreatedAt"
+                        }
+                      }
+                    }
                   }, {
                     "name" : "lastModified",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Date when the MLModelGroup was last modified",
-                    "optional" : true
+                    "doc" : "When this model group was last modified in the source platform.",
+                    "optional" : true,
+                    "Searchable" : {
+                      "/time" : {
+                        "fieldName" : "lastModifiedAt",
+                        "fieldType" : "DATETIME",
+                        "queryByDefault" : false,
+                        "v3" : {
+                          "mappings" : [ {
+                            "type" : "DATETIME"
+                          } ],
+                          "searchLabel" : "sourceLastModifiedAt"
+                        }
+                      }
+                    }
                   }, {
                     "name" : "version",
                     "type" : "com.linkedin.common.VersionTag",
@@ -5246,7 +6018,8 @@
                     "optional" : true
                   } ],
                   "Aspect" : {
-                    "name" : "mlModelGroupProperties"
+                    "name" : "mlModelGroupProperties",
+                    "schemaVersion" : 2
                   }
                 }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance", "com.linkedin.common.BrowsePathsV2" ]
               }
@@ -5287,7 +6060,19 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "id",
-                      "fieldType" : "WORD_GRAM"
+                      "fieldType" : "WORD_GRAM",
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   } ],
                   "Aspect" : {
@@ -5307,15 +6092,41 @@
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the tag",
                     "optional" : true,
-                    "Searchable" : { }
+                    "Searchable" : {
+                      "hasValuesFieldName" : "hasDescription",
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
+                    }
                   }, {
                     "name" : "colorHex",
                     "type" : "string",
@@ -5393,8 +6204,18 @@
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "definition",
@@ -5402,7 +6223,21 @@
                     "doc" : "Definition of business term.",
                     "Searchable" : {
                       "fieldType" : "TEXT",
-                      "searchTier" : 2
+                      "hasValuesFieldName" : "hasDescription",
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
                     }
                   }, {
                     "name" : "parentNode",
@@ -5416,7 +6251,12 @@
                     "Searchable" : {
                       "fieldName" : "parentNode",
                       "fieldType" : "URN",
-                      "hasValuesFieldName" : "hasParentNode"
+                      "hasValuesFieldName" : "hasParentNode",
+                      "v3" : {
+                        "hasValuesFieldName" : "hasParent",
+                        "queryByDefault" : false,
+                        "searchLabel" : "parent"
+                      }
                     }
                   }, {
                     "name" : "termSource",
@@ -5512,7 +6352,11 @@
                     "Searchable" : {
                       "/*" : {
                         "fieldName" : "values",
-                        "fieldType" : "URN"
+                        "fieldType" : "URN",
+                        "v3" : {
+                          "copyToOther" : true,
+                          "queryByDefault" : false
+                        }
                       }
                     }
                   }, {
@@ -5531,8 +6375,16 @@
                     },
                     "Searchable" : {
                       "/*" : {
+                        "boostScore" : 0.5,
                         "fieldName" : "relatedTerms",
-                        "fieldType" : "URN"
+                        "fieldType" : "URN",
+                        "hasValuesFieldName" : "hasGlossaryTerms",
+                        "v3" : {
+                          "mappings" : [ {
+                            "type" : "URN"
+                          } ],
+                          "searchLabel" : "glossaryTerms"
+                        }
                       }
                     }
                   } ],
@@ -5593,7 +6445,21 @@
                     "doc" : "Definition of business node",
                     "Searchable" : {
                       "fieldType" : "TEXT",
-                      "searchTier" : 2
+                      "hasValuesFieldName" : "hasDescription",
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
                     }
                   }, {
                     "name" : "parentNode",
@@ -5607,7 +6473,12 @@
                     "Searchable" : {
                       "fieldName" : "parentNode",
                       "fieldType" : "URN",
-                      "hasValuesFieldName" : "hasParentNode"
+                      "hasValuesFieldName" : "hasParentNode",
+                      "v3" : {
+                        "hasValuesFieldName" : "hasParent",
+                        "queryByDefault" : false,
+                        "searchLabel" : "parent"
+                      }
                     }
                   }, {
                     "name" : "name",
@@ -5620,8 +6491,18 @@
                       "fieldName" : "displayName",
                       "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "WORD_GRAM",
-                      "searchLabel" : "entityName",
-                      "searchTier" : 1
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "id",
@@ -5684,14 +6565,42 @@
                     "type" : "string",
                     "doc" : "Display name of the Policy",
                     "Searchable" : {
-                      "fieldType" : "TEXT_PARTIAL"
+                      "boostScore" : 10.0,
+                      "fieldType" : "TEXT_PARTIAL",
+                      "v3" : {
+                        "mappings" : [ {
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "name"
+                      }
                     }
                   }, {
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Description of the Policy",
                     "Searchable" : {
-                      "fieldType" : "TEXT"
+                      "fieldType" : "TEXT",
+                      "hasValuesFieldName" : "hasDescription",
+                      "v3" : {
+                        "mappings" : [ {
+                          "docValues" : false,
+                          "index" : false,
+                          "type" : "KEYWORD"
+                        }, {
+                          "subfield" : "text",
+                          "type" : "TEXT"
+                        }, {
+                          "subfield" : "stemmed",
+                          "type" : "STEMMED"
+                        } ],
+                        "searchLabel" : "description"
+                      }
                     }
                   }, {
                     "name" : "type",
@@ -5751,14 +6660,38 @@
                                 "fields" : [ {
                                   "name" : "field",
                                   "type" : "string",
-                                  "doc" : "The name of the field that the criterion refers to"
+                                  "doc" : "The name of the field that the criterion refers to.\nExamples: TYPE, TAG, DOMAIN, STRUCTURED_PROPERTY"
                                 }, {
                                   "name" : "values",
                                   "type" : {
                                     "type" : "array",
                                     "items" : "string"
                                   },
-                                  "doc" : "Values. Matches criterion if any one of the values matches condition (OR-relationship)"
+                                  "doc" : "Values for traditional fields (TYPE, TAG, DOMAIN, etc).\nMatches criterion if any one of the values matches condition (OR-relationship).\nUse empty array [] when using structuredPropertyValues instead."
+                                }, {
+                                  "name" : "structuredPropertyValues",
+                                  "type" : {
+                                    "type" : "array",
+                                    "items" : {
+                                      "type" : "record",
+                                      "name" : "StructuredPropertyCriterionValue",
+                                      "doc" : "Represents a criterion value for structured property matching in policies.\nContains a structured property URN and values to match against.",
+                                      "fields" : [ {
+                                        "name" : "propertyUrn",
+                                        "type" : "com.linkedin.common.Urn",
+                                        "doc" : "The URN of the structured property to match against"
+                                      }, {
+                                        "name" : "values",
+                                        "type" : {
+                                          "type" : "array",
+                                          "items" : "string"
+                                        },
+                                        "doc" : "Values to match for this structured property.\nWithin a criterion, matching follows OR logic: asset matches if ANY value in this list matches."
+                                      } ]
+                                    }
+                                  },
+                                  "doc" : "Values for structured property matching.\nUsed when field is STRUCTURED_PROPERTY.",
+                                  "optional" : true
                                 }, {
                                   "name" : "condition",
                                   "type" : {
@@ -5820,7 +6753,10 @@
                         "optional" : true,
                         "Searchable" : {
                           "/*" : {
-                            "fieldType" : "URN"
+                            "fieldType" : "URN",
+                            "v3" : {
+                              "queryByDefault" : false
+                            }
                           }
                         }
                       }, {
@@ -5833,7 +6769,10 @@
                         "optional" : true,
                         "Searchable" : {
                           "/*" : {
-                            "fieldType" : "URN"
+                            "fieldType" : "URN",
+                            "v3" : {
+                              "queryByDefault" : false
+                            }
                           }
                         }
                       }, {
@@ -5905,7 +6844,8 @@
                     }
                   } ],
                   "Aspect" : {
-                    "name" : "dataHubPolicyInfo"
+                    "name" : "dataHubPolicyInfo",
+                    "schemaVersion" : 2
                   }
                 } ]
               }
@@ -6363,6 +7303,49 @@
       "doc" : "Include mentioned fields inside elastic highlighting query",
       "optional" : true
     }, {
+      "name" : "highlightFields",
+      "type" : {
+        "type" : "record",
+        "name" : "HighlightFieldOverrides",
+        "namespace" : "com.linkedin.search.template",
+        "doc" : "Template override of the highlight-field set. Applied to the schema-derived highlight fields.\n{@code replace} cannot be combined with {@code add} or {@code remove}. An explicitly present\nempty object clears an inherited override. Whether highlighting runs stays on\n{@code SearchFlags.skipHighlighting}.",
+        "fields" : [ {
+          "name" : "add",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : "Field names added on top of the base set.",
+          "optional" : true
+        }, {
+          "name" : "remove",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : "Field names removed from the base set.",
+          "optional" : true
+        }, {
+          "name" : "replace",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : "Wholesale replacement of the base set.",
+          "optional" : true
+        } ]
+      },
+      "doc" : "Search V3 adjustment of the template highlight set for one request.\n{@code replace} cannot be combined with {@code add} or {@code remove}. An explicitly\npresent empty value clears the template set. {@code customHighlightingFields} replaces\nthe set instead of adjusting it. {@code skipHighlighting} clears the result.",
+      "optional" : true
+    }, {
+      "name" : "fetchExtraFields",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "Elasticsearch _source include names copied onto SearchEntity.extraFields (Java / Rest.li\nonly — not a GraphQL SearchFlags input). Nested paths and wildcards are passed through to\nfetch_source; extraFields copies exact top-level _source keys. Empty or absent fetches no\nextra document fields — only the default urn include.",
+      "optional" : true
+    }, {
       "name" : "rewriteQuery",
       "type" : "boolean",
       "doc" : "invoke query rewrite chain for filters based on configured rewriters",
@@ -6399,6 +7382,28 @@
         } ]
       },
       "doc" : "Sets slice parameter for elasticsearch query,\nto allow multiple clients to scroll the same query at once.\nOnly supported by the ElasticSearchService",
+      "optional" : true
+    }, {
+      "name" : "includeExplain",
+      "type" : "boolean",
+      "doc" : "Include Elasticsearch scoring explanation in search results.\nWhen enabled, each result includes detailed score breakdown in extraProperties._explain.\nNote: Adds 10-30% computational overhead - use for debugging only.",
+      "default" : false,
+      "optional" : true
+    }, {
+      "name" : "searchType",
+      "type" : "string",
+      "doc" : "Elasticsearch search type for controlling IDF calculation across shards.\n- QUERY_THEN_FETCH: Shard-local IDF (default, faster, but less accurate scoring)\n- DFS_QUERY_THEN_FETCH: Global IDF across all shards (more accurate scoring)\n\nOnly affects relevance scoring in multi-shard scenarios.\nDFS mode adds 20-50% latency overhead but provides consistent scoring.",
+      "default" : "QUERY_THEN_FETCH",
+      "optional" : true
+    }, {
+      "name" : "minScore",
+      "type" : "float",
+      "doc" : "Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring\nbelow this floor are dropped, letting an agent abstain instead of returning weak matches. When\nnull/unset, no floor is applied. Currently honored only by the semantic search path.\n\nThe value is compared against the engine's raw kNN relevance score (cosine-derived), which is\nnot a normalized 0..1 value; its scale depends on the embedding model and search engine, so a\nsuitable floor must be calibrated per deployment rather than assumed.",
+      "optional" : true
+    }, {
+      "name" : "searchTemplate",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "Caller-selected search template URN. When set, selection skips classification, sub-intent,\nand engine lookup. The resolved template is not written back onto this field. The caller must\nhave the MANAGE_SYSTEM_OPERATIONS privilege.",
       "optional" : true
     } ]
   }, "com.linkedin.metadata.query.SliceOptions", {
@@ -6557,6 +7562,11 @@
       "name" : "timeseriesRows",
       "type" : "long",
       "optional" : true
+    }, {
+      "name" : "queued",
+      "type" : "boolean",
+      "doc" : "True when the delete was queued to run later. The counts are then what existed when it was\nqueued, not what was deleted.",
+      "optional" : true
     } ]
   }, {
     "type" : "record",
@@ -6588,6 +7598,11 @@
       "name" : "total",
       "type" : "int",
       "doc" : "Total number of relationships that an entity urn has."
+    }, {
+      "name" : "queued",
+      "type" : "boolean",
+      "doc" : "True when the delete was queued to run later. The counts are then what existed when it was\nqueued, not what was deleted.",
+      "optional" : true
     } ]
   }, "com.linkedin.metadata.run.RelatedAspect", {
     "type" : "record",
@@ -6683,6 +7698,32 @@
         }
       }
     } ]
+  }, {
+    "type" : "record",
+    "name" : "ExplainMatch",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "How a search result field matched the query.",
+    "fields" : [ {
+      "name" : "field",
+      "type" : "string",
+      "doc" : "The same name a matched field reports: a logical field, or a structured property URN."
+    }, {
+      "name" : "value",
+      "type" : "string",
+      "doc" : "Matched text."
+    }, {
+      "name" : "subfield",
+      "type" : "string",
+      "doc" : "Indexed path that matched, such as {@code name.keyword} or {@code name.stemmed}."
+    }, {
+      "name" : "mode",
+      "type" : "string",
+      "doc" : "One of {@code exact}, {@code prefix}, {@code word}, {@code contains}, or {@code nameAndValue}."
+    }, {
+      "name" : "query",
+      "type" : "string",
+      "doc" : "Query text that produced the hit."
+    } ]
   }, "com.linkedin.metadata.search.FilterValue", {
     "type" : "record",
     "name" : "LineageScrollResult",
@@ -6724,6 +7765,14 @@
               },
               "doc" : "Matched field name and values",
               "default" : [ ]
+            }, {
+              "name" : "explainMatches",
+              "type" : {
+                "type" : "array",
+                "items" : "ExplainMatch"
+              },
+              "doc" : "How each field matched. Set when the caller asks for an explanation.",
+              "optional" : true
             }, {
               "name" : "features",
               "type" : {
@@ -6845,6 +7894,14 @@
           },
           "doc" : "A list of search query suggestions based on the given query",
           "default" : [ ]
+        }, {
+          "name" : "routeChain",
+          "type" : {
+            "type" : "array",
+            "items" : "string"
+          },
+          "doc" : "Templates visited while choosing this result. Set when the caller asks for an explanation.",
+          "optional" : true
         } ]
       },
       "doc" : "Metadata specific to the browse result of the queried path"
@@ -7046,7 +8103,7 @@
     "Aspect" : {
       "name" : "systemMetadata"
     }
-  }, "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.policy.PolicyMatchCondition", "com.linkedin.policy.PolicyMatchCriterion", "com.linkedin.policy.PolicyMatchFilter", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.policy.PolicyMatchCondition", "com.linkedin.policy.PolicyMatchCriterion", "com.linkedin.policy.PolicyMatchFilter", "com.linkedin.policy.StructuredPropertyCriterionValue", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.search.template.HighlightFieldOverrides", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "entities",
     "namespace" : "com.linkedin.entity",
@@ -7185,7 +8242,7 @@
           "name" : "aspectName",
           "type" : "string",
           "optional" : true,
-          "doc" : "- the optional aspect name if only want to delete the aspect (applicable only\n     for timeseries aspects)."
+          "doc" : "- the optional aspect name if only want to delete the aspect (applicable only\n    for timeseries aspects)."
         }, {
           "name" : "startTimeMillis",
           "type" : "long",

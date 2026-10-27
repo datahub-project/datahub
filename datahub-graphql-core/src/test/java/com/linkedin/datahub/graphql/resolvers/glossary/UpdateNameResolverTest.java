@@ -8,6 +8,7 @@ import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -15,7 +16,9 @@ import com.linkedin.datahub.graphql.generated.UpdateNameInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
+import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.DomainProperties;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
@@ -36,9 +39,12 @@ public class UpdateNameResolverTest {
   private static final String TERM_URN = "urn:li:glossaryTerm:11115397daf94708a8822b8106cfd451";
   private static final String NODE_URN = "urn:li:glossaryNode:22225397daf94708a8822b8106cfd451";
   private static final String DOMAIN_URN = "urn:li:domain:22225397daf94708a8822b8106cfd451";
+  private static final String DATA_PRODUCT_URN = "urn:li:dataProduct:test-product";
   private static final UpdateNameInput INPUT = new UpdateNameInput(NEW_NAME, TERM_URN);
   private static final UpdateNameInput INPUT_FOR_NODE = new UpdateNameInput(NEW_NAME, NODE_URN);
   private static final UpdateNameInput INPUT_FOR_DOMAIN = new UpdateNameInput(NEW_NAME, DOMAIN_URN);
+  private static final UpdateNameInput INPUT_FOR_DATA_PRODUCT =
+      new UpdateNameInput(NEW_NAME, DATA_PRODUCT_URN);
   private static final CorpuserUrn TEST_ACTOR_URN = new CorpuserUrn("test");
 
   private MetadataChangeProposal setupTests(
@@ -159,6 +165,93 @@ public class UpdateNameResolverTest {
 
     assertTrue(resolver.get(mockEnv).get());
     verifySingleIngestProposal(mockService, 1, proposal);
+  }
+
+  @Test
+  public void testGetSuccessForDataProduct() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class), eq(Urn.createFromString(DATA_PRODUCT_URN)), eq(true)))
+        .thenReturn(true);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT_FOR_DATA_PRODUCT);
+
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    final String name = "test data product";
+    Mockito.when(
+            mockService.getAspect(
+                any(OperationContext.class),
+                eq(Urn.createFromString(DATA_PRODUCT_URN)),
+                eq(DATA_PRODUCT_PROPERTIES_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(new DataProductProperties().setName(name));
+    Domains domains = new Domains();
+    domains.setDomains(new UrnArray(Urn.createFromString(DOMAIN_URN)));
+    Mockito.when(
+            mockService.getAspect(
+                any(OperationContext.class),
+                eq(Urn.createFromString(DATA_PRODUCT_URN)),
+                eq(DOMAINS_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(domains);
+
+    DataProductProperties properties = new DataProductProperties();
+    properties.setName(NEW_NAME);
+    final MetadataChangeProposal proposal =
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            Urn.createFromString(DATA_PRODUCT_URN),
+            DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
+            properties);
+
+    UpdateNameResolver resolver = new UpdateNameResolver(mockService, mockClient);
+
+    assertTrue(resolver.get(mockEnv).get());
+    verifySingleIngestProposal(mockService, 1, proposal);
+  }
+
+  @Test
+  public void testGetDeniedForDataProductWithoutPrivilege() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockService.exists(
+                any(OperationContext.class), eq(Urn.createFromString(DATA_PRODUCT_URN)), eq(true)))
+        .thenReturn(true);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT_FOR_DATA_PRODUCT);
+
+    QueryContext mockContext = getMockDenyContextWithOperationContext();
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN.toString());
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(
+            mockService.getAspect(
+                any(OperationContext.class),
+                eq(Urn.createFromString(DATA_PRODUCT_URN)),
+                eq(DATA_PRODUCT_PROPERTIES_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(new DataProductProperties().setName("test data product"));
+    Domains domains = new Domains();
+    domains.setDomains(new UrnArray(Urn.createFromString(DOMAIN_URN)));
+    Mockito.when(
+            mockService.getAspect(
+                any(OperationContext.class),
+                eq(Urn.createFromString(DATA_PRODUCT_URN)),
+                eq(DOMAINS_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(domains);
+
+    UpdateNameResolver resolver = new UpdateNameResolver(mockService, mockClient);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    verifyNoIngestProposal(mockService);
   }
 
   @Test

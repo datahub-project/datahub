@@ -322,9 +322,7 @@
           },
           {
             "com.linkedin.common.BrowsePaths": {
-              "paths": [
-                "/prod/hdfs/SamplePlaywrightHdfsDataset"
-              ]
+              "paths": ["/prod/hdfs/SamplePlaywrightHdfsDataset"]
             }
           },
           {
@@ -494,6 +492,53 @@
     "aspectName": "domains",
     "aspect": {
       "value": "{\"domains\":[\"urn:li:domain:marketing\"]}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:playwright-within-parent",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "value": "{\"name\": \"PlaywrightWithinParent\", \"description\": \"Parent domain for Within operator search tests\"}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:playwright-within-child",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "value": "{\"name\": \"PlaywrightWithinChild\", \"description\": \"Child domain for Within operator search tests\", \"parentDomain\": \"urn:li:domain:playwright-within-parent\"}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_within_nested,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset only in child domain; used to prove Within expands parent domains",
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_playwright_within_nested,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\":[\"urn:li:domain:playwright-within-child\"]}",
       "contentType": "application/json"
     }
   }

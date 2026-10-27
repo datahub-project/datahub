@@ -1,18 +1,17 @@
 package io.datahubproject.openapi.v2.controller;
 
-import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
-import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
-
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.util.MappingUtil;
@@ -66,6 +65,10 @@ public class PlatformEntitiesController {
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
+    boolean asyncBool =
+        Objects.requireNonNullElseGet(
+            async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
+    UsageOperation usageOperation = UsageOperation.METADATA_INGEST;
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
@@ -77,7 +80,8 @@ public class PlatformEntitiesController {
                     metadataChangeProposals.stream()
                         .map(MetadataChangeProposal::getEntityType)
                         .distinct()
-                        .collect(Collectors.toList())),
+                        .collect(Collectors.toList()))
+                .withUsageOperation(usageOperation),
             _authorizerChain,
             authentication,
             true);
@@ -91,7 +95,9 @@ public class PlatformEntitiesController {
       Ingest Authorization Checks
     */
     List<Pair<com.linkedin.mxe.MetadataChangeProposal, Integer>> exceptions =
-        isAPIAuthorized(opContext, ENTITY, opContext.getEntityRegistry(), proposals).stream()
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(
+                opContext, opContext.getEntityRegistry(), proposals)
+            .stream()
             .filter(p -> p.getSecond() != com.linkedin.restli.common.HttpStatus.S_200_OK.getCode())
             .collect(Collectors.toList());
     if (!exceptions.isEmpty()) {
@@ -107,9 +113,6 @@ public class PlatformEntitiesController {
                   .collect(Collectors.toList()));
     }
 
-    boolean asyncBool =
-        Objects.requireNonNullElseGet(
-            async, () -> Boolean.parseBoolean(System.getenv("ASYNC_INGEST_DEFAULT")));
     List<Pair<String, Boolean>> responses =
         proposals.stream()
             .map(

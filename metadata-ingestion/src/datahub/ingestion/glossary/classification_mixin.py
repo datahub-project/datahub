@@ -6,7 +6,6 @@ from functools import partial
 from math import ceil
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
-from datahub_classify.helper_classes import ColumnInfo, Metadata
 from pydantic import Field
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
@@ -14,8 +13,13 @@ from datahub.configuration.env_vars import get_report_info_sample_size
 from datahub.emitter.mce_builder import get_sys_time, make_term_urn, make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.glossary.classification_types import ColumnInfo, Metadata
 from datahub.ingestion.glossary.classifier import ClassificationConfig, Classifier
-from datahub.ingestion.glossary.classifier_registry import classifier_registry
+from datahub.ingestion.glossary.classifier_registry import (
+    BUILTIN_CLASSIFIER_REMOVED_MESSAGE,
+    DEFAULT_CLASSIFIER_TYPE,
+    classifier_registry,
+)
 from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -90,20 +94,33 @@ class ClassificationHandler:
         )
 
     def get_classifiers(self) -> List[Classifier]:
-        classifiers = []
+        classifiers: List[Classifier] = []
         if (
             not isinstance(self.config, ClassificationSourceConfigMixin)
             or self.config.classification is None
+            # Resolving classifiers only matters when classification is on. Without
+            # this gate every source would hit the error below on the default
+            # `classifiers=[datahub]` even when classification is disabled, since the
+            # built-in `datahub` classifier is no longer registered.
+            or not self.config.classification.enabled
         ):
             return classifiers
 
         for classifier in self.config.classification.classifiers:
-            classifier_class = classifier_registry.get(classifier.type)
-            if classifier_class is None:
+            # The registry raises KeyError when nothing is registered for the type.
+            # The built-in `datahub` classifier is no longer registered, so surface
+            # the removal guidance for it and a generic hint for other unknown types.
+            try:
+                classifier_class = classifier_registry.get(classifier.type)
+            except KeyError:
+                if classifier.type == DEFAULT_CLASSIFIER_TYPE:
+                    raise ConfigurationError(
+                        BUILTIN_CLASSIFIER_REMOVED_MESSAGE
+                    ) from None
                 raise ConfigurationError(
-                    f"Cannot find classifier class of type={self.config.classification.classifiers[0].type} "
-                    " in the registry! Please check the type of the classifier in your config."
-                )
+                    f"Cannot find classifier class of type={classifier.type} "
+                    "in the registry! Please check the type of the classifier in your config."
+                ) from None
             classifiers.append(
                 classifier_class.create(
                     config_dict=classifier.config,  # type: ignore
@@ -174,7 +191,7 @@ class ClassificationHandler:
         self, field_terms: Dict[str, str], col_info: ColumnInfo
     ) -> None:
         term = self.get_terms_for_column(col_info)
-        if term:
+        if term and col_info.metadata.name is not None:
             field_terms[col_info.metadata.name] = term
 
     def async_classify(

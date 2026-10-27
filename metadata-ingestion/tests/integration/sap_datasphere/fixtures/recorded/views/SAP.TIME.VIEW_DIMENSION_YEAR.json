@@ -1,0 +1,67 @@
+{
+  "definitions": {
+    "SAP.TIME.VIEW_DIMENSION_YEAR": {
+      "kind": "entity",
+      "elements": {
+        "YEAR": {
+          "key": true,
+          "type": "cds.String",
+          "@Analytics.dimension": true,
+          "@Semantics.calendar.year": true,
+          "@EndUserText.label": "Year",
+          "length": 4
+        }
+      },
+      "query": {
+        "SELECT": {
+          "from": {
+            "ref": [
+              "SAP.TIME.M_TIME_DIMENSION"
+            ],
+            "as": "M_TIME_DIMENSION"
+          },
+          "distinct": true,
+          "columns": [
+            {
+              "ref": [
+                "YEAR"
+              ]
+            }
+          ]
+        }
+      },
+      "@EndUserText.label": "Time Dimension - Year",
+      "@ObjectModel.modelingPattern": {
+        "#": "ANALYTICAL_DIMENSION"
+      },
+      "@ObjectModel.supportedCapabilities": [
+        {
+          "#": "ANALYTICAL_PROVIDER"
+        },
+        {
+          "#": "ANALYTICAL_DIMENSION"
+        }
+      ],
+      "@Hierarchy.leveled": [
+        {
+          "name": "YYYY",
+          "label": "Year",
+          "levels": [
+            {
+              "element": {
+                "=": "YEAR"
+              }
+            }
+          ]
+        }
+      ],
+      "@Analytics.dimensionType": "#TIME",
+      "@Internal.Entity.Hidden": true,
+      "_meta": {
+        "dependencies": {
+          "folderAssignment": null
+        }
+      }
+    }
+  }
+}

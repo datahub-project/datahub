@@ -7,15 +7,21 @@ import com.linkedin.common.Urn
 
 /**
  * Information about an incident raised on an asset.
+ *
+ * NOTE: When this file is changed, update IncidentActivityEvent.pdl to remove searchable and relationship annotations.
  */
 @Aspect = {
-  "name": "incidentInfo"
+  "name": "incidentInfo",
+  "schemaVersion": 4
 }
 record IncidentInfo {
   /**
   * The type of incident
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "addToFilters": true,
     "filterNameOverride": "Type"
   }
@@ -25,6 +31,9 @@ record IncidentInfo {
   * An optional custom incident type. Present only if type is 'CUSTOM'.
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "addToFilters": true,
     "filterNameOverride": "Other Type"
   }
@@ -33,11 +42,37 @@ record IncidentInfo {
   /**
   * Optional title associated with the incident
   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "boostScore": 10.0,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   title: optional string
 
   /**
   * Optional description associated with the incident
   */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 
   /**
@@ -46,11 +81,14 @@ record IncidentInfo {
   @Relationship = {
     "/*": {
       "name": "IncidentOn",
-      "entityTypes": [ "dataset", "chart", "dashboard", "dataFlow", "dataJob", "schemaField" ]
+      "entityTypes": [ "dataset", "chart", "dashboard", "dataFlow", "dataJob", "schemaField", "mlModel", "mlFeature", "mlFeatureTable", "service", "aiAgent"]
     }
   }
   @Searchable = {
     "/*": {
+      "v3": {
+        "queryByDefault": true
+      },
       "fieldType": "URN"
     }
   }
@@ -84,22 +122,37 @@ record IncidentInfo {
 
   /**
    * The time at which the incident actually started (may be before the date it was raised).
+   * Time is a long typeref, so the /time path does not resolve. Search reads the top-level
+   * v3 flag, which keeps this field in the unqualified query.
    */
   @Searchable = {
     "/time": {
         "fieldName": "startedAt",
-        "fieldType": "COUNT"
-      }
+        "fieldType": "DATETIME",
+        "v3": {
+          "searchLabel": "sourceCreatedAt",
+          "mappings": [
+            { "type": "DATETIME" }
+          ]
+        }
+      },
+    "v3": {
+      "queryByDefault": true
+    }
   }
   startedAt: optional Time
 
   /**
-   * The time at which the request was initially created
+   * When this incident was raised in DataHub.
+   * Search V3 does not index this stamp. The write is systemMetadata.aspectCreated,
+   * copied to _system.created.time and _system.created.actor.
    */
+  @deprecated = "Use systemMetadata.aspectCreated instead."
   @Searchable = {
     "/time": {
         "fieldName": "created",
-        "fieldType": "COUNT"
+        "fieldType": "DATETIME",
+        "v3": { "enabled": false }
       }
   }
   created: AuditStamp

@@ -18,11 +18,12 @@ need to provide this list during your organization's security review.
 These permissions are granted on the Azure AD app registration and are used to resolve users,
 teams, and channels referenced from DataHub.
 
-| Permission              | Why it's needed                                                        |
-| ----------------------- | ---------------------------------------------------------------------- |
-| `User.Read.All`         | Resolve Teams user IDs to names and email addresses for DM recipients. |
-| `TeamMember.Read.All`   | Read team membership for channel-scoped notifications.                 |
-| `Channel.ReadBasic.All` | List channels in the Teams picker and resolve a channel to its team.   |
+| Permission              | Why it's needed                                                               |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| `User.ReadBasic.All`    | Resolve Teams users to names and email addresses for notification recipients. |
+| `Team.ReadBasic.All`    | List teams in order to resolve the channels referenced from DataHub.          |
+| `Channel.ReadBasic.All` | List channels in the Teams picker and resolve a channel to its team.          |
+| `TeamsActivity.Send`    | Send activity-feed notifications directly to individual users.                |
 
 ### Bot Framework (separate authentication, not a Graph scope)
 

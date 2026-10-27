@@ -20,7 +20,7 @@ export type CalendarContextState<ValueType = any> = {
     onDayClick?: (day: DayData<ValueType>) => void;
 };
 
-export const CalendarContext = createContext<CalendarContextState | null>(null);
+const CalendarContext = createContext<CalendarContextState | null>(null);
 
 export type CalendarProviderProps<ValueType> = {
     data: MonthData<ValueType>[];

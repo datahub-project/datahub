@@ -35,12 +35,27 @@ class ServiceFeature(Enum):
     PATCH_CAPABLE = "patch_capable"
     CLI_TELEMETRY = "cli_telemetry"
     DATAHUB_CLOUD = "datahub_cloud"
+    # Server can accept semanticModel/metric entities (and their structured-property
+    # entityTypes). Version-gated on managed servers; OSS is recipe-driven, so no
+    # "core" requirement is defined (supports_feature returns False for core).
+    SEMANTIC_MODEL_ENTITIES = "semantic_model_entities"
+    # Server's entity registry has the assertionNote aspect; older servers reject it.
+    ASSERTION_NOTE_ASPECT = "assertion_note_aspect"
     # Add more features as needed
 
 
 _REQUIRED_VERSION_OPENAPI_TRACING = {
     "cloud": (0, 3, 11, 0),
     "core": (1, 0, 1, 0),
+}
+
+_REQUIRED_VERSION_SEMANTIC_MODEL_ENTITIES = {
+    "cloud": (2, 1, 0, 0),
+}
+
+_REQUIRED_VERSION_ASSERTION_NOTE_ASPECT = {
+    "cloud": (1, 0, 0, 0),
+    "core": (1, 7, 0, 1),
 }
 
 
@@ -107,7 +122,7 @@ class RestServiceConfig:
         if version_str is None:
             version_str = self.service_version
 
-        if not version_str:
+        if not version_str or version_str.lower() == "null":
             return (0, 0, 0, 0)
 
         # Remove 'v' prefix if present
@@ -222,18 +237,15 @@ class RestServiceConfig:
         # Special handling for features that rely on config flags
         config_based_features = {
             ServiceFeature.NO_CODE: lambda: self.is_no_code_enabled,
-            ServiceFeature.STATEFUL_INGESTION: lambda: self.raw_config.get(
-                "statefulIngestionCapable", False
-            )
-            is True,
-            ServiceFeature.IMPACT_ANALYSIS: lambda: self.raw_config.get(
-                "supportsImpactAnalysis", False
-            )
-            is True,
-            ServiceFeature.PATCH_CAPABLE: lambda: self.raw_config.get(
-                "patchCapable", False
-            )
-            is True,
+            ServiceFeature.STATEFUL_INGESTION: lambda: (
+                self.raw_config.get("statefulIngestionCapable", False) is True
+            ),
+            ServiceFeature.IMPACT_ANALYSIS: lambda: (
+                self.raw_config.get("supportsImpactAnalysis", False) is True
+            ),
+            ServiceFeature.PATCH_CAPABLE: lambda: (
+                self.raw_config.get("patchCapable", False) is True
+            ),
             ServiceFeature.CLI_TELEMETRY: lambda: (
                 self.raw_config.get("telemetry") or {}
             ).get("enabledCli", None),
@@ -252,6 +264,8 @@ class RestServiceConfig:
         feature_requirements = {
             ServiceFeature.OPEN_API_SDK: _REQUIRED_VERSION_OPENAPI_TRACING,
             ServiceFeature.API_TRACING: _REQUIRED_VERSION_OPENAPI_TRACING,
+            ServiceFeature.SEMANTIC_MODEL_ENTITIES: _REQUIRED_VERSION_SEMANTIC_MODEL_ENTITIES,
+            ServiceFeature.ASSERTION_NOTE_ASPECT: _REQUIRED_VERSION_ASSERTION_NOTE_ASPECT,
             # Additional features can be defined here
         }
 

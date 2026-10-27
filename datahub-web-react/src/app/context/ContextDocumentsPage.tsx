@@ -1,9 +1,9 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Result } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect } from 'react-router-dom';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import { useContextDocumentsPermissions } from '@app/context/useContextDocumentsPermissions';
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
@@ -22,9 +22,8 @@ const ContentCard = styled.div`
     height: 100%;
     width: 100%;
     background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 12px;
+    border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
     box-shadow: ${(props) => props.theme.colors.shadowSm};
-    margin: 4px;
 `;
 
 /**
@@ -37,7 +36,6 @@ const ContentCard = styled.div`
  */
 export default function ContextDocumentsPage() {
     const { t } = useTranslation('misc');
-    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { getRootNodes } = useDocumentTree();
     const { loading: treeLoading } = useLoadDocumentTree();
@@ -108,7 +106,7 @@ export default function ContextDocumentsPage() {
     if (treeLoading) {
         return (
             <ContentCard data-testid="context-documents-loading">
-                <LoadingOutlined style={{ fontSize: 36, color: theme.colors.icon }} />
+                <Loader size="lg" />
             </ContentCard>
         );
     }
@@ -117,7 +115,7 @@ export default function ContextDocumentsPage() {
     if (isCreating) {
         return (
             <ContentCard data-testid="context-documents-creating">
-                <LoadingOutlined style={{ fontSize: 36, color: theme.colors.icon }} />
+                <Loader size="lg" />
             </ContentCard>
         );
     }
@@ -138,7 +136,7 @@ export default function ContextDocumentsPage() {
     // Fallback loading state while redirecting
     return (
         <ContentCard data-testid="context-documents-redirecting">
-            <LoadingOutlined style={{ fontSize: 36, color: theme.colors.icon }} />
+            <Loader size="lg" />
         </ContentCard>
     );
 }

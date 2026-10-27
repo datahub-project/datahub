@@ -6,6 +6,7 @@ import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_VERSIONED_LAG;
 
 import com.linkedin.metadata.throttle.ThrottleMechanismType;
 import com.linkedin.metadata.throttle.ThrottleResponseSource;
+import io.datahubproject.metadata.context.AgentClass;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import java.util.Comparator;
@@ -16,7 +17,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class APIThrottle {
-  private static final Set<String> AGENT_EXEMPTIONS = Set.of("Browser");
+  private static final Set<AgentClass> AGENT_EXEMPTIONS = Set.of(AgentClass.BROWSER);
 
   private APIThrottle() {}
 

@@ -8,9 +8,11 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.metadata.config.ratelimit.CapacityLimitConfig;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
+import com.linkedin.metadata.config.ratelimit.RateLimitRuleType;
 import com.linkedin.metadata.ratelimit.model.RateLimitDecision;
 import com.linkedin.metadata.ratelimit.model.RateLimitSource;
 import com.linkedin.metadata.throttle.ThrottleResponseHeaders;
@@ -127,8 +129,10 @@ public class RateLimitEngineTest {
 
     RateLimitEngine engine =
         new RateLimitEngine(config, "", null, ObjectMapperContext.defaultMapper);
-    RateLimitDecision first = engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe");
-    RateLimitDecision second = engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe");
+    RateLimitDecision first =
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null);
+    RateLimitDecision second =
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null);
 
     assertTrue(first.isAllowed());
     assertFalse(second.isAllowed());
@@ -236,6 +240,224 @@ public class RateLimitEngineTest {
         ((Map<?, ?>) snapshot.get("adaptive"))
             .containsKey(CompiledRateLimitRule.DEFAULT_CAPACITY_ID));
     assertTrue(((Map<?, ?>) snapshot.get("endpoint")).containsKey("auth-signup"));
+  }
+
+  @Test
+  public void testPerActorEndpointBucketIsolatesActors() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    RateLimitProperties config = perActorEndpointConfig(1);
+
+    RateLimitEngine engine =
+        new RateLimitEngine(config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
+
+    String actorA = "urn:li:corpuser:alice";
+    String actorB = "urn:li:corpuser:bob";
+
+    assertTrue(
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", actorA).isAllowed());
+    assertFalse(
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", actorA).isAllowed());
+    assertTrue(
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", actorB).isAllowed());
+  }
+
+  @Test
+  public void testPerActorRuleSkippedWhenActorMissing() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    RateLimitProperties config = perActorEndpointConfig(1);
+
+    RateLimitEngine engine =
+        new RateLimitEngine(config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
+
+    RateLimitDecision first =
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null);
+    RateLimitDecision second =
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null);
+    assertTrue(first.isAllowed());
+    assertTrue(second.isAllowed());
+    engine.release(engine.toLease(first), true);
+    engine.release(engine.toLease(second), true);
+  }
+
+  @Test
+  public void testPerActorSkippedStillEnforcesAdaptiveCapacity() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    RateLimitProperties config = perActorEndpointConfig(100);
+    config.getCapacity().getDefaultCapacity().setInitialLimit(1);
+    config.getCapacity().getDefaultCapacity().setMaxLimit(1);
+
+    RateLimitEngine engine =
+        new RateLimitEngine(config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
+
+    RateLimitDecision first =
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null);
+    RateLimitDecision second =
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null);
+
+    assertTrue(first.isAllowed());
+    assertFalse(second.isAllowed());
+    assertEquals(second.getDenyingType(), RateLimitRuleType.capacity);
+    engine.release(engine.toLease(first), true);
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testPerActorRejectedOnCapacityRule() {
+    RateLimitProperties config = capacityOnlyConfig();
+    config
+        .getCapacity()
+        .setRules(
+            List.of(
+                RateLimitProperties.Rule.builder()
+                    .id("graphql-per-actor-capacity")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .perActor(true)
+                    .initialLimit(10)
+                    .maxLimit(100)
+                    .build()));
+
+    new RateLimitEngine(config, "", null, ObjectMapperContext.defaultMapper);
+  }
+
+  @Test
+  public void testDisabledRuleDoesNotFireEvenWhenMatching() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    RateLimitProperties config = perActorEndpointConfig(1);
+    // Disable the per-actor rule via the per-rule kill-switch
+    config.getEndpoint().getRules().get(0).setEnabled(false);
+
+    RateLimitEngine engine =
+        new RateLimitEngine(config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
+
+    String actor = "urn:li:corpuser:alice";
+    // Rule disabled → no endpoint consume → all requests allowed despite capacity=1
+    assertTrue(
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", actor).isAllowed());
+    assertTrue(
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", actor).isAllowed());
+    assertTrue(
+        engine.evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", actor).isAllowed());
+  }
+
+  @Test
+  public void testClientClassRoutesToSeparateBucketsWhenEnabled() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    RateLimitProperties config = endpointEnabledConfig();
+    config.setClientClassEnabled(true);
+    config.setRetryAfterJitterPercent(0);
+    config
+        .getEndpoint()
+        .setRules(
+            List.of(
+                RateLimitProperties.Rule.builder()
+                    .id("gql-browser")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .clientTypes(List.of("browser"))
+                    .capacity(5)
+                    .refillTokens(5)
+                    .refillPeriodSeconds(60)
+                    .build(),
+                RateLimitProperties.Rule.builder()
+                    .id("gql-non-browser")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .clientTypes(List.of("non_browser"))
+                    .capacity(1)
+                    .refillTokens(1)
+                    .refillPeriodSeconds(60)
+                    .build()));
+
+    RateLimitEngine engine =
+        new RateLimitEngine(config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
+
+    // Non-browser exhausts its capacity-1 bucket on the second call.
+    assertTrue(
+        engine
+            .evaluateAndAcquireGraphQL(
+                "/api/graphql", "POST", "getMe", null, ClientClass.NON_BROWSER)
+            .isAllowed());
+    RateLimitDecision nonBrowserDenied =
+        engine.evaluateAndAcquireGraphQL(
+            "/api/graphql", "POST", "getMe", null, ClientClass.NON_BROWSER);
+    assertFalse(nonBrowserDenied.isAllowed());
+    assertEquals(nonBrowserDenied.getDenyingRuleId(), "gql-non-browser");
+
+    // Browser uses a separate bucket (capacity 5) and is unaffected.
+    assertTrue(
+        engine
+            .evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null, ClientClass.BROWSER)
+            .isAllowed());
+  }
+
+  @Test
+  public void testClientClassIgnoredWhenDisabled() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+    RateLimitProperties config = endpointEnabledConfig();
+    // clientClassEnabled defaults to false.
+    config.setRetryAfterJitterPercent(0);
+    config
+        .getEndpoint()
+        .setRules(
+            List.of(
+                RateLimitProperties.Rule.builder()
+                    .id("gql-non-browser")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .clientTypes(List.of("non_browser"))
+                    .capacity(1)
+                    .refillTokens(1)
+                    .refillPeriodSeconds(60)
+                    .build()));
+
+    RateLimitEngine engine =
+        new RateLimitEngine(config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
+
+    // Flag off → class is ignored → a browser request is still subject to the non_browser rule.
+    assertTrue(
+        engine
+            .evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null, ClientClass.BROWSER)
+            .isAllowed());
+    assertFalse(
+        engine
+            .evaluateAndAcquireGraphQL("/api/graphql", "POST", "getMe", null, ClientClass.BROWSER)
+            .isAllowed());
+  }
+
+  @Test
+  public void testRedactedConfigOmitsInternalIdentifiers() {
+    RateLimitProperties config = capacityOnlyConfig();
+    config.setTenantId("acme");
+    config.getEndpoint().setHazelcastMapName("secret-map-name");
+    RateLimitEngine engine =
+        new RateLimitEngine(config, "", null, ObjectMapperContext.defaultMapper);
+
+    JsonNode redacted = engine.getRedactedConfig();
+    assertFalse(redacted.has("tenantId"), "tenantId must be redacted from /config");
+    assertFalse(
+        redacted.get("endpoint").has("hazelcastMapName"),
+        "endpoint.hazelcastMapName must be redacted from /config");
+    // Non-sensitive config is still present.
+    assertTrue(redacted.get("capacity").get("enabled").asBoolean());
+  }
+
+  private RateLimitProperties perActorEndpointConfig(int capacity) {
+    RateLimitProperties config = endpointEnabledConfig();
+    config.setRetryAfterJitterPercent(0);
+    config
+        .getEndpoint()
+        .setRules(
+            List.of(
+                RateLimitProperties.Rule.builder()
+                    .id("graphql-per-actor")
+                    .pathPattern("/api/graphql")
+                    .methods(List.of("POST"))
+                    .perActor(true)
+                    .capacity(capacity)
+                    .refillTokens(capacity)
+                    .refillPeriodSeconds(60)
+                    .build()));
+    return config;
   }
 
   private RateLimitProperties capacityOnlyConfig() {

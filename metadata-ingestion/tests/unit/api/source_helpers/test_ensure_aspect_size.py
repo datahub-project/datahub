@@ -1,48 +1,67 @@
 import json
 import time
+import unittest
+from typing import Callable, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
 
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
+from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.api.incremental_lineage_helper import (
+    convert_upstream_lineage_to_patch,
+)
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
 from datahub.ingestion.workunit_processors.ensure_aspect_size import (
+    QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES,
     EnsureAspectSizeProcessor,
     EnsureAspectSizeProcessorReport,
+    _largest_fitting_prefix,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BinaryJsonSchemaClass,
     ChangeTypeClass,
     DatasetFieldProfileClass,
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetSnapshotClass,
+    EspressoSchemaClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GenericAspectClass,
     KafkaSchemaClass,
+    KeyValueSchemaClass,
     MetadataChangeProposalClass,
+    MySqlDDLClass,
     NumberTypeClass,
+    OracleDDLClass,
+    OrcSchemaClass,
     OtherSchemaClass,
+    PrestoDDLClass,
     QueryLanguageClass,
     QueryPropertiesClass,
     QuerySourceClass,
     QueryStatementClass,
     QuerySubjectClass,
     QuerySubjectsClass,
+    RecordTypeClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
+    SchemalessClass,
     SchemaMetadataClass,
     StatusClass,
     StringTypeClass,
     SubTypesClass,
+    SystemMetadataClass,
     UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
@@ -103,6 +122,58 @@ def too_big_schema_metadata() -> SchemaMetadataClass:
     )
     return SchemaMetadataClass(
         schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(rawSchema="aaa"),
+        fields=fields,
+    )
+
+
+def nested_schema_metadata() -> SchemaMetadataClass:
+    fields = [
+        # ---- level 4: array of structs with a leaf inside ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=array].[type=struct].items.[type=struct].meta.[type=string].array_leaf",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        # ---- level 2: a struct field and its child ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct",
+            nativeDataType="struct",
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct.[type=string].child_string",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        # ---- level 1: flat top-level fields ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=string].flat_string",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=int].flat_int",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+        # ---- level 3: struct -> struct -> leaf ----
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct.[type=struct].level2_struct",
+            nativeDataType="struct",
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct.[type=struct].level2_struct.[type=int].deep_int",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+    ]
+    return SchemaMetadataClass(
+        schemaName="nested_example",
         version=1,
         platform="s3",
         hash="ABCDE1234567890",
@@ -378,7 +449,7 @@ def test_ensure_size_of_proper_dataset_profile(processor):
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
-def test_ensure_size_of_too_big_schema_metadata(processor):
+def test_schema_metadata_trims_fields_when_fields_are_too_large(processor):
     schema = too_big_schema_metadata()
     assert len(schema.fields) == 1004
 
@@ -386,17 +457,51 @@ def test_ensure_size_of_too_big_schema_metadata(processor):
         "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
     )
     assert len(schema.fields) < 1004, "Schema has not been properly truncated"
-    assert schema.fields[-1].fieldPath == "dddd", "Small field was not added at the end"
-    # The truncated aspect must fit within the budget. The budget now accounts
-    # for the full serialized aspect (not just the fields list), so the result
-    # is bounded by the payload constraint rather than an arbitrary slop.
     assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size"
     )
 
+    # Field trimming should emit a single per-entity warning reporting the dropped
+    # count, not one warning per dropped field.
+    field_drop_warnings = [
+        w
+        for w in processor.ctx.source_report.warnings
+        if "some fields were dropped" in w.message
+    ]
+    assert len(field_drop_warnings) == 1
+    assert len(field_drop_warnings[0].context) == 1
+    assert "fields from schema" in field_drop_warnings[0].context[0]
+
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
-def test_ensure_size_of_proper_schema_metadata(processor):
+def test_schema_metadata_trims_deep_fields_first(processor):
+    processor.schema_size_constraint = 1000
+    schema = nested_schema_metadata()
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+    expected_fields = [
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=struct].level1_struct",
+            nativeDataType="struct",
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=string].flat_string",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        SchemaFieldClass(
+            fieldPath="[version=2.0].[type=struct].[type=int].flat_int",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+    ]
+    unittest.TestCase().assertCountEqual(schema.fields, expected_fields)
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_schema_metadata_no_op_when_fits_within_budget(processor):
     schema = proper_schema_metadata()
     orig_repr = json.dumps(schema.to_obj())
     processor.ensure_schema_metadata_size(
@@ -408,12 +513,13 @@ def test_ensure_size_of_proper_schema_metadata(processor):
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
-def test_ensure_schema_metadata_budget_accounts_for_raw_schema(processor):
-    # rawSchema takes ~half the budget; the field budget must shrink to
-    # compensate so the total aspect — raw schema included — stays within the
-    # limit. Previously only the fields were counted, so the aspect could
-    # still exceed the limit after truncation.
-    raw_schema_size = processor.schema_size_constraint // 2
+def test_ensure_schema_metadata_drops_raw_schema_before_trimming_fields(processor):
+    # Mixed case: neither the raw schema (~9 MB) nor the fields (~9 MB) is
+    # individually over the budget, but together they exceed it. Per the
+    # "fields > raw platform schema" priority, the raw schema is dropped first
+    # and ALL fields are retained — rather than keeping the raw schema and
+    # trimming columns to make room for it.
+    raw_schema_size = int(processor.schema_size_constraint * 0.6)
     fields = [
         SchemaFieldClass(
             fieldPath=f"t{i}",
@@ -421,7 +527,7 @@ def test_ensure_schema_metadata_budget_accounts_for_raw_schema(processor):
             type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
             description=20000 * "a",
         )
-        for i in range(1000)
+        for i in range(450)
     ]
     schema = SchemaMetadataClass(
         schemaName="abcdef",
@@ -437,12 +543,13 @@ def test_ensure_schema_metadata_budget_accounts_for_raw_schema(processor):
     )
 
     assert isinstance(schema.platformSchema, OtherSchemaClass)
-    assert schema.platformSchema.rawSchema == "a" * raw_schema_size, (
-        "Raw schema that fits within budget should be retained"
+    assert schema.platformSchema.rawSchema == "", (
+        "Raw schema should be dropped before any field is trimmed"
     )
-    assert len(schema.fields) < 1000, (
-        "Fields should have been trimmed to fit the budget"
+    assert len(schema.fields) == 450, (
+        "All fields should be retained once the raw schema is dropped"
     )
+    assert processor.report.num_platform_schema_drops == 1
     assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
         "Aspect exceeded acceptable size despite truncation"
     )
@@ -506,7 +613,8 @@ def test_ensure_schema_metadata_drops_oversized_non_other_platform_schema(proces
         platform="kafka",
         hash="ABCDE1234567890",
         platformSchema=KafkaSchemaClass(
-            documentSchema="a" * (processor.schema_size_constraint + 100000)
+            documentSchema="a" * (processor.schema_size_constraint + 100000),
+            documentSchemaType="AVRO",
         ),
         fields=fields,
     )
@@ -519,6 +627,9 @@ def test_ensure_schema_metadata_drops_oversized_non_other_platform_schema(proces
     assert schema.platformSchema.documentSchema == "", (
         "Oversized platform schema was not dropped"
     )
+    assert schema.platformSchema.documentSchemaType == "AVRO", (
+        "Type marker must be preserved — only the schema blob should be blanked"
+    )
     assert len(schema.fields) == 5, (
         "Fields should be retained once the oversized platform schema is dropped"
     )
@@ -526,6 +637,106 @@ def test_ensure_schema_metadata_drops_oversized_non_other_platform_schema(proces
         "Aspect exceeded acceptable size"
     )
     assert processor.report.num_platform_schema_drops == 1
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_schema_metadata_drops_raw_schema_then_trims_fields(processor):
+    # Cascade: a meaningful raw schema (~40% of budget) AND fields that are too
+    # large even on their own. The raw schema must be dropped FIRST, then fields
+    # trimmed — proving the order (a regression that trimmed fields first and
+    # dropped the schema second would leave a different result).
+    raw_schema_size = int(processor.schema_size_constraint * 0.4)
+    fields = [
+        SchemaFieldClass(
+            fieldPath=f"t{i}",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+            description=20000 * "a",
+        )
+        for i in range(1000)
+    ]
+    schema = SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(rawSchema="a" * raw_schema_size),
+        fields=fields,
+    )
+
+    processor.ensure_schema_metadata_size(
+        "urn:li:dataset:(s3, dummy_dataset, DEV)", schema
+    )
+
+    assert isinstance(schema.platformSchema, OtherSchemaClass)
+    assert schema.platformSchema.rawSchema == "", "Raw schema should be dropped first"
+    assert processor.report.num_platform_schema_drops == 1
+    assert len(schema.fields) < 1000, "Fields should also be trimmed after the drop"
+    assert len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES, (
+        "Aspect exceeded acceptable size"
+    )
+
+
+def test_drop_platform_schema_handles_every_union_variant(processor):
+    # Pull the live union members of SchemaMetadata.platformSchema from the
+    # generated model. When a new variant is added to the schema, this test fails
+    # with a clear message — preventing a silent "Unrecognized variant" warning +
+    # retained oversized blob in production. The constructor map lives here (not in
+    # src/) on purpose: a new variant should force both a dispatcher branch AND a
+    # behavioral check that the branch actually clears something.
+    constructors: Dict[str, Callable[[], object]] = {
+        "OtherSchema": lambda: OtherSchemaClass(rawSchema="x" * 100),
+        "PrestoDDL": lambda: PrestoDDLClass(rawSchema="x" * 100),
+        "MySqlDDL": lambda: MySqlDDLClass(tableSchema="x" * 100),
+        "OracleDDL": lambda: OracleDDLClass(tableSchema="x" * 100),
+        "OrcSchema": lambda: OrcSchemaClass(schema="x" * 100),
+        "BinaryJsonSchema": lambda: BinaryJsonSchemaClass(schema="x" * 100),
+        "KafkaSchema": lambda: KafkaSchemaClass(documentSchema="x" * 100),
+        "EspressoSchema": lambda: EspressoSchemaClass(
+            documentSchema="x" * 100, tableSchema="x" * 100
+        ),
+        "KeyValueSchema": lambda: KeyValueSchemaClass(
+            keySchema="x" * 100, valueSchema="x" * 100
+        ),
+        "Schemaless": lambda: SchemalessClass(),
+    }
+
+    model_union_members = {
+        s.name
+        for s in SchemaMetadataClass.RECORD_SCHEMA.fields_dict[  # type: ignore[attr-defined]
+            "platformSchema"
+        ].type.schemas
+    }
+    test_covers = set(constructors.keys())
+
+    missing_in_test = model_union_members - test_covers
+    extra_in_test = test_covers - model_union_members
+    assert not missing_in_test, (
+        f"New platformSchema variant(s) in the model are not exercised here: "
+        f"{missing_in_test}. Add a constructor above AND a branch in "
+        f"_drop_platform_schema."
+    )
+    assert not extra_in_test, (
+        f"Test references variants no longer in the model: {extra_in_test}"
+    )
+
+    for name, make in constructors.items():
+        schema = SchemaMetadataClass(
+            schemaName="t",
+            version=1,
+            platform="p",
+            hash="h",
+            platformSchema=make(),  # type: ignore[arg-type]
+            fields=[],
+        )
+        cleared = processor._drop_platform_schema(schema)
+        if name == "Schemaless":
+            assert not cleared, "Schemaless carries no content to clear"
+        else:
+            assert cleared, (
+                f"_drop_platform_schema returned False for {name}; the dispatcher "
+                f"likely has no branch for it"
+            )
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
@@ -874,6 +1085,39 @@ def test_ensure_size_of_proper_query_properties(processor):
     assert len(processor.ctx.source_report.warnings) == 0
 
 
+def test_largest_fitting_prefix_returns_maximal_boundary():
+    # Predicate "prefix length <= budget" is monotonic; the helper must return
+    # exactly the budget, not budget-1 (stops short) or budget+1 (overshoots).
+    def at_most(bound: int) -> Callable[[int], bool]:
+        return lambda n: n <= bound
+
+    text = "x" * 100
+    for budget in (0, 1, 37, 99, 100):
+        assert _largest_fitting_prefix(text, at_most(budget)) == budget
+
+
+def test_largest_fitting_prefix_caps_at_text_length():
+    # If everything fits, the answer is the full length (never longer).
+    text = "abc"
+    assert _largest_fitting_prefix(text, lambda n: True) == len(text)
+
+
+def test_largest_fitting_prefix_returns_zero_when_nothing_fits():
+    assert _largest_fitting_prefix("abc", lambda n: False) == 0
+
+
+def test_largest_fitting_prefix_accounts_for_variable_byte_cost():
+    # Astral characters cost far more JSON bytes than raw chars (e.g. an emoji
+    # encodes to a \uXXXX\uXXXX surrogate pair). A byte-budget predicate must
+    # yield fewer retained chars than a naive char-count would suggest.
+    text = "\U0001f600" * 50  # each is 12 JSON bytes ("\ud83d\ude00")
+    byte_budget = 120  # room for exactly 10 chars
+    retained = _largest_fitting_prefix(
+        text, lambda n: len(json.dumps(text[:n])) - len(json.dumps("")) <= byte_budget
+    )
+    assert retained == 10
+
+
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
 def test_ensure_size_of_too_big_query_properties(processor):
     query_properties = too_big_query_properties()
@@ -909,6 +1153,107 @@ def test_ensure_size_of_too_big_query_properties(processor):
 
     # Should have logged a warning
     assert len(processor.ctx.source_report.warnings) == 1
+
+
+@time_machine.travel("2023-01-02 00:00:00", tick=False)
+def test_ensure_query_properties_truncates_heavily_escaped_statement(processor):
+    # Regression for the unit-mismatch bug: chars that inflate under JSON encoding
+    # (\n -> 2 bytes) used to defeat the guard, which compared raw chars against
+    # a byte target; the guard then emitted an oversized aspect and GMS 400'd.
+    statement = "\n" * (6 * 1024 * 1024)
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(value=statement, language=QueryLanguageClass.SQL),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+    )
+    # The aspect really is oversized before the guard runs.
+    assert (
+        len(json.dumps(query_properties.to_obj()))
+        > QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES
+    )
+
+    processor.ensure_query_properties_size(
+        "urn:li:query:heavy_escape", query_properties
+    )
+
+    final_size = len(json.dumps(query_properties.to_obj()))
+    assert final_size < QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES, (
+        "Guard must trim heavily-escaped statements so the aspect fits under the limit"
+    )
+    assert "... [original value was" in query_properties.statement.value
+    assert len(processor.ctx.source_report.warnings) == 1
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+    # Tightness: the retained prefix must be maximal. The final aspect is under
+    # the limit, but appending one more encoded char (a newline is 2 JSON bytes)
+    # must tip it over — otherwise the search stopped short.
+    assert (
+        final_size + len(json.dumps("\n")) - len(json.dumps(""))
+        >= QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES
+    )
+
+
+def test_ensure_query_properties_drops_fields_when_overhead_exceeds_limit(
+    processor_ctx,
+):
+    # When non-statement fields (name/description) alone push the aspect over the
+    # limit, trimming the statement can't make it fit, so those fields are shed
+    # as a last resort rather than emitting an oversized aspect.
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    # Force a tiny budget so a modest description overflows it.
+    processor.payload_constraint = 2000
+
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(
+            value="SELECT 1", language=QueryLanguageClass.SQL
+        ),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        name="my query",
+        description="d" * 5000,
+    )
+
+    processor.ensure_query_properties_size("urn:li:query:overhead", query_properties)
+
+    assert query_properties.description is None
+    assert len(json.dumps(query_properties.to_obj())) < processor.payload_constraint
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 1
+
+
+def test_ensure_query_properties_reports_when_untruncatable(processor_ctx):
+    # A field other than statement/name/description (here customProperties) can
+    # dominate the budget. Dropping name/description then doesn't make the aspect
+    # fit, so we must NOT claim a successful truncation — instead surface a
+    # distinct warning so the (likely GMS 400) failure is visible, not silent.
+    processor = EnsureAspectSizeProcessor.create(processor_ctx)
+    processor.payload_constraint = 2000
+
+    query_properties = QueryPropertiesClass(
+        statement=QueryStatementClass(
+            value="SELECT 1", language=QueryLanguageClass.SQL
+        ),
+        source=QuerySourceClass.SYSTEM,
+        created=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        lastModified=AuditStampClass(time=1000000000000, actor="urn:li:corpuser:test"),
+        name="my query",
+        description="short",
+        customProperties={"blob": "x" * 5000},
+    )
+
+    processor.ensure_query_properties_size("urn:li:query:stuck", query_properties)
+
+    # Not recorded as a successful truncation.
+    assert processor.report.num_truncations_by_aspect.get("queryProperties", 0) == 0
+    assert len(processor.ctx.source_report.warnings) == 1
+    warning = next(iter(processor.ctx.source_report.warnings))
+    assert warning.title is not None
+    assert "could not be truncated" in warning.title.lower()
+    # context carries structured key=value pairs (not prose sentences).
+    context = next(iter(warning.context))
+    assert "entity_urn=urn:li:query:stuck" in context
+    assert "serialized_size=" in context
+    assert "budget=2000" in context
 
 
 @time_machine.travel("2023-01-02 00:00:00", tick=False)
@@ -1088,6 +1433,33 @@ def test_ensure_size_of_view_properties_viewlogic_only(processor):
     assert final_size < INGEST_MAX_PAYLOAD_BYTES
 
 
+def test_ensure_view_properties_truncates_heavily_escaped_logic(processor):
+    # Same regression class as the queryProperties escape test: raw-vs-byte
+    # size math used to leave viewLogic aspects oversized.
+    view_properties = ViewPropertiesClass(
+        materialized=False,
+        viewLogic="\n" * (INGEST_MAX_PAYLOAD_BYTES),
+        viewLanguage="SQL",
+    )
+    assert len(json.dumps(view_properties.to_obj())) > INGEST_MAX_PAYLOAD_BYTES
+
+    processor.ensure_view_properties_size(
+        "urn:li:dataset:(urn:li:dataPlatform:dbt, escaped_model, PROD)",
+        view_properties,
+    )
+
+    final_size = len(json.dumps(view_properties.to_obj()))
+    assert final_size < INGEST_MAX_PAYLOAD_BYTES, (
+        "Guard must trim heavily-escaped viewLogic so the aspect fits under the limit"
+    )
+    assert view_properties.viewLogic is not None
+    assert (
+        "truncated from" in view_properties.viewLogic
+        or "removed due to size" in view_properties.viewLogic
+    )
+    assert processor.report.num_truncations_by_aspect.get("viewProperties", 0) == 1
+
+
 @patch(
     "datahub.ingestion.workunit_processors.ensure_aspect_size.EnsureAspectSizeProcessor.ensure_schema_metadata_size"
 )
@@ -1229,3 +1601,178 @@ class TestEnsureAspectSizeProcessorReport:
         assert proc.report.num_truncations_by_aspect.get("schemaMetadata", 0) == 1
         assert proc.report.num_truncations_by_aspect.get("querySubjects", 0) == 1
         assert proc.report.num_truncations_by_aspect.get("upstreamLineage", 0) == 0
+
+
+def upstream_lineage_patch_workunit(
+    num_columns: int, num_upstreams: int = 1
+) -> MetadataWorkUnit:
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.downstream,PROD)"
+    upstreams = [
+        f"urn:li:dataset:(urn:li:dataPlatform:hive,db.upstream_{j},PROD)"
+        for j in range(num_upstreams)
+    ]
+    # Reverse path order, so the kept subset shows the trimmer sorts by path.
+    lineage = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+            for upstream in reversed(upstreams)
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[make_schema_field_urn(upstreams[0], f"col_{i}")],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, f"col_{i}")],
+            )
+            for i in reversed(range(num_columns))
+        ],
+    )
+    return convert_upstream_lineage_to_patch(
+        downstream,
+        lineage,
+        SystemMetadataClass(lastObserved=1700000000000, runId="test-run"),
+    )
+
+
+def patch_operations(wu: MetadataWorkUnit) -> list:
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    return json.loads(wu.metadata.aspect.value)
+
+
+def by_path(operations: list) -> list:
+    return sorted(operations, key=lambda op: op["path"])
+
+
+def test_oversized_upstream_lineage_patch_is_truncated(processor):
+    processor.payload_constraint = 1_000_000
+    processor.schema_size_constraint = int(processor.payload_constraint * 0.985)
+    wu = upstream_lineage_patch_workunit(num_columns=5000)
+    operations = patch_operations(wu)
+    assert len(json.dumps(operations)) > processor.payload_constraint
+
+    (result,) = processor.process([wu])
+
+    kept = patch_operations(result)
+    assert 1 < len(kept) < len(operations)
+    assert kept[0] == operations[0]
+    assert kept[1:] == by_path(operations[1:])[: len(kept) - 1]
+    assert (
+        len(json.dumps(pre_json_transform(result.metadata.to_obj())))
+        <= processor.payload_constraint
+    )
+    assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+    assert processor.ctx.source_report.warnings
+
+
+def test_upstream_lineage_patch_keeps_upstreams_first_in_path_order(processor):
+    wu = upstream_lineage_patch_workunit(num_columns=10, num_upstreams=5)
+    operations = patch_operations(wu)
+    upstream_ops = by_path(operations[:5])
+    processor.schema_size_constraint = (
+        sum(len(json.dumps(json.dumps(op))) for op in upstream_ops[:3]) + 1
+    )
+
+    (result,) = processor.process([wu])
+
+    assert patch_operations(result) == upstream_ops[:3]
+    warnings = " ".join(str(w) for w in processor.ctx.source_report.warnings)
+    assert "Skipped 2 upstream datasets" in warnings
+    assert "Skipped 10 field-set-level fine-grained lineages" in warnings
+
+
+def test_upstream_lineage_patch_truncated_when_only_escaped_size_exceeds(processor):
+    wu = upstream_lineage_patch_workunit(num_columns=100)
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert isinstance(wu.metadata.aspect, GenericAspectClass)
+    raw_value = wu.metadata.aspect.value
+    processor.schema_size_constraint = len(raw_value) + 1
+    assert len(json.dumps(raw_value.decode())) >= processor.schema_size_constraint
+
+    (result,) = processor.process([wu])
+
+    assert len(patch_operations(result)) < len(json.loads(raw_value))
+    assert processor.report.num_truncations_by_aspect == {"upstreamLineage": 1}
+
+
+def test_upstream_lineage_patch_keeps_dataset_level_before_field_set_level(processor):
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.downstream,PROD)"
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:hive,db.upstream,PROD)"
+    # The field-set edge sorts first by path, so only the type priority keeps the
+    # dataset-level edge.
+    lineage = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(dataset=upstream, type=DatasetLineageTypeClass.TRANSFORMED)
+        ],
+        fineGrainedLineages=[
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[make_schema_field_urn(upstream, "col_a")],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, "col_a")],
+            ),
+            FineGrainedLineageClass(
+                upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
+                upstreams=[upstream],
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[make_schema_field_urn(downstream, "col_b")],
+            ),
+        ],
+    )
+    wu = convert_upstream_lineage_to_patch(
+        downstream,
+        lineage,
+        SystemMetadataClass(lastObserved=1700000000000, runId="test-run"),
+    )
+    upstream_op, field_set_op, dataset_op = sorted(
+        patch_operations(wu), key=lambda op: op["path"].startswith("/fine")
+    )
+    assert field_set_op["path"] < dataset_op["path"]
+    processor.schema_size_constraint = (
+        sum(len(json.dumps(json.dumps(op))) for op in (upstream_op, dataset_op)) + 1
+    )
+
+    (result,) = processor.process([wu])
+
+    assert patch_operations(result) == [upstream_op, dataset_op]
+    warnings = " ".join(str(w) for w in processor.ctx.source_report.warnings)
+    assert "Skipped 1 field-set-level fine-grained lineages" in warnings
+
+
+def with_first_operation(
+    wu: MetadataWorkUnit, op: str, path: Optional[str] = None
+) -> MetadataWorkUnit:
+    assert isinstance(wu.metadata, MetadataChangeProposalClass)
+    assert wu.metadata.aspect is not None
+    operations = patch_operations(wu)
+    operations[0]["op"] = op
+    if path is not None:
+        operations[0]["path"] = path
+    wu.metadata.aspect.value = json.dumps(operations).encode()
+    return wu
+
+
+def test_upstream_lineage_patch_left_unchanged_when_fits_or_not_trimmable(processor):
+    fitting = upstream_lineage_patch_workunit(num_columns=3)
+    with_remove = with_first_operation(
+        upstream_lineage_patch_workunit(num_columns=100), "remove"
+    )
+    with_replace = with_first_operation(
+        upstream_lineage_patch_workunit(num_columns=100), "add", "/fineGrainedLineages"
+    )
+    with_non_dict = upstream_lineage_patch_workunit(num_columns=100)
+    assert isinstance(with_non_dict.metadata, MetadataChangeProposalClass)
+    assert with_non_dict.metadata.aspect is not None
+    with_non_dict.metadata.aspect.value = json.dumps(
+        ["not-an-operation", *patch_operations(with_non_dict)]
+    ).encode()
+    processor.schema_size_constraint = (
+        len(json.dumps(patch_operations(with_remove))) // 2
+    )
+    workunits = [fitting, with_remove, with_replace, with_non_dict]
+    original = [patch_operations(wu) for wu in workunits]
+
+    results = list(processor.process(workunits))
+
+    assert [patch_operations(wu) for wu in results] == original
+    assert not processor.report.num_truncations_by_aspect

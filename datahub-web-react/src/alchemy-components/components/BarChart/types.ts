@@ -29,7 +29,7 @@ export type GridProps = Omit<VisxGridProps, 'numTicks'> & {
     computeNumTicks?: (width: number, height: number, margin: Margin, data: BaseDatum[]) => number | undefined;
 };
 
-export type ValueAccessor = (datum: BaseDatum) => number;
+type ValueAccessor = (datum: BaseDatum) => number;
 export type YAccessor = ValueAccessor;
 export type XAccessor = ValueAccessor;
 

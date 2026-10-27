@@ -1,4 +1,4 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,9 +17,10 @@ import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/uti
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { TabContextType } from '@app/entityV2/shared/types';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
-import CompactContext from '@app/shared/CompactContext';
-import { EntityHead } from '@app/shared/EntityHead';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
+import { DiscardUnsavedChangesConfirmationProvider } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 
 import { EntityType, PageTemplateSurfaceType } from '@types';
 
@@ -57,7 +58,11 @@ const ContentCard = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
-    box-shadow: ${(props) => props.theme.colors.shadowMd};
+    /* shadowSm matches what other entity-profile cards use (glossary, domain).
+       shadowMd has a 24px blur that gets clipped by the parent's
+       overflow:hidden + 4-8px padding, producing visible "shadow stripes" on
+       the top/right edges of the document card. */
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     height: 100%;
     overflow: hidden;
 `;
@@ -65,6 +70,9 @@ const ContentCard = styled.div`
 const MainContent = styled.div`
     flex: 1;
     overflow-y: auto;
+    /* Always reserve space for the scrollbar so content doesn't shift when it appears/disappears
+       (e.g. when expanding a section makes the page taller). */
+    scrollbar-gutter: stable;
     padding: 0 20px 20px 20px;
 `;
 
@@ -208,11 +216,14 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                                 <ContentCard>
                                     {loading ? (
                                         <LoadingWrapper>
-                                            <LoadingOutlined />
+                                            <Loader size="sm" />
                                         </LoadingWrapper>
                                     ) : (
                                         <MainContent>
-                                            <DocumentSummaryTab />
+                                            {/* Prompts before navigating away with unsaved explicit-save body edits */}
+                                            <DiscardUnsavedChangesConfirmationProvider>
+                                                <DocumentSummaryTab />
+                                            </DiscardUnsavedChangesConfirmationProvider>
                                         </MainContent>
                                     )}
                                 </ContentCard>

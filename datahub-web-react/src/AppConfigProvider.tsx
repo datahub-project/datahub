@@ -6,6 +6,7 @@ import { SERVER_VERSION_KEY, THIRD_PARTY_LOGGING_KEY } from '@app/analytics/anal
 import UpdateGlobalFlags from '@app/appConfig/UpdateGlobalFlags';
 import { checkAuthStatus } from '@app/auth/checkAuthStatus';
 import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+import { initOtel } from '@src/otel';
 
 import { useAppConfigQuery } from '@graphql/app.generated';
 
@@ -41,6 +42,13 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
             if (appConfigData.appConfig.appVersion) {
                 localStorage.setItem(SERVER_VERSION_KEY, appConfigData.appConfig.appVersion);
             }
+            // Start browser (RUM) OpenTelemetry tracing when the feature flag is on. No-op otherwise.
+            initOtel({
+                enabled: !!appConfigData.appConfig.featureFlags.browserTracingEnabled,
+                webVitalsEnabled: !!appConfigData.appConfig.featureFlags.browserWebVitalsEnabled,
+                serviceName: 'datahub-frontend-browser',
+                serviceVersion: appConfigData.appConfig.appVersion ?? undefined,
+            });
             changeFavicon(appConfigData.appConfig.visualConfig.faviconUrl);
 
             // Expose feature flags to window object for debugging and external access

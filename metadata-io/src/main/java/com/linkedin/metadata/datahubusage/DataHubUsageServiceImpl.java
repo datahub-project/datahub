@@ -2,12 +2,16 @@ package com.linkedin.metadata.datahubusage;
 
 import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.datahubusage.event.EventSource;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer.CanonicalNow;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -44,8 +48,9 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
   }
 
   @Override
-  public String getUsageIndexName() {
-    return indexConvention.getIndexName(DATAHUB_USAGE_EVENT_INDEX);
+  public String getUsageIndexName(@Nonnull OperationContext opContext) {
+    return indexConvention.getIndexName(
+        opContext, SearchComponent.USAGE, DATAHUB_USAGE_EVENT_INDEX);
   }
 
   /** Searches the DataHub Usage index for backend tracing events */
@@ -56,6 +61,7 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     BoolQueryBuilder filterQuery = QueryBuilders.boolQuery();
     filterQuery.filter(
         dateRangeQuery(
+            opContext,
             externalAuditEventsSearchRequest.getStartTime(),
             externalAuditEventsSearchRequest.getEndTime()));
     if (CollectionUtils.isNotEmpty(externalAuditEventsSearchRequest.getEventTypes())) {
@@ -72,7 +78,7 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     }
     filterQuery.filter(getBackendOnlyEvents());
 
-    SearchRequest searchRequest = new SearchRequest(getUsageIndexName());
+    SearchRequest searchRequest = new SearchRequest(getUsageIndexName(opContext));
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(externalAuditEventsSearchRequest.getSize());
     searchSourceBuilder.query(filterQuery);
@@ -92,7 +98,7 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     }
 
     searchRequest.source(searchSourceBuilder);
-    SearchResponse response = executeAndExtractDocuments(searchRequest);
+    SearchResponse response = executeAndExtractDocuments(opContext, searchRequest);
     return mapExternalAuditEventsSearchResponse(
         opContext, response, externalAuditEventsSearchRequest);
   }
@@ -175,21 +181,34 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     return opContext.getObjectMapper().convertValue(usageEventResult, UsageEventResult.class);
   }
 
-  private SearchResponse executeAndExtractDocuments(SearchRequest searchRequest) {
+  private SearchResponse executeAndExtractDocuments(
+      OperationContext opContext, SearchRequest searchRequest) {
     try {
-      return elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      return SearchTookMetrics.time(
+          opContext,
+          SearchOperation.DATAHUB_USAGE,
+          () -> elasticClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
     } catch (Exception e) {
       log.error(String.format("Search query failed: %s", e.getMessage()));
       throw new RuntimeException("Search query failed:", e);
     }
   }
 
-  private QueryBuilder dateRangeQuery(long start, long end) {
-    if (start < 0) {
-      start = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
-    }
-    if (end <= 0) {
-      end = Instant.now().toEpochMilli();
+  /**
+   * Builds the event time window. Caller-supplied bounds are used verbatim; only the defaults,
+   * which this service derives from the wall clock, are canonicalized. The clock is read once, and
+   * only when a default is actually needed, so a fully-specified request neither reads it nor
+   * records a canonicalization.
+   */
+  private QueryBuilder dateRangeQuery(@Nonnull OperationContext opContext, long start, long end) {
+    if (start < 0 || end <= 0) {
+      final CanonicalNow now = opContext.canonicalNow();
+      if (start < 0) {
+        start = Instant.ofEpochMilli(now.reference()).minus(1, ChronoUnit.DAYS).toEpochMilli();
+      }
+      if (end <= 0) {
+        end = now.upperBound();
+      }
     }
     return QueryBuilders.rangeQuery(DataHubUsageEventConstants.TIMESTAMP).gte(start).lt(end);
   }

@@ -1,11 +1,12 @@
 import { FromToProps } from '@remirror/core-types';
 import { getMarkRange } from '@remirror/core-utils';
 import { useAttrs, useCommands, useEditorState, useHelpers } from '@remirror/react';
-import { Form, Input, Typography } from 'antd';
+import { Form, Input } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Modal } from '@components/components/Modal';
+import { Text } from '@components/components/Text';
 
 // Sample URL shown as input placeholder — illustrative, not user-facing copy.
 const EXAMPLE_LINK_URL = 'https://www.google.com';
@@ -88,12 +89,23 @@ export const LinkModal = (props: LinkModalProps) => {
             >
                 <Form.Item
                     name="href"
-                    label={<Typography.Text strong>{t('editor.link.urlLabel')}</Typography.Text>}
+                    label={
+                        <Text type="span" weight="bold">
+                            {t('editor.link.urlLabel')}
+                        </Text>
+                    }
                     rules={[{ required: true }]}
                 >
                     <Input placeholder={EXAMPLE_LINK_URL} autoFocus />
                 </Form.Item>
-                <Form.Item name="text" label={<Typography.Text strong>{t('editor.link.textLabel')}</Typography.Text>}>
+                <Form.Item
+                    name="text"
+                    label={
+                        <Text type="span" weight="bold">
+                            {t('editor.link.textLabel')}
+                        </Text>
+                    }
+                >
                     <Input />
                 </Form.Item>
             </Form>

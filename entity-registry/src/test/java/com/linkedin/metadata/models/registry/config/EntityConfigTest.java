@@ -2,6 +2,7 @@ package com.linkedin.metadata.models.registry.config;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -19,7 +20,8 @@ public class EntityConfigTest {
             "testKey",
             Arrays.asList("aspect1", "aspect2"),
             "core",
-            "search");
+            "search",
+            null);
 
     assertEquals(entity.getName(), "testEntity");
     assertEquals(entity.getDoc(), "Test entity description");
@@ -27,6 +29,7 @@ public class EntityConfigTest {
     assertEquals(entity.getAspects(), Arrays.asList("aspect1", "aspect2"));
     assertEquals(entity.getCategory(), "core");
     assertEquals(entity.getSearchGroup(), "search");
+    assertNull(entity.getViewUnrestricted());
   }
 
   @Test
@@ -38,7 +41,8 @@ public class EntityConfigTest {
             "testKey",
             Arrays.asList("aspect1"),
             "core",
-            "timeseries");
+            "timeseries",
+            null);
 
     assertEquals(entity.getName(), "testEntity");
     assertEquals(entity.getSearchGroup(), "timeseries");
@@ -53,7 +57,8 @@ public class EntityConfigTest {
             "testKey",
             Arrays.asList("aspect1"),
             "core",
-            "customGroup");
+            "customGroup",
+            null);
 
     assertEquals(entity.getName(), "testEntity");
     assertEquals(entity.getSearchGroup(), "customGroup");
@@ -68,6 +73,7 @@ public class EntityConfigTest {
             "testKey",
             Arrays.asList("aspect1"),
             "core",
+            null,
             null);
 
     assertEquals(entity.getName(), "testEntity");
@@ -83,7 +89,8 @@ public class EntityConfigTest {
             "testKey",
             Arrays.asList("aspect1"),
             "core",
-            "default");
+            "default",
+            null);
 
     assertEquals(entity.getName(), "testEntity");
     assertEquals(entity.getSearchGroup(), "default");
@@ -98,7 +105,8 @@ public class EntityConfigTest {
             "testKey",
             Arrays.asList("aspect1"),
             "core",
-            "query");
+            "query",
+            null);
 
     assertEquals(entity.getName(), "testEntity");
     assertEquals(entity.getSearchGroup(), "query");
@@ -113,7 +121,8 @@ public class EntityConfigTest {
             "testKey",
             Arrays.asList("aspect1"),
             "core",
-            "schemaField");
+            "schemaField",
+            null);
 
     assertEquals(entity.getName(), "testEntity");
     assertEquals(entity.getSearchGroup(), "schemaField");
@@ -128,7 +137,8 @@ public class EntityConfigTest {
             "testKey",
             Collections.emptyList(),
             "core",
-            "search");
+            "search",
+            null);
 
     assertEquals(entity.getName(), "testEntity");
     assertEquals(entity.getAspects().size(), 0);
@@ -144,7 +154,8 @@ public class EntityConfigTest {
             "testKey",
             Arrays.asList("aspect1"),
             null,
-            "search");
+            "search",
+            null);
 
     assertEquals(entity.getName(), "testEntity");
     assertNull(entity.getCategory());
@@ -154,10 +165,25 @@ public class EntityConfigTest {
   @Test
   public void testEntityWithoutDoc() {
     Entity entity =
-        new Entity("testEntity", null, "testKey", Arrays.asList("aspect1"), "core", "search");
+        new Entity("testEntity", null, "testKey", Arrays.asList("aspect1"), "core", "search", null);
 
     assertEquals(entity.getName(), "testEntity");
     assertNull(entity.getDoc());
     assertEquals(entity.getSearchGroup(), "search");
+  }
+
+  @Test
+  public void testEntityWithViewUnrestricted() {
+    Entity entity =
+        new Entity(
+            "corpuser",
+            "User",
+            "corpUserKey",
+            Arrays.asList("corpUserInfo"),
+            "core",
+            "primary",
+            true);
+
+    assertTrue(entity.getViewUnrestricted());
   }
 }

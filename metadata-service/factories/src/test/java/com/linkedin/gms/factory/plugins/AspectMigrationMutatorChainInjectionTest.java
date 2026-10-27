@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.plugins;
 
 import static org.testng.Assert.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -9,9 +10,12 @@ import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.structuredproperties.validation.StructuredPropertyMappingLookup;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.MeterRegistry;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.mockito.Answers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -42,8 +46,13 @@ public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpri
 
   @Autowired private ApplicationContext context;
 
-  @MockitoBean(answers = Answers.RETURNS_MOCKS)
-  private ConfigurationProvider configurationProvider;
+  @Autowired private ConfigurationProvider configurationProvider;
+
+  @MockitoBean private StructuredPropertyMappingLookup structuredPropertyMappingLookup;
+
+  @MockitoBean private MeterRegistry meterRegistry;
+
+  @MockitoBean private ObjectMapper objectMapper;
 
   @BeforeClass
   private void setup() {
@@ -58,8 +67,11 @@ public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpri
 
   @Test
   public void testChain_withRegisteredMutator_populatesChainByAspect() {
+    // SpringStandardPluginConfiguration no longer registers any concrete AspectMigrationMutator
+    // beans — those live in ZduTestMutatorConfiguration (gated on the same flag set above) and in
+    // this test's TestMigrationConfig. Verify the test's ownership mutator is wired through the
+    // chain. Total chain size depends on which other configurations Spring picks up.
     AspectMigrationMutatorChain chain = chain();
-    assertEquals(chain.getChainByAspect().size(), 1);
     assertTrue(chain.getChainByAspect().containsKey("ownership"));
     assertEquals(chain.getChainByAspect().get("ownership").size(), 1);
   }
@@ -69,10 +81,9 @@ public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpri
     // Concrete mutators must appear only as AspectMigrationMutator beans, never as standalone
     // MutationHook beans. AspectMigrationMutator does not extend MutationHook, so the type
     // system enforces this — the chain is the sole MutationHook in the migration system.
-    assertEquals(
-        context.getBeansOfType(AspectMigrationMutator.class).size(),
-        1,
-        "Exactly one AspectMigrationMutator bean expected");
+    assertFalse(
+        context.getBeansOfType(AspectMigrationMutator.class).isEmpty(),
+        "At least one AspectMigrationMutator bean expected");
     long migrationChainCount =
         context.getBeansOfType(MutationHook.class).values().stream()
             .filter(b -> b instanceof AspectMigrationMutatorChain)
@@ -92,6 +103,16 @@ public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpri
   /** Registers a single concrete mutator for the ownership aspect (v1 → v2). */
   @Configuration
   static class TestMigrationConfig {
+
+    @Bean(name = "entityRegistry")
+    public EntityRegistry entityRegistry() {
+      return TestOperationContexts.constructNewEntityRegistry();
+    }
+
+    @Bean
+    public ConfigurationProvider configurationProvider() {
+      return PluginTestConfiguration.configurationProvider();
+    }
 
     @Bean
     public AspectMigrationMutator testOwnershipMigration() {

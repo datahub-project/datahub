@@ -45,6 +45,7 @@ public class CreateStructuredPropertyResolverTest {
           null,
           null,
           new ArrayList<>(),
+          null,
           null);
 
   @Test
@@ -86,6 +87,7 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
+            null,
             null);
 
     // Execute resolver
@@ -162,6 +164,7 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
+            null,
             settingsInput);
 
     // Execute resolver
@@ -220,6 +223,7 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
+            null,
             settingsInput);
 
     // Execute resolver
@@ -259,6 +263,7 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
+            null,
             settingsInput);
 
     // Execute resolver
@@ -310,6 +315,7 @@ public class CreateStructuredPropertyResolverTest {
             null,
             null,
             new ArrayList<>(),
+            null,
             settingsInput);
 
     // Execute resolver

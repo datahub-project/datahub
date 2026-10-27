@@ -2,13 +2,19 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    SQLAlchemyQueryCombinerReport,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
-from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
+from datahub.utilities.stats_collections import (
+    TopKDict,
+    float_top_k_dict,
+    int_top_k_dict,
+)
 
 
 @dataclass
@@ -32,6 +38,15 @@ class DetailedProfilerReportMixin:
 
     num_tables_not_eligible_profiling: Dict[str, int] = field(
         default_factory=int_top_k_dict
+    )
+
+    # Per-table profiling elapsed time (seconds), keyed by pretty_name. Survives a
+    # run that dies early (islice in run/pipeline.py, or an OOM) — exactly when an
+    # operator most needs to know which table cost the most. TopKDict bounds the
+    # rendered top-N, not memory (every entry is retained); the top-N is global across
+    # the whole run, not per-database.
+    profiling_time_taken_per_table_secs: TopKDict[str, float] = field(
+        default_factory=float_top_k_dict
     )
 
 
@@ -59,6 +74,29 @@ class SQLSourceReport(
     num_queries_extracted: int = 0
     num_queries_parsed: int = 0
     num_queries_parse_failures: int = 0
+    # Extracted queries with no executions in the start_time/end_time window:
+    # they still feed lineage but get no per-query usage, so read-only ones
+    # produce no Query entity.
+    num_queries_without_window_executions: int = 0
+    # MSSQL audit / Extended Events query logs: executions whose statement Azure
+    # SQL Auditing truncated at 4000 characters (skipped), executions recorded
+    # as driver RPC wrappers (sp_executesql / sp_prepexec / sp_execute) and
+    # attributed to their inner SQL, and sp_execute calls whose prepare was not
+    # found in the same session (skipped).
+    num_query_log_truncated_statements: int = 0
+    num_query_log_rpc_executions_unwrapped: int = 0
+    num_query_log_unmapped_executions: int = 0
+
+    # Query-history references the aggregator resolved lineage through but did
+    # not emit, because the table is absent from discovered_datasets. This is
+    # broader than genuine temp tables: it also covers references filtered by
+    # database_pattern/table_pattern and real tables whose schema fetch failed
+    # (separately reported). Read it as "not among ingested tables", not "temp
+    # tables only", when triaging missing lineage.
+    num_usage_references_suppressed_as_temp: int = 0
+    usage_references_suppressed_as_temp_sample: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """

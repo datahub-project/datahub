@@ -51,7 +51,7 @@ public class UpdateLinkResolver implements DataFetcher<CompletableFuture<Boolean
               context.getOperationContext(), currentLinkUrl, linkUrl, targetUrn, _entityService);
           try {
 
-            log.debug("Updating Link. input: {}", input.toString());
+            log.debug("Updating Link. input: {}", input);
 
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LinkUtils.updateLink(

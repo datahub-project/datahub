@@ -1,10 +1,7 @@
 import logging
-import re
 import uuid
 from datetime import datetime
-from typing import Any, ClassVar, Dict, Iterator, List, Optional
-
-from sqlglot import parse_one
+from typing import Any, ClassVar, Dict, Iterator, List, Optional, Set
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
@@ -15,74 +12,16 @@ from datahub.ingestion.source.dremio.dremio_api import (
 
 # Import Pydantic models from separate module to avoid circular dependencies
 from datahub.ingestion.source.dremio.dremio_models import (
+    DremioContainerMatch,
+    DremioContainerPathIndex,
+    DremioContainerResponse,
     DremioDatasetColumn,
     DremioDatasetResponse,
     DremioDatasetType,
     DremioEntityContainerType,
 )
-from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
-
-
-class DremioQueryType(StrEnum):
-    """Query classification returned by DremioQuery._get_query_type()."""
-
-    SELECT = "SELECT"
-    DML = "DML"
-    DDL = "DDL"
-
-
-# Internal lookup table mapping query type categories to their leading SQL operators.
-_QUERY_OPERATORS: Dict[str, List[str]] = {
-    DremioQueryType.DML: ["CREATE", "DELETE", "INSERT", "MERGE", "UPDATE"],
-    DremioQueryType.DDL: [
-        "ALTER BRANCH",
-        "ALTER PIPE",
-        "ALTER SOURCE",
-        "ALTER TABLE",
-        "ALTER TAG",
-        "ALTER VIEW",
-        "ANALYZE TABLE",
-        "COPY INTO",
-        "CREATE BRANCH",
-        "CREATE FOLDER",
-        "CREATE PIPE",
-        "CREATE ROLE",
-        "CREATE TABLE",
-        "CREATE TAG",
-        "CREATE USER",
-        "CREATE VIEW",
-        "DESCRIBE PIPE",
-        "DESCRIBE TABLE",
-        "DROP BRANCH",
-        "DROP FOLDER",
-        "DROP PIPE",
-        "DROP ROLE",
-        "DROP TABLE",
-        "DROP TAG",
-        "DROP USER",
-        "DROP VIEW",
-        "GRANT ROLE",
-        "GRANT TO ROLE",
-        "GRANT TO USER",
-        "MERGE BRANCH",
-        "REVOKE FROM ROLE",
-        "REVOKE FROM USER",
-        "REVOKE ROLE",
-        "SHOW BRANCHES",
-        "SHOW CREATE TABLE",
-        "SHOW CREATE VIEW",
-        "SHOW LOGS",
-        "SHOW TABLES",
-        "SHOW TAGS",
-        "SHOW VIEWS",
-        "USE",
-        "VACUUM CATALOG",
-        "VACUUM TABLE",
-    ],
-    DremioQueryType.SELECT: ["SELECT", "WITH"],
-}
 
 
 class DremioGlossaryTerm:
@@ -102,11 +41,6 @@ class DremioGlossaryTerm:
 
 
 class DremioQuery:
-    query_without_comments: str
-    query_type: DremioQueryType
-    query_subtype: str
-    affected_dataset: str
-
     def __init__(
         self,
         job_id: str,
@@ -114,79 +48,33 @@ class DremioQuery:
         submitted_ts: str,
         query: str,
         queried_datasets: str,
-        affected_datasets: Optional[str] = None,
     ):
         self.job_id = job_id
         self.username = username
         self.submitted_ts = self._get_submitted_ts(submitted_ts)
         self.query = self._get_query(query)
-        self.query_without_comments = self.get_raw_query(query)
-        self.query_type = self._get_query_type()
-        self.query_subtype = self._get_query_subtype()
         self.queried_datasets = self._get_queried_datasets(queried_datasets)
-        if affected_datasets:
-            self.affected_dataset = affected_datasets
-        else:
-            self.affected_dataset = self._get_affected_tables()
-
-    def get(self, attr):
-        return getattr(self, attr, None)
 
     def _get_submitted_ts(self, timestamp: str) -> datetime:
         return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
 
     def _get_query(self, query: str) -> str:
-        return str(query).replace("'", "'")
-
-    def _get_query_type(self) -> DremioQueryType:
-        query_operator = re.split(
-            pattern=r"\s+",
-            string=self.query_without_comments.strip(),
-            maxsplit=1,
-        )[0]
-
-        if query_operator in _QUERY_OPERATORS[DremioQueryType.SELECT]:
-            return DremioQueryType.SELECT
-        if query_operator in _QUERY_OPERATORS[DremioQueryType.DML]:
-            return DremioQueryType.DML
-        return DremioQueryType.DDL
-
-    def _get_query_subtype(self) -> str:
-        for query_operator in (
-            _QUERY_OPERATORS[DremioQueryType.SELECT]
-            + _QUERY_OPERATORS[DremioQueryType.DML]
-            + _QUERY_OPERATORS[DremioQueryType.DDL]
-        ):
-            if self.query_without_comments.upper().startswith(query_operator):
-                return query_operator
-        return "UNDEFINED"
+        # Normalize smart single quotes so downstream sqlglot parsing doesn't fail.
+        return str(query).replace("\u2018", "'").replace("\u2019", "'")
 
     def _get_queried_datasets(self, queried_datasets: str) -> List[str]:
         return list(
             {dataset.strip() for dataset in queried_datasets.strip("[]").split(",")}
         )
 
-    def _get_affected_tables(self) -> str:
-        # TO DO
-        # for manipulation_operator in _data_manipulation_queries:
-        #     if self.query_without_comments.upper().startswith(manipulation_operator):
-
-        return ""
-
-    def get_raw_query(self, sql_query: str) -> str:
-        """Remove comments from SQL query using sqlglot parser."""
-        try:
-            parsed = parse_one(sql_query)
-            return parsed.sql(comments=False)
-        except Exception as e:
-            logger.warning(e)
-            return sql_query
-
 
 class DremioDataset:
     resource_id: str
     resource_name: str
     path: List[str]
+    # Parent container path set by DremioCatalog: `path` in the casing the walk
+    # emitted, `path` itself when no container matched, or [] when several did.
+    container_path: Optional[List[str]] = None
     location_id: str
     columns: List[DremioDatasetColumn]
     sql_definition: Optional[str]
@@ -331,6 +219,15 @@ class DremioFolder(DremioContainer):
     root_container_type: Optional[str] = None
 
 
+_EMITTED_CONTAINER_TYPES = frozenset(
+    (
+        DremioEntityContainerType.SOURCE,
+        DremioEntityContainerType.SPACE,
+        DremioEntityContainerType.FOLDER,
+    )
+)
+
+
 class DremioCatalog:
     api: DremioAPIOperations
     edition: DremioEdition
@@ -338,48 +235,103 @@ class DremioCatalog:
     def __init__(self, api: DremioAPIOperations):
         self.api = api
         self.edition = api.edition
+        self._container_responses: Optional[List[DremioContainerResponse]] = None
+        # TABLE_SCHEMA can case folders differently from the catalog walk.
+        self._container_paths = DremioContainerPathIndex()
+        # Warn once per schema path, not once per dataset.
+        self._unresolved_container_paths: Set[str] = set()
+
+    def _all_containers(self) -> List[DremioContainerResponse]:
+        # One catalog walk per run, shared by the source map, container emission
+        # and dataset parent resolution.
+        if self._container_responses is None:
+            self._container_responses = list(self.api.get_all_containers())
+            for container in self._container_responses:
+                if container.container_type in _EMITTED_CONTAINER_TYPES:
+                    self._container_paths.add(container.full_path)
+        return self._container_responses
 
     def get_datasets(self) -> Iterator[DremioDataset]:
         """Get all Dremio datasets (tables and views) as an iterator."""
+        self._all_containers()
         for dataset_details in self.api.get_all_tables_and_columns():
             dremio_dataset = DremioDataset(
                 dataset_details=dataset_details,
                 api_operations=self.api,
             )
+            dremio_dataset.container_path = self._resolve_container_path(
+                dremio_dataset.path
+            )
 
             yield dremio_dataset
 
+    def _resolve_container_path(self, path: List[str]) -> List[str]:
+        if not path:
+            return path
+        resolution = self._container_paths.resolve(path)
+        if resolution.path is not None:
+            return resolution.path
+        ambiguous = resolution.match == DremioContainerMatch.AMBIGUOUS
+        joined = ".".join(path)
+        if joined not in self._unresolved_container_paths:
+            self._unresolved_container_paths.add(joined)
+            if ambiguous:
+                message = (
+                    "Schema path matches containers that differ only by case; "
+                    "its datasets get no container"
+                )
+            else:
+                message = (
+                    "Schema path matches no emitted container; its datasets point "
+                    "at a container that was not emitted this run"
+                )
+            self.api.report.warning(
+                title="Dataset container not resolved",
+                message=message,
+                context=joined,
+            )
+        # Several candidates means any choice could be wrong.
+        return [] if ambiguous else path
+
     def get_containers(self) -> Iterator[DremioContainer]:
         """Get all containers (sources, spaces, folders) as an iterator."""
-        for container in self.api.get_all_containers():
-            container_type = container.container_type
-            if container_type == DremioEntityContainerType.SOURCE:
-                yield DremioSourceContainer(
-                    container_name=container.name,
-                    location_id=container.id,
-                    path=container.path or [],
-                    api_operations=self.api,
-                    dremio_source_type=container.source_type or "",
-                    root_path=container.root_path,
-                    database_name=container.database_name,
-                )
-            elif container_type == DremioEntityContainerType.SPACE:
-                yield DremioSpace(
-                    container_name=container.name,
-                    location_id=container.id,
-                    path=container.path or [],
-                    api_operations=self.api,
-                )
-            elif container_type == DremioEntityContainerType.FOLDER:
-                folder = DremioFolder(
-                    container_name=container.name,
-                    location_id=container.id,
-                    path=container.path or [],
-                    api_operations=self.api,
-                )
-                if container.root_container_type is not None:
-                    folder.root_container_type = container.root_container_type
-                yield folder
+        for container in self._all_containers():
+            dremio_container = self._to_container(container)
+            if dremio_container is not None:
+                yield dremio_container
+
+    def _to_container(
+        self, container: DremioContainerResponse
+    ) -> Optional[DremioContainer]:
+        container_type = container.container_type
+        if container_type == DremioEntityContainerType.SOURCE:
+            return DremioSourceContainer(
+                container_name=container.name,
+                location_id=container.id,
+                path=container.path or [],
+                api_operations=self.api,
+                dremio_source_type=container.source_type or "",
+                root_path=container.root_path,
+                database_name=container.database_name,
+            )
+        if container_type == DremioEntityContainerType.SPACE:
+            return DremioSpace(
+                container_name=container.name,
+                location_id=container.id,
+                path=container.path or [],
+                api_operations=self.api,
+            )
+        if container_type == DremioEntityContainerType.FOLDER:
+            folder = DremioFolder(
+                container_name=container.name,
+                location_id=container.id,
+                path=container.path or [],
+                api_operations=self.api,
+            )
+            if container.root_container_type is not None:
+                folder.root_container_type = container.root_container_type
+            return folder
+        return None
 
     def get_sources(self) -> Iterator[DremioSourceContainer]:
         """Get all Dremio source containers (external data connections) as an iterator."""

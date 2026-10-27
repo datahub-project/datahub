@@ -136,5 +136,15 @@
         ]
       }
     }
+  },
+  {
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:playwright-views-within-domain",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "value": "{\"name\": \"PlaywrightViewsWithinDomain\", \"description\": \"Domain for Playwright Views Within operator tests\" }",
+      "contentType": "application/json"
+    }
   }
 ]

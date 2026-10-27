@@ -9,6 +9,8 @@ import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { AboutFieldTab } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/AboutFieldTab';
 import DrawerFooter from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/DrawerFooter';
 import FieldHeader from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldHeader';
@@ -16,16 +18,22 @@ import {
     SchemaFieldDrawerTabs,
     TABS_WIDTH,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawerTabs';
-import SchemaFieldQueriesSidebarTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab';
 import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsTabWrapper';
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { TabRenderType } from '@src/app/entityV2/shared/types';
+import { TabRenderType } from '@app/entityV2/shared/types';
 
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
 import { EditableSchemaMetadata, Post, SchemaField, TimeWindow, UsageQueryResult } from '@types';
+
+// Query cards and the query editor sit behind this tab. The schema drawer itself
+// should not download the syntax highlighter or Monaco.
+const SchemaFieldQueriesSidebarTab = lazyProfileComponent(
+    'SchemaFieldQueriesSidebarTab',
+    () => import('@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab'),
+);
 
 const DEFAULT_SELECTED_TAB_KEY = 'About';
 
@@ -84,7 +92,7 @@ interface Props {
     expandedDrawerFieldPath: string | null;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
     openTimelineDrawer?: boolean;
-    setOpenTimelineDrawer?: any;
+    setOpenTimelineDrawer?: (open: boolean) => void;
     selectPreviousField?: () => void;
     selectNextField?: () => void;
     usageStats?: UsageQueryResult | null;
@@ -123,8 +131,8 @@ export default function SchemaFieldDrawer({
 
     const latestProfile = latestFullTableProfile || latestPartitionProfile;
 
-    const fieldProfile = latestProfile?.fieldProfiles?.find(
-        (profile) => profile.fieldPath === expandedField?.fieldPath,
+    const fieldProfile = latestProfile?.fieldProfiles?.find((profile) =>
+        pathMatchesInsensitiveToV2(profile.fieldPath, expandedField?.fieldPath),
     );
 
     const urn = (baseEntity && baseEntity.dataset && baseEntity.dataset?.urn) || '';
@@ -169,10 +177,6 @@ export default function SchemaFieldDrawer({
     const profiles = profilesData?.dataset?.datasetProfiles || [];
     const [selectedTabKey, setSelectedTabKey] = useState(defaultSelectedTabKey);
 
-    /**
-     * Fetches updated data profiles when the lookback window is changed in the Historical Chart view.
-     * @param lookbackWindow The new time window for data fetching.
-     */
     const fetchDataWithLookbackWindow = useCallback(
         (lookbackWindow: TimeWindow) => {
             if (urn) {
@@ -237,7 +241,7 @@ export default function SchemaFieldDrawer({
             properties: {
                 fieldPath: expandedField?.fieldPath,
                 fieldUrn: expandedField?.schemaFieldEntity?.urn,
-                fieldProperties: expandedField?.schemaFieldEntity?.structuredProperties,
+                fieldEntity: expandedField?.schemaFieldEntity,
                 refetch,
             },
         },
@@ -300,7 +304,7 @@ export default function SchemaFieldDrawer({
             {!!openTimelineDrawer && (
                 <StyledDrawer
                     open={!!openTimelineDrawer}
-                    onClose={() => setOpenTimelineDrawer(false)}
+                    onClose={() => setOpenTimelineDrawer?.(false)}
                     getContainer={() => document.getElementById('entity-profile-sidebar') as HTMLElement}
                     contentWrapperStyle={{ width: '33%' }}
                     mask={false}

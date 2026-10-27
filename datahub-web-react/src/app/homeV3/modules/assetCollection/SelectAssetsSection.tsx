@@ -1,3 +1,4 @@
+import { ButtonTabs, Tab } from '@components';
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -5,14 +6,14 @@ import styled from 'styled-components';
 import DynamicSelectAssetsTab from '@app/homeV3/modules/assetCollection/DynamicSelectAssetsTab';
 import ManualSelectAssetsTab from '@app/homeV3/modules/assetCollection/ManualSelectAssetsTab';
 import { SELECT_ASSET_TYPE_DYNAMIC, SELECT_ASSET_TYPE_MANUAL } from '@app/homeV3/modules/assetCollection/constants';
-import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
-import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
 import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
 const AssetsSection = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
 `;
 
 type Props = {
@@ -63,7 +64,7 @@ const SelectAssetsSection = ({
 
     return (
         <AssetsSection>
-            <ButtonTabs tabs={tabs} onTabClick={onTabChanged} defaultKey={selectAssetType} />
+            <ButtonTabs tabs={tabs} onTabClick={onTabChanged} defaultKey={selectAssetType} fillHeight />
         </AssetsSection>
     );
 };

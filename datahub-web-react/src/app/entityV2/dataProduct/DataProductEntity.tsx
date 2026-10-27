@@ -1,43 +1,68 @@
-import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import { Export } from '@phosphor-icons/react/dist/csr/Export';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import { DataProductEntitiesTab } from '@app/entityV2/dataProduct/DataProductEntitiesTab';
-import { DataProductSummaryTab } from '@app/entityV2/dataProduct/DataProductSummaryTab';
 import { Preview } from '@app/entityV2/dataProduct/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfileTab } from '@app/entityV2/shared/constants';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
-import { SidebarViewDefinitionSection } from '@app/entityV2/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { EntityProfileTab, EntityTabPath } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DAGTab,
+    EntityProfile,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarApplicationSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { EntityTab } from '@app/entityV2/shared/types';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
-import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetDataProductQuery } from '@graphql/dataProduct.generated';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { DataProduct, EntityType, SearchResult } from '@types';
 
+const DataProductEntitiesTab = lazyProfileComponent('DataProductEntitiesTab', () =>
+    import('@app/entityV2/dataProduct/DataProductEntitiesTab').then((module) => ({
+        default: module.DataProductEntitiesTab,
+    })),
+);
+const OutputPortsTab = lazyProfileComponent('OutputPortsTab', () =>
+    import('@app/entityV2/dataProduct/OutputPortsTab').then((module) => ({
+        default: module.OutputPortsTab,
+    })),
+);
+const SidebarViewDefinitionSection = lazyProfileComponent('SidebarViewDefinitionSection', () =>
+    import('@app/entityV2/shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection').then(
+        (module) => ({
+            default: module.SidebarViewDefinitionSection,
+        }),
+    ),
+);
+
+const OutputPortsTabIcon = () => <Export size={14} />;
+
 const headerDropdownItems = new Set([
     EntityMenuItems.CHANGE_HISTORY,
+    EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
+    EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.DELETE,
     EntityMenuItems.EDIT,
     EntityMenuItems.ANNOUNCE,
@@ -48,6 +73,8 @@ const headerDropdownItems = new Set([
  */
 export class DataProductEntity implements Entity<DataProduct> {
     type: EntityType = EntityType.DataProduct;
+
+    appconfig = useAppConfig;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.SVG) {
@@ -70,7 +97,7 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     isBrowseEnabled = () => true;
 
-    isLineageEnabled = () => false;
+    isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
 
@@ -125,7 +152,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             component: SidebarViewDefinitionSection,
             display: {
                 // to do - change when we have a GetDataProductQuery
-                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties?.logic && true) || false,
+                visible: (_, dataset: GetDatasetQuery) => (dataset?.dataset?.viewProperties && true) || false,
             },
         },
         {
@@ -143,36 +170,46 @@ export class DataProductEntity implements Entity<DataProduct> {
     ];
 
     getProfileTabs = (): EntityTab[] => {
-        const showSummaryTab = useShowAssetSummaryPage();
-
         return [
             {
                 id: EntityProfileTab.SUMMARY_TAB,
                 name: i18next.t('entity.types:tab.summary'),
-                component: showSummaryTab ? SummaryTab : DataProductSummaryTab,
-                icon: ReadOutlined,
+                path: EntityTabPath.SUMMARY,
+                component: SummaryTab,
+                icon: BookOpen,
             },
-            ...(!showSummaryTab
-                ? [
-                      {
-                          name: i18next.t('entity.types:tab.documentation'),
-                          component: DocumentationTab,
-                          icon: FileOutlined,
-                      },
-                  ]
-                : []),
+            {
+                name: i18next.t('entity.types:tab.outputPorts'),
+                path: EntityTabPath.OUTPUT_PORTS,
+                component: OutputPortsTab,
+                icon: OutputPortsTabIcon,
+            },
             {
                 name: i18next.t('entity.types:tab.assets'),
+                path: EntityTabPath.ASSETS,
                 getCount: (entityData, _) => {
                     return entityData?.entities?.total;
                 },
                 component: DataProductEntitiesTab,
-                icon: AppstoreOutlined,
+                icon: SquaresFour,
+            },
+            {
+                name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
+                // Data products show the explorer only, without the impact analysis tab — as data flows do
+                component: DAGTab,
+                icon: TreeStructure,
+                supportsFullsize: true,
+                display: {
+                    visible: (_, _1) => this.appconfig().config.featureFlags.dataProductLineageEnabled,
+                    enabled: (_, _2) => true,
+                },
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
-                icon: UnorderedListOutlined,
+                icon: ListBullets,
             },
         ];
     };
@@ -200,6 +237,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 domain={data.domain?.domain}
                 entityCount={data?.entities?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
                 actions={actions}
@@ -224,6 +262,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                deprecation={data.deprecation}
                 headerDropdownItems={headerDropdownItems}
                 previewType={PreviewType.SEARCH}
             />
@@ -232,6 +271,14 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     displayName = (data: DataProduct) => {
         return data?.properties?.name || data.urn;
+    };
+
+    getLineageVizConfig = (entity: DataProduct) => {
+        return {
+            urn: entity.urn,
+            name: entity.properties?.name || entity.urn,
+            type: EntityType.DataProduct,
+        };
     };
 
     getOverridePropertiesFromEntity = (data: DataProduct) => {
@@ -265,6 +312,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.APPLICATIONS,
+            EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
         ]);

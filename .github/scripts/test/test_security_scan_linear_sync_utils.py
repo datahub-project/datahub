@@ -120,6 +120,80 @@ def test_parse_trivy_grype_merged_prefers_trivy_and_records_scanners(
     assert vuln["_datahub_scanners"] == ["trivy", "grype"]
 
 
+def test_grype_pkg_name_normalizes_maven_to_trivy_form():
+    # purl is the primary source
+    assert utils.grype_pkg_name(
+        {
+            "name": "netty-codec-http2",
+            "purl": "pkg:maven/io.netty/netty-codec-http2@4.1.96.Final?type=jar",
+        }
+    ) == "io.netty:netty-codec-http2"
+    # pom metadata fallback when purl is absent
+    assert utils.grype_pkg_name(
+        {
+            "name": "netty-codec-http2",
+            "metadata": {"pomGroupID": "io.netty", "pomArtifactID": "netty-codec-http2"},
+        }
+    ) == "io.netty:netty-codec-http2"
+    # non-maven artifacts keep grype's name
+    assert utils.grype_pkg_name(
+        {"name": "urllib3", "purl": "pkg:pypi/urllib3@1.26.0"}
+    ) == "urllib3"
+    assert utils.grype_pkg_name({"name": "libz"}) == "libz"
+
+
+@pytest.mark.parametrize(
+    ("name", "purl", "expected"),
+    [
+        # Artifact records as they appear in real grype scan reports
+        (
+            "netty-codec-http2",
+            "pkg:maven/io.netty/netty-codec-http2@4.1.96.Final",
+            "io.netty:netty-codec-http2",
+        ),
+        (
+            "jackson-databind",
+            "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.13.4.2",
+            "com.fasterxml.jackson.core:jackson-databind",
+        ),
+        # groupId == artifactId (Trivy still names these commons-io:commons-io)
+        ("commons-io", "pkg:maven/commons-io/commons-io@2.8.0", "commons-io:commons-io"),
+        # version containing dots and a 'v' segment
+        (
+            "jetty-http",
+            "pkg:maven/org.eclipse.jetty/jetty-http@9.4.43.v20210629",
+            "org.eclipse.jetty:jetty-http",
+        ),
+        # non-maven purl with qualifiers passes through untouched
+        (
+            "python-3.11",
+            "pkg:apk/wolfi/python-3.11@3.11.15-r6?arch=x86_64&distro=wolfi-20230201",
+            "python-3.11",
+        ),
+    ],
+)
+def test_grype_pkg_name_on_real_scan_purls(name: str, purl: str, expected: str):
+    assert utils.grype_pkg_name({"name": name, "purl": purl}) == expected
+
+
+def test_grype_only_maven_finding_titles_like_trivy():
+    vuln = utils.grype_match_to_trivy_vuln(
+        {
+            "vulnerability": {"id": "CVE-2025-55163", "severity": "High"},
+            "artifact": {
+                "name": "netty-codec-http2",
+                "version": "4.1.96.Final",
+                "type": "java-archive",
+                "purl": "pkg:maven/io.netty/netty-codec-http2@4.1.96.Final",
+            },
+        }
+    )
+    title = utils.linear_issue_title(
+        "CVE-2025-55163", vuln, "datahub-gms", scanner="trivy_grype"
+    )
+    assert title == "[datahub-gms] CVE-2025-55163 in io.netty:netty-codec-http2"
+
+
 def test_parse_trivy_grype_merged_filters_out_non_high_critical_grype(tmp_path: Path):
     os_env_key = "DATAHUB_SCAN_SEVERITIES"
     old = os.environ.get(os_env_key)
@@ -198,6 +272,57 @@ def test_merge_refs_comment_is_deduplicated():
     assert "[//]: # (datahub-security-scan-refs)" in second
     assert "### Git branch/tag scan history" in second
     assert "<!--" not in second
+
+
+def test_merge_refs_comment_accumulates_multiple_refs():
+    body = utils.merge_refs_comment(
+        None, "tag", "v1.0.0", "aaa1111", "https://github.com/acryldata/datahub/actions/runs/1"
+    )
+    body = utils.merge_refs_comment(
+        body, "tag", "v1.0.1", "bbb2222", "https://github.com/acryldata/datahub/actions/runs/2"
+    )
+    body = utils.merge_refs_comment(
+        body, "branch", "acryl-main", "ccc3333", "https://github.com/acryldata/datahub/actions/runs/3"
+    )
+    assert "v1.0.0" in body
+    assert "v1.0.1" in body
+    assert "acryl-main" in body
+    assert body.count("**Tag**") == 2
+    assert body.count("**Branch**") == 1
+
+
+def test_merge_refs_comment_preserves_foreign_section_when_adding_new_ref():
+    # Other automation sharing this Linear issue appended a section this codebase doesn't
+    # know about after the refs block.
+    body_with_section = utils.merge_refs_comment(
+        None, "tag", "v1.0.0", "abc1234", "https://github.com/o/r/actions/runs/1"
+    )
+    body_with_section = (
+        body_with_section.rstrip() + "\n\n" + utils.SLACK_NOTIFIED_SECTION_HEADER
+        + "\n\n- notified 2026-01-01T00:00:00Z\n"
+    )
+
+    updated = utils.merge_refs_comment(
+        body_with_section, "tag", "v1.0.1", "def5678", "https://github.com/o/r/actions/runs/2"
+    )
+    assert utils.SLACK_NOTIFIED_SECTION_HEADER in updated, "foreign section was dropped when a new ref was added"
+    assert "v1.0.0" in updated
+    assert "v1.0.1" in updated
+
+
+def test_merge_refs_comment_preserves_foreign_section_on_dedup():
+    # Same ref scanned again (dedup path) — foreign section must also survive.
+    body_with_section = utils.merge_refs_comment(
+        None, "branch", "acryl-main", "abc1234", "https://github.com/o/r/actions/runs/1"
+    )
+    body_with_section = (
+        body_with_section.rstrip() + "\n\n" + utils.SLACK_NOTIFIED_SECTION_HEADER + "\n\n- notified\n"
+    )
+
+    updated = utils.merge_refs_comment(
+        body_with_section, "branch", "acryl-main", "abc1234", "https://github.com/o/r/actions/runs/2"
+    )
+    assert utils.SLACK_NOTIFIED_SECTION_HEADER in updated, "foreign section was dropped on dedup path"
 
 
 def test_comment_has_refs_anchor_still_finds_legacy_html_block():

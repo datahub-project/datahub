@@ -1,0 +1,13 @@
+{
+    "viewDefinitionTab.detailsHeading": "Detaljer",
+    "viewDefinitionTab.formatCompiled": "Kompilert",
+    "viewDefinitionTab.formatFormatted": "Formatert",
+    "viewDefinitionTab.formatRaw": "Rå",
+    "viewDefinitionTab.formatSource": "Kilde",
+    "viewDefinitionTab.languageLabel": "Språk",
+    "viewDefinitionTab.logicHeading": "Logikk",
+    "viewDefinitionTab.materializedFalse": "Nei",
+    "viewDefinitionTab.materializedLabel": "Materialisert",
+    "viewDefinitionTab.materializedTrue": "Ja",
+    "viewDefinitionTab.noViewPermission": "Du har ikke tillatelse til å se SQL-logikken for dette viewet."
+}

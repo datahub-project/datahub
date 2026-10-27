@@ -1,7 +1,7 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Empty, Pagination, Typography, message } from 'antd';
+import { Button, EmptyState, Heading, Pagination, Text, toast } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { AlignType } from 'rc-table/lib/interface';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -14,8 +14,8 @@ import { useUserContext } from '@app/context/useUserContext';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListBusinessAttributesQuery } from '@graphql/businessAttribute.generated';
@@ -41,15 +41,15 @@ const BusinessAttributesContainer = styled.div`
     padding-top: 0px;
 `;
 
+// Alchemy's Heading does not forward className, so styled(Heading) cannot set the
+// title's spacing — the gap lives on the container instead.
 const BusinessAttributeHeaderContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
     && {
         padding-left: 0px;
-    }
-`;
-
-const BusinessAttributeTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
     }
 `;
 
@@ -120,6 +120,12 @@ export const BusinessAttributes = () => {
         query || '',
         businessAttributeRefetch,
     );
+
+    useEffect(() => {
+        if (businessAttributeError) {
+            toast.error(t('businessAttribute.loadError'));
+        }
+    }, [businessAttributeError, t]);
 
     const totalBusinessAttributes = businessAttributeData?.listBusinessAttributes?.total || 0;
     const businessAttributes = useMemo(
@@ -203,21 +209,21 @@ export const BusinessAttributes = () => {
             {businessAttributeLoading && !businessAttributeData && (
                 <Message type="loading" content={t('businessAttribute.loading')} style={{ marginTop: '10%' }} />
             )}
-            {businessAttributeError && message.error(t('businessAttribute.loadError'))}
             <BusinessAttributesContainer>
                 <BusinessAttributeHeaderContainer>
-                    <BusinessAttributeTitle level={2}>{t('businessAttribute.pageTitle')}</BusinessAttributeTitle>
-                    <Typography.Paragraph type="secondary">{t('businessAttribute.pageSubtitle')}</Typography.Paragraph>
+                    <Heading type="h2">{t('businessAttribute.pageTitle')}</Heading>
+                    <Text color="textSecondary">{t('businessAttribute.pageSubtitle')}</Text>
                 </BusinessAttributeHeaderContainer>
             </BusinessAttributesContainer>
             <TabToolbar>
                 <Button
-                    type="text"
+                    variant="text"
+                    icon={{ icon: Plus }}
                     onClick={() => setIsCreatingBusinessAttribute(true)}
                     data-testid="add-business-attribute-button"
                     disabled={!canCreateBusinessAttributes}
                 >
-                    <PlusOutlined /> {t('businessAttribute.createButton')}
+                    {t('businessAttribute.createButton')}
                 </Button>
                 <SearchBar
                     initialQuery=""
@@ -235,20 +241,17 @@ export const BusinessAttributes = () => {
                 dataSource={tableData}
                 rowKey="urn"
                 locale={{
-                    emptyText: (
-                        <Empty description={t('businessAttribute.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                    ),
+                    emptyText: <EmptyState title={t('businessAttribute.empty')} size="sm" />,
                 }}
                 pagination={false}
             />
             <PaginationContainer>
                 <Pagination
-                    style={{ margin: 40 }}
-                    current={page}
-                    pageSize={pageSize}
+                    currentPage={page}
+                    itemsPerPage={pageSize}
                     total={totalBusinessAttributes}
                     showLessItems
-                    onChange={onChangePage}
+                    onPageChange={onChangePage}
                     showSizeChanger={false}
                 />
             </PaginationContainer>

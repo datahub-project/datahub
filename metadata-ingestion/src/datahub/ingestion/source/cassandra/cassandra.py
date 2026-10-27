@@ -70,7 +70,7 @@ class KeyspaceKey(ContainerKey):
 
 @platform_name("Cassandra")
 @config_class(CassandraSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
@@ -230,8 +230,10 @@ class CassandraSource(StatefulIngestionSourceBase):
             CassandraToSchemaFieldConverter.get_schema_fields(column_infos)
         )
         if not schema_fields:
-            self.report.report_warning(
-                message="Table has no columns, skipping", context=table_name
+            self.report.warning(
+                message="Table has no columns, skipping",
+                context=table_name,
+                log=False,
             )
             return None
 

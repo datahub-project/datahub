@@ -22,6 +22,7 @@ import static org.testng.Assert.assertTrue;
 import com.codahale.metrics.Histogram;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
@@ -49,6 +50,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -56,7 +58,9 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.apache.avro.generic.GenericRecord;
@@ -152,7 +156,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             mockKafkaProducer,
             mockKafkaThrottle,
             mockProvider,
-            mockConsumerPauseSupport);
+            mockConsumerPauseSupport,
+            EntityClientConfig.builder().build());
 
     // Set fmcpTopicName field via reflection
     try {
@@ -358,28 +363,22 @@ public class BatchMetadataChangeProposalsProcessorTest {
     // Execute test
     processor.consume(records);
 
-    ArgumentCaptor<Throwable> exceptionCaptor = ArgumentCaptor.forClass(Throwable.class);
-    verify(mockKafkaProducer)
-        .produceFailedMetadataChangeProposal(eq(opContext), anyList(), exceptionCaptor.capture());
-
-    // Verify error handling
-    Throwable ingestionException = exceptionCaptor.getValue();
-    verify(mockSpan).recordException(ingestionException);
-    verify(mockSpan).setStatus(StatusCode.ERROR, ingestionException.getMessage());
-
-    // Verify that kafkaProducer was called to produce the failed MCPs
+    // Each proposal is dead-lettered on its own, with its own error, including mcp1, whose
+    // malformed urn means it cannot even be read as a proposal.
     ArgumentCaptor<List<MetadataChangeProposal>> mcpCaptor = ArgumentCaptor.forClass(List.class);
-    verify(mockKafkaProducer, times(1))
+    ArgumentCaptor<Throwable> exceptionCaptor = ArgumentCaptor.forClass(Throwable.class);
+    verify(mockKafkaProducer, times(3))
         .produceFailedMetadataChangeProposal(
-            eq(opContext), mcpCaptor.capture(), eq(ingestionException));
+            eq(opContext), mcpCaptor.capture(), exceptionCaptor.capture());
+    assertEquals(mcpCaptor.getAllValues(), List.of(List.of(mcp1), List.of(mcp2), List.of(mcp3)));
 
-    List<MetadataChangeProposal> capturedMCPs = mcpCaptor.getValue();
-    assert capturedMCPs.size() == 3;
-    assert capturedMCPs.contains(mcp1);
-    assert capturedMCPs.contains(mcp2);
-    assert capturedMCPs.contains(mcp3);
+    for (Throwable ingestionException : exceptionCaptor.getAllValues()) {
+      verify(mockSpan).recordException(ingestionException);
+    }
+    // Rejected proposals don't error the span: the rest of their group was still written.
+    verify(mockSpan, never()).setStatus(any(StatusCode.class), anyString());
 
-    // Verify that ingestProposal was not called
+    // Nothing was written
     verify(mockEntityService, never())
         .ingestProposal(any(OperationContext.class), any(), anyBoolean());
   }
@@ -594,7 +593,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             mockKafkaProducer,
             mockKafkaThrottle,
             mockProvider,
-            mockConsumerPauseSupport);
+            mockConsumerPauseSupport,
+            EntityClientConfig.builder().build());
 
     // Set required fields via reflection
     try {
@@ -676,7 +676,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             mockKafkaProducer,
             mockKafkaThrottle,
             mockProvider,
-            mockConsumerPauseSupport);
+            mockConsumerPauseSupport,
+            EntityClientConfig.builder().build());
 
     // Set required fields
     setProcessorFields(processorWithMetrics);
@@ -741,7 +742,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             mockKafkaProducer,
             mockKafkaThrottle,
             mockProvider,
-            mockConsumerPauseSupport);
+            mockConsumerPauseSupport,
+            EntityClientConfig.builder().build());
 
     setProcessorFields(processorWithMetrics);
     setupBasicConfiguration();
@@ -808,7 +810,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             mockKafkaProducer,
             mockKafkaThrottle,
             mockProvider,
-            mockConsumerPauseSupport);
+            mockConsumerPauseSupport,
+            EntityClientConfig.builder().build());
 
     setProcessorFields(processorWithMetrics);
     setupBasicConfiguration();
@@ -890,7 +893,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
             mockKafkaProducer,
             mockKafkaThrottle,
             mockProvider,
-            mockConsumerPauseSupport);
+            mockConsumerPauseSupport,
+            EntityClientConfig.builder().build());
 
     setProcessorFields(processorNoRegistry);
     setupBasicConfiguration();
@@ -903,6 +907,108 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     // Execute - should not throw exception
     processorNoRegistry.consume(List.of(mockConsumerRecord1));
+  }
+
+  @Test
+  public void testStreamingSingleConversionPerRecord() throws Exception {
+    // The streaming refactor must convert each avro record to a Pegasus MCP exactly
+    // once in the common (non-trace-enabled) path: the pre-pass only peeks
+    // systemMetadata.properties for trace ids and must NOT convert, and the span
+    // pass converts once for ingestion. Use the real OperationContext (like the
+    // ingestion tests) so withQueueSpan actually runs the processing runnable.
+    setupBasicConfiguration();
+
+    MetadataChangeProposal mcp1 = createSimpleMCP();
+    MetadataChangeProposal mcp2 = createSimpleMCP();
+    MetadataChangeProposal mcp3 = createSimpleMCP();
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(mcp1);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(mcp2);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord3)).thenReturn(mcp3);
+
+    processor.consume(List.of(mockConsumerRecord1, mockConsumerRecord2, mockConsumerRecord3));
+
+    // One conversion per record — no double conversion from a pre-pass.
+    eventUtilsMock.verify(() -> EventUtils.avroToPegasusMCP(mockRecord1), times(1));
+    eventUtilsMock.verify(() -> EventUtils.avroToPegasusMCP(mockRecord2), times(1));
+    eventUtilsMock.verify(() -> EventUtils.avroToPegasusMCP(mockRecord3), times(1));
+
+    // All three still ingested together (MAX_VALUE batch limit).
+    verify(mockEntityService, times(1)).ingestProposal(any(), any(), eq(false));
+  }
+
+  @Test
+  public void testTracedRecordSystemMetadataExtractedPrePass() throws Exception {
+    // A trace-carrying record must have its telemetry props read from the avro
+    // systemMetadata.properties map WITHOUT a full avro->Pegasus conversion, and the trimmed
+    // SystemMetadata handed to withQueueSpan must carry every property the receive span needs:
+    // trace id, queue span id, AND the enqueued-at timestamp used for queue-latency attributes.
+    // The record itself is still converted exactly once, inside the span, for ingestion.
+    setupBasicConfiguration();
+
+    // Capture the SystemMetadata list the pre-pass passes to withQueueSpan, and run the runnable.
+    // Explicit matchers per vararg (BATCH_SIZE_ATTR + value, DROPWIZARD_NAME + name) — a single
+    // any() does not match the 4-element varargs.
+    OperationContext tracingContext = spy(opContext);
+    List<List<SystemMetadata>> capturedTracing = new ArrayList<>();
+    doAnswer(
+            invocation -> {
+              capturedTracing.add(invocation.getArgument(1));
+              ((Runnable) invocation.getArgument(3)).run();
+              return null;
+            })
+        .when(tracingContext)
+        .withQueueSpan(
+            anyString(),
+            anyList(),
+            anyString(),
+            any(Runnable.class),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString());
+
+    BatchMetadataChangeProposalsProcessor tracingProcessor =
+        new BatchMetadataChangeProposalsProcessor(
+            tracingContext,
+            entityClient,
+            mockKafkaProducer,
+            mockKafkaThrottle,
+            mockProvider,
+            mockConsumerPauseSupport,
+            EntityClientConfig.builder().build());
+    setProcessorFields(tracingProcessor);
+
+    // Wire mockRecord1's avro systemMetadata.properties with the trace keys plus enqueued-at
+    // (valid W3C hex ids so a real closeQueueSpan could build a remote SpanContext).
+    GenericRecord sysMetaAvro = mock(GenericRecord.class);
+    Map<String, String> props = new HashMap<>();
+    props.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, "0123456789abcdef0123456789abcdef");
+    props.put(SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY, "0123456789abcdef");
+    props.put(SystemTelemetryContext.TELEMETRY_ENQUEUED_AT, "1700000000000");
+    when(mockRecord1.get("systemMetadata")).thenReturn(sysMetaAvro);
+    when(sysMetaAvro.get("properties")).thenReturn(props);
+
+    MetadataChangeProposal mcp = createSimpleMCP();
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(mcp);
+
+    tracingProcessor.consume(List.of(mockConsumerRecord1));
+
+    // Single conversion: the pre-pass reads properties off the avro map; only the span (ingest)
+    // pass converts.
+    eventUtilsMock.verify(() -> EventUtils.avroToPegasusMCP(mockRecord1), times(1));
+    verify(mockEntityService, times(1)).ingestProposal(any(), any(), eq(false));
+
+    // Regression guard: the trimmed SystemMetadata carries the trace keys AND the enqueued-at
+    // timestamp, so closeQueueSpan can still set queue-latency attributes on the receive span.
+    assertEquals(capturedTracing.size(), 1);
+    assertEquals(capturedTracing.get(0).size(), 1);
+    StringMap tracedProps = capturedTracing.get(0).get(0).getProperties();
+    assertEquals(
+        tracedProps.get(SystemTelemetryContext.TELEMETRY_TRACE_KEY),
+        "0123456789abcdef0123456789abcdef");
+    assertEquals(
+        tracedProps.get(SystemTelemetryContext.TELEMETRY_QUEUE_SPAN_KEY), "0123456789abcdef");
+    assertEquals(tracedProps.get(SystemTelemetryContext.TELEMETRY_ENQUEUED_AT), "1700000000000");
   }
 
   // Helper methods to reduce duplication
@@ -960,5 +1066,120 @@ public class BatchMetadataChangeProposalsProcessorTest {
     mcp.setAspect(GenericRecordUtils.serializeAspect(aspect));
 
     return mcp;
+  }
+
+  private static MetadataChangeProposal statusMcp(String name) {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setSystemMetadata(new SystemMetadata());
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setEntityUrn(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test," + name + ",PROD)"));
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
+    mcp.setEntityType("dataset");
+    mcp.setAspectName("status");
+    return mcp;
+  }
+
+  /**
+   * One byte-budget slice of first, second and third, with an entity client and consumer that work
+   * in groups of two: {first, second} and {third}.
+   */
+  private void threeProposalsInGroupsOfTwo(MetadataChangeProposal second) throws Exception {
+    when(mockProvider.getMetadataChangeProposal())
+        .thenReturn(
+            new MetadataChangeProposalConfig()
+                .setConsumer(
+                    new MetadataChangeProposalConfig.ConsumerBatchConfig()
+                        .setBatch(
+                            new MetadataChangeProposalConfig.BatchConfig()
+                                .setSize(Integer.MAX_VALUE))));
+    EntityClientConfig groupsOfTwo = EntityClientConfig.builder().batchIngestSize(2).build();
+    entityClient =
+        new SystemJavaEntityClient(
+            mockEntityService,
+            mockDeleteEntityService,
+            mockEntitySearchService,
+            mockCachingEntitySearchService,
+            mockSearchService,
+            mockLineageSearchService,
+            mockTimeseriesAspectService,
+            mockRollbackService,
+            mockKafkaProducer,
+            new EntityClientCacheConfig(),
+            groupsOfTwo,
+            metricUtilsMock);
+    processor =
+        new BatchMetadataChangeProposalsProcessor(
+            opContext,
+            entityClient,
+            mockKafkaProducer,
+            mockKafkaThrottle,
+            mockProvider,
+            mockConsumerPauseSupport,
+            groupsOfTwo);
+
+    eventUtilsMock
+        .when(() -> EventUtils.avroToPegasusMCP(mockRecord1))
+        .thenReturn(statusMcp("first"));
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(second);
+    eventUtilsMock
+        .when(() -> EventUtils.avroToPegasusMCP(mockRecord3))
+        .thenReturn(statusMcp("third"));
+  }
+
+  private static List<String> datasetNames(AspectsBatch batch) {
+    return batch.getMCPItems().stream().map(item -> item.getUrn().getEntityKey().get(1)).toList();
+  }
+
+  @Test
+  public void testValidationFailureDeadLettersOnlyTheRejectedProposal() throws Exception {
+    MetadataChangeProposal rejected = statusMcp("second").setAspectName("notAnAspect");
+    threeProposalsInGroupsOfTwo(rejected);
+    ArgumentCaptor<AspectsBatch> written = ArgumentCaptor.forClass(AspectsBatch.class);
+    when(mockEntityService.ingestProposal(
+            any(OperationContext.class), written.capture(), eq(false)))
+        .thenReturn(List.of());
+
+    processor.consume(List.of(mockConsumerRecord1, mockConsumerRecord2, mockConsumerRecord3));
+
+    ArgumentCaptor<List<MetadataChangeProposal>> deadLettered = ArgumentCaptor.forClass(List.class);
+    verify(mockKafkaProducer, times(1))
+        .produceFailedMetadataChangeProposal(eq(opContext), deadLettered.capture(), any());
+    assertEquals(deadLettered.getValue(), List.of(rejected));
+    // One write per group, without the rejected proposal and without re-sending anything.
+    assertEquals(
+        written.getAllValues().stream()
+            .map(BatchMetadataChangeProposalsProcessorTest::datasetNames)
+            .toList(),
+        List.of(List.of("first"), List.of("third")));
+    verify(mockSpan, never()).setStatus(any(StatusCode.class), anyString());
+  }
+
+  @Test
+  public void testNonValidationFailureDeadLettersTheWholeGroup() throws Exception {
+    MetadataChangeProposal second = statusMcp("second");
+    threeProposalsInGroupsOfTwo(second);
+    when(mockEntityService.ingestProposal(any(OperationContext.class), any(), eq(false)))
+        .thenAnswer(
+            invocation -> {
+              if (datasetNames(invocation.getArgument(1)).contains("second")) {
+                throw new IllegalStateException("database unavailable");
+              }
+              return List.of();
+            });
+
+    processor.consume(List.of(mockConsumerRecord1, mockConsumerRecord2, mockConsumerRecord3));
+
+    ArgumentCaptor<List<MetadataChangeProposal>> deadLettered = ArgumentCaptor.forClass(List.class);
+    verify(mockKafkaProducer, times(1))
+        .produceFailedMetadataChangeProposal(eq(opContext), deadLettered.capture(), any());
+    assertEquals(
+        deadLettered.getValue().stream()
+            .map(mcp -> mcp.getEntityUrn().getEntityKey().get(1))
+            .toList(),
+        List.of("first", "second"));
+    verify(mockSpan).setStatus(StatusCode.ERROR, "database unavailable");
+    verify(mockEntityService, times(2))
+        .ingestProposal(any(OperationContext.class), any(), eq(false));
   }
 }

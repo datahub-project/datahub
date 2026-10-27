@@ -1,5 +1,4 @@
-import { Modal } from '@components';
-import { message } from 'antd';
+import { Modal, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -21,6 +20,8 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
     const [builderState, updateBuilderState] = useState<DataProductBuilderState>({
         name: dataProduct.properties?.name || '',
         description: dataProduct.properties?.description || '',
+        parentDataProductUrn: dataProduct.properties?.parentDataProduct?.urn || undefined,
+        parentDataProductName: dataProduct.properties?.parentDataProduct?.properties?.name || undefined,
     });
     const [updateDataProductMutation] = useUpdateDataProductMutation();
 
@@ -31,12 +32,13 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
                 input: {
                     name: builderState.name,
                     description: builderState.description || undefined,
+                    parentDataProduct: builderState.parentDataProductUrn || undefined,
                 },
             },
         })
             .then(({ data, errors }) => {
                 if (!errors) {
-                    message.success(t('dataProduct.updateSuccess'));
+                    toast.success(t('dataProduct.updateSuccess'));
                     if (data?.updateDataProduct) {
                         onUpdateDataProduct(data.updateDataProduct as DataProduct);
                     }
@@ -45,8 +47,8 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
             })
             .catch(() => {
                 onClose();
-                message.destroy();
-                message.error({ content: t('dataProduct.updateError') });
+                toast.destroy();
+                toast.error(t('dataProduct.updateError'));
             });
     }
 
@@ -71,7 +73,11 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
                 },
             ]}
         >
-            <DataProductBuilderForm builderState={builderState} updateBuilderState={updateBuilderState} />
+            <DataProductBuilderForm
+                builderState={builderState}
+                updateBuilderState={updateBuilderState}
+                excludeUrn={dataProduct.urn}
+            />
         </Modal>
     );
 }

@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertNotNull;
 
@@ -33,8 +34,10 @@ import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -202,7 +205,8 @@ public class ElasticSearchServiceTest {
   public void testAppendRunId_DualWriteToSemanticIndex() {
     // Setup: Create a mock that supports indexExists check
     ESWriteDAO mockEsWriteDAOWithIndex = mock(ESWriteDAO.class);
-    when(mockEsWriteDAOWithIndex.indexExists(any(String.class))).thenReturn(true);
+    when(mockEsWriteDAOWithIndex.indexExists(any(OperationContext.class), any(String.class)))
+        .thenReturn(true);
 
     ElasticSearchService serviceWithSemanticIndex =
         new ElasticSearchService(
@@ -235,7 +239,7 @@ public class ElasticSearchServiceTest {
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getEntityIndexNameSemantic(TEST_URN.getEntityType());
+            .getEntityIndexNameSemantic(opContext, TEST_URN.getEntityType());
 
     // Capture the arguments for semantic index update
     ArgumentCaptor<String> indexNameCaptor = ArgumentCaptor.forClass(String.class);
@@ -246,6 +250,7 @@ public class ElasticSearchServiceTest {
 
     verify(mockEsWriteDAOWithIndex)
         .applyScriptUpdateByIndexName(
+            any(OperationContext.class),
             indexNameCaptor.capture(),
             docIdCaptor.capture(),
             scriptSourceCaptor.capture(),
@@ -264,7 +269,8 @@ public class ElasticSearchServiceTest {
   public void testAppendRunId_SkipsSemanticIndexWhenNotExists() {
     // Setup: Create a mock where semantic index does not exist
     ESWriteDAO mockEsWriteDAONoSemanticIndex = mock(ESWriteDAO.class);
-    when(mockEsWriteDAONoSemanticIndex.indexExists(any(String.class))).thenReturn(false);
+    when(mockEsWriteDAONoSemanticIndex.indexExists(any(OperationContext.class), any(String.class)))
+        .thenReturn(false);
 
     ElasticSearchService serviceWithoutSemanticIndex =
         new ElasticSearchService(
@@ -295,6 +301,7 @@ public class ElasticSearchServiceTest {
     // Verify semantic index update was NOT called (since index doesn't exist)
     verify(mockEsWriteDAONoSemanticIndex, never())
         .applyScriptUpdateByIndexName(
+            any(OperationContext.class),
             any(String.class),
             any(String.class),
             any(String.class),
@@ -539,6 +546,43 @@ public class ElasticSearchServiceTest {
         DEFAULT_LIMIT,
         "Null count should result in default limit being used");
     assertNotNull(result);
+  }
+
+  @Test
+  public void testBrowseV2ClearsIncomingSurface() {
+    OperationContext tagged =
+        opContext
+            .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
+            .withResolvedSearchTemplate(mock(ResolvedSearchTemplate.class));
+
+    esSearchServiceLimited.browseV2(tagged, ENTITY_NAME, PATH, null, INPUT, START, 10);
+    esSearchServiceLimited.browseV2(tagged, List.of(ENTITY_NAME), PATH, null, INPUT, START, 10);
+
+    ArgumentCaptor<OperationContext> contextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    verify(esBrowseDAO)
+        .browseV2(
+            contextCaptor.capture(),
+            eq(ENTITY_NAME),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            eq(10));
+    verify(esBrowseDAO)
+        .browseV2(
+            contextCaptor.capture(),
+            eq(List.of(ENTITY_NAME)),
+            eq(PATH),
+            nullable(Filter.class),
+            eq(INPUT),
+            eq(START),
+            eq(10));
+    assertEquals(contextCaptor.getAllValues().size(), 2);
+    for (OperationContext browse : contextCaptor.getAllValues()) {
+      assertNull(browse.getSearchContext().getSearchSurface());
+      assertNull(browse.getSearchContext().getResolvedSearchTemplate());
+    }
   }
 
   @Test
@@ -1167,5 +1211,31 @@ public class ElasticSearchServiceTest {
     verify(mockBrowseDAO)
         .browse(
             any(OperationContext.class), eq(entityName), eq(path), eq(filters), eq(from), eq(null));
+  }
+
+  @Test
+  public void testGetActiveIncidentStatsDelegatesToSearchDao() {
+    final ESSearchDAO mockSearchDAO = mock(ESSearchDAO.class);
+    final ElasticSearchService serviceWithMockDAO =
+        new ElasticSearchService(
+            mock(ESIndexBuilder.class),
+            TEST_SEARCH_SERVICE_CONFIG,
+            mock(ElasticSearchConfiguration.class),
+            mock(MappingsBuilder.class),
+            mock(SettingsBuilder.class),
+            mockSearchDAO,
+            mock(ESBrowseDAO.class),
+            mock(ESWriteDAO.class));
+
+    final Set<Urn> entityUrns = Set.of(TEST_URN);
+    final Map<Urn, IncidentStats> expected =
+        Map.of(TEST_URN, new IncidentStats(2, UrnUtils.getUrn("urn:li:incident:i1")));
+    when(mockSearchDAO.getActiveIncidentStats(opContext, entityUrns)).thenReturn(expected);
+
+    final Map<Urn, IncidentStats> result =
+        serviceWithMockDAO.getActiveIncidentStats(opContext, entityUrns);
+
+    assertEquals(result, expected);
+    verify(mockSearchDAO).getActiveIncidentStats(opContext, entityUrns);
   }
 }

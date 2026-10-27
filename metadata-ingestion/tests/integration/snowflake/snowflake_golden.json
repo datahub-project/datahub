@@ -322,17 +322,6 @@
                     },
                     "nativeDataType": "NUMBER(38,0)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -346,17 +335,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -370,17 +348,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:CloudRegion"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -479,7 +446,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-07_16_28-isb0k0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -625,17 +592,6 @@
                     },
                     "nativeDataType": "NUMBER(38,0)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -649,17 +605,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -673,17 +618,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:CloudRegion"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -782,7 +716,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-07_16_28-isb0k0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -929,17 +863,6 @@
                     },
                     "nativeDataType": "NUMBER(38,0)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -953,17 +876,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -977,17 +889,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:CloudRegion"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1086,7 +987,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-07_16_28-isb0k0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1232,17 +1133,6 @@
                     },
                     "nativeDataType": "NUMBER(38,0)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1256,17 +1146,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1280,17 +1159,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:CloudRegion"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1389,7 +1257,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-07_16_28-isb0k0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1534,17 +1402,6 @@
                     },
                     "nativeDataType": "NUMBER(38,0)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1558,17 +1415,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1582,17 +1428,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:CloudRegion"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1691,7 +1526,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-07_16_28-isb0k0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1836,17 +1671,6 @@
                     },
                     "nativeDataType": "NUMBER(38,0)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1860,17 +1684,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1884,17 +1697,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:CloudRegion"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -1993,7 +1795,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-07_16_28-isb0k0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2138,17 +1940,6 @@
                     },
                     "nativeDataType": "NUMBER(38,0)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2162,17 +1953,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2186,17 +1966,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:CloudRegion"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2295,7 +2064,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-07_16_28-isb0k0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2440,17 +2209,6 @@
                     },
                     "nativeDataType": "NUMBER(38,0)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2464,17 +2222,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2488,17 +2235,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:CloudRegion"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2597,7 +2333,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-07_16_28-isb0k0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2742,17 +2478,6 @@
                     },
                     "nativeDataType": "NUMBER(38,0)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2766,17 +2491,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2790,17 +2504,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:CloudRegion"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -2899,7 +2602,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-07_16_28-isb0k0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3044,17 +2747,6 @@
                     },
                     "nativeDataType": "NUMBER(38,0)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Age"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -3068,17 +2760,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:Email_Address"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -3092,17 +2773,6 @@
                     },
                     "nativeDataType": "VARCHAR(255)",
                     "recursive": false,
-                    "glossaryTerms": {
-                        "terms": [
-                            {
-                                "urn": "urn:li:glossaryTerm:CloudRegion"
-                            }
-                        ],
-                        "auditStamp": {
-                            "time": 1615443388097,
-                            "actor": "urn:li:corpuser:datahub"
-                        }
-                    },
                     "isPartOfKey": false
                 },
                 {
@@ -3201,7 +2871,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-07_16_28-isb0k0",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -9277,54 +8947,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Age",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Age"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:CloudRegion",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "CloudRegion"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "glossaryTerm",
-    "entityUrn": "urn:li:glossaryTerm:Email_Address",
-    "changeType": "UPSERT",
-    "aspectName": "glossaryTermKey",
-    "aspect": {
-        "json": {
-            "name": "Email_Address"
         }
     },
     "systemMetadata": {

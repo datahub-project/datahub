@@ -1,5 +1,5 @@
+import { toast } from '@components';
 import { act, renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -30,27 +30,19 @@ vi.mock('@graphql/mutations.generated', () => ({
     useUpdateLinkMutation: () => [updateLinkMutationMock],
 }));
 
-vi.mock('antd', async (importOriginal) => {
-    const original = await importOriginal<any>();
-    return {
-        ...original,
-        message: {
-            success: vi.fn(),
-            error: vi.fn(),
-            destroy: vi.fn(),
-        },
-        Form: {
-            ...original.Form,
-            useForm: vi.fn(),
-        },
-    };
-});
+vi.mock('@components', () => ({
+    toast: {
+        success: vi.fn(),
+        error: vi.fn(),
+        destroy: vi.fn(),
+    },
+}));
 
 vi.mock('@app/analytics', () => ({
     __esModule: true,
     default: { event: vi.fn() },
     EventType: { EntityActionEvent: 'EntityActionEvent' },
-    EntityActionType: { UpdateLinks: 'UpdateLinks' },
+    EntityActionType: { UpdateLinks: 'UpdateLinks', AddLink: 'AddLink', DeleteLink: 'DeleteLink' },
 }));
 
 vi.mock('@app/entityV2/shared/components/links/utils', () => ({
@@ -109,7 +101,7 @@ describe('useLinkUtils', () => {
                     },
                 },
             });
-            expect(message.success).toHaveBeenCalledWith({ content: 'Link Removed', duration: 2 });
+            expect(toast.success).toHaveBeenCalledWith('Link Removed');
             expect(refetch).toHaveBeenCalled();
         });
 
@@ -121,11 +113,7 @@ describe('useLinkUtils', () => {
             await act(async () => {
                 await result.current.handleDeleteLink();
             });
-            expect(message.destroy).toHaveBeenCalled();
-            expect(message.error).toHaveBeenCalledWith({
-                content: expect.stringContaining('Error removing link:'),
-                duration: 2,
-            });
+            expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Error removing link:'));
             expect(refetch).toHaveBeenCalled();
         });
 
@@ -136,7 +124,7 @@ describe('useLinkUtils', () => {
                 await result.current.handleDeleteLink();
             });
             expect(removeLinkMutationMock).not.toHaveBeenCalled();
-            expect(message.success).not.toHaveBeenCalled();
+            expect(toast.success).not.toHaveBeenCalled();
         });
     });
 
@@ -167,7 +155,7 @@ describe('useLinkUtils', () => {
                     },
                 },
             });
-            expect(message.success).toHaveBeenCalledWith({ content: 'Link Added', duration: 2 });
+            expect(toast.success).toHaveBeenCalledWith('Link Added');
             expect(analytics.event).toHaveBeenCalledWith({
                 type: EventType.EntityActionEvent,
                 entityType,
@@ -191,11 +179,7 @@ describe('useLinkUtils', () => {
                     showInAssetPreview: false,
                 });
             });
-            expect(message.destroy).toHaveBeenCalled();
-            expect(message.error).toHaveBeenCalledWith({
-                content: expect.stringContaining('Failed to add link:'),
-                duration: 3,
-            });
+            expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Failed to add link:'));
         });
     });
 
@@ -229,7 +213,7 @@ describe('useLinkUtils', () => {
                     },
                 },
             });
-            expect(message.success).toHaveBeenCalledWith({ content: 'Link Updated', duration: 2 });
+            expect(toast.success).toHaveBeenCalledWith('Link Updated');
             expect(refetch).toHaveBeenCalled();
         });
 
@@ -247,11 +231,7 @@ describe('useLinkUtils', () => {
                     showInAssetPreview: false,
                 });
             });
-            expect(message.destroy).toHaveBeenCalled();
-            expect(message.error).toHaveBeenCalledWith({
-                content: expect.stringContaining('Error updating link:'),
-                duration: 2,
-            });
+            expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Error updating link:'));
             expect(refetch).toHaveBeenCalled();
         });
 
@@ -268,7 +248,7 @@ describe('useLinkUtils', () => {
                 });
             });
             expect(updateLinkMutationMock).not.toHaveBeenCalled();
-            expect(message.success).not.toHaveBeenCalled();
+            expect(toast.success).not.toHaveBeenCalled();
         });
     });
 });

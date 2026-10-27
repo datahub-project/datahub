@@ -3,6 +3,8 @@ package io.datahubproject.metadata.context;
 import static com.linkedin.metadata.Constants.CORP_USER_STATUS_SUSPENDED;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -104,43 +106,54 @@ public class ActorContextTest {
     Authentication userAuth = new Authentication(new Actor(ActorType.USER, "USER"), "");
 
     assertEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of(), true).getCacheKeyComponent(),
-        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of(), true).getCacheKeyComponent(),
+        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of(), Set.of(), true)
+            .getCacheKeyComponent(),
+        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of(), Set.of(), true)
+            .getCacheKeyComponent(),
         "Expected equality across instances");
 
     assertEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of(), true).getCacheKeyComponent(),
+        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of(), Set.of(), true)
+            .getCacheKeyComponent(),
         ActorContext.asSessionRestricted(
-                userAuth, Set.of(), Set.of(UrnUtils.getUrn("urn:li:corpGroup:group1")), true)
+                userAuth,
+                Set.of(),
+                Set.of(UrnUtils.getUrn("urn:li:corpGroup:group1")),
+                Set.of(),
+                true)
             .getCacheKeyComponent(),
         "Expected no impact to cache context from group membership");
 
     assertEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of(), true)
+        ActorContext.asSessionRestricted(
+                userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of(), Set.of(), true)
             .getCacheKeyComponent(),
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of(), true)
+        ActorContext.asSessionRestricted(
+                userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of(), Set.of(), true)
             .getCacheKeyComponent(),
         "Expected equality when non-ownership policies are identical");
 
     assertNotEquals(
         ActorContext.asSessionRestricted(
-                userAuth, Set.of(POLICY_ABC_RESOURCE, POLICY_D), Set.of(), true)
+                userAuth, Set.of(POLICY_ABC_RESOURCE, POLICY_D), Set.of(), Set.of(), true)
             .getCacheKeyComponent(),
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of(), true)
+        ActorContext.asSessionRestricted(
+                userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of(), Set.of(), true)
             .getCacheKeyComponent(),
         "Expected differences with non-identical resource policy");
 
     assertNotEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D_OWNER), Set.of(), true)
+        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D_OWNER), Set.of(), Set.of(), true)
             .getCacheKeyComponent(),
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D), Set.of(), true)
+        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D), Set.of(), Set.of(), true)
             .getCacheKeyComponent(),
         "Expected differences with ownership policy");
 
     assertNotEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D_OWNER_TYPE), Set.of(), true)
+        ActorContext.asSessionRestricted(
+                userAuth, Set.of(POLICY_D_OWNER_TYPE), Set.of(), Set.of(), true)
             .getCacheKeyComponent(),
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D), Set.of(), true)
+        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D), Set.of(), Set.of(), true)
             .getCacheKeyComponent(),
         "Expected differences with ownership type policy");
   }
@@ -173,10 +186,22 @@ public class ActorContextTest {
   }
 
   @Test
+  public void isSystemSessionMatchesSystemAuthentication() {
+    Authentication systemAuth =
+        new Authentication(new Actor(ActorType.USER, "__datahub_system"), "");
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "user"), "");
+
+    assertTrue(ActorContext.isSystemSession(systemAuth, systemAuth));
+    assertFalse(ActorContext.isSystemSession(userAuth, systemAuth));
+    assertFalse(ActorContext.isSystemSession(userAuth, null));
+  }
+
+  @Test
   public void isActiveSkipsLookupForSystemActor() {
     Authentication systemAuth =
         new Authentication(new Actor(ActorType.USER, "__datahub_system"), "");
-    ActorContext ctx = ActorContext.asSessionRestricted(systemAuth, Set.of(), List.of(), true);
+    ActorContext ctx =
+        ActorContext.asSessionRestricted(systemAuth, Set.of(), List.of(), Set.of(), true);
     AspectRetriever retriever = mock(AspectRetriever.class);
     assertTrue(ctx.isActive(mock(OperationContext.class), retriever));
     verifyNoInteractions(retriever);
@@ -186,7 +211,8 @@ public class ActorContextTest {
   public void isActiveFalseWhenEnforcingExistenceAndCorpUserKeyMissing() {
     Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:nobody");
     Authentication userAuth = new Authentication(new Actor(ActorType.USER, "nobody"), "");
-    ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), true);
+    ActorContext ctx =
+        ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), Set.of(), true);
     AspectRetriever retriever = mock(AspectRetriever.class);
     when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
         .thenReturn(
@@ -198,7 +224,8 @@ public class ActorContextTest {
   public void isActiveTrueWhenNotEnforcingExistenceAndCorpUserKeyMissing() {
     Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:nobody");
     Authentication userAuth = new Authentication(new Actor(ActorType.USER, "nobody"), "");
-    ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), false);
+    ActorContext ctx =
+        ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), Set.of(), false);
     AspectRetriever retriever = mock(AspectRetriever.class);
     when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
         .thenReturn(Map.of(userUrn, Map.of()));
@@ -209,7 +236,8 @@ public class ActorContextTest {
   public void isActiveTrueWithCorpUserKeyAndNoFlags() {
     Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:activeone");
     Authentication userAuth = new Authentication(new Actor(ActorType.USER, "activeone"), "");
-    ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), true);
+    ActorContext ctx =
+        ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), Set.of(), true);
     CorpUserKey key = new CorpUserKey().setUsername("activeone");
     AspectRetriever retriever = mock(AspectRetriever.class);
     when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
@@ -228,7 +256,8 @@ public class ActorContextTest {
   public void isActiveFalseWhenCorpUserSuspended() {
     Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:suspended");
     Authentication userAuth = new Authentication(new Actor(ActorType.USER, "suspended"), "");
-    ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), true);
+    ActorContext ctx =
+        ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), Set.of(), true);
     CorpUserKey key = new CorpUserKey().setUsername("suspended");
     CorpUserStatus suspended = new CorpUserStatus().setStatus(CORP_USER_STATUS_SUSPENDED);
     AspectRetriever retriever = mock(AspectRetriever.class);
@@ -241,5 +270,48 @@ public class ActorContextTest {
                     "status", new Aspect(new Status().setRemoved(false).data()),
                     "corpUserStatus", new Aspect(suspended.data()))));
     assertFalse(ctx.isActive(mock(OperationContext.class), retriever));
+  }
+
+  @Test
+  public void isActiveMemoizesTrueResultAndSkipsRepeatedAspectLookup() {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:activeone");
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "activeone"), "");
+    ActorContext ctx =
+        ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), Set.of(), true);
+    CorpUserKey key = new CorpUserKey().setUsername("activeone");
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
+        .thenReturn(
+            Map.of(
+                userUrn,
+                Map.of(
+                    "corpUserKey", new Aspect(key.data()),
+                    "status", new Aspect(new Status().setRemoved(false).data()),
+                    "corpUserStatus",
+                        new Aspect(new CorpUserStatus().setStatus("ACTIVE").data()))));
+
+    assertTrue(ctx.isActive(mock(OperationContext.class), retriever));
+    assertTrue(ctx.isActive(mock(OperationContext.class), retriever));
+
+    verify(retriever, times(1))
+        .getLatestAspectObjects(any(OperationFingerprint.class), any(), any());
+  }
+
+  @Test
+  public void isActiveMemoizesFalseResultAndSkipsRepeatedAspectLookup() {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:nobody");
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "nobody"), "");
+    ActorContext ctx =
+        ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), Set.of(), true);
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getLatestAspectObjects(any(OperationFingerprint.class), any(), any()))
+        .thenReturn(
+            Map.of(userUrn, Map.of("status", new Aspect(new Status().setRemoved(false).data()))));
+
+    assertFalse(ctx.isActive(mock(OperationContext.class), retriever));
+    assertFalse(ctx.isActive(mock(OperationContext.class), retriever));
+
+    verify(retriever, times(1))
+        .getLatestAspectObjects(any(OperationFingerprint.class), any(), any());
   }
 }

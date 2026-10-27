@@ -6,7 +6,8 @@ import com.linkedin.common.Url
  * Information about a data platform
  */
 @Aspect = {
-  "name": "dataPlatformInfo"
+  "name": "dataPlatformInfo",
+  "schemaVersion": 2
 }
 record DataPlatformInfo {
 
@@ -19,8 +20,15 @@ record DataPlatformInfo {
     "enableAutocomplete": false,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 
@@ -30,7 +38,16 @@ record DataPlatformInfo {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   displayName: optional string
 
@@ -93,6 +110,14 @@ record DataPlatformInfo {
    * The delimiter in the dataset names on the data platform, e.g. '/' for HDFS and '.' for Oracle
    */
   datasetNameDelimiter: string
+
+  /**
+   * Whether datasets on this platform are logical models (hand-authored, no ingestion source).
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  logical: optional boolean
 
   /**
    * The URL for a logo associated with the platform

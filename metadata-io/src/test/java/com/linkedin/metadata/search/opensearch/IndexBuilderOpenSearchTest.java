@@ -54,8 +54,9 @@ public class IndexBuilderOpenSearchTest extends IndexBuilderTestBase {
             Map.of(),
             gitVersion);
     ReindexConfig reindexConfig =
-        customIndexBuilder.buildReindexState(TEST_INDEX_NAME, Map.of(), Map.of());
-    customIndexBuilder.buildIndex(reindexConfig);
+        customIndexBuilder.buildReindexState(
+            opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());
+    customIndexBuilder.buildIndex(opContext, reindexConfig);
     GetIndexResponse resp = getTestIndex();
     assertEquals("zstd_no_dict", resp.getSetting(TEST_INDEX_NAME, "index.codec"));
   }

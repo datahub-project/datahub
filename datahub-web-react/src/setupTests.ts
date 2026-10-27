@@ -4,6 +4,7 @@
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom/vitest';
 import i18n from 'i18next';
+import { createElement, forwardRef } from 'react';
 import { initReactI18next } from 'react-i18next';
 
 import enAlchemy from '@src/i18n/locales/en/alchemy.json';
@@ -184,8 +185,6 @@ vi.mock('js-cookie', () => ({
         get: () => 'urn:li:corpuser:2',
     },
 }));
-vi.mock('./app/entity/shared/tabs/Documentation/components/editor/Editor');
-
 vi.stubGlobal(
     'ResizeObserver',
     vi.fn(() => ({
@@ -207,3 +206,13 @@ vi.stubGlobal(
         takeRecords: vi.fn(() => []),
     })),
 );
+
+// Editor lazy-loads its remirror implementation to keep remirror out of the initial app
+// bundle. Tests care about the markdown content it's given, not remirror's own rendering,
+// so replace it with a synchronous stand-in everywhere rather than depending on Suspense
+// timing (which varies with test-runner load) in every consuming test.
+vi.mock('@components/components/Editor/Editor', () => ({
+    Editor: forwardRef((props: { content?: string; className?: string; dataTestId?: string }, ref) =>
+        createElement('div', { ref, className: props.className, 'data-testid': props.dataTestId }, props.content),
+    ),
+}));

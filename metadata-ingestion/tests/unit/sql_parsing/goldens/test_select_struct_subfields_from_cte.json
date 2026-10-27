@@ -1,0 +1,78 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "646aa4c66426c7e005351b4ab33b7730fe12482214fe21a0f39bd8d2d56f79ff",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "post_id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "NUMERIC"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "post_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`abcde_transformed`.`post_id` AS `post_id`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "asset_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "widget.asset.id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`abcde_transformed`.`widget`.`asset`.`id` AS `asset_id`"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "min_metric",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "widget.metric.metricA"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "widget.metric.metric_b"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "LEAST(`abcde_transformed`.`widget`.`metric`.`metrica`, `abcde_transformed`.`widget`.`metric`.`metric_b`) AS `min_metric`"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH cte AS (SELECT post_id, widget.asset.id AS asset_id, LEAST(widget.metric.metricA, widget.metric.metric_b) AS min_metric FROM data_reporting.abcde_transformed) SELECT post_id, asset_id, min_metric FROM cte"
+    }
+}

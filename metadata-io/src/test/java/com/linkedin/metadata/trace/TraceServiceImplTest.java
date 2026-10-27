@@ -119,7 +119,8 @@ public class TraceServiceImplTest {
     when(summary.getUrn()).thenReturn(TEST_URN.toString());
     when(summary.getAspectName()).thenReturn(ASPECT_NAME);
     when(summary.getTelemetryTraceId()).thenReturn(TEST_TRACE_ID);
-    when(systemMetadataService.findAspectsByUrn(eq(TEST_URN), anyList(), eq(true)))
+    when(systemMetadataService.findAspectsByUrn(
+            any(OperationContext.class), eq(TEST_URN), anyList(), eq(true)))
         .thenReturn(Collections.singletonList(summary));
 
     // Act
@@ -265,7 +266,8 @@ public class TraceServiceImplTest {
         .thenReturn(TraceIdGenerator.getTimestampMillis(TEST_TRACE_ID_FUTURE)); // Future timestamp
     when(summary.getTelemetryTraceId()).thenReturn(TEST_TRACE_ID_FUTURE);
 
-    when(systemMetadataService.findAspectsByUrn(eq(TEST_URN), anyList(), eq(true)))
+    when(systemMetadataService.findAspectsByUrn(
+            any(OperationContext.class), eq(TEST_URN), anyList(), eq(true)))
         .thenReturn(Collections.singletonList(summary));
 
     // Act
@@ -419,7 +421,8 @@ public class TraceServiceImplTest {
 
     // Mock systemMetadataService to return empty list to ensure
     // we don't get a pre-existing search status
-    when(systemMetadataService.findAspectsByUrn(eq(TEST_URN), anyList(), eq(true)))
+    when(systemMetadataService.findAspectsByUrn(
+            any(OperationContext.class), eq(TEST_URN), anyList(), eq(true)))
         .thenReturn(Collections.emptyList());
 
     // Act

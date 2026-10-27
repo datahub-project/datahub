@@ -65,6 +65,24 @@ public interface EntitySearchService {
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId);
 
   /**
+   * Updates or inserts a document in the V3 search-group index. Default is a no-op for
+   * implementations that do not write V3. Elasticsearch also no-ops when the V3 entity index is
+   * disabled.
+   */
+  default void upsertDocumentBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String document,
+      @Nonnull String docId) {}
+
+  /**
+   * Deletes a document from the V3 search-group index. Default is a no-op for implementations that
+   * do not write V3. Elasticsearch also no-ops when the V3 entity index is disabled.
+   */
+  default void deleteDocumentBySearchGroup(
+      @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {}
+
+  /**
    * Appends a run id to the list for a certain document
    *
    * @param urn the urn of the user
@@ -190,6 +208,19 @@ public interface EntitySearchService {
       @Nonnull String field,
       @Nullable Filter requestParams,
       @Nullable Integer limit);
+
+  /**
+   * For each of {@code entityUrns}, returns the active-incident count and the latest active
+   * incident (by {@code lastUpdated} desc), computed in a single aggregation over the incident
+   * index. Entities with no active incidents are absent from the returned map.
+   *
+   * @param opContext the operation context
+   * @param entityUrns the entities to summarize incidents for
+   * @return map of entity urn -> {@link IncidentStats}; empty when {@code entityUrns} is empty
+   */
+  @Nonnull
+  Map<Urn, IncidentStats> getActiveIncidentStats(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns);
 
   /**
    * Gets a list of groups/entities that match given browse request.
@@ -441,11 +472,16 @@ public interface EntitySearchService {
   }
 
   /**
-   * Validates doc counts match between an alias and a new backing index, then atomically swaps the
-   * alias.
+   * Validates the new backing index's doc count against the source count snapshotted when the
+   * reindex was launched, then atomically swaps the alias.
    *
+   * @param expectedSourceDocCount source doc count snapshotted at reindex submission time
    * @return true if swapped, false if doc counts didn't match
    */
-  boolean validateAndSwapAlias(@Nonnull String aliasName, @Nonnull String newBackingIndex)
+  boolean validateAndSwapAlias(
+      @Nonnull OperationContext opContext,
+      @Nonnull String aliasName,
+      @Nonnull String newBackingIndex,
+      long expectedSourceDocCount)
       throws Exception;
 }

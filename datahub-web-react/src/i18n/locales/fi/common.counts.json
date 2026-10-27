@@ -1,0 +1,16 @@
+{
+    "columnCount_one": "{{count}} sarake",
+    "columnCount_other": "{{count}} saraketta",
+    "matchCount_one": "{{count}} osuma",
+    "matchCount_other": "{{count}} osumaa",
+    "ownerCount_one": "{{count}} omistaja",
+    "ownerCount_other": "{{count}} omistajaa",
+    "queryCount_one": "{{count}} kysely",
+    "queryCount_other": "{{count}} kyselyä",
+    "rowCount_one": "{{count}} rivi",
+    "rowCount_other": "{{count}} riviä",
+    "tagCount_one": "{{count}} tunniste",
+    "tagCount_other": "{{count}} tunnistetta",
+    "termCount_one": "{{count}} termi",
+    "termCount_other": "{{count}} termiä"
+}

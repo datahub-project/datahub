@@ -7,13 +7,15 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.use({ featureName: 'search' });
 
 test.describe('SearchV2 Features', () => {
   let searchPage: SearchPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     searchPage = new SearchPage(page, logger, logDir);
     await searchPage.navigateToHome();
   });
@@ -26,6 +28,7 @@ test.describe('SearchV2 Features', () => {
 
   test('should perform autocomplete search', async ({ page }) => {
     await searchPage.searchInput.fill('playwright');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(1000);
     await expect(searchPage.autocompleteDropdown).toBeVisible();
   });
@@ -57,6 +60,7 @@ test.describe('SearchV2 Features', () => {
     const moreFiltersBtn = searchPage.moreFiltersDropdown;
     await expect(moreFiltersBtn).toBeVisible({ timeout: 10000 });
     await moreFiltersBtn.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(500);
     // eslint-disable-next-line playwright/no-raw-locators -- data-testid prefix selector (^=); getByTestId requires exact match
     const moreFilterOption = page.locator('[data-testid^="more-filter-"]').first();
@@ -108,6 +112,7 @@ test.describe('SearchV2 Features', () => {
     const facetCount = await expandFacetIcon.count();
     if (facetCount > 0) {
       await expandFacetIcon.click();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await page.waitForTimeout(500);
       await page.waitForLoadState('networkidle');
     }
@@ -117,7 +122,8 @@ test.describe('SearchV2 Features', () => {
     await searchPage.searchAndWait('*', 3000);
     await searchPage.expectHasResults();
     await searchPage.expectPaginationVisible();
-    await expect(page.getByText(/of [0-9]+ result/)).toBeVisible();
+    // The total is locale-formatted once it passes 999 ("of 5,146 results"), and may carry a "+" when capped.
+    await expect(page.getByText(/of [0-9][0-9,.]*\+? result/)).toBeVisible();
   });
 
   test('should handle filter option selection with checkboxes', async () => {

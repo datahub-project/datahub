@@ -17,6 +17,7 @@ import com.linkedin.metadata.queue.MetadataQueueStore;
 import com.linkedin.metadata.queue.PgQueuePayloadCompression;
 import com.linkedin.metadata.queue.QueueTopicDefaults;
 import com.linkedin.metadata.queue.QueueTopicMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.Future;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
@@ -27,10 +28,12 @@ public class PgQueueUsageEventPublisherTest {
   private MetadataQueueStore store;
   private QueueTopicDefaults topicDefaults;
   private PgQueueUsageEventPublisher publisher;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setUp() {
     store = mock(MetadataQueueStore.class);
+    opContext = mock(OperationContext.class);
     topicDefaults =
         new QueueTopicDefaults(3, 604800, 0, 0, false, "application/vnd.apache.avro+binary");
     publisher =
@@ -39,7 +42,8 @@ public class PgQueueUsageEventPublisherTest {
 
   @Test
   public void testPublishHappyPath() throws Exception {
-    Future<?> result = publisher.publish("DataHubUsageEvent_v1", "user123", "{\"event\":\"view\"}");
+    Future<?> result =
+        publisher.publish(opContext, "DataHubUsageEvent_v1", "user123", "{\"event\":\"view\"}");
 
     assertNotNull(result);
     assertFalse(result.isDone() && result.get() == null ? false : true);
@@ -57,7 +61,7 @@ public class PgQueueUsageEventPublisherTest {
 
   @Test
   public void testPublishNullKeyUsesEmptyString() throws Exception {
-    publisher.publish("DataHubUsageEvent_v1", null, "{\"event\":\"view\"}");
+    publisher.publish(opContext, "DataHubUsageEvent_v1", null, "{\"event\":\"view\"}");
 
     ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
     verify(store)
@@ -77,7 +81,7 @@ public class PgQueueUsageEventPublisherTest {
   public void testPublishWhenNotWritableSkipsEnqueue() throws Exception {
     publisher.setWritable(false);
 
-    Future<?> result = publisher.publish("DataHubUsageEvent_v1", "key", "{}");
+    Future<?> result = publisher.publish(opContext, "DataHubUsageEvent_v1", "key", "{}");
 
     assertNotNull(result);
     verify(store, never())
@@ -105,7 +109,7 @@ public class PgQueueUsageEventPublisherTest {
             any()))
         .thenThrow(new RuntimeException("DB down"));
 
-    Future<?> result = publisher.publish("DataHubUsageEvent_v1", "key", "{}");
+    Future<?> result = publisher.publish(opContext, "DataHubUsageEvent_v1", "key", "{}");
 
     assertNotNull(result);
     assertTrue(result.isDone());
@@ -119,7 +123,7 @@ public class PgQueueUsageEventPublisherTest {
 
   @Test
   public void testEffectiveDefaultsUsesFallbackWhenOptionsNull() throws Exception {
-    publisher.publish("DataHubUsageEvent_v1", "key", "{}");
+    publisher.publish(opContext, "DataHubUsageEvent_v1", "key", "{}");
 
     ArgumentCaptor<QueueTopicDefaults> defaultsCaptor =
         ArgumentCaptor.forClass(QueueTopicDefaults.class);
@@ -147,7 +151,7 @@ public class PgQueueUsageEventPublisherTest {
     PgQueueUsageEventPublisher pub =
         new PgQueueUsageEventPublisher(
             store, options, topicDefaults, PgQueuePayloadCompression.NONE);
-    pub.publish("DataHubUsageEvent_v1", "key", "{}");
+    pub.publish(opContext, "DataHubUsageEvent_v1", "key", "{}");
 
     verify(store)
         .enqueue(

@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.semantic;
 
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -44,7 +45,9 @@ public class SemanticEntitySearchIT {
 
     // Skip if OpenSearch is not available
     try {
-      RawResponse resp = client.performLowLevelRequest(new Request("GET", "/_cluster/health"));
+      RawResponse resp =
+          client.performLowLevelRequest(
+              OperationFingerprint.EMPTY, new Request("GET", "/_cluster/health"));
       int status = resp.getStatusLine().getStatusCode();
       if (status < 200 || status >= 300) {
         throw new SkipException("OpenSearch not healthy: status=" + status);
@@ -52,7 +55,8 @@ public class SemanticEntitySearchIT {
 
       // Ensure semantic dataset index exists
       RawResponse headIndex =
-          client.performLowLevelRequest(new Request("HEAD", "/datasetindex_v2_semantic"));
+          client.performLowLevelRequest(
+              OperationFingerprint.EMPTY, new Request("HEAD", "/datasetindex_v2_semantic"));
       int idxStatus = headIndex.getStatusLine().getStatusCode();
       if (idxStatus == 404) {
         throw new SkipException("Index datasetindex_v2_semantic not found; skipping semantic IT");
@@ -61,6 +65,7 @@ public class SemanticEntitySearchIT {
       // Ensure vector field mapping exists
       RawResponse mapping =
           client.performLowLevelRequest(
+              OperationFingerprint.EMPTY,
               new Request(
                   "GET",
                   "/datasetindex_v2_semantic/_mapping/field/embeddings.text_embedding_3_large.chunks.vector"));

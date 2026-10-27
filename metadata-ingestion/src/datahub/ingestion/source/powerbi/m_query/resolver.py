@@ -8,10 +8,13 @@ from typing import Dict, FrozenSet, List, Optional, Set, Tuple
 
 from datahub.ingestion.source.powerbi.m_query.ast_utils import (
     NodeIdMap,
+    get_literal_value,
     get_record_field_values,
     resolve_identifier,
 )
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    ColumnRename,
+    ColumnRenameStep,
     DataAccessFunctionDetail,
     FunctionName,
     IdentifierAccessor,
@@ -20,6 +23,12 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 logger = logging.getLogger(__name__)
 
 _RECOGNIZED_FUNCTIONS: FrozenSet[str] = frozenset(f.value for f in FunctionName)
+_TABLE_RENAME_COLUMNS = "Table.RenameColumns"
+
+# The let scopes enclosing the node being walked, outermost first, each as
+# (let id, let node). A nested let is pushed onto the end rather than replacing
+# what is already there, so its body can still reach the steps its parents bind.
+Scopes = Tuple[Tuple[int, dict], ...]
 
 
 def resolve_to_data_access_functions(
@@ -56,8 +65,7 @@ def resolve_to_data_access_functions(
     _walk(
         node_map=node_map,
         node=output_node,
-        current_let=root_let,
-        current_let_id=root_let_id,
+        scopes=((root_let_id, root_let),),
         accessor_chain=None,
         results=results,
         seen=seen,
@@ -69,15 +77,16 @@ def resolve_to_data_access_functions(
 def _walk(
     node_map: NodeIdMap,
     node: Optional[dict],
-    current_let: dict,
-    current_let_id: int,
+    scopes: Scopes,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    column_rename_steps: Optional[List[ColumnRenameStep]] = None,
 ) -> None:
     if node is None:
         return
+    column_rename_steps = column_rename_steps or []
 
     kind = node.get("kind", "")
 
@@ -91,12 +100,12 @@ def _walk(
         _walk_identifier_name(
             node_map,
             name,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -108,12 +117,12 @@ def _walk(
         _walk_identifier_name(
             node_map,
             name,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -124,12 +133,12 @@ def _walk(
         _walk(
             node_map,
             inner_output,
-            node,
-            inner_let_id,
+            scopes + ((inner_let_id, node),),
             accessor_chain,
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -140,12 +149,12 @@ def _walk(
         _walk_recursive_primary(
             node_map,
             node,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -160,12 +169,12 @@ def _walk(
                 _walk(
                     node_map,
                     inner,
-                    current_let,
-                    current_let_id,
+                    scopes,
                     accessor_chain,
                     results,
                     seen.copy(),
                     parameters,
+                    column_rename_steps,
                 )
         return
 
@@ -176,13 +185,29 @@ def _walk(
             _walk(
                 node_map,
                 body,
-                current_let,
-                current_let_id,
+                scopes,
                 accessor_chain,
                 results,
                 seen,
                 parameters,
+                column_rename_steps,
             )
+        return
+
+    # -- ParenthesizedExpression --
+    # Parentheses around an expression carry no semantics, so the navigation
+    # chain continues through them, e.g. `then (Source{[Name=..]}[Data])`.
+    if kind == "ParenthesizedExpression":
+        _walk(
+            node_map,
+            node.get("content"),
+            scopes,
+            accessor_chain,
+            results,
+            seen,
+            parameters,
+            column_rename_steps,
+        )
         return
 
     # -- IfExpression (conditional data source selection, e.g. dev/prod switching) --
@@ -190,22 +215,22 @@ def _walk(
         _walk(
             node_map,
             node.get("trueExpression"),
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         _walk(
             node_map,
             node.get("falseExpression"),
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen.copy(),
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -215,13 +240,14 @@ def _walk(
 def _walk_recursive_primary(
     node_map: NodeIdMap,
     node: dict,
-    current_let: dict,
-    current_let_id: int,
+    scopes: Scopes,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    column_rename_steps: Optional[List[ColumnRenameStep]] = None,
 ) -> None:
+    column_rename_steps = column_rename_steps or []
     head = node.get("head")  # embedded IdentifierExpression
     rec_exprs = node.get("recursiveExpressions", {})
     elements = rec_exprs.get("elements", []) if isinstance(rec_exprs, dict) else []
@@ -230,12 +256,12 @@ def _walk_recursive_primary(
         _walk(
             node_map,
             head,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -247,12 +273,12 @@ def _walk_recursive_primary(
             node_map,
             head,
             first,
-            current_let,
-            current_let_id,
+            scopes,
             accessor_chain,
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -271,12 +297,12 @@ def _walk_recursive_primary(
         _walk(
             node_map,
             head,
-            current_let,
-            current_let_id,
+            scopes,
             new_accessor,
             results,
             seen,
             parameters,
+            column_rename_steps,
         )
         return
 
@@ -284,12 +310,12 @@ def _walk_recursive_primary(
     _walk(
         node_map,
         head,
-        current_let,
-        current_let_id,
+        scopes,
         accessor_chain,
         results,
         seen,
         parameters,
+        column_rename_steps,
     )
 
 
@@ -297,13 +323,14 @@ def _walk_invoke(
     node_map: NodeIdMap,
     head: Optional[dict],
     invoke_node: dict,
-    current_let: dict,
-    current_let_id: int,
+    scopes: Scopes,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    column_rename_steps: Optional[List[ColumnRenameStep]] = None,
 ) -> None:
+    column_rename_steps = column_rename_steps or []
     callee = None
     if isinstance(head, dict) and head.get("kind") == "IdentifierExpression":
         callee = head.get("identifier", {}).get("literal")
@@ -316,12 +343,19 @@ def _walk_invoke(
                 identifier_accessor=accessor_chain,
                 node_map=node_map,
                 parameters=parameters or {},
+                column_rename_steps=column_rename_steps,
             )
         )
         return
 
-    # Unrecognized wrapper (Table.RenameColumns, Table.AddColumn, etc.)
-    # Recurse into first argument
+    # Unrecognized wrapper (Table.AddColumn, Table.SelectRows, etc.).
+    # Table.RenameColumns is recorded, then we still follow its table argument.
+    next_steps = column_rename_steps
+    if callee == _TABLE_RENAME_COLUMNS:
+        step = _rename_step(invoke_node)
+        if step:
+            next_steps = [*column_rename_steps, step]
+
     if callee:
         content = invoke_node.get("content", {})
         if isinstance(content, dict) and content.get("kind") == "ArrayWrapper":
@@ -330,12 +364,12 @@ def _walk_invoke(
                 _walk(
                     node_map,
                     inner,
-                    current_let,
-                    current_let_id,
+                    scopes,
                     accessor_chain,
                     results,
                     seen,
                     parameters,
+                    next_steps,
                 )
                 return  # only first arg
 
@@ -349,34 +383,113 @@ def _unwrap_csv(elem: object) -> Optional[dict]:
     return None
 
 
+def _list_items(node: object) -> List[dict]:
+    """Elements of a ListExpression, or [] for any other node."""
+    list_node = _unwrap_csv(node)
+    if not isinstance(list_node, dict) or list_node.get("kind") != "ListExpression":
+        return []
+    content = list_node.get("content", {})
+    if not isinstance(content, dict):
+        return []
+    items = (_unwrap_csv(elem) for elem in content.get("elements", []))
+    return [item for item in items if isinstance(item, dict)]
+
+
+def _text_values(nodes: List[dict]) -> List[str]:
+    values = (get_literal_value(node) for node in nodes)
+    return [value for value in values if value is not None]
+
+
+def _rename_step(invoke_node: dict) -> Optional[ColumnRenameStep]:
+    """Pairs from Table.RenameColumns' second argument, or None if absent.
+
+    The argument is either a list of {old, new} lists or a single {old, new}
+    pair. A trailing MissingField argument is ignored. Pairs that are not text
+    literals are skipped.
+    """
+    content = invoke_node.get("content", {})
+    if not isinstance(content, dict) or content.get("kind") != "ArrayWrapper":
+        return None
+    elements = content.get("elements", [])
+    if len(elements) < 2:
+        return None
+
+    items = _list_items(elements[1])
+    single_pair = _text_values(items)
+    pairs = (
+        [single_pair]
+        if len(items) == 2 and len(single_pair) == 2
+        else [_text_values(_list_items(item)) for item in items]
+    )
+    renames_in_step = [
+        ColumnRename(source_name=names[0], renamed_name=names[1])
+        for names in pairs
+        if len(names) >= 2
+    ]
+    if not renames_in_step:
+        return None
+    return ColumnRenameStep(renames=renames_in_step)
+
+
+def _resolve_in_scopes(
+    node_map: NodeIdMap, scopes: Scopes, name: str
+) -> Optional[Tuple[int, dict, Scopes]]:
+    """Look a name up in the innermost scope that binds it.
+
+    Returns the binding scope's id, the value assigned to the name, and the
+    scopes that value is itself evaluated in. That last part matters: a step
+    bound by an outer let cannot see names introduced by a nested one, so the
+    chain is truncated at the scope where the name was found.
+
+    Known gap, covered by an xfail test: a plain reference in M is *exclusive*,
+    so a binding is not in scope for its own value and `a = a` reads an
+    enclosing `a`. Preferring the innermost binding unconditionally resolves it
+    to itself instead, which the circular-reference guard then stops.
+    """
+    for index in range(len(scopes) - 1, -1, -1):
+        let_id, let_node = scopes[index]
+        resolved = resolve_identifier(node_map, let_node, name)
+        if resolved is not None:
+            return let_id, resolved, scopes[: index + 1]
+    return None
+
+
 def _walk_identifier_name(
     node_map: NodeIdMap,
     name: str,
-    current_let: dict,
-    current_let_id: int,
+    scopes: Scopes,
     accessor_chain: Optional[IdentifierAccessor],
     results: List[DataAccessFunctionDetail],
     seen: Set[Tuple[int, str]],
     parameters: Optional[Dict[str, str]] = None,
+    column_rename_steps: Optional[List[ColumnRenameStep]] = None,
 ) -> None:
-    """Resolve a variable name in the current let scope and continue walking."""
+    """Resolve a variable name against the enclosing scopes and keep walking."""
     if not name:
         return
-    # Circular reference guard: (let_id, variable_name) pair
-    guard_key = (current_let_id, name)
+
+    found = _resolve_in_scopes(node_map, scopes, name)
+    if found is None:
+        logger.debug("No enclosing let binds '%s', stopping this branch", name)
+        return
+    binding_let_id, resolved, binding_scopes = found
+
+    # Circular reference guard: (binding let id, variable name) pair. Casefolded
+    # to match how the name was resolved -- M treats `a` and `A` as one variable,
+    # so a cycle spelled inconsistently has to count as the same visit.
+    guard_key = (binding_let_id, name.casefold())
     if guard_key in seen:
         logger.warning("Circular reference detected for variable '%s', stopping", name)
         return
     seen.add(guard_key)
 
-    resolved = resolve_identifier(node_map, current_let, name)
     _walk(
         node_map,
         resolved,
-        current_let,
-        current_let_id,
+        binding_scopes,
         accessor_chain,
         results,
         seen,
         parameters,
+        column_rename_steps,
     )

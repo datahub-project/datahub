@@ -1,5 +1,6 @@
 package io.datahubproject.iceberg.catalog.rest.secure;
 
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
@@ -20,7 +21,7 @@ public class IcebergConfigApiController extends AbstractIcebergController {
     log.info("GET CONFIG for warehouse {}", warehouse);
 
     // check that warehouse exists
-    warehouse(warehouse, opContext(request));
+    warehouse(warehouse, opContext(request, UsageOperation.METADATA_READ));
 
     List<Endpoint> endpoints = buildSupportedEndpoints();
 

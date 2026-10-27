@@ -13,7 +13,11 @@ record DataContractStatus includes CustomProperties {
   /**
    * The latest state of the data contract
    */
-   @Searchable = {}
+   @Searchable = {
+     "v3": {
+       "queryByDefault": true
+     }
+   }
    state: enum DataContractState {
     /**
     * The data contract is active.

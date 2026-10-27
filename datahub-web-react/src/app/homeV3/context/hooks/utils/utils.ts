@@ -1,10 +1,21 @@
 import {
+    AI_CONTEXT_MODULE,
     ASSETS_MODULE,
     CHILD_HIERARCHY_MODULE,
     COLUMNS_MODULE,
+    CONTENTS_MODULE,
     DATA_PRODUCTS_MODULE,
+    DATA_SOURCES_MODULE,
     LINEAGE_MODULE,
+    OUTPUT_PORTS_MODULE,
+    RELATED_METRICS_MODULE,
     RELATED_TERMS_MODULE,
+    SEMANTIC_MODEL_DATASETS_MODULE,
+    SEMANTIC_MODEL_DIMENSIONS_MODULE,
+    SEMANTIC_MODEL_METRICS_MODULE,
+    SEMANTIC_MODEL_RELATIONSHIPS_MODULE,
+    SQL_MODULE,
+    SUB_DATA_PRODUCTS_MODULE,
 } from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
@@ -19,6 +30,7 @@ const TAGS = { elementType: SummaryElementType.Tags };
 const GLOSSARY_TERMS = { elementType: SummaryElementType.GlossaryTerms };
 const DOCUMENT_STATUS = { elementType: SummaryElementType.DocumentStatus };
 const DOCUMENT_TYPE = { elementType: SummaryElementType.DocumentType };
+const SEMANTIC_MODEL = { elementType: SummaryElementType.SemanticModel };
 
 export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTemplateFragment {
     let rows: { modules: PageModuleFragment[] }[] = [{ modules: [] }];
@@ -30,7 +42,7 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
             summaryElements = [CREATED, OWNERS];
             break;
         case EntityType.DataProduct:
-            rows = [{ modules: [ASSETS_MODULE] }];
+            rows = [{ modules: [OUTPUT_PORTS_MODULE, SUB_DATA_PRODUCTS_MODULE] }, { modules: [ASSETS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
             break;
         case EntityType.GlossaryTerm:
@@ -44,6 +56,39 @@ export function getDefaultSummaryPageTemplate(entityType: EntityType): PageTempl
         case EntityType.Dataset:
             rows = [{ modules: [LINEAGE_MODULE] }, { modules: [COLUMNS_MODULE] }];
             summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Application:
+            rows = [{ modules: [ASSETS_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Container:
+            rows = [{ modules: [ASSETS_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Chart:
+            rows = [{ modules: [ASSETS_MODULE, LINEAGE_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Dashboard:
+            rows = [{ modules: [DATA_SOURCES_MODULE, CONTENTS_MODULE] }, { modules: [LINEAGE_MODULE] }];
+            summaryElements = [CREATED, OWNERS, DOMAIN, TAGS, GLOSSARY_TERMS];
+            break;
+        case EntityType.SemanticModel:
+            rows = [
+                { modules: [LINEAGE_MODULE] },
+                { modules: [SEMANTIC_MODEL_DATASETS_MODULE, SEMANTIC_MODEL_METRICS_MODULE] },
+                { modules: [SEMANTIC_MODEL_RELATIONSHIPS_MODULE, SEMANTIC_MODEL_DIMENSIONS_MODULE] },
+                { modules: [AI_CONTEXT_MODULE] },
+            ];
+            summaryElements = [LAST_INGESTED, DOMAIN, OWNERS, GLOSSARY_TERMS];
+            break;
+        case EntityType.Metric:
+            rows = [
+                { modules: [LINEAGE_MODULE] },
+                { modules: [SQL_MODULE, RELATED_METRICS_MODULE] },
+                { modules: [AI_CONTEXT_MODULE] },
+            ];
+            summaryElements = [CREATED, LAST_MODIFIED, OWNERS, SEMANTIC_MODEL];
             break;
         case EntityType.Document:
             rows = [{ modules: [] }];

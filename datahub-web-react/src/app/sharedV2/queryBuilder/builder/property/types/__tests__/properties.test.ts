@@ -95,19 +95,6 @@ describe('entityProperties', () => {
             );
         });
 
-        it('should have assertions children with correct English display names', () => {
-            const props = getProps(EntityType.Dataset);
-            const assertions = props.find((p: Property) => p.id === 'assertions');
-            expect(assertions?.displayName).toBe('Assertions');
-            const children = assertions?.children ?? [];
-            expect(
-                children.find((c: Property) => c.id === 'assertionsSummary.passingAssertionDetails')?.displayName,
-            ).toBe('Passing Assertions');
-            expect(
-                children.find((c: Property) => c.id === 'assertionsSummary.failingAssertionDetails')?.displayName,
-            ).toBe('Failing Assertions');
-        });
-
         it('should have incidents children with correct English display names', () => {
             const props = getProps(EntityType.Dataset);
             const incidents = props.find((p: Property) => p.id === 'incidents');

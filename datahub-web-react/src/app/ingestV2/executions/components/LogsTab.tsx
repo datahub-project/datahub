@@ -1,4 +1,4 @@
-import { DownloadOutlined } from '@ant-design/icons';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -39,9 +39,13 @@ export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutio
             <SectionSubHeader>
                 <SubHeaderParagraph>{t('executions.logsSubtitle')}</SubHeaderParagraph>
                 <Tooltip title={t('executions.downloadLogs')}>
-                    <Button variant="text" onClick={downloadLogs}>
-                        <DownloadOutlined />
-                    </Button>
+                    <Button
+                        variant="text"
+                        isCircle
+                        icon={{ icon: DownloadSimple, size: 'lg' }}
+                        aria-label={t('executions.downloadLogs')}
+                        onClick={downloadLogs}
+                    />
                 </Tooltip>
             </SectionSubHeader>
             <DetailsContainer>

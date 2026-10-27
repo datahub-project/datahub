@@ -1,5 +1,6 @@
-import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { Icon, Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
@@ -24,12 +25,12 @@ const Container = styled.div`
 
 const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
-        background-color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : 'none')};
+        background-color: ${(props) => (props.$isSelected ? props.theme.colors.buttonFillBrand : 'none')};
         color: ${(props) => (props.$isSelected ? props.theme.colors.bg : props.theme.colors.textTertiary)};
         border-radius: 8px;
         margin-right: 12px;
         min-height: 32px;
-        ${(props) => props.$isSelected && `border-color: ${props.theme.styles['primary-color']}`};
+        ${(props) => props.$isSelected && `border-color: ${props.theme.colors.borderBrand}`};
     }
 `;
 
@@ -64,9 +65,9 @@ const LevelFilter = styled.div<{ $isSelected: boolean }>`
     padding: 2px 8px;
     margin-right: 12px;
     border-radius: 8px;
-    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+    color: ${(props) => (props.$isSelected ? props.theme.colors.textBrand : props.theme.colors.textTertiary)};
     border: 1px solid
-        ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : props.theme.colors.textTertiary)};
+        ${(props) => (props.$isSelected ? props.theme.colors.borderBrand : props.theme.colors.textTertiary)};
     &:hover {
         opacity: 0.8;
         cursor: pointer;
@@ -81,14 +82,14 @@ const AdvancedFiltersButton = styled(Button)<{ $isSelected: boolean }>`
     }
 `;
 
-const StyledArrowDownOutlined = styled(ArrowDownOutlined)`
+const StyledArrowDownOutlined = styled(ArrowDown)`
     && {
         margin-right: 4px;
         font-size: 10px;
     }
 `;
 
-const StyledArrowUpOutlined = styled(ArrowUpOutlined)`
+const StyledArrowUpOutlined = styled(ArrowUp)`
     && {
         margin-right: 4px;
         font-size: 10px;

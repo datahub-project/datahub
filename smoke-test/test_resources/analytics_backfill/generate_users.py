@@ -11,7 +11,7 @@ import json
 import logging
 import random
 from datetime import datetime, timezone
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -214,7 +214,7 @@ def generate_and_emit_users(
     gms_url: str,
     token: str,
     email_domain: str = "example.com",
-    output_file: str = None,
+    output_file: Optional[str] = None,
 ) -> List[Dict]:
     """Generate users and emit to DataHub."""
     logger.info(f"Generating {num_users} user profiles...")

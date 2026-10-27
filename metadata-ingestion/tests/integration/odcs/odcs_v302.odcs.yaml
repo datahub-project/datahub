@@ -1,0 +1,44 @@
+# ODCS v3.0.2 contract exercising the v3.0 library vocabulary (`rule` key,
+# duplicateCount / validValues / rowCount) and mysql two-part naming.
+apiVersion: v3.0.2
+kind: DataContract
+id: 00000000-0000-0000-0000-000000000004
+name: shipments_v30
+version: 1.0.0
+status: active
+servers:
+  - server: prod-mysql
+    type: mysql
+    host: mysql.example.internal
+    port: 3306
+    database: logistics
+schema:
+  - name: shipments
+    physicalName: shipments
+    description: One row per outbound shipment.
+    properties:
+      - name: shipment_id
+        logicalType: number
+        primaryKey: true
+        required: true
+        quality:
+          - name: shipment_id_unique
+            rule: duplicateCount
+            mustBe: 0
+      - name: weight_unit
+        logicalType: string
+        quality:
+          - name: weight_unit_valid
+            rule: validValues
+            validValues: ["pounds", "kg"]
+      - name: carrier
+        logicalType: string
+        quality:
+          - name: carrier_duplicates_tolerated
+            rule: duplicateCount
+            mustBeLessThan: 10
+            unit: rows
+    quality:
+      - name: shipments_row_count
+        rule: rowCount
+        mustBeBetween: [100, 120]

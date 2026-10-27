@@ -9,6 +9,11 @@ source:
     username: root
     password: example
 
+    # Optionally derive usage stats + query lineage from query history.
+    # include_usage_statistics: true
+    # usage_source: performance_schema # default; normalized digests, no setup
+    # usage_source: general_log # literal SQL + per-user; needs general_log=ON, log_output=TABLE
+
     # If you need to use SSL with MariaDB:
     # options:
     #   connect_args:

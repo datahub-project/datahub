@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.container.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Access;
@@ -13,11 +14,14 @@ import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
+import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -181,6 +185,9 @@ public class ContainerMapper {
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
     }
 
+    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+      return AuthorizationUtils.restrictEntity(result, Container.class);
+    }
     return result;
   }
 
@@ -199,6 +206,12 @@ public class ContainerMapper {
     }
     if (gmsProperties.hasQualifiedName()) {
       propertiesResult.setQualifiedName(gmsProperties.getQualifiedName().toString());
+    }
+    if (gmsProperties.hasCreated()) {
+      final TimeStamp created = gmsProperties.getCreated();
+      propertiesResult.setCreated(
+          new AuditStamp(
+              created.getTime(), created.hasActor() ? created.getActor().toString() : null));
     }
 
     return propertiesResult;

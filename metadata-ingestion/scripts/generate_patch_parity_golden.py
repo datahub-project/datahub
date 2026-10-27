@@ -43,7 +43,9 @@ def extract_patch_payload(
             f"No MCP at index {index} for aspect {aspect_name} "
             f"(found {len(matches)} match(es))"
         )
-    return json.loads(matches[index].aspect.value)
+    aspect = matches[index].aspect
+    assert aspect is not None, f"Missing aspect for {aspect_name}"
+    return json.loads(aspect.value)
 
 
 def main() -> None:

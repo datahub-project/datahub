@@ -13,12 +13,13 @@ import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -30,7 +31,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -83,16 +83,8 @@ public class MostPopularSource implements EntityRecommendationSource {
   @Override
   public boolean isEligible(
       @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
-    boolean analyticsEnabled = false;
-    try {
-      analyticsEnabled =
-          _searchClient.indexExists(
-              new GetIndexRequest(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX)),
-              RequestOptions.DEFAULT);
-    } catch (IOException e) {
-      log.error("Failed to determine whether DataHub usage index exists");
-    }
-    return requestContext.getScenario() == ScenarioType.HOME && analyticsEnabled;
+    return requestContext.getScenario() == ScenarioType.HOME
+        && UsageEventIndexChecker.usageIndexExists(opContext, _searchClient, _indexConvention);
   }
 
   @Override
@@ -108,7 +100,10 @@ public class MostPopularSource implements EntityRecommendationSource {
         () -> {
           try {
             final SearchResponse searchResponse =
-                _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+                SearchTookMetrics.time(
+                    opContext,
+                    SearchOperation.DATAHUB_USAGE,
+                    () -> _searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
             // extract results
             ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
             List<String> bucketUrns =
@@ -161,7 +156,7 @@ public class MostPopularSource implements EntityRecommendationSource {
     source.size(0);
 
     request.source(source);
-    request.indices(_indexConvention.getIndexName(DATAHUB_USAGE_INDEX));
+    request.indices(_indexConvention.getIndexName(opContext, DATAHUB_USAGE_INDEX));
     return request;
   }
 

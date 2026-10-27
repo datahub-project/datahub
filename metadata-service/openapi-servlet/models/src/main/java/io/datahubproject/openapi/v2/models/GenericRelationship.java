@@ -7,9 +7,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
+import lombok.experimental.SuperBuilder;
 
 @Data
-@Builder
+@SuperBuilder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class GenericRelationship {
   @Nonnull private String relationshipType;

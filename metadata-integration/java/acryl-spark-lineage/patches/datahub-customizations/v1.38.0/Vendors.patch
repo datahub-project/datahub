@@ -1,0 +1,20 @@
+# Patch for DataHub customizations in Vendors.java
+# Upstream version: OpenLineage 1.38.0
+# Generated: 2025-10-02 12:57:22 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/Vendors.patch
+#
+--- /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.38.0/spark/api/Vendors.java	2025-10-02 14:47:49.324288220 +0200
++++ /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark/api/Vendors.java	2025-09-12 19:50:04.457417323 +0200
+@@ -22,7 +22,9 @@
+           // Add vendor classes here
+           "io.openlineage.spark.agent.vendor.snowflake.SnowflakeVendor",
+           "io.openlineage.spark.agent.vendor.iceberg.IcebergVendor",
+-          "io.openlineage.spark.agent.vendor.gcp.GcpVendor");
++          "io.openlineage.spark.agent.vendor.gcp.GcpVendor",
++          // This is the only chance we have to add the RedshiftVendor to the list of vendors
++          "io.openlineage.spark.agent.vendor.redshift.RedshiftVendor");
+ 
+   static Vendors getVendors() {
+     return getVendors(Collections.emptyList());

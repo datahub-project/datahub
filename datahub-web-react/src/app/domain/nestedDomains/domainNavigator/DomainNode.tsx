@@ -7,12 +7,10 @@ import DomainIcon from '@app/domain/DomainIcon';
 import { useDomainsContext } from '@app/domain/DomainsContext';
 import useHasDomainChildren from '@app/domain/nestedDomains/domainNavigator/useHasDomainChildren';
 import useListDomains from '@app/domain/useListDomains';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
-import { BodyContainer, BodyGridExpander } from '@app/shared/components';
-import { RotatingTriangle } from '@app/shared/sidebar/components';
-import { applyOpacity } from '@app/shared/styleUtils';
-import useToggle from '@app/shared/useToggle';
+import { BodyContainer, BodyGridExpander } from '@app/sharedV2/components';
+import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
+import useToggle from '@app/sharedV2/useToggle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Domain } from '@types';
@@ -24,16 +22,21 @@ const RowWrapper = styled.div`
     overflow: hidden;
 `;
 
-const NameWrapper = styled(Typography.Text)<{ isSelected: boolean; addLeftPadding: boolean }>`
+const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
+    && {
+        display: flex;
+        align-items: center;
+        vertical-align: middle;
+    }
+
     flex: 1;
     overflow: hidden;
     padding: 2px;
-    ${(props) =>
-        props.isSelected && `background-color: ${applyOpacity(props.theme.styles['primary-color'] || '', 10)};`}
-    ${(props) => props.addLeftPadding && 'padding-left: 22px;'}
+    ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSelected};`}
+    ${(props) => props.$addLeftPadding && 'padding-left: 22px;'}
 
     &:hover {
-        ${(props) => !props.isSelected && `background-color: ${ANTD_GRAY_V2[1]};`}
+        ${(props) => !props.$isSelected && `background-color: ${props.theme.colors.bgSurface};`}
         cursor: pointer;
     }
 
@@ -119,15 +122,15 @@ export default function DomainNode({
                         <RotatingTriangle
                             isOpen={isOpen && !isClosing}
                             onClick={toggle}
-                            testId={`open-domain-action-item-${domain.urn}`}
+                            dataTestId={`open-domain-action-item-${domain.urn}`}
                         />
                     </ButtonWrapper>
                 )}
                 <NameWrapper
                     ellipsis={{ tooltip: displayName }}
                     onClick={handleSelectDomain}
-                    isSelected={!!isOnEntityPage && !isInSelectMode}
-                    addLeftPadding={!hasDomainChildren}
+                    $isSelected={!!isOnEntityPage && !isInSelectMode}
+                    $addLeftPadding={!hasDomainChildren}
                     data-testid={`domain-option-${displayName}`}
                 >
                     {!isInSelectMode && !displayDomainColoredIcon && <DomainIcon />}

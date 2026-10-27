@@ -1,0 +1,50 @@
+cubes:
+  - name: orders
+    sql: "SELECT * FROM public.orders"
+    description: Customer orders
+
+    # Exercises meta_mapping (cube `meta` -> owners/tags) and Cube Core's
+    # ability to surface `meta` blocks via /v1/meta.
+    meta:
+      owner: jdoe@example.com
+      certified: true
+
+    joins:
+      - name: customers
+        sql: "{CUBE}.customer_id = {customers}.id"
+        relationship: many_to_one
+
+    segments:
+      - name: completed
+        sql: "{CUBE}.status = 'completed'"
+
+    measures:
+      - name: count
+        type: count
+      - name: total_amount
+        sql: amount
+        type: sum
+        format: currency
+        drill_members:
+          - id
+          - status
+
+    dimensions:
+      - name: id
+        sql: id
+        type: number
+        primary_key: true
+      - name: status
+        sql: status
+        type: string
+        # Exercises column_meta_mapping (member `meta` -> field tags).
+        meta:
+          classification: sensitive
+      - name: created_at
+        sql: created_at
+        type: time
+      # Hidden from Cube's own API consumers; exercises include_hidden filtering.
+      - name: customer_id
+        sql: customer_id
+        type: number
+        public: false

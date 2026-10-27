@@ -13,6 +13,7 @@ import com.linkedin.common.DocumentationAssociationArray;
 import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.EditableContainerProperties;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -38,6 +39,7 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.tag.TagProperties;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -592,6 +594,32 @@ public class DescriptionUtils {
         applicationProperties,
         actor,
         entityService);
+  }
+
+  /**
+   * Sets the description on a catalog entity whose description lives on its ingested properties
+   * aspect (there is no separate editable-properties aspect). The next ingestion run overwrites it.
+   */
+  public static <T extends RecordTemplate> void updateCatalogEntityDescription(
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService,
+      @Nonnull String aspectName,
+      @Nonnull T emptyAspect,
+      @Nonnull BiConsumer<T, String> setDescription) {
+    @SuppressWarnings("unchecked")
+    T properties =
+        (T)
+            EntityUtils.getAspectFromEntity(
+                opContext, resourceUrn.toString(), aspectName, entityService, emptyAspect);
+    if (properties == null) {
+      log.warn("Failed to read {} for {}; skipping description update", aspectName, resourceUrn);
+      return;
+    }
+    setDescription.accept(properties, newDescription);
+    persistAspect(opContext, resourceUrn, aspectName, properties, actor, entityService);
   }
 
   public static void updateBusinessAttributeDescription(

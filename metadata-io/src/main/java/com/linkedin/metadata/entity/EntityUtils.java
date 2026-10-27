@@ -31,6 +31,7 @@ import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
@@ -47,6 +48,18 @@ import lombok.extern.slf4j.Slf4j;
 public class EntityUtils {
 
   private EntityUtils() {}
+
+  /**
+   * Whether a side-effect DELETE of {@code aspectName} for {@code urn} should use hardDelete.
+   *
+   * <p>Key-aspect DELETE must hard-delete ({@code deleteUrn}). Soft-delete only sets {@code
+   * status.removed} and leaves the key; a later status DELETE in the same cascade can remove that
+   * flag and leave the entity looking active. Non-key aspect deletes stay soft.
+   */
+  public static boolean shouldHardDeleteAspect(
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName) {
+    return aspectName.equals(opContext.getKeyAspectName(urn));
+  }
 
   @Nullable
   public static Urn getUrnFromString(String urnStr) {
@@ -100,7 +113,11 @@ public class EntityUtils {
       return defaultValue;
     }
     try {
-      RecordTemplate aspect = entityService.getAspect(opContext, urn, aspectName, 0);
+      // Callers read this aspect in order to write it back. A replica snapshot would clobber a
+      // newer primary row.
+      RecordTemplate aspect =
+          entityService.getAspect(
+              opContext.withReadPreference(ReadPreference.PRIMARY), urn, aspectName, 0);
       if (aspect == null) {
         return defaultValue;
       }
@@ -314,9 +331,10 @@ public class EntityUtils {
 
     final Map<String, Map<String, Long>> precalculatedVersions;
     final Map<String, Set<String>> missingAspectVersions;
-    if (txContext.getFailedAttempts() > 2 && txContext.lastExceptionIsDuplicateKey()) {
+    if (txContext.shouldFallbackToDatabaseMaxVersion()) {
       log.warn(
-          "Multiple exceptions detected, last exception detected as DuplicateKey, fallback to database max(version)+1");
+          "Retry failures reached fallback threshold and last error was DuplicateKey ({}); using database max(version)+1",
+          TransactionContext.DUPLICATE_KEY_MAX_VERSION_FALLBACK_AFTER_FAILURES);
       precalculatedVersions = Map.of();
       missingAspectVersions = urnAspects;
     } else {
@@ -348,7 +366,7 @@ public class EntityUtils {
     Map<String, Map<String, Long>> databaseVersions =
         missingAspectVersions.isEmpty()
             ? Map.of()
-            : aspectDao.getNextVersions(opContext, missingAspectVersions, true);
+            : aspectDao.getNextVersions(opContext, txContext, missingAspectVersions, true);
 
     // stitch back together the precalculated and database versions
     return Stream.concat(

@@ -1,0 +1,116 @@
+# Bundled entity graph cache definitions (merged at startup via entityGraphCache.configFile).
+# JSON overlay: ENTITY_GRAPH_CACHE_CONFIG_JSON. Full reference: docs/deploy/gms-entity-graph-cache.md
+#
+# Tier 1 (application.yaml): entityGraphCache.eviction.local | memoryPressure | hazelcast — pod-level limits
+# Tier 2 (this file): eviction.nearCache + graphs.*
+#
+# eviction.nearCache — Hazelcast near cache on GMS pods (local replica of cluster snapshots)
+#   full    — entityGraphSnapshots.full (one cached key per FULL-scope graph)
+#   partial — default for all graphs.<id> PARTIAL maps
+#
+# graphs.<graphId>
+#   enabled, buildSource — primary | graph | search (required)
+#   edges[] — sourceEntityType, destinationEntityType, relationshipType
+#   lineage.entityTypes[] — alternative to edges[] (mutually exclusive)
+#   entityTypes + relationshipType — triplet shorthand (alternative to edges[])
+#   scope.mode — FULL (full scroll) | PARTIAL (directional BFS per WCC; requires maxDepth > 0)
+#   scope.maxDepth — required for PARTIAL only; per-direction BFS build cap and in-memory read cap (no default)
+#   population.strategy — LAZY (on-demand) | SCHEDULED (background rebuild; FULL only)
+#   population.intervalSeconds — LAZY staleness + COOLDOWN retry; SCHEDULED rebuild period (default 300)
+#   bounds.maxVertices, bounds.maxEdges — build-time caps
+#   bindings.filterFields | policyFieldTypes — optional call-site wiring
+#   scroll.batchSize — build scroll page size (default 500)
+#   eviction.nearCache — per-graph PARTIAL near cache (ignored when scope.mode is FULL)
+#   eviction.local — optional override of Tier 1 local view limits (enabled, maxViews, maxEstimatedBytes)
+eviction:
+  nearCache:
+    full:
+      enabled: true
+      # One near-cache slot per FULL graph key in entityGraphSnapshots.full; increase when adding graphs with scope.mode: FULL
+      maxSize: 2
+    partial:
+      enabled: false
+      # PARTIAL snapshots are often large and numerous; keep off to avoid replicating component blobs on every GMS pod
+      # maxSize: 16
+graphs:
+  domain:
+    enabled: true
+    buildSource: search
+    edges:
+      - sourceEntityType: domain
+        destinationEntityType: domain
+        relationshipType: IsPartOf
+    scope:
+      mode: FULL
+    population:
+      strategy: SCHEDULED
+      intervalSeconds: 600
+    bounds:
+      # Production: if search index has more than maxVertices domains, raise via ENTITY_GRAPH_CACHE_CONFIG_JSON
+      maxVertices: 500
+      maxEdges: 750
+    bindings:
+      filterFields: ["domains.keyword"]
+      policyFieldTypes: ["DOMAIN"]
+  glossary:
+    enabled: true
+    buildSource: graph
+    edges:
+      - sourceEntityType: glossaryNode
+        destinationEntityType: glossaryNode
+        relationshipType: IsPartOf
+      - sourceEntityType: glossaryTerm
+        destinationEntityType: glossaryNode
+        relationshipType: IsPartOf
+    scope:
+      mode: PARTIAL
+      maxDepth: 25
+    population:
+      strategy: LAZY
+      intervalSeconds: 1200
+    bounds:
+      # Per-WCC build cap; raise via ENTITY_GRAPH_CACHE_CONFIG_JSON if a single component exceeds this
+      maxVertices: 30000
+      maxEdges: 45000
+  container:
+    enabled: true
+    buildSource: graph
+    edges:
+      - sourceEntityType: container
+        destinationEntityType: container
+        relationshipType: IsPartOf
+    scope:
+      mode: PARTIAL
+      maxDepth: 12
+    population:
+      strategy: LAZY
+      intervalSeconds: 1200
+    bounds:
+      # Container nesting only (no asset vertices); raise via ENTITY_GRAPH_CACHE_CONFIG_JSON if needed
+      maxVertices: 5000
+      maxEdges: 7500
+  membership:
+    enabled: true
+    buildSource: graph
+    edges:
+      - sourceEntityType: corpuser
+        destinationEntityType: corpGroup
+        relationshipType: IsMemberOfGroup
+      - sourceEntityType: corpuser
+        destinationEntityType: corpGroup
+        relationshipType: IsMemberOfNativeGroup
+      - sourceEntityType: corpuser
+        destinationEntityType: dataHubRole
+        relationshipType: IsMemberOfRole
+      - sourceEntityType: corpGroup
+        destinationEntityType: dataHubRole
+        relationshipType: IsMemberOfRole
+    scope:
+      mode: FULL
+    population:
+      strategy: SCHEDULED
+      intervalSeconds: 600
+    bounds:
+      # Target ~15k corpusers + ~5k corpGroups + roles; raise via ENTITY_GRAPH_CACHE_CONFIG_JSON
+      maxVertices: 21000
+      maxEdges: 60000

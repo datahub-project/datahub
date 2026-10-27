@@ -110,16 +110,19 @@ AUTH_OIDC_CLIENT_AUTHENTICATION_METHOD=authentication-method
 
 ## SSO Group-Based Access Control and Custom Messaging
 
-DataHub's SSO (Single Sign-On) integration supports group-based access control and customizable access denied messages using the following environment variables:
+DataHub's SSO (Single Sign-On) integration supports group-based access control and customizable access denied handling using the following environment variables:
 
 - `AUTH_OIDC_REQUIRED_GROUPS`: A comma-separated list of required groups, extracted from the OIDC groups claim, for login. If set, users must have ANY of the specified groups to access DataHub. If unset, group enforcement is disabled and any authenticated user can log in.
-- `AUTH_OIDC_ACCESS_DENIED_MESSAGE`: The message displayed to users who are denied access because they do not belong to the required groups. If not set, a default error message is shown.
+- `AUTH_OIDC_ACCESS_DENIED_REDIRECT_URL`: Optional URL to redirect users who are denied access (missing required groups, or an IdP `access_denied` response). When set, this takes precedence over `AUTH_OIDC_ACCESS_DENIED_MESSAGE`.
+- `AUTH_OIDC_ACCESS_DENIED_MESSAGE`: The message displayed on the login page to users who are denied access because they do not belong to the required groups. Ignored when `AUTH_OIDC_ACCESS_DENIED_REDIRECT_URL` is set. If neither is set, a default error message is shown.
 
 **Example usage:**
 
 ```
 AUTH_OIDC_REQUIRED_GROUPS=engineering,admins
 AUTH_OIDC_ACCESS_DENIED_MESSAGE=Access Denied: You do not belong to the required groups to access this application. Please contact your administrator.
+# Or redirect denied users to an access-request page instead:
+# AUTH_OIDC_ACCESS_DENIED_REDIRECT_URL=https://intranet.example.com/request-access
 ```
 
 ### User & Group Provisioning (JIT Provisioning)

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.config;
 
 import com.linkedin.metadata.config.graphql.GraphQLConcurrencyConfiguration;
+import com.linkedin.metadata.config.graphql.GraphQLDocumentCacheConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLMetricsConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLOtelConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
@@ -14,4 +15,5 @@ public class GraphQLConfiguration {
   private GraphQLMetricsConfiguration metrics;
   private GraphQLShapeLoggingConfiguration shapeLogging;
   private GraphQLOtelConfiguration otel;
+  private GraphQLDocumentCacheConfiguration documentCache;
 }

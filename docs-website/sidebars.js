@@ -13,7 +13,10 @@ module.exports = {
       label: "What Is DataHub?",
       type: "category",
       collapsed: true,
-      link: { type: "doc", id: "docs/features" },
+      link: {
+        type: "doc",
+        id: "docs/features",
+      },
       items: [
         // By the end of this section, readers should understand the core use cases that DataHub addresses,
         // target end-users, high-level architecture, & hosting options
@@ -31,26 +34,6 @@ module.exports = {
           type: "link",
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Core Capabilities",
-      link: {
-        type: "generated-index",
-        title: "Core Capabilities",
-        description:
-          "AI-powered discovery, governance, and observability unify across your data estate to deliver data quality, compliance, and AI readiness.",
-      },
-      items: [
-        {
-          label: "Data Quality & Observability",
-          type: "doc",
-          id: "docs/features/feature-guides/observe",
-          customProps: {
-            icon: "🔍",
-          },
         },
       ],
     },
@@ -127,6 +110,11 @@ module.exports = {
               label: "DataHub Skills",
               type: "doc",
               id: "docs/dev-guides/agent-context/skills",
+            },
+            {
+              label: "DataHub Cloud Plugins",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/plugins",
             },
             {
               label: "Snowflake",
@@ -210,20 +198,23 @@ module.exports = {
           ],
         },
         {
-          label: "Agents",
-          type: "doc",
-          id: "docs/features/feature-guides/agents",
-          className: "saasOnly",
-        },
-        {
           label: "Analytics Agent",
           type: "doc",
           id: "docs/features/feature-guides/analytics-agent",
         },
         {
+          label: "Agent Registry",
+          type: "doc",
+          id: "docs/features/feature-guides/agent-registry",
+          className: "saasOnly",
+        },
+        {
           label: "Assertions (Data Quality)",
           type: "category",
-          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/observe/assertions",
+          },
           items: [
             {
               label: "Overview",
@@ -287,7 +278,10 @@ module.exports = {
             {
               label: "Open Assertions Specification",
               type: "category",
-              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              link: {
+                type: "doc",
+                id: "docs/assertions/open-assertions-spec",
+              },
               items: [
                 {
                   label: "Snowflake",
@@ -299,9 +293,31 @@ module.exports = {
           ],
         },
         {
-          label: "Data Access Workflows",
-          type: "doc",
-          id: "docs/managed-datahub/workflows/access-workflows",
+          label: "Workflows",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Data Access Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/access-workflows",
+            },
+            {
+              label: "Action Workflows",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows",
+            },
+            {
+              label: "Workflow Tutorial",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-tutorial",
+            },
+            {
+              label: "Workflow Reference",
+              type: "doc",
+              id: "docs/managed-datahub/workflows/action-workflows-reference",
+            },
+          ],
         },
         {
           label: "Data Access Roles",
@@ -312,6 +328,12 @@ module.exports = {
           label: "Applications",
           type: "doc",
           id: "docs/features/feature-guides/applications",
+        },
+        {
+          label: "Service Catalog",
+          type: "doc",
+          id: "docs/features/feature-guides/service-catalog",
+          className: "saasOnly",
         },
         {
           label: "Automations",
@@ -335,7 +357,7 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Knowledge Catalog Metadata Sync",
+              label: "Google Cloud Knowledge Catalog (Dataplex) Metadata Sync",
               type: "doc",
               id: "docs/automations/knowledge-catalog-metadata-sync",
               className: "saasOnly",
@@ -376,6 +398,7 @@ module.exports = {
           collapsed: true,
           items: [
             {
+              label: "Overview",
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/overview",
             },
@@ -395,9 +418,177 @@ module.exports = {
           ],
         },
         {
-          label: "Context Documents",
-          type: "doc",
-          id: "docs/features/feature-guides/context/context-documents",
+          label: "Context",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              label: "Build a Data Agent",
+              type: "category",
+              className: "saasOnly",
+              link: {
+                type: "doc",
+                id: "docs/managed-datahub/build-a-data-agent/overview",
+              },
+              items: [
+                {
+                  label: "Key Concepts",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/key-concepts",
+                },
+                {
+                  label: "1. Define Evals",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/define-evals",
+                },
+                {
+                  label: "2. Ingest Context",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/ingest-context",
+                },
+                {
+                  label: "3. Generate Context",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/generate-context",
+                },
+                {
+                  label: "4. Activate Context",
+                  type: "category",
+                  link: {
+                    type: "doc",
+                    id: "docs/managed-datahub/build-a-data-agent/activate-context",
+                  },
+                  items: [
+                    {
+                      label: "a. Use Ask DataHub Directly",
+                      type: "doc",
+                      id: "docs/managed-datahub/build-a-data-agent/use-ask-datahub",
+                    },
+                    {
+                      label: "b. Connect Your Agent to a DataHub Agent",
+                      type: "doc",
+                      id: "docs/managed-datahub/build-a-data-agent/connect-to-datahub-agent",
+                    },
+                    {
+                      label: "c. Connect Your Agent to DataHub Tools",
+                      type: "doc",
+                      id: "docs/managed-datahub/build-a-data-agent/connect-to-datahub-tools",
+                    },
+                  ],
+                },
+                {
+                  label: "5. Context Feedback & Improvement",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/improve-with-feedback",
+                },
+                {
+                  label: "FAQ",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/faq",
+                },
+              ],
+            },
+            {
+              label: "Context Documents",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/features/feature-guides/context/context-documents",
+              },
+              items: [
+                {
+                  label: "Import from Notion",
+                  type: "doc",
+                  id: "docs/features/feature-guides/context/import-notion",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Import from Confluence",
+                  type: "doc",
+                  id: "docs/features/feature-guides/context/import-confluence",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Import from GitHub",
+                  type: "doc",
+                  id: "docs/features/feature-guides/context/import-github",
+                  className: "saasOnly",
+                },
+              ],
+            },
+            {
+              label: "Context Evals",
+              type: "doc",
+              id: "docs/features/feature-guides/context/context-evals",
+              className: "saasOnly",
+            },
+            {
+              label: "Context Generation",
+              type: "doc",
+              id: "docs/features/feature-guides/context/context-generation",
+              className: "saasOnly",
+            },
+            {
+              label: "Reviewing Context Changes",
+              type: "doc",
+              id: "docs/features/feature-guides/context/context-review",
+              className: "saasOnly",
+            },
+            {
+              label: "Context Feedback",
+              type: "doc",
+              id: "docs/features/feature-guides/context/context-feedback",
+              className: "saasOnly",
+            },
+            {
+              label: "Custom Agents",
+              type: "doc",
+              id: "docs/features/feature-guides/agents",
+              className: "saasOnly",
+            },
+            {
+              label: "Scoped MCP Servers",
+              type: "doc",
+              id: "docs/features/feature-guides/scoped-mcp-servers",
+              className: "saasOnly",
+            },
+            {
+              label: "Ontology",
+              type: "category",
+              collapsed: true,
+              items: [
+                {
+                  label: "What is an Ontology?",
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/overview",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/relating-glossary-terms",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/visualizing-your-ontology",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/querying-your-ontology",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/custom-relationships",
+                  className: "saasOnly",
+                },
+                {
+                  type: "doc",
+                  id: "docs/features/feature-guides/ontology/sparql-api",
+                  className: "saasOnly",
+                },
+              ],
+            },
+          ],
         },
         {
           label: "Asset Summaries",
@@ -513,9 +704,34 @@ module.exports = {
           className: "saasOnly",
         },
         {
+          label: "Metrics & Semantic Models",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/metrics-and-semantic-models",
+          },
+          items: [
+            {
+              label: "Best Practices",
+              type: "doc",
+              id: "docs/features/feature-guides/metrics-and-semantic-models-best-practices",
+            },
+            {
+              label: "Ossie Compatibility",
+              type: "doc",
+              id: "docs/features/feature-guides/ossie-compatibility",
+            },
+          ],
+        },
+        {
           label: "MCP Server",
           type: "doc",
           id: "docs/features/feature-guides/mcp",
+        },
+        {
+          label: "Multi-Language Support",
+          type: "doc",
+          id: "docs/features/feature-guides/multi-language-support",
         },
         {
           label: "Ownership",
@@ -538,6 +754,7 @@ module.exports = {
           collapsed: true,
           items: [
             {
+              label: "Overview",
               type: "doc",
               id: "docs/features/feature-guides/properties/overview",
             },
@@ -570,9 +787,20 @@ module.exports = {
         },
         {
           label: "Subscriptions & Notifications",
-          type: "doc",
-          id: "docs/managed-datahub/subscription-and-notification",
+          type: "category",
           className: "saasOnly",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/subscription-and-notification",
+          },
+          items: [
+            {
+              label: "SMTP Email Notifications",
+              type: "doc",
+              id: "docs/managed-datahub/smtp-email",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           label: "Sync Status",
@@ -591,6 +819,11 @@ module.exports = {
         },
       ],
     },
+    {
+      type: "doc",
+      label: "Use Docs with AI Tools",
+      id: "docs/use-docs-with-ai",
+    },
     // DataHub Cloud.
     {
       type: "html",
@@ -605,6 +838,14 @@ module.exports = {
     {
       type: "doc",
       id: "docs/managed-datahub/welcome-acryl",
+    },
+    {
+      label: "Data Quality & Observability",
+      type: "doc",
+      id: "docs/managed-datahub/observe/overview",
+      customProps: {
+        icon: "🔍",
+      },
     },
     {
       label: "Upgrading from DataHub Core to Cloud",
@@ -639,12 +880,22 @@ module.exports = {
         },
         {
           type: "doc",
+          id: "docs/managed-datahub/remote-executor/best-practices",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
           id: "docs/managed-datahub/remote-executor/monitoring",
           className: "saasOnly",
         },
         {
           type: "doc",
           id: "docs/managed-datahub/remote-executor/removing-sqs-dependency",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/remote-executor/bundling-additional-connectors",
           className: "saasOnly",
         },
       ],
@@ -721,6 +972,10 @@ module.exports = {
     },
     {
       "DataHub Cloud Release History": [
+        "docs/managed-datahub/release-notes/v_2_3_0",
+        "docs/managed-datahub/release-notes/v_2_2_0",
+        "docs/managed-datahub/release-notes/v_2_1_0",
+        "docs/managed-datahub/release-notes/v_2_0_0",
         "docs/managed-datahub/release-notes/v_1_1_0",
         "docs/managed-datahub/release-notes/v_1_0_0",
         "docs/managed-datahub/release-notes/v_0_3_17",
@@ -785,7 +1040,10 @@ module.exports = {
         {
           type: "category",
           label: "Sinks",
-          link: { type: "doc", id: "metadata-ingestion/sink_overview" },
+          link: {
+            type: "doc",
+            id: "metadata-ingestion/sink_overview",
+          },
           items: [
             {
               type: "autogenerated",
@@ -803,6 +1061,7 @@ module.exports = {
           items: [
             "metadata-ingestion/docs/transformer/dataset_transformer",
             "metadata-ingestion/docs/transformer/universal_transformers",
+            "metadata-ingestion/docs/transformer/set_attribution",
           ],
         },
       ],
@@ -829,6 +1088,7 @@ module.exports = {
             "docs/quick-ingestion-guides/snowflake/overview",
             "docs/quick-ingestion-guides/snowflake/setup",
             "docs/quick-ingestion-guides/snowflake/configuration",
+            "docs/quick-ingestion-guides/snowflake/migrate-to-key-pair-auth",
           ],
         },
         {
@@ -857,7 +1117,10 @@ module.exports = {
     {
       type: "category",
       label: "Sources",
-      link: { type: "doc", id: "metadata-ingestion/source_overview" },
+      link: {
+        type: "doc",
+        id: "metadata-ingestion/source_overview",
+      },
       items: [
         // collapse these; add push-based at top
         {
@@ -884,6 +1147,16 @@ module.exports = {
         "metadata-ingestion/integration_docs/great-expectations",
         "metadata-integration/java/datahub-protobuf/README",
         //"metadata-ingestion/source-docs-template",
+        // Discoverability alias: "Amazon Data Firehose" is ingested by
+        // the same `kinesis` connector, but users searching for "Firehose"
+        // expect to see it as its own sidebar entry. Use `ref` so
+        // docusaurus allows pointing at the same doc twice (the autogen
+        // list below produces the "Amazon Kinesis Data Streams" entry).
+        {
+          type: "ref",
+          id: "docs/generated/ingestion/sources/kinesis",
+          label: "Amazon Data Firehose",
+        },
         {
           type: "autogenerated",
           dirName: "docs/generated/ingestion/sources", // '.' means the current docs folder
@@ -908,6 +1181,8 @@ module.exports = {
         "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
         "metadata-ingestion/docs/dev_guides/sql_profiles",
         "metadata-ingestion/docs/dev_guides/profiling_ingestions",
+        "metadata-ingestion/docs/dev_guides/lineage_urn_casing",
+        "metadata-ingestion/docs/dev_guides/probe_interface",
         "docs/iceberg-catalog",
       ],
     },
@@ -920,7 +1195,10 @@ module.exports = {
     {
       type: "category",
       label: "Open Source DataHub Metadata Standard",
-      link: { type: "doc", id: "docs/metadata-standards" },
+      link: {
+        type: "doc",
+        id: "docs/metadata-standards",
+      },
       collapsed: false,
       items: [
         {
@@ -1157,19 +1435,31 @@ module.exports = {
     {
       type: "category",
       label: "DataHub CLI",
-      link: { type: "doc", id: "docs/cli" },
+      link: {
+        type: "doc",
+        id: "docs/cli",
+      },
       items: [
         { type: "doc", id: "docs/cli-commands/search", label: "search" },
         { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
         { type: "doc", id: "docs/cli-commands/dataset", label: "dataset" },
         { type: "doc", id: "docs/cli-commands/datapack", label: "datapack" },
+        {
+          type: "doc",
+          id: "docs/cli-commands/evals",
+          label: "evals",
+          className: "saasOnly",
+        },
         { type: "doc", id: "docs/datahub_lite", label: "lite" },
       ],
     },
     {
       type: "category",
       label: "DataHub Actions",
-      link: { type: "doc", id: "docs/act-on-metadata" },
+      link: {
+        type: "doc",
+        id: "docs/act-on-metadata",
+      },
       items: [
         "docs/actions/README",
         "docs/actions/quickstart",
@@ -1228,7 +1518,10 @@ module.exports = {
         "docs/api/tutorials/dashboard-chart",
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
+        "docs/api/tutorials/semantic-models",
         "docs/api/tutorials/applications",
+        "docs/api/tutorials/agent-registry",
+        "docs/api/tutorials/service-catalog",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",
@@ -1328,6 +1621,7 @@ module.exports = {
         "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
+        "docs/deploy/rendered-manifest-upgrade",
       ],
     },
     {
@@ -1336,6 +1630,7 @@ module.exports = {
       items: [
         "docs/deploy/confluent-cloud",
         "docs/deploy/gms-rate-limiting",
+        "docs/deploy/gms-entity-graph-cache",
         "docs/deploy/primary-storage-read-pool",
         "docs/deploy/environment-vars",
         "docs/how/extract-container-logs",
@@ -1360,6 +1655,7 @@ module.exports = {
       "Developing on DataHub": [
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
+        "docs/developers/search-v3-design",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",
@@ -1431,17 +1727,24 @@ module.exports = {
         description: "Learn about DataHub community.",
       },
       items: [
+        "docs/community",
         "docs/slack",
+        { type: "doc", label: "Otto (Community Assistant)", id: "docs/otto" },
         "docs/townhalls",
         //        "docs/townhall-history",
         "docs/CODE_OF_CONDUCT",
         "docs/CONTRIBUTING",
         "docs/links",
+        "docs/ecosystem",
+        "ADOPTERS",
         "docs/rfc",
         {
           type: "category",
           label: "RFCs",
-          link: { type: "doc", id: "docs/rfcs/README" },
+          link: {
+            type: "doc",
+            id: "docs/rfcs/README",
+          },
           items: [],
         },
         "SECURITY",
@@ -1449,6 +1752,11 @@ module.exports = {
     },
     {
       "Release History": ["releases", "docs/how/updating-datahub"],
+    },
+    {
+      type: "doc",
+      label: "FAQ",
+      id: "docs/faq",
     },
 
     // "Candidates for Deprecation": [
@@ -1507,10 +1815,8 @@ module.exports = {
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
-    // "smoke-test/tests/cypress/README"
     // "docs/SECURITY_STANCE"
     // "metadata-integration/java/datahub-schematron/README"
-    // "smoke-test/tests/cypress/README"
     // ],
   ],
 };

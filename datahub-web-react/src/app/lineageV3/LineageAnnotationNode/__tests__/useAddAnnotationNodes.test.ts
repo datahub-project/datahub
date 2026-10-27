@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it } from 'vitest';
 
-import { LINEAGE_ANNOTATION_NODE } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
+import { LINEAGE_ANNOTATION_NODE_NAME } from '@app/lineageV3/LineageAnnotationNode/LineageAnnotationNode';
 import useAddAnnotationNodes from '@app/lineageV3/LineageAnnotationNode/useAddAnnotationNodes';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
 
@@ -42,7 +42,7 @@ describe('useAddAnnotationNodes', () => {
 
         const annotationNode = resultNodes.find((n) => n.id === 'annotation-2');
         expect(annotationNode).toBeDefined();
-        expect(annotationNode?.type).toBe(LINEAGE_ANNOTATION_NODE);
+        expect(annotationNode?.type).toBe(LINEAGE_ANNOTATION_NODE_NAME);
         expect(annotationNode?.position.x).toBe(10);
         expect(annotationNode?.position.y).toBe(20 - 40);
         expect(annotationNode?.data.label).toBe('1 of 2 shown');

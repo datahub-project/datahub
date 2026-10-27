@@ -11,15 +11,15 @@
  * - Time-range filtering
  * - Graph visualization and node expansion
  *
- * Extends LineageV2Page for backward compatibility with V2 selectors.
+ * Extends LineageBasePage for shared lineage-graph selectors.
  */
 
 import { Page, Locator, BrowserContext, expect } from '@playwright/test';
-import { LineageV2Page } from './lineage-v2.page';
+import { LineageBasePage } from './lineage-base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
 
-export class LineageV3Page extends LineageV2Page {
+export class LineageV3Page extends LineageBasePage {
   readonly advSearchAddFilterButton: Locator;
   readonly advSearchAddFilterSelect: Locator;
   readonly explorerViewButton: Locator;
@@ -57,6 +57,29 @@ export class LineageV3Page extends LineageV2Page {
     return this.page.getByText(text).first();
   }
 
+  /**
+   * Result card in a lineage results list, matched by entity URN. Scoped to the results list so
+   * graph nodes, headers and sidebar sections showing the same entity do not match. Titles are not
+   * reliable here: data jobs without a name render their URN with an empty title attribute.
+   */
+  private getLineageListResult(list: Locator, urn: string): Locator {
+    return list.getByTestId(`search-result-row-${urn}`);
+  }
+
+  /** The main Lineage tab list; the sidebar Lineage tab renders the same list but ignores the time range. */
+  private getImpactAnalysisResult(urn: string): Locator {
+    const mainTabListSelector =
+      '[data-testid="embedded-list-search-results"]:not([data-testid="entity-profile-sidebar"] *)';
+    // eslint-disable-next-line playwright/no-raw-locators -- No test id wraps the main-tab list; exclude the sidebar copy by ancestry
+    const mainTabList = this.page.locator(mainTabListSelector);
+    return this.getLineageListResult(mainTabList, urn);
+  }
+
+  private getSidebarLineageResult(urn: string): Locator {
+    const sidebarList = this.page.getByTestId('entity-profile-sidebar').getByTestId('embedded-list-search-results');
+    return this.getLineageListResult(sidebarList, urn);
+  }
+
   // ── Advanced Search and Filtering ───────────────────────────────────────────
 
   /**
@@ -87,6 +110,7 @@ export class LineageV3Page extends LineageV2Page {
     await this.clickFilterByDescription();
     await this.typeFilterText(text);
     await this.confirmFilterText();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.SHORT);
   }
 
@@ -281,6 +305,85 @@ export class LineageV3Page extends LineageV2Page {
     await this.columnSelectVirtualList.getByText(columnName, { exact: true }).click({ timeout: TIMEOUTS.MEDIUM });
   }
 
+  // ── Contract lineage control (shown when the filter-node flag is off) ───────
+  // Pagination/search lives on the expand/contract button, revealed as a panel on hover.
+
+  private static directionEnum(direction: 'up' | 'down'): 'UPSTREAM' | 'DOWNSTREAM' {
+    return direction === 'up' ? 'UPSTREAM' : 'DOWNSTREAM';
+  }
+
+  getContractControl(nodeUrn: string, direction: 'up' | 'down'): Locator {
+    return this.page.getByTestId(`contract-lineage-control-${nodeUrn}-${LineageV3Page.directionEnum(direction)}`);
+  }
+
+  async checkContractControlExists(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await expect(this.getContractControl(nodeUrn, direction)).toBeAttached({ timeout: TIMEOUTS.LONG });
+  }
+
+  /** Assert the "shown/total" count rendered on the contract button, e.g. "4/6". */
+  async checkChildrenShown(nodeUrn: string, direction: 'up' | 'down', text: string): Promise<void> {
+    const dir = LineageV3Page.directionEnum(direction);
+    await expect(
+      this.getContractControl(nodeUrn, direction).getByTestId(`children-shown-${nodeUrn}-${dir}`),
+    ).toHaveText(text, { timeout: TIMEOUTS.LONG });
+  }
+
+  /** Hover the contract control to reveal its search/pagination panel. */
+  async openContractControlPanel(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.getContractControl(nodeUrn, direction).hover();
+  }
+
+  /** Type into the contract control's child search box (opens the panel first). */
+  async filterContractControlChildren(nodeUrn: string, direction: 'up' | 'down', query: string): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    const input = this.getContractControl(nodeUrn, direction).getByTestId('search-input');
+    await input.clear();
+    await input.fill(query);
+  }
+
+  async clearContractControlFilter(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    await this.getContractControl(nodeUrn, direction).getByTestId('search-input').clear();
+  }
+
+  async checkContractControlMatches(nodeUrn: string, direction: 'up' | 'down', matchesNumber: string): Promise<void> {
+    const label = matchesNumber === '1' ? '1 match' : `${matchesNumber} matches`;
+    await expect(this.getContractControl(nodeUrn, direction).getByTestId('matches')).toHaveText(label, {
+      timeout: TIMEOUTS.MEDIUM,
+    });
+  }
+
+  async checkContractControlPlatformCounter(
+    nodeUrn: string,
+    direction: 'up' | 'down',
+    platformLabel: string,
+    value: string,
+  ): Promise<void> {
+    await expect(
+      this.getContractControl(nodeUrn, direction).getByTestId(`filter-counter-platform-${platformLabel}`),
+    ).toHaveText(value, { timeout: TIMEOUTS.MEDIUM });
+  }
+
+  async contractControlShowMore(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    await this.getContractControl(nodeUrn, direction).getByTestId('show-more').click();
+  }
+
+  // show-less and show-all are revealed only while the show-more button is hovered.
+  async contractControlShowLess(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    const control = this.getContractControl(nodeUrn, direction);
+    await control.getByTestId('show-max-wrapper').hover();
+    await control.getByTestId('show-less').click();
+  }
+
+  async contractControlShowAll(nodeUrn: string, direction: 'up' | 'down'): Promise<void> {
+    await this.openContractControlPanel(nodeUrn, direction);
+    const control = this.getContractControl(nodeUrn, direction);
+    await control.getByTestId('show-max-wrapper').hover();
+    await control.getByTestId('show-all').click();
+  }
+
   // ── Result and Text Utilities ──────────────────────────────────────────────
 
   /**
@@ -307,6 +410,36 @@ export class LineageV3Page extends LineageV2Page {
    */
   async expectResultTextNotVisible(text: string, timeout: number = TIMEOUTS.SHORT): Promise<void> {
     await expect(this.getFirstResultText(text)).not.toBeVisible({ timeout });
+  }
+
+  async expectImpactAnalysisResultVisible(urn: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
+    await expect(this.getImpactAnalysisResult(urn)).toBeVisible({ timeout });
+  }
+
+  /**
+   * An absence check passes at once against a list that has not loaded yet, so call this only
+   * after expectImpactAnalysisResultVisible has matched an entity from the same response.
+   */
+  async expectImpactAnalysisResultAbsent(urn: string): Promise<void> {
+    await expect(this.getImpactAnalysisResult(urn)).toHaveCount(0);
+  }
+
+  async expectGraphNodeVisible(urn: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
+    await expect(this.getReactFlowNodeByUrn(urn)).toBeVisible({ timeout });
+  }
+
+  /** Same precondition as expectImpactAnalysisResultAbsent. */
+  async expectGraphNodeAbsent(urn: string): Promise<void> {
+    await expect(this.getReactFlowNodeByUrn(urn)).toHaveCount(0);
+  }
+
+  async expectSidebarLineageResultVisible(urn: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
+    await expect(this.getSidebarLineageResult(urn)).toBeVisible({ timeout });
+  }
+
+  /** Same precondition as expectImpactAnalysisResultAbsent. */
+  async expectSidebarLineageResultAbsent(urn: string): Promise<void> {
+    await expect(this.getSidebarLineageResult(urn)).toHaveCount(0);
   }
 
   /**

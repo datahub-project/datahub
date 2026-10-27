@@ -16,6 +16,7 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -36,8 +37,19 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.RoleMembership;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.authorization.DomainWriteAuthorizationUtils;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
@@ -46,6 +58,10 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
+import com.linkedin.policy.PolicyMatchCondition;
+import com.linkedin.policy.PolicyMatchCriterion;
+import com.linkedin.policy.PolicyMatchCriterionArray;
+import com.linkedin.policy.PolicyMatchFilter;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
@@ -54,6 +70,8 @@ import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -70,6 +88,8 @@ public class DataHubAuthorizerTest {
 
   private static final Urn USER_WITH_ADMIN_ROLE =
       UrnUtils.getUrn("urn:li:corpuser:user-with-admin");
+  // A user with no configured policies, exercising only the default self policies.
+  private static final Urn SELF_USER = UrnUtils.getUrn("urn:li:corpuser:selfUser");
   private static final Urn USER_WITH_DOMAIN_ACCESS =
       UrnUtils.getUrn("urn:li:corpuser:domainAccessUser");
   private static final Urn USER_WITH_CONTAINER_ACCESS =
@@ -82,14 +102,26 @@ public class DataHubAuthorizerTest {
       UrnUtils.getUrn("urn:li:dataset:testContainer");
   private static final Urn RESOURCE_WITH_DOMAIN_AND_CONTAINER =
       UrnUtils.getUrn("urn:li:dataset:testDomainContainer");
+  private static final Urn INSTANCE_SCOPED_USER =
+      UrnUtils.getUrn("urn:li:corpuser:instanceScopedWriter");
+  private static final Urn EXISTING_CONTAINER_URN = UrnUtils.getUrn("urn:li:container:existing");
+  private static final String STORED_INSTANCE =
+      "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,instance_a)";
 
   private SystemEntityClient _entityClient;
+  private GroupService _groupService;
   private DataHubAuthorizer _dataHubAuthorizer;
   private OperationContext systemOpContext;
 
   @BeforeMethod
   public void setupTest() throws Exception {
     _entityClient = mock(SystemEntityClient.class);
+    _groupService =
+        new GroupService(
+            _entityClient,
+            mock(EntityService.class),
+            mock(GraphClient.class),
+            mock(GraphService.class));
 
     // Init mocks.
     final Urn activePolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:0");
@@ -531,7 +563,7 @@ public class DataHubAuthorizerTest {
             mock(EntityRegistry.class),
             mock(ServicesRegistryContext.class),
             SearchContext.EMPTY,
-            mock(RetrieverContext.class),
+            createRetrieverContextWithDomainHierarchy(),
             mock(ValidationContext.class),
             null,
             true);
@@ -540,6 +572,7 @@ public class DataHubAuthorizerTest {
         new DataHubAuthorizer(
             systemOpContext,
             _entityClient,
+            _groupService,
             10,
             10,
             DataHubAuthorizer.AuthorizationMode.DEFAULT,
@@ -597,6 +630,43 @@ public class DataHubAuthorizerTest {
             Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
+  }
+
+  @Test
+  public void testDefaultSelfPolicyAllowsReadOnSelf() throws Exception {
+
+    // No configured policy grants these; they come from the "View Self" default policy.
+    for (String privilege : ImmutableList.of("VIEW_ENTITY_PAGE", "GET_ENTITY_PRIVILEGE")) {
+      AuthorizationRequest request =
+          new AuthorizationRequest(
+              SELF_USER.toString(),
+              privilege,
+              Optional.of(selfEntitySpec()),
+              Collections.emptyList());
+
+      assertEquals(
+          _dataHubAuthorizer.authorize(request).getType(),
+          AuthorizationResult.Type.ALLOW,
+          String.format("Expected the View Self default policy to grant %s on self", privilege));
+    }
+  }
+
+  @Test
+  public void testDefaultSelfPolicyDeniesWriteOnSelf() throws Exception {
+
+    for (String privilege : ImmutableList.of("EDIT_ENTITY", "DELETE_ENTITY")) {
+      AuthorizationRequest request =
+          new AuthorizationRequest(
+              SELF_USER.toString(),
+              privilege,
+              Optional.of(selfEntitySpec()),
+              Collections.emptyList());
+
+      assertEquals(
+          _dataHubAuthorizer.authorize(request).getType(),
+          AuthorizationResult.Type.DENY,
+          String.format("Expected no default policy to grant %s on self", privilege));
+    }
   }
 
   @Test
@@ -903,26 +973,13 @@ public class DataHubAuthorizerTest {
             Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
-
-    // one hop per container in hierarchy
     verify(_entityClient, times(1))
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
             eq(RESOURCE_WITH_CONTAINER),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
-    verify(_entityClient, times(1))
-        .getV2(
-            any(OperationContext.class),
-            eq("container"),
-            eq(CHILD_CONTAINER_URN),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
-    verify(_entityClient, times(1))
-        .getV2(
-            any(OperationContext.class),
-            eq("container"),
-            eq(PARENT_CONTAINER_URN),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
+    // not checking ancestor container resolution calls which happen through aspectRetriever
   }
 
   @Test
@@ -937,26 +994,13 @@ public class DataHubAuthorizerTest {
             Collections.emptyList());
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
-
-    // one hop per container in hierarchy
     verify(_entityClient, times(1))
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
             eq(RESOURCE_WITH_CONTAINER),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
-    verify(_entityClient, times(1))
-        .getV2(
-            any(OperationContext.class),
-            eq("container"),
-            eq(CHILD_CONTAINER_URN),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
-    verify(_entityClient, times(1))
-        .getV2(
-            any(OperationContext.class),
-            eq("container"),
-            eq(PARENT_CONTAINER_URN),
-            eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
+    // not checking ancestor container resolution calls which happen through aspectRetriever
   }
 
   @Test
@@ -1137,6 +1181,335 @@ public class DataHubAuthorizerTest {
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
   }
 
+  @Test
+  public void testAuthorizationGrantedBasedOnSeededGroupMembershipSkipsUserFetch()
+      throws Exception {
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:custom");
+
+    final Urn userUrnWithoutPermissions = UrnUtils.getUrn("urn:li:corpuser:userWithoutRole");
+    final Urn groupWithAdminPermission = UrnUtils.getUrn("urn:li:corpGroup:groupWithRole");
+    final UrnArray groups = new UrnArray(List.of(groupWithAdminPermission));
+    final GroupMembership groupMembership = new GroupMembership();
+    groupMembership.setGroups(groups);
+
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(userUrnWithoutPermissions)),
+            eq(
+                ImmutableSet.of(
+                    ROLE_MEMBERSHIP_ASPECT_NAME,
+                    GROUP_MEMBERSHIP_ASPECT_NAME,
+                    NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(
+            createEntityBatchResponse(
+                userUrnWithoutPermissions, GROUP_MEMBERSHIP_ASPECT_NAME, groupMembership));
+
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(groupWithAdminPermission)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(
+            createRoleMembershipBatchResponse(
+                groupWithAdminPermission, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
+
+    clearInvocations(_entityClient);
+
+    AuthorizationRequest request =
+        new AuthorizationRequest(
+            userUrnWithoutPermissions.toString(),
+            "EDIT_USER_PROFILE",
+            Optional.of(resourceSpec),
+            Collections.emptyList(),
+            null,
+            List.of(groupWithAdminPermission),
+            Collections.emptySet());
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+
+    verify(_entityClient, never())
+        .batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(userUrnWithoutPermissions)),
+            any());
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(groupWithAdminPermission)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testMultipleAuthorizeCallsReuseSessionActorRoleResolution() throws Exception {
+    final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:custom");
+    final EntitySpec otherResourceSpec = new EntitySpec("dataset", "urn:li:dataset:other");
+
+    final Urn userUrnWithoutPermissions = UrnUtils.getUrn("urn:li:corpuser:userWithoutRole");
+    final Urn groupWithAdminPermission = UrnUtils.getUrn("urn:li:corpGroup:groupWithRole");
+    final SessionActorIdentity sessionIdentity =
+        new SessionActorIdentity(
+            userUrnWithoutPermissions, List.of(groupWithAdminPermission), Set.of());
+
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(groupWithAdminPermission)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(
+            createRoleMembershipBatchResponse(
+                groupWithAdminPermission, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
+
+    clearInvocations(_entityClient);
+
+    AuthorizationRequest requestOne =
+        new AuthorizationRequest(
+            userUrnWithoutPermissions.toString(),
+            "EDIT_USER_PROFILE",
+            Optional.of(resourceSpec),
+            Collections.emptyList(),
+            null,
+            List.of(groupWithAdminPermission),
+            Collections.emptySet(),
+            sessionIdentity);
+    AuthorizationRequest requestTwo =
+        new AuthorizationRequest(
+            userUrnWithoutPermissions.toString(),
+            "EDIT_USER_PROFILE",
+            Optional.of(otherResourceSpec),
+            Collections.emptyList(),
+            null,
+            List.of(groupWithAdminPermission),
+            Collections.emptySet(),
+            sessionIdentity);
+
+    assertEquals(
+        _dataHubAuthorizer.authorize(requestOne, null, systemOpContext).getType(),
+        AuthorizationResult.Type.ALLOW);
+    assertEquals(
+        _dataHubAuthorizer.authorize(requestTwo, null, systemOpContext).getType(),
+        AuthorizationResult.Type.ALLOW);
+
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(groupWithAdminPermission)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testGetActorPoliciesWithSeededGroupsSkipsUserFetch() throws Exception {
+    final Urn userUrnWithoutPermissions = UrnUtils.getUrn("urn:li:corpuser:userWithoutRole");
+    final Urn groupWithAdminPermission = UrnUtils.getUrn("urn:li:corpGroup:groupWithRole");
+
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(groupWithAdminPermission)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(
+            createRoleMembershipBatchResponse(
+                groupWithAdminPermission, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
+
+    clearInvocations(_entityClient);
+
+    Set<DataHubPolicyInfo> policies =
+        _dataHubAuthorizer.getActorPolicies(
+            userUrnWithoutPermissions, List.of(groupWithAdminPermission), Collections.emptySet());
+
+    assertTrue(
+        policies.stream().anyMatch(policy -> policy.getPrivileges().contains("EDIT_USER_PROFILE")));
+
+    verify(_entityClient, never())
+        .batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(userUrnWithoutPermissions)),
+            any());
+    verify(_entityClient, times(1))
+        .batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(groupWithAdminPermission)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testGetGrantedPrivilegesSeedsSessionActorGroups() throws Exception {
+    final Urn userUrnWithoutPermissions = UrnUtils.getUrn("urn:li:corpuser:userWithoutRole");
+    final Urn groupWithAdminPermission = UrnUtils.getUrn("urn:li:corpGroup:groupWithRole");
+
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(groupWithAdminPermission)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(
+            createRoleMembershipBatchResponse(
+                groupWithAdminPermission, UrnUtils.getUrn("urn:li:dataHubRole:Admin")));
+
+    OperationContext sessionOpContext = mock(OperationContext.class);
+    ActorContext actorContext = mock(ActorContext.class);
+    when(sessionOpContext.getSessionActorContext()).thenReturn(actorContext);
+    when(actorContext.getActorUrn()).thenReturn(userUrnWithoutPermissions);
+    when(actorContext.getGroupMembership()).thenReturn(List.of(groupWithAdminPermission));
+    when(actorContext.getDirectRoleMembership()).thenReturn(Collections.emptySet());
+    io.datahubproject.metadata.context.AuthorizationContext authorizationContext =
+        mock(io.datahubproject.metadata.context.AuthorizationContext.class);
+    when(sessionOpContext.getAuthorizationContext()).thenReturn(authorizationContext);
+    when(authorizationContext.getSessionActorIdentity(userUrnWithoutPermissions)).thenReturn(null);
+
+    clearInvocations(_entityClient);
+
+    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    PolicyEngine.PolicyGrantedPrivileges result =
+        _dataHubAuthorizer.getGrantedPrivileges(
+            userUrnWithoutPermissions.toString(), Optional.of(resourceSpec), sessionOpContext);
+
+    assertTrue(result.getPrivileges().contains("EDIT_USER_PROFILE"));
+
+    verify(_entityClient, never())
+        .batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(userUrnWithoutPermissions)),
+            any());
+  }
+
+  @Test
+  public void testGetActorGroupsUsesSessionContextCache() {
+    final Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:test");
+    final Urn groupUrn = UrnUtils.getUrn("urn:li:corpGroup:testGroup");
+
+    OperationContext sessionOpContext = mock(OperationContext.class);
+    ActorContext actorContext = mock(ActorContext.class);
+    when(sessionOpContext.getSessionActorContext()).thenReturn(actorContext);
+    when(actorContext.getActorUrn()).thenReturn(userUrn);
+    when(actorContext.getGroupMembership()).thenReturn(List.of(groupUrn));
+
+    clearInvocations(_entityClient);
+
+    Collection<Urn> groups = _dataHubAuthorizer.getActorGroups(userUrn, sessionOpContext);
+
+    assertEquals(groups, List.of(groupUrn));
+    verifyNoInteractions(_entityClient);
+  }
+
+  // An existing container with a stored platform instance and no domains gets its first domains.
+  // The proposed domains must be evaluated alongside the stored instance, not instead of it.
+  @Test
+  public void testFirstDomainWriteKeepsStoredPlatformInstance_equalsPolicyAllows() {
+    DataHubAuthorizer authorizer = authorizerWithStoredContainer(new AtomicInteger());
+    seedFirstDomainsFromBatch(CHILD_DOMAIN_URN);
+
+    assertEquals(
+        authorizeEditOnContainer(
+            authorizer,
+            containerEditPolicy(
+                "DATA_PLATFORM_INSTANCE", PolicyMatchCondition.EQUALS, STORED_INSTANCE)),
+        AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testFirstDomainWriteKeepsStoredPlatformInstance_notEqualsPolicyDenies() {
+    DataHubAuthorizer authorizer = authorizerWithStoredContainer(new AtomicInteger());
+    seedFirstDomainsFromBatch(CHILD_DOMAIN_URN);
+
+    assertEquals(
+        authorizeEditOnContainer(
+            authorizer,
+            containerEditPolicy(
+                "DATA_PLATFORM_INSTANCE", PolicyMatchCondition.NOT_EQUALS, STORED_INSTANCE)),
+        AuthorizationResult.Type.DENY);
+  }
+
+  @Test
+  public void testFirstDomainWriteStillMatchesProposedDomain() {
+    AtomicInteger storedDomainReads = new AtomicInteger();
+    DataHubAuthorizer authorizer = authorizerWithStoredContainer(storedDomainReads);
+    seedFirstDomainsFromBatch(CHILD_DOMAIN_URN);
+
+    assertEquals(
+        authorizeEditOnContainer(
+            authorizer,
+            containerEditPolicy(
+                "DOMAIN", PolicyMatchCondition.EQUALS, CHILD_DOMAIN_URN.toString())),
+        AuthorizationResult.Type.ALLOW);
+    // The proposed domains replace the stored domain resolver; it must never be invoked.
+    assertEquals(storedDomainReads.get(), 0);
+  }
+
+  @Test
+  public void testFirstDomainOverrideAppliesToSpecCachedBeforeSeeding() {
+    DataHubAuthorizer authorizer = authorizerWithStoredContainer(new AtomicInteger());
+    DataHubPolicyInfo domainPolicy =
+        containerEditPolicy("DOMAIN", PolicyMatchCondition.EQUALS, CHILD_DOMAIN_URN.toString());
+    // Populates the request cache with the stored (domain-less) spec.
+    assertEquals(authorizeEditOnContainer(authorizer, domainPolicy), AuthorizationResult.Type.DENY);
+
+    seedFirstDomainsFromBatch(CHILD_DOMAIN_URN);
+
+    assertEquals(
+        authorizeEditOnContainer(authorizer, domainPolicy), AuthorizationResult.Type.ALLOW);
+  }
+
+  // Same as above, but through the request's authorization result cache: a result cached before
+  // the proposed domains were seeded must not answer the check made after seeding.
+  @Test
+  public void testFirstDomainOverrideAppliesToResultCachedBeforeSeeding() {
+    DataHubAuthorizer authorizer = authorizerWithStoredContainer(new AtomicInteger());
+    io.datahubproject.metadata.context.AuthorizationContext authorizationContext =
+        io.datahubproject.metadata.context.AuthorizationContext.builder()
+            .authorizer(authorizer)
+            .build();
+    OperationContext sessionOpContext = mock(OperationContext.class);
+    when(sessionOpContext.getAuthorizationContext()).thenReturn(authorizationContext);
+    ActorContext actorContext =
+        ActorContext.builder()
+            .authentication(
+                new Authentication(new Actor(ActorType.USER, INSTANCE_SCOPED_USER.getId()), ""))
+            .actorPoliciesByPrivilege(
+                Map.of(
+                    "EDIT_ENTITY",
+                    List.of(
+                        containerEditPolicy(
+                            "DOMAIN", PolicyMatchCondition.EQUALS, CHILD_DOMAIN_URN.toString()))))
+            .build();
+    EntitySpec container = new EntitySpec(CONTAINER_ENTITY_NAME, EXISTING_CONTAINER_URN.toString());
+
+    assertEquals(
+        authorizationContext
+            .authorize(sessionOpContext, actorContext, "EDIT_ENTITY", container)
+            .getType(),
+        AuthorizationResult.Type.DENY);
+
+    DomainWriteAuthorizationUtils.seedProposedDomainResourceSpec(
+        sessionOpContext, container, Set.of(CHILD_DOMAIN_URN.toString()));
+
+    assertEquals(
+        authorizationContext
+            .authorize(sessionOpContext, actorContext, "EDIT_ENTITY", container)
+            .getType(),
+        AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testFieldOverridesIgnoredForForeignCache() {
+    DataHubAuthorizer authorizer = authorizerWithStoredContainer(new AtomicInteger());
+    seedFirstDomainsFromBatch(CHILD_DOMAIN_URN);
+
+    // A cache that is not the seeded context's own cache must not pick up its overrides.
+    AuthorizationRequest request =
+        editOnContainerRequest(
+            containerEditPolicy(
+                "DOMAIN", PolicyMatchCondition.EQUALS, CHILD_DOMAIN_URN.toString()));
+    assertEquals(
+        authorizer.authorize(request, new HashMap<>()).getType(), AuthorizationResult.Type.DENY);
+  }
+
   private DataHubPolicyInfo createDataHubPolicyInfo(
       boolean active, List<String> privileges, @Nullable final Urn domain) throws Exception {
 
@@ -1301,9 +1674,175 @@ public class DataHubAuthorizerTest {
     return batchResponse;
   }
 
+  private RetrieverContext createRetrieverContextWithDomainHierarchy() {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationContext.class),
+            anySet(),
+            eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME))))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Set<Urn> urns = invocation.getArgument(1);
+              Map<Urn, Map<String, Aspect>> result = new HashMap<>();
+              for (Urn urn : urns) {
+                DomainProperties properties = new DomainProperties();
+                if (CHILD_DOMAIN_URN.equals(urn)) {
+                  properties.setParentDomain(PARENT_DOMAIN_URN);
+                }
+                result.put(
+                    urn, Map.of(DOMAIN_PROPERTIES_ASPECT_NAME, new Aspect(properties.data())));
+              }
+              return result;
+            });
+
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationContext.class),
+            anySet(),
+            eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Set<Urn> urns = invocation.getArgument(1);
+              Map<Urn, Map<String, Aspect>> result = new HashMap<>();
+              for (Urn urn : urns) {
+                Container container = new Container();
+                if (CHILD_CONTAINER_URN.equals(urn)) {
+                  container.setContainer(PARENT_CONTAINER_URN);
+                }
+                result.put(urn, Map.of(CONTAINER_ASPECT_NAME, new Aspect(container.data())));
+              }
+              return result;
+            });
+
+    return RetrieverContext.builder()
+        .graphRetriever(GraphRetriever.EMPTY)
+        .searchRetriever(SearchRetriever.EMPTY)
+        .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+        .aspectRetriever(aspectRetriever)
+        .entityGraphCache(EntityGraphCache.NO_OP)
+        .build();
+  }
+
+  private EntitySpec selfEntitySpec() {
+    return new EntitySpec(CORP_USER_ENTITY_NAME, SELF_USER.toString());
+  }
+
   private AuthorizerContext createAuthorizerContext(
       final OperationContext systemOpContext, final SystemEntityClient entityClient) {
     return new AuthorizerContext(
-        Collections.emptyMap(), new DefaultEntitySpecResolver(systemOpContext, entityClient));
+        Collections.emptyMap(),
+        new DefaultEntitySpecResolver(systemOpContext, entityClient, _groupService));
+  }
+
+  /**
+   * Authorizer whose resolver serves fixed stored fields for {@link #EXISTING_CONTAINER_URN}: a
+   * platform instance and an empty domain. Counts stored-domain reads so tests can prove an
+   * overridden resolver stays lazy.
+   */
+  private DataHubAuthorizer authorizerWithStoredContainer(final AtomicInteger storedDomainReads) {
+    DataHubAuthorizer authorizer =
+        new DataHubAuthorizer(
+            systemOpContext,
+            _entityClient,
+            _groupService,
+            0,
+            0,
+            DataHubAuthorizer.AuthorizationMode.DEFAULT,
+            1);
+    authorizer.init(
+        Collections.emptyMap(),
+        new AuthorizerContext(
+            Collections.emptyMap(),
+            spec -> {
+              Map<EntityFieldType, FieldResolver> resolvers = new EnumMap<>(EntityFieldType.class);
+              resolvers.put(
+                  EntityFieldType.TYPE,
+                  FieldResolver.getResolverFromValues(Set.of(spec.getType())));
+              resolvers.put(
+                  EntityFieldType.URN,
+                  FieldResolver.getResolverFromValues(Set.of(spec.getEntity())));
+              if (EXISTING_CONTAINER_URN.toString().equals(spec.getEntity())) {
+                resolvers.put(
+                    EntityFieldType.DATA_PLATFORM_INSTANCE,
+                    FieldResolver.getResolverFromValues(Set.of(STORED_INSTANCE)));
+                resolvers.put(
+                    EntityFieldType.DOMAIN,
+                    new FieldResolver(
+                        () -> {
+                          storedDomainReads.incrementAndGet();
+                          return CompletableFuture.completedFuture(FieldResolver.emptyFieldValue());
+                        }));
+              }
+              return new ResolvedEntitySpec(spec, resolvers);
+            }));
+    return authorizer;
+  }
+
+  /**
+   * Seeds a {@code domains} UPSERT for {@link #EXISTING_CONTAINER_URN} the way the ingest API does:
+   * the entity exists and has no stored {@code domains} aspect, so the proposed domains are used.
+   */
+  private void seedFirstDomainsFromBatch(final Urn domainUrn) {
+    AspectRetriever batchRetriever = mock(AspectRetriever.class);
+    when(batchRetriever.entityExists(any(), anySet()))
+        .thenReturn(Map.of(EXISTING_CONTAINER_URN, true));
+    // getLatestAspectObjects stays unstubbed: Mockito returns an empty map (no domains aspect).
+
+    BatchItem domainsUpsert = mock(BatchItem.class);
+    when(domainsUpsert.getUrn()).thenReturn(EXISTING_CONTAINER_URN);
+    when(domainsUpsert.getAspectName()).thenReturn(DOMAINS_ASPECT_NAME);
+    when(domainsUpsert.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(domainsUpsert.getAspect(Domains.class))
+        .thenReturn(new Domains().setDomains(new UrnArray(List.of(domainUrn))));
+
+    DomainWriteAuthorizationUtils.seedProposedDomainsForApiAuth(
+        systemOpContext, systemOpContext, batchRetriever, List.of(domainsUpsert));
+  }
+
+  private AuthorizationRequest editOnContainerRequest(final DataHubPolicyInfo policy) {
+    return new AuthorizationRequest(
+        INSTANCE_SCOPED_USER.toString(),
+        "EDIT_ENTITY",
+        Optional.of(new EntitySpec(CONTAINER_ENTITY_NAME, EXISTING_CONTAINER_URN.toString())),
+        Collections.emptyList(),
+        Map.of("EDIT_ENTITY", List.<RecordTemplate>of(policy)));
+  }
+
+  private AuthorizationResult.Type authorizeEditOnContainer(
+      final DataHubAuthorizer authorizer, final DataHubPolicyInfo policy) {
+    return authorizer
+        .authorize(
+            editOnContainerRequest(policy),
+            systemOpContext.getAuthorizationContext().getSessionResourceSpecCache(),
+            systemOpContext)
+        .getType();
+  }
+
+  private static DataHubPolicyInfo containerEditPolicy(
+      final String field, final PolicyMatchCondition condition, final String value) {
+    return new DataHubPolicyInfo()
+        .setDisplayName("Edit containers by " + field + " " + condition)
+        .setDescription("Container edit scoped by " + field)
+        .setType(METADATA_POLICY_TYPE)
+        .setState(ACTIVE_POLICY_STATE)
+        .setEditable(true)
+        .setPrivileges(new StringArray(List.of("EDIT_ENTITY")))
+        .setActors(new DataHubActorFilter().setUsers(new UrnArray(List.of(INSTANCE_SCOPED_USER))))
+        .setResources(
+            new DataHubResourceFilter()
+                .setFilter(
+                    new PolicyMatchFilter()
+                        .setCriteria(
+                            new PolicyMatchCriterionArray(
+                                List.of(
+                                    new PolicyMatchCriterion()
+                                        .setField("TYPE")
+                                        .setCondition(PolicyMatchCondition.EQUALS)
+                                        .setValues(new StringArray(List.of(CONTAINER_ENTITY_NAME))),
+                                    new PolicyMatchCriterion()
+                                        .setField(field)
+                                        .setCondition(condition)
+                                        .setValues(new StringArray(List.of(value))))))));
   }
 }

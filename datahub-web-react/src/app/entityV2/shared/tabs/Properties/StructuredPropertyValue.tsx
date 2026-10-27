@@ -1,4 +1,4 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
@@ -13,9 +13,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Tooltip } from '@src/alchemy-components';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
 import { CompactEntityNameComponent } from '@src/app/recommendations/renderer/component/CompactEntityNameComponent';
-import { Entity, EntityType, MetadataAttribution } from '@src/types.generated';
-
-import ExternalLink from '@images/link-out.svg?react';
+import ActorPill from '@src/app/sharedV2/owners/ActorPill';
+import { Entity, EntityType, MetadataAttribution, OwnerType } from '@src/types.generated';
 
 const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean }>`
     font-family: 'Manrope';
@@ -24,7 +23,9 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
     color: ${(props) => props.theme.colors.textSecondary};
     display: block;
     width: 100%;
-    .remirror-editor.ProseMirror {
+
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         font-size: ${(props) => props.size}px;
     }
 
@@ -37,7 +38,7 @@ const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean 
         `}
 `;
 
-const StyledIcon = styled(Icon)`
+const StyledIcon = styled(ArrowSquareOut)`
     margin-left: 6px;
 `;
 
@@ -141,7 +142,13 @@ export default function StructuredPropertyValue({
 
     let valueEntityRender = <></>;
     if (value.entity) {
-        if (hydratedEntityMap && hydratedEntityMap[value.entity.urn]) {
+        const entityToRender = hydratedEntityMap?.[value.entity.urn] || value.entity;
+        const isUserOrGroup =
+            entityToRender.type === EntityType.CorpUser || entityToRender.type === EntityType.CorpGroup;
+
+        if (isUserOrGroup) {
+            valueEntityRender = <ActorPill actor={entityToRender as OwnerType} />;
+        } else if (hydratedEntityMap && hydratedEntityMap[value.entity.urn]) {
             valueEntityRender = (
                 <CompactEntityNameComponent entity={hydratedEntityMap[value.entity.urn]} showFullTooltip />
             );
@@ -155,15 +162,22 @@ export default function StructuredPropertyValue({
                         {entityRegistry.getDisplayName(value.entity.type, value.entity)}
                     </EntityName>
                     <Link to={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
-                        <StyledIcon component={ExternalLink} />
+                        <StyledIcon size={12} />
                     </Link>
                 </EntityWrapper>
             );
         }
     }
 
+    const tooltipContent = (
+        <div>
+            <span>{value.value?.toString()}</span>
+            <HoverCardAttributionDetails propagationDetails={{ attribution }} />
+        </div>
+    );
+
     return (
-        <Tooltip title={attribution && <HoverCardAttributionDetails propagationDetails={{ attribution }} />}>
+        <Tooltip placement="topLeft" title={!value.entity && !!attribution && tooltipContent}>
             <ValueText size={size} data-testid={dataTestId}>
                 {value.entity ? (
                     valueEntityRender
@@ -177,15 +191,14 @@ export default function StructuredPropertyValue({
                                         lineLimit={isFieldColumn ? 1 : undefined}
                                         hideShowMore={isFieldColumn}
                                         scrollableY={!isFieldColumn}
+                                        hideTooltip={!!attribution}
                                     />
                                 </ViewerContainer>
                             </Container>
                         ) : (
                             <>
                                 {truncateText ? (
-                                    <Typography.Text
-                                        ellipsis={{ tooltip: attribution ? { placement: 'bottom' } : true }}
-                                    >
+                                    <Typography.Text ellipsis={{ tooltip: attribution ? false : { showArrow: false } }}>
                                         {value.value?.toString() || <div style={{ minHeight: 22 }} />}
                                     </Typography.Text>
                                 ) : (

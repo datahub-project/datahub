@@ -4,6 +4,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
@@ -11,9 +13,11 @@ import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
@@ -26,12 +30,29 @@ public class LoadIndicesIndexManagerTest {
   private SearchClientShim<?> mockSearchClient;
   private IndexConvention mockIndexConvention;
   private ESIndexBuilder mockIndexBuilder;
+  private OperationContext mockOpContext;
 
   @BeforeMethod
   public void setUp() {
     mockSearchClient = mock(SearchClientShim.class);
     mockIndexConvention = mock(IndexConvention.class);
     mockIndexBuilder = mock(ESIndexBuilder.class);
+    mockOpContext = mock(OperationContext.class);
+    when(mockIndexConvention.getPrefix(eq(mockOpContext))).thenReturn(Optional.of("datahub"));
+    for (SearchComponent component : SearchComponent.values()) {
+      when(mockIndexConvention.getPrefix(eq(mockOpContext), eq(component)))
+          .thenReturn(Optional.of("datahub"));
+    }
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(SearchComponent.GRAPH), eq(ElasticSearchGraphService.INDEX_NAME)))
+        .thenReturn("datahub_graph_service_v1");
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext),
+            eq(SearchComponent.SYSTEM_METADATA),
+            eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
+        .thenReturn("datahub_system_metadata_service_v1");
+    when(mockIndexConvention.getAllSemanticEntityIndicesPattern(eq(mockOpContext)))
+        .thenReturn("datahub_*index_v2_semantic");
 
     // Create a fresh instance for each test to avoid state accumulation
     indexManager =
@@ -63,18 +84,26 @@ public class LoadIndicesIndexManagerTest {
     String[] systemMetadataIndices = {"datahub_system_metadata_service_v1"};
     when(mockSystemMetadataResponse.getIndices()).thenReturn(systemMetadataIndices);
 
+    GetIndexResponse mockSemanticResponse = mock(GetIndexResponse.class);
+    String[] semanticIndices = {"datahub_datasetindex_v2_semantic"};
+    when(mockSemanticResponse.getIndices()).thenReturn(semanticIndices);
+
     // Mock the search client to return different responses for different indices
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockEntityResponse)
         .thenReturn(mockGraphResponse)
-        .thenReturn(mockSystemMetadataResponse);
+        .thenReturn(mockSystemMetadataResponse)
+        .thenReturn(mockSemanticResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPatterns())
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
         .thenReturn(List.of("datahub_*index_v2"));
-    when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("datahub_graph_service_v1");
-    when(mockIndexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME))
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
         .thenReturn("datahub_system_metadata_service_v1");
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -83,12 +112,14 @@ public class LoadIndicesIndexManagerTest {
     ReindexConfig mockConfig3 = mock(ReindexConfig.class);
     ReindexConfig mockConfig4 = mock(ReindexConfig.class);
     ReindexConfig mockConfig5 = mock(ReindexConfig.class);
+    ReindexConfig mockConfig6 = mock(ReindexConfig.class);
 
     when(mockConfig1.name()).thenReturn("datahub_datasetindex_v2");
     when(mockConfig2.name()).thenReturn("datahub_dashboardindex_v2");
     when(mockConfig3.name()).thenReturn("datahub_chartindex_v2");
     when(mockConfig4.name()).thenReturn("datahub_graph_service_v1");
     when(mockConfig5.name()).thenReturn("datahub_system_metadata_service_v1");
+    when(mockConfig6.name()).thenReturn("datahub_datasetindex_v2_semantic");
 
     // Mock target settings for each config
     Map<String, Object> targetSettings1 =
@@ -117,37 +148,50 @@ public class LoadIndicesIndexManagerTest {
     when(mockConfig3.targetSettings()).thenReturn(targetSettings3);
     when(mockConfig4.targetSettings()).thenReturn(targetSettings4);
     when(mockConfig5.targetSettings()).thenReturn(targetSettings5);
+    Map<String, Object> targetSettings6 =
+        Map.of(
+            "index",
+            Map.of(ESIndexBuilder.REFRESH_INTERVAL, "3s", ESIndexBuilder.NUMBER_OF_REPLICAS, 1));
+    when(mockConfig6.targetSettings()).thenReturn(targetSettings6);
 
-    when(mockIndexBuilder.buildReindexState(any(String.class), any(Map.class), any(Map.class)))
+    when(mockIndexBuilder.buildReindexState(
+            any(OperationContext.class), any(String.class), any(Map.class), any(Map.class)))
         .thenReturn(mockConfig1)
         .thenReturn(mockConfig2)
         .thenReturn(mockConfig3)
         .thenReturn(mockConfig4)
-        .thenReturn(mockConfig5);
+        .thenReturn(mockConfig5)
+        .thenReturn(mockConfig6);
 
-    var result = indexManager.discoverDataHubIndexConfigs();
+    var result = indexManager.discoverDataHubIndexConfigs(mockOpContext);
+    // Propagation: discovery must use the exact operation context it was given, not a fabricated
+    // one.
+    verify(mockIndexConvention).getAllEntityIndicesPatterns(eq(mockOpContext));
+    verify(mockIndexConvention).getAllSemanticEntityIndicesPattern(eq(mockOpContext));
 
     assertNotNull(result);
-    assertEquals(result.size(), 5);
+    assertEquals(result.size(), 6);
     assertTrue(result.stream().anyMatch(c -> c.name().equals("datahub_datasetindex_v2")));
     assertTrue(result.stream().anyMatch(c -> c.name().equals("datahub_dashboardindex_v2")));
     assertTrue(result.stream().anyMatch(c -> c.name().equals("datahub_chartindex_v2")));
     assertTrue(result.stream().anyMatch(c -> c.name().equals("datahub_graph_service_v1")));
     assertTrue(
         result.stream().anyMatch(c -> c.name().equals("datahub_system_metadata_service_v1")));
+    assertTrue(result.stream().anyMatch(c -> c.name().equals("datahub_datasetindex_v2_semantic")));
   }
 
   @Test
   public void testDiscoverDataHubIndexConfigsWithIOException() throws IOException {
     // Mock getAllEntityIndicesPatterns to return a pattern so the loop executes
-    when(mockIndexConvention.getAllEntityIndicesPatterns())
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
         .thenReturn(List.of("datahub_*index_v2"));
 
     // Mock IOException
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Connection failed"));
 
-    assertThrows(IOException.class, () -> indexManager.discoverDataHubIndexConfigs());
+    assertThrows(IOException.class, () -> indexManager.discoverDataHubIndexConfigs(mockOpContext));
   }
 
   @Test
@@ -156,7 +200,8 @@ public class LoadIndicesIndexManagerTest {
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     String[] allIndices = {"datahub_dataset_v2"};
     when(mockResponse.getIndices()).thenReturn(allIndices);
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -167,15 +212,16 @@ public class LoadIndicesIndexManagerTest {
             "index",
             Map.of(ESIndexBuilder.REFRESH_INTERVAL, "3s", ESIndexBuilder.NUMBER_OF_REPLICAS, 1));
     when(mockConfig.targetSettings()).thenReturn(targetSettings);
-    when(mockIndexBuilder.buildReindexState(any(String.class), any(Map.class), any(Map.class)))
+    when(mockIndexBuilder.buildReindexState(
+            any(OperationContext.class), any(String.class), any(Map.class), any(Map.class)))
         .thenReturn(mockConfig);
 
     // Mock update settings
     when(mockSearchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+            eq(mockOpContext), any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(null);
 
-    indexManager.optimizeForBulkOperations();
+    indexManager.optimizeForBulkOperations(mockOpContext);
 
     assertTrue(indexManager.isSettingsOptimized());
   }
@@ -183,14 +229,15 @@ public class LoadIndicesIndexManagerTest {
   @Test
   public void testOptimizeForBulkOperationsWithIOException() throws IOException {
     // Mock getAllEntityIndicesPatterns to return a pattern so the loop executes
-    when(mockIndexConvention.getAllEntityIndicesPatterns())
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
         .thenReturn(List.of("datahub_*index_v2"));
 
     // Mock IOException during discovery
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Discovery failed"));
 
-    assertThrows(IOException.class, () -> indexManager.optimizeForBulkOperations());
+    assertThrows(IOException.class, () -> indexManager.optimizeForBulkOperations(mockOpContext));
   }
 
   @Test
@@ -199,7 +246,8 @@ public class LoadIndicesIndexManagerTest {
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     String[] allIndices = {"datahub_dataset_v2"};
     when(mockResponse.getIndices()).thenReturn(allIndices);
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -210,20 +258,21 @@ public class LoadIndicesIndexManagerTest {
             "index",
             Map.of(ESIndexBuilder.REFRESH_INTERVAL, "3s", ESIndexBuilder.NUMBER_OF_REPLICAS, 1));
     when(mockConfig.targetSettings()).thenReturn(targetSettings);
-    when(mockIndexBuilder.buildReindexState(any(String.class), any(Map.class), any(Map.class)))
+    when(mockIndexBuilder.buildReindexState(
+            any(OperationContext.class), any(String.class), any(Map.class), any(Map.class)))
         .thenReturn(mockConfig);
 
     // Mock update settings
     when(mockSearchClient.updateIndexSettings(
-            any(UpdateSettingsRequest.class), any(RequestOptions.class)))
+            eq(mockOpContext), any(UpdateSettingsRequest.class), any(RequestOptions.class)))
         .thenReturn(null);
 
     // Optimize settings first
-    indexManager.optimizeForBulkOperations();
+    indexManager.optimizeForBulkOperations(mockOpContext);
     assertTrue(indexManager.isSettingsOptimized());
 
     // Now test restore
-    indexManager.restoreFromConfiguration();
+    indexManager.restoreFromConfiguration(mockOpContext);
 
     assertFalse(indexManager.isSettingsOptimized());
   }
@@ -234,7 +283,8 @@ public class LoadIndicesIndexManagerTest {
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     String[] allIndices = {"datahub_dataset_v2"};
     when(mockResponse.getIndices()).thenReturn(allIndices);
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockResponse);
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -245,24 +295,28 @@ public class LoadIndicesIndexManagerTest {
             "index",
             Map.of(ESIndexBuilder.REFRESH_INTERVAL, "3s", ESIndexBuilder.NUMBER_OF_REPLICAS, 1));
     when(mockConfig.targetSettings()).thenReturn(targetSettings);
-    when(mockIndexBuilder.buildReindexState(any(String.class), any(Map.class), any(Map.class)))
+    when(mockIndexBuilder.buildReindexState(
+            any(OperationContext.class), any(String.class), any(Map.class), any(Map.class)))
         .thenReturn(mockConfig);
 
     // Mock ESIndexBuilder methods to throw IOException during restore
     doNothing()
         .when(mockIndexBuilder)
-        .setIndexRefreshInterval(any(String.class), any(String.class));
-    doNothing().when(mockIndexBuilder).tweakReplicas(any(ReindexConfig.class), any(Boolean.class));
+        .setIndexRefreshInterval(any(OperationContext.class), any(String.class), any(String.class));
+    doNothing()
+        .when(mockIndexBuilder)
+        .tweakReplicas(any(OperationContext.class), any(ReindexConfig.class), any(Boolean.class));
     doThrow(new IOException("Update failed"))
         .when(mockIndexBuilder)
-        .setIndexReplicaCount(any(String.class), any(Integer.class));
+        .setIndexReplicaCount(any(OperationContext.class), any(String.class), any(Integer.class));
 
     // Optimize settings first
-    indexManager.optimizeForBulkOperations();
+    indexManager.optimizeForBulkOperations(mockOpContext);
     assertTrue(indexManager.isSettingsOptimized());
 
     // Now test restore
-    assertThrows(RuntimeException.class, () -> indexManager.restoreFromConfiguration());
+    assertThrows(
+        RuntimeException.class, () -> indexManager.restoreFromConfiguration(mockOpContext));
   }
 
   @Test
@@ -277,17 +331,24 @@ public class LoadIndicesIndexManagerTest {
     when(mockGraphResponse.getIndices()).thenReturn(new String[0]);
     when(mockSystemMetadataResponse.getIndices()).thenReturn(new String[0]);
 
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    GetIndexResponse mockSemanticResponse = mock(GetIndexResponse.class);
+    when(mockSemanticResponse.getIndices()).thenReturn(new String[0]);
+
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockEntityResponse)
         .thenReturn(mockGraphResponse)
-        .thenReturn(mockSystemMetadataResponse);
+        .thenReturn(mockSystemMetadataResponse)
+        .thenReturn(mockSemanticResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPatterns())
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
         .thenReturn(List.of("datahub_*index_v2"));
-    when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("datahub_graph_service_v1");
-    when(mockIndexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME))
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
         .thenReturn("datahub_system_metadata_service_v1");
 
     // Mock ESIndexBuilder to return ReindexConfig objects
@@ -298,22 +359,26 @@ public class LoadIndicesIndexManagerTest {
             "index",
             Map.of(ESIndexBuilder.REFRESH_INTERVAL, "3s", ESIndexBuilder.NUMBER_OF_REPLICAS, 1));
     when(mockConfig.targetSettings()).thenReturn(targetSettings);
-    when(mockIndexBuilder.buildReindexState(any(String.class), any(Map.class), any(Map.class)))
+    when(mockIndexBuilder.buildReindexState(
+            any(OperationContext.class), any(String.class), any(Map.class), any(Map.class)))
         .thenReturn(mockConfig);
 
     // Mock ESIndexBuilder methods instead of SearchClientShim
     doNothing()
         .when(mockIndexBuilder)
-        .setIndexRefreshInterval(any(String.class), any(String.class));
-    doNothing().when(mockIndexBuilder).tweakReplicas(any(ReindexConfig.class), any(Boolean.class));
+        .setIndexRefreshInterval(any(OperationContext.class), any(String.class), any(String.class));
+    doNothing()
+        .when(mockIndexBuilder)
+        .tweakReplicas(any(OperationContext.class), any(ReindexConfig.class), any(Boolean.class));
 
-    indexManager.optimizeForBulkOperations();
+    indexManager.optimizeForBulkOperations(mockOpContext);
 
     assertTrue(indexManager.isSettingsOptimized());
 
     // Verify that ESIndexBuilder methods were called
-    verify(mockIndexBuilder, times(1)).setIndexRefreshInterval("datahub_datasetindex_v2", "-1");
-    verify(mockIndexBuilder, times(1)).tweakReplicas(mockConfig, false);
+    verify(mockIndexBuilder, times(1))
+        .setIndexRefreshInterval(mockOpContext, "datahub_datasetindex_v2", "-1");
+    verify(mockIndexBuilder, times(1)).tweakReplicas(mockOpContext, mockConfig, false);
   }
 
   @Test
@@ -331,18 +396,25 @@ public class LoadIndicesIndexManagerTest {
     GetIndexResponse mockSystemMetadataResponse = mock(GetIndexResponse.class);
     when(mockSystemMetadataResponse.getIndices()).thenReturn(new String[0]);
 
+    GetIndexResponse mockSemanticResponse = mock(GetIndexResponse.class);
+    when(mockSemanticResponse.getIndices()).thenReturn(new String[0]);
+
     // Mock the search client to return different responses for different patterns
-    when(mockSearchClient.getIndex(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(mockEntityResponse)
         .thenReturn(mockGraphResponse)
-        .thenReturn(mockSystemMetadataResponse);
+        .thenReturn(mockSystemMetadataResponse)
+        .thenReturn(mockSemanticResponse);
 
     // Mock index convention patterns
-    when(mockIndexConvention.getAllEntityIndicesPatterns())
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
         .thenReturn(List.of("datahub_*index_v2"));
-    when(mockIndexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME))
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
         .thenReturn("datahub_graph_service_v1");
-    when(mockIndexConvention.getIndexName(ElasticSearchSystemMetadataService.INDEX_NAME))
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
         .thenReturn("datahub_system_metadata_service_v1");
 
     // Mock ESIndexBuilder to return ReindexConfig with different per-index settings
@@ -365,30 +437,154 @@ public class LoadIndicesIndexManagerTest {
     when(mockConfig1.targetSettings()).thenReturn(targetSettings1);
     when(mockConfig2.targetSettings()).thenReturn(targetSettings2);
 
-    when(mockIndexBuilder.buildReindexState(any(String.class), any(Map.class), any(Map.class)))
+    when(mockIndexBuilder.buildReindexState(
+            any(OperationContext.class), any(String.class), any(Map.class), any(Map.class)))
         .thenReturn(mockConfig1)
         .thenReturn(mockConfig2);
 
     // Mock ESIndexBuilder methods
     doNothing()
         .when(mockIndexBuilder)
-        .setIndexRefreshInterval(any(String.class), any(String.class));
-    doNothing().when(mockIndexBuilder).setIndexReplicaCount(any(String.class), any(Integer.class));
-    doNothing().when(mockIndexBuilder).tweakReplicas(any(ReindexConfig.class), any(Boolean.class));
+        .setIndexRefreshInterval(any(OperationContext.class), any(String.class), any(String.class));
+    doNothing()
+        .when(mockIndexBuilder)
+        .setIndexReplicaCount(any(OperationContext.class), any(String.class), any(Integer.class));
+    doNothing()
+        .when(mockIndexBuilder)
+        .tweakReplicas(any(OperationContext.class), any(ReindexConfig.class), any(Boolean.class));
 
     // First optimize settings
-    indexManager.optimizeForBulkOperations();
+    indexManager.optimizeForBulkOperations(mockOpContext);
     assertTrue(indexManager.isSettingsOptimized());
 
     // Now test restore with per-index overrides
-    indexManager.restoreFromConfiguration();
+    indexManager.restoreFromConfiguration(mockOpContext);
 
     assertFalse(indexManager.isSettingsOptimized());
 
     // Verify that ESIndexBuilder methods were called for both indices with their specific settings
-    verify(mockIndexBuilder, times(1)).setIndexRefreshInterval("datahub_dataset_v2", "5s");
-    verify(mockIndexBuilder, times(1)).setIndexReplicaCount("datahub_dataset_v2", 2);
-    verify(mockIndexBuilder, times(1)).setIndexRefreshInterval("datahub_dashboard_v2", "10s");
-    verify(mockIndexBuilder, times(1)).setIndexReplicaCount("datahub_dashboard_v2", 0);
+    verify(mockIndexBuilder, times(1))
+        .setIndexRefreshInterval(mockOpContext, "datahub_dataset_v2", "5s");
+    verify(mockIndexBuilder, times(1)).setIndexReplicaCount(mockOpContext, "datahub_dataset_v2", 2);
+    verify(mockIndexBuilder, times(1))
+        .setIndexRefreshInterval(mockOpContext, "datahub_dashboard_v2", "10s");
+    verify(mockIndexBuilder, times(1))
+        .setIndexReplicaCount(mockOpContext, "datahub_dashboard_v2", 0);
+  }
+
+  @Test
+  public void testDiscoverUsesOwningClusterClients() throws IOException {
+    SearchClientShim<?> v2Client = mock(SearchClientShim.class);
+    SearchClientShim<?> graphClient = mock(SearchClientShim.class);
+    ESIndexBuilder v2Builder = mock(ESIndexBuilder.class);
+    ESIndexBuilder graphBuilder = mock(ESIndexBuilder.class);
+    ESIndexBuilder semanticBuilder = mock(ESIndexBuilder.class);
+    doReturn(v2Client).when(v2Builder).getSearchClient();
+    doReturn(graphClient).when(graphBuilder).getSearchClient();
+    SearchClientShim<?> semanticClient = mock(SearchClientShim.class);
+    doReturn(semanticClient).when(semanticBuilder).getSearchClient();
+
+    SearchClusterRegistry registry = mock(SearchClusterRegistry.class);
+    when(registry.indexBuilderFor(SearchComponent.SEARCH_V2)).thenReturn(v2Builder);
+    when(registry.indexBuilderFor(SearchComponent.GRAPH)).thenReturn(graphBuilder);
+    when(registry.indexBuilderFor(SearchComponent.SYSTEM_METADATA)).thenReturn(mockIndexBuilder);
+    when(registry.indexBuilderFor(SearchComponent.SEMANTIC)).thenReturn(semanticBuilder);
+    doReturn(mockSearchClient).when(mockIndexBuilder).getSearchClient();
+
+    GetIndexResponse entityResponse = mock(GetIndexResponse.class);
+    when(entityResponse.getIndices()).thenReturn(new String[] {"datahub_datasetindex_v2"});
+    when(v2Client.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(entityResponse);
+
+    GetIndexResponse graphResponse = mock(GetIndexResponse.class);
+    when(graphResponse.getIndices()).thenReturn(new String[] {"datahub_graph_service_v1"});
+    when(graphClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(graphResponse);
+
+    GetIndexResponse systemMetadataResponse = mock(GetIndexResponse.class);
+    when(systemMetadataResponse.getIndices()).thenReturn(new String[] {});
+    when(mockSearchClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(systemMetadataResponse);
+
+    GetIndexResponse semanticResponse = mock(GetIndexResponse.class);
+    when(semanticResponse.getIndices())
+        .thenReturn(new String[] {"datahub_datasetindex_v2_semantic"});
+    when(semanticClient.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(semanticResponse);
+
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
+        .thenReturn(List.of("datahub_*index_v2"));
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchGraphService.INDEX_NAME)))
+        .thenReturn("datahub_graph_service_v1");
+    when(mockIndexConvention.getIndexName(
+            eq(mockOpContext), eq(ElasticSearchSystemMetadataService.INDEX_NAME)))
+        .thenReturn("datahub_system_metadata_service_v1");
+
+    ReindexConfig entityConfig = mock(ReindexConfig.class);
+    ReindexConfig graphConfig = mock(ReindexConfig.class);
+    ReindexConfig semanticConfig = mock(ReindexConfig.class);
+    when(v2Builder.buildReindexState(
+            any(OperationContext.class), eq("datahub_datasetindex_v2"), any(), any()))
+        .thenReturn(entityConfig);
+    when(graphBuilder.buildReindexState(
+            any(OperationContext.class), eq("datahub_graph_service_v1"), any(), any()))
+        .thenReturn(graphConfig);
+    when(semanticBuilder.buildReindexState(
+            any(OperationContext.class), eq("datahub_datasetindex_v2_semantic"), any(), any()))
+        .thenReturn(semanticConfig);
+
+    LoadIndicesIndexManager splitManager =
+        new LoadIndicesIndexManager(
+            mockSearchClient, mockIndexConvention, mockIndexBuilder, registry);
+
+    List<ReindexConfig> configs = splitManager.discoverDataHubIndexConfigs(mockOpContext);
+    assertEquals(configs.size(), 3);
+    verify(v2Client)
+        .getIndex(eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(graphClient)
+        .getIndex(eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(semanticClient)
+        .getIndex(eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(v2Builder)
+        .buildReindexState(
+            any(OperationContext.class), eq("datahub_datasetindex_v2"), any(), any());
+    verify(graphBuilder)
+        .buildReindexState(
+            any(OperationContext.class), eq("datahub_graph_service_v1"), any(), any());
+    verify(semanticBuilder)
+        .buildReindexState(
+            any(OperationContext.class), eq("datahub_datasetindex_v2_semantic"), any(), any());
+  }
+
+  @Test
+  public void testUnrecognizedDiscoveredIndexIsAnError() throws IOException {
+    SearchClientShim<?> v2Client = mock(SearchClientShim.class);
+    ESIndexBuilder v2Builder = mock(ESIndexBuilder.class);
+    doReturn(v2Client).when(v2Builder).getSearchClient();
+
+    SearchClusterRegistry registry = mock(SearchClusterRegistry.class);
+    when(registry.indexBuilderFor(SearchComponent.SEARCH_V2)).thenReturn(v2Builder);
+
+    GetIndexResponse entityResponse = mock(GetIndexResponse.class);
+    when(entityResponse.getIndices()).thenReturn(new String[] {"mystery_index"});
+    when(v2Client.getIndex(
+            eq(mockOpContext), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(entityResponse);
+
+    when(mockIndexConvention.getAllEntityIndicesPatterns(eq(mockOpContext)))
+        .thenReturn(List.of("datahub_*index_v2"));
+
+    LoadIndicesIndexManager splitManager =
+        new LoadIndicesIndexManager(
+            mockSearchClient, mockIndexConvention, mockIndexBuilder, registry);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> splitManager.discoverDataHubIndexConfigs(mockOpContext));
   }
 }

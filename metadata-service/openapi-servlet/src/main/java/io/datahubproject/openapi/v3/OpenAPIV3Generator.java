@@ -9,6 +9,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.processing.ProcessingUtil;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.avro.SchemaTranslator;
+import com.linkedin.data.schema.ArrayDataSchema;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.EnumDataSchema;
+import com.linkedin.data.schema.MapDataSchema;
+import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.schema.TyperefDataSchema;
+import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.models.AspectSpec;
@@ -33,6 +40,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class OpenAPIV3Generator {
@@ -45,6 +53,7 @@ public class OpenAPIV3Generator {
   private static final String TYPE_STRING = "string";
   private static final String TYPE_ARRAY = "array";
   private static final String TYPE_INTEGER = "integer";
+  private static final String TYPE_NUMBER = "number";
   private static final String TYPE_NULL = "null";
   private static final Set<String> TYPE_OBJECT_NULLABLE = Set.of(TYPE_OBJECT, TYPE_NULL);
   private static final Set<String> TYPE_STRING_NULLABLE = Set.of(TYPE_STRING, TYPE_NULL);
@@ -141,12 +150,14 @@ public class OpenAPIV3Generator {
                         .description("System headers for the operation."))));
 
     // --> Aspect components
+    // One index for the whole spec: nested records such as AuditStamp are shared by many aspects.
+    final UnionSchemaIndex unionSchemas = new UnionSchemaIndex();
     filteredAspectSpec
         .values()
         .forEach(
             a -> {
               final String upperAspectName = a.getPegasusSchema().getName();
-              addAspectSchemas(components, a);
+              addAspectSchemas(components, a, unionSchemas);
               components.addSchemas(
                   upperAspectName + ASPECT_REQUEST_SUFFIX,
                   buildAspectRefRequestSchema(upperAspectName));
@@ -1135,9 +1146,13 @@ public class OpenAPIV3Generator {
         .schema(schema);
   }
 
-  private static void addAspectSchemas(final Components components, final AspectSpec aspect) {
-    final org.apache.avro.Schema avroSchema =
-        SchemaTranslator.dataToAvroSchema(aspect.getPegasusSchema().getDereferencedDataSchema());
+  private static void addAspectSchemas(
+      final Components components, final AspectSpec aspect, final UnionSchemaIndex unionSchemas) {
+    final DataSchema pegasusSchema = aspect.getPegasusSchema().getDereferencedDataSchema();
+    final org.apache.avro.Schema avroSchema = SchemaTranslator.dataToAvroSchema(pegasusSchema);
+    // Avro keeps only the first member of a Pegasus union. Names come from the shared index so a
+    // nested record is walked once per spec, not once per aspect that references it.
+    final Map<String, RecordDataSchema> recordsByName = unionSchemas.recordsUnder(pegasusSchema);
     try {
       final JsonNode apiSchema = ProcessingUtil.buildResult(avroSchema.toString());
       final JsonNode definitions = apiSchema.get("definitions");
@@ -1189,6 +1204,31 @@ public class OpenAPIV3Generator {
                         }
                       }
 
+                      // Flattened union -> Pegasus wire format {"memberKey": value}.
+                      RecordDataSchema recordSchema = recordsByName.get(n);
+                      UnionField unionField =
+                          recordSchema == null
+                              ? null
+                              : unionSchemas.unionFields(recordSchema).get(name);
+                      if (unionField != null) {
+                        boolean nullableScalar =
+                            unionField.container == UnionContainer.SCALAR && !isRequired;
+                        Schema<?> wireSchema =
+                            unionSchemas.wireSchema(unionField.union, nullableScalar);
+                        if (unionField.container == UnionContainer.ARRAY) {
+                          prop.set$ref(null);
+                          prop.setType(TYPE_ARRAY);
+                          prop.setItems(wireSchema);
+                        } else if (unionField.container == UnionContainer.MAP) {
+                          prop.set$ref(null);
+                          prop.setType(TYPE_OBJECT);
+                          prop.setAdditionalProperties(wireSchema);
+                        } else {
+                          entry.setValue(wireSchema);
+                          continue;
+                        }
+                      }
+
                       // ---- optional $ref  → oneOf($ref, null) -----------------------------
                       if ($ref != null && !isRequired) {
                         prop.setType(null);
@@ -1229,6 +1269,8 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRefResponseSchema(final String aspectName) {
+    // aspectName is the Pegasus schema name (already PascalCase); do not apply
+    // toUpperFirst — it mangles names like AiContext into AIContext.
     final Schema result =
         newSchema()
             .type(TYPE_OBJECT)
@@ -1256,13 +1298,14 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRefRequestSchema(final String aspectName) {
+    // aspectName is the Pegasus schema name (already PascalCase); do not apply
+    // toUpperFirst — it mangles names like AiContext into AIContext.
     final Schema result =
         newSchema()
             .type(TYPE_OBJECT)
             .description(ASPECT_DESCRIPTION)
             .required(List.of(PROPERTY_VALUE))
-            .addProperty(
-                PROPERTY_VALUE, newSchema().$ref(PATH_DEFINITIONS + toUpperFirst(aspectName)));
+            .addProperty(PROPERTY_VALUE, newSchema().$ref(PATH_DEFINITIONS + aspectName));
     result.addProperty(
         NAME_SYSTEM_METADATA,
         newSchema()
@@ -1780,6 +1823,8 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
+    // aspect is the Pegasus schema name (already PascalCase); do not apply
+    // toUpperFirst — it mangles names like AiContext into AIContext.
     final Schema result = newSchema();
 
     result.setType(TYPE_OBJECT);
@@ -1787,11 +1832,9 @@ public class OpenAPIV3Generator {
     result.setNullable(true);
     final String internalRef;
     if (withSystemMetadata) {
-      internalRef =
-          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_RESPONSE_SUFFIX);
+      internalRef = String.format(FORMAT_PATH_DEFINITIONS, aspect, ASPECT_RESPONSE_SUFFIX);
     } else {
-      internalRef =
-          String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
+      internalRef = String.format(FORMAT_PATH_DEFINITIONS, aspect, ASPECT_REQUEST_SUFFIX);
     }
     result.setOneOf(List.of(newSchema().$ref(internalRef), newSchema().type(TYPE_NULL)));
     return result;
@@ -2219,6 +2262,212 @@ public class OpenAPIV3Generator {
             .collect(
                 Collectors.toMap(
                     Map.Entry::getKey, Map.Entry::getValue, (existing, replacement) -> existing)));
+  }
+
+  @Nullable
+  private static UnionField resolveUnionField(@Nullable RecordDataSchema.Field field) {
+    if (field == null) {
+      return null;
+    }
+    DataSchema current = field.getType();
+    UnionContainer container = UnionContainer.SCALAR;
+    if (current instanceof ArrayDataSchema array) {
+      container = UnionContainer.ARRAY;
+      current = array.getItems();
+    } else if (current instanceof MapDataSchema map) {
+      container = UnionContainer.MAP;
+      current = map.getValues();
+    }
+    current = dereference(current);
+    if (current instanceof UnionDataSchema union) {
+      return new UnionField(container, union);
+    }
+    return null;
+  }
+
+  private static DataSchema dereference(DataSchema schema) {
+    DataSchema current = schema;
+    while (current instanceof TyperefDataSchema typeref) {
+      DataSchema referenced = typeref.getDereferencedDataSchema();
+      if (referenced == null || referenced == current) {
+        break;
+      }
+      current = referenced;
+    }
+    return current;
+  }
+
+  /**
+   * Pegasus union wire format is an object with exactly one member key. Aliased members use the
+   * alias ({@code costId}) rather than the underlying type name ({@code double}).
+   *
+   * <p>This spec is OpenAPI 3.1, so each branch is a JSON Schema object ({@code
+   * additionalProperties: false} plus one property) and the {@code oneOf} schema itself has no
+   * sibling {@code type}. Optional unions add {@code {type: null}} rather than the OpenAPI 3.0
+   * {@code nullable} flag.
+   */
+  private static Schema<?> buildUnionWireSchema(UnionDataSchema unionSchema) {
+    List<Schema> schemas = new ArrayList<>();
+    for (UnionDataSchema.Member member : unionSchema.getMembers()) {
+      Schema<?> branch = newSchema().type(TYPE_OBJECT);
+      branch.setAdditionalProperties(Boolean.FALSE);
+      branch.addProperty(member.getUnionMemberKey(), schemaForUnionMember(member.getType()));
+      schemas.add(branch);
+    }
+    Schema<?> result = newSchema();
+    result.setOneOf(schemas);
+    return result;
+  }
+
+  private static Map<String, UnionField> indexUnionFields(RecordDataSchema record) {
+    Map<String, UnionField> fields = new HashMap<>();
+    for (RecordDataSchema.Field field : record.getFields()) {
+      UnionField unionField = resolveUnionField(field);
+      if (unionField != null) {
+        fields.put(field.getName(), unionField);
+      }
+    }
+    return fields.isEmpty() ? Map.of() : Map.copyOf(fields);
+  }
+
+  private static Schema<?> schemaForUnionMember(DataSchema memberType) {
+    DataSchema schema = dereference(memberType);
+    if (schema instanceof RecordDataSchema record) {
+      return newSchema().$ref(PATH_DEFINITIONS + record.getName());
+    }
+    if (schema instanceof EnumDataSchema enumSchema) {
+      Schema enumValue = newSchema().type(TYPE_STRING);
+      enumValue.setEnum(new ArrayList<>(enumSchema.getSymbols()));
+      return enumValue;
+    }
+    if (schema instanceof ArrayDataSchema array) {
+      return newSchema().type(TYPE_ARRAY).items(schemaForUnionMember(array.getItems()));
+    }
+    if (schema instanceof MapDataSchema map) {
+      return newSchema()
+          .type(TYPE_OBJECT)
+          .additionalProperties(schemaForUnionMember(map.getValues()));
+    }
+    if (schema instanceof UnionDataSchema union) {
+      return buildUnionWireSchema(union);
+    }
+    return primitiveUnionMemberSchema(schema.getType());
+  }
+
+  private static Schema<?> primitiveUnionMemberSchema(DataSchema.Type type) {
+    return switch (type) {
+      case INT -> newSchema().type(TYPE_INTEGER).format("int32");
+      case LONG -> newSchema().type(TYPE_INTEGER).format("int64");
+      case FLOAT -> newSchema().type(TYPE_NUMBER).format("float");
+      case DOUBLE -> newSchema().type(TYPE_NUMBER).format("double");
+      case BOOLEAN -> newSchema().type(TYPE_BOOLEAN);
+      case NULL -> newSchema().type(TYPE_NULL);
+      default -> newSchema().type(TYPE_STRING);
+    };
+  }
+
+  /**
+   * Record closures and union wire schemas for a single {@code generateOpenApiSpec} call. Pegasus
+   * schema objects are reused across aspects, so each record and each union is translated once.
+   * Cached schemas are not mutated; a nullable wrapper copies the {@code oneOf} list.
+   */
+  private static final class UnionSchemaIndex {
+    private final Map<RecordDataSchema, Map<String, RecordDataSchema>> closures =
+        new IdentityHashMap<>();
+    private final Map<RecordDataSchema, Map<String, UnionField>> unionFieldsByRecord =
+        new IdentityHashMap<>();
+    private final Map<UnionDataSchema, Schema<?>> wireSchemas = new IdentityHashMap<>();
+
+    private Map<String, RecordDataSchema> recordsUnder(DataSchema schema) {
+      Map<String, RecordDataSchema> out = new HashMap<>();
+      collect(schema, out);
+      return out;
+    }
+
+    private Map<String, UnionField> unionFields(RecordDataSchema record) {
+      Map<String, UnionField> fields = unionFieldsByRecord.get(record);
+      if (fields == null) {
+        fields = indexUnionFields(record);
+        unionFieldsByRecord.put(record, fields);
+      }
+      return fields;
+    }
+
+    private Schema<?> wireSchema(UnionDataSchema union, boolean includeNull) {
+      Schema<?> base = wireSchemas.get(union);
+      if (base == null) {
+        base = buildUnionWireSchema(union);
+        wireSchemas.put(union, base);
+      }
+      if (!includeNull) {
+        return base;
+      }
+      Schema<?> nullable = newSchema();
+      List<Schema> branches = new ArrayList<>(base.getOneOf());
+      branches.add(newSchema().type(TYPE_NULL));
+      nullable.setOneOf(branches);
+      return nullable;
+    }
+
+    private void collect(DataSchema schema, Map<String, RecordDataSchema> out) {
+      DataSchema current = dereference(schema);
+      if (current instanceof RecordDataSchema record) {
+        out.putAll(closure(record));
+        return;
+      }
+      if (current instanceof ArrayDataSchema array) {
+        collect(array.getItems(), out);
+        return;
+      }
+      if (current instanceof MapDataSchema map) {
+        collect(map.getValues(), out);
+        return;
+      }
+      if (current instanceof UnionDataSchema union) {
+        for (UnionDataSchema.Member member : union.getMembers()) {
+          collect(member.getType(), out);
+        }
+      }
+    }
+
+    private Map<String, RecordDataSchema> closure(RecordDataSchema record) {
+      Map<String, RecordDataSchema> existing = closures.get(record);
+      if (existing != null) {
+        return existing;
+      }
+      Map<String, RecordDataSchema> closure = new HashMap<>();
+      // Publish before walking fields so a cycle returns this map instead of recursing forever.
+      closures.put(record, closure);
+      closure.put(record.getName(), record);
+      if (!record.getFullName().equals(record.getName())) {
+        closure.put(record.getFullName(), record);
+      }
+      unionFieldsByRecord.put(record, indexUnionFields(record));
+      for (RecordDataSchema.Field field : record.getFields()) {
+        Map<String, RecordDataSchema> nested = new HashMap<>();
+        collect(field.getType(), nested);
+        for (Map.Entry<String, RecordDataSchema> entry : nested.entrySet()) {
+          closure.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+      }
+      return closure;
+    }
+  }
+
+  private enum UnionContainer {
+    SCALAR,
+    ARRAY,
+    MAP
+  }
+
+  private static final class UnionField {
+    private final UnionContainer container;
+    private final UnionDataSchema union;
+
+    private UnionField(UnionContainer container, UnionDataSchema union) {
+      this.container = container;
+      this.union = union;
+    }
   }
 
   private static Schema newSchema() {

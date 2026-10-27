@@ -21,20 +21,8 @@ export const getUserStatusText = (userStatus: CorpUserStatus | undefined | null,
     }
 
     // If no status, default to Inactive
-    return i18next.t('users.statusInactive', { ns: 'entity.identity' });
+    return i18next.t('entity.identity:users.statusInactive');
 };
-
-type StatusFilterOption = {
-    label: string;
-    value: string;
-    disabled?: boolean;
-};
-
-export const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
-    { label: 'Status', value: 'all' },
-    { label: 'Active', value: 'active' },
-    { label: 'Suspended', value: 'suspended' },
-];
 
 /**
  * Builds GraphQL filter objects for user status filtering (server-side)
@@ -77,4 +65,11 @@ export function extractUserRole(
 
 // Role assignment constants
 export const NO_ROLE_URN = '';
-export const NO_ROLE_TEXT = 'No Role';
+
+/**
+ * Only native users (with stored DataHub credentials) can have their password reset.
+ * SSO users and the root user defined in user.props are not native.
+ */
+export function canResetUserPassword(user: Pick<CorpUser, 'isNativeUser'>, canManageUserCredentials: boolean): boolean {
+    return canManageUserCredentials && !!user.isNativeUser;
+}

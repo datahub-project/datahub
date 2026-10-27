@@ -16,8 +16,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -32,8 +33,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -47,8 +49,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -70,8 +73,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -86,8 +90,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -101,8 +106,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -124,8 +130,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -140,8 +147,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -155,8 +163,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -166,12 +175,23 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
                         "active": true,
                         "displayName": "John Green",
                         "email": "johngreen@acryl.io",
                         "firstName": "John",
                         "lastName": "Green",
-                        "fullName": "John Green"
+                        "fullName": "John Green",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1629795600000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -187,8 +207,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -203,8 +224,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -218,8 +240,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -229,12 +252,23 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
+                        "customProperties": {},
                         "active": true,
                         "displayName": "Adam Hall",
                         "email": "adamhall@acryl.io",
                         "firstName": "Adam",
                         "lastName": "Hall",
-                        "fullName": "Adam Hall"
+                        "fullName": "Adam Hall",
+                        "system": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1629795600000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
                     }
                 },
                 {
@@ -249,8 +283,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -265,8 +300,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -280,8 +316,9 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1629795600000,
-        "runId": "test-azure-ad"
+        "lastObserved": 1629813600000,
+        "runId": "test-azure-ad",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

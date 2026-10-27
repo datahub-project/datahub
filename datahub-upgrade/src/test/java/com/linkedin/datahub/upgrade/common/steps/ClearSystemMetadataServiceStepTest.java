@@ -11,6 +11,7 @@ import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -28,12 +29,19 @@ public class ClearSystemMetadataServiceStepTest {
 
   @Mock private UpgradeReport upgradeReport;
 
+  @Mock private OperationContext operationContext;
+
   private ClearSystemMetadataServiceStep clearSystemMetadataServiceStep;
 
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
     when(upgradeContext.report()).thenReturn(upgradeReport);
+    // PR6: production code now calls context.opContext() and passes it to
+    // SystemMetadataService.clear(opContext). Stub the getter so it returns a real (mocked)
+    // OperationContext instead of Mockito's default null — otherwise verify(...).clear(any(...))
+    // mismatches with clear(null) at runtime.
+    when(upgradeContext.opContext()).thenReturn(operationContext);
   }
 
   @Test
@@ -90,7 +98,7 @@ public class ClearSystemMetadataServiceStepTest {
 
     UpgradeStepResult result = executable.apply(upgradeContext);
 
-    verify(systemMetadataService).clear();
+    verify(systemMetadataService).clear(any(OperationContext.class));
     assertEquals(result.stepId(), "ClearSystemMetadataServiceStep");
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     assertEquals(result.action(), UpgradeStepResult.Action.CONTINUE);
@@ -98,7 +106,9 @@ public class ClearSystemMetadataServiceStepTest {
 
   @Test
   public void testExecutable_Failure() {
-    doThrow(new RuntimeException("Test exception")).when(systemMetadataService).clear();
+    doThrow(new RuntimeException("Test exception"))
+        .when(systemMetadataService)
+        .clear(any(OperationContext.class));
 
     clearSystemMetadataServiceStep =
         new ClearSystemMetadataServiceStep(systemMetadataService, true);
@@ -107,7 +117,7 @@ public class ClearSystemMetadataServiceStepTest {
 
     UpgradeStepResult result = executable.apply(upgradeContext);
 
-    verify(systemMetadataService).clear();
+    verify(systemMetadataService).clear(any(OperationContext.class));
     verify(upgradeReport)
         .addLine(eq("Failed to clear system metadata service"), any(Exception.class));
     assertEquals(result.stepId(), "ClearSystemMetadataServiceStep");

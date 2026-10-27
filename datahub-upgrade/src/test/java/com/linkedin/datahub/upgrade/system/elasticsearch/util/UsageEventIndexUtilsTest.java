@@ -1,10 +1,20 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.LongSupplier;
+import org.apache.http.HttpVersion;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.message.BasicStatusLine;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -57,7 +67,9 @@ public class UsageEventIndexUtilsTest {
   public void testCreateIlmPolicy_Success() throws IOException {
     // Arrange
     String policyName = "test_policy";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -79,17 +91,21 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+    UsageEventIndexUtils.createIlmPolicy(operationContext, esComponents, policyName);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
   public void testCreateIlmPolicy_AlreadyExists() throws IOException {
     // Arrange
     String policyName = "test_policy";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -113,10 +129,12 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+    UsageEventIndexUtils.createIlmPolicy(operationContext, esComponents, policyName);
 
     // Assert - Should not throw exception
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -128,7 +146,9 @@ public class UsageEventIndexUtilsTest {
     // This covers the outer catch block: } catch (ResponseException e) { if
     // (e.getResponse().getStatusLine().getStatusCode() == 409) { log.info("ILM policy {} already
     // exists", policyName); } else { throw e; } }
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException); // Direct ResponseException with 409
 
     Mockito.when(responseException.getResponse())
@@ -153,19 +173,22 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+    UsageEventIndexUtils.createIlmPolicy(operationContext, esComponents, policyName);
 
     // Assert - Should succeed due to outer catch block handling 409
     // Should make 1 call that throws ResponseException with 409
     Mockito.verify(searchClient, Mockito.times(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
   public void testCreateIlmPolicy_Conflict() throws IOException {
     // Arrange
     String policyName = "test_policy";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -187,18 +210,21 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+    UsageEventIndexUtils.createIlmPolicy(operationContext, esComponents, policyName);
 
     // Assert - Should succeed on first attempt due to 409 conflict
     Mockito.verify(searchClient, Mockito.times(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
   public void testCreateIlmPolicy_OtherError() throws IOException {
     // Arrange
     String policyName = "test_policy";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -222,14 +248,16 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+    UsageEventIndexUtils.createIlmPolicy(operationContext, esComponents, policyName);
   }
 
   @Test(expectedExceptions = IOException.class)
   public void testCreateIlmPolicy_NonSuccessStatusCode() throws IOException {
     // Arrange
     String policyName = "test_policy";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -251,7 +279,7 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIlmPolicy(esComponents, policyName);
+    UsageEventIndexUtils.createIlmPolicy(operationContext, esComponents, policyName);
 
     // Assert - Should throw IOException after retries fail
     // This tests the specific error handling: log.error("ILM policy creation returned status: {}",
@@ -264,7 +292,9 @@ public class UsageEventIndexUtilsTest {
     String policyName = "test_policy";
     String prefix = "test_";
     // FIX: Mock GET returning 404 (doesn't exist), then PUT returning 201 (created)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -309,7 +339,8 @@ public class UsageEventIndexUtilsTest {
     // Assert
     Assert.assertTrue(result);
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -319,7 +350,9 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
 
     // Mock ResponseException with 200 status (policy already exists)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -349,7 +382,8 @@ public class UsageEventIndexUtilsTest {
     // Assert - Should succeed and attempt to update existing policy
     Assert.assertTrue(result);
     Mockito.verify(searchClient, Mockito.atLeast(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -359,7 +393,9 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
 
     // Mock ResponseException with 404 status (policy doesn't exist)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException)
         .thenReturn(rawResponse); // Mock successful PUT response
     Mockito.when(responseException.getResponse())
@@ -410,7 +446,8 @@ public class UsageEventIndexUtilsTest {
     // Assert - Should succeed and create new policy
     Assert.assertTrue(result);
     Mockito.verify(searchClient, Mockito.atLeast(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(
@@ -422,7 +459,9 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
 
     // Mock IOException during policy creation
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(new IOException("Network error"));
 
     // Act
@@ -432,7 +471,8 @@ public class UsageEventIndexUtilsTest {
     // Assert - Should return false due to IOException
     Assert.assertFalse(result);
     Mockito.verify(searchClient, Mockito.times(5))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(
@@ -444,7 +484,9 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
 
     // Mock unexpected exception
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(new RuntimeException("Unexpected error"));
 
     // Act
@@ -454,7 +496,8 @@ public class UsageEventIndexUtilsTest {
     // Assert - Should return false due to unexpected exception
     Assert.assertFalse(result);
     Mockito.verify(searchClient, Mockito.times(5))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -481,7 +524,8 @@ public class UsageEventIndexUtilsTest {
     // No calls to performLowLevelRequest should be made since the exception occurs before retry
     // logic
     Mockito.verify(searchClient, Mockito.never())
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -493,7 +537,9 @@ public class UsageEventIndexUtilsTest {
     // Mock GET request returning 404 status (policy doesn't exist)
     // This covers the code path: if (getStatusCode == 404) { return createNewPolicy(esComponents,
     // endpoint, policyJson, policyName); }
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse) // Mock successful GET response with 404
         .thenReturn(rawResponse); // Mock successful PUT response for policy creation
     Mockito.when(rawResponse.getStatusLine())
@@ -540,7 +586,8 @@ public class UsageEventIndexUtilsTest {
     Assert.assertTrue(result);
     // Should make 2 calls: GET (404) then PUT (201)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(
@@ -555,7 +602,9 @@ public class UsageEventIndexUtilsTest {
     // This covers the code path: log.warn("ISM policy operation failed with status: {}. Response:
     // {}. Will retry.", statusCode, responseBody); throw new RuntimeException("Retryable error: " +
     // statusCode + " - " + responseBody);
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -586,7 +635,8 @@ public class UsageEventIndexUtilsTest {
     Assert.assertFalse(result);
     // Should make 5 calls due to retry logic
     Mockito.verify(searchClient, Mockito.times(5))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -601,7 +651,9 @@ public class UsageEventIndexUtilsTest {
     // existing ISM policy {} (non-fatal): {}", policyName, updateException.getMessage()); return
     // true; }
     // FIX: Set up mock sequence correctly - first call 200, second call throws RuntimeException
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException) // First call throws 200 ResponseException
         .thenThrow(new RuntimeException("Update failed")); // Second call throws exception
 
@@ -634,7 +686,8 @@ public class UsageEventIndexUtilsTest {
     Assert.assertTrue(result);
     // Should make 2 calls: first GET (200), then GET inside updateIsmPolicy (throws exception)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -647,7 +700,9 @@ public class UsageEventIndexUtilsTest {
     // This will trigger createNewPolicy, but we'll mock the PUT request to return 409 Conflict
     // This covers the code path: if (createStatusCode == 409) { log.info("ISM policy {} already
     // exists", policyName); return true; }
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse) // Mock successful GET response with 404
         .thenReturn(rawResponse); // Mock successful PUT response with 409 Conflict
     Mockito.when(rawResponse.getStatusLine())
@@ -694,7 +749,8 @@ public class UsageEventIndexUtilsTest {
     Assert.assertTrue(result);
     // Should make 2 calls: GET (404) then PUT (409)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -708,7 +764,9 @@ public class UsageEventIndexUtilsTest {
     // Server Error
     // This covers the code path: log.error("ISM policy creation returned status: {}",
     // createStatusCode); return false;
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse) // Mock successful GET response with 404
         .thenReturn(rawResponse); // Mock successful PUT response with 500
     Mockito.when(rawResponse.getStatusLine())
@@ -755,7 +813,8 @@ public class UsageEventIndexUtilsTest {
     Assert.assertFalse(result);
     // Should make 2 calls: GET (404) then PUT (500)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -768,7 +827,9 @@ public class UsageEventIndexUtilsTest {
     // This will trigger createNewPolicy, but we'll mock the PUT request to throw IOException
     // This covers the code path: } catch (IOException e) { log.error("Failed to create ISM policy
     // {}: {}", policyName, e.getMessage()); return false; }
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse) // Mock successful GET response with 404
         .thenThrow(new IOException("Network connection failed")); // Second call throws IOException
     Mockito.when(rawResponse.getStatusLine())
@@ -798,7 +859,8 @@ public class UsageEventIndexUtilsTest {
     Assert.assertFalse(result);
     // Should make 2 calls: GET (404) then PUT (throws IOException)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(
@@ -814,7 +876,9 @@ public class UsageEventIndexUtilsTest {
     // We'll mock the response entity to throw IOException when reading content
     // This covers the code path: } catch (IOException e) { return "Error reading response body: " +
     // e.getMessage(); }
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException); // ResponseException with 400 status
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -854,7 +918,8 @@ public class UsageEventIndexUtilsTest {
     Assert.assertFalse(result);
     // Should make 5 calls due to retry logic
     Mockito.verify(searchClient, Mockito.times(5))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -864,7 +929,9 @@ public class UsageEventIndexUtilsTest {
 
     // Mock GET request returning 404 (data stream doesn't exist)
     // Then mock PUT request returning 200 (successful creation)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException) // First call: GET returns 404
         .thenReturn(rawResponse); // Second call: PUT returns 200
 
@@ -913,11 +980,12 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+    UsageEventIndexUtils.createDataStream(operationContext, esComponents, dataStreamName);
 
     // Assert - Should make 2 calls: GET (404) then PUT (200)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -927,7 +995,9 @@ public class UsageEventIndexUtilsTest {
 
     // Mock GET request returning 200 (data stream already exists)
     // Should return early without attempting PUT
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -949,11 +1019,12 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+    UsageEventIndexUtils.createDataStream(operationContext, esComponents, dataStreamName);
 
     // Assert - Should make only 1 call: GET (200) and return early
     Mockito.verify(searchClient, Mockito.times(1))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -963,7 +1034,9 @@ public class UsageEventIndexUtilsTest {
 
     // Mock GET request returning 404 (data stream doesn't exist)
     // Then mock PUT request returning 201 (successful creation)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException) // First call: GET returns 404
         .thenReturn(rawResponse); // Second call: PUT returns 201
 
@@ -1012,11 +1085,12 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+    UsageEventIndexUtils.createDataStream(operationContext, esComponents, dataStreamName);
 
     // Assert - Should make 2 calls: GET (404) then PUT (201)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1028,7 +1102,9 @@ public class UsageEventIndexUtilsTest {
     // Mock GET request returning 204 (unexpected non-200 status without exception)
     // This should fall through and proceed to create the data stream
     RawResponse getResponse = Mockito.mock(RawResponse.class);
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(getResponse) // First call: GET returns 204
         .thenReturn(rawResponse); // Second call: PUT returns 200
 
@@ -1073,11 +1149,12 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act - Should proceed to create since GET didn't return 200
-    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+    UsageEventIndexUtils.createDataStream(operationContext, esComponents, dataStreamName);
 
     // Assert - Should make 2 calls: GET (204) then PUT (200)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1087,7 +1164,9 @@ public class UsageEventIndexUtilsTest {
 
     // Mock GET request returning 404 (data stream doesn't exist)
     // Then mock PUT request returning 202 (unexpected but non-error status)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException) // First call: GET returns 404
         .thenReturn(rawResponse); // Second call: PUT returns 202
 
@@ -1135,11 +1214,12 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act - Should complete without exception but log a warning
-    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+    UsageEventIndexUtils.createDataStream(operationContext, esComponents, dataStreamName);
 
     // Assert - Should make 2 calls: GET (404) then PUT (202)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = ResponseException.class)
@@ -1174,7 +1254,9 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Then mock PUT request throwing ResponseException with 500
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(getException) // First call: GET returns 404
         .thenThrow(responseException); // Second call: PUT returns 500
 
@@ -1202,7 +1284,7 @@ public class UsageEventIndexUtilsTest {
     Mockito.when(responseException.getMessage()).thenReturn("Some other error");
 
     // Act
-    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+    UsageEventIndexUtils.createDataStream(operationContext, esComponents, dataStreamName);
   }
 
   @Test(expectedExceptions = ResponseException.class)
@@ -1214,7 +1296,9 @@ public class UsageEventIndexUtilsTest {
     // This should propagate the error and not attempt creation
     // FIX: getMessage() must NOT contain "404" so the exception is re-thrown
     Mockito.when(responseException.getMessage()).thenReturn("500 Internal Server Error");
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -1239,7 +1323,7 @@ public class UsageEventIndexUtilsTest {
     Mockito.when(responseException.getMessage()).thenReturn("Error checking existence");
 
     // Act
-    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+    UsageEventIndexUtils.createDataStream(operationContext, esComponents, dataStreamName);
   }
 
   @Test
@@ -1275,7 +1359,9 @@ public class UsageEventIndexUtilsTest {
 
     // Then mock PUT returning resource_already_exists_exception (race condition - created between
     // GET and PUT)
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(getException) // First call: GET returns 404
         .thenThrow(responseException); // Second call: PUT returns resource_already_exists_exception
 
@@ -1303,11 +1389,12 @@ public class UsageEventIndexUtilsTest {
     Mockito.when(responseException.getMessage()).thenReturn("resource_already_exists_exception");
 
     // Act
-    UsageEventIndexUtils.createDataStream(esComponents, dataStreamName);
+    UsageEventIndexUtils.createDataStream(operationContext, esComponents, dataStreamName);
 
     // Assert - Should handle already exists gracefully (race condition)
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1317,30 +1404,46 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
     Mockito.when(
             searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
             searchClient.getIndexAliases(
-                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetAliasesRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
     Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
     Mockito.when(
             searchClient.createIndex(
-                Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(CreateIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(createIndexResponse);
     Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(true);
 
     // Act
     String aliasName = prefix + "datahub_usage_event";
-    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(
+        operationContext, esComponents, indexName, aliasName);
 
     // Assert
     Mockito.verify(searchClient)
-        .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+        .indexExists(
+            Mockito.any(OperationContext.class),
+            Mockito.any(GetIndexRequest.class),
+            Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
-        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
+        .getIndexAliases(
+            Mockito.any(OperationContext.class),
+            Mockito.any(GetAliasesRequest.class),
+            Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
-        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+        .createIndex(
+            Mockito.any(OperationContext.class),
+            Mockito.any(CreateIndexRequest.class),
+            Mockito.any(RequestOptions.class));
   }
 
   @Test
@@ -1350,30 +1453,46 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
     Mockito.when(
             searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
             searchClient.getIndexAliases(
-                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetAliasesRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
     Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
     Mockito.when(
             searchClient.createIndex(
-                Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(CreateIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(createIndexResponse);
     Mockito.when(createIndexResponse.isAcknowledged()).thenReturn(false); // Not acknowledged
 
     // Act
     String aliasName = prefix + "datahub_usage_event";
-    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(
+        operationContext, esComponents, indexName, aliasName);
 
     // Assert
     Mockito.verify(searchClient)
-        .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+        .indexExists(
+            Mockito.any(OperationContext.class),
+            Mockito.any(GetIndexRequest.class),
+            Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
-        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
+        .getIndexAliases(
+            Mockito.any(OperationContext.class),
+            Mockito.any(GetAliasesRequest.class),
+            Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
-        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+        .createIndex(
+            Mockito.any(OperationContext.class),
+            Mockito.any(CreateIndexRequest.class),
+            Mockito.any(RequestOptions.class));
     // The method should complete without throwing an exception, but log a warning
   }
 
@@ -1384,18 +1503,27 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
     Mockito.when(
             searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(true);
 
     // Act
     String aliasName = prefix + "datahub_usage_event";
-    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(
+        operationContext, esComponents, indexName, aliasName);
 
     // Assert
     Mockito.verify(searchClient)
-        .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+        .indexExists(
+            Mockito.any(OperationContext.class),
+            Mockito.any(GetIndexRequest.class),
+            Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient, Mockito.never())
-        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+        .createIndex(
+            Mockito.any(OperationContext.class),
+            Mockito.any(CreateIndexRequest.class),
+            Mockito.any(RequestOptions.class));
   }
 
   @Test
@@ -1405,31 +1533,47 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
     Mockito.when(
             searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
             searchClient.getIndexAliases(
-                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetAliasesRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
     Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
     Mockito.when(
             searchClient.createIndex(
-                Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(CreateIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenThrow(openSearchStatusException);
     Mockito.when(openSearchStatusException.getMessage())
         .thenReturn("resource_already_exists_exception");
 
     // Act
     String aliasName = prefix + "datahub_usage_event";
-    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(
+        operationContext, esComponents, indexName, aliasName);
 
     // Assert - Should not throw exception
     Mockito.verify(searchClient)
-        .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+        .indexExists(
+            Mockito.any(OperationContext.class),
+            Mockito.any(GetIndexRequest.class),
+            Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
-        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
+        .getIndexAliases(
+            Mockito.any(OperationContext.class),
+            Mockito.any(GetAliasesRequest.class),
+            Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
-        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+        .createIndex(
+            Mockito.any(OperationContext.class),
+            Mockito.any(CreateIndexRequest.class),
+            Mockito.any(RequestOptions.class));
   }
 
   @Test(expectedExceptions = OpenSearchStatusException.class)
@@ -1439,23 +1583,30 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
     Mockito.when(
             searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(false);
     Mockito.when(
             searchClient.getIndexAliases(
-                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetAliasesRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
     Mockito.when(getAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
     Mockito.when(
             searchClient.createIndex(
-                Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(CreateIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenThrow(openSearchStatusException);
     Mockito.when(openSearchStatusException.getMessage()).thenReturn("Some other error");
     Mockito.when(openSearchStatusException.status()).thenReturn(RestStatus.INTERNAL_SERVER_ERROR);
 
     // Act
     String aliasName = prefix + "datahub_usage_event";
-    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(
+        operationContext, esComponents, indexName, aliasName);
   }
 
   @Test
@@ -1468,7 +1619,9 @@ public class UsageEventIndexUtilsTest {
     // Index doesn't exist
     Mockito.when(
             searchClient.indexExists(
-                Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetIndexRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(false);
 
     // But alias exists pointing to a different index
@@ -1479,20 +1632,32 @@ public class UsageEventIndexUtilsTest {
     Mockito.when(aliasMap.keySet()).thenReturn(java.util.Collections.singleton(existingIndexName));
     Mockito.when(
             searchClient.getIndexAliases(
-                Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class)))
+                Mockito.any(OperationContext.class),
+                Mockito.any(GetAliasesRequest.class),
+                Mockito.any(RequestOptions.class)))
         .thenReturn(getAliasesResponse);
     Mockito.when(getAliasesResponse.getAliases()).thenReturn(aliasMap);
 
     // Act
-    UsageEventIndexUtils.createOpenSearchUsageEventIndex(esComponents, indexName, aliasName);
+    UsageEventIndexUtils.createOpenSearchUsageEventIndex(
+        operationContext, esComponents, indexName, aliasName);
 
     // Assert - Should skip creation because alias already exists (map is not empty)
     Mockito.verify(searchClient)
-        .indexExists(Mockito.any(GetIndexRequest.class), Mockito.any(RequestOptions.class));
+        .indexExists(
+            Mockito.any(OperationContext.class),
+            Mockito.any(GetIndexRequest.class),
+            Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient)
-        .getIndexAliases(Mockito.any(GetAliasesRequest.class), Mockito.any(RequestOptions.class));
+        .getIndexAliases(
+            Mockito.any(OperationContext.class),
+            Mockito.any(GetAliasesRequest.class),
+            Mockito.any(RequestOptions.class));
     Mockito.verify(searchClient, Mockito.never())
-        .createIndex(Mockito.any(CreateIndexRequest.class), Mockito.any(RequestOptions.class));
+        .createIndex(
+            Mockito.any(OperationContext.class),
+            Mockito.any(CreateIndexRequest.class),
+            Mockito.any(RequestOptions.class));
   }
 
   @Test(
@@ -1513,7 +1678,9 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
 
     // Mock the response to simulate AWS OpenSearch Service behavior
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -1542,7 +1709,8 @@ public class UsageEventIndexUtilsTest {
     Assert.assertFalse(result, "Policy creation should return false for 400 error");
     // For 400 errors, the retry logic will attempt 5 times before giving up
     Mockito.verify(searchClient, Mockito.times(5))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1550,7 +1718,9 @@ public class UsageEventIndexUtilsTest {
     // Arrange
     String templateName = "test_template";
     String prefix = "test_";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -1572,10 +1742,13 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIndexTemplate(esComponents, templateName, "policy", 1, 1, prefix);
+    UsageEventIndexUtils.createIndexTemplate(
+        operationContext, esComponents, templateName, "policy", 1, 1, prefix);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1583,7 +1756,9 @@ public class UsageEventIndexUtilsTest {
     // Arrange
     String templateName = "test_template";
     String prefix = "test_";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -1605,10 +1780,13 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIndexTemplate(esComponents, templateName, "policy", 1, 1, prefix);
+    UsageEventIndexUtils.createIndexTemplate(
+        operationContext, esComponents, templateName, "policy", 1, 1, prefix);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1616,7 +1794,9 @@ public class UsageEventIndexUtilsTest {
     // Arrange
     String templateName = "test_template";
     String prefix = "test_";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -1640,10 +1820,13 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIndexTemplate(esComponents, templateName, "policy", 1, 1, prefix);
+    UsageEventIndexUtils.createIndexTemplate(
+        operationContext, esComponents, templateName, "policy", 1, 1, prefix);
 
     // Assert - Should not throw exception
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -1651,7 +1834,9 @@ public class UsageEventIndexUtilsTest {
     // Arrange
     String templateName = "test_template";
     String prefix = "test_";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -1675,7 +1860,8 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createIndexTemplate(esComponents, templateName, "policy", 1, 1, prefix);
+    UsageEventIndexUtils.createIndexTemplate(
+        operationContext, esComponents, templateName, "policy", 1, 1, prefix);
   }
 
   @Test
@@ -1683,7 +1869,9 @@ public class UsageEventIndexUtilsTest {
     // Arrange
     String templateName = "test_template";
     String prefix = "test_";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -1705,10 +1893,13 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndexTemplate(esComponents, templateName, 1, 1, prefix);
+    UsageEventIndexUtils.createOpenSearchIndexTemplate(
+        operationContext, esComponents, templateName, 1, 1, prefix);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1716,7 +1907,9 @@ public class UsageEventIndexUtilsTest {
     // Arrange
     String templateName = "test_template";
     String prefix = "test_";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -1738,10 +1931,13 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndexTemplate(esComponents, templateName, 1, 1, prefix);
+    UsageEventIndexUtils.createOpenSearchIndexTemplate(
+        operationContext, esComponents, templateName, 1, 1, prefix);
 
     // Assert
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1749,7 +1945,9 @@ public class UsageEventIndexUtilsTest {
     // Arrange
     String templateName = "test_template";
     String prefix = "test_";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -1773,10 +1971,13 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndexTemplate(esComponents, templateName, 1, 1, prefix);
+    UsageEventIndexUtils.createOpenSearchIndexTemplate(
+        operationContext, esComponents, templateName, 1, 1, prefix);
 
     // Assert - Should not throw exception
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -1784,7 +1985,9 @@ public class UsageEventIndexUtilsTest {
     // Arrange
     String templateName = "test_template";
     String prefix = "test_";
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -1808,7 +2011,8 @@ public class UsageEventIndexUtilsTest {
             });
 
     // Act
-    UsageEventIndexUtils.createOpenSearchIndexTemplate(esComponents, templateName, 1, 1, prefix);
+    UsageEventIndexUtils.createOpenSearchIndexTemplate(
+        operationContext, esComponents, templateName, 1, 1, prefix);
   }
 
   @Test
@@ -1818,7 +2022,9 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
 
     // Mock GET request - policy exists
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -1854,7 +2060,8 @@ public class UsageEventIndexUtilsTest {
     // Assert - Should make 2 calls: GET to retrieve policy, then PUT to update with concurrency
     // control
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1864,7 +2071,9 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
 
     // Mock GET request - policy doesn't exist
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -1891,7 +2100,9 @@ public class UsageEventIndexUtilsTest {
     UsageEventIndexUtils.updateIsmPolicy(esComponents, policyName, prefix, operationContext);
 
     // Assert - Should not throw exception for 404
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1901,7 +2112,9 @@ public class UsageEventIndexUtilsTest {
     String prefix = "test_";
 
     // Mock GET request - other error
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenThrow(responseException);
     Mockito.when(responseException.getResponse())
         .thenReturn(Mockito.mock(org.opensearch.client.Response.class));
@@ -1928,7 +2141,9 @@ public class UsageEventIndexUtilsTest {
     UsageEventIndexUtils.updateIsmPolicy(esComponents, policyName, prefix, operationContext);
 
     // Assert - The method should handle the error gracefully and not throw an exception
-    Mockito.verify(searchClient).performLowLevelRequest(Mockito.any(Request.class));
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1942,7 +2157,9 @@ public class UsageEventIndexUtilsTest {
         .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper());
 
     // Mock GET request - policy exists with valid JSON response
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -1978,7 +2195,8 @@ public class UsageEventIndexUtilsTest {
     // Assert - Should make 2 calls: GET to retrieve policy, then PUT to update with concurrency
     // control
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
   }
 
   @Test
@@ -1992,7 +2210,9 @@ public class UsageEventIndexUtilsTest {
         .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper());
 
     // Mock GET request - policy exists
-    Mockito.when(searchClient.performLowLevelRequest(Mockito.any(Request.class)))
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
         .thenReturn(rawResponse);
     Mockito.when(rawResponse.getStatusLine())
         .thenReturn(
@@ -2028,6 +2248,231 @@ public class UsageEventIndexUtilsTest {
     // Assert - Should make 2 calls: GET to retrieve policy, then PUT to update
     // The PUT will fail but the method should handle it gracefully
     Mockito.verify(searchClient, Mockito.times(2))
-        .performLowLevelRequest(Mockito.any(Request.class));
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testMigrateLegacyUsageEventIndex_KeepsOriginalWhenBackupDoesNotStart()
+      throws Exception {
+    List<String> calls = new ArrayList<>();
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(1);
+              String call = request.getMethod() + " " + request.getEndpoint();
+              calls.add(call);
+              if (call.equals("GET /test_legacy_datahub_usage_event_lease/_mapping")) {
+                return jsonResponse(
+                    "{\"test_legacy_datahub_usage_event_lease\":{\"mappings\":{\"_meta\":"
+                        + "{\"datahub_lease_owner\":\"test-owner\"}}}}");
+              }
+              if (call.equals("GET /_resolve/index/test_datahub_usage_event")) {
+                return jsonResponse("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
+              }
+              if (call.contains("/_clone/")) {
+                return jsonResponse("{\"acknowledged\":true,\"shards_acknowledged\":false}");
+              }
+              if (call.equals("GET /test_datahub_usage_event/_settings/index.creation_date")) {
+                return jsonResponse(
+                    "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
+                        + "{\"creation_date\":\"1000\"}}}}");
+              }
+              if (call.endsWith("/_count")) {
+                return jsonResponse("{\"count\":3}");
+              }
+              return jsonResponse("{}");
+            });
+
+    Assert.assertThrows(
+        IOException.class,
+        () ->
+            UsageEventIndexUtils.moveLegacyUsageEventIndexAside(
+                operationContext, esComponents, "test_", false, lease()));
+
+    // The backup that never started is dropped and the original is unblocked, not deleted.
+    Assert.assertTrue(
+        calls.stream()
+            .anyMatch(call -> call.startsWith("DELETE /test_legacy_datahub_usage_event_")));
+    Assert.assertTrue(calls.contains("PUT /test_datahub_usage_event/_settings"));
+    Assert.assertFalse(calls.contains("DELETE /test_datahub_usage_event"));
+    Assert.assertFalse(calls.stream().anyMatch(call -> call.startsWith("PUT /_data_stream/")));
+  }
+
+  @Test
+  public void testMigrateLegacyUsageEventIndex_DropsAnOldCloneLeftByAFailedAttempt()
+      throws Exception {
+    List<String> calls = new ArrayList<>();
+    long hourAgo = System.currentTimeMillis() - 3_600_000L;
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(1);
+              String call = request.getMethod() + " " + request.getEndpoint();
+              calls.add(call);
+              if (call.equals("GET /test_legacy_datahub_usage_event_lease/_mapping")) {
+                return jsonResponse(
+                    "{\"test_legacy_datahub_usage_event_lease\":{\"mappings\":{\"_meta\":"
+                        + "{\"datahub_lease_owner\":\"test-owner\"}}}}");
+              }
+              if (call.equals("GET /_resolve/index/test_datahub_usage_event")) {
+                return jsonResponse("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
+              }
+              if (call.equals("GET /_resolve/index/test_legacy_datahub_usage_event_*")) {
+                return jsonResponse(
+                    "{\"indices\":[{\"name\":\"test_legacy_datahub_usage_event_1\"}]}");
+              }
+              if (call.equals("GET /test_datahub_usage_event/_settings/index.creation_date")) {
+                return jsonResponse(
+                    "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
+                        + "{\"creation_date\":\"1000\"}}}}");
+              }
+              if (call.equals(
+                  "GET /test_legacy_datahub_usage_event_1/_settings/index.creation_date")) {
+                return jsonResponse(
+                    "{\"test_legacy_datahub_usage_event_1\":{\"settings\":{\"index\":"
+                        + "{\"creation_date\":\""
+                        + hourAgo
+                        + "\"}}}}");
+              }
+              if (call.contains("/_clone/")) {
+                return jsonResponse("{\"acknowledged\":true,\"shards_acknowledged\":false}");
+              }
+              if (call.endsWith("/_count")) {
+                return jsonResponse("{\"count\":3}");
+              }
+              return jsonResponse("{}");
+            });
+
+    Assert.assertThrows(
+        IOException.class,
+        () ->
+            UsageEventIndexUtils.moveLegacyUsageEventIndexAside(
+                operationContext, esComponents, "test_", false, lease()));
+
+    // Cloned from the current index an hour ago and never copied: dropped before cloning again.
+    Assert.assertTrue(calls.contains("DELETE /test_legacy_datahub_usage_event_1"));
+  }
+
+  @Test
+  public void testMigrateLegacyUsageEventIndex_MigratesABlockedIndexOnceItsCloneGoesStale()
+      throws Exception {
+    List<String> calls = new ArrayList<>();
+    AtomicInteger cloneAges = new AtomicInteger();
+    long now = System.currentTimeMillis();
+    stubBlockedLegacyIndex(
+        calls,
+        // The clone of an attempt that died after blocking writes: young, then stale.
+        () -> cloneAges.getAndIncrement() == 0 ? now - 60_000L : now - 3_600_000L,
+        new AtomicInteger());
+    UsageEventIndexUtils.setBlockedIndexWaitForTesting(Duration.ofMillis(1), Duration.ofMinutes(1));
+    try {
+      // The fresh clone this attempt makes never starts, which ends the test there.
+      Assert.assertThrows(
+          IOException.class,
+          () ->
+              UsageEventIndexUtils.moveLegacyUsageEventIndexAside(
+                  operationContext, esComponents, "test_", false, lease()));
+    } finally {
+      UsageEventIndexUtils.clearBlockedIndexWaitForTesting();
+    }
+
+    int dropped = calls.indexOf("DELETE /test_legacy_datahub_usage_event_1");
+    Assert.assertTrue(dropped >= 0);
+    Assert.assertTrue(calls.indexOf("PUT /test_datahub_usage_event/_block/write") > dropped);
+  }
+
+  @Test
+  public void testMigrateLegacyUsageEventIndex_LiftsTheBlockWhenARecentCloneOutlastsTheWait()
+      throws Exception {
+    List<String> calls = new ArrayList<>();
+    long now = System.currentTimeMillis();
+    // The first attempt to lift the block fails.
+    stubBlockedLegacyIndex(calls, () -> now, new AtomicInteger(1));
+    UsageEventIndexUtils.setBlockedIndexWaitForTesting(Duration.ofMillis(1), Duration.ofMillis(5));
+    try {
+      UsageEventIndexUtils.moveLegacyUsageEventIndexAside(
+          operationContext, esComponents, "test_", false, lease());
+    } finally {
+      UsageEventIndexUtils.clearBlockedIndexWaitForTesting();
+    }
+
+    Assert.assertEquals(
+        calls.stream().filter("PUT /test_datahub_usage_event/_settings"::equals).count(), 2);
+    Assert.assertFalse(calls.contains("DELETE /test_legacy_datahub_usage_event_1"));
+    Assert.assertFalse(calls.contains("PUT /test_datahub_usage_event/_block/write"));
+  }
+
+  /**
+   * A write-blocked legacy index with one unrecorded clone whose creation date is supplied; the
+   * first {@code failingLifts} attempts to lift the block fail.
+   */
+  private void stubBlockedLegacyIndex(
+      List<String> calls, LongSupplier cloneCreated, AtomicInteger failingLifts)
+      throws IOException {
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(1);
+              String call = request.getMethod() + " " + request.getEndpoint();
+              calls.add(call);
+              if (call.equals("GET /test_legacy_datahub_usage_event_lease/_mapping")) {
+                return jsonResponse(
+                    "{\"test_legacy_datahub_usage_event_lease\":{\"mappings\":{\"_meta\":"
+                        + "{\"datahub_lease_owner\":\"test-owner\"}}}}");
+              }
+              switch (call) {
+                case "GET /_resolve/index/test_datahub_usage_event":
+                  return jsonResponse("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
+                case "GET /_resolve/index/test_legacy_datahub_usage_event_*":
+                  return jsonResponse(
+                      "{\"indices\":[{\"name\":\"test_legacy_datahub_usage_event_1\"}]}");
+                case "GET /test_datahub_usage_event/_settings/index.creation_date":
+                  return jsonResponse(
+                      "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
+                          + "{\"creation_date\":\"1000\"}}}}");
+                case "GET /test_legacy_datahub_usage_event_1/_settings/index.creation_date":
+                  return jsonResponse(
+                      "{\"test_legacy_datahub_usage_event_1\":{\"settings\":{\"index\":"
+                          + "{\"creation_date\":\""
+                          + cloneCreated.getAsLong()
+                          + "\"}}}}");
+                case "GET /test_datahub_usage_event/_settings/index.blocks.write":
+                  return jsonResponse(
+                      "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
+                          + "{\"blocks\":{\"write\":\"true\"}}}}}");
+                case "PUT /test_datahub_usage_event/_settings":
+                  if (failingLifts.getAndDecrement() > 0) {
+                    throw new IOException("injected: lifting the write block failed");
+                  }
+                  return jsonResponse("{\"acknowledged\":true}");
+                default:
+                  if (call.contains("/_clone/")) {
+                    return jsonResponse("{\"acknowledged\":true,\"shards_acknowledged\":false}");
+                  }
+                  return jsonResponse(call.endsWith("/_count") ? "{\"count\":3}" : "{}");
+              }
+            });
+  }
+
+  /** A lease the stubs report as held by this test. */
+  private UsageEventIndexUtils.LegacyMigrationLease lease() {
+    return UsageEventIndexUtils.LegacyMigrationLease.heldForTesting(
+        operationContext, esComponents, "test_", "test-owner");
+  }
+
+  private static RawResponse jsonResponse(String body) {
+    RawResponse response = Mockito.mock(RawResponse.class);
+    Mockito.when(response.getStatusLine())
+        .thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"));
+    Mockito.when(response.getEntity())
+        .thenReturn(new StringEntity(body, ContentType.APPLICATION_JSON));
+    return response;
   }
 }

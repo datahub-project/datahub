@@ -5,30 +5,41 @@ namespace com.linkedin.assertion
  */
 enum AssertionType {
     /**
-    * A single-dataset assertion.
+    * @deprecated Legacy external assertion shape. New external integrations must use CUSTOM
+    * with CustomAssertionInfo (including optional structured fields). Retained for
+    * backward-compatible reads of stored aspects.
     * When this is the value, the datasetAssertion field will be populated.
     */
+    @deprecated = "Use CUSTOM with CustomAssertionInfo for external assertions."
     DATASET
 
     /**
     * A freshness assertion, or an assertion which indicates when a particular operation should occur
     * to an asset.
+    * Intended for assertions DataHub evaluates / schedules natively. Prefer CUSTOM for externally
+    * managed self-reporting.
     */
     FRESHNESS
 
     /**
     * A volume assertion, or an assertion which indicates how much data should be available for a
     * particular asset.
+    * Intended for assertions DataHub evaluates / schedules natively. Prefer CUSTOM for externally
+    * managed self-reporting.
     */
     VOLUME
 
     /**
     * A raw SQL-statement based assertion
+    * Intended for assertions DataHub evaluates / schedules natively. Prefer CUSTOM for externally
+    * managed self-reporting.
     */
     SQL
 
     /**
     * A structured assertion targeting a specific column or field of the Dataset.
+    * Intended for assertions DataHub evaluates / schedules natively. Prefer CUSTOM for externally
+    * managed self-reporting.
     */
     FIELD
 
@@ -36,14 +47,17 @@ enum AssertionType {
     * A schema or structural assertion.
     *
     * Would have named this SCHEMA but the codegen for PDL does not allow this (reserved word).
+    * Intended for assertions DataHub evaluates / schedules natively. Prefer CUSTOM for externally
+    * managed self-reporting.
     */
     DATA_SCHEMA
 
     /**
-    * A custom assertion. 
+    * A custom / externally managed assertion.
     * When this is the value, the customAssertion field will be populated.
-    * Use this assertion type when the exact type of assertion is not modeled in DataHub or
-    * as a starting point when integrating third-party data quality tools.
+    * This is the supported type for third-party tools and self-reported checks
+    * (dbt, Great Expectations, partner SDKs). May include structured display fields
+    * migrated from DatasetAssertionInfo.
     */
     CUSTOM
 }

@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +8,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { GroupList } from '@app/identity/group/GroupList';
 import { ServiceAccountList } from '@app/identity/serviceAccount';
 import { UserList } from '@app/identity/user/UserList';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
+import { RoutedTabs } from '@app/sharedV2/RoutedTabs';
 
 const PageContainer = styled.div`
     padding-top: 20px;
@@ -31,6 +32,7 @@ const PageTitle = styled(Typography.Title)`
 `;
 
 const Content = styled.div`
+    flex: 1;
     display: flex;
     flex-direction: column;
     overflow: auto;
@@ -105,7 +107,7 @@ export const ManageIdentities = ({ version }: Props) => {
         <PageContainer>
             <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
                 <PageTitle level={3}>{t('pageTitle')}</PageTitle>
-                <Typography.Paragraph type="secondary">{t('pageSubTitle')}</Typography.Paragraph>
+                <Text color="textSecondary">{t('pageSubTitle')}</Text>
             </PageHeaderContainer>
             <Content>
                 <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />

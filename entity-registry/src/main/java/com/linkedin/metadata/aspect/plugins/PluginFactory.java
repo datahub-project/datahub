@@ -9,6 +9,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.models.registry.config.EntityRegistryLoadResult;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -570,6 +571,44 @@ public class PluginFactory {
             .collect(Collectors.toList());
 
     return initPlugins(classLoaders, baseClazz, packageNames, nonSpringConfigs);
+  }
+
+  /**
+   * Appends late-discovered plugins to the existing plugin lists. Plugins already present (by
+   * equality — same class and config) are skipped. The full combined list is run through {@link
+   * #applyDisable} so the disable contract is consistent with the constructor path.
+   *
+   * <p>Intended for post-initialization reconciliation (e.g. Spring beans that were unavailable
+   * during entity registry construction due to circular dependencies). Called once during startup
+   * by {@code SmartInitializingSingleton} before any request processing begins.
+   */
+  public void appendPlugins(
+      @Nonnull List<AspectPayloadValidator> newValidators,
+      @Nonnull List<MutationHook> newMutationHooks,
+      @Nonnull List<MCLSideEffect> newMclSideEffects,
+      @Nonnull List<MCPSideEffect> newMcpSideEffects,
+      @Nonnull List<MCPObserver> newMcpObservers) {
+
+    this.aspectPayloadValidators = appendNew(this.aspectPayloadValidators, newValidators);
+    List<MutationHook> appendedHooks = appendNew(this.mutationHooks, newMutationHooks);
+    this.mutationHooks = sortByPriority(appendedHooks);
+    this.mclSideEffects = appendNew(this.mclSideEffects, newMclSideEffects);
+    this.mcpSideEffects = appendNew(this.mcpSideEffects, newMcpSideEffects);
+    this.mcpObservers = appendNew(this.mcpObservers, newMcpObservers);
+  }
+
+  private static <T extends PluginSpec> List<T> appendNew(
+      @Nonnull List<T> existing, @Nonnull List<T> candidates) {
+    List<T> fresh =
+        candidates.stream()
+            .filter(candidate -> !existing.contains(candidate))
+            .collect(Collectors.toList());
+    if (fresh.isEmpty()) {
+      return existing;
+    }
+    List<T> combined = new ArrayList<>(existing);
+    combined.addAll(fresh);
+    return applyDisable(combined);
   }
 
   @Nonnull

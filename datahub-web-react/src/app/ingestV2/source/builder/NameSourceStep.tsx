@@ -8,8 +8,8 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
-import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { RequiredFieldForm } from '@app/sharedV2/form/RequiredFieldForm';
+import { ModalButtonContainer } from '@src/app/sharedV2/button/styledComponents';
 
 import { Entity, Owner } from '@types';
 
@@ -246,7 +246,6 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                         onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
-
                 <Form.Item
                     label={
                         <LabelContainer>
@@ -261,9 +260,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                 <Collapse ghost>
                     <Collapse.Panel
                         header={
-                            <Typography.Text type="secondary" data-testid="advanced-settings-header">
+                            <Text type="span" color="textSecondary" data-testid="advanced-settings-header">
                                 {t('nameStep.advanced')}
-                            </Typography.Text>
+                            </Text>
                         }
                         key="1"
                     >

@@ -39,7 +39,13 @@ query listRoles($input: ListRolesInput!) {
                 }
             }
             policies: relationships(
-                input: { types: ["IsAssociatedWithRole"], direction: INCOMING, start: 0, count: 10 }
+                input: {
+                    types: ["IsAssociatedWithRole"]
+                    direction: INCOMING
+                    start: 0
+                    count: 10
+                    relatedEntityTypes: ["dataHubPolicy"]
+                }
             ) {
                 start
                 count

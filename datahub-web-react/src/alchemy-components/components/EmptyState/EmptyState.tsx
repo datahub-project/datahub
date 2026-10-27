@@ -59,8 +59,10 @@ export function EmptyState({
                         <Button
                             onClick={action.onClick}
                             icon={action.icon}
+                            iconPosition={action.iconPosition}
                             variant={action.variant ?? 'filled'}
                             size="md"
+                            data-testid={action.dataTestId}
                         >
                             {action.label}
                         </Button>
@@ -69,8 +71,10 @@ export function EmptyState({
                         <Button
                             onClick={secondaryAction.onClick}
                             icon={secondaryAction.icon}
+                            iconPosition={secondaryAction.iconPosition}
                             variant={secondaryAction.variant ?? 'text'}
                             size="md"
+                            data-testid={secondaryAction.dataTestId}
                         >
                             {secondaryAction.label}
                         </Button>

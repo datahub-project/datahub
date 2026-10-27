@@ -54,16 +54,24 @@ class TestDiscoverOAuthServer:
         )
         assert meta["token_endpoint"] == _DISCOVERY_DOC["token_endpoint"]
 
-    def test_strips_trailing_slash_from_url(self) -> None:
-        with patch(
-            "requests.get", return_value=_mock_response(200, _DISCOVERY_DOC)
-        ) as mock_get:
-            _discover_oauth_server("https://example.datahub.io/gms/")
-        called_url = mock_get.call_args[0][0]
-        assert (
-            called_url
-            == "https://example.datahub.io/gms/.well-known/oauth-authorization-server"
-        )
+    def test_discovery_uses_origin_root_not_gms_path(self) -> None:
+        # RFC 8414: the discovery document is served at the origin root, so the
+        # "/gms" path (added by fixup_gms_url for Cloud hosts) must be stripped.
+        # Regression test for OAuth login against bare Acryl Cloud hosts.
+        for gms_url in (
+            "https://example.datahub.io/gms",
+            "https://example.datahub.io/gms/",
+            "https://example.datahub.io",
+        ):
+            with patch(
+                "requests.get", return_value=_mock_response(200, _DISCOVERY_DOC)
+            ) as mock_get:
+                _discover_oauth_server(gms_url)
+            called_url = mock_get.call_args[0][0]
+            assert (
+                called_url
+                == "https://example.datahub.io/.well-known/oauth-authorization-server"
+            )
 
     def test_404_raises_with_helpful_message(self) -> None:
         import click
@@ -109,6 +117,30 @@ class TestDiscoverOAuthServer:
             with pytest.raises(click.ClickException) as exc_info:
                 _discover_oauth_server("https://example.datahub.io/gms")
         assert "missing required fields" in str(exc_info.value.format_message())
+
+    def test_bare_acryl_cloud_host_resolves_discovery_to_root(self) -> None:
+        # End-to-end regression: a bare Acryl Cloud host passes through
+        # fixup_gms_url (which appends "/gms") and must still resolve discovery
+        # to the origin root, not "/gms/.well-known/..." (which returned 401).
+        from datahub.cli.cli_utils import fixup_gms_url
+
+        gms_url = fixup_gms_url("https://acme.acryl.io")
+        assert gms_url == "https://acme.acryl.io/gms"
+
+        discovery_doc = {
+            "issuer": "https://acme.acryl.io",
+            "authorization_endpoint": "https://acme.acryl.io/auth/oauth2/authorize",
+            "token_endpoint": "https://acme.acryl.io/auth/oauth2/token",
+            "registration_endpoint": "https://acme.acryl.io/auth/oauth2/register",
+        }
+        with patch(
+            "requests.get", return_value=_mock_response(200, discovery_doc)
+        ) as mock_get:
+            _discover_oauth_server(gms_url)
+        called_url = mock_get.call_args[0][0]
+        assert (
+            called_url == "https://acme.acryl.io/.well-known/oauth-authorization-server"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +267,19 @@ class TestRegisterCliClient:
                     "http://127.0.0.1:9999/callback",
                 )
 
+    def test_support_client_cannot_request_refresh_tokens(self) -> None:
+        response = _mock_response(201, {"client_id": "support-client"})
+        with patch("requests.post", return_value=response) as mock_post:
+            _register_cli_client(
+                "https://example.datahub.io/auth/oauth2/register",
+                "http://127.0.0.1:9999/callback",
+                support=True,
+            )
+
+        assert mock_post.call_args.kwargs["json"]["grant_types"] == [
+            "authorization_code"
+        ]
+
 
 # ---------------------------------------------------------------------------
 # _generate_pkce_pair
@@ -350,6 +395,8 @@ class TestPkceLogin:
         dcr_status: int = 201,
         dcr_body: Any = None,
         token_response: Any = None,
+        support: bool = False,
+        ticket_id: str | None = None,
     ) -> OAuthResult:
         """Run pkce_login with the loopback server automatically satisfied."""
         import urllib.request
@@ -363,6 +410,7 @@ class TestPkceLogin:
             from urllib.parse import parse_qs, urlparse
 
             params = parse_qs(urlparse(url).query)
+            self.authorization_params = params
             redirect_uri = params["redirect_uri"][0]
             callback_url = (
                 redirect_uri + "?code=test-code-xyz&state=" + params["state"][0]
@@ -387,7 +435,12 @@ class TestPkceLogin:
             ),
             patch("webbrowser.open", side_effect=_auto_callback),
         ):
-            return pkce_login("https://example.datahub.io/gms", timeout_seconds=10)
+            return pkce_login(
+                "https://example.datahub.io/gms",
+                timeout_seconds=10,
+                support=support,
+                ticket_id=ticket_id,
+            )
 
     def test_happy_path_returns_oauth_result(self) -> None:
         result = self._run_pkce_login()
@@ -402,6 +455,17 @@ class TestPkceLogin:
         result = self._run_pkce_login(token_response=token_resp)
         assert result.access_token == "at-only"
         assert result.refresh_token is None
+
+    def test_support_login_adds_ticket_and_prints_fallback_url(
+        self, capsys: Any
+    ) -> None:
+        self._run_pkce_login(support=True, ticket_id="SUPPORT-123")
+
+        assert self.authorization_params["support"] == ["true"]
+        assert self.authorization_params["ticket_id"] == ["SUPPORT-123"]
+        output = capsys.readouterr().out
+        assert "If the browser does not open automatically" in output
+        assert "ticket_id=SUPPORT-123" in output
 
     def test_oss_instance_raises_clear_message(self) -> None:
         import click

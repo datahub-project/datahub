@@ -10,7 +10,7 @@ import {
     TimeColumn,
 } from '@app/ingest/source/executions/IngestionExecutionTableColumns';
 import { SUCCESS, getIngestionSourceStatus } from '@app/ingest/source/utils';
-import { formatDuration } from '@app/shared/formatDuration';
+import { formatDuration } from '@app/sharedV2/formatDuration';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { SearchCfg } from '@src/conf';
 
@@ -20,7 +20,7 @@ const PaginationInfoContainer = styled.span`
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     display: flex;
     justify-content: space-between;
     align-items: center;

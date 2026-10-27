@@ -22,6 +22,8 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -35,6 +37,7 @@ public class InviteTokenService {
   private static final String HAS_ROLE_FIELD_NAME = "hasRole";
   private final EntityClient _entityClient;
   private final SecretService _secretService;
+  private final OperationContext _systemOperationContext;
 
   public Urn getInviteTokenUrn(@Nonnull final String inviteTokenStr) throws URISyntaxException {
     String hashedInviteTokenStr = _secretService.hashString(inviteTokenStr);
@@ -42,19 +45,42 @@ public class InviteTokenService {
     return Urn.createFromString(inviteTokenUrnStr);
   }
 
-  public boolean isInviteTokenValid(
-      @Nonnull OperationContext opContext, @Nonnull final Urn inviteTokenUrn)
-      throws RemoteInvocationException {
-    return _entityClient.exists(opContext, inviteTokenUrn);
-  }
-
+  /**
+   * Returns the stored invite token for {@code inviteTokenStr} if one exists and its stored value
+   * matches {@code inviteTokenStr}, otherwise null.
+   */
   @Nullable
-  public Urn getInviteTokenRole(
-      @Nonnull OperationContext opContext, @Nonnull final Urn inviteTokenUrn)
+  public com.linkedin.identity.InviteToken getVerifiedInviteToken(
+      @Nonnull OperationContext opContext, @Nonnull final String inviteTokenStr)
       throws URISyntaxException, RemoteInvocationException {
+    final Urn inviteTokenUrn = getInviteTokenUrn(inviteTokenStr);
+    final EntityResponse inviteTokenEntity =
+        _entityClient.getV2(
+            opContext,
+            INVITE_TOKEN_ENTITY_NAME,
+            inviteTokenUrn,
+            Collections.singleton(INVITE_TOKEN_ASPECT_NAME));
+    if (inviteTokenEntity == null
+        || !inviteTokenEntity.getAspects().containsKey(INVITE_TOKEN_ASPECT_NAME)) {
+      return null;
+    }
     final com.linkedin.identity.InviteToken inviteToken =
-        getInviteTokenEntity(opContext, inviteTokenUrn);
-    return inviteToken.hasRole() ? inviteToken.getRole() : null;
+        new com.linkedin.identity.InviteToken(
+            inviteTokenEntity.getAspects().get(INVITE_TOKEN_ASPECT_NAME).getValue().data());
+
+    final String storedInviteTokenStr;
+    try {
+      storedInviteTokenStr =
+          _secretService.decrypt(_systemOperationContext, inviteToken.getToken());
+    } catch (RuntimeException e) {
+      log.warn("Failed to decrypt invite token {}", inviteTokenUrn);
+      return null;
+    }
+    return MessageDigest.isEqual(
+            storedInviteTokenStr.getBytes(StandardCharsets.UTF_8),
+            inviteTokenStr.getBytes(StandardCharsets.UTF_8))
+        ? inviteToken
+        : null;
   }
 
   @Nonnull
@@ -83,7 +109,7 @@ public class InviteTokenService {
     final Urn inviteTokenUrn = searchEntity.getEntity();
 
     com.linkedin.identity.InviteToken inviteToken = getInviteTokenEntity(opContext, inviteTokenUrn);
-    return _secretService.decrypt(inviteToken.getToken());
+    return _secretService.decrypt(_systemOperationContext, inviteToken.getToken());
   }
 
   private com.linkedin.identity.InviteToken getInviteTokenEntity(
@@ -152,7 +178,8 @@ public class InviteTokenService {
     InviteTokenKey inviteTokenKey = new InviteTokenKey();
     inviteTokenKey.setId(hashedInviteTokenStr);
     com.linkedin.identity.InviteToken inviteTokenAspect =
-        new com.linkedin.identity.InviteToken().setToken(_secretService.encrypt(inviteTokenStr));
+        new com.linkedin.identity.InviteToken()
+            .setToken(_secretService.encrypt(opContext, inviteTokenStr));
     if (roleUrnStr != null) {
       Urn roleUrn = Urn.createFromString(roleUrnStr);
       inviteTokenAspect.setRole(roleUrn);

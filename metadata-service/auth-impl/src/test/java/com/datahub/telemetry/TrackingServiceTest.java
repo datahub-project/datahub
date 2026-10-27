@@ -86,7 +86,8 @@ public class TrackingServiceTest {
     when(topicsConfiguration.getDataHubUsage()).thenReturn("DataHubUsageEvent_v1");
 
     usageEventPublisher = mock(UsageEventPublisher.class);
-    when(usageEventPublisher.publish(anyString(), nullable(String.class), anyString()))
+    when(usageEventPublisher.publish(
+            any(OperationContext.class), anyString(), nullable(String.class), anyString()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     // Mock the operation context
@@ -147,7 +148,8 @@ public class TrackingServiceTest {
     verify(_mixpanelAPI, times(1)).sendMessage(any(JSONObject.class));
 
     // Verify that the Kafka producer was called
-    verify(usageEventPublisher, times(1)).publish(anyString(), nullable(String.class), anyString());
+    verify(usageEventPublisher, times(1))
+        .publish(any(OperationContext.class), anyString(), nullable(String.class), anyString());
 
     // For testing the empty destination path
     _trackingService.track(EVENT_TYPE, opContext, null, null, eventNode, Collections.emptySet());
@@ -156,7 +158,8 @@ public class TrackingServiceTest {
   @Test
   public void testTrackEventWithKafkaError() throws IOException {
     UsageEventPublisher errorProducer = mock(UsageEventPublisher.class);
-    when(errorProducer.publish(anyString(), nullable(String.class), anyString()))
+    when(errorProducer.publish(
+            any(OperationContext.class), anyString(), nullable(String.class), anyString()))
         .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Kafka error")));
 
     // Create a new tracking service with the error producer
@@ -198,7 +201,8 @@ public class TrackingServiceTest {
     int numDestinations = errorTrackingService.track(EVENT_TYPE, opContext, null, null, eventNode);
 
     // Verify that the Kafka producer was called
-    verify(errorProducer, times(1)).publish(anyString(), nullable(String.class), anyString());
+    verify(errorProducer, times(1))
+        .publish(any(OperationContext.class), anyString(), nullable(String.class), anyString());
 
     assertEquals(numDestinations, 2);
   }
@@ -234,7 +238,8 @@ public class TrackingServiceTest {
     verify(_mixpanelAPI, never()).sendMessage(any(JSONObject.class));
 
     // Verify that the Kafka producer was called
-    verify(usageEventPublisher, times(1)).publish(anyString(), nullable(String.class), anyString());
+    verify(usageEventPublisher, times(1))
+        .publish(any(OperationContext.class), anyString(), nullable(String.class), anyString());
 
     // Should return 1 for Kafka destination
     assertEquals(numDestinations, 1);
@@ -357,7 +362,8 @@ public class TrackingServiceTest {
             EVENT_TYPE, opContext, null, null, eventNode, EnumSet.of(TrackingDestination.KAFKA));
 
     // Verify that the Kafka producer was called
-    verify(usageEventPublisher, times(1)).publish(anyString(), nullable(String.class), anyString());
+    verify(usageEventPublisher, times(1))
+        .publish(any(OperationContext.class), anyString(), nullable(String.class), anyString());
 
     // Should return 1 for Kafka destination
     assertEquals(numDestinations, 1);

@@ -18,7 +18,12 @@
     "newDocument": "Novo documento",
     "noRelatedLinks": "Nenhum link relacionado ou contexto ainda",
     "platformDocumentationTitle": "Documentação {{platform}}:",
+    "removeDocumentConfirmText": "Este documento não aparecerá mais nos recursos desta entidade. O documento em si não será excluído.",
+    "removeDocumentConfirmTitle": "Remover documento dos recursos?",
+    "removeDocumentError": "Falha ao remover o documento dos recursos",
+    "removeDocumentSuccess": "Documento removido dos recursos",
     "resources": "Recursos",
+    "resourcesUpdated": "Recursos atualizados",
     "sourceDocumentationTitle": "Documentação da fonte:",
     "untitledDocument": "Documento sem título"
 }

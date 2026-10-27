@@ -6,7 +6,7 @@ import analytics, { EventType } from '@app/analytics';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Entity } from '@types';
 
@@ -22,6 +22,7 @@ interface Props {
     entity: Entity;
     moduleType: DataHubPageModuleType;
     customDetailsRenderer?: (entity: Entity) => React.ReactNode;
+    customIconRenderer?: () => React.ReactNode;
     navigateOnlyOnNameClick?: boolean;
     dragIconRenderer?: () => React.ReactNode;
     hideSubtitle?: boolean;
@@ -37,6 +38,7 @@ export default function EntityItem({
     entity,
     moduleType,
     customDetailsRenderer,
+    customIconRenderer,
     navigateOnlyOnNameClick = false,
     dragIconRenderer,
     hideSubtitle,
@@ -45,7 +47,7 @@ export default function EntityItem({
     customOnEntityClick,
     customHoverEntityName,
 }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const linkProps = useGetModalLinkProps();
     const { templateType } = usePageTemplateContext();
 
@@ -67,6 +69,7 @@ export default function EntityItem({
         hideMatches,
         padding,
         customDetailsRenderer,
+        customIconRenderer,
         dragIconRenderer,
         customHoverEntityName,
         navigateOnlyOnNameClick,

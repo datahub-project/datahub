@@ -19,7 +19,7 @@ vi.mock('@src/graphql/search.generated', () => ({
 
 // Mock the entity registry
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: () => ({
+    useEntityRegistry: () => ({
         getDisplayName: (type: EntityType) => {
             if (type === EntityType.GlossaryTerm) {
                 return 'Test Term';
@@ -55,6 +55,8 @@ describe('useGlossaryChildren', () => {
         setNodeToNewEntity: vi.fn(),
         nodeToDeletedUrn: {},
         setNodeToDeletedUrn: vi.fn(),
+        urnsToUpdate: [] as string[],
+        setUrnsToUpdate: vi.fn(),
     };
 
     beforeEach(() => {

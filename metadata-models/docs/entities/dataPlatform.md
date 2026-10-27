@@ -48,7 +48,7 @@ While DataHub ships with 100+ pre-defined platforms, you can create custom platf
 - Logical groupings of related systems
 - Platform variations with specific configurations
 
-When creating custom platforms, follow the naming conventions above and ensure uniqueness across your DataHub instance.
+When creating custom platforms, follow the naming conventions above and ensure uniqueness across your DataHub instance. If datasets on a custom platform represent logical models or specifications rather than physical assets, set `logical: true` in its `dataPlatformInfo` aspect. When `logical` is absent, the platform is treated as non-logical.
 
 ## Important Capabilities
 
@@ -60,6 +60,7 @@ The `dataPlatformInfo` aspect contains the core metadata about a data platform:
 - **displayName**: A user-friendly display name for the platform (e.g., "Google BigQuery" for platform "bigquery")
 - **type**: The category of platform from the PlatformType enumeration
 - **datasetNameDelimiter**: The character used to separate components in dataset names (e.g., "." for Oracle, "/" for HDFS)
+- **logical**: Optional flag indicating that datasets on the platform represent logical models or specifications rather than physical assets; absence is equivalent to `false`
 - **logoUrl**: Optional URL to a logo image representing the platform
 
 #### Platform Types

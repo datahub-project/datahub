@@ -12,6 +12,7 @@ import com.linkedin.metadata.queue.ConsumerOffsetResetSpec;
 import com.linkedin.metadata.queue.MetadataQueueStore;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,7 +67,7 @@ public class PgQueueMessagingOperationsController {
   public ResponseEntity<?> resetConsumerOffsets(
       HttpServletRequest httpServletRequest,
       @RequestBody(required = false) ConsumerOffsetResetRequest request) {
-    if (!authorize(httpServletRequest, "resetConsumerOffsets")) {
+    if (!authorize(httpServletRequest, "resetConsumerOffsets", UsageOperation.OTHER_OPERATIONS)) {
       return forbidden();
     }
     ConsumerOffsetResetRequest body = request != null ? request : new ConsumerOffsetResetRequest();
@@ -106,13 +107,16 @@ public class PgQueueMessagingOperationsController {
         .build();
   }
 
-  private boolean authorize(HttpServletRequest request, String operation) {
+  private boolean authorize(
+      HttpServletRequest request, String operation, UsageOperation usageOperation) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
     OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
-            RequestContext.builder().buildOpenapi(actorUrnStr, request, operation, List.of()),
+            RequestContext.builder()
+                .buildOpenapi(actorUrnStr, request, operation, List.of())
+                .withUsageOperation(usageOperation),
             authorizerChain,
             authentication,
             true);

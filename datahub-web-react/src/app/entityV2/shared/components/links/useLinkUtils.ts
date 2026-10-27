@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -42,7 +42,7 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                     },
                 },
             });
-            message.success({ content: t('links.removed'), duration: 2 });
+            toast.success(t('links.removed'));
             analytics.event({
                 type: EventType.EntityActionEvent,
                 entityType,
@@ -50,9 +50,8 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                 actionType: EntityActionType.DeleteLink,
             });
         } catch (e: unknown) {
-            message.destroy();
             if (e instanceof Error) {
-                message.error({ content: t('links.removeError', { message: e.message || '' }), duration: 2 });
+                toast.error(t('links.removeError', { message: e.message || '' }));
             }
         }
         refetch?.();
@@ -71,7 +70,7 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                     },
                 },
             });
-            message.success({ content: t('links.added'), duration: 2 });
+            toast.success(t('links.added'));
             analytics.event({
                 type: EventType.EntityActionEvent,
                 entityType,
@@ -80,9 +79,8 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
             });
             refetch?.();
         } catch (e: unknown) {
-            message.destroy();
             if (e instanceof Error) {
-                message.error({ content: t('links.addError', { message: e.message || '' }), duration: 3 });
+                toast.error(t('links.addError', { message: e.message || '' }));
             }
         }
     };
@@ -103,7 +101,7 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                     },
                 },
             });
-            message.success({ content: t('links.updated'), duration: 2 });
+            toast.success(t('links.updated'));
             analytics.event({
                 type: EventType.EntityActionEvent,
                 entityType,
@@ -111,9 +109,8 @@ export function useLinkUtils(selectedLink: InstitutionalMemoryMetadata | null = 
                 actionType: EntityActionType.UpdateLinks,
             });
         } catch (e: unknown) {
-            message.destroy();
             if (e instanceof Error) {
-                message.error({ content: t('links.updateError', { message: e.message || '' }), duration: 2 });
+                toast.error(t('links.updateError', { message: e.message || '' }));
             }
         }
         refetch?.();

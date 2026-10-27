@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -47,6 +48,7 @@ public class ActorContext implements ContextInterface {
       Authentication authentication,
       Set<DataHubPolicyInfo> dataHubPolicySet,
       Collection<Urn> groupMembership,
+      Set<Urn> directRoleMembership,
       boolean enforceExistenceEnabled) {
     return ActorContext.builder()
         .systemAuth(false)
@@ -54,8 +56,23 @@ public class ActorContext implements ContextInterface {
         .policyInfoSet(dataHubPolicySet)
         .actorPoliciesByPrivilege(indexPoliciesByPrivilege(dataHubPolicySet))
         .groupMembership(groupMembership)
+        .directRoleMembership(directRoleMembership)
         .enforceExistenceEnabled(enforceExistenceEnabled)
         .build();
+  }
+
+  /**
+   * True when the session authentication is the same actor as the system authentication. Used when
+   * constructing a session {@link ActorContext}; distinct from {@link
+   * OperationContext#isSystemAuth()} which also requires allow-system-authentication config.
+   *
+   * @param systemAuthentication system authentication when available, otherwise {@code null}
+   */
+  public static boolean isSystemSession(
+      @Nonnull final Authentication sessionAuthentication,
+      @Nullable final Authentication systemAuthentication) {
+    return systemAuthentication != null
+        && systemAuthentication.getActor().equals(sessionAuthentication.getActor());
   }
 
   private final Authentication authentication;
@@ -73,6 +90,14 @@ public class ActorContext implements ContextInterface {
 
   @EqualsAndHashCode.Exclude @Builder.Default
   private final Collection<Urn> groupMembership = Collections.emptyList();
+
+  @EqualsAndHashCode.Exclude @Builder.Default
+  private final Set<Urn> directRoleMembership = Collections.emptySet();
+
+  /** Memoized result of {@link #isActive}; {@code null} until computed. */
+  @EqualsAndHashCode.Exclude
+  @Getter(AccessLevel.NONE)
+  private volatile Boolean isActiveCache;
 
   @EqualsAndHashCode.Exclude private final boolean systemAuth;
 
@@ -99,7 +124,8 @@ public class ActorContext implements ContextInterface {
         byPrivilege.computeIfAbsent(privilege, ignored -> new ArrayList<>()).add(policy);
       }
     }
-    return Collections.unmodifiableMap(byPrivilege);
+    byPrivilege.replaceAll((privilege, policies) -> List.copyOf(policies));
+    return new HashCachingMap<>(Collections.unmodifiableMap(byPrivilege));
   }
 
   /**
@@ -116,6 +142,10 @@ public class ActorContext implements ContextInterface {
       return true;
     }
 
+    if (isActiveCache != null) {
+      return isActiveCache;
+    }
+
     Urn selfUrn = UrnUtils.getUrn(authentication.getActor().toUrnStr());
     Map<Urn, Map<String, Aspect>> urnAspectMap =
         aspectRetriever.getLatestAspectObjects(
@@ -127,7 +157,8 @@ public class ActorContext implements ContextInterface {
 
     if (enforceExistenceEnabled && !aspectMap.containsKey(CORP_USER_KEY_ASPECT_NAME)) {
       // No corp user key aspect (never provisioned, purged, or inconsistent); not inferrable.
-      return false;
+      isActiveCache = false;
+      return isActiveCache;
     }
 
     Status status =
@@ -138,8 +169,9 @@ public class ActorContext implements ContextInterface {
         Optional.ofNullable(aspectMap.get(CORP_USER_STATUS_ASPECT_NAME))
             .map(a -> new CorpUserStatus(a.data()))
             .orElse(new CorpUserStatus().setStatus(""));
-
-    return !status.isRemoved() && !CORP_USER_STATUS_SUSPENDED.equals(corpUserStatus.getStatus());
+    isActiveCache =
+        !status.isRemoved() && !CORP_USER_STATUS_SUSPENDED.equals(corpUserStatus.getStatus());
+    return isActiveCache;
   }
 
   /**

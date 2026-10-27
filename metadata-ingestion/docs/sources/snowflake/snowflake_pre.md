@@ -30,7 +30,7 @@ grant references on all views in database "<your-database>" to role datahub_role
 grant references on future views in database "<your-database>" to role datahub_role;
 -- Note: Semantic views are covered by the above view grants
 
--- Grant monitor privileges for dynamic tables
+// Required if you have Dynamic Tables and want DataHub to extract them and their lineage.
 grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
 grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
@@ -100,6 +100,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 - `usage` on `stages` is required to list stages via `SHOW STAGES`. Only needed if `include_stages: true` or `include_pipes: true`.
 - `monitor` on `tasks` is required to list tasks via `SHOW TASKS`. Only needed if `include_tasks: true`.
 - `monitor` on `pipes` is required to list pipes via `SHOW PIPES`. Only needed if `include_pipes: true`.
+- `monitor` on `dynamic tables` is required for DataHub to extract their lineage, both table-level and column-level.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
 
@@ -120,14 +121,14 @@ The `SNOWFLAKE` database is a shared database owned by Snowflake. Unlike regular
 
 When you grant `IMPORTED PRIVILEGES`, DataHub will specifically access the following `ACCOUNT_USAGE` tables:
 
-| Table            | Purpose                                                      | Required For                                                      |
-| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------------------- |
-| `QUERY_HISTORY`  | Query logs for lineage, usage stats, and semantic view usage | `include_table_lineage`, `include_usage_stats`, `include_queries` |
-| `ACCESS_HISTORY` | Table/view lineage and access patterns                       | `include_table_lineage`, `include_usage_stats`                    |
-| `USERS`          | User email mapping for corp user entities                    | `include_usage_stats` (for user attribution)                      |
-| `TAG_REFERENCES` | Tag metadata extraction                                      | `extract_tags`                                                    |
-| `VIEWS`          | View metadata (DDL, ownership, etc.) for all views           | Always (when views exist)                                         |
-| `COPY_HISTORY`   | Lineage from `COPY INTO` operations (all stages/sources)     | `include_table_lineage`                                           |
+| Table            | Purpose                                                              | Required For                                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `QUERY_HISTORY`  | Query logs for lineage, usage stats, and semantic view usage/queries | `include_table_lineage`, `include_usage_stats`; for semantic views `semantic_views.enabled` + `semantic_views.include_usage` / `semantic_views.include_queries` |
+| `ACCESS_HISTORY` | Table/view lineage and access patterns                               | `include_table_lineage`, `include_usage_stats`                                                                                                                  |
+| `USERS`          | User email mapping for corp user entities                            | `include_usage_stats` (for user attribution)                                                                                                                    |
+| `TAG_REFERENCES` | Tag metadata extraction                                              | `extract_tags`                                                                                                                                                  |
+| `VIEWS`          | View metadata (DDL, ownership, etc.) for all views                   | Always (when views exist)                                                                                                                                       |
+| `COPY_HISTORY`   | Lineage from `COPY INTO` operations (all stages/sources)             | `include_table_lineage`                                                                                                                                         |
 
 If you cannot grant `IMPORTED PRIVILEGES` due to security policies, the related features (lineage, usage, tags) will not work, and you'll see permission errors in the ingestion logs.
 
@@ -154,6 +155,78 @@ private_key: <Private key in a form of '-----BEGIN PRIVATE KEY-----\nprivate-key
 # Optional - if using encrypted private key
 private_key_password: <Password for your private key>
 ```
+
+##### Workload Identity Federation (keyless)
+
+When ingestion runs on AWS, Azure or GCP, [Workload Identity Federation](https://docs.snowflake.com/en/user-guide/workload-identity-federation) lets the ingestion process authenticate with the cloud identity it already has. There is no password, private key or token to store, distribute or rotate.
+
+This requires the ingestion process to run **on** that cloud: the Snowflake connector reads a short-lived attestation from the cloud's instance metadata service. It does not work from a laptop or from any host outside the three supported providers.
+
+| Config option                                     | Value                                                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `authentication_type`                             | `WORKLOAD_IDENTITY_AUTHENTICATOR`                                                           |
+| `workload_identity_provider`                      | Required. One of `AWS`, `AZURE` or `GCP`, matching the cloud the ingestion process runs on. |
+| `username`, `password`, `private_key` and `token` | Not used by this authentication type. Omit them.                                            |
+
+On the Snowflake side, create a service user whose workload identity is the cloud identity your ingestion runs as, then grant it your DataHub role. Use the statement for your cloud:
+
+```sql
+-- AWS: the ARN of the IAM role attached to the EC2 instance, ECS task or EKS pod
+CREATE USER datahub_user
+  WORKLOAD_IDENTITY = (
+    TYPE = AWS
+    ARN = '<amazon_resource_identifier>'
+  )
+  TYPE = SERVICE
+  DEFAULT_ROLE = datahub_role
+  DEFAULT_WAREHOUSE = '<your-warehouse>';
+```
+
+```sql
+-- Azure: the object ID of the managed identity assigned to the VM, Function or AKS pod
+CREATE USER datahub_user
+  WORKLOAD_IDENTITY = (
+    TYPE = AZURE
+    ISSUER = 'https://login.microsoftonline.com/<tenant_id>/v2.0'
+    SUBJECT = '<managed_identity_object_id>'
+  )
+  TYPE = SERVICE
+  DEFAULT_ROLE = datahub_role
+  DEFAULT_WAREHOUSE = '<your-warehouse>';
+```
+
+```sql
+-- GCP: the unique ID of the service account attached to the GCE VM, Cloud Run service or GKE pod
+CREATE USER datahub_user
+  WORKLOAD_IDENTITY = (
+    TYPE = GCP
+    SUBJECT = '<unique_id_of_service_account>'
+  )
+  TYPE = SERVICE
+  DEFAULT_ROLE = datahub_role
+  DEFAULT_WAREHOUSE = '<your-warehouse>';
+```
+
+```sql
+GRANT ROLE datahub_role TO USER datahub_user;
+```
+
+Configuring a workload identity on a service user requires `OWNERSHIP` on that user, or the `MODIFY PROGRAMMATIC AUTHENTICATION METHODS` privilege on it.
+
+Then pass the following values in the recipe config instead of a password:
+
+```yml
+authentication_type: WORKLOAD_IDENTITY_AUTHENTICATOR
+workload_identity_provider: AWS # or AZURE, or GCP
+```
+
+On Azure the connector requests the token for Snowflake's published Entra resource, so the recipe needs nothing beyond these two values. That resource is only the token's audience and does not pick the identity: to use a user-assigned managed identity, set the `MANAGED_IDENTITY_CLIENT_ID` environment variable (see the notes below). In the rare case that Snowflake's resource is not the right audience, pass `workload_identity_entra_resource` under `connect_args`.
+
+A few environment notes:
+
+- **Azure**: with a user-assigned managed identity, set the `MANAGED_IDENTITY_CLIENT_ID` environment variable to that identity's client ID on the process that runs ingestion (for UI-based ingestion, the executor or worker pod), so the connector requests a token for the right identity. This is environment configuration, not a recipe field.
+- **AWS**: the region is read from `AWS_REGION` or `AWS_DEFAULT_REGION`, falling back to the instance metadata service. The connector needs `boto3`, which it installs by default.
+- **Domains**: the attestation audience is the literal `snowflakecomputing.com`, so workload identity is not expected to work with the `snowflake_domain: snowflakecomputing.cn` setting.
 
 ##### Okta OAuth
 

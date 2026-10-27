@@ -183,16 +183,21 @@ def test_no_page_filters_ingests_all_pages(
 
         source = ConfluenceSource(config, pipeline_context)
 
-        # All pages in TEAM space should be allowed
-        assert source._is_page_allowed("10001") is True  # Team Home
-        assert source._is_page_allowed("10002") is True  # Meeting Notes
-        assert source._is_page_allowed("10003") is True  # Project Plans
+        # With no deny list, no page is denied at emission time.
+        assert source._is_page_denied("10001") is False  # Team Home
+        assert source._is_page_denied("10002") is False  # Meeting Notes
+        assert source._is_page_denied("10003") is False  # Project Plans
 
 
-def test_page_allow_includes_only_specified_pages(
+def test_page_allow_seeds_crawl_without_filtering_emission(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
-    """Test that page_allow limits ingestion to specified pages."""
+    """pages.allow selects crawl roots; it does not gate emission.
+
+    The parsed allow list holds exactly the configured roots, and no page is
+    denied at emission time on the basis of allow membership (so descendants
+    discovered via recursion survive).
+    """
     config_dict = {**base_config_dict, "pages": {"allow": ["20001", "20002"]}}
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
@@ -205,11 +210,14 @@ def test_page_allow_includes_only_specified_pages(
 
         source = ConfluenceSource(config, pipeline_context)
 
-        # Only specified pages should be allowed
-        assert source._is_page_allowed("20001") is True  # API Documentation
-        assert source._is_page_allowed("20002") is True  # REST API
-        assert source._is_page_allowed("20003") is False  # Authentication (not in list)
-        assert source._is_page_allowed("20004") is False  # OAuth Guide (not in list)
+        # The configured roots are parsed into the seed list.
+        assert config._parsed_page_allow == ["20001", "20002"]
+
+        # No page is denied at emission - including pages not in the seed list,
+        # which is what allows recursively-discovered children through.
+        assert source._is_page_denied("20001") is False  # API Documentation (seed)
+        assert source._is_page_denied("20003") is False  # Authentication (child)
+        assert source._is_page_denied("20004") is False  # OAuth Guide (child)
 
 
 def test_page_deny_excludes_specified_pages(
@@ -229,17 +237,17 @@ def test_page_deny_excludes_specified_pages(
         source = ConfluenceSource(config, pipeline_context)
 
         # Denied pages should be excluded
-        assert source._is_page_allowed("20001") is True  # API Documentation
-        assert source._is_page_allowed("20002") is True  # REST API
-        assert source._is_page_allowed("20003") is False  # Authentication (denied)
-        assert source._is_page_allowed("20004") is False  # OAuth Guide (denied)
-        assert source._is_page_allowed("20005") is True  # Endpoints
+        assert source._is_page_denied("20001") is False  # API Documentation
+        assert source._is_page_denied("20002") is False  # REST API
+        assert source._is_page_denied("20003") is True  # Authentication (denied)
+        assert source._is_page_denied("20004") is True  # OAuth Guide (denied)
+        assert source._is_page_denied("20005") is False  # Endpoints
 
 
 def test_page_allow_and_deny_combined(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
-    """Test that page_deny takes precedence over page_allow."""
+    """Test that page_deny still applies when page_allow is set."""
     config_dict = {
         **base_config_dict,
         "pages": {
@@ -258,13 +266,12 @@ def test_page_allow_and_deny_combined(
 
         source = ConfluenceSource(config, pipeline_context)
 
-        # Page 20003 should be excluded even though it's in allow list
-        assert source._is_page_allowed("20001") is True
-        assert source._is_page_allowed("20002") is True
-        assert (
-            source._is_page_allowed("20003") is False
-        )  # Denied despite being in allow
-        assert source._is_page_allowed("20004") is False  # Not in allow list
+        # Page 20003 is denied even though it is also a configured seed.
+        assert source._is_page_denied("20001") is False
+        assert source._is_page_denied("20002") is False
+        assert source._is_page_denied("20003") is True  # Denied wins over seed
+        # A page that is neither a seed nor denied is not filtered out.
+        assert source._is_page_denied("20004") is False
 
 
 def test_page_allow_with_urls(
@@ -289,12 +296,10 @@ def test_page_allow_with_urls(
             "default_repo"
         )
 
-        source = ConfluenceSource(config, pipeline_context)
+        ConfluenceSource(config, pipeline_context)
 
-        # URL parsing should extract page IDs
-        assert source._is_page_allowed("20001") is True
-        assert source._is_page_allowed("20002") is True
-        assert source._is_page_allowed("20003") is False
+        # URL parsing should extract page IDs into the seed list.
+        assert config._parsed_page_allow == ["20001", "20002"]
 
 
 # ============================================================================
@@ -331,9 +336,9 @@ def test_space_and_page_filters_combined(
         assert spaces == ["DOCS"]
 
         # Page 20003 should be excluded
-        assert source._is_page_allowed("20001") is True
-        assert source._is_page_allowed("20002") is True
-        assert source._is_page_allowed("20003") is False
+        assert source._is_page_denied("20001") is False
+        assert source._is_page_denied("20002") is False
+        assert source._is_page_denied("20003") is True
 
 
 def test_exclude_personal_spaces_common_pattern(
@@ -381,10 +386,23 @@ def test_exclude_archived_content_common_pattern(
         assert len(spaces) == 4
 
 
-def test_specific_documentation_tree_common_pattern(
+def test_page_allow_recursive_ingests_full_tree(
     base_config_dict: dict, pipeline_context: PipelineContext
 ) -> None:
-    """Test common pattern: ingest only specific documentation trees."""
+    """Common pattern: pages.allow + recursive ingests the root AND its children.
+
+    Regression test: previously the recursively-discovered descendants were
+    dropped at emission time because their IDs were not literally present in
+    pages.allow, so only the seed/root page survived.
+
+    DOCS fixture tree rooted at 20001 (API Documentation):
+        20001
+        ├── 20002 (REST API)
+        │   ├── 20003 (Authentication)
+        │   ├── 20004 (OAuth 2.0 Guide)
+        │   └── 20005 (Endpoints)
+        └── 20006 (GraphQL API)
+    """
     config_dict = {
         **base_config_dict,
         "pages": {"allow": ["20001"]},  # API Documentation root page
@@ -401,9 +419,43 @@ def test_specific_documentation_tree_common_pattern(
 
         source = ConfluenceSource(config, pipeline_context)
 
-        # Only page 20001 is in page_allow
-        assert source._is_page_allowed("20001") is True
-        assert source._is_page_allowed("20002") is False
+        collected_ids = {
+            str(page.get("id")) for page in source._get_pages_from_page_allow()
+        }
+
+        # The seed and every descendant are collected by the recursive crawl.
+        assert collected_ids == {"20001", "20002", "20003", "20004", "20005", "20006"}
+
+        # And none of the discovered children are dropped at emission time.
+        for page_id in collected_ids:
+            assert source._is_page_denied(page_id) is False
+
+
+def test_page_allow_non_recursive_ingests_only_seed(
+    base_config_dict: dict, pipeline_context: PipelineContext
+) -> None:
+    """With recursive=False, only the configured seed pages are collected."""
+    config_dict = {
+        **base_config_dict,
+        "pages": {"allow": ["20001"]},
+        "recursive": False,
+    }
+    config = ConfluenceSourceConfig.model_validate(config_dict)
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = create_mock_confluence_client_from_fixture(
+            "default_repo"
+        )
+
+        source = ConfluenceSource(config, pipeline_context)
+
+        collected_ids = {
+            str(page.get("id")) for page in source._get_pages_from_page_allow()
+        }
+
+        assert collected_ids == {"20001"}
 
 
 # ============================================================================
@@ -494,10 +546,10 @@ def test_page_deny_only_filters_across_all_spaces(
         assert len(spaces) == 5
 
         # Pages 10002 and 20003 should be filtered
-        assert source._is_page_allowed("10001") is True  # Team Home
-        assert source._is_page_allowed("10002") is False  # Meeting Notes (denied)
-        assert source._is_page_allowed("20001") is True  # API Documentation
-        assert source._is_page_allowed("20003") is False  # Authentication (denied)
+        assert source._is_page_denied("10001") is False  # Team Home
+        assert source._is_page_denied("10002") is True  # Meeting Notes (denied)
+        assert source._is_page_denied("20001") is False  # API Documentation
+        assert source._is_page_denied("20003") is True  # Authentication (denied)
 
 
 def test_page_deny_with_space_deny(
@@ -526,8 +578,8 @@ def test_page_deny_with_space_deny(
         assert "ARCHIVE" not in spaces
 
         # Page 10002 should be denied
-        assert source._is_page_allowed("10001") is True
-        assert source._is_page_allowed("10002") is False
+        assert source._is_page_denied("10001") is False
+        assert source._is_page_denied("10002") is True
 
 
 # Group 2: page_allow Overrides Space Filters
@@ -553,10 +605,10 @@ def test_page_allow_overrides_space_allow(
 
         source = ConfluenceSource(config, pipeline_context)
 
-        # When page_allow is specified, space discovery is skipped
-        # Page 20001 (from DOCS space) should be allowed despite space_allow=TEAM
-        assert source._is_page_allowed("20001") is True
-        assert source._is_page_allowed("10001") is False  # Not in page_allow
+        # When page_allow is specified, space discovery is skipped and the page
+        # seed list drives ingestion regardless of space_allow=TEAM.
+        assert config._parsed_page_allow == ["20001"]  # Page in DOCS space
+        assert source._is_page_denied("20001") is False
 
 
 def test_page_allow_ignores_both_space_filters(
@@ -582,8 +634,10 @@ def test_page_allow_ignores_both_space_filters(
 
         source = ConfluenceSource(config, pipeline_context)
 
-        # Page 20001 should still be allowed (space filters ignored in page-based mode)
-        assert source._is_page_allowed("20001") is True
+        # Page 20001 seeds ingestion (space filters ignored in page-based mode)
+        # and is not denied at emission.
+        assert config._parsed_page_allow == ["20001"]
+        assert source._is_page_denied("20001") is False
 
 
 def test_page_allow_with_page_deny_complex(
@@ -609,11 +663,11 @@ def test_page_allow_with_page_deny_complex(
 
         source = ConfluenceSource(config, pipeline_context)
 
-        # Only pages 20001 and 10001 should be allowed (20002 denied)
-        assert source._is_page_allowed("20001") is True
-        assert source._is_page_allowed("20002") is False  # Denied
-        assert source._is_page_allowed("10001") is True
-        assert source._is_page_allowed("20003") is False  # Not in allow list
+        # 20001/20002/10001 seed the crawl; 20002 is additionally denied.
+        assert config._parsed_page_allow == ["20001", "20002", "10001"]
+        assert source._is_page_denied("20001") is False
+        assert source._is_page_denied("20002") is True  # Denied
+        assert source._is_page_denied("10001") is False
 
 
 # Group 3: URL Parsing Edge Cases

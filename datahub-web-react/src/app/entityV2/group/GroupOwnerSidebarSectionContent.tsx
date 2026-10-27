@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -34,9 +34,7 @@ export default function GroupOwnerSidebarSectionContent({
     return (
         <>
             <TagsSection>
-                {ownersEmpty && (
-                    <Typography.Paragraph type="secondary">{t('group.noGroupOwnersEmpty')}</Typography.Paragraph>
-                )}
+                {ownersEmpty && <Text color="textSecondary">{t('group.noGroupOwnersEmpty')}</Text>}
                 {ownership &&
                     ownership?.owners?.map(
                         (owner, index) =>

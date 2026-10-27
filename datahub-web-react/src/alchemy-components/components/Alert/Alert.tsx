@@ -17,7 +17,7 @@ import {
     AlertHeaderRight,
     AlertIconWrapper,
 } from '@components/components/Alert/components';
-import { AlertProps, AlertVariant } from '@components/components/Alert/types';
+import { AlertAction, AlertProps, AlertVariant } from '@components/components/Alert/types';
 import { Button } from '@components/components/Button';
 import { Text } from '@components/components/Text';
 import type { ColorOptions } from '@components/theme/config';
@@ -28,29 +28,45 @@ const DEFAULT_ICONS: Record<AlertVariant, React.ReactNode> = {
     warning: <WarningCircle size={20} weight="fill" />,
     info: <Info size={20} weight="fill" />,
     brand: <MegaphoneSimple size={20} weight="fill" />,
-    unknown: <Question size={20} weight="fill" />,
+    gray: <Question size={20} weight="fill" />,
 };
 
 /**
  * Mapping of Alert variant -> alchemy Button color, so that any in-Alert button
  * (close button, action slot) reads as the same hue as the surrounding banner.
  */
-export const VARIANT_BUTTON_COLOR_MAP: Record<AlertVariant, ColorOptions> = {
+const VARIANT_BUTTON_COLOR_MAP: Record<AlertVariant, ColorOptions> = {
     success: 'green',
     error: 'red',
     warning: 'yellow',
     info: 'blue',
     brand: 'primary',
-    unknown: 'gray',
+    gray: 'gray',
 };
 
 /**
- * Inline status banner for success, error, warning, info, brand, and unknown
+ * True when `action` is the structured `{ label, onClick }` shape rather than a
+ * custom ReactNode (which existing SaaS call sites still pass).
+ */
+function isAlertAction(action: AlertAction | React.ReactNode): action is AlertAction {
+    return (
+        typeof action === 'object' &&
+        action !== null &&
+        !React.isValidElement(action) &&
+        'label' in action &&
+        'onClick' in action
+    );
+}
+
+/**
+ * Inline status banner for success, error, warning, info, brand, and gray
  * messages. Layout is a header row (icon + title on the left, optional
  * topRight action + close button on the right) with description, errorMessage,
  * and inline actions stacked below the header at full content width.
  *
  * Colors are derived from semantic theme tokens based on the variant.
+ * Structured actions and the close button inherit the matching button color;
+ * ReactNode actions are rendered as-is.
  */
 export function Alert({
     variant,
@@ -67,10 +83,29 @@ export function Alert({
 }: AlertProps) {
     const { t: tc } = useTranslation('common.actions');
     const displayIcon = icon ?? DEFAULT_ICONS[variant];
+    const buttonColor = VARIANT_BUTTON_COLOR_MAP[variant];
     const showInlineAction = action && actionPlacement === 'inline';
     const showTopRightAction = action && actionPlacement === 'topRight';
     const hasHeaderRight = showTopRightAction || !!onClose;
     const hasBody = !!description || !!errorMessage || !!showInlineAction;
+
+    let actionContent: React.ReactNode = null;
+    if (action) {
+        actionContent = isAlertAction(action) ? (
+            <Button
+                variant="text"
+                color={buttonColor}
+                size="sm"
+                icon={action.icon}
+                onClick={action.onClick}
+                data-testid={action.dataTestId}
+            >
+                {action.label}
+            </Button>
+        ) : (
+            action
+        );
+    }
 
     return (
         <AlertContainer
@@ -89,11 +124,11 @@ export function Alert({
                 </AlertHeaderLeft>
                 {hasHeaderRight && (
                     <AlertHeaderRight>
-                        {showTopRightAction && action}
+                        {showTopRightAction && actionContent}
                         {onClose && (
                             <Button
                                 variant="text"
-                                color={VARIANT_BUTTON_COLOR_MAP[variant]}
+                                color={buttonColor}
                                 type="button"
                                 aria-label={tc('close')}
                                 onClick={onClose}
@@ -108,7 +143,7 @@ export function Alert({
                 <AlertBody>
                     {description && <Text size="md">{description}</Text>}
                     {errorMessage && <AlertErrorMessage>{errorMessage}</AlertErrorMessage>}
-                    {showInlineAction && <AlertActions>{action}</AlertActions>}
+                    {showInlineAction && <AlertActions>{actionContent}</AlertActions>}
                 </AlertBody>
             )}
         </AlertContainer>

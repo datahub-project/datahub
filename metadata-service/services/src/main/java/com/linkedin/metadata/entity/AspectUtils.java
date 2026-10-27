@@ -74,6 +74,26 @@ public class AspectUtils {
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
+    return applyUiSourceSystemMetadata(proposal);
+  }
+
+  public static MetadataChangeProposal buildSynchronousMetadataChangeProposal(
+      @Nonnull String entityType,
+      @Nonnull RecordTemplate keyAspect,
+      @Nonnull String aspectName,
+      @Nonnull RecordTemplate aspect) {
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityType(entityType);
+    proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(keyAspect));
+    proposal.setAspectName(aspectName);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    proposal.setChangeType(ChangeType.UPSERT);
+    return applyUiSourceSystemMetadata(proposal);
+  }
+
+  @Nonnull
+  private static MetadataChangeProposal applyUiSourceSystemMetadata(
+      @Nonnull MetadataChangeProposal proposal) {
     SystemMetadata systemMetadata = createDefaultSystemMetadata();
     StringMap properties = new StringMap();
     properties.put(APP_SOURCE, UI_SOURCE);

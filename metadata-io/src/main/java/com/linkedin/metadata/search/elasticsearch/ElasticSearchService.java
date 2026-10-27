@@ -16,6 +16,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -24,7 +25,9 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -32,6 +35,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,6 +53,16 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final ElasticSearchConfiguration elasticSearchConfiguration;
   private final MappingsBuilder mappingsBuilder;
   private final SettingsBuilder settingsBuilder;
+
+  /**
+   * Resolves the index builder that owns a resolved index name.
+   *
+   * <p>Search V2 and Search V3 can be routed to different clusters, in which case their index
+   * families must be built by different clients — sending a merged mapping list to one client would
+   * create V3 indices on the V2 cluster. Null (the common case) means every component shares one
+   * cluster and {@link #indexBuilder} handles everything, exactly as before.
+   */
+  @Nullable private final Function<String, ESIndexBuilder> indexBuilderResolver;
 
   public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
@@ -81,26 +95,64 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final ESBrowseDAO esBrowseDAO;
   @Getter private final ESWriteDAO esWriteDAO;
 
+  /** Single-cluster deployments: every index family is built by the same index builder. */
+  public ElasticSearchService(
+      ESIndexBuilder indexBuilder,
+      SearchServiceConfiguration searchServiceConfig,
+      ElasticSearchConfiguration elasticSearchConfiguration,
+      MappingsBuilder mappingsBuilder,
+      SettingsBuilder settingsBuilder,
+      ESSearchDAO esSearchDAO,
+      ESBrowseDAO esBrowseDAO,
+      ESWriteDAO esWriteDAO) {
+    this(
+        indexBuilder,
+        searchServiceConfig,
+        elasticSearchConfiguration,
+        mappingsBuilder,
+        settingsBuilder,
+        null,
+        esSearchDAO,
+        esBrowseDAO,
+        esWriteDAO);
+  }
+
   @Override
   public void reindexAll(
       @Nonnull OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
       try {
-        indexBuilder.buildIndex(config);
+        builderFor(config.name()).buildIndex(opContext, config);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
     }
   }
 
+  /** The index builder for the cluster that owns {@code indexName}. */
+  @Nonnull
+  private ESIndexBuilder builderFor(@Nonnull String indexName) {
+    if (indexBuilderResolver == null) {
+      return indexBuilder;
+    }
+    ESIndexBuilder resolved = indexBuilderResolver.apply(indexName);
+    if (resolved == null) {
+      throw new IllegalArgumentException(
+          "Index '"
+              + indexName
+              + "' is not a Search V2, V3, or semantic entity index. Refusing to build or reindex"
+              + " it on the primary cluster.");
+    }
+    return resolved;
+  }
+
   @Override
   public List<ReindexConfig> buildReindexConfigs(
       @Nonnull OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-
-    return indexBuilder.buildReindexConfigs(
-        opContext, settingsBuilder, mappingsBuilder, properties);
+    return buildReindexConfigsFromMappings(
+        opContext, mappingsBuilder.getIndexMappings(opContext, properties), false);
   }
 
   /**
@@ -112,9 +164,44 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    */
   public List<ReindexConfig> buildReindexConfigsWithNewStructProp(
       @Nonnull OperationContext opContext, Urn urn, StructuredPropertyDefinition property) {
+    return buildReindexConfigsFromMappings(
+            opContext,
+            mappingsBuilder.getIndexMappingsWithNewStructuredProperty(opContext, urn, property),
+            true)
+        .stream()
+        .filter(ReindexConfig::hasNewStructuredProperty)
+        .collect(Collectors.toList());
+  }
 
-    return indexBuilder.buildReindexConfigsWithNewStructProp(
-        opContext, settingsBuilder, mappingsBuilder, urn, property);
+  /**
+   * Inspect live index state on the cluster that owns each mapping. Target shards/replicas/codec
+   * and {@code indexExists} must not run against primary when V2 and V3 are split.
+   */
+  @Nonnull
+  private List<ReindexConfig> buildReindexConfigsFromMappings(
+      @Nonnull OperationContext opContext,
+      Collection<MappingsBuilder.IndexMapping> indexMappings,
+      boolean copyStructuredPropertyMappings) {
+    return indexMappings.stream()
+        .map(
+            indexMap -> {
+              try {
+                ESIndexBuilder builder = builderFor(indexMap.getIndexName());
+                Map<String, Object> settings =
+                    settingsBuilder.getSettings(
+                        builder.getConfig().getIndex(), indexMap.getIndexName());
+                return builder.buildReindexState(
+                    opContext,
+                    indexMap.getIndexName(),
+                    indexMap.getMappings(),
+                    settings,
+                    copyStructuredPropertyMappings);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -124,14 +211,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     // Recreate the indices that were deleted
     if (!deletedIndexNames.isEmpty()) {
       try {
-        List<ReindexConfig> allConfigs =
-            indexBuilder.buildReindexConfigs(
-                opContext, settingsBuilder, mappingsBuilder, Collections.emptySet());
+        List<ReindexConfig> allConfigs = buildReindexConfigs(opContext, Collections.emptySet());
 
         // Filter to only recreate indices that were deleted
         for (ReindexConfig config : allConfigs) {
           if (deletedIndexNames.contains(config.name())) {
-            indexBuilder.buildIndex(config);
+            builderFor(config.name()).buildIndex(opContext, config);
             log.info("Recreated index {} after clearing", config.name());
           }
         }
@@ -160,9 +245,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nonnull String document,
       @Nonnull String docId) {
     log.debug(
-        String.format(
-            "Upserting Search document entityName: %s, document: %s, docId: %s",
-            entityName, document, docId));
+        "Upserting Search document entityName: {}, document: {}, docId: {}",
+        entityName,
+        document,
+        docId);
     esWriteDAO.upsertDocument(opContext, entityName, document, docId);
   }
 
@@ -175,19 +261,22 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param docId the ID of the document
    */
   public void upsertDocumentByIndexName(
-      @Nonnull String indexName, @Nonnull String document, @Nonnull String docId) {
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String document,
+      @Nonnull String docId) {
     log.debug(
-        String.format(
-            "Upserting Search document indexName: %s, document: %s, docId: %s",
-            indexName, document, docId));
-    esWriteDAO.upsertDocumentByIndexName(indexName, document, docId);
+        "Upserting Search document indexName: {}, document: {}, docId: {}",
+        indexName,
+        document,
+        docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, indexName, document, docId);
   }
 
   @Override
   public void deleteDocument(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
-    log.debug(
-        String.format("Deleting Search document entityName: %s, docId: %s", entityName, docId));
+    log.debug("Deleting Search document entityName: {}, docId: {}", entityName, docId);
     esWriteDAO.deleteDocument(opContext, entityName, docId);
   }
 
@@ -198,9 +287,10 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param indexName name of the index
    * @param docId the ID of the document to delete
    */
-  public void deleteDocumentByIndexName(@Nonnull String indexName, @Nonnull String docId) {
-    log.debug(String.format("Deleting Search document indexName: %s, docId: %s", indexName, docId));
-    esWriteDAO.deleteDocumentByIndexName(indexName, docId);
+  public void deleteDocumentByIndexName(
+      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull String docId) {
+    log.debug("Deleting Search document indexName: {}, docId: {}", indexName, docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, indexName, docId);
   }
 
   /**
@@ -209,8 +299,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param indexName name of the index to check
    * @return true if the index exists, false otherwise
    */
-  public boolean indexExists(@Nonnull String indexName) {
-    return esWriteDAO.indexExists(indexName);
+  public boolean indexExists(@Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return esWriteDAO.indexExists(opContext, indexName);
   }
 
   /**
@@ -224,6 +314,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param upsert the document to upsert if it doesn't exist
    */
   public void applyScriptUpdateByIndexName(
+      @Nonnull OperationContext opContext,
       @Nonnull String indexName,
       @Nonnull String docId,
       @Nonnull String scriptSource,
@@ -234,7 +325,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         indexName,
         docId,
         scriptSource);
-    esWriteDAO.applyScriptUpdateByIndexName(indexName, docId, scriptSource, scriptParams, upsert);
+    esWriteDAO.applyScriptUpdateByIndexName(
+        opContext, indexName, docId, scriptSource, scriptParams, upsert);
   }
 
   /**
@@ -246,15 +338,17 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param document the document to update / insert
    * @param docId the ID of the document
    */
+  @Override
   public void upsertDocumentBySearchGroup(
       @Nonnull OperationContext opContext,
       @Nonnull String searchGroup,
       @Nonnull String document,
       @Nonnull String docId) {
     log.debug(
-        String.format(
-            "Upserting Search document searchGroup: %s, document: %s, docId: %s",
-            searchGroup, document, docId));
+        "Upserting Search document searchGroup: {}, document: {}, docId: {}",
+        searchGroup,
+        document,
+        docId);
     esWriteDAO.upsertDocumentBySearchGroup(opContext, searchGroup, document, docId);
   }
 
@@ -266,11 +360,30 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    * @param searchGroup the search group name
    * @param docId the ID of the document to delete
    */
+  @Override
   public void deleteDocumentBySearchGroup(
       @Nonnull OperationContext opContext, @Nonnull String searchGroup, @Nonnull String docId) {
-    log.debug(
-        String.format("Deleting Search document searchGroup: %s, docId: %s", searchGroup, docId));
+    log.debug("Deleting Search document searchGroup: {}, docId: {}", searchGroup, docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
+  }
+
+  /**
+   * For each of {@code documentIds} present in {@code searchGroup}'s V3 index, the aspects its
+   * document holds, as aspect name to the field names under it; see {@link
+   * ESSearchDAO#aspectFieldNamesByDocumentId}.
+   */
+  @Nonnull
+  public Map<String, Map<String, Set<String>>> aspectFieldNamesBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull Collection<String> documentIds) {
+    return esSearchDAO.aspectFieldNamesByDocumentId(
+        opContext,
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(opContext, searchGroup),
+        documentIds);
   }
 
   @Override
@@ -306,10 +419,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     // Dual-write to semantic index if it exists (with caching to avoid repeated HEAD requests)
     String semanticIndexName =
-        opContext.getSearchContext().getIndexConvention().getEntityIndexNameSemantic(entityName);
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameSemantic(opContext, entityName);
     Boolean semanticExists = semanticIndexExistsCache.getIfPresent(semanticIndexName);
     if (semanticExists == null) {
-      semanticExists = indexExists(semanticIndexName);
+      semanticExists = indexExists(opContext, semanticIndexName);
       semanticIndexExistsCache.put(semanticIndexName, semanticExists);
     }
     if (semanticExists) {
@@ -319,7 +435,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
           entityName,
           docId,
           runId);
-      applyScriptUpdateByIndexName(semanticIndexName, docId, SCRIPT_SOURCE, scriptParams, upsert);
+      applyScriptUpdateByIndexName(
+          opContext, semanticIndexName, docId, SCRIPT_SOURCE, scriptParams, upsert);
     } else {
       log.debug(
           "Semantic dual-write: SKIP - index '{}' does not exist for runId update",
@@ -340,17 +457,48 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable String runId) {
     log.debug(
         "Appending run id for searchGroup '{}', docId='{}', runId='{}'", searchGroup, docId, runId);
+    esWriteDAO.applyScriptUpdateBySearchGroup(
+        opContext,
+        searchGroup,
+        docId,
+        SCRIPT_SOURCE,
+        runIdScriptParams(runId),
+        runIdUpsert(urn, runId));
+  }
 
+  /**
+   * As {@link #appendRunIdBySearchGroup}, on an index named directly rather than through its search
+   * group's alias: a fill's next physical index, or the swapped-out backing index kept current for
+   * rollback.
+   */
+  public void appendRunIdByIndexName(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull Urn urn,
+      @Nullable String runId) {
+    log.debug("Appending run id for index '{}', docId='{}', runId='{}'", indexName, docId, runId);
+    esWriteDAO.applyScriptUpdateByIndexName(
+        opContext,
+        indexName,
+        docId,
+        SCRIPT_SOURCE,
+        runIdScriptParams(runId),
+        runIdUpsert(urn, runId));
+  }
+
+  private static Map<String, Object> runIdUpsert(@Nonnull Urn urn, @Nullable String runId) {
     Map<String, Object> upsert = new HashMap<>();
     upsert.put("urn", urn.toString());
     upsert.put("runId", Collections.singletonList(runId));
+    return upsert;
+  }
 
+  private static Map<String, Object> runIdScriptParams(@Nullable String runId) {
     Map<String, Object> scriptParams = new HashMap<>();
     scriptParams.put("runId", runId);
     scriptParams.put("maxRunIds", MAX_RUN_IDS_INDEXED);
-
-    esWriteDAO.applyScriptUpdateBySearchGroup(
-        opContext, searchGroup, docId, SCRIPT_SOURCE, scriptParams, upsert);
+    return scriptParams;
   }
 
   @Nonnull
@@ -377,20 +525,21 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     log.debug(
-        String.format(
-            "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
-            entityNames, input, postFilters, sortCriteria, from, size));
-
-    return esSearchDAO.search(
-        opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+        "Searching FullText Search documents entityName: {}, input: {}, postFilters: {}, sortCriteria: {}, from: {}, size: {}",
         entityNames,
         input,
         postFilters,
         sortCriteria,
         from,
-        size,
-        facets);
+        size);
+
+    OperationContext searching =
+        SearchTemplateSurfaces.withDefault(
+            opContext.withSearchFlags(
+                flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            SearchTemplateSurfaces.SEARCH_ENTITIES);
+    return esSearchDAO.search(
+        searching, entityNames, input, postFilters, sortCriteria, from, size, facets);
   }
 
   @Nonnull
@@ -403,9 +552,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       int from,
       @Nullable Integer size) {
     log.debug(
-        String.format(
-            "Filtering Search documents entityName: %s, filters: %s, sortCriteria: %s, from: %s, size: %s",
-            entityName, filters, sortCriteria, from, size));
+        "Filtering Search documents entityName: {}, filters: {}, sortCriteria: {}, from: {}, size: {}",
+        entityName,
+        filters,
+        sortCriteria,
+        from,
+        size);
 
     return esSearchDAO.filter(
         opContext.withSearchFlags(
@@ -427,9 +579,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
     log.debug(
-        String.format(
-            "Autocompleting query entityName: %s, query: %s, field: %s, requestParams: %s, limit: %s",
-            entityName, query, field, requestParams, limit));
+        "Autocompleting query entityName: {}, query: {}, field: {}, requestParams: {}, limit: {}",
+        entityName,
+        query,
+        field,
+        requestParams,
+        limit);
 
     return esSearchDAO.autoComplete(
         opContext.withSearchFlags(
@@ -451,7 +606,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer limit) {
     log.debug(
         "Aggregating by value: {}, field: {}, requestParams: {}, limit: {}",
-        entityNames != null ? entityNames.toString() : null,
+        entityNames,
         field,
         requestParams,
         limit);
@@ -467,6 +622,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Nonnull
   @Override
+  public Map<Urn, IncidentStats> getActiveIncidentStats(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
+    return esSearchDAO.getActiveIncidentStats(opContext, entityUrns);
+  }
+
+  @Nonnull
+  @Override
   public BrowseResult browse(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
@@ -475,9 +637,12 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       int from,
       @Nullable Integer size) {
     log.debug(
-        String.format(
-            "Browsing entities entityName: %s, path: %s, filters: %s, from: %s, size: %s",
-            entityName, path, filters, from, size));
+        "Browsing entities entityName: {}, path: {}, filters: {}, from: {}, size: {}",
+        entityName,
+        path,
+        filters,
+        from,
+        size);
     return esBrowseDAO.browse(
         opContext.withSearchFlags(
             flags ->
@@ -502,10 +667,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer count) {
 
     return esBrowseDAO.browseV2(
-        opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(true)),
+        browseContext(opContext, null),
         entityName,
         path,
         filter,
@@ -526,10 +688,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer count) {
 
     return esBrowseDAO.browseV2(
-        opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(true)),
+        browseContext(opContext, input),
         entityNames,
         path,
         filter,
@@ -542,8 +701,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public List<String> getBrowsePaths(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull Urn urn) {
-    log.debug(
-        String.format("Getting browse paths for entity entityName: %s, urn: %s", entityName, urn));
+    log.debug("Getting browse paths for entity entityName: {}, urn: {}", entityName, urn);
     return esBrowseDAO.getBrowsePaths(opContext, entityName, urn);
   }
 
@@ -560,15 +718,23 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     log.debug(
-        String.format(
-            "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
-            entities, input, postFilters, sortCriteria, scrollId, size));
+        "Scrolling Structured Search documents entities: {}, input: {}, postFilters: {}, sortCriteria: {}, scrollId: {}, size: {}",
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        size);
 
     return esSearchDAO.scroll(
         opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(true)),
+            flags -> {
+              SearchFlags resolved =
+                  applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
+              return opContext.getSearchContext().getResolvedSearchTemplate() == null
+                  ? resolved.setFulltext(true)
+                  : resolved;
+            }),
         entities,
         input,
         postFilters,
@@ -591,15 +757,23 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     log.debug(
-        String.format(
-            "Scrolling FullText Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
-            entities, input, postFilters, sortCriteria, scrollId, size));
+        "Scrolling FullText Search documents entities: {}, input: {}, postFilters: {}, sortCriteria: {}, scrollId: {}, size: {}",
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        size);
 
     return esSearchDAO.scroll(
         opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(false)),
+            flags -> {
+              SearchFlags resolved =
+                  applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS);
+              return opContext.getSearchContext().getResolvedSearchTemplate() == null
+                  ? resolved.setFulltext(false)
+                  : resolved;
+            }),
         entities,
         input,
         postFilters,
@@ -610,8 +784,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   public Optional<SearchResponse> raw(
-      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nullable String jsonQuery) {
-    return esSearchDAO.raw(opContext, indexName, jsonQuery);
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nullable String jsonQuery,
+      @Nonnull SearchOperation operation) {
+    return esSearchDAO.raw(opContext, indexName, jsonQuery, operation);
   }
 
   @Override
@@ -657,13 +834,40 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
-  public boolean validateAndSwapAlias(@Nonnull String aliasName, @Nonnull String newBackingIndex)
+  public boolean validateAndSwapAlias(
+      @Nonnull OperationContext opContext,
+      @Nonnull String aliasName,
+      @Nonnull String newBackingIndex,
+      long expectedSourceDocCount)
       throws Exception {
-    return indexBuilder.validateAndSwapAlias(aliasName, newBackingIndex);
+    return builderFor(aliasName)
+        .validateAndSwapAlias(opContext, aliasName, newBackingIndex, expectedSourceDocCount);
   }
 
   @Override
   public ESIndexBuilder getIndexBuilder() {
     return indexBuilder;
+  }
+
+  @Override
+  public ESIndexBuilder getIndexBuilder(@Nonnull String indexName) {
+    return builderFor(indexName);
+  }
+
+  /**
+   * Browse uses the global fulltext seed, the search router. A caller context already tagged for
+   * page search must not keep that surface or a template resolved for a different query. Path,
+   * depth, and group aggregation stay outside the template.
+   */
+  @Nonnull
+  private OperationContext browseContext(
+      @Nonnull OperationContext opContext, @Nullable String input) {
+    return opContext
+        .withResolvedSearchTemplate(null)
+        .withSearchSurface(null)
+        .withSearchFlags(
+            flags ->
+                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true));
   }
 }

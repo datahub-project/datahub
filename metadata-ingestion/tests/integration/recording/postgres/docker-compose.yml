@@ -9,7 +9,10 @@ services:
       POSTGRES_USER: testuser
       POSTGRES_PASSWORD: testpass
     ports:
-      - "15432:5432"
+      # Ephemeral: only the host test process needs to reach postgres, and letting
+      # Docker pick a free port avoids colliding with a leaked container from a
+      # prior run.
+      - "5432"
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:

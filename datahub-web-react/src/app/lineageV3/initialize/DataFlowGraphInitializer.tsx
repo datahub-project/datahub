@@ -1,10 +1,11 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import LineageDisplay from '@app/lineageV3/LineageDisplay';
-import { FetchStatus, LineageEntity, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
+import { FetchStatus, LINEAGE_FILTER_PAGINATION, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
 import useFetchChildDataJobs from '@app/lineageV3/initialize/useFetchChildDataJobs';
+import useResetLineageGraph from '@app/lineageV3/initialize/useResetLineageGraph';
+import useSearchAcrossLineage from '@app/lineageV3/queries/useSearchAcrossLineage';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -13,7 +14,7 @@ interface Props {
     type: EntityType;
 }
 
-export default function ImpactAnalysisNodeInitializer(props: Props) {
+export default function DataFlowGraphInitializer(props: Props) {
     const { urn, type } = props;
     const initialized = useInitializeNodes(urn, type);
 
@@ -25,41 +26,17 @@ export default function ImpactAnalysisNodeInitializer(props: Props) {
 }
 
 /**
- * Initialize lineage node context with all DataJobs part of the DataFlow.
+ * Initialize lineage node context with all DataJobs part of the DataFlow, and the DataFlow's own lineage.
  */
 function useInitializeNodes(urn: string, type: EntityType): boolean {
     const context = useContext(LineageNodesContext);
+    useResetLineageGraph(context, urn, type, () => makeInitialNode(urn, type));
 
-    const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
-    const { nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion, showGhostEntities } = context;
-    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
+    const childJobsInitialized = useFetchChildDataJobs();
+    const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Upstream);
+    const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Downstream);
 
-    useEffect(() => {
-        // Reset graph if home node or time range changes
-        nodes.clear();
-        adjacencyList[LineageDirection.Upstream].clear();
-        adjacencyList[LineageDirection.Downstream].clear();
-        edges.clear();
-        nodes.set(urn, makeInitialNode(urn, type));
-        setNodeVersion(0);
-        setDisplayVersion([0, []]);
-    }, [urn, type, startTimeMillis, endTimeMillis, nodes, adjacencyList, edges, setNodeVersion, setDisplayVersion]);
-
-    useEffect(() => {
-        // Reset edges if showGhostEntities changes. Not necessary if on schema field page and ignoring status
-        if (!(type === EntityType.SchemaField && ignoreSchemaFieldStatus)) {
-            adjacencyList[LineageDirection.Upstream].clear();
-            adjacencyList[LineageDirection.Downstream].clear();
-            edges.clear();
-            nodes.forEach((node) => {
-                // eslint-disable-next-line no-param-reassign
-                node.entity = undefined;
-            });
-            setDisplayVersion([0, []]);
-        }
-    }, [showGhostEntities, ignoreSchemaFieldStatus, type, nodes, adjacencyList, edges, setDisplayVersion]);
-
-    return useFetchChildDataJobs();
+    return childJobsInitialized && upstreamProcessed && downstreamProcessed;
 }
 
 function makeInitialNode(urn: string, type: EntityType): LineageEntity {
@@ -72,12 +49,12 @@ function makeInitialNode(urn: string, type: EntityType): LineageEntity {
             [LineageDirection.Downstream]: true,
         },
         fetchStatus: {
-            [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
-            [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+            [LineageDirection.Upstream]: FetchStatus.LOADING,
+            [LineageDirection.Downstream]: FetchStatus.LOADING,
         },
         filters: {
-            [LineageDirection.Upstream]: { facetFilters: new Map() },
-            [LineageDirection.Downstream]: { facetFilters: new Map() },
+            [LineageDirection.Upstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
+            [LineageDirection.Downstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
         },
     };
 }

@@ -1,0 +1,13 @@
+{
+    "graph.empty": "Ingen statistikk samlet inn for denne ressursen for øyeblikket.",
+    "graph.rowCount_one": "{{formattedCount}} rad",
+    "graph.rowCount_other": "{{formattedCount}} rader",
+    "graph.statName": "antall rader",
+    "graph.title": "Antall rader",
+    "percentile.high": "Høy",
+    "percentile.low": "Lav",
+    "percentile.med": "Middels",
+    "upstream.directUpstreams": "Direkte oppstrøms",
+    "upstream.indirectUpstreams": "Indirekte oppstrøms",
+    "upstream.unhealthy": "Noen oppstrøms har helseproblemer"
+}

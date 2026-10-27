@@ -21,6 +21,20 @@ import { LineageDirection } from '@types';
 interface Output {
     displayedNodes: LineageNode[];
     parents: Map<string, Set<string>>;
+    /** Pagination state for each node and direction with filtered-out children, keyed by
+     * `createLineageFilterNodeId`. Populated whether or not filter nodes are displayed, so
+     * pagination controls can render elsewhere (e.g. on the expand/contract buttons). */
+    lineageFilters: Map<string, LineageFilter>;
+}
+
+interface Options {
+    /** Nodes to seed the traversal with, displayed alongside the root and traversed further only if
+     * they are themselves expanded. Lets a root with no lineage of its own (e.g. a data product)
+     * seed the graph with its members. */
+    seedNodes?: LineageEntity[];
+    /** If false, lineage filter nodes are not included in the displayed nodes;
+     * their state is still returned via `lineageFilters`. Defaults to true. */
+    createFilterNodes?: boolean;
 }
 
 /**
@@ -28,20 +42,24 @@ interface Output {
  * @param urn The urn of the root node.
  * @param orderedNodes Nodes ordered by `orderNodes`, in BFS order.
  * @param context Lineage node context.
+ * @param options Optional seed nodes and filter node toggle.
  * @returns A list of nodes to display in rough topological order,
- *          and a map of nodes to their non-transformational parents.
+ *          a map of nodes to their non-transformational parents,
+ *          and the pagination state of each node with filtered-out children.
  */
 export default function getDisplayedNodes(
     urn: string,
     orderedNodes: Record<LineageDirection, LineageEntity[]>,
     context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges' | 'rootType'>,
+    options: Options = {},
 ): Output {
     const parents = new Map<string, Set<string>>();
+    const lineageFilters = new Map<string, LineageFilter>();
 
     const { nodes, rootType } = context;
     const rootNode = nodes.get(urn);
     if (!rootNode) {
-        return { displayedNodes: [], parents };
+        return { displayedNodes: [], parents, lineageFilters };
     }
 
     const displayedNodes: LineageNode[] = [rootNode];
@@ -53,9 +71,32 @@ export default function getDisplayedNodes(
         }
         const seenNodes = new Set<string>([urn]);
         const queue = [urn]; // Note: uses array for queue, slow for large graphs
+
+        // Seed the traversal, e.g. with a data product's members, since the root has no lineage of
+        // its own. Seeds are traversed further only if they are themselves expanded.
+        options.seedNodes?.forEach((seed) => {
+            if (seenNodes.has(seed.id)) return;
+            seenNodes.add(seed.id);
+            if (!addedNodes.has(seed.id)) {
+                addedNodes.add(seed.id);
+                displayedNodes.push(seed);
+            }
+            if (seed.isExpanded[direction]) {
+                queue.push(seed.id);
+            }
+        });
+
         while (queue.length > 0) {
             const current = queue.shift() as string; // Just checked length
-            const filteredChildren = applyFilters(current, direction, orderedNodes[direction], parents, context);
+            const filteredChildren = applyFilters(
+                current,
+                direction,
+                orderedNodes[direction],
+                parents,
+                lineageFilters,
+                options.createFilterNodes ?? true,
+                context,
+            );
             filteredChildren.forEach((child) => {
                 if (!seenNodes.has(child.id)) {
                     seenNodes.add(child.id);
@@ -81,7 +122,7 @@ export default function getDisplayedNodes(
     traverseTree(LineageDirection.Upstream);
     traverseTree(LineageDirection.Downstream);
 
-    return { displayedNodes, parents };
+    return { displayedNodes, parents, lineageFilters };
 }
 
 function applyFilters(
@@ -89,6 +130,8 @@ function applyFilters(
     direction: LineageDirection,
     orderedNodes: LineageEntity[],
     parents: Map<string, Set<string>>,
+    lineageFilters: Map<string, LineageFilter>,
+    createFilterNodes: boolean,
     context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges' | 'rootType'>,
 ): LineageNode[] {
     const { adjacencyList, nodes } = context;
@@ -131,7 +174,8 @@ function applyFilters(
     });
 
     const limit = filters?.limit || filteredChildren.length;
-    const shownNodes = filteredChildren.slice(Math.max(0, filteredChildren.length - limit));
+    // Children are ordered highest priority first, so pagination keeps the first `limit`
+    const shownNodes = filteredChildren.slice(0, limit);
     const allShownNodes = [...getTransformationalNodes(node, shownNodes, direction, context), ...shownNodes];
 
     // Build parent map
@@ -154,7 +198,10 @@ function applyFilters(
             contents: contents.map((n) => n.urn),
             shown: new Set(allShownNodes.map((n) => n.urn)),
         };
-        result.push(filterNode);
+        lineageFilters.set(filterNode.id, filterNode);
+        if (createFilterNodes) {
+            result.push(filterNode);
+        }
     }
     if (node) {
         result.push(...allShownNodes);

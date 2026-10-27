@@ -8,7 +8,8 @@ import com.linkedin.common.CustomProperties
  * Properties associated with a ERModelRelationship
  */
 @Aspect = {
-  "name": "erModelRelationshipProperties"
+  "name": "erModelRelationshipProperties",
+  "schemaVersion": 2
 }
 record ERModelRelationshipProperties includes CustomProperties {
 
@@ -18,7 +19,16 @@ record ERModelRelationshipProperties includes CustomProperties {
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 
@@ -30,6 +40,9 @@ record ERModelRelationshipProperties includes CustomProperties {
      "entityTypes": [ "dataset" ]
    }
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
     "boostScore": 10.0
@@ -44,6 +57,9 @@ record ERModelRelationshipProperties includes CustomProperties {
      "entityTypes": [ "dataset" ]
    }
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
     "boostScore": 10.0
@@ -62,7 +78,13 @@ record ERModelRelationshipProperties includes CustomProperties {
   @Searchable = {
     "/time": {
       "fieldName": "createdAt",
-      "fieldType": "DATETIME"
+      "fieldType": "DATETIME",
+      "v3": {
+        "searchLabel": "sourceCreatedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   created: optional AuditStamp
@@ -73,7 +95,13 @@ record ERModelRelationshipProperties includes CustomProperties {
   @Searchable = {
     "/time": {
       "fieldName": "lastModifiedAt",
-      "fieldType": "DATETIME"
+      "fieldType": "DATETIME",
+      "v3": {
+        "searchLabel": "sourceLastModifiedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   lastModified: optional AuditStamp
@@ -81,10 +109,5 @@ record ERModelRelationshipProperties includes CustomProperties {
   /**
    * Cardinality of the relationship
    */
-  cardinality: enum ERModelRelationshipCardinality {
-   ONE_ONE
-   ONE_N
-   N_ONE
-   N_N
-  } = "N_N"
+  cardinality: ERModelRelationshipCardinality = "N_N"
 }

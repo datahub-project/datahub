@@ -1,5 +1,5 @@
 ---
-title: Data Contracts Monitoring
+title: Data Contracts
 description: "Define Data Contracts in DataHub Cloud Observe as agreements between producers and consumers covering schema, freshness, and quality."
 ---
 
@@ -69,11 +69,11 @@ When creating a Data Contract via UI, the Freshness, Schema, and Data Quality as
 
 ### API
 
-_API guide on creating data contract is coming soon!_
+See the [Data Contracts API guide](/docs/api/tutorials/data-contracts.md) to create and manage data contracts with GraphQL.
 
 ## How to Run Data Contracts
 
-Running Data Contracts is dependent on running the contract’s assertions and getting the results on DataHub. Using DataHub Cloud Observe (available on SAAS), you can schedule assertions on DataHub itself. Otherwise, you can run your assertions outside of DataHub and have the results published back to DataHub.
+Running Data Contracts is dependent on running the contract’s assertions and getting the results on DataHub. Using DataHub Cloud Observe, you can schedule assertions on DataHub itself. Otherwise, you can run your assertions outside of DataHub and have the results published back to DataHub.
 
 DataHub integrates nicely with DBT Test and Great Expectations, as described below. For other 3rd party assertion runners, you’ll need to use our APIs to publish the assertion results back to our platform.
 

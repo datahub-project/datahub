@@ -1,0 +1,11 @@
+{
+    "allDomains": "Összes tartomány",
+    "dataLandscapeSummary": "Adatkörnyezet összefoglalója",
+    "domainLandscapeSummary": "Tartománykörnyezet összefoglalója",
+    "failedToLoadCharts": "Nem sikerült betölteni a diagramokat",
+    "failedToLoadDomains": "Nem sikerült betölteni a tartományokat",
+    "failedToLoadHighlights": "Nem sikerült betölteni a kiemeléseket",
+    "noDomainData": "Nincs elemzési adat ehhez a tartományhoz",
+    "selectDomain": "Tartomány kiválasztása",
+    "usageAnalytics": "Használati elemzés"
+}

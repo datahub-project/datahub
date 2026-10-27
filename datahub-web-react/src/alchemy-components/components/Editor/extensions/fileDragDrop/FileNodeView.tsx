@@ -2,10 +2,12 @@ import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { NodeViewComponentProps } from '@remirror/react';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
+import { SyntaxHighlighter } from '@components/components/CodeBlock/highlighter';
+import { getCodeBlockPrismStyle } from '@components/components/CodeBlock/prismTheme';
+import { useHighlightLanguage } from '@components/components/CodeBlock/useHighlightLanguage';
 import {
     FILE_ATTRS,
     FILE_TYPES_TO_PREVIEW,
@@ -16,6 +18,8 @@ import {
     handleFileDownload,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileNode } from '@components/components/FileNode/FileNode';
+
+import { safeUrl } from '@app/sharedV2/urlUtils';
 
 const FileContainer = styled.div<{ $isInline?: boolean }>`
     display: inline-block;
@@ -44,7 +48,11 @@ const StyledFileNode = styled(FileNode)`
     max-width: 350px;
 `;
 
-const StyledSyntaxHighlighter = styled(SyntaxHighlighter)`
+// Without an explicit `style`, react-syntax-highlighter uses a hardcoded light
+// Prism theme, so token text stays near-black on the dark surface below.
+const StyledSyntaxHighlighter = styled(SyntaxHighlighter).attrs(({ theme }) => ({
+    style: getCodeBlockPrismStyle(theme.colors),
+}))`
     background-color: ${({ theme }) => theme.colors.bgSurface} !important;
     border: none !important;
 `;
@@ -106,6 +114,8 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
     const [isPreviewVisible, setIsPreviewVisible] = useState(true);
     const { url, name, type, size, id } = node.attrs;
     const extension = getExtensionFromFileName(name);
+    const highlightLanguage = extension || 'text';
+    useHighlightLanguage(highlightLanguage);
     const fileType = type || getFileTypeFromFilename(name);
     const shouldWrap = extension === 'txt';
     const isPdf = fileType === 'application/pdf';
@@ -206,7 +216,9 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
                         onMouseLeave={() => setIsResizingPdf(false)}
                     >
                         <PdfViewer
-                            src={url}
+                            // A file node's url is parsed from persisted rich-text without scheme
+                            // validation, so guard the iframe src against javascript:/data: (stored XSS).
+                            src={safeUrl(url)}
                             title={name}
                             onError={() => setPdfError(true)}
                             $isResizing={isResizingPdf}
@@ -240,7 +252,7 @@ export const FileNodeView: React.FC<FileNodeViewProps> = ({ node, onFileDownload
                 {fileNodeWithButton}
                 {isPreviewVisible && (
                     <StyledSyntaxHighlighter
-                        language={extension || 'text'}
+                        language={highlightLanguage}
                         customStyle={{
                             maxHeight: 250,
                             borderRadius: 8,

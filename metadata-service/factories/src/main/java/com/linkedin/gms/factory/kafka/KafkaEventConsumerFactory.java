@@ -3,9 +3,11 @@ package com.linkedin.gms.factory.kafka;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_BATCH_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_EVENT_CONSUMER_NAME;
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_BATCH_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CONSUMER_NAME;
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.PE_EVENT_CONSUMER_NAME;
 
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
@@ -23,6 +25,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -33,6 +37,8 @@ import org.springframework.kafka.support.serializer.DeserializationException;
 
 @Slf4j
 @Configuration
+@Import(AwsClientFactory.class)
+@DependsOn("defaultAwsCredentialsProvider")
 public class KafkaEventConsumerFactory {
   private int kafkaEventConsumerConcurrency;
   private int authExceptionRetryIntervalSeconds;
@@ -69,22 +75,6 @@ public class KafkaEventConsumerFactory {
     Map<String, Object> customizedProperties =
         buildCustomizedProperties(
             baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, false);
-
-    return new DefaultKafkaConsumerFactory<>(customizedProperties);
-  }
-
-  @Bean(name = "duheKafkaConsumerFactory")
-  protected DefaultKafkaConsumerFactory<String, GenericRecord> duheKafkaConsumerFactory(
-      @Qualifier("configurationProvider") ConfigurationProvider provider,
-      KafkaProperties baseKafkaProperties,
-      @Qualifier("duheSchemaRegistryConfig")
-          KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
-
-    KafkaConfiguration kafkaConfiguration = provider.getKafka();
-    // Bootstrap is shared for DUHE since it does not need to preserve history in migrations
-    Map<String, Object> customizedProperties =
-        buildCustomizedProperties(
-            baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, true, true);
 
     return new DefaultKafkaConsumerFactory<>(customizedProperties);
   }
@@ -165,6 +155,7 @@ public class KafkaEventConsumerFactory {
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
         kafkaConfiguration.getConsumer().getMaxPartitionFetchBytes());
 
+    KafkaMskIamAuth.configure(customizedProperties);
     return customizedProperties;
   }
 
@@ -192,6 +183,20 @@ public class KafkaEventConsumerFactory {
         kafkaConsumerFactory,
         configurationProvider.getKafka().getConsumer().isStopOnDeserializationError(),
         configurationProvider.getKafka().getConsumer().getMcp());
+  }
+
+  @Bean(name = MCP_BATCH_EVENT_CONSUMER_NAME)
+  protected KafkaListenerContainerFactory<?> mcpBatchEventConsumer(
+      @Qualifier("kafkaConsumerFactory")
+          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      @Qualifier("configurationProvider") ConfigurationProvider configurationProvider) {
+
+    return buildDefaultKafkaListenerContainerFactory(
+        MCP_BATCH_EVENT_CONSUMER_NAME,
+        kafkaConsumerFactory,
+        configurationProvider.getKafka().getConsumer().isStopOnDeserializationError(),
+        configurationProvider.getKafka().getConsumer().getMcp(),
+        true);
   }
 
   @Bean(name = MCL_EVENT_CONSUMER_NAME)
@@ -300,28 +305,6 @@ public class KafkaEventConsumerFactory {
         batchListener ? " (batch)" : "",
         kafkaEventConsumerConcurrency);
 
-    return factory;
-  }
-
-  @Bean(name = "duheKafkaEventConsumer")
-  protected KafkaListenerContainerFactory<?> duheKafkaEventConsumer(
-      @Qualifier("duheKafkaConsumerFactory")
-          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory) {
-
-    ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =
-        new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConsumerFactory(kafkaConsumerFactory);
-    factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
-    factory.setConcurrency(1);
-    factory.setAutoStartup(false);
-    if (authExceptionRetryIntervalSeconds > 0) {
-      factory
-          .getContainerProperties()
-          .setAuthExceptionRetryInterval(Duration.ofSeconds(authExceptionRetryIntervalSeconds));
-    }
-
-    log.info(
-        "Event-based DUHE KafkaListenerContainerFactory built successfully. Consumer concurrency = 1");
     return factory;
   }
 }

@@ -1,0 +1,13 @@
+{
+    "appearance.subTitle": "Administrer utseendeinnstillingene dine.",
+    "appearance.title": "Utseende",
+    "darkMode.beta": "Beta",
+    "darkMode.description": "Bruk et mørkt fargetema i hele DataHub.",
+    "darkMode.title": "Mørk modus",
+    "language.description": "Velg foretrukket visningsspråk",
+    "language.title": "Språk for brukergrensesnittet",
+    "noSettings": "Fant ingen utseendeinnstillinger.",
+    "showApplications.description": "Applikasjoner er en annen måte å organisere dataene dine på, i likhet med domener. De er skjult som standard.",
+    "showApplications.successMessage": "Innstilling oppdatert!",
+    "showApplications.title": "Vis applikasjoner"
+}

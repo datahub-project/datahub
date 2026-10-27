@@ -11,6 +11,8 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.matillion_dpc.constants import (
+    DEFAULT_REQUEST_TIMEOUT_SEC,
+    MATILLION_AU1_URL,
     MATILLION_EU1_URL,
     MATILLION_US1_URL,
     MAX_EXECUTIONS_PER_PIPELINE_WARNING_THRESHOLD,
@@ -30,12 +32,15 @@ logger = logging.getLogger(__name__)
 class MatillionRegion(ConfigEnum):
     EU1 = "EU1"
     US1 = "US1"
+    AU1 = "AU1"
 
     def get_url(self) -> str:
         if self == MatillionRegion.EU1:
             return MATILLION_EU1_URL
         elif self == MatillionRegion.US1:
             return MATILLION_US1_URL
+        elif self == MatillionRegion.AU1:
+            return MATILLION_AU1_URL
         else:
             raise ValueError(f"Unknown region: {self}")
 
@@ -80,7 +85,7 @@ class MatillionAPIConfig(ConfigModel):
 
     region: MatillionRegion = Field(
         default=MatillionRegion.EU1,
-        description="Matillion Data Productivity Cloud region (EU1 or US1)",
+        description="Matillion Data Productivity Cloud region (EU1, US1, or AU1)",
     )
     custom_base_url: Optional[str] = Field(
         default=None,
@@ -91,7 +96,9 @@ class MatillionAPIConfig(ConfigModel):
         description="Custom OAuth2 token endpoint URL for VPC endpoints or on-premise installations.",
     )
     request_timeout_sec: int = Field(
-        default=30, description="Request timeout in seconds"
+        default=DEFAULT_REQUEST_TIMEOUT_SEC,
+        description="Per-request timeout in seconds. On timeouts, prefer narrowing "
+        "start_time/end_time or enabling stateful ingestion over a large timeout.",
     )
 
     @field_validator("custom_base_url")
@@ -172,6 +179,8 @@ class MatillionSourceReport(StaleEntityRemovalSourceReport):
     api_calls_count: int = 0
     containers_emitted: int = 0
     lineage_emitted: int = 0
+    lineage_jobs_skipped_no_environment: int = 0
+    lineage_dependent_pipelines_skipped: int = 0
     streaming_pipelines_scanned: int = 0
     streaming_pipelines_emitted: int = 0
     sql_parsing_attempts: int = 0
@@ -289,8 +298,9 @@ class MatillionSourceConfig(
 
     extract_projects_to_containers: bool = Field(
         default=True,
-        description="Whether to extract Matillion projects as DataHub containers. "
-        "When enabled, pipelines are organized under project containers, providing hierarchical navigation.",
+        description="Whether to add the top-level Matillion project as a DataHub container. "
+        "Environment and folder containers are always created; this only controls whether they "
+        "are nested under a project container or hang at the root.",
     )
 
     include_unpublished_pipelines: bool = Field(
@@ -298,6 +308,28 @@ class MatillionSourceConfig(
         description="Whether to discover and ingest unpublished pipelines from recent execution history. "
         "When enabled, the connector will discover pipelines that have been executed but not yet published. "
         "Disable this to only ingest published pipelines from the published-pipelines API.",
+    )
+
+    extract_run_history: bool = Field(
+        default=False,
+        description="Emit run history (DataProcessInstances) for published pipelines by fetching "
+        "their executions in the time window. Implied when include_unpublished_pipelines is enabled.",
+    )
+
+    include_dependent_pipelines: bool = Field(
+        default=True,
+        description="Whether to ingest dependent (child) pipelines that are only referenced via "
+        "lineage events and were not discovered as project pipelines (published or via execution "
+        "history). When disabled, lineage is still emitted for discovered pipelines, but these "
+        "lineage-only dependencies are not created as their own DataFlows/DataJobs.",
+    )
+
+    include_external_urls: bool = Field(
+        default=False,
+        description="Whether to emit links back to the Matillion console (project, run, and "
+        "pipeline). Off by default because the pipeline link searches the observability dashboard "
+        "by file name and only resolves for pipelines that ran recently and whose editor name "
+        "matches their file name. Enable to add all Matillion external links.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(

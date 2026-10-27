@@ -320,13 +320,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tmp/decorated_asset_output.txt,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/decorated_asset_output.txt,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:file",
-            "name": "tmp/decorated_asset_output.txt",
+            "name": "/tmp/decorated_asset_output.txt",
             "origin": "PROD"
         }
     }
@@ -428,20 +428,20 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:file,tmp/decorated_asset_output.txt,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/decorated_asset_output.txt,PROD)"
             ]
         }
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tmp/decorated_asset_output.txt,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/decorated_asset_output.txt,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:file",
-            "name": "tmp/decorated_asset_output.txt",
+            "name": "/tmp/decorated_asset_output.txt",
             "origin": "PROD"
         }
     }
@@ -465,7 +465,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tmp/decorated_asset_output.txt,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/decorated_asset_output.txt,PROD)",
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
@@ -541,7 +541,7 @@
         "json": {
             "inputDatasets": [],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:file,tmp/decorated_asset_output.txt,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/decorated_asset_output.txt,PROD)"
             ],
             "inputDatajobs": [],
             "fineGrainedLineages": []
@@ -550,13 +550,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tmp/decorated_asset_output.txt,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/decorated_asset_output.txt,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:file",
-            "name": "tmp/decorated_asset_output.txt",
+            "name": "/tmp/decorated_asset_output.txt",
             "origin": "PROD"
         }
     }
@@ -624,7 +624,7 @@
     "aspect": {
         "json": {
             "outputs": [
-                "urn:li:dataset:(urn:li:dataPlatform:file,tmp/decorated_asset_output.txt,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:file,/tmp/decorated_asset_output.txt,PROD)"
             ]
         }
     }

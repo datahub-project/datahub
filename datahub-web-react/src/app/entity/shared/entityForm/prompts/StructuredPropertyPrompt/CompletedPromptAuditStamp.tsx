@@ -1,10 +1,8 @@
-import Icon from '@ant-design/icons';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import { Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-
-import GreenCircleIcon from '@images/greenCircleTwoTone.svg?react';
 
 const PadIcon = styled.div`
     align-items: flex-start;
@@ -38,9 +36,9 @@ const AuditStampSubTitle = styled.div`
     word-wrap: break-word;
 `;
 
-const StyledIcon = styled(Icon)`
-    font-size: 16px;
+const StyledCheckCircle = styled(CheckCircle).attrs({ size: 16, weight: 'fill' })`
     margin-right: 4px;
+    color: ${(props) => props.theme.colors.iconSuccess};
 `;
 
 const AuditWrapper = styled.div`
@@ -58,7 +56,7 @@ export default function CompletedPromptAuditStamp({ completedByName, completedBy
     return (
         <CompletedPromptContainer>
             <PadIcon>
-                <StyledIcon component={GreenCircleIcon} />
+                <StyledCheckCircle />
             </PadIcon>
             <AuditWrapper>
                 <AuditStamp>

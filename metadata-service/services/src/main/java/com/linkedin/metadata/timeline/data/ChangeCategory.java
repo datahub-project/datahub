@@ -35,7 +35,11 @@ public enum ChangeCategory {
   // Related entities changes (Currently used for document related assets, related documents, etc.)
   RELATED_ENTITIES,
   // Asset membership changes (e.g. assets added/removed from a Data Product)
-  ASSET_MEMBERSHIP;
+  ASSET_MEMBERSHIP,
+  // Version lifecycle events — version created, promoted, or versionTag changed within a
+  // VersionSet. Emitted for any entity type that carries VersionProperties. Does NOT cover
+  // lifecycle-stage transitions (DRAFT → PUBLISHED etc.), which live on a separate aspect.
+  VERSIONING;
 
   public static final Map<List<String>, ChangeCategory> COMPOUND_CATEGORIES;
 

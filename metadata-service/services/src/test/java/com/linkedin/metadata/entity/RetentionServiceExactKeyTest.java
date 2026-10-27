@@ -57,6 +57,11 @@ public class RetentionServiceExactKeyTest {
           }
 
           @Override
+          protected com.linkedin.entity.client.SystemEntityClient getSystemEntityClient() {
+            return mock(com.linkedin.entity.client.SystemEntityClient.class);
+          }
+
+          @Override
           protected AspectsBatch buildAspectsBatch(
               @Nonnull OperationContext opContext,
               List<MetadataChangeProposal> mcps,
@@ -65,10 +70,12 @@ public class RetentionServiceExactKeyTest {
           }
 
           @Override
-          protected void applyRetention(List<RetentionContext> retentionContexts) {}
+          protected void applyRetention(
+              @Nonnull OperationContext opContext, List<RetentionContext> retentionContexts) {}
 
           @Override
-          public void batchApplyRetention(String entityName, String aspectName) {}
+          public void batchApplyRetention(
+              @Nonnull OperationContext opContext, String entityName, String aspectName) {}
 
           @Override
           public BulkApplyRetentionResult batchApplyRetentionEntities(

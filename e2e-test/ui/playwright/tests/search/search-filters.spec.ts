@@ -7,13 +7,16 @@
 
 import { test } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'search' });
 
 test.describe('Search Filters V2', () => {
   let searchPage: SearchPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     searchPage = new SearchPage(page, logger, logDir);
     await searchPage.navigateToHome();
   });
@@ -24,7 +27,7 @@ test.describe('Search Filters V2', () => {
     await searchPage.expectFiltersV1NotVisible();
   });
 
-  test('should add and remove multiple filters with no issues', async () => {
+  test('should add and remove multiple filters with no issues', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await searchPage.searchAndWait('*', 2000);
 
     await searchPage.selectFilterOption('Type', 'Datasets');

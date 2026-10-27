@@ -66,8 +66,6 @@ By default, DataHub relies on the a set of Kafka topics to operate. By default, 
 9. **MetadataGraphEvent_v4**:
 10. **MetadataGraphEvent_v4**:
 11. **PlatformEvent_v1**:
-12. **DataHubUpgradeHistory_v1**: Notifies the end of DataHub Upgrade job so dependants can act accordingly (_eg_, startup).
-    Note this topic requires special configuration: **Infinite retention**. Also, 1 partition is enough for the occasional traffic.
 
 How Metadata Events relate to these topics is discussed at more length in [Metadata Events](../what/mxe.md).
 
@@ -92,6 +90,7 @@ the System Update container for topic setup:
 
 - `DATAHUB_PRECREATE_TOPICS`: Defaults to true, set this to false if you intend to create and configure the topics yourself and not have DataHub create them.
 - `DATAHUB_AUTO_INCREASE_PARTITIONS`: Defaults to false, controls whether DataHub automatically increases partition counts for existing topics when configured partition count exceeds current count. Only applies when `DATAHUB_PRECREATE_TOPICS` is enabled. Note that Kafka does not support decreasing partition counts and attempting to do so is treated as an error when this setting is enabled.
+- `KAFKA_SETUP_RECONCILE_EXISTING_TOPIC_CONFIGS`: Defaults to false. When enabled, the topic setup step aligns the declared `configProperties` of pre-existing topics with `application.yaml` on every run, using Kafka's `incrementalAlterConfigs` with `SET` (additive — keys you have not declared are left untouched). Useful when topics were auto-created by the broker or pre-existed before being declared, and therefore inherited broker defaults. Only applies when `DATAHUB_PRECREATE_TOPICS` is enabled, and requires the DataHub Kafka principal to have `ALTER_CONFIGS` on the affected topics.
 
 ### MCE Consumer (datahub-mce-consumer)
 
@@ -246,8 +245,10 @@ default Spring Kafka environment values, for example:
 - `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SECURITY_PROTOCOL`
 - `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_KEYSTORE_LOCATION`
 - `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_KEYSTORE_PASSWORD`
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_KEYSTORE_TYPE`
 - `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_TRUSTSTORE_LOCATION`
 - `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_TRUSTSTORE_PASSWORD`
+- `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_TRUSTSTORE_TYPE`
 
 [GMS](../what/gms.md) can set the following environment variables that will be passed as properties when creating the Schema Registry
 Client.
@@ -255,8 +256,15 @@ Client.
 - `KAFKA_SCHEMA_REGISTRY_SECURITY_PROTOCOL`
 - `KAFKA_SCHEMA_REGISTRY_SSL_KEYSTORE_LOCATION`
 - `KAFKA_SCHEMA_REGISTRY_SSL_KEYSTORE_PASSWORD`
+- `KAFKA_SCHEMA_REGISTRY_SSL_KEYSTORE_TYPE`
 - `KAFKA_SCHEMA_REGISTRY_SSL_TRUSTSTORE_LOCATION`
 - `KAFKA_SCHEMA_REGISTRY_SSL_TRUSTSTORE_PASSWORD`
+- `KAFKA_SCHEMA_REGISTRY_SSL_TRUSTSTORE_TYPE`
+
+`KAFKA_SCHEMA_REGISTRY_SSL_KEYSTORE_TYPE` and `KAFKA_SCHEMA_REGISTRY_SSL_TRUSTSTORE_TYPE` are forwarded only when set
+(for example `PEM` or `PKCS12`). Leave them unset to keep the schema-registry client's default store type. An unset
+type does not clear `SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_KEYSTORE_TYPE` or
+`SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_SSL_TRUSTSTORE_TYPE`.
 
 > **Note** In the logs you might see something like
 > `The configuration 'kafkastore.ssl.truststore.password' was supplied but isn't a known config.` The configuration is

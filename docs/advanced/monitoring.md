@@ -472,7 +472,7 @@ Each consumer automatically records queue time metrics using the message's embed
 
 Metric: `messaging.queue.time`
 
-- Type: Timer with configurable percentiles and SLO buckets
+- Type: Timer with percentile histogram and configurable SLO buckets (use `histogram_quantile()` or SLO bucket rates for alerting — client-side `quantile` gauges are not exported)
 - Unit: Milliseconds
 - Tags:
   - `messaging.system`: `kafka` or `pgqueue`
@@ -488,7 +488,7 @@ The timer automatically tracks:
 - Count: Total messages processed
 - Sum: Cumulative queue time
 - Max: Highest queue time observed
-- Percentiles: p50, p95, p99, p99.9 (configurable)
+- Histogram buckets: `_bucket` series for percentile estimates via `histogram_quantile()` and SLO compliance
 - SLO Buckets: Percentage of messages meeting latency targets
 
 #### Configuration Guide
@@ -499,9 +499,6 @@ Default Configuration:
 kafka:
   consumer:
     metrics:
-      # Percentiles to calculate
-      percentiles: "0.5,0.95,0.99,0.999"
-
       # Service Level Objective buckets (seconds)
       slo: "300,1800,3600,10800,21600,43200" # 5m,30m,1h,3h,6h,12h
 
@@ -567,7 +564,7 @@ Micrometer queue time metrics coexist with the legacy DropWizard `kafkaLag` hist
 
 The new metrics provide:
 
-- Better percentile accuracy
+- Histogram-based percentile estimates (`histogram_quantile()` over `_bucket` series)
 - SLO bucket tracking
 - Multi-backend support
 - Dimensional tagging
@@ -870,10 +867,11 @@ performance under load.
 ```yaml
 graphQL.concurrency:
   separateThreadPool: true
-  corePoolSize: 20 # Base threads
-  maxPoolSize: 200 # Scale under load
+  scaleWithProcessors: false # true restores availableProcessors()*5 / *100 and SynchronousQueue
+  corePoolSize: 40 # 8-core default (5 * 8); < 0 uses 5 * cores
+  maxPoolSize: 800 # 8-core cap (100 * 8); <= 0 uses 100 * cores
+  queueSize: 0 # 0 = SynchronousQueue (blocking GraphQL fan-out); > 0 = bounded queue
   keepAlive: 60 # Seconds before idle thread removal
-  # Handles complex GraphQL query resolution
 ```
 
 #### 2. Batch Processing Executors
@@ -1096,6 +1094,64 @@ Key Decisions and Rationale:
    - Reduced code complexity
    - Consistent naming across telemetry types
 
+### API usage aggregation metrics
+
+GMS aggregates API usage in-memory (`datahub.usage.aggregation`), flushes on a schedule, and exports to Micrometer. This is **operational** API usage metrics for Prometheus/Grafana — distinct from [product telemetry](../deploy/telemetry.md) (anonymous usage stats) and from Kafka `DataHubUsageEvent` product analytics.
+
+**Architecture:** Requests are tagged at call sites with a `UsageOperation` key governed by `usage_operations.yaml`. Only explicitly tagged requests are recorded — untagged traffic is not aggregated. The in-memory store (`InMemoryUsageAggregationStore` in `com.linkedin.metadata.usage.store`) rolls up additive counters (requests, bytes) and distinct identity sets (active users/readers/writers), then flushes on a schedule, max window, or cardinality threshold via `AdaptiveFlushCoordinator`.
+
+**Instrumentation:**
+
+- **Classification:** Set `withUsageOperation(...)` on OpenAPI/Rest.li controllers, or rely on GraphQL classification in `SpringQueryContext` via `GraphqlUsageClassificationRegistry`. Direct Kafka/pgQueue MCP consumption on the MCE consumer records `metadata_ingest` with `request_api=messaging` when `USAGE_AGGREGATION_ENABLED=true` on MCE. Untagged routes (health checks, GraphiQL, admin) are not recorded. For GraphQL, named operations use `graphql.operation_names` entries in `usage_operations.yaml`; anonymous requests use `graphql.root_fields` overrides then code heuristics (`search*`, `scroll*`, `browse*`, `*Lineage*`). Entity GraphQL queries (including `getDataset`) classify as `metadata_query` because nested selections vary in cost — `metadata_read` is emitted from OpenAPI/Rest.li call sites only.
+- **Input bytes:** `Content-Length` from the request when available (`buildOpenapi`, `buildGraphql`, and `buildRestli` apply this automatically). Omitted when streaming/chunked or length is unknown.
+- **Output bytes:** Best-effort via `RequestContext.resolveResponseOutputBytes`; omitted (`null`) for streaming or chunked responses.
+
+**Exported metrics (on flush, default every 60s):**
+
+| Metric                            | Type    | Description                                                  |
+| --------------------------------- | ------- | ------------------------------------------------------------ |
+| `datahub_request_count`           | Counter | API requests per flush window                                |
+| `datahub.usage.input_bytes`       | Counter | Request body bytes per window (all instrumented requests)    |
+| `datahub.usage.output_bytes`      | Counter | Response body bytes per window                               |
+| `datahub.usage.active_identities` | Gauge   | Unique active users/readers/writers in the last flush window |
+
+**Tags:** `usage_operation`, `actor_class` (`regular` / `system` / `support`), `agent_class`, `request_api`, `auth_channel` (`session`, `pat`, `oauth`, `system`, `anonymous`, `unknown`) on request and byte counters. On `datahub.usage.active_identities`, only `identity_metric` (`active_users`, `active_readers`, `active_writers`) and `actor_class` are exported. The gauge is the count of **unique catalog identities** in that actor class during the flush window (one in-memory bucket per pair; empty windows publish `0` rather than omitting the series).
+
+**Actor classification:**
+
+| Tag / metric              | Source                                   | Meaning                                                                          |
+| ------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------- |
+| `agent_class`             | User-Agent parsing (`AgentClass`)        | Client type: browser, CLI, ingestion, SDK, etc.                                  |
+| `actor_class`             | `UsageActorClassResolver` at record time | Usage bucket: `regular`, `system`, or `support` (support users and admin actors) |
+| Legacy JMX `userCategory` | `UsageActorClass.fromActorUrn()`         | URN-only classification; support users remain `regular` on this path             |
+
+**Distinct activity metrics** (each exported on `datahub.usage.active_identities` with an `identity_metric` tag; distinct identity sets are tracked **per `actor_class`** so regular, support, and system buckets do not mix):
+
+- `active_users` — any catalog read, write, or operational activity
+- `active_readers` — catalog reads **and** operational/admin activity (`activity_class: operation` in `usage_operations.yaml`)
+- `active_writers` — catalog metadata writes and deletes (`activity_class: write` with `default_cost_units > 0` in `usage_operations.yaml`; zero-cost writes such as `other_write` count toward `active_users` only)
+
+**MCE consumer:** Can run the same aggregation stack for queue-path `metadata_ingest` (`request_api=messaging`); MAE and upgrade force `datahub.usage.aggregation.enabled=false`. Async REST ingest is counted on GMS only — GMS stamps `X-DataHub-Usage-PreRecorded` on the outbound MCP `headers` map so MCE does not double-count (transport-agnostic across Kafka and pgQueue).
+
+**Flush retries:** The store retries the Micrometer flush sink on failure. `UsageFlushSinkComposer` tracks which delegates already succeeded for a given batch and skips them on retry so counters are not double-counted.
+
+**Flush window alignment (optional):** Set `USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS` to an arbitrary positive period in seconds (`0` default = disabled). Alignment **only splits** closed windows at the next UTC calendar boundary via `alignDown` / `nextBoundary` — it does **not** rewrite window open times to the grid floor. Mid-period windows keep process-relative open/close (`[start, flushTime)`); the next window opens at that flush Instant (or at the boundary Instant when a drain crosses one). Multiple batches per period are normal — sum additive counters and union distinct identities by grouping on `alignDown(window_start)` for the configured `N` seconds (examples: `60`, `300`, `3600`, `86400`). The coordinator still ticks on `USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS` (default 60s) and flushes before the next boundary when within one interval of it. Keep the flush interval > 0 when alignment is enabled; with `scheduledIntervalSeconds=0`, flushes rely on `maxWindowSeconds` and cardinality triggers only, which can miss boundary timing unless `maxWindowSeconds` divides the alignment period cleanly.
+
+Only instrumented requests are aggregated. Set `USAGE_AGGREGATION_ENABLED=true` to enable (default `false` in `application.yaml`; Docker quickstart and debug compose default to `true`, with flush interval `30` and alignment period `3600`).
+
+**Legacy JMX metrics:** `requestContext_{userCategory}_{agentClass}_{requestAPI}` Dropwizard counters are unchanged. `userCategory` is derived from `UsageActorClass.fromActorUrn()`.
+
+**Example PromQL:**
+
+```promql
+sum by (usage_operation) (rate(datahub_request_count[5m]))
+sum(rate(datahub.usage.input_bytes[5m]))
+# Total metadata_ingest across GMS (openapi/restli) and MCE (messaging):
+sum by (request_api) (rate(datahub_request_count{usage_operation="metadata_ingest"}[5m]))
+```
+
+`usage_operation` is bounded by the yaml-governed taxonomy (≤12 keys) — do not expect per-GraphQL-operation-name series.
+
 ### Future State
 
 <p align="center">
@@ -1139,6 +1195,27 @@ dashboards: [JVM dashboard](https://grafana.com/grafana/dashboards/14845) and Da
 scrape job for port **4319**. Outside Docker, leave `MANAGEMENT_SERVER_PORT` unset so Actuator stays on the main
 application port; set it when you want a separate management listener (Spring maps the env var to
 `management.server.port`).
+
+The Play frontend exports HTTP server pool gauges on that scrape, comparable to GMS Jetty
+`jetty_threads_*` / `jetty_connections_*`. Request handling runs on Pekko's default dispatcher (a fork-join
+pool shared with other Pekko actors). Pekko HTTP does not expose a live connection count, so the connection
+series are the configured limits.
+
+| Series                                                          | Meaning                                                   |
+| --------------------------------------------------------------- | --------------------------------------------------------- |
+| `play_http_threads_busy`                                        | Threads actively executing on the dispatcher              |
+| `play_http_threads_idle`                                        | Dispatcher threads not executing                          |
+| `play_http_threads_current`                                     | Current dispatcher pool size                              |
+| `play_http_threads_jobs`                                        | Tasks queued on the dispatcher                            |
+| `play_http_threads_parallelism`                                 | Live pool cap (saturation denominator)                    |
+| `play_http_threads_config_min` / `play_http_threads_config_max` | Configured fork-join parallelism bounds                   |
+| `play_http_connections_max`                                     | Configured `pekko.http.server.max-connections`            |
+| `play_http_connections_backlog`                                 | Configured accept backlog                                 |
+| `play_http_requests_inflight`                                   | Requests inside the Play filter chain, including `/admin` |
+
+```promql
+play_http_threads_busy / play_http_threads_parallelism
+```
 
 In the JVM dashboard, you can find detailed charts based on JVM metrics like CPU/memory/disk usage. In the DataHub
 dashboard, you can find charts to monitor each endpoint and the kafka topics. Using the example implementation, go
@@ -1190,4 +1267,19 @@ Or start the base stack with `./gradlew quickstartDebug` and add monitoring comp
 
 ## Health check endpoint
 
-For monitoring healthiness of your DataHub service, `/admin` endpoint can be used.
+`GET /admin` and `GET /health` on the main HTTP port (9002) are **deprecated** for health checks. Both still return `200 GOOD`, or `503` while graceful shutdown is in progress, and they do not call GMS. They remain only so existing monitors keep working. New checks, including Kubernetes probes and the Docker `HEALTHCHECK`, should use the management listener below. `datahub-dev` still calls `/admin` and should move off it before that route is removed.
+
+Those routes run on the Play server. A burst of slow upstream calls holds Play connections (GMS proxy waits up to 120s; the OTEL collector, login, and SSO hold a connection too), and once that table is full a probe to port 9002 can connect and then time out waiting for headers. Liveness and readiness must not share that failure mode.
+
+The management listener (`MANAGEMENT_SERVER_PORT`, default **4319**) starts whenever that port is set, including when Prometheus export is disabled. `/actuator/prometheus` is registered on the same port only when a Prometheus registry exists. The listener has its own thread pool. `GET /health/live` and `GET /health/ready` are counted on `frontend_management_health_inflight`. That is the management-port counterpart of Play's `play_http_requests_inflight`, which counts `/admin` and `/health` on port 9002 because those routes still run in the Play filter chain. A stuck management probe shows up on `frontend_management_health_inflight`; a saturated Play pool does not, because these paths never enter it.
+
+| Path                | Meaning                                                                                                                                                                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /health/live`  | **200** if this listener can run. Process is up. This is the restart signal (Docker `HEALTHCHECK` uses it). It does not check GMS, saturation, or shutdown.                                                                              |
+| `GET /health/ready` | **200** when the process has finished starting, is not shutting down, and in-flight upstream calls are at or below the low-water mark. **503** while starting (`Starting`), shutting down (`Shutting down`), or saturated (`Saturated`). |
+
+Readiness fails when in-flight upstream calls reach **90%** of `DATAHUB_FRONTEND_PROXY_MAX_IN_FLIGHT` (default **1024**, Pekko HTTP's `max-connections`) and recovers when they fall to **70%**. The 20% band stops readiness from flapping on a few requests without holding a pod out of rotation while a large share of the budget drains. GMS (`/api`, `/openapi`), login and signup, SSO, and in-flight OTEL forwards share that one budget. Browser trace export (`/otel/v1/traces`) also has its own cap of **100**, so a collector storm returns **503** before it can use the rest of the shared budget. At **100%** of the shared cap, a new call on those paths returns **503** with `Retry-After: 1` and is not forwarded. That sheds load before Play stops writing response headers.
+
+Point Kubernetes liveness at `GET /health/live` and readiness at `GET /health/ready` on port **4319**. Do not prefix those paths with `DATAHUB_BASE_PATH`. Current Helm charts still probe `/admin` on port 9002 until the chart is updated. That chart change is the deprecation of `/admin` as a probe: stop pointing liveness and readiness at it, then remove the route in a later release once monitors have moved.
+
+`/health/ready` does not mean GMS is healthy. A down or slow GMS should produce a fast proxy error (or 503 once the cap is hit) and can take the pod out of rotation. It should not restart the pod.

@@ -13,17 +13,31 @@ import urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from itertools import islice
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from google.cloud import dataplex_v1
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
-from datahub.metadata.urns import DatasetUrn, GlossaryNodeUrn, GlossaryTermUrn
-from datahub.sdk.dataset import Dataset
+from datahub.ingestion.source.dataplex.dataplex_external_entities import (
+    DataplexAspectPlatformResource,
+)
+from datahub.ingestion.source.dataplex.dataplex_platform_resource_repository import (
+    DataplexPlatformResourceRepository,
+)
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermsClass,
+)
+from datahub.metadata.urns import GlossaryNodeUrn, GlossaryTermUrn
+
+# Imported rather than inlined: the constant carries a TODO to change its value.
+from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.entity import Entity
 from datahub.sdk.glossary_node import GlossaryNode
 from datahub.sdk.glossary_term import GlossaryTerm
@@ -53,6 +67,17 @@ WORKERS_BATCH_SIZE = 200
 _DEFINITION_LINK_TYPE_SUFFIX = "/entryLinkTypes/definition"
 # Role in an entryLink that identifies the asset side (not the term side).
 _SOURCE_ROLE = "SOURCE"
+
+
+def _terms_audit_stamp() -> AuditStampClass:
+    """Mirrors ``HasTerms._terms_audit_stamp`` so the emitted aspect matches the SDK.
+
+    ``time=0`` is the "unknown timestamp" sentinel. Dataplex does expose a
+    ``createTime`` per entry link, but ``glossaryTerms`` carries one stamp for the
+    whole term list, so there is no authoritative time once an asset has several
+    terms -- and a fixed value keeps the aspect byte-stable across runs.
+    """
+    return AuditStampClass(time=0, actor=DEFAULT_ACTOR_URN)
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +136,26 @@ class GlossaryTermRef:
     location: str
     glossary_id: str
     term_id: str
+    # Original DataHub term URN when this native term was authored in DataHub and
+    # reconciled via the platform-resource side-index; None otherwise.
+    datahub_term_urn: Optional[str] = None
+
+
+@dataclass
+class AssetLink:
+    """A single asset entry linked to a term."""
+
+    asset_urn: str
+    entry_name: str
+
+
+@dataclass
+class TermAssetLinks:
+    """All asset links for one term, with the reconciled DataHub URN if any."""
+
+    native_term_urn: str
+    datahub_term_urn: Optional[str]
+    asset_links: List[AssetLink]
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +176,22 @@ class DataplexGlossaryReport(Report):
     )
     glossary_terms_processed: int = 0
     glossary_terms_processed_samples: LossyList[str] = field(default_factory=LossyList)
+    # Term-asset association funnel, in pipeline order: a definition link returned by
+    # lookupEntryLinks either matches an entity ingested in this run or does not, and
+    # matched links are then emitted as glossaryTerms aspects. An unmatched link means
+    # the asset lives outside the configured projects/locations or was filtered out by
+    # entries.pattern; matched == 0 with unmatched > 0 means the links resolve but
+    # nothing binds, which is silent unless it is counted here.
+    term_links_matched: int = 0
+    term_links_unmatched: int = 0
+    term_links_unmatched_samples: LossyList[str] = field(default_factory=LossyList)
     term_associations_emitted: int = 0
+    terms_reconciled: int = 0
+    # Externally-authored (managed_by_datahub=false) term links recorded so the
+    # sync-back guard won't overwrite them. Counts the opposite of terms_reconciled;
+    # high volume with no reconciliation is expected in the pre-sync-back-deploy window.
+    external_term_links_recorded: int = 0
+    external_term_links_samples: LossyList[str] = field(default_factory=LossyList)
     glossary_api: Dict[str, Tuple[int, float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -158,9 +218,29 @@ class DataplexGlossaryReport(Report):
             self.glossary_terms_processed += 1
             self.glossary_terms_processed_samples.append(name)
 
+    def report_link_matched(self) -> None:
+        with self._lock:
+            self.term_links_matched += 1
+
+    def report_link_unmatched(self, entry_name: str) -> None:
+        with self._lock:
+            self.term_links_unmatched += 1
+            self.term_links_unmatched_samples.append(entry_name)
+
     def report_association(self) -> None:
         with self._lock:
             self.term_associations_emitted += 1
+
+    def report_term_reconciled(self) -> None:
+        with self._lock:
+            self.terms_reconciled += 1
+
+    def report_external_term_link(self, entry_name: str, native_term_urn: str) -> None:
+        with self._lock:
+            self.external_term_links_recorded += 1
+            self.external_term_links_samples.append(
+                f"{entry_name} -> {native_term_urn}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -175,8 +255,9 @@ class DataplexGlossaryProcessor:
     1. ``process_glossaries`` — lists all glossaries in configured locations and emits
        GlossaryNode (glossary) / GlossaryNode (category) / GlossaryTerm entities.
     2. ``process_term_associations`` — for each emitted term, calls the Dataplex
-       ``lookupEntryLinks`` REST API across all entries_locations to find linked assets
-       and emits a ``glossaryTerms`` aspect update on those DataHub Dataset entities.
+       ``lookupEntryLinks`` REST API once at the term's own location to find linked
+       assets, and emits a ``glossaryTerms`` aspect on each one. Linked assets may be
+       DataHub Dataset or Container entities.
     """
 
     def __init__(
@@ -185,6 +266,9 @@ class DataplexGlossaryProcessor:
         glossary_client: dataplex_v1.BusinessGlossaryServiceClient,
         report: DataplexGlossaryReport,
         source_report: SourceReport,
+        platform_resource_repository: Optional[
+            DataplexPlatformResourceRepository
+        ] = None,
     ) -> None:
         self._ctx = ctx
         self._glossary_client = glossary_client
@@ -192,6 +276,7 @@ class DataplexGlossaryProcessor:
         self._source_report = source_report
         self._emitted_terms: List[GlossaryTermRef] = []
         self._emitted_terms_lock = threading.Lock()
+        self._platform_resource_repository = platform_resource_repository
 
     # ------------------------------------------------------------------
     # Phase 1: Glossary ingestion
@@ -262,6 +347,71 @@ class DataplexGlossaryProcessor:
         )
         logger.debug("list_glossaries payload: %s", response)
         return response
+
+    def _reconcile_term(self, native_term_urn: str) -> Optional[str]:
+        """Return the original DataHub term URN if this native term was authored in
+        DataHub (has a ``managed_by_datahub`` platform resource); otherwise None.
+
+        Best-effort: any lookup failure is reported and treated as "not reconciled".
+        """
+        if self._platform_resource_repository is None:
+            return None
+        try:
+            entity_id = self._platform_resource_repository.search_entity_by_urn(
+                native_term_urn
+            )
+            if entity_id is None:
+                return None
+            entity = self._platform_resource_repository.get_entity_from_datahub(
+                entity_id
+            )
+            if not entity.is_managed_by_datahub():
+                return None
+            linked = entity.datahub_linked_resources().urns
+            return linked[0] if linked else None
+        except Exception as exc:
+            self._source_report.warning(
+                title="Glossary term reconciliation lookup failed",
+                message="Falling back to the native Dataplex term URN.",
+                context=native_term_urn,
+                exc=exc,
+            )
+            return None
+
+    def _record_external_link(
+        self, entry_name: str, native_term_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a ``managed_by_datahub=false`` platform-resource workunit for an
+        externally-authored term link so the sync-back guard won't overwrite it.
+
+        Emitted through the sink (like the Unity Catalog and Glue connectors)
+        rather than written directly to the graph, so it respects dry-run/file
+        sinks and stateful ingestion. Best-effort: a failure is reported and
+        never aborts ingestion. No-op when there is no platform-resource
+        repository (nothing to reconcile against).
+        """
+        if self._platform_resource_repository is None:
+            return
+        try:
+            resource = DataplexAspectPlatformResource.from_external(
+                entry_name=entry_name, native_term_urn=native_term_urn
+            )
+            platform_resource = resource.as_platform_resource()
+            mcps = list(platform_resource.to_mcps())
+        except Exception as exc:
+            self._source_report.warning(
+                title="Failed to record external glossary term link",
+                message="Sync-back may overwrite this externally-owned term link.",
+                context=f"{entry_name} -> {native_term_urn}",
+                exc=exc,
+            )
+            return
+        self._report.report_external_term_link(entry_name, native_term_urn)
+        for mcp in mcps:
+            yield MetadataWorkUnit(
+                id=f"platform_resource-{platform_resource.id}",
+                mcp=mcp,
+            )
 
     def _process_single_glossary(
         self,
@@ -346,7 +496,19 @@ class DataplexGlossaryProcessor:
                     "term_id": term_id,
                 },
             )
-            yield glossary_term
+            native_term_urn = str(
+                GlossaryTermUrn(
+                    _term_urn_id(project_id, location, glossary_id, term_id)
+                )
+            )
+            original_term_urn = self._reconcile_term(native_term_urn)
+
+            if original_term_urn is None:
+                # Externally-authored (or no side-index): emit as before.
+                yield glossary_term
+            else:
+                # DataHub-authored round-trip: suppress the duplicate native term.
+                self._report.report_term_reconciled()
 
             with self._emitted_terms_lock:
                 self._emitted_terms.append(
@@ -355,6 +517,7 @@ class DataplexGlossaryProcessor:
                         location=location,
                         glossary_id=glossary_id,
                         term_id=term_id,
+                        datahub_term_urn=original_term_urn,
                     )
                 )
 
@@ -400,9 +563,7 @@ class DataplexGlossaryProcessor:
     # Phase 2: Term-asset associations
     # ------------------------------------------------------------------
 
-    def process_term_associations(
-        self, project_ids: List[str], max_workers: int
-    ) -> Iterable[MetadataWorkUnit]:
+    def process_term_associations(self, max_workers: int) -> Iterable[MetadataWorkUnit]:
         """Yield glossaryTerms aspect workunits for assets linked to ingested terms.
 
         Two-phase approach to avoid emitting partial terms per asset:
@@ -415,20 +576,11 @@ class DataplexGlossaryProcessor:
         cause each MCE to overwrite the previous one, leaving an asset with only
         its last-processed term.
         """
-        entry_name_to_urn: Dict[str, str] = {
-            e.dataplex_entry_name: e.datahub_dataset_urn for e in self._ctx.entry_data
-        }
-
-        location_pairs: List[Tuple[str, str]] = [
-            (pid, loc)
-            for pid in project_ids
-            for loc in self._ctx.config.entries_locations
-        ]
+        entry_name_to_urn = self._ctx.entry_name_to_urn
 
         logger.info(
-            "Resolving term-asset associations for %d terms across %d project/location pairs",
+            "Resolving term-asset associations for %d terms",
             len(self._emitted_terms),
-            len(location_pairs),
         )
 
         # Phase 1: parallel scan — collect asset_urn -> [term_urns].
@@ -444,19 +596,15 @@ class DataplexGlossaryProcessor:
                         ref.location,
                         ref.glossary_id,
                         ref.term_id,
-                        location_pairs,
                         entry_name_to_urn,
+                        ref.datahub_term_urn,
                     ): ref
                     for ref in batch
                 }
                 for future in as_completed(futures):
                     ref = futures[future]
                     try:
-                        term_urn_str, linked_asset_urns = future.result()
-                        for asset_urn in linked_asset_urns:
-                            asset_to_terms.setdefault(asset_urn, []).append(
-                                term_urn_str
-                            )
+                        links = future.result()
                     except Exception as exc:
                         self._source_report.warning(
                             title="Term association lookup failed",
@@ -467,22 +615,58 @@ class DataplexGlossaryProcessor:
                             ),
                             exc=exc,
                         )
+                        continue
+
+                    resolved_urn = links.datahub_term_urn or links.native_term_urn
+                    for asset_link in links.asset_links:
+                        asset_to_terms.setdefault(asset_link.asset_urn, []).append(
+                            resolved_urn
+                        )
+                        if links.datahub_term_urn is None:
+                            # Externally-authored link: mark it unmanaged for the guard.
+                            yield from self._record_external_link(
+                                asset_link.entry_name, links.native_term_urn
+                            )
 
         logger.info(
             "Term-asset scan complete: %d assets linked to at least one term",
             len(asset_to_terms),
         )
 
-        # Phase 2: emit one MCP per asset with its complete terms list.
-        for asset_urn, term_urns in asset_to_terms.items():
-            dataset_urn_obj = DatasetUrn.from_string(asset_urn)
-            dataset = Dataset(
-                platform=dataset_urn_obj.platform,
-                name=dataset_urn_obj.name,
-                env=dataset_urn_obj.env,
+        if self._report.term_links_matched == 0 and self._report.term_links_unmatched:
+            self._source_report.warning(
+                title="No Dataplex term links matched an ingested asset",
+                message=(
+                    "lookupEntryLinks returned term-to-asset links, but none of the "
+                    "linked entries were ingested in this run, so no glossary terms "
+                    "were attached. Check that project scope, entries_locations and "
+                    "entries.pattern cover the linked assets."
+                ),
+                context=str(list(self._report.term_links_unmatched_samples)),
             )
-            dataset.set_terms(term_urns)
-            yield from auto_workunit(dataset.as_mcps())
+
+        # Phase 2: emit one glossaryTerms MCP per asset with its complete terms list.
+        #
+        # Emitted as a bare aspect rather than through an SDK entity object: a linked
+        # asset may be a Container (a BigQuery dataset is a DataHub Container, not a
+        # Dataset), and DatasetUrn.from_string raises InvalidUrnError on a container
+        # urn. A bare MCP is also strictly narrower than either SDK entity -- Dataset
+        # additionally emits a dataPlatformInstance aspect we never intended to write,
+        # and Container would emit containerProperties built from a fabricated display
+        # name, overwriting what the entries stage already wrote in this same run.
+        for asset_urn, term_urns in asset_to_terms.items():
+            yield MetadataChangeProposalWrapper(
+                entityUrn=asset_urn,
+                aspect=GlossaryTermsClass(
+                    terms=[
+                        GlossaryTermAssociationClass(urn=term_urn)
+                        # dict.fromkeys de-dupes while preserving order: two native
+                        # Dataplex terms can reconcile to the same DataHub term urn.
+                        for term_urn in dict.fromkeys(term_urns)
+                    ],
+                    auditStamp=_terms_audit_stamp(),
+                ),
+            ).as_workunit()
             self._report.report_association()
 
     def _collect_asset_links_for_term(
@@ -491,65 +675,118 @@ class DataplexGlossaryProcessor:
         gl_location: str,
         glossary_id: str,
         term_id: str,
-        location_pairs: List[Tuple[str, str]],
         entry_name_to_urn: Dict[str, str],
-    ) -> Tuple[str, List[str]]:
-        """Return (term_urn_str, asset_urns) for this term across all locations.
+        datahub_term_urn: Optional[str],
+    ) -> TermAssetLinks:
+        """Return the asset links for this term.
 
-        De-duplicates asset URNs within the scan so the same asset is not
-        returned more than once even if multiple location scans return it.
+        ``lookupEntryLinks`` is called once, at the term's own location. Dataplex
+        stores a term's entry links alongside the term rather than distributing
+        them across asset locations, and linked assets are returned by full
+        resource name, so assets in other locations still resolve.
+
+        De-duplicates asset URNs so the same asset is not returned more than once
+        when a term has several definition links pointing at it.
         """
         term_urn_str = str(
             GlossaryTermUrn(_term_urn_id(project_id, gl_location, glossary_id, term_id))
         )
-        project_number = self._ctx.project_numbers[project_id]
+        project_number = self._ctx.project_numbers.get(project_id)
+        if project_number is None:
+            self._source_report.warning(
+                title="Missing GCP project number",
+                message=(
+                    "Could not build the lookupEntryLinks entry path because the "
+                    "project number was not resolved. Skipping this term. Ensure the "
+                    "service account has a role granting resourcemanager.projects.get "
+                    "(e.g. roles/browser) on this project."
+                ),
+                context=f"project={project_id}, glossary={glossary_id}, term={term_id}",
+            )
+            return TermAssetLinks(
+                native_term_urn=term_urn_str,
+                datahub_term_urn=datahub_term_urn,
+                asset_links=[],
+            )
+
+        # Glossary term entry path required by lookupEntryLinks:
+        #   projects/{NUMBER}/locations/{LOC}/entryGroups/@dataplex/entries/
+        #   projects/{NUMBER}/locations/{LOC}/glossaries/{GLOSSARY}/terms/{TERM}
+        # Both halves must carry the project NUMBER and the term's own location.
+        # The API rejects the project id here, and rejects a URL location that
+        # differs from the location embedded in the entry resource name -- such a
+        # request is refused at the edge, before IAM evaluation, so it produces a
+        # 403 with no Cloud Audit Log entry.
+        # https://cloud.google.com/dataplex/docs/reference/rest/v1/projects.locations/lookupEntryLinks
         term_entry_path = (
-            f"projects/{project_id}/locations/global/entryGroups/@dataplex/entries/"
+            f"projects/{project_number}/locations/{gl_location}"
+            f"/entryGroups/@dataplex/entries/"
             f"projects/{project_number}/locations/{gl_location}"
             f"/glossaries/{glossary_id}/terms/{term_id}"
         )
 
+        try:
+            links = self._lookup_entry_links(project_id, gl_location, term_entry_path)
+        except Exception as exc:
+            self._source_report.warning(
+                title="lookupEntryLinks call failed",
+                message="Failed to resolve term-asset links. Skipping this term.",
+                context=(
+                    f"project={project_id}, location={gl_location}, "
+                    f"glossary={glossary_id}, term={term_id}"
+                ),
+                exc=exc,
+            )
+            return TermAssetLinks(
+                native_term_urn=term_urn_str,
+                datahub_term_urn=datahub_term_urn,
+                asset_links=[],
+            )
+
         seen_asset_urns: set = set()
-        linked_asset_urns: List[str] = []
-        for lookup_project_id, location in location_pairs:
-            try:
-                links = self._lookup_entry_links(
-                    lookup_project_id, location, term_entry_path
-                )
-            except Exception as exc:
-                self._source_report.warning(
-                    title="lookupEntryLinks call failed",
-                    message="Skipping location for this term.",
-                    context=(
-                        f"project={lookup_project_id}, location={location}, "
-                        f"term={term_id}"
-                    ),
-                    exc=exc,
-                )
+        asset_links: List[AssetLink] = []
+        for link in links:
+            # Skip synonym and any other term-to-term link types.
+            if not link.get("entryLinkType", "").endswith(_DEFINITION_LINK_TYPE_SUFFIX):
                 continue
-
-            for link in links:
-                # Skip synonym and any other term-to-term link types.
-                if not link.get("entryLinkType", "").endswith(
-                    _DEFINITION_LINK_TYPE_SUFFIX
-                ):
+            for ref in link.get("entryReferences", []):
+                if ref.get("type") != _SOURCE_ROLE:
                     continue
-                for ref in link.get("entryReferences", []):
-                    if ref.get("type") != _SOURCE_ROLE:
-                        continue
-                    entry_name = ref.get("name", "")
-                    asset_urn = entry_name_to_urn.get(entry_name)
-                    if asset_urn is None:
-                        logger.debug(
-                            "Term link target %r not found in ingested entries; skipping",
-                            entry_name,
-                        )
-                        continue
-                    if asset_urn not in seen_asset_urns:
-                        seen_asset_urns.add(asset_urn)
-                        linked_asset_urns.append(asset_urn)
+                entry_name = self._normalize_entry_project_id(ref.get("name", ""))
+                asset_urn = entry_name_to_urn.get(entry_name)
+                if asset_urn is None:
+                    self._report.report_link_unmatched(entry_name)
+                    logger.debug(
+                        "Term link target %r not found in ingested entries; skipping",
+                        entry_name,
+                    )
+                    continue
+                self._report.report_link_matched()
+                if asset_urn not in seen_asset_urns:
+                    seen_asset_urns.add(asset_urn)
+                    asset_links.append(
+                        AssetLink(asset_urn=asset_urn, entry_name=entry_name)
+                    )
 
-        return term_urn_str, linked_asset_urns
+        return TermAssetLinks(
+            native_term_urn=term_urn_str,
+            datahub_term_urn=datahub_term_urn,
+            asset_links=asset_links,
+        )
+
+    def _normalize_entry_project_id(self, entry_name: str) -> str:
+        """Map a leading ``projects/{number}`` segment back to ``projects/{id}``.
+
+        ``lookupEntryLinks`` returns the source entry's entry-group project as a
+        project *number*, but entries ingested in the entries stage key
+        ``entry_name_to_urn`` by the project *id*. Without this the asset lookup
+        silently misses and no term association is emitted.
+        """
+        for project_id, project_number in self._ctx.project_numbers.items():
+            prefix = f"projects/{project_number}/"
+            if entry_name.startswith(prefix):
+                return f"projects/{project_id}/" + entry_name[len(prefix) :]
+        return entry_name
 
     def _lookup_entry_links(
         self, project_id: str, location: str, term_entry_path: str

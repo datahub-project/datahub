@@ -3,10 +3,12 @@ package com.linkedin.datahub.graphql.resolvers.search;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getSearchEntityNames;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -52,7 +54,8 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
     final SearchAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), SearchAcrossEntitiesInput.class);
 
-    final List<String> entityNames = getEntityNames(input.getTypes());
+    final List<String> entityNames =
+        getSearchEntityNames(context.getOperationContext(), input.getTypes());
 
     // escape forward slash since it is a reserved character in Elasticsearch
     final String sanitizedQuery = ResolverUtils.escapeForwardSlash(input.getQuery());
@@ -101,10 +104,10 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         baseFilter, maybeResolvedView.getDefinition().getFilter())
                     : baseFilter;
 
-            // Add default entity filters that should be applied to all queries
+            // Add default entity filters (e.g. showInGlobalContext for documents).
             combinedFilter =
-                DefaultEntityFiltersUtil.addDefaultEntityFilters(
-                    combinedFilter, finalEntities, true);
+                DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+                    combinedFilter, finalEntities, searchFlags, context);
 
             boolean shouldIncludeStructuredPropertyFacets =
                 input.getSearchFlags() != null
@@ -112,7 +115,9 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                     ? input.getSearchFlags().getIncludeStructuredPropertyFacets()
                     : false;
             List<String> structuredPropertyFacets =
-                shouldIncludeStructuredPropertyFacets ? getStructuredPropertyFacets(context) : null;
+                shouldIncludeStructuredPropertyFacets
+                    ? getStructuredPropertyFacets(context, finalEntities)
+                    : Collections.emptyList();
 
             // Execute search and remove default filter fields from aggregations
             SearchResult searchResult =
@@ -151,19 +156,35 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
         "get");
   }
 
-  private List<String> getStructuredPropertyFacets(final QueryContext context) {
+  private List<String> getStructuredPropertyFacets(
+      final QueryContext context, final List<String> searchedEntityNames) {
     try {
-      SearchFlags searchFlags = new SearchFlags().setSkipCache(true);
+      // Fetch each property's entityTypes so facets can be scoped to the searched entity types —
+      // aggregating an unrelated property across every searched index risks querying indexes where
+      // the field was never mapped.
+      SearchFlags searchFlags =
+          new SearchFlags()
+              .setSkipCache(true)
+              .setFetchExtraFields(new StringArray(STRUCTURED_PROPERTY_ENTITY_TYPES_FIELD));
       SearchResult result =
           _entityClient.searchAcrossEntities(
               context.getOperationContext().withSearchFlags(flags -> searchFlags),
-              getEntityNames(ImmutableList.of(EntityType.STRUCTURED_PROPERTY)),
+              getSearchEntityNames(ImmutableList.of(EntityType.STRUCTURED_PROPERTY)),
               "*",
               createStructuredPropertyFilter(),
               0,
               100,
               Collections.emptyList());
+      final ObjectMapper objectMapper = context.getOperationContext().getObjectMapper();
       return result.getEntities().stream()
+          .filter(
+              entity ->
+                  structuredPropertyAppliesToEntityTypes(
+                      objectMapper,
+                      entity.getExtraFields() == null
+                          ? null
+                          : entity.getExtraFields().get(STRUCTURED_PROPERTY_ENTITY_TYPES_FIELD),
+                      searchedEntityNames))
           .map(entity -> String.format("structuredProperties.%s", entity.getEntity().getId()))
           .collect(Collectors.toList());
     } catch (Exception e) {

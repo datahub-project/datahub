@@ -3,13 +3,13 @@ import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
-import { isFileUrl } from '@components/components/Editor/extensions/fileDragDrop';
 import {
     getExtensionFromFileName,
     getFileNameFromUrl,
+    isFileUrl,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 
-import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
+import { useIsDocumentationFileUploadV1Enabled } from '@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled';
 
 const Container = styled.div`
     display: inline-block;
@@ -36,13 +36,13 @@ export function LinkIcon({ url, className, usePrimaryColor = true, style }: Prop
             return <FileIcon extension={extension} />;
         }
 
-        return (
-            <Icon
-                icon={LinkSimple}
-                color={usePrimaryColor ? 'primary' : 'gray'}
-                colorLevel={usePrimaryColor ? undefined : 600}
-                size="lg"
-            />
+        // When `usePrimaryColor` is false we deliberately omit `color` so the Icon
+        // inherits from its parent — e.g. a Pill sets its own text color and the
+        // link glyph tracks it automatically without per-callsite overrides.
+        return usePrimaryColor ? (
+            <Icon icon={LinkSimple} color="primary" size="lg" />
+        ) : (
+            <Icon icon={LinkSimple} size="lg" />
         );
     }, [isDocumentationFileUploadV1Enabled, url, usePrimaryColor]);
 

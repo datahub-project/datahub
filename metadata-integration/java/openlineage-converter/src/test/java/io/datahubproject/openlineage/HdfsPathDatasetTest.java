@@ -31,6 +31,20 @@ public class HdfsPathDatasetTest {
   }
 
   @Test
+  public void testFilePartitionRegexpStripsTrailingPartition()
+      throws InstantiationException, IllegalArgumentException, URISyntaxException {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .filePartitionRegexpPattern("/dt=[^/]*")
+            .build();
+    SparkDataset dataset =
+        HdfsPathDataset.create(new URI("s3://my-bucket/events/dt=2024-01-01"), config);
+    Assert.assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/events,PROD)", dataset.urn().toString());
+  }
+
+  @Test
   public void testPathSpecList()
       throws InstantiationException, IllegalArgumentException, URISyntaxException {
     DatahubOpenlineageConfig config =

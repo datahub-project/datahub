@@ -73,7 +73,6 @@ public class DatahubJob {
   public static final String DATASET_ENTITY_TYPE = "dataset";
   public static final String DATA_FLOW_ENTITY_TYPE = "dataFlow";
   public static final String DATA_PROCESS_INSTANCE_ENTITY_TYPE = "dataProcessInstance";
-  public static final String DATAFLOW_ENTITY_TYPE = "dataflow";
   public static final String DATAJOB_ENTITY_TYPE = "dataJob";
   DataFlowUrn flowUrn;
   DataFlowInfo dataFlowInfo;
@@ -82,7 +81,9 @@ public class DatahubJob {
   Ownership flowOwnership;
   GlobalTags flowGlobalTags;
   Domains flowDomains;
+  Domains jobDomains;
   DataPlatformInstance flowPlatformInstance;
+  DataPlatformInstance jobPlatformInstance;
   DataProcessInstanceRunEvent dataProcessInstanceRunEvent;
   DataProcessInstanceProperties dataProcessInstanceProperties;
   DataProcessInstanceRelationships dataProcessInstanceRelationships;
@@ -120,6 +121,12 @@ public class DatahubJob {
     if (flowPlatformInstance != null) {
       addAspectToMcps(flowUrn, DATA_FLOW_ENTITY_TYPE, flowPlatformInstance, mcps);
     }
+    // The DataJob needs its own DataPlatformInstance aspect: it inherits the instance via the
+    // parent
+    // DataFlow URN, but the aspect drives the platform-instance facet/search on the job entity.
+    if (jobPlatformInstance != null) {
+      addAspectToMcps(jobUrn, DATAJOB_ENTITY_TYPE, jobPlatformInstance, mcps);
+    }
 
     // Generate and add Properties Aspect
     StringMap customProperties = new StringMap();
@@ -143,7 +150,8 @@ public class DatahubJob {
     generateFlowGlobalTagsAspect(flowUrn, flowGlobalTags, config, mcps);
 
     // Generate and add domain Aspect
-    generateFlowDomainsAspect(mcps, customProperties);
+    generateDomainsAspect(flowUrn, DATA_FLOW_ENTITY_TYPE, flowDomains, mcps);
+    generateDomainsAspect(jobUrn, DATAJOB_ENTITY_TYPE, jobDomains, mcps);
 
     log.info(
         "Adding input and output to {} Number of outputs: {}, Number of inputs {}",
@@ -200,6 +208,22 @@ public class DatahubJob {
 
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     log.info("Adding DataJob edges to {}", jobUrn);
+
+    // Skip an empty dataJobInputOutput only in PATCH mode. When coalesced emission fires on early
+    // events (e.g., START), all sets are empty; without this skip the all-empty case falls through
+    // to the UPSERT branch below (the PATCH branch requires a non-empty set), creating the aspect
+    // with empty arrays that a later PATCH cannot override, losing edges. In UPSERT mode the
+    // reverse
+    // holds: emitting the empty aspect is the only way to clear edges a job legitimately no longer
+    // has, so it must not be skipped.
+    if (config.isUsePatch()
+        && inputEdges.isEmpty()
+        && outputEdges.isEmpty()
+        && parentJobs.isEmpty()) {
+      log.info("Skipping empty dataJobInputOutput PATCH for {} - no edges to emit yet", jobUrn);
+      return;
+    }
+
     if (config.isUsePatch() && (!parentJobs.isEmpty() || !inSet.isEmpty() || !outSet.isEmpty())) {
       DataJobInputOutputPatchBuilder dataJobInputOutputPatchBuilder =
           new DataJobInputOutputPatchBuilder().urn(jobUrn);
@@ -239,7 +263,7 @@ public class DatahubJob {
           Objects.requireNonNull(dataJobInputOutputMcp.getAspect())
               .getValue()
               .asString(Charset.defaultCharset()));
-      mcps.add(dataJobInputOutputPatchBuilder.build());
+      mcps.add(dataJobInputOutputMcp);
 
     } else {
       FineGrainedLineageArray fgls = mergeFinegrainedLineages();
@@ -396,22 +420,14 @@ public class DatahubJob {
     return Pair.of(inputUrnArray, inputEdges);
   }
 
-  private void generateFlowDomainsAspect(
-      List<MetadataChangeProposal> mcps, StringMap customProperties) {
-    if (flowDomains != null) {
-      MetadataChangeProposalWrapper domains =
-          MetadataChangeProposalWrapper.create(
-              b ->
-                  b.entityType(DATAFLOW_ENTITY_TYPE)
-                      .entityUrn(flowUrn)
-                      .upsert()
-                      .aspect(flowDomains));
-      try {
-        mcps.add(eventFormatter.convert(domains));
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+  private void generateDomainsAspect(
+      Urn entityUrn, String entityType, Domains domains, List<MetadataChangeProposal> mcps) {
+    // An empty domains aspect would clear domains set by other sources, so only emit a populated
+    // one.
+    if (domains == null || domains.getDomains().isEmpty()) {
+      return;
     }
+    addAspectToMcps(entityUrn, entityType, domains, mcps);
   }
 
   private void generateFlowGlobalTagsAspect(
