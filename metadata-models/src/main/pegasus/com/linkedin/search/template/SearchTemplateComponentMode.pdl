@@ -1,0 +1,11 @@
+namespace com.linkedin.search.template
+
+/**
+ * How a named template component runs. Stored on the template, not chosen by component code.
+ * POST_PROCESS reorders the keyword window the standard executor already fetched.
+ * OWN_RUNG owns retrieval, ranking, and slicing, and leaves the template query unread.
+ */
+enum SearchTemplateComponentMode {
+  POST_PROCESS
+  OWN_RUNG
+}
