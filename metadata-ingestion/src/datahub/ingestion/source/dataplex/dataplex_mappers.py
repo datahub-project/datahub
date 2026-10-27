@@ -556,7 +556,9 @@ def build_dataset(
 
     schema_metadata: Optional[SchemaMetadataClass] = None
     if ctx.config.include_schema:
-        schema_metadata = extract_schema_from_entry_aspects(entry, entry.name, platform)
+        schema_metadata = extract_schema_from_entry_aspects(
+            entry, entry.name, platform, ctx.report
+        )
         if schema_metadata is None and include_graph_schema_fallback:
             # cloud-spanner-graph entries store schema in a graph-schema aspect
             # rather than the standard schema aspect.
