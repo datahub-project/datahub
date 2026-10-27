@@ -711,33 +711,6 @@ class TestSetupVenv:
         assert venv_ref.venv_config == config
         mock_runner.execute.assert_not_called()
 
-    async def test_setup_venv_native_installs_missing_plugin_extra(
-        self, mock_runner, temp_dir
-    ):
-        config = VenvConfig(version=VENV_VERSION_NATIVE, main_plugin="fabric-onelake")
-        checkout = temp_dir / "metadata-ingestion"
-
-        with (
-            patch(
-                "datahub.executor.execution.runner._plugin_module_missing",
-                return_value=True,
-            ),
-            patch(
-                "datahub.executor.execution.runner._metadata_ingestion_root",
-                return_value=checkout,
-            ),
-            patch(
-                "datahub.executor.execution.runner._find_uv",
-                return_value="uv",
-            ),
-        ):
-            venv_ref = await setup_venv(config, mock_runner, temp_dir)
-
-        assert venv_ref.venv_loc == Path(sys.prefix)
-        mock_runner.execute.assert_awaited_once_with(
-            ["uv", "pip", "install", "-e", f"{checkout}[fabric-onelake]"]
-        )
-
     async def test_setup_venv_bundled_version_not_found(self, mock_runner, temp_dir):
         """Test setup with bundled version when venv doesn't exist."""
         config = VenvConfig(version=VENV_VERSION_BUNDLED, main_plugin="snowflake")
