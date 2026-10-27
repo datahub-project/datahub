@@ -29,6 +29,7 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PrimitiveDataSchema;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
@@ -197,20 +198,15 @@ public class FieldTypeMapper {
   }
 
   /**
-   * Creates a mapping configuration for a structured-property URN field.
-   *
-   * <p>Parent keyword only (no {@code .keyword} subfield): query-time structured-property filters
-   * skip {@code .keyword} for URN value types via {@code
-   * StructuredPropertyUtils.usesKeywordSubfield}. Root URN fields of entities are mapped like text
-   * roots instead (see {@link #getMappingsForFieldType(FieldType)}).
-   *
-   * @return mapping configuration for URN structured property field
+   * Exact URN keyword with no {@code .keyword} subfield. Query-time structured-property filters
+   * skip {@code .keyword} for URN value types. The whole value is indexed, including dataset and
+   * schema-field paths longer than 255 bytes. The parsed name is the aspect keyword {@code
+   * <field>__urn_name}.
    */
   @Nonnull
   public static Map<String, Object> getMappingsForUrn() {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(IGNORE_ABOVE, 255);
     return mapping;
   }
 
@@ -324,8 +320,10 @@ public class FieldTypeMapper {
   }
 
   /**
-   * Maps the exact representation under {@code _aspects}. The V3 root controls whether the value is
-   * indexable, but label analyzer subfields never appear under an aspect.
+   * Maps the exact representation under {@code _aspects}. A field also projected to the document
+   * root leaves this copy unindexed unless {@code v3.source} turns index or doc values back on. A
+   * field that stays under {@code _aspects} follows the V3 root. Label analyzer subfields never
+   * appear under an aspect.
    */
   @Nonnull
   public static Map<String, Object> mappingForAspectRoot(
@@ -333,24 +331,71 @@ public class FieldTypeMapper {
     if (!root.isRoot()) {
       throw new IllegalArgumentException("mappingForAspectRoot requires the root entry");
     }
-    if ((root.getType() == FieldMapping.Type.KEYWORD || root.getType() == FieldMapping.Type.URN)
-        && !root.isIndex()) {
-      return unindexedKeyword(root.isDocValues());
-    }
+    SearchableAnnotation resolved = searchableFieldSpec.getSearchableAnnotation().resolvedForV3();
+    boolean index = resolved.aspectIndexed();
+    boolean docValues = resolved.aspectDocValues();
+    FieldType fieldType = resolved.getFieldType();
     switch (root.getType()) {
       case KEYWORD:
-        return searchableFieldSpec.getSearchableAnnotation().getFieldType() == FieldType.URN
-                || searchableFieldSpec.getSearchableAnnotation().getFieldType()
-                    == FieldType.URN_PARTIAL
-            ? getMappingsForUrn()
-            : keywordRoot(root);
+        if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
+          return urnAspectMapping(index, docValues);
+        }
+        return keywordRoot(FieldMapping.root(FieldMapping.Type.KEYWORD, index, docValues));
       case URN:
-        return getMappingsForUrn();
+        return urnAspectMapping(index, docValues);
+      case BOOLEAN:
+        return nativeAspectMapping(BOOLEAN_FIELD_TYPE, index, docValues);
+      case COUNT:
+        return nativeAspectMapping(
+            getElasticsearchTypeForCountField(searchableFieldSpec), index, docValues);
+      case DATETIME:
+        return nativeAspectMapping(DATE_FIELD_TYPE, index, docValues);
+      case DOUBLE:
+        return nativeAspectMapping(DOUBLE_FIELD_TYPE, index, docValues);
       case BROWSE_PATH_V2:
-        return getMappingsForKeywordWithIgnoreAbove();
+        if (!index) {
+          return unindexedKeyword(docValues);
+        }
+        Map<String, Object> browse = new HashMap<>(getMappingsForKeywordWithIgnoreAbove());
+        if (!docValues) {
+          browse.put("doc_values", false);
+        }
+        return browse;
       default:
-        return mappingForRoot(root, searchableFieldSpec);
+        return mappingForRoot(
+            FieldMapping.root(root.getType(), index, docValues), searchableFieldSpec);
     }
+  }
+
+  /** Exact URN keyword under {@code _aspects}. Unindexed copies keep {@code copy_to}. */
+  @Nonnull
+  private static Map<String, Object> urnAspectMapping(boolean index, boolean docValues) {
+    if (!index) {
+      return unindexedKeyword(docValues);
+    }
+    Map<String, Object> mapping = new HashMap<>(getMappingsForUrn());
+    if (!docValues) {
+      mapping.put("doc_values", false);
+    }
+    return mapping;
+  }
+
+  /**
+   * A native aspect value. Both flags true omit the keys so an unlabeled field matches the mapping
+   * it had before aspect-source defaults.
+   */
+  @Nonnull
+  private static Map<String, Object> nativeAspectMapping(
+      @Nonnull String type, boolean index, boolean docValues) {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put("type", type);
+    if (!index) {
+      mapping.put(ESUtils.INDEX, false);
+    }
+    if (!docValues) {
+      mapping.put("doc_values", false);
+    }
+    return mapping;
   }
 
   @Nonnull

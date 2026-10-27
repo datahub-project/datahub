@@ -4,7 +4,7 @@ import { useHistory } from 'react-router';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { Entity, EntityType } from '@types';
@@ -47,7 +47,7 @@ export const useGetApplicationAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH
         onCompleted: () => onReloadingFinished?.(),
     });
 
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const originEntities = useMemo(
         () => data?.searchAcrossEntities?.searchResults?.map((result) => result.entity) || [],
         [data?.searchAcrossEntities?.searchResults],

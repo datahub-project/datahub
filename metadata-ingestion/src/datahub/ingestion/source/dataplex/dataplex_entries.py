@@ -280,9 +280,8 @@ class DataplexEntriesProcessor:
             if filtered:
                 continue
 
-            request = dataplex_v1.ListEntriesRequest(parent=entry_group.name)
             with PerfTimer() as timer:
-                for entry in self.catalog_client.list_entries(request=request):
+                for entry in self.list_entries(entry_group.name):
                     logger.info(
                         f"Listing entry {entry.name} from group {entry_group.name}"
                     )
@@ -305,16 +304,28 @@ class DataplexEntriesProcessor:
         client (thread-safe) and reports via the lock-protected report methods.
         Raises on failure; callers should catch via ``future.result()``.
         """
-        assert self.catalog_client is not None, "api extraction requires catalog_client"
-        request = dataplex_v1.GetEntryRequest(
-            name=entry_name,
-            view=dataplex_v1.EntryView.ALL,
-        )
         with PerfTimer() as timer:
-            detailed_entry = self.catalog_client.get_entry(request=request)
+            detailed_entry = self.get_entry(entry_name)
         self.report.report_catalog_api_call("get_entry", timer.elapsed_seconds())
         logger.debug(f"Detailed entry {detailed_entry}")
         return detailed_entry
+
+    def list_entries(self, entry_group_name: str) -> Iterable[dataplex_v1.Entry]:
+        """Every entry in one entry group, unfiltered and unlogged: the
+        request ingestion's listing sends, shared with the probe."""
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
+        request = dataplex_v1.ListEntriesRequest(parent=entry_group_name)
+        return self.catalog_client.list_entries(request=request)
+
+    def get_entry(self, entry_name: str) -> dataplex_v1.Entry:
+        """One entry with its aspects (view=ALL), as ingestion reads it. Logs
+        nothing: the aspect data is the catalog's content."""
+        assert self.catalog_client is not None, "api extraction requires catalog_client"
+        return self.catalog_client.get_entry(
+            request=dataplex_v1.GetEntryRequest(
+                name=entry_name, view=dataplex_v1.EntryView.ALL
+            )
+        )
 
     def _build_entities_for_entry(
         self, entry: dataplex_v1.Entry, location: str

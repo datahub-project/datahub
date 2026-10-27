@@ -1,5 +1,6 @@
+import dataclasses
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, TypedDict, Union
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 from unittest import mock
 
 import pytest
@@ -39,14 +40,18 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
     DBTTest,
     DBTTestResult,
+    ExistingAssertionNote,
+    is_custom_test_name,
     make_assertion_from_freshness,
     make_assertion_from_test,
+    make_assertion_note_from_test,
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
     parse_freshness_criteria,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionNoteClass,
     AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
@@ -54,6 +59,7 @@ from datahub.metadata.schema_classes import (
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionTypeClass,
+    AuditStampClass,
     CustomAssertionInfoClass,
     DatasetAssertionScopeClass,
     OwnerClass,
@@ -64,6 +70,7 @@ from datahub.metadata.schema_classes import (
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
     SubTypesClass,
+    SystemMetadataClass,
 )
 from datahub.testing.doctest import assert_doctest
 from datahub.utilities.mapping import Constants, OperationProcessor
@@ -2174,9 +2181,320 @@ def test_make_assertion_from_test_emits_custom_structured_fields() -> None:
     assert mcp.aspect.customAssertion.fields == [field_urn]
     assert mcp.aspect.customAssertion.nativeType == "not_null_id"
     assert mcp.aspect.customAssertion.nativeParameters == {"column_name": "id"}
+    # No description was set on the dbt test node, so none should be emitted.
+    assert mcp.aspect.description is None
     assert mcp.aspect.source is not None
     assert mcp.aspect.source.type == AssertionSourceTypeClass.EXTERNAL
     assert mcp.aspect.source.created is None
+
+
+def _make_test_node(
+    name: str,
+    test_info: DBTTest,
+    description: str = "",
+) -> DBTNode:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name=name,
+        alias=None,
+        comment="",
+        description=description,
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name=f"test.test.{name}",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.test_info = test_info
+    return node
+
+
+@pytest.mark.parametrize(
+    ("node_name", "test_info", "upstream_unique_id", "expected"),
+    [
+        pytest.param(
+            "not_null_orders_id",
+            DBTTest("not_null", "id", {"column_name": "id", "model": "{{ m }}"}),
+            "model.pkg.orders",
+            False,
+            id="core-model-generated",
+        ),
+        pytest.param(
+            "order_id_must_exist",
+            DBTTest("not_null", "id", {"column_name": "id", "model": "{{ m }}"}),
+            "model.pkg.orders",
+            True,
+            id="core-model-custom",
+        ),
+        pytest.param(
+            "source_not_null_my_src_events_group_id",
+            DBTTest("not_null", "group_id", {"column_name": "group_id"}),
+            "source.pkg.my_src.events",
+            False,
+            id="core-source-generated",
+        ),
+        pytest.param(
+            "Freshness Check by Group",
+            DBTTest(
+                "freshness_by_group",
+                None,
+                {"timestamp_column": "ts", "group_column": "group_id"},
+            ),
+            "source.pkg.my_src.events",
+            True,
+            id="core-source-custom-with-spaces",
+        ),
+        pytest.param(
+            "accepted_values_orders_status__aaaaaaaaaa__bbbbbbbbbbbb__cccccccccccccc",
+            DBTTest(
+                "accepted_values",
+                "status",
+                {
+                    "column_name": "status",
+                    "values": ["aaaaaaaaaa", "bbbbbbbbbbbb", "cccccccccccccc"],
+                },
+            ),
+            "model.pkg.orders",
+            False,
+            id="core-long-generated",
+        ),
+        pytest.param(
+            "dbt_utils_expression_is_true_orders_amount_0",
+            DBTTest("dbt_utils.expression_is_true", None, {"expression": "amount>0"}),
+            "model.pkg.orders",
+            False,
+            id="core-namespaced-generated",
+        ),
+        pytest.param(
+            "not_null_orders_v2_id",
+            DBTTest("not_null", "id", {"column_name": "id"}),
+            "model.pkg.orders.v2",
+            False,
+            id="core-versioned-model-generated",
+        ),
+        pytest.param(
+            "source_accepted_values_my_src_events_status__a__b",
+            DBTTest("accepted_values", "status", {}),
+            "source.pkg.my_src.events",
+            False,
+            id="cloud-generated-prefix",
+        ),
+        pytest.param(
+            "source_accepted_values_my_src__0123456789abcdef0123456789abcdef",
+            DBTTest("accepted_values", "status", {}),
+            "source.pkg.my_src.events",
+            False,
+            id="cloud-generated-hashed",
+        ),
+        pytest.param(
+            "orders_status_is_known",
+            DBTTest("accepted_values", "status", {}),
+            "model.pkg.orders",
+            True,
+            id="cloud-custom",
+        ),
+        pytest.param(
+            "not_null_ordersv2",
+            DBTTest("not_null", "id", {}),
+            "model.pkg.orders",
+            True,
+            id="cloud-custom-sharing-generated-prefix",
+        ),
+        pytest.param(
+            "dbt_utils_expression_is_true_orders_amount_0",
+            DBTTest("dbt_utils.test_expression_is_true", None, {}),
+            "model.pkg.orders",
+            False,
+            id="cloud-package-generated",
+        ),
+        pytest.param(
+            "positive_value_orders_amount",
+            DBTTest("pkg.test_positive_value", "amount", {}),
+            "model.pkg.orders",
+            False,
+            id="cloud-root-project-generated",
+        ),
+        pytest.param(
+            "dbt_utils_source_not_null_proportion_my_src_events_0_9__col_a",
+            DBTTest(
+                "dbt_utils.not_null_proportion",
+                "col_a",
+                {"at_least": 0.9, "column_name": "col_a"},
+            ),
+            "source.pkg.my_src.events",
+            False,
+            id="core-namespaced-source-generated",
+        ),
+        pytest.param(
+            "not_null_orders_v1.5_id",
+            DBTTest("not_null", "id", {"column_name": "id"}),
+            "model.pkg.orders.v1.5",
+            False,
+            id="core-float-versioned-model-generated",
+        ),
+        pytest.param(
+            "accepted_values_orders_ordered_at__2024_01_01_00_00_00",
+            DBTTest(
+                "accepted_values",
+                "ordered_at",
+                {"column_name": "ordered_at", "values": ["2024-01-01T00:00:00"]},
+            ),
+            "model.pkg.orders",
+            False,
+            id="core-datetime-arg-generated",
+        ),
+        pytest.param(
+            "not_null_orders_id",
+            DBTTest("not_null", "id", {"column_name": "id"}),
+            "model.pkg.orders.v1",
+            False,
+            id="core-unpinned-ref-to-versioned-model-generated",
+        ),
+        pytest.param(
+            "not_null_orders_id",
+            DBTTest("not_null", "id", {}),
+            "model.pkg.orders.v1",
+            False,
+            id="cloud-unpinned-ref-to-versioned-model-generated",
+        ),
+        pytest.param(
+            "orders_id_present",
+            DBTTest("not_null", "id", {"column_name": "id"}),
+            "model.pkg.orders.v1",
+            True,
+            id="core-versioned-model-custom",
+        ),
+        pytest.param(
+            "not_null_orders_vbeta_id",
+            DBTTest("not_null", "id", {"column_name": "id"}),
+            "model.pkg.orders.vbeta",
+            False,
+            id="core-string-versioned-model-generated",
+        ),
+        pytest.param(
+            "my_singular_test",
+            DBTTest("", None, {}),
+            "model.pkg.orders",
+            False,
+            id="singular-test",
+        ),
+    ],
+)
+def test_is_custom_test_name(
+    node_name: str, test_info: DBTTest, upstream_unique_id: str, expected: bool
+) -> None:
+    assert is_custom_test_name(node_name, test_info, [upstream_unique_id]) is expected
+
+
+def test_is_custom_test_name_relationships_uses_tested_model() -> None:
+    # A relationships test depends on both the tested and the referenced model, and
+    # DataHub emits one assertion per upstream. dbt names it after the tested model.
+    test_info = DBTTest(
+        "relationships",
+        "customer_id",
+        {
+            "column_name": "customer_id",
+            "field": "customer_id",
+            "to": "ref('customers')",
+        },
+    )
+    upstreams = ["model.jaffle_shop.customers", "model.jaffle_shop.orders"]
+    assert not is_custom_test_name(
+        "relationships_orders_customer_id__customer_id__ref_customers_",
+        test_info,
+        upstreams,
+    )
+    assert is_custom_test_name("orders_have_customers", test_info, upstreams)
+
+
+def test_make_assertion_from_test_uses_custom_name_as_description() -> None:
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,raw.orders,PROD)"
+    test_info = DBTTest("not_null", "id", {"column_name": "id"})
+
+    custom = make_assertion_from_test(
+        {},
+        _make_test_node("order_id_must_exist", test_info, "Every order needs an id."),
+        "urn:li:assertion:custom",
+        upstream_urn,
+        upstream_unique_ids=["model.pkg.orders"],
+    )
+    generated = make_assertion_from_test(
+        {},
+        _make_test_node("not_null_orders_id", test_info, "Every order needs an id."),
+        "urn:li:assertion:generated",
+        upstream_urn,
+        upstream_unique_ids=["model.pkg.orders"],
+    )
+
+    assert isinstance(custom.aspect, AssertionInfoClass)
+    assert custom.aspect.description == "order_id_must_exist"
+    # The YAML description goes to the assertion note, never the display name.
+    assert isinstance(generated.aspect, AssertionInfoClass)
+    assert generated.aspect.description is None
+
+
+def test_make_assertion_note_from_test() -> None:
+    test_info = DBTTest("not_null", "id", {"column_name": "id"})
+    urn = "urn:li:assertion:test"
+    described = _make_test_node(
+        "not_null_orders_id", test_info, "Every order needs an id."
+    )
+    undescribed = _make_test_node("not_null_orders_id", test_info)
+
+    def existing(content: str, written_by_ingestion: bool) -> ExistingAssertionNote:
+        return ExistingAssertionNote(
+            note=AssertionNoteClass(
+                content=content,
+                lastModified=AuditStampClass(time=1, actor=mce_builder.SYSTEM_ACTOR),
+            ),
+            written_by_ingestion=written_by_ingestion,
+        )
+
+    mcp = make_assertion_note_from_test(described, urn)
+    assert mcp is not None
+    assert isinstance(mcp.aspect, AssertionNoteClass)
+    assert mcp.aspect.content == "Every order needs an id."
+    assert mcp.aspect.lastModified.actor == mce_builder.SYSTEM_ACTOR
+
+    # No description and no stored note -> nothing to write.
+    assert make_assertion_note_from_test(undescribed, urn) is None
+
+    # A note this ingestion did not write (a UI edit or a migrated note) is kept.
+    user_note = existing("Page the orders team.", written_by_ingestion=False)
+    assert make_assertion_note_from_test(described, urn, user_note) is None
+    assert make_assertion_note_from_test(undescribed, urn, user_note) is None
+
+    # An unchanged ingestion-written note is not re-emitted.
+    same_note = existing("Every order needs an id.", written_by_ingestion=True)
+    assert make_assertion_note_from_test(described, urn, same_note) is None
+
+    # An ingestion-written note is updated, and cleared once the description is removed.
+    old_note = existing("Old text.", written_by_ingestion=True)
+    updated = make_assertion_note_from_test(described, urn, old_note)
+    assert updated is not None
+    assert isinstance(updated.aspect, AssertionNoteClass)
+    assert updated.aspect.content == "Every order needs an id."
+    cleared = make_assertion_note_from_test(undescribed, urn, same_note)
+    assert cleared is not None
+    assert isinstance(cleared.aspect, AssertionNoteClass)
+    assert cleared.aspect.content == ""
+
+
+def test_make_assertion_note_ignores_meta_description() -> None:
+    node = _make_test_node(
+        "not_null_orders_id", DBTTest("not_null", "id", {"column_name": "id"})
+    )
+    node.meta = {"description": "only in config.meta"}
+
+    assert make_assertion_note_from_test(node, "urn:li:assertion:test") is None
 
 
 @pytest.mark.parametrize(
@@ -2867,6 +3185,211 @@ def test_create_test_entity_mcps_emits_assertion_ownership_from_test_owner():
         "urn:li:corpuser:assertion_owner@example.com"
     )
     assert ownership_mcp.aspect.owners[0].type == OwnershipTypeClass.DATAOWNER
+
+
+def _described_test_with_result() -> Tuple[DBTNode, DBTNode]:
+    test_node = _make_dbt_node(
+        "test.project.not_null_my_model_id",
+        node_type="test",
+        owner="assertion_owner@example.com",
+        description="Every row needs an id.",
+        upstream_nodes=["model.project.my_model"],
+    )
+    test_node.test_info = DBTTest(
+        qualified_test_name="not_null", column_name="id", kw_args={}
+    )
+    test_node.test_results = [
+        DBTTestResult(
+            invocation_id="inv-1",
+            status="pass",
+            execution_time=datetime(2024, 1, 1),
+            native_results={},
+        )
+    ]
+    return test_node, _make_dbt_node("model.project.my_model")
+
+
+def _note_mcps(
+    source: DBTCoreSource, test_node: DBTNode, model_node: DBTNode
+) -> List[MetadataChangeProposalWrapper]:
+    return [
+        mcp
+        for mcp in source.create_test_entity_mcps(
+            [test_node], {"model.project.my_model": model_node}
+        )
+        if isinstance(mcp.aspect, AssertionNoteClass)
+    ]
+
+
+def _graph_with_note(
+    source: DBTCoreSource, note: Optional[AssertionNoteClass], pipeline_name: str
+) -> mock.MagicMock:
+    graph = source.ctx.graph
+    assert isinstance(graph, mock.MagicMock)
+    graph.server_config.supports_feature.return_value = True
+
+    def get_entities(entity_name, urns, aspects, with_system_metadata):
+        if note is None:
+            return {}
+        return {
+            urn: {
+                AssertionNoteClass.ASPECT_NAME: (
+                    note,
+                    SystemMetadataClass(pipelineName=pipeline_name),
+                )
+            }
+            for urn in urns
+        }
+
+    graph.get_entities.side_effect = get_entities
+    return graph
+
+
+def test_create_test_entity_mcps_keeps_results_when_note_read_fails():
+    source = create_mocked_dbt_source()
+    graph = _graph_with_note(source, None, "dbt-source")
+    graph.get_entities.side_effect = RuntimeError("note read failed")
+    test_node, model_node = _described_test_with_result()
+
+    mcps = list(
+        source.create_test_entity_mcps(
+            [test_node], {"model.project.my_model": model_node}
+        )
+    )
+
+    aspects = [mcp.aspect for mcp in mcps]
+    assert any(isinstance(a, AssertionInfoClass) for a in aspects)
+    assert any(isinstance(a, OwnershipClass) for a in aspects)
+    assert any(isinstance(a, AssertionRunEventClass) for a in aspects)
+    assert not any(isinstance(a, AssertionNoteClass) for a in aspects)
+    assert not source.report.failures
+    assert any(
+        "Failed to read existing assertion notes" in str(w)
+        for w in source.report.warnings
+    )
+
+
+def test_create_test_entity_mcps_skips_notes_without_server_support():
+    test_node, model_node = _described_test_with_result()
+
+    unsupported = create_mocked_dbt_source()
+    graph = _graph_with_note(unsupported, None, "dbt-source")
+    graph.server_config.supports_feature.return_value = False
+    assert _note_mcps(unsupported, test_node, model_node) == []
+    graph.get_entities.assert_not_called()
+
+    no_graph = create_mocked_dbt_source()
+    no_graph.ctx.graph = None
+    assert _note_mcps(no_graph, test_node, model_node) == []
+    assert any(
+        "not written as assertion notes" in str(i) for i in no_graph.report.infos
+    )
+
+    supported = create_mocked_dbt_source()
+    _graph_with_note(supported, None, "dbt-source")
+    created = _note_mcps(supported, test_node, model_node)
+    assert len(created) == 1
+    assert isinstance(created[0].aspect, AssertionNoteClass)
+    assert created[0].aspect.content == "Every row needs an id."
+
+
+def test_create_test_entity_mcps_respects_note_ownership():
+    test_node, model_node = _described_test_with_result()
+    note = AssertionNoteClass(
+        content="Old text.",
+        lastModified=AuditStampClass(time=1, actor=mce_builder.SYSTEM_ACTOR),
+    )
+
+    # Written by this pipeline -> updated to the current dbt description.
+    source = create_mocked_dbt_source()
+    _graph_with_note(source, note, "dbt-source")
+    own = _note_mcps(source, test_node, model_node)
+    assert len(own) == 1
+    assert isinstance(own[0].aspect, AssertionNoteClass)
+    assert own[0].aspect.content == "Every row needs an id."
+
+    # System-actor note from a different writer -> left alone.
+    source = create_mocked_dbt_source()
+    _graph_with_note(source, note, "other-writer")
+    assert _note_mcps(source, test_node, model_node) == []
+
+    # Last edited by a user, even though the write carries this pipeline's name -> left alone.
+    user_note = AssertionNoteClass(
+        content="Page the owning team.",
+        lastModified=AuditStampClass(time=2, actor="urn:li:corpuser:jdoe"),
+    )
+    source = create_mocked_dbt_source()
+    _graph_with_note(source, user_note, "dbt-source")
+    assert _note_mcps(source, test_node, model_node) == []
+
+    # No pipeline name -> an existing note can't be attributed, so it is left alone,
+    # but a note is still created where none exists.
+    source = create_mocked_dbt_source()
+    source.ctx.pipeline_name = None
+    _graph_with_note(source, note, "dbt-source")
+    assert _note_mcps(source, test_node, model_node) == []
+    source = create_mocked_dbt_source()
+    source.ctx.pipeline_name = None
+    _graph_with_note(source, None, "dbt-source")
+    assert len(_note_mcps(source, test_node, model_node)) == 1
+
+
+def test_create_test_entity_mcps_clears_note_after_last_description_removed():
+    # No test in the project has a description any more; the note this pipeline
+    # wrote earlier must still be read and cleared.
+    test_node, model_node = _described_test_with_result()
+    test_node.description = ""
+    note = AssertionNoteClass(
+        content="Old text.",
+        lastModified=AuditStampClass(time=1, actor=mce_builder.SYSTEM_ACTOR),
+    )
+    source = create_mocked_dbt_source()
+    _graph_with_note(source, note, "dbt-source")
+
+    cleared = _note_mcps(source, test_node, model_node)
+
+    assert len(cleared) == 1
+    assert isinstance(cleared[0].aspect, AssertionNoteClass)
+    assert cleared[0].aspect.content == ""
+
+
+@pytest.mark.parametrize("has_description", [True, False])
+def test_create_test_entity_mcps_server_check_failure_warns_only_with_descriptions(
+    has_description: bool,
+) -> None:
+    test_node, model_node = _described_test_with_result()
+    if not has_description:
+        test_node.description = ""
+    source = create_mocked_dbt_source()
+    graph = _graph_with_note(source, None, "dbt-source")
+    graph.server_config.supports_feature.side_effect = ValueError("bad version")
+
+    assert _note_mcps(source, test_node, model_node) == []
+    graph.get_entities.assert_not_called()
+    warned = any(
+        "Could not check server support for assertion notes" in str(w)
+        for w in source.report.warnings
+    )
+    assert warned is has_description
+
+
+@pytest.mark.parametrize(
+    ("dbt_version", "reads_notes"),
+    [("1.8.7", False), ("1.9.0b1", True), ("1.10.2", True), ("unknown", True)],
+)
+def test_create_test_entity_mcps_skips_note_reads_before_dbt_1_9(
+    dbt_version: str, reads_notes: bool
+) -> None:
+    test_node, model_node = _described_test_with_result()
+    source = create_mocked_dbt_source()
+    source._current_project = dataclasses.replace(
+        source._project, artifact_props={"manifest_version": dbt_version}
+    )
+    graph = _graph_with_note(source, None, "dbt-source")
+
+    _note_mcps(source, test_node, model_node)
+
+    assert graph.get_entities.called is reads_notes
 
 
 def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
@@ -4121,6 +4644,55 @@ def test_dbt_cloud_parse_semantic_model_node():
     assert node.semantic_model_def is not None
     assert node.semantic_model_def.entities[0].is_key
     assert node.semantic_model_def.measures[0].create_metric
+
+
+@pytest.mark.parametrize(
+    ("depends_on", "expected_test_name"),
+    [
+        pytest.param(
+            ["macro.dbt.test_not_null", "model.my_project.orders"],
+            "not_null",
+            id="builtin-generic",
+        ),
+        pytest.param(
+            ["macro.dbt_utils.test_expression_is_true", "model.my_project.orders"],
+            "dbt_utils.test_expression_is_true",
+            id="package-generic",
+        ),
+        pytest.param(
+            ["macro.my_project.cents_to_dollars", "model.my_project.orders"],
+            "",
+            id="singular-calling-a-macro",
+        ),
+        pytest.param(["model.my_project.orders"], "", id="singular"),
+    ],
+)
+def test_dbt_cloud_extract_test_info_test_type(
+    depends_on: List[str], expected_test_name: str
+) -> None:
+    config = DBTCloudConfig(
+        access_url="https://cloud.getdbt.com",
+        token="dummy_token",
+        account_id=123456,
+        project_id=1234567,
+        job_id=12345678,
+        target_platform="snowflake",
+    )
+    source = DBTCloudSource(
+        config, PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+    )
+
+    test_info, _ = source._extract_test_info(
+        {"dependsOn": depends_on, "columnName": None, "skip": True}
+    )
+
+    assert test_info is not None
+    assert test_info.qualified_test_name == expected_test_name
+    if not expected_test_name:
+        # A singular test's name is its file name, never a custom title.
+        assert not is_custom_test_name(
+            "assert_orders_positive", test_info, ["model.my_project.orders"]
+        )
 
 
 def test_dbt_cloud_semantic_model_column_types():

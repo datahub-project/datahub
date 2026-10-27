@@ -11,6 +11,9 @@ record DataFlowKey {
   * Workflow manager like azkaban, airflow which orchestrates the flow
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL"
   }
   orchestrator: string
@@ -19,6 +22,9 @@ record DataFlowKey {
   * Unique Identifier of the data flow
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true
   }
@@ -28,6 +34,9 @@ record DataFlowKey {
   * Cluster where the flow is executed
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL"
   }
   cluster: string

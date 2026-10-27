@@ -7,7 +7,8 @@ import com.linkedin.common.Urn
  * Information about a DataHub Access Token
  */
 @Aspect = {
-  "name": "dataHubAccessTokenInfo"
+  "name": "dataHubAccessTokenInfo",
+  "schemaVersion": 2
 }
 record DataHubAccessTokenInfo {
 
@@ -18,6 +19,7 @@ record DataHubAccessTokenInfo {
    "fieldType": "TEXT_PARTIAL",
    "boostScore": 10.0,
    "v3": {
+     "queryByDefault": true,
      "searchLabel": "name",
      "mappings": [
        { "type": "KEYWORD" },
@@ -32,7 +34,14 @@ record DataHubAccessTokenInfo {
    * Urn of the actor to which this access token belongs to.
    */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "searchLabel": "owners",
+      "hasValuesFieldName": "hasOwners",
+      "mappings": [
+        { "type": "URN" }
+      ]
+    }
   }
   actorUrn: Urn
 
@@ -40,7 +49,14 @@ record DataHubAccessTokenInfo {
    * Urn of the actor which created this access token.
    */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "searchLabel": "owners",
+      "hasValuesFieldName": "hasOwners",
+      "mappings": [
+        { "type": "URN" }
+      ]
+    }
   }
   ownerUrn: Urn
 
@@ -76,5 +92,18 @@ record DataHubAccessTokenInfo {
   /**
    * Description of the token if defined.
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 }

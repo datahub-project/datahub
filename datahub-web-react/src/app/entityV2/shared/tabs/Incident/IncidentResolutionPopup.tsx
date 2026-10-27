@@ -10,8 +10,8 @@ import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { Button } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { ModalButtonContainer } from '@src/app/sharedV2/button/styledComponents';
+import handleGraphQLError from '@src/app/sharedV2/handleGraphQLError';
 import { useUpdateIncidentStatusMutation } from '@src/graphql/mutations.generated';
 import { IncidentStage, IncidentState } from '@src/types.generated';
 
