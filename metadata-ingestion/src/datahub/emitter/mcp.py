@@ -27,7 +27,7 @@ _ENTITY_TYPE_UNSET = "ENTITY_TYPE_UNSET"
 
 def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
     obj = codegen_obj.to_obj()
-    # Cut on the serialized copy so the caller's aspect keeps its full text.
+    # Cut the to_obj() copy so the caller's aspect keeps its full text.
     for fine_grained in obj.get("fineGrainedLineages") or []:
         if fine_grained.get("transformOperation"):
             fine_grained["transformOperation"] = cap_transform_operation(

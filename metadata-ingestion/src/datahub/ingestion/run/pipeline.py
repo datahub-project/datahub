@@ -325,8 +325,8 @@ class Pipeline:
         self.num_intermediate_workunits = 0
         self.last_time_printed = int(time.time())
         self.cli_report = CliReport()
-        # The value is read lazily while lineage is serialized; check it before
-        # anything is emitted so a bad value cannot fail a run partway.
+        # The value is only read once lineage is built or serialized; check it up
+        # front so a bad value cannot fail a run partway.
         get_max_transform_operation_length()
 
         with (
