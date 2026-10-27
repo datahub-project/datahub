@@ -728,7 +728,11 @@ public class TimelineServiceImpl implements TimelineService {
         entityType,
         ChangeCategory.DOCUMENTATION,
         aspectName,
-        new PropertiesDescriptionChangeEventGenerator<>(aspectName, aspectClass, fieldName));
+        new PropertiesDescriptionChangeEventGenerator<>(
+            aspectName,
+            aspectClass,
+            List.of(PropertiesDescriptionChangeEventGenerator.TrackedField.description(fieldName)),
+            Map.of()));
   }
 
   private HashMap<ChangeCategory, Set<String>> buildAgentFamilyTimelineRegistry(
