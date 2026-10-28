@@ -135,6 +135,12 @@ class SnowflakeV2Report(
     # sqlglot parse failures while resolving metric-to-metric derivedFrom refs;
     # best-effort, the metric is still emitted without those edges.
     num_semantic_view_metric_expr_parse_failures: int = 0
+    # Column refs on a metric expression whose parent logical dataset is not
+    # already a dataset upstream (table-bound metrics do not grow that set).
+    num_semantic_view_metric_field_refs_outside_dataset_upstreams: int = 0
+    # Column refs that resolved to a logical table in the allow-list but are
+    # not a fact/dimension on that table's emitted schema.
+    num_semantic_view_metric_field_refs_unresolved: int = 0
 
     marketplace_listings_scanned: int = 0
     marketplace_listings_filtered: int = 0

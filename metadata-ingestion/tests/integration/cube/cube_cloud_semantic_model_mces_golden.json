@@ -767,11 +767,12 @@
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:cube,cube_demo.orders_view.orders,PROD)"
                 }
-            ]
+            ],
+            "fieldUpstreams": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1787776835276,
+        "lastObserved": 1790376956589,
         "runId": "cube-test",
         "lastRunId": "no-run-id-provided"
     }
