@@ -138,6 +138,7 @@ def run_and_verify(config: DbtTestConfig) -> None:
         output_path=config.output_path,
         golden_path=config.golden_path,
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -609,6 +610,7 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
         golden_path=golden_path,
         ignore_paths=[],
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
