@@ -135,6 +135,9 @@ def _make_extractor(
             "start_time": START,
             "end_time": END,
             "format_sql_queries": False,
+            # Pinned so the column-case sweep (DATAHUB_TEST_PRESERVE_COLUMN_CASE=1 in
+            # CI, see conftest.py) does not change the lowercased field paths asserted here.
+            "preserve_column_case": False,
             **config_overrides,
         }
     )
