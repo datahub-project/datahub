@@ -1,0 +1,97 @@
+query getRepository($urn: String!) {
+    repository(urn: $urn) {
+        ...repositoryFields
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+}
+
+fragment repositoryFields on Repository {
+    ...repositorySearchFields
+    platform {
+        ...platformFields
+    }
+    properties {
+        created {
+            time
+        }
+        lastModified {
+            time
+        }
+    }
+    forkOf {
+        urn
+        type
+        properties {
+            name
+        }
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
+    privileges {
+        ...entityPrivileges
+    }
+}
+
+# Fields common to every context Repository is rendered in. Deliberately excludes
+# `platform` and `properties.created`/`properties.lastModified`: those return
+# non-null AuditStamp/DataPlatform on some sibling entity types elsewhere in
+# `searchResultsWithoutSchemaField`, so spreading them unaliased here would be a
+# GraphQL "fields conflict" error the moment this fragment is reused in that
+# polymorphic context (see search.graphql). Callers that only ever resolve to a
+# concrete Repository (e.g. getRepository above) can select those fields directly
+# and unaliased; callers merged into a polymorphic Entity selection must alias them.
+fragment repositorySearchFields on Repository {
+    urn
+    type
+    subTypes {
+        typeNames
+    }
+    properties {
+        name
+        description
+        defaultBranch
+        languages
+        license
+        homepageUrl
+        archived
+    }
+    exists
+    source {
+        externalUrl
+        externalId
+    }
+    ownership {
+        ...ownershipFields
+    }
+    status {
+        removed
+    }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        domain {
+            urn
+            type
+            properties {
+                name
+                description
+            }
+        }
+        associatedUrn
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
+    }
+}

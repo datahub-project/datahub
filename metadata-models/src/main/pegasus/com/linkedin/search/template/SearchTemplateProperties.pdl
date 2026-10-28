@@ -7,9 +7,12 @@ import com.linkedin.common.Urn
  * {@code parent}. An explicitly present empty string for {@code query}, {@code clauses},
  * {@code functionScore}, {@code rescore}, {@code knn}, or {@code ladder} drops that inherited
  * section. An explicitly present empty {@code ranking} or {@code retrieval} drops that inherited
- * section. An explicitly present empty {@code fields}, {@code highlightFields},
+ * section. An explicitly present empty {@code component} drops an inherited component.
+ * An explicitly present empty {@code fields}, {@code highlightFields},
  * {@code aggregations}, or {@code sort} drops the inherited override and falls back to the schema
- * or Java default. An explicitly present empty {@code boosts} drops an inherited list.
+ * or Java default. An explicitly present empty {@code boosts}, {@code fieldValueScores},
+ * {@code fieldFactors}, {@code termWeights}, or {@code entityTypeBoosts} drops an inherited
+ * list. Unset {@code scoreMode} and {@code boostMode} keep the parent mode.
  * An explicitly present empty {@code structuredPropertyQuery} drops an inherited section.
  * A child replaces only the structured-property clauses it sets. An explicitly present
  * empty {@code normalization} drops inherited query-normalization settings. A child
@@ -40,7 +43,8 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "searchTemplateProperties",
-  "aspectJson": true
+  "aspectJson": true,
+  "schemaVersion": 2
 }
 record SearchTemplateProperties {
   /**
@@ -82,9 +86,11 @@ record SearchTemplateProperties {
    * Features this body requires. Unset inherits the parent list. An empty list drops it. A
    * non-empty list replaces it. This release implements {@code keyword}, {@code rescore},
    * {@code functionScore}, {@code routes}, {@code ladder}, {@code aggregations},
-   * {@code structuredPropertyQuery}, {@code normalization}, {@code fieldOverrides},
-   * {@code highlights}, {@code sort}, {@code boosts}, and {@code queryFragments}. Any other
-   * name is rejected at write and at load.
+   * {@code structuredPropertyQuery}, {@code fieldValueScores}, {@code fieldFactors},
+   * {@code termWeights}, {@code entityTypeBoosts},
+   * {@code normalization}, {@code fieldOverrides},
+   * {@code highlights}, {@code sort}, {@code boosts}, {@code queryFragments}, and
+   * {@code component}. Any other name is rejected at write and at load.
    */
   capabilities: optional array[string]
 
@@ -109,9 +115,39 @@ record SearchTemplateProperties {
 
   /**
    * Mustache JSON for one function_score wrapper: {@code functions}, {@code score_mode},
-   * {@code boost_mode}. Java wraps it around the rendered query once.
+   * {@code boost_mode}. Java wraps it around the rendered query once. {@code fieldFactors}
+   * and {@code termWeights} are appended to {@code functions}. {@code scoreMode} and
+   * {@code boostMode}, when set, replace the modes in this JSON.
    */
   functionScore: optional string
+
+  /**
+   * How functions inside the function score combine. Unset keeps the parent mode. When no
+   * ancestor sets this, the mode in {@code functionScore} stands.
+   */
+  scoreMode: optional SearchTemplateScoreMode
+
+  /**
+   * How the function score combines with the query score. Unset keeps the parent mode. When
+   * no ancestor sets this, the mode in {@code functionScore} stands.
+   */
+  boostMode: optional SearchTemplateBoostMode
+
+  /**
+   * Numeric field factors appended inside the function score. Each entry names an index
+   * field or a structured property. Unset inherits. An empty array drops the inherited list.
+   * A non-empty array replaces it. Omitted factor and missing values are omitted from the
+   * function. The template does not store a property's resolved field path.
+   */
+  fieldFactors: optional array[FieldFactor]
+
+  /**
+   * Term weights appended inside the function score, after {@code fieldFactors}. Each entry
+   * names an index field or a structured property. Unset inherits. An empty array drops the
+   * inherited list. A non-empty array replaces it. {@code value} is one JSON scalar. The
+   * template does not store a property's resolved field path.
+   */
+  termWeights: optional array[TermWeight]
 
   /**
    * Mustache JSON for one rescore clause ({@code window_size}, {@code query}). Unset means no
@@ -133,6 +169,13 @@ record SearchTemplateProperties {
    * runs {@code preset none} and {@code windowSizer fixed} only.
    */
   ranking: optional SearchTemplateRanking
+
+  /**
+   * Named component. Unset inherits the parent. An explicit empty record drops it. {@code mode}
+   * is required when the component is set. OSS registers no components, so a set component fails
+   * closed on an OSS process.
+   */
+  component: optional SearchTemplateComponent
 
   /**
    * Retrieval mode and vector settings. Unset is keyword. An explicit empty value drops an
@@ -171,6 +214,25 @@ record SearchTemplateProperties {
    * positive.
    */
   structuredPropertyQuery: optional StructuredPropertyQuery
+
+  /**
+   * Numeric values that multiply the rendered query. Each entry names an index field or a
+   * structured property, never neither and never both. Unset inherits. An empty array drops
+   * the inherited list. A non-empty array replaces it. A field sets its extents here. A
+   * property may omit them; each omitted value is read from that property's {@code score}
+   * when the query is rendered, and a value set here replaces the definition. The template
+   * does not store a property's resolved field path. Naming a property is what turns scoring
+   * on. The shipped templates do not set this section.
+   */
+  fieldValueScores: optional array[FieldValueScore]
+
+  /**
+   * Entity-type weights multiplied onto the rendered query. Unset inherits. An empty array
+   * drops the inherited list. A non-empty array replaces it. Each entry sets an entity type
+   * and a positive weight. A weight of 1 is omitted when the query is rendered. A request
+   * that names one entity type skips the section.
+   */
+  entityTypeBoosts: optional array[EntityTypeBoost]
 
   /**
    * Wildcard, synonym, fuzzy, and broad-query limits. Unset inherits field by field. An
