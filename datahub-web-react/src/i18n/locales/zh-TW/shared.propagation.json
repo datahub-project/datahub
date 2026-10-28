@@ -1,9 +1,12 @@
 {
     "autoPropagatedDescription": "此說明是從上游欄自動傳播而來。<learnMore>瞭解更多</learnMore>",
+    "ingested": "已擷取",
+    "ingestedFrom": "擷取自 {{origin}}",
     "origin": "來源",
     "originLabel": "來源",
     "propagated": "已傳播",
     "propagatedDescriptionTitle": "已傳播的說明",
+    "sourceLabel": "來源",
     "via": "經由",
     "viaLabel": "經由"
 }
