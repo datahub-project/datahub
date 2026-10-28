@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +10,7 @@ from botocore.exceptions import ClientError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.sink.file import write_metadata_file
+from datahub.ingestion.source.aws_messaging.clients import SqsClient
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
 from datahub.metadata.schema_classes import (
     DomainsClass,
@@ -195,3 +196,28 @@ def test_test_connection(aws: None) -> None:
     report = SqsSource.test_connection(base_config())
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable
+
+
+def test_unreadable_queue_is_kept_out_of_stale_removal(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_queue("orders")
+    create_queue("flaky")
+    original = SqsClient.get_attributes
+
+    def flaky_attributes(self: SqsClient, url: str) -> Optional[Dict[str, str]]:
+        # Throttled for one queue: the client already reported a warning.
+        return None if url.endswith("/flaky") else original(self, url)
+
+    monkeypatch.setattr(SqsClient, "get_attributes", flaky_attributes)
+    source = _run()
+    flaky = queue_urn("flaky")
+    aspects = [
+        (wu.get_urn(), str(wu.metadata.aspectName), wu.is_primary_source)
+        for wu in source.get_workunits_internal()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    ]
+    # Only Status, so nothing an earlier run stored is overwritten, and primary,
+    # so stale-entity removal counts the queue as still present.
+    assert [a for a in aspects if a[0] == flaky] == [(flaky, "status", True)]
+    assert list(source.get_report().queues_failed) == ["flaky"]
