@@ -139,6 +139,7 @@ class SqsSource(AwsMessagingSourceBase):
             )
             if schema is not None:
                 self.schemas.fetched[urn] = schema
+            self.lineage.owned.add(urn)
             yield from Dataset(
                 platform=SQS_PLATFORM,
                 name=self.urns.resource_id(queue.arn),
