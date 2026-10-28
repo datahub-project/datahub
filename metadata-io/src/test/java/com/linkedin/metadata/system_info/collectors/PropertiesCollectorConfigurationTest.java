@@ -768,6 +768,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.index.refreshIntervals.timeseriesSeconds",
           "elasticsearch.index.refreshIntervals.usageSeconds",
           "elasticsearch.index.settingsOverrides",
+          "elasticsearch.index.structuredPropertyMappingCacheTtlSeconds",
+          "elasticsearch.index.structuredPropertyRestateEnabled",
           "elasticsearch.pathPrefix",
           "elasticsearch.port",
           "elasticsearch.search.canonicalization.time.bucketSize",

@@ -1128,6 +1128,10 @@ elasticsearch:
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
+    # A structuredProperties RESTATE with no previous value nulls mapped fields the aspect does not
+    # set. The field list is one mapping read per index, cached for the TTL below.
+    structuredPropertyRestateEnabled: ${ELASTICSEARCH_INDEX_STRUCTURED_PROPERTY_RESTATE_ENABLED:true}
+    structuredPropertyMappingCacheTtlSeconds: ${ELASTICSEARCH_INDEX_STRUCTURED_PROPERTIES_MAPPING_CACHE_TTL_SECONDS:300}
     enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout
