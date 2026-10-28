@@ -242,7 +242,7 @@ For `.zip` archives:
 - Only the bytes needed (the central directory and the selected entry) are downloaded from Google Cloud Storage via range requests, so large archives are not fully downloaded for schema inference.
 - To guard against zip-bomb archives, an entry whose **uncompressed** size exceeds `path_spec.max_zip_entry_size` (default 512 MiB) is skipped with a warning. Increase this value if you need to read larger entries.
 
-Set `path_spec.enable_compression` to `false` to treat compressed files as opaque and skip this handling.
+Set `path_spec.enable_compression` to `false` to skip compressed files; they are not ingested.
 
 #### Profiling
 

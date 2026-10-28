@@ -131,6 +131,18 @@ class TestGetFieldsZip:
 
         assert {f.fieldPath for f in fields} == {"name", "age"}
 
+    def test_member_suffix_wins_over_archive_name(self, tmp_path):
+        zip_path = tmp_path / "data.csv.zip"
+        self._write_zip(zip_path, "data.json", b'{"name": "Alice", "age": 30}\n')
+
+        source = _make_local_source()
+        fields = source.get_fields(
+            self._table_data(str(zip_path)),
+            PathSpec(include=str(tmp_path / "*.zip")),
+        )
+
+        assert {f.fieldPath for f in fields} == {"name", "age"}
+
 
 def test_s3_zip_member_is_read_over_range_requests(s3_client: S3Client) -> None:
     # A key with '#' must reach S3 intact.
