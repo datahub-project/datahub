@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -63,12 +63,19 @@ class LambdaFunctionEdges(BaseModel):
     input_jobs: Set[str] = Field(default_factory=set)
 
 
+class RuleTarget(BaseModel):
+    arn: str
+    input_path: Optional[str] = None
+    # A constant Input or an InputTransformer replaces the event.
+    reshaped: bool = False
+
+
 class EventBridgeRule(BaseModel):
     bus_arn: Arn
     name: str
     state: Optional[str] = None
     event_pattern: Optional[str] = None
-    target_arns: Set[str] = Field(default_factory=set)
+    targets: List[RuleTarget] = Field(default_factory=list)
 
 
 class EventBridgePipe(BaseModel):

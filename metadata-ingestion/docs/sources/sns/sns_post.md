@@ -6,10 +6,15 @@ When `platform_instance` is not set, the connector reads the account id from a t
 
 #### Subscription lineage
 
-| Edge                                        | Read from                                                              |
-| ------------------------------------------- | ---------------------------------------------------------------------- |
-| Topic to SQS queue                          | `sns:ListSubscriptions`, protocol `sqs`                                |
-| Topic to a subscription's dead-letter queue | the subscription's `RedrivePolicy` (`include_subscription_attributes`) |
+| Edge                                                                                                       | Read from                                                                                                |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Topic to SQS queue                                                                                         | `sns:ListSubscriptions`, protocol `sqs`                                                                  |
+| Topic to a subscription's dead-letter queue                                                                | the subscription's `RedrivePolicy` (`include_subscription_attributes`)                                   |
+| Event bus to queue or topic through a rule, no input transformer or constant                               | Yes: the whole event, or the subtree at a simple `InputPath` such as `$.detail` (`detail.x` maps to `x`) | The target gets the event or that subtree as is; the upstream schema is the event bus dataset's schema in DataHub |
+| Rule target with an input transformer, a constant input, or a complex `InputPath`                          | No                                                                                                       | The payload is rebuilt                                                                                            |
+| Pipe from a queue whose input template only has `<$.body.path>` values                                     | Yes, each template key from its body path                                                                | Pipes decodes the SQS body and fills each key from one field                                                      |
+| Pipe without an input template, with an enrichment step, or with literals or concatenation in the template | No                                                                                                       | Without a template the target gets the SQS record (message id, attributes, body), not the message                 |
+| Any hop through a Lambda function                                                                          | No                                                                                                       | The function can change anything                                                                                  |
 
 Edges are upstream lineage patches on the queue, so the queue keeps its dead-letter lineage from the `sqs` source and edges from other accounts' recipes. Each edge carries a `relationship` property (`subscription` or `subscription_dead_letter`).
 
@@ -21,9 +26,18 @@ Topics record how many subscriptions each protocol has, and the hosts of HTTP(S)
 
 SNS stores opaque messages, so there is no schema by default. If producers register message schemas in [AWS Glue Schema Registry](https://docs.aws.amazon.com/glue/latest/dg/schema-registry.html), set `glue_schema_registry.enabled` and list each topic and its schema in `glue_schema_registry.topic_schema_map`. AWS keeps no link between a topic and a schema, so the map is the reliable way; `use_naming_convention` looks for a schema named like the topic when the map has no entry. AVRO, JSON and PROTOBUF schemas are supported, read with `glue:GetSchemaVersion`.
 
-#### Column-level lineage
+#### When column lineage is emitted
 
-For a queue subscribed with raw message delivery, the message reaches the queue unchanged, so the connector adds field-level lineage for every field present in both schemas (matched case-insensitively). Without raw delivery SNS wraps the message in a JSON envelope and only table-level lineage is added. Both schemas must be available: the topic's from Glue Schema Registry in this run or from DataHub, the queue's from DataHub (for example from the `sqs` source with its own schema map). Most deployments have no schemas on one side and get table-level lineage only. `column_lineage_skipped` in the report counts each reason.
+Field-level lineage is only added where a message reaches the next hop unchanged, for fields present in both schemas (matched case-insensitively on the simple field path). Schemas come from Glue Schema Registry in the same run or from DataHub. Without a schema on both sides, the edge stays table-level. Most deployments have no schema on one side and see table-level lineage only. The report counts each skip reason under `column_lineage_skipped`.
+
+| Hop                                                 | Column lineage           | Why                                                                           |
+| --------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
+| Queue to its dead-letter queue (`sqs`)              | Yes, field to same field | SQS moves the failed message itself                                           |
+| Topic to queue, raw message delivery (`sns`)        | Yes, field to same field | The queue receives the published message as is                                |
+| Topic to queue, without raw delivery (`sns`)        | No                       | SNS wraps the message in its JSON envelope                                    |
+| Topic to a subscription's dead-letter queue (`sns`) | No                       | AWS doesn't document whether that queue holds the raw message or the envelope |
+
+Turn it off with `column_lineage` (on by default; needs `include_subscription_attributes`).
 
 #### Lambda and EventBridge
 
@@ -40,7 +54,7 @@ With the `lineage` options on (the default), the connector follows the services 
 - A Lambda function is a DataFlow (platform `lambda`) with one `invoke` DataJob, the shape the `kinesis` source uses for Firehose. Functions appear only when one of these edges involves one of the run's topics, and only for the recipe's own account and region.
 - A rule (platform `eventbridge`) is a DataFlow with one `route` DataJob from its event bus, emitted as an `Event Bus` dataset, to its targets. A pipe (platform `eventbridge-pipes`) is a DataFlow with one `pipe` DataJob from source to target. A rule or pipe that targets a function becomes an upstream job of that function.
 - The `sqs` and `sns` sources each add only the edges whose dataset end they own, as patches, so a rule targeting both a queue and a topic gets both outputs once both have run.
-- A pipe with no enrichment step and no input template passes messages through unchanged, so it gets field-level lineage for fields present in both the source's and the target's schemas (from Glue Schema Registry or DataHub). Most pipes have no schema on one side and get table-level lineage only.
+- Some rules and pipes also get field-level lineage; see the table below.
 - The Firehose delivery job belongs to the `kinesis` source, so the topic is added to its inputs only when the job already exists in DataHub. That check needs a DataHub connection (the `datahub-rest` sink provides one). Set `kinesis_platform_instance` if that source's `platform_instance` isn't the account id.
 
 #### S3 event notifications

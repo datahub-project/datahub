@@ -32,7 +32,6 @@ from datahub.ingestion.source.aws_messaging.constants import (
     SubscriptionProtocol,
 )
 from datahub.ingestion.source.aws_messaging.firehose import FirehoseLineage
-from datahub.ingestion.source.aws_messaging.lineage import identity_field_lineage
 from datahub.ingestion.source.aws_messaging.mapper import (
     data_identifiers,
     domain_for,
@@ -249,6 +248,10 @@ class SnsSource(AwsMessagingSourceBase):
                 redrive = parse_redrive_policy(
                     attributes.get(SubscriptionAttribute.REDRIVE_POLICY)
                 )
+                # Table-level only: the SNS dead-letter queue docs don't say whether
+                # the queue holds the raw message or the SNS envelope, or whether
+                # RawMessageDelivery changes that.
+                # https://docs.aws.amazon.com/sns/latest/dg/sns-dead-letter-queues.html
                 if redrive is not None:
                     self._add_queue_edge(
                         topic_urn,
@@ -280,21 +283,7 @@ class SnsSource(AwsMessagingSourceBase):
         if attributes.get(SubscriptionAttribute.RAW_MESSAGE_DELIVERY) != TRUE_STRING:
             self.report.column_lineage_skipped["not raw message delivery"] += 1
             return
-        topic_schema = self.schemas.get(topic_urn)
-        queue_schema = self.schemas.get(queue_urn)
-        if topic_schema is None or queue_schema is None:
-            self.report.column_lineage_skipped["schema missing on one side"] += 1
-            return
-        lineages = identity_field_lineage(
-            upstream_urn=topic_urn,
-            upstream_schema=topic_schema,
-            downstream_urn=queue_urn,
-            downstream_schema=queue_schema,
-        )
-        if not lineages:
-            self.report.column_lineage_skipped["no fields in common"] += 1
-            return
-        self.lineage.add_fine_grained(queue_urn, lineages)
+        self.add_identity_column_lineage(topic_urn, queue_urn)
 
     def get_report(self) -> SnsSourceReport:
         return self.report
