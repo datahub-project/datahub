@@ -17,7 +17,7 @@ import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.homepagelinks.MigrateHomePageLinks;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
-import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceRunSummary;
+import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceRunEvents;
 import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
@@ -171,16 +171,16 @@ public class NonBlockingConfigs {
   }
 
   @Bean
-  public NonBlockingSystemUpgrade backfillIngestionSourceRunSummary(
+  public NonBlockingSystemUpgrade backfillIngestionSourceRunEvents(
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
       final SearchService searchService,
       @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
-      @Value("${systemUpdate.ingestionSourceRunSummary.enabled}") final boolean enabled,
-      @Value("${systemUpdate.ingestionSourceRunSummary.reprocess.enabled}")
+      @Value("${systemUpdate.ingestionSourceRunEvents.enabled}") final boolean enabled,
+      @Value("${systemUpdate.ingestionSourceRunEvents.reprocess.enabled}")
           final boolean reprocessEnabled,
-      @Value("${systemUpdate.ingestionSourceRunSummary.batchSize}") final Integer batchSize) {
-    return new BackfillIngestionSourceRunSummary(
+      @Value("${systemUpdate.ingestionSourceRunEvents.batchSize}") final Integer batchSize) {
+    return new BackfillIngestionSourceRunEvents(
         opContext,
         entityService,
         searchService,

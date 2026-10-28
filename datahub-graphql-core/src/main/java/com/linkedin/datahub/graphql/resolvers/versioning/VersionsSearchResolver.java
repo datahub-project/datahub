@@ -70,11 +70,29 @@ public class VersionsSearchResolver implements DataFetcher<CompletableFuture<Sea
     SearchFlags searchFlags = Optional.ofNullable(input.getSearchFlags()).orElse(new SearchFlags());
     searchFlags.setFilterNonLatestVersions(false);
 
+    // When the caller doesn't constrain entity types, scope the search to the version
+    // set's own entity type (parsed from the versionSet urn's key: (id, entityType)).
+    // Otherwise searchAcrossEntities falls back to the default searchable-type set,
+    // which omits entity types like aiAgent and silently returns no versions.
+    List<com.linkedin.datahub.graphql.generated.EntityType> searchTypes = input.getTypes();
+    if (searchTypes == null || searchTypes.isEmpty()) {
+      try {
+        final String entityName =
+            com.linkedin.common.urn.UrnUtils.getUrn(entity.getUrn()).getEntityKey().get(1);
+        searchTypes =
+            List.of(
+                com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper.getType(entityName));
+      } catch (Exception e) {
+        log.warn("Could not derive entity type from version set urn {}", entity.getUrn(), e);
+        searchTypes = input.getTypes();
+      }
+    }
+
     return SearchUtils.searchAcrossEntities(
         context,
         _entityClient,
         _viewService,
-        input.getTypes(),
+        searchTypes,
         input.getQuery(),
         SearchUtils.combineFilters(inputFilter, baseFilter),
         input.getViewUrn(),

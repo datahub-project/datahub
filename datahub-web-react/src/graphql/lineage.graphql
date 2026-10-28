@@ -555,6 +555,24 @@ fragment lineageNodeProperties on EntityWithRelationships {
             ...glossaryTerms
         }
     }
+    ... on Repository {
+        urn
+        type
+        exists
+        properties {
+            name
+            description
+        }
+        repositoryPlatform: platform {
+            ...platformFields
+        }
+        subTypes {
+            typeNames
+        }
+        status {
+            removed
+        }
+    }
     ... on Api {
         urn
         type
@@ -878,6 +896,11 @@ fragment entityLineageV2 on Entity {
             ...platformFields
         }
     }
+    ... on Repository {
+        properties {
+            name
+        }
+    }
     ... on Api {
         properties {
             name
@@ -1113,7 +1136,11 @@ query getSearchAcrossLineageCounts(
         count
         total
         facets {
-            ...facetFields
+            field
+            aggregations {
+                value
+                count
+            }
         }
     }
     downstreams: searchAcrossLineage(
@@ -1131,7 +1158,11 @@ query getSearchAcrossLineageCounts(
         count
         total
         facets {
-            ...facetFields
+            field
+            aggregations {
+                value
+                count
+            }
         }
     }
 }

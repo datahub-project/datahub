@@ -41,6 +41,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
@@ -146,86 +147,85 @@ public class SearchTemplateSeamTest {
     SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
     harness.setup();
     harness.installShippedTemplates();
-    try {
-      shippedSurfaceSeeds(harness);
-      SearchTemplateCoordinator coordinator =
-          new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
-      ESSearchDAO dao = mock(ESSearchDAO.class);
-      ElasticSearchService elastic = elasticSearch(harness, dao);
-      OperationContext page = capturePageSearch(elastic, dao, harness.opContext);
-      ResolvedSearchTemplate light = resolve(coordinator, page, false);
-      assertEquals(light.getRouteChain().get(0), "urn:li:searchTemplate:searchLight");
-      assertEquals(light.getUrn(), "urn:li:searchTemplate:light");
+    shippedSurfaceSeeds(harness);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
+    ESSearchDAO dao = mock(ESSearchDAO.class);
+    ElasticSearchService elastic = elasticSearch(harness, dao);
+    OperationContext page = capturePageSearch(elastic, dao, harness.opContext);
+    ResolvedSearchTemplate light = resolve(coordinator, page, false);
+    assertEquals(light.getRouteChain().get(0), "urn:li:searchTemplate:searchLight");
+    assertEquals(light.getUrn(), "urn:li:searchTemplate:light");
 
-      CachingEntitySearchService cache = mock(CachingEntitySearchService.class);
-      when(cache.search(any(), any(), any(), any(), any(), anyInt(), any(), any()))
-          .thenReturn(emptyPage());
-      SearchService searchService =
-          new SearchService(
-              mock(EntityDocCountCache.class),
-              cache,
-              mock(SearchRanker.class),
-              TEST_SEARCH_SERVICE_CONFIG);
-      searchService.searchAcrossEntities(
-          harness.opContext, List.of("dataset"), "orders", null, List.of(), 0, 10);
-      ArgumentCaptor<OperationContext> across = ArgumentCaptor.forClass(OperationContext.class);
-      verify(cache).search(across.capture(), any(), any(), any(), any(), anyInt(), any(), any());
-      ResolvedSearchTemplate acrossResolved = resolve(coordinator, across.getValue(), false);
-      assertEquals(acrossResolved.getRouteChain(), light.getRouteChain());
-      assertEquals(acrossResolved.getUrn(), light.getUrn());
+    CachingEntitySearchService cache = mock(CachingEntitySearchService.class);
+    when(cache.search(any(), any(), any(), any(), any(), anyInt(), any(), any()))
+        .thenReturn(emptyPage());
+    SearchService searchService =
+        new SearchService(
+            mock(EntityDocCountCache.class),
+            cache,
+            mock(SearchRanker.class),
+            TEST_SEARCH_SERVICE_CONFIG);
+    searchService.searchAcrossEntities(
+        harness.opContext, List.of("dataset"), "orders", null, List.of(), 0, 10);
+    ArgumentCaptor<OperationContext> across = ArgumentCaptor.forClass(OperationContext.class);
+    verify(cache).search(across.capture(), any(), any(), any(), any(), anyInt(), any(), any());
+    ResolvedSearchTemplate acrossResolved = resolve(coordinator, across.getValue(), false);
+    assertEquals(acrossResolved.getRouteChain(), light.getRouteChain());
+    assertEquals(acrossResolved.getUrn(), light.getUrn());
 
-      OperationContext structuredRequest =
-          capturePageSearch(
-              elastic, dao, harness.opContext.withSearchFlags(flags -> flags.setFulltext(false)));
-      assertEquals(
-          resolve(coordinator, structuredRequest, false).getUrn(), SEARCH_TEMPLATE_STRUCTURED_URN);
+    OperationContext structuredRequest =
+        capturePageSearch(
+            elastic, dao, harness.opContext.withSearchFlags(flags -> flags.setFulltext(false)));
+    assertEquals(
+        resolve(coordinator, structuredRequest, false).getUrn(), SEARCH_TEMPLATE_STRUCTURED_URN);
 
-      OperationContext untagged =
-          capturePageSearch(elastic, dao, harness.opContext.withSearchSurface(null));
-      assertEquals(
-          untagged.getSearchContext().getSearchSurface(), SearchTemplateSurfaces.SEARCH_ENTITIES);
-      ResolvedSearchTemplate untaggedResolved = resolve(coordinator, untagged, false);
-      assertEquals(untaggedResolved.getRouteChain().get(0), "urn:li:searchTemplate:searchLight");
-      assertEquals(untaggedResolved.getUrn(), "urn:li:searchTemplate:light");
+    OperationContext untagged =
+        capturePageSearch(elastic, dao, harness.opContext.withSearchSurface(null));
+    assertEquals(
+        untagged.getSearchContext().getSearchSurface(), SearchTemplateSurfaces.SEARCH_ENTITIES);
+    ResolvedSearchTemplate untaggedResolved = resolve(coordinator, untagged, false);
+    assertEquals(untaggedResolved.getRouteChain().get(0), "urn:li:searchTemplate:searchLight");
+    assertEquals(untaggedResolved.getUrn(), "urn:li:searchTemplate:light");
 
-      OperationContext aggregate =
-          capturePageSearch(
-              elastic,
-              dao,
-              harness.opContext.withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES));
-      assertEquals(
-          aggregate.getSearchContext().getSearchSurface(),
-          SearchTemplateSurfaces.AGGREGATE_ENTITIES);
-      ResolvedSearchTemplate aggregateResolved = resolve(coordinator, aggregate, false);
-      assertEquals(aggregateResolved.getRouteChain().get(0), SEARCH_TEMPLATE_SEARCH_URN);
-      assertEquals(aggregateResolved.getUrn(), SEARCH_TEMPLATE_FULLTEXT_URN);
+    OperationContext aggregate =
+        capturePageSearch(
+            elastic,
+            dao,
+            harness.opContext.withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES));
+    assertEquals(
+        aggregate.getSearchContext().getSearchSurface(), SearchTemplateSurfaces.AGGREGATE_ENTITIES);
+    ResolvedSearchTemplate aggregateResolved = resolve(coordinator, aggregate, false);
+    assertEquals(aggregateResolved.getRouteChain().get(0), SEARCH_TEMPLATE_SEARCH_URN);
+    assertEquals(aggregateResolved.getUrn(), SEARCH_TEMPLATE_FULLTEXT_URN);
 
-      when(cache.scroll(any(), any(), any(), any(), any(), any(), any(), any(), any()))
-          .thenReturn(emptyScroll());
-      searchService.scrollAcrossEntities(
-          harness.opContext,
-          List.of("dataset"),
-          "orders",
-          null,
-          List.of(),
-          null,
-          null,
-          10,
-          List.of());
-      ArgumentCaptor<OperationContext> scroll = ArgumentCaptor.forClass(OperationContext.class);
-      verify(cache)
-          .scroll(scroll.capture(), any(), any(), any(), any(), any(), any(), any(), any());
-      ResolvedSearchTemplate scrolled = resolve(coordinator, scroll.getValue(), true);
-      assertEquals(
-          scroll.getValue().getSearchContext().getSearchSurface(),
-          SearchTemplateSurfaces.SCROLL_ENTITIES);
-      assertEquals(scrolled.getRouteChain().get(0), SEARCH_TEMPLATE_SEARCH_URN);
-      assertEquals(scrolled.getUrn(), SEARCH_TEMPLATE_FULLTEXT_URN);
-      assertFalse(scrolled.getRouteChain().contains("urn:li:searchTemplate:searchLight"));
-      assertFalse(scrolled.getRouteChain().contains("urn:li:searchTemplate:light"));
-    } finally {
-      SearchTemplates.install(null);
-    }
+    when(cache.scroll(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(emptyScroll());
+    searchService.scrollAcrossEntities(
+        harness.opContext,
+        List.of("dataset"),
+        "orders",
+        null,
+        List.of(),
+        null,
+        null,
+        10,
+        List.of());
+    ArgumentCaptor<OperationContext> scroll = ArgumentCaptor.forClass(OperationContext.class);
+    verify(cache).scroll(scroll.capture(), any(), any(), any(), any(), any(), any(), any(), any());
+    ResolvedSearchTemplate scrolled = resolve(coordinator, scroll.getValue(), true);
+    assertEquals(
+        scroll.getValue().getSearchContext().getSearchSurface(),
+        SearchTemplateSurfaces.SCROLL_ENTITIES);
+    assertEquals(scrolled.getRouteChain().get(0), SEARCH_TEMPLATE_SEARCH_URN);
+    assertEquals(scrolled.getUrn(), SEARCH_TEMPLATE_FULLTEXT_URN);
+    assertFalse(scrolled.getRouteChain().contains("urn:li:searchTemplate:searchLight"));
+    assertFalse(scrolled.getRouteChain().contains("urn:li:searchTemplate:light"));
   }
 
   private static void shippedSurfaceSeeds(SearchTemplateFixtures.Harness harness) {

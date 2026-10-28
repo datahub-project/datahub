@@ -14,6 +14,8 @@ public class Constants {
   // Use on specific MCP to request an synchronous index update avoid the kafka lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
+  // MCP header carrying the caller of a queued write; only trusted from system writers.
+  public static final String ATTRIBUTED_ACTOR_HEADER_NAME = "X-DataHub-Attributed-Actor";
 
   public static final String URN_LI_PREFIX = "urn:li:";
 
@@ -408,8 +410,8 @@ public class Constants {
   // DataHub Ingestion Source
   public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
-  public static final String INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME =
-      "dataHubIngestionSourceRunSummary";
+  public static final String INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME =
+      "dataHubIngestionSourceRunEvent";
 
   // DataHub Secret
   public static final String SECRET_VALUE_ASPECT_NAME = "dataHubSecretValue";

@@ -5,13 +5,6 @@
     retention:
       version:
         maxVersions: 1
-- entity: "dataHubIngestionSource"
-  aspect: "dataHubIngestionSourceRunSummary"
-  forceOverwrite: true
-  config:
-    retention:
-      version:
-        maxVersions: 1
 - entity: "dataHubRemoteExecutor"
   aspect: "dataHubRemoteExecutorStatus"
   forceOverwrite: true
