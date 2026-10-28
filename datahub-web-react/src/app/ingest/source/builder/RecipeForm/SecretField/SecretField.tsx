@@ -3,6 +3,7 @@ import { AutoComplete, Divider, Form } from 'antd';
 import React, { ReactNode } from 'react';
 import styled from 'styled-components/macro';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { clearSecretListCache } from '@app/ingest/secret/cacheUtils';
 import CreateSecretButton from '@app/ingest/source/builder/RecipeForm/SecretField/CreateSecretButton';
@@ -19,8 +20,6 @@ export const StyledFormItem = styled(Form.Item)<{
     $removeMargin?: boolean;
     $isSecretField?: boolean;
 }>`
-    margin-bottom: ${(props) => (props.$removeMargin ? '0' : '16px')};
-
     ${(props) =>
         props.$alignLeft &&
         `
@@ -49,6 +48,9 @@ export const StyledFormItem = styled(Form.Item)<{
             }
         }
     `}
+    &&& {
+        margin-bottom: ${(props) => (props.$removeMargin ? '0' : '16px')};
+    }
 `;
 
 interface SecretFieldProps {
@@ -91,6 +93,8 @@ const encodeSecret = (secretName: string) => {
 function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSecrets }: SecretFieldProps) {
     const options = secrets.map((secret) => ({ value: encodeSecret(secret.name), label: secret.name }));
     const apolloClient = useApolloClient();
+    // The backend rejects createSecret without this privilege, so don't offer it.
+    const canManageSecrets = !!useUserContext().platformPrivileges?.manageSecrets;
 
     return (
         <StyledFormItem
@@ -111,14 +115,18 @@ function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSec
                     return (
                         <>
                             {menu}
-                            <StyledDivider />
-                            <CreateSecretButton
-                                onSubmit={(state) => {
-                                    updateFormValue(field.name, encodeSecret(state.name as string));
-                                    setTimeout(() => clearSecretListCache(apolloClient), 3000);
-                                }}
-                                refetchSecrets={refetchSecrets}
-                            />
+                            {canManageSecrets && (
+                                <>
+                                    <StyledDivider />
+                                    <CreateSecretButton
+                                        onSubmit={(state) => {
+                                            updateFormValue(field.name, encodeSecret(state.name as string));
+                                            setTimeout(() => clearSecretListCache(apolloClient), 3000);
+                                        }}
+                                        refetchSecrets={refetchSecrets}
+                                    />
+                                </>
+                            )}
                         </>
                     );
                 }}

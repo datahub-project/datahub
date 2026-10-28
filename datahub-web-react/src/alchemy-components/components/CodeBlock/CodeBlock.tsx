@@ -3,12 +3,12 @@ import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { ListChecks } from '@phosphor-icons/react/dist/csr/ListChecks';
 import { MagicWand } from '@phosphor-icons/react/dist/csr/MagicWand';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { useTheme } from 'styled-components';
 
 import { Button } from '@components/components/Button';
+import { CodeBlockDiff } from '@components/components/CodeBlock/CodeBlockDiff';
 import { CodeBlockEditor } from '@components/components/CodeBlock/CodeBlockEditor';
 import { LanguageControl } from '@components/components/CodeBlock/LanguageControl';
 import {
@@ -26,14 +26,17 @@ import {
     TruncatedBanner,
 } from '@components/components/CodeBlock/components';
 import { codeBlockDefaults } from '@components/components/CodeBlock/defaults';
+import { buildCodeDiff, shouldRenderCodeBlockDiff } from '@components/components/CodeBlock/diffCode';
 import {
     formatCode,
     isFormatCodeSuccess,
     resolveCodeLanguage,
     resolveSqlFormatterLanguage,
 } from '@components/components/CodeBlock/formatCode';
+import { SyntaxHighlighter } from '@components/components/CodeBlock/highlighter';
 import { getCodeBlockPrismStyle } from '@components/components/CodeBlock/prismTheme';
 import { CodeBlockProps } from '@components/components/CodeBlock/types';
+import { useHighlightLanguage } from '@components/components/CodeBlock/useHighlightLanguage';
 import {
     getCodeBlockTestId,
     isCodeBlockEditable,
@@ -102,6 +105,7 @@ export function CodeBlock({
     showLineNumbers = codeBlockDefaults.showLineNumbers,
     hideLineNumbers = false,
     wrap = codeBlockDefaults.wrap,
+    diffAgainst,
     highlightedLines,
     lineProps: linePropsProp,
     maxHeight,
@@ -122,11 +126,18 @@ export function CodeBlock({
     const [internalCopied, setInternalCopied] = useState(false);
     const [syntaxIssue, setSyntaxIssue] = useState<SyntaxIssue | null>(null);
     const [isValidating, setIsValidating] = useState(false);
+    const [isFormatting, setIsFormatting] = useState(false);
     const copyResetTimeoutRef = useRef<number | null>(null);
     const isMountedRef = useRef(true);
     const validateRequestIdRef = useRef(0);
+    const formatRequestIdRef = useRef(0);
     const isCopied = isCopiedProp ?? internalCopied;
-    const isEditable = isCodeBlockEditable({ isReadOnly, onChange });
+    const showDiff = shouldRenderCodeBlockDiff(code, diffAgainst);
+    const isEditable = isCodeBlockEditable({ isReadOnly: isReadOnly || showDiff, onChange });
+    const diffLines = useMemo(
+        () => (showDiff && diffAgainst !== undefined ? buildCodeDiff(diffAgainst, code) : null),
+        [code, diffAgainst, showDiff],
+    );
     const showFormatButton = shouldShowFormatButton({ showFormat, isEditable: isEditable && !isDisabled });
     const showValidateButton = shouldShowValidateButton({
         validateSyntax,
@@ -134,6 +145,7 @@ export function CodeBlock({
     });
     const activeLanguage = selectedLanguage ?? language;
     const highlightLanguage = resolveCodeLanguage(language);
+    useHighlightLanguage(highlightLanguage);
     const prismStyle = getCodeBlockPrismStyle(theme.colors);
     const bodyMaxHeight = resolveCodeBlockBodyMaxHeight({ isEditable, maxHeight });
     const isHeightCapped = isCodeBlockHeightCapped(bodyMaxHeight);
@@ -160,11 +172,13 @@ export function CodeBlock({
         };
     }, []);
 
-    // Stale findings after edits would be misleading — clear until Validate runs again.
+    // Edits and language changes retire in-flight validate and format results.
     useEffect(() => {
         validateRequestIdRef.current += 1;
+        formatRequestIdRef.current += 1;
         setSyntaxIssue(null);
         setIsValidating(false);
+        setIsFormatting(false);
     }, [activeLanguage, code]);
 
     const showCodeHeader = shouldShowCodeBlockHeader({
@@ -216,37 +230,61 @@ export function CodeBlock({
     }, [activeLanguage, code, isDisabled, isValidating, t]);
 
     const handleFormat = useCallback(() => {
-        if (!onChange || isDisabled) {
-            return;
+        if (!onChange || isDisabled || isFormatting) {
+            return Promise.resolve();
         }
-        const result = formatCode(code, activeLanguage);
-        if (isFormatCodeSuccess(result)) {
-            onChange(result.formatted);
-            setSyntaxIssue(null);
-            toast.success(t('codeBlock.formatSuccess'));
-            return;
-        }
-        if (result.error === 'invalid') {
-            // Inline only while editing — avoids toast + message double noise.
-            const severity: ValidateCodeSeverity = resolveSqlFormatterLanguage(activeLanguage) ? 'warning' : 'error';
-            if (validateSyntax) {
-                const requestId = validateRequestIdRef.current + 1;
-                validateRequestIdRef.current = requestId;
-                validateCode(code, activeLanguage).then((validation) => {
-                    if (!isMountedRef.current || requestId !== validateRequestIdRef.current) {
+        const requestId = formatRequestIdRef.current + 1;
+        formatRequestIdRef.current = requestId;
+        const isCurrent = () => isMountedRef.current && requestId === formatRequestIdRef.current;
+        setIsFormatting(true);
+        return formatCode(code, activeLanguage)
+            .then((result) => {
+                if (!isCurrent()) {
+                    return;
+                }
+                if (!isFormatCodeSuccess(result)) {
+                    if (result.error === 'unavailable') {
+                        toast.error(t('codeBlock.formatFailed'));
                         return;
                     }
-                    setSyntaxIssue(
-                        validation.valid
-                            ? { severity, details: [] }
-                            : { severity: validation.severity, details: validation.details },
-                    );
-                });
-            } else {
-                setSyntaxIssue({ severity, details: [] });
-            }
-        }
-    }, [activeLanguage, code, isDisabled, onChange, t, validateSyntax]);
+                    if (result.error === 'invalid') {
+                        // Inline only while editing — avoids toast + message double noise.
+                        const severity: ValidateCodeSeverity = resolveSqlFormatterLanguage(activeLanguage)
+                            ? 'warning'
+                            : 'error';
+                        if (validateSyntax) {
+                            const validationRequestId = validateRequestIdRef.current + 1;
+                            validateRequestIdRef.current = validationRequestId;
+                            validateCode(code, activeLanguage).then((validation) => {
+                                if (
+                                    !isMountedRef.current ||
+                                    validationRequestId !== validateRequestIdRef.current ||
+                                    !isCurrent()
+                                ) {
+                                    return;
+                                }
+                                setSyntaxIssue(
+                                    validation.valid
+                                        ? { severity, details: [] }
+                                        : { severity: validation.severity, details: validation.details },
+                                );
+                            });
+                        } else {
+                            setSyntaxIssue({ severity, details: [] });
+                        }
+                    }
+                    return;
+                }
+                onChange(result.formatted);
+                setSyntaxIssue(null);
+                toast.success(t('codeBlock.formatSuccess'));
+            })
+            .finally(() => {
+                if (isCurrent()) {
+                    setIsFormatting(false);
+                }
+            });
+    }, [activeLanguage, code, isDisabled, isFormatting, onChange, t, validateSyntax]);
 
     const handleCopy = useCallback(() => {
         const text = copyText ?? code;
@@ -303,6 +341,14 @@ export function CodeBlock({
                 onRequestFormat={showFormatButton ? handleFormat : undefined}
                 dataTestId={getCodeBlockTestId(dataTestId, 'editor', 'code-block-editor')}
                 ariaLabel={t('codeBlock.editorLabel')}
+            />
+        );
+    } else if (diffLines) {
+        body = (
+            <CodeBlockDiff
+                lines={diffLines}
+                wrap={wrap}
+                dataTestId={getCodeBlockTestId(dataTestId, 'diff', 'code-block-diff')}
             />
         );
     } else if (emptyBody) {
@@ -383,6 +429,7 @@ export function CodeBlock({
                                     color="gray"
                                     size="sm"
                                     onClick={handleFormat}
+                                    isLoading={isFormatting}
                                     icon={{ icon: MagicWand }}
                                     iconPosition="left"
                                     data-testid={getCodeBlockTestId(dataTestId, 'format', 'code-block-format')}

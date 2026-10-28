@@ -1,22 +1,15 @@
 package com.linkedin.metadata.config.hazelcast;
 
-import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.config.ratelimit.RateLimitConfigLoader;
 import com.linkedin.metadata.config.ratelimit.RateLimitEffectiveConfig;
-import org.mockito.Mockito;
-import org.springframework.context.annotation.ConditionContext;
-import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.mock.env.MockEnvironment;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 public class HazelcastInstanceBootstrapConditionTest {
-
-  private final HazelcastInstanceBootstrapCondition condition =
-      new HazelcastInstanceBootstrapCondition();
 
   @AfterMethod
   public void tearDown() {
@@ -119,9 +112,21 @@ public class HazelcastInstanceBootstrapConditionTest {
     return matches(environment);
   }
 
+  @Test
+  public void testGmsApplicationEnablesInstanceWithoutOtherFeatures() {
+    MockEnvironment environment = new MockEnvironment();
+    environment.setProperty(HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "caffeine");
+    assertTrue(HazelcastInstanceBootstrapCondition.needsInstance(environment, true));
+  }
+
+  @Test
+  public void testNonGmsWithoutOtherFeaturesSkipsInstance() {
+    MockEnvironment environment = new MockEnvironment();
+    environment.setProperty(HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "caffeine");
+    assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, false));
+  }
+
   private boolean matches(MockEnvironment environment) {
-    ConditionContext context = Mockito.mock(ConditionContext.class);
-    when(context.getEnvironment()).thenReturn(environment);
-    return condition.matches(context, Mockito.mock(AnnotatedTypeMetadata.class));
+    return HazelcastInstanceBootstrapCondition.needsInstance(environment, false);
   }
 }

@@ -13,11 +13,14 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { NavbarPage } from '../../pages/navbar.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.describe('navbar redesign', () => {
   let navbarPage: NavbarPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     navbarPage = new NavbarPage(page, logger, logDir);
   });
 
@@ -41,7 +44,7 @@ test.describe('navbar redesign', () => {
     await navbarPage.verifyNavbarMenusExist();
   });
 
-  test('navbar toggle collapses and expands', async () => {
+  test('navbar toggle collapses and expands', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await navbarPage.navigateToHome();
     await navbarPage.verifyNavbarSidebarVisible();
 

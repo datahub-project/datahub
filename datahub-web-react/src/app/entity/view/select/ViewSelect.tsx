@@ -1,7 +1,7 @@
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Select } from 'antd';
 import React, { CSSProperties, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { VscTriangleDown } from 'react-icons/vsc';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -25,8 +25,8 @@ type ViewBuilderDisplayState = {
     view?: DataHubView;
 };
 
-const TriangleIcon = styled(VscTriangleDown)<{ isOpen: boolean }>`
-    color: ${(props) => (props.isOpen ? props.theme.colors.textBrand : props.theme.colors.text)};
+const TriangleIcon = styled(CaretDown)<{ $isOpen: boolean }>`
+    color: ${(props) => (props.$isOpen ? props.theme.colors.textBrand : props.theme.colors.text)};
 `;
 
 const DEFAULT_VIEW_BUILDER_DISPLAY_STATE = {
@@ -216,7 +216,7 @@ export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
                 optionLabelProp={SELECT_OPTION_LABEL_PROP}
                 bordered={false}
                 dropdownMatchSelectWidth={false}
-                suffixIcon={<TriangleIcon isOpen={isOpen} />}
+                suffixIcon={<TriangleIcon $isOpen={isOpen} />}
                 dropdownStyle={{
                     paddingBottom: 0,
                     ...dropdownStyle,

@@ -2,10 +2,10 @@ source:
   type: okta
   config:
     # Coordinates
-    okta_domain: "dev-35531955.okta.com"
+    okta_domain: "dev-example.okta.com"
 
     # Credentials
-    okta_api_token: "11be4R_M2MzDqXawbTHfKGpKee0kuEOfX1RCQSRx99"
+    okta_api_token: "<YOUR_OKTA_API_TOKEN>"
 
 sink:
   # sink configs

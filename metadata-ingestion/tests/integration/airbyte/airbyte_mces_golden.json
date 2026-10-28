@@ -211,7 +211,7 @@
                         "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,test-instance)"
                     },
                     {
-                        "id": "test-instance.66666666-6666-6666-6666-666666666666",
+                        "id": "urn:li:dataFlow:(airbyte,test-instance.66666666-6666-6666-6666-666666666666,PROD)",
                         "urn": "urn:li:dataFlow:(airbyte,test-instance.66666666-6666-6666-6666-666666666666,PROD)"
                     }
                 ]
@@ -457,7 +457,7 @@
                         "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,test-instance)"
                     },
                     {
-                        "id": "test-instance.66666666-6666-6666-6666-666666666666",
+                        "id": "urn:li:dataFlow:(airbyte,test-instance.66666666-6666-6666-6666-666666666666,PROD)",
                         "urn": "urn:li:dataFlow:(airbyte,test-instance.66666666-6666-6666-6666-666666666666,PROD)"
                     }
                 ]

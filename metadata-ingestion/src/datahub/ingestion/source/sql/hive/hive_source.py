@@ -1,14 +1,11 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+import urllib.parse
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
-
-# This import verifies that the dependencies are available.
-from pyhive import hive  # noqa: F401
-from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveDialect, HiveTimestamp
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import HiddenFromDocs
@@ -29,6 +26,11 @@ from datahub.ingestion.source.common.subtypes import (
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.hive.exceptions import InvalidDatasetIdentifierError
+from datahub.ingestion.source.sql.hive.hive_dialect import (
+    HiveDate,
+    HiveDecimal,
+    HiveTimestamp,
+)
 from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineage,
     HiveStorageLineageConfigMixin,
@@ -59,86 +61,13 @@ register_custom_type(HiveDate, DateTypeClass)
 register_custom_type(HiveTimestamp, TimeTypeClass)
 register_custom_type(HiveDecimal, NumberTypeClass)
 
-
-try:
-    from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
-    from pyhive.sqlalchemy_hive import _type_map
-    from sqlalchemy import types, util
-    from sqlalchemy.engine import reflection
-
-    @reflection.cache  # type: ignore
-    def dbapi_get_columns_patched(self, connection, table_name, schema=None, **kw):
-        """Patches the get_columns method from dbapi (databricks_dbapi.sqlalchemy_dialects.base) to pass the native type through"""
-        rows = self._get_table_columns(connection, table_name, schema)
-        # Strip whitespace
-        rows = [[col.strip() if col else None for col in row] for row in rows]
-        # Filter out empty rows and comment
-        rows = [row for row in rows if row[0] and row[0] != "# col_name"]
-        result = []
-        for col_name, col_type, _comment in rows:
-            # Handle both oss hive and Databricks' hive partition header, respectively
-            if col_name in ("# Partition Information", "# Partitioning"):
-                break
-            # Take out the more detailed type information
-            # e.g. 'map<int,int>' -> 'map'
-            #      'decimal(10,1)' -> decimal
-            orig_col_type = col_type  # keep a copy
-            col_type = re.search(r"^\w+", col_type).group(0)  # type: ignore
-            try:
-                coltype = _type_map[col_type]
-            except KeyError:
-                util.warn(
-                    "Did not recognize type '{}' of column '{}'".format(
-                        col_type, col_name
-                    )
-                )
-                coltype = types.NullType  # type: ignore
-            result.append(
-                {
-                    "name": col_name,
-                    "type": coltype,
-                    "nullable": True,
-                    "default": None,
-                    "full_type": orig_col_type,  # pass it through
-                    "comment": _comment,
-                }
-            )
-        return result
-
-    DatabricksPyhiveDialect.get_columns = dbapi_get_columns_patched
-except ModuleNotFoundError:
-    pass
-except Exception as exp:
-    logger.warning(f"Failed to patch method due to {exp}")
-
-
-@reflection.cache  # type: ignore
-def get_view_names_patched(self, connection, schema=None, **kw):
-    query = "SHOW VIEWS"
-    if schema:
-        query += " IN " + self.identifier_preparer.quote_identifier(schema)
-    return [row[0] for row in connection.execute(query)]
-
-
-@reflection.cache  # type: ignore
-def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
-    full_table = self.identifier_preparer.quote_identifier(view_name)
-    if schema:
-        full_table = "{}.{}".format(
-            self.identifier_preparer.quote_identifier(schema),
-            self.identifier_preparer.quote_identifier(view_name),
-        )
-    # Hive responds to the SHOW CREATE TABLE with the full view DDL,
-    # including the view definition. However, for multiline view definitions,
-    # it returns multiple rows (of one column each), each with a part of the definition.
-    # Any whitespace at the beginning/end of each view definition line is lost.
-    rows = connection.execute(f"SHOW CREATE TABLE {full_table}").fetchall()
-    parts = [row[0] for row in rows]
-    return "\n".join(parts)
-
-
-HiveDialect.get_view_names = get_view_names_patched
-HiveDialect.get_view_definition = get_view_definition_patched
+_REMOVED_SCHEMES = {
+    "databricks+pyhive": (
+        "The databricks+pyhive scheme is no longer supported by the hive source. "
+        "Use the unity-catalog source (with include_hive_metastore for legacy "
+        "hive_metastore tables) to ingest Databricks."
+    ),
+}
 
 
 class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
@@ -152,6 +81,19 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
     @classmethod
     def clean_host_port(cls, v: str) -> str:
         return config_clean.remove_protocol(v)
+
+    @model_validator(mode="after")
+    def reject_removed_scheme(self) -> "HiveConfig":
+        # sqlalchemy_uri takes precedence over scheme, so check the scheme it names.
+        uri_scheme = (
+            urllib.parse.urlsplit(self.sqlalchemy_uri).scheme
+            if self.sqlalchemy_uri
+            else None
+        )
+        for scheme in (self.scheme, uri_scheme):
+            if scheme in _REMOVED_SCHEMES:
+                raise ValueError(_REMOVED_SCHEMES[scheme])
+        return self
 
 
 @platform_name("Hive")
@@ -174,6 +116,10 @@ class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):
         SourceCapabilityModifier.TABLE,
         SourceCapabilityModifier.VIEW,
     ],
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class HiveSource(TwoTierSQLAlchemySource):
     """
@@ -257,9 +203,9 @@ class HiveSource(TwoTierSQLAlchemySource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: Dict[Any, Any],
+        column: Mapping[str, Any],
         inspector: Inspector,
-        pk_constraints: Optional[Dict[Any, Any]] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaFieldClass]:
@@ -298,8 +244,7 @@ class HiveSource(TwoTierSQLAlchemySource):
 
         return fields
 
-    # Hive SQLAlchemy connector returns views as tables in get_table_names.
-    # See https://github.com/dropbox/PyHive/blob/b21c507a24ed2f2b0cf15b0b6abb1c43f31d3ee0/pyhive/sqlalchemy_hive.py#L270-L273.
+    # Hive's SHOW TABLES also lists views, so views come through get_table_names too.
     # This override makes sure that we ingest view definitions for views
     def _process_view(
         self,
@@ -357,7 +302,7 @@ class HiveSource(TwoTierSQLAlchemySource):
     def get_partitions(
         self, inspector: Inspector, schema: str, table: str
     ) -> Optional[List[str]]:
-        partition_columns: List[dict] = inspector.get_indexes(
+        partition_columns: Sequence[Mapping[str, Any]] = inspector.get_indexes(
             table_name=table, schema=schema
         )
         for partition_column in partition_columns:

@@ -1,4 +1,3 @@
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 import { BusinessGlossaryOnboardingConfig } from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
 import { DomainsOnboardingConfig } from '@app/onboarding/config/DomainsOnboardingConfig';
 import { EntityProfileOnboardingConfig } from '@app/onboarding/config/EntityProfileOnboardingConfig';
@@ -11,6 +10,7 @@ import { RolesOnboardingConfig } from '@app/onboarding/config/RolesOnboardingCon
 import { SearchOnboardingConfig } from '@app/onboarding/config/SearchOnboardingConfig';
 import { UsersOnboardingConfig } from '@app/onboarding/config/UsersOnboardingConfig';
 import { ALL_V2_ONBOARDING_CONFIGS } from '@app/onboarding/configV2';
+import { OnboardingStep } from '@app/onboarding/types';
 
 const ALL_ONBOARDING_CONFIGS: OnboardingStep[][] = [
     HomePageOnboardingConfig,
@@ -26,7 +26,4 @@ const ALL_ONBOARDING_CONFIGS: OnboardingStep[][] = [
     LineageGraphOnboardingConfig,
     ...ALL_V2_ONBOARDING_CONFIGS,
 ];
-export const OnboardingConfig: OnboardingStep[] = ALL_ONBOARDING_CONFIGS.reduce(
-    (acc, config) => [...acc, ...config],
-    [],
-);
+export const OnboardingConfig: OnboardingStep[] = ALL_ONBOARDING_CONFIGS.flat();

@@ -14,6 +14,9 @@ import com.linkedin.metadata.config.EntityCountMetricsConfiguration;
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountEntry;
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountResult;
 import com.linkedin.metadata.systemmetadata.KeyAspectEntityCountService;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCountEntry;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCountResult;
+import com.linkedin.metadata.systemmetadata.PlatformEntityCounts;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -42,6 +45,7 @@ public class EntityCountMetricsPublisherTest {
     publisher =
         new EntityCountMetricsPublisher(
             keyAspectEntityCountService,
+            /* platformEntityCounts= */ null,
             systemOperationContext,
             micrometerSink,
             micrometerSink,
@@ -108,7 +112,12 @@ public class EntityCountMetricsPublisherTest {
         new EntityCountMetricsSinkComposer(List.of(micrometerSink, recordingSink));
     EntityCountMetricsPublisher multiSinkPublisher =
         new EntityCountMetricsPublisher(
-            keyAspectEntityCountService, systemOperationContext, composer, micrometerSink, config);
+            keyAspectEntityCountService,
+            null,
+            systemOperationContext,
+            composer,
+            micrometerSink,
+            config);
     KeyAspectEntityCountResult result = sampleResult();
     when(keyAspectEntityCountService.getCounts(systemOperationContext, null, false))
         .thenReturn(result);
@@ -139,6 +148,7 @@ public class EntityCountMetricsPublisherTest {
     EntityCountMetricsPublisher oneShotPublisher =
         new EntityCountMetricsPublisher(
             keyAspectEntityCountService,
+            null,
             systemOperationContext,
             micrometerSink,
             micrometerSink,
@@ -163,6 +173,7 @@ public class EntityCountMetricsPublisherTest {
     EntityCountMetricsPublisher clampedPublisher =
         new EntityCountMetricsPublisher(
             keyAspectEntityCountService,
+            null,
             systemOperationContext,
             micrometerSink,
             micrometerSink,
@@ -172,6 +183,57 @@ public class EntityCountMetricsPublisherTest {
         .getCounts(systemOperationContext, null, false);
 
     clampedPublisher.close();
+  }
+
+  @Test
+  public void refreshPublishesPlatformCountsWhenConfigured() {
+    PlatformEntityCounts platformEntityCounts = mock(PlatformEntityCounts.class);
+    RecordingEntityCountMetricsSink recordingSink = new RecordingEntityCountMetricsSink();
+    EntityCountMetricsPublisher platformPublisher =
+        new EntityCountMetricsPublisher(
+            keyAspectEntityCountService,
+            platformEntityCounts,
+            systemOperationContext,
+            recordingSink,
+            micrometerSink,
+            config);
+    KeyAspectEntityCountResult result = sampleResult();
+    PlatformEntityCountResult platformResult = samplePlatformResult();
+    when(keyAspectEntityCountService.getCounts(systemOperationContext, null, false))
+        .thenReturn(result);
+    when(platformEntityCounts.getCountsByPlatform(systemOperationContext, null))
+        .thenReturn(platformResult);
+
+    platformPublisher.refresh();
+
+    verify(platformEntityCounts).getCountsByPlatform(systemOperationContext, null);
+    assertEquals(recordingSink.results(), List.of(result));
+    assertEquals(recordingSink.platformResults(), List.of(platformResult));
+    platformPublisher.close();
+  }
+
+  @Test
+  public void refreshRecordsErrorWhenPlatformCountsFail() {
+    PlatformEntityCounts platformEntityCounts = mock(PlatformEntityCounts.class);
+    EntityCountMetricsPublisher platformPublisher =
+        new EntityCountMetricsPublisher(
+            keyAspectEntityCountService,
+            platformEntityCounts,
+            systemOperationContext,
+            micrometerSink,
+            micrometerSink,
+            config);
+    when(keyAspectEntityCountService.getCounts(systemOperationContext, null, false))
+        .thenReturn(sampleResult());
+    when(platformEntityCounts.getCountsByPlatform(systemOperationContext, null))
+        .thenThrow(new RuntimeException("platform search failed"));
+
+    platformPublisher.refresh();
+
+    assertEquals(
+        registry.get(MicrometerEntityCountMetricsSink.REFRESH_ERRORS_METRIC).counter().count(),
+        1.0);
+    platformPublisher.close();
   }
 
   private static KeyAspectEntityCountResult sampleResult() {
@@ -187,6 +249,21 @@ public class EntityCountMetricsPublisherTest {
         .requestedTypes(List.of("dataset"))
         .computedAt(Instant.now())
         .cacheHit(false)
+        .build();
+  }
+
+  private static PlatformEntityCountResult samplePlatformResult() {
+    return PlatformEntityCountResult.builder()
+        .counts(
+            List.of(
+                PlatformEntityCountEntry.builder()
+                    .entityType("dataset")
+                    .platform("snowflake")
+                    .activeCount(6)
+                    .softDeletedCount(1)
+                    .build()))
+        .requestedTypes(List.of("dataset"))
+        .computedAt(Instant.parse("2026-02-01T23:00:00Z"))
         .build();
   }
 }

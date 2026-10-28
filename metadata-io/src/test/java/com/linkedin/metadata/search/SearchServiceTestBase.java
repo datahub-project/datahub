@@ -11,9 +11,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.Snapshot;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
@@ -33,7 +37,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -49,6 +54,7 @@ import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -115,6 +121,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
                     testOpContext.getEntityRegistry(), mappingsBuilder))
             .searchableFieldPaths(
                 ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
             .build();
 
     operationContext =
@@ -179,20 +186,19 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
         TEST_OS_SEARCH_CONFIG.toBuilder().search(searchConfiguration).build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             esConfig.getSearch().isPointInTimeCreationEnabled(),
             esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(
-            getSearchClient(),
+        new ESBrowseDAO(esConfig, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(
             esConfig,
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(esConfig, getSearchClient(), getBulkProcessor());
+            getSearchClient(),
+            getBulkProcessor(),
+            SearchWriteAccess.fixed(getBulkProcessor()));
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
@@ -200,7 +206,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
             settingsBuilder,
             searchDAO,
             browseDAO,
@@ -216,27 +222,26 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             esConfig.getSearch().isPointInTimeCreationEnabled(),
             esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(
-            getSearchClient(),
+        new ESBrowseDAO(esConfig, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(
             esConfig,
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(esConfig, getSearchClient(), getBulkProcessor());
+            getSearchClient(),
+            getBulkProcessor(),
+            SearchWriteAccess.fixed(getBulkProcessor()));
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
             TEST_SEARCH_SERVICE_CONFIG,
             esConfig,
             new V2MappingsBuilder(
-                esConfig.getEntityIndex(), OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
+                esConfig.getEntityIndex(), OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
             settingsBuilder,
             searchDAO,
             browseDAO,
@@ -337,6 +342,50 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             0,
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
+  }
+
+  @Test
+  public void testIncludeExplain() throws Exception {
+    Urn urn = new TestEntityUrn("test", "explained", "VALUE_1");
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+    document.set("keyPart1", JsonNodeFactory.instance.textNode("explained"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
+    syncAfterWrite(getBulkProcessor());
+
+    OperationContext explainContext =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipCache(true)
+                    .setIncludeExplain(true)
+                    .setSearchType("DFS_QUERY_THEN_FETCH"));
+    SearchResult searchResult =
+        searchService.searchAcrossEntities(
+            explainContext, ImmutableList.of(ENTITY_NAME), "explained", null, null, 0, 10);
+    assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
+    JsonNode explanation =
+        new ObjectMapper()
+            .readTree(searchResult.getEntities().get(0).getExtraFields().get("_explain"));
+    assertTrue(explanation.get("value").floatValue() > 0);
+    assertFalse(explanation.get("description").asText().isEmpty());
+
+    // A scroll over a point in time returns explanations too
+    ScrollResult scrollResult =
+        pitSearchService.scrollAcrossEntities(
+            explainContext,
+            ImmutableList.of(ENTITY_NAME),
+            "explained",
+            null,
+            null,
+            null,
+            "2m",
+            10,
+            null);
+    assertEquals(scrollResult.getEntities().get(0).getEntity(), urn);
+    assertTrue(scrollResult.getEntities().get(0).getExtraFields().containsKey("_explain"));
   }
 
   @Test

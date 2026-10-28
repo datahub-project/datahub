@@ -103,8 +103,8 @@ public class GraphQLControllerRateLimitOrderTest {
             + "\"operationName\":\"dataset\"}";
     HttpEntity<String> entity = new HttpEntity<>(body);
 
-    CompletableFuture<ResponseEntity<String>> future = controller.postGraphQL(request, entity);
-    ResponseEntity<String> response = future.join();
+    CompletableFuture<ResponseEntity<Object>> future = controller.postGraphQL(request, entity);
+    ResponseEntity<Object> response = future.join();
 
     assertEquals(response.getStatusCode(), HttpStatus.TOO_MANY_REQUESTS);
     verify(usageRollupStore, never()).recordRequest(any());

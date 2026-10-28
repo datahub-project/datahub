@@ -35,7 +35,10 @@ def test_db2_zos_get_view_qualifier(input, expected):
     inspector.has_table.side_effect = lambda table, schema: (
         schema == "SYSIBM" and table == "SYSVIEWS"
     )
-    inspector.bind.execute.return_value.scalar.return_value = input
+    # SA-2.0: reflection queries now run via
+    # `with inspector.engine.connect() as conn: conn.exec_driver_sql(sql, params).scalar()`.
+    conn = inspector.engine.connect.return_value.__enter__.return_value
+    conn.exec_driver_sql.return_value.scalar.return_value = input
 
     if isinstance(expected, Exception):
         with pytest.raises(type(expected), match=re.escape(str(expected))):

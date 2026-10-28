@@ -1,15 +1,16 @@
 from typing import Dict, Optional
 
 from pydantic import Field, PositiveFloat, PositiveInt, SecretStr, model_validator
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_MESSAGES_PER_TOPIC,
@@ -19,6 +20,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     OffsetResetStrategy,
     SamplingStrategy,
 )
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -26,7 +28,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
-from datahub.masking.secret_registry import SecretRegistry, is_masking_enabled
+from datahub.masking.secret_registry import SecretRegistry
 
 
 class SchemaResolutionFallback(ConfigModel):
@@ -49,7 +51,7 @@ class SchemaResolutionFallback(ConfigModel):
     )
 
 
-class ProfilerConfig(GEProfilingConfig):
+class ProfilerConfig(ProfilingConfig):
     max_sample_time_seconds: PositiveInt = Field(
         default=DEFAULT_MAX_SAMPLE_TIME_SECONDS,
         description="Maximum time to spend sampling messages in seconds. Must be positive.",
@@ -96,9 +98,10 @@ class KafkaSourceConfig(
         default_factory=KafkaConsumerConnectionConfig
     )
 
-    topic_patterns: AllowDenyPattern = Field(
+    topic_patterns: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TOPIC)] = Field(
         default_factory=lambda: AllowDenyPattern(allow=[".*"], deny=["^_.*"])
     )
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default={},
         description="A map of domain names to allow deny patterns. Domains can be urn-based (`urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810`) or bare (`13ae4d85-d955-49fc-8474-9004c663a810`).",
@@ -186,13 +189,12 @@ class KafkaSourceConfig(
                 catalog.api_secret = SecretStr(secret)
             # _register_secret_fields already ran (it is a mode="after" validator),
             # so credentials inherited here must be registered for redaction by hand.
-            if is_masking_enabled():
-                SecretRegistry.get_instance().register_secrets_batch(
-                    {
-                        "confluent_catalog.api_key": key,
-                        "confluent_catalog.api_secret": secret,
-                    }
-                )
+            SecretRegistry.get_instance().register_secrets_batch(
+                {
+                    "confluent_catalog.api_key": key,
+                    "confluent_catalog.api_secret": secret,
+                }
+            )
 
         catalog.validate_connection()
         return self
@@ -202,3 +204,9 @@ class KafkaSourceConfig(
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
         )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
+
+        return KafkaMetadataProbe

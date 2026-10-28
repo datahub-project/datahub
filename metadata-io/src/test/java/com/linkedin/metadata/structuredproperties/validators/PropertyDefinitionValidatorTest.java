@@ -28,6 +28,7 @@ import com.linkedin.structured.PropertyCardinality;
 import com.linkedin.structured.PropertyValue;
 import com.linkedin.structured.PropertyValueArray;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertyScore;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
 import io.datahubproject.metadata.context.OperationContext;
@@ -441,6 +442,37 @@ public class PropertyDefinitionValidatorTest {
   }
 
   @Test
+  public void testCanReorderAllowedValues()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    StructuredPropertyDefinition oldProperty = new StructuredPropertyDefinition();
+    oldProperty.setEntityTypes(
+        new UrnArray(
+            Urn.createFromString("urn:li:logicalEntity:dataset"),
+            Urn.createFromString("urn:li:logicalEntity:chart")));
+    oldProperty.setDisplayName("oldProp");
+    oldProperty.setQualifiedName("prop3");
+    oldProperty.setCardinality(PropertyCardinality.MULTIPLE);
+    oldProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    PropertyValue gold =
+        new PropertyValue().setValue(PrimitivePropertyValue.create("Gold")).setDescription("first");
+    PropertyValue silver =
+        new PropertyValue()
+            .setValue(PrimitivePropertyValue.create("Silver"))
+            .setDescription("second");
+    oldProperty.setAllowedValues(new PropertyValueArray(gold, silver));
+
+    StructuredPropertyDefinition newProperty = oldProperty.copy();
+    newProperty.setAllowedValues(new PropertyValueArray(silver, gold));
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
+                TestMCP.ofOneMCP(testPropertyUrn, oldProperty, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        0);
+  }
+
+  @Test
   public void testUrnIdWithSpace()
       throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
     Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test me out.foo.bar");
@@ -469,6 +501,41 @@ public class PropertyDefinitionValidatorTest {
     newProperty.setQualifiedName("foo.bar with spaces");
     newProperty.setCardinality(PropertyCardinality.MULTIPLE);
     newProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testScoreRejectsARangeThatDoesNotIncrease()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = createValidPropertyDefinition();
+    StructuredPropertyScore score = new StructuredPropertyScore();
+    score.setInputMin(4.0);
+    score.setInputMax(4.0);
+    newProperty.setScore(score);
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                operationContext,
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testScoreRejectsAMultiplierBelowOne()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = createValidPropertyDefinition();
+    StructuredPropertyScore score = new StructuredPropertyScore();
+    score.setMaxMultiplier(0.5);
+    newProperty.setScore(score);
     assertEquals(
         PropertyDefinitionValidator.validateDefinitionUpserts(
                 operationContext,

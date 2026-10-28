@@ -1,4 +1,4 @@
-import { Modal as AntModal, message } from 'antd';
+import { toast } from '@components';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -10,18 +10,20 @@ import LineageEdges from '@app/lineageV3/manualLineage/LineageEdges';
 import { buildUpdateLineagePayload } from '@app/lineageV3/manualLineage/buildUpdateLineagePayload';
 import { recordAnalyticsEvents } from '@app/lineageV3/manualLineage/recordManualLineageAnalyticsEvent';
 import updateNodeContext from '@app/lineageV3/manualLineage/updateNodeContext';
-import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
-import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
+import { filterManualLineageUrns, getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
 import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
 import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/SearchSelect';
-import ClickOutside from '@src/app/shared/ClickOutside';
+import ClickOutside from '@src/app/sharedV2/ClickOutside';
 
 import { useUpdateLineageMutation } from '@graphql/mutations.generated';
 import { Entity, EntityType, LineageDirection } from '@types';
 
 const MODAL_WIDTH_PX = 1400;
+const MODAL_Z_INDEX = 2000; // Over node tooltips
 
 const StyledModal = styled(Modal)`
     top: 30px;
@@ -83,8 +85,11 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
     const fetchStatus = node.fetchStatus[direction];
     const { adjacencyList } = nodeContext;
     const validEntityTypes = getValidEntityTypes(direction, node.entity?.type);
-    const initialSetOfRelationshipsUrns = adjacencyList[direction].get(node.urn) || new Set();
+    const initialSetOfRelationshipsUrns = new Set(
+        filterManualLineageUrns(adjacencyList[direction].get(node.urn) || [], validEntityTypes),
+    );
     const [isSaving, setIsSaving] = useState(false);
+    const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
 
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>(
         Array.from(initialSetOfRelationshipsUrns).map((urn) => ({ urn, type: extractTypeFromUrn(urn) })) || [],
@@ -110,7 +115,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
             .then((res) => {
                 if (res.data?.updateLineage) {
                     closeModal();
-                    message.success(t('manualLineage.updateLineageSuccess'));
+                    toast.success(t('manualLineage.updateLineageSuccess'));
                     updateNodeContext(node.urn, direction, user, nodeContext, entitiesToAdd, entitiesToRemove);
                     refetch?.();
 
@@ -126,7 +131,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 }
             })
             .catch((error) => {
-                message.error(error.message || t('manualLineage.updateLineageError'));
+                toast.error(error.message || t('manualLineage.updateLineageError'));
                 setIsSaving(false);
             });
     }
@@ -136,19 +141,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
 
     const onCancelSelect = () => {
         if (entitiesToAdd.length > 0 || entitiesToRemove.length > 0) {
-            AntModal.confirm({
-                title: t('manualLineage.exitConfirmTitle'),
-                content: t('manualLineage.exitConfirmText', {
-                    count: entitiesToAdd.length + entitiesToRemove.length,
-                }),
-                onOk() {
-                    closeModal();
-                },
-                onCancel() {},
-                okText: tcAction('yes'),
-                maskClosable: true,
-                closable: true,
-            });
+            setIsExitConfirmOpen(true);
         } else {
             closeModal();
         }
@@ -185,7 +178,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 open
                 onCancel={onCancelSelect}
                 style={{ padding: 0 }}
-                zIndex={2000} // Over node tooltips
+                zIndex={MODAL_Z_INDEX}
                 buttons={modalButtons}
             >
                 <ModalContentContainer>
@@ -209,6 +202,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                             <LineageEdges
                                 parentUrn={node.urn}
                                 direction={direction}
+                                validEntityTypes={validEntityTypes}
                                 entitiesToAdd={entitiesToAdd}
                                 entitiesToRemove={entitiesToRemove}
                                 onRemoveEntity={(entity) => {
@@ -219,6 +213,17 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                     </CurrentSection>
                 </ModalContentContainer>
             </StyledModal>
+            <ConfirmationModal
+                isOpen={isExitConfirmOpen}
+                handleClose={() => setIsExitConfirmOpen(false)}
+                handleConfirm={closeModal}
+                modalTitle={t('manualLineage.exitConfirmTitle')}
+                modalText={t('manualLineage.exitConfirmText', {
+                    count: entitiesToAdd.length + entitiesToRemove.length,
+                })}
+                confirmButtonText={tcAction('yes')}
+                zIndex={MODAL_Z_INDEX + 1} // Above this modal, otherwise the confirm opens hidden behind it
+            />
         </ClickOutside>
     );
 }

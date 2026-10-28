@@ -23,6 +23,13 @@ source:
     payload_kind_by_route_key:
       mcl: mcl
       pe: pe
+filters:
+  - type: event_type
+    config:
+      filter:
+        EntityChangeEvent_v1:
+          event:
+            - category: "GLOSSARY_TERM"
 action:
   type: term_propagation
   # By default every term is propagated. To restrict to specific terms (and terms

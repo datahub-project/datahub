@@ -1,42 +1,24 @@
-import logging
-import os
-from urllib.parse import quote
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.metadata.schema_classes import BusinessAttributeInfoClass, OwnershipClass
+from datahub.metadata.urns import BusinessAttributeUrn
 
-import requests
+graph = get_default_graph()
 
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+business_attribute_urn = BusinessAttributeUrn("customer_id")
 
-gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
-token = os.getenv("DATAHUB_GMS_TOKEN")
-business_attribute_urn = "urn:li:businessAttribute:customer_id"
+info = graph.get_aspect(
+    entity_urn=str(business_attribute_urn), aspect_type=BusinessAttributeInfoClass
+)
+if info is None:
+    raise SystemExit(f"Business attribute not found: {business_attribute_urn}")
 
-url = f"{gms_server}/entities/{quote(business_attribute_urn, safe='')}"
+print(f"Business Attribute: {business_attribute_urn}")
+print(f"Name: {info.name}")
+print(f"Description: {info.description}")
+print(f"Type: {info.type}")
 
-headers = {}
-if token:
-    headers["Authorization"] = f"Bearer {token}"
-
-response = requests.get(url, headers=headers)
-
-if response.status_code == 200:
-    entity = response.json()
-    log.info(f"Business Attribute: {business_attribute_urn}")
-    log.info(f"Response: {entity}")
-
-    aspects = entity.get("aspects", {})
-
-    if "businessAttributeInfo" in aspects:
-        info = aspects["businessAttributeInfo"]["value"]
-        log.info(f"Name: {info.get('name')}")
-        log.info(f"Description: {info.get('description')}")
-        log.info(f"Type: {info.get('type')}")
-
-    if "ownership" in aspects:
-        ownership = aspects["ownership"]["value"]
-        owners = ownership.get("owners", [])
-        log.info(f"Owners: {[owner['owner'] for owner in owners]}")
-else:
-    log.error(
-        f"Failed to fetch business attribute: {response.status_code} - {response.text}"
-    )
+ownership = graph.get_aspect(
+    entity_urn=str(business_attribute_urn), aspect_type=OwnershipClass
+)
+if ownership is not None:
+    print(f"Owners: {[owner.owner for owner in ownership.owners]}")

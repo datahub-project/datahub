@@ -1,7 +1,7 @@
 import { Text } from '@components';
 import React, { useMemo } from 'react';
 
-import { formatDuration } from '@app/shared/formatDuration';
+import { formatDuration } from '@app/sharedV2/formatDuration';
 import isPresent from '@app/utils/isPresent';
 
 interface Props {

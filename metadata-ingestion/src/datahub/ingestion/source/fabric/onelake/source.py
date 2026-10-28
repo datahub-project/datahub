@@ -34,21 +34,21 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
-    GenericContainerSubTypes,
 )
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
-from datahub.ingestion.source.fabric.common.models import WorkspaceKey
+from datahub.ingestion.source.fabric.common.models import FabricWorkspace, WorkspaceKey
 from datahub.ingestion.source.fabric.common.urn_generator import (
     make_lakehouse_name,
     make_schema_name,
     make_table_name,
     make_warehouse_name,
-    make_workspace_name,
 )
+from datahub.ingestion.source.fabric.common.utils import build_workspace_container
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
-from datahub.ingestion.source.fabric.onelake.constants import (
-    FABRIC_SQL_DEFAULT_SCHEMA,
+from datahub.ingestion.source.fabric.onelake.filter_names import (
+    effective_schema_name,
+    qualified_filter_name,
 )
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
@@ -56,7 +56,6 @@ from datahub.ingestion.source.fabric.onelake.models import (
     FabricTable,
     FabricView,
     FabricWarehouse,
-    FabricWorkspace,
 )
 from datahub.ingestion.source.fabric.onelake.report import (
     FabricOneLakeClientReport,
@@ -154,6 +153,10 @@ class WarehouseSchemaKey(WarehouseKey):
 @capability(
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `usage.include_usage_statistics` and `usage.include_operational_stats`",
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class FabricOneLakeSource(StatefulIngestionSourceBase):
     """Extracts metadata from Microsoft Fabric OneLake."""
@@ -285,8 +288,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 logger.info(f"Processing workspace: {workspace.name} ({workspace.id})")
 
                 try:
-                    # Create workspace container
-                    yield from self._create_workspace_container(workspace)
+                    yield from build_workspace_container(
+                        workspace=workspace,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
 
                     # Process items (lakehouses and warehouses)
                     yield from self._process_workspace_items(workspace)
@@ -339,27 +345,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             and not self.report.usage_run_skipped
         ):
             self.usage_extractor.update_state_on_success()
-
-    def _create_workspace_container(
-        self, workspace: FabricWorkspace
-    ) -> Iterable[Container]:
-        """Create a workspace container."""
-        container_key = WorkspaceKey(
-            instance=self.config.platform_instance,
-            env=self.config.env,
-            workspace_id=workspace.id,
-        )
-
-        container = Container(
-            container_key=container_key,
-            display_name=workspace.name,
-            description=workspace.description,
-            subtype=GenericContainerSubTypes.FABRIC_WORKSPACE,
-            parent_container=None,  # Workspace is root container
-            qualified_name=make_workspace_name(workspace.id),
-        )
-
-        yield container
 
     def _process_workspace_items(
         self, workspace: FabricWorkspace
@@ -587,11 +572,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)
 
             for table in tables:
-                normalized_schema = (
-                    table.schema_name
-                    if table.schema_name
-                    else FABRIC_SQL_DEFAULT_SCHEMA
-                )
+                normalized_schema = effective_schema_name(table.schema_name)
 
                 # Filter schemas
                 if not self.config.schema_pattern.allowed(normalized_schema):
@@ -599,7 +580,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     continue
 
                 # Filter tables
-                table_full_name = f"{normalized_schema}.{table.name}"
+                table_full_name = qualified_filter_name(normalized_schema, table.name)
 
                 if not self.config.table_pattern.allowed(table_full_name):
                     self.report.report_table_filtered(table_full_name)
@@ -905,16 +886,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         views_by_schema: dict[str, list[FabricView]] = defaultdict(list)
         for view in views:
-            normalized_schema = (
-                view.schema_name if view.schema_name else FABRIC_SQL_DEFAULT_SCHEMA
-            )
+            normalized_schema = effective_schema_name(view.schema_name)
 
             # Filter schemas
             if not self.config.schema_pattern.allowed(normalized_schema):
                 self.report.report_schema_filtered(normalized_schema)
                 continue
 
-            view_full_name = f"{normalized_schema}.{view.name}"
+            view_full_name = qualified_filter_name(normalized_schema, view.name)
             if not self.config.view_pattern.allowed(view_full_name):
                 self.report.report_view_filtered(view_full_name)
                 continue

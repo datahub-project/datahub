@@ -1,4 +1,8 @@
-import { ScrollMetricsQuery, ScrollSemanticModelsQuery } from '@graphql/metricsBrowse.generated';
+import {
+    ScrollGroupedMetricsEntitiesQuery,
+    ScrollMetricsQuery,
+    ScrollSemanticModelsQuery,
+} from '@graphql/metricsBrowse.generated';
 
 type ScrollMetricSearchResult = NonNullable<
     NonNullable<ScrollMetricsQuery['scrollAcrossEntities']>['searchResults'][number]['entity']
@@ -9,3 +13,8 @@ type ScrollSemanticModelSearchResult = NonNullable<
     NonNullable<ScrollSemanticModelsQuery['scrollAcrossEntities']>['searchResults'][number]['entity']
 >;
 export type SemanticModel = Extract<ScrollSemanticModelSearchResult, { __typename?: 'SemanticModel' }>;
+
+type GroupedMetricsSearchResult = NonNullable<
+    NonNullable<ScrollGroupedMetricsEntitiesQuery['scrollAcrossEntities']>['searchResults'][number]['entity']
+>;
+export type GroupedMetricsEntity = Extract<GroupedMetricsSearchResult, { __typename?: 'Metric' | 'SemanticModel' }>;

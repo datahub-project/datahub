@@ -1,10 +1,13 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React, { useState } from 'react';
+import { ThemeProvider } from 'styled-components';
 
 import { resolveCodeLanguage } from '@components/components/CodeBlock/formatCode';
 import { CodeBlockLanguageOption, CodeBlockProps } from '@components/components/CodeBlock/types';
 import { Pill } from '@components/components/Pills';
+
+import themes from '@conf/theme/themes';
 
 import { CodeBlock, codeBlockDefaults } from '.';
 
@@ -51,6 +54,26 @@ tags: [finance,  prod]`;
 const MESSY_JSON = '{"name":"orders_revenue","type":"metric","tags":["finance","prod"]}';
 
 const MESSY_GRAPHQL = 'type Query { user(id: ID!): User }  type User { name:String  email: String }';
+
+const SAMPLE_COUNT_OLD = `COUNT(DISTINCT CASE WHEN campaigns.status = 'active'
+THEN campaigns.id END)`;
+
+const SAMPLE_COUNT_NEW = `COUNT(DISTINCT CASE WHEN campaigns.status IN ('active','trial')
+THEN campaigns.id END)`;
+
+const SAMPLE_DATABRICKS_SQL = `SELECT
+  campaign_id,
+  COUNT(DISTINCT CASE WHEN status = 'active' THEN user_id END) AS active_users
+FROM campaigns
+WHERE ds >= CURRENT_DATE - INTERVAL 7 DAYS
+GROUP BY 1`;
+
+const SAMPLE_SNOWFLAKE_METRIC_SQL = `SELECT
+  campaign_id,
+  COUNT(DISTINCT CASE WHEN status IN ('active', 'trial') THEN user_id END) AS active_users
+FROM campaigns
+WHERE ds >= DATEADD('day', -7, CURRENT_DATE())
+GROUP BY 1`;
 
 const MIXED_LANGUAGE_OPTIONS: CodeBlockLanguageOption[] = [
     { value: 'sql', label: 'SQL' },
@@ -131,6 +154,11 @@ const meta = {
                 'Show a Validate action in the header. Clicking lists syntax problems (SQL soft warning; JSON / YAML / GraphQL error).',
             table: { defaultValue: { summary: 'false' } },
             control: { type: 'boolean' },
+        },
+        diffAgainst: {
+            description:
+                'When set and different from `code`, show a read-only inline word diff (old = this, new = `code`).',
+            control: { type: 'text' },
         },
         error: {
             description: 'Parent hard validation message (invalid border).',
@@ -313,6 +341,72 @@ export const EditableGraphql: Story = {
     render: (args) => (
         <StatefulCodeBlock {...args} initialCode={MESSY_GRAPHQL} language="graphql" languageLabel="GraphQL" wrap />
     ),
+};
+
+export const InlineWordDiff: Story = {
+    name: 'Inline word diff (count expression)',
+    args: {
+        code: SAMPLE_COUNT_NEW,
+        diffAgainst: SAMPLE_COUNT_OLD,
+        language: 'sql',
+        languageLabel: 'SQL',
+        wrap: true,
+        headerLeft: <Pill label="vs previous" color="gray" size="sm" clickable={false} />,
+    },
+};
+
+export const InlineWordDiffDark: Story = {
+    name: 'Inline word diff (dark)',
+    args: {
+        code: SAMPLE_COUNT_NEW,
+        diffAgainst: SAMPLE_COUNT_OLD,
+        language: 'sql',
+        languageLabel: 'SQL',
+        wrap: true,
+        headerLeft: <Pill label="vs previous" color="gray" size="sm" clickable={false} />,
+    },
+    decorators: [
+        (Story) => (
+            <ThemeProvider theme={themes.themeV2Dark}>
+                <div style={{ padding: 16, background: themes.themeV2Dark.colors.bg }}>
+                    <Story />
+                </div>
+            </ThemeProvider>
+        ),
+    ],
+};
+
+export const SnowflakeVsDatabricks: Story = {
+    name: 'Inline word diff (Snowflake vs Databricks)',
+    args: {
+        code: SAMPLE_SNOWFLAKE_METRIC_SQL,
+        diffAgainst: SAMPLE_DATABRICKS_SQL,
+        language: 'sql',
+        languageLabel: 'Snowflake',
+        wrap: true,
+        headerLeft: <Pill label="vs Databricks" color="primary" size="sm" clickable={false} />,
+    },
+};
+
+export const SnowflakeVsDatabricksDark: Story = {
+    name: 'Inline word diff (Snowflake vs Databricks, dark)',
+    args: {
+        code: SAMPLE_SNOWFLAKE_METRIC_SQL,
+        diffAgainst: SAMPLE_DATABRICKS_SQL,
+        language: 'sql',
+        languageLabel: 'Snowflake',
+        wrap: true,
+        headerLeft: <Pill label="vs Databricks" color="primary" size="sm" clickable={false} />,
+    },
+    decorators: [
+        (Story) => (
+            <ThemeProvider theme={themes.themeV2Dark}>
+                <div style={{ padding: 16, background: themes.themeV2Dark.colors.bg }}>
+                    <Story />
+                </div>
+            </ThemeProvider>
+        ),
+    ],
 };
 
 export const EditableLanguages: Story = {

@@ -1,3 +1,4 @@
+import isEqual from 'lodash/isEqual';
 import { useEffect, useMemo } from 'react';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
@@ -6,7 +7,7 @@ import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/En
 import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entity/shared/entityForm/constants';
 import { getInitialValues } from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/utils';
 import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 import { FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '@types';
 
@@ -32,7 +33,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
         updateSelectedValues,
         hasEdited,
         setHasEdited,
-    } = useEditStructuredProperty();
+    } = useEditStructuredProperty(initialValues);
 
     const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
 
@@ -50,6 +51,13 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
             setSelectedValues(initialValues || []);
         }
     }, [previousSelectedPromptId, selectedPromptId, initialValues, setSelectedValues, setHasEdited]);
+
+    const previousInitialValues = usePrevious(initialValues);
+    useEffect(() => {
+        if (!hasEdited && !!initialValues?.length && !isEqual(initialValues, previousInitialValues)) {
+            setSelectedValues(initialValues);
+        }
+    }, [initialValues, previousInitialValues, hasEdited, setSelectedValues]);
 
     // submit structured property prompt
     function submitStructuredPropertyResponse() {

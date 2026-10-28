@@ -178,8 +178,7 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
             // Declared properties are collected here and aligned against the broker
             // below via incrementalAlterConfigs (additive SET — only declared keys
             // are touched). Closes the gap where broker auto-created topics keep
-            // broker-default retention (notably DataHubUpgradeHistory_v1 which
-            // needs retention.ms=-1).
+            // broker-default retention.
             if (reconcileConfigs
                 && topicConfig.getConfigProperties() != null
                 && !topicConfig.getConfigProperties().isEmpty()) {

@@ -3,6 +3,7 @@ import { test } from '../../fixtures/base-test';
 import { IngestionV3Page } from '../../pages/ingestion/v3/ingestion-v3.page';
 import { generateRandomString, withRandomSuffix } from '../../utils/random';
 import { INGESTION_CLI_VERSION } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // Pre-seeded source names from tests/ingestion-v3/fixtures/data.json
 const EXECUTE_SOURCE = 'playwright v3 execute source';
@@ -30,7 +31,7 @@ test.describe('ingestion sources', () => {
     await ingestionPage.goto();
   });
 
-  test('create, edit, and delete an ingestion source', async () => {
+  test('create, edit, and delete an ingestion source', { tag: [TestTag.P0, DomainTag.Ingestion] }, async () => {
     const suffix = generateRandomString();
     const sourceName = `ingestion source ${suffix}`;
     const sourceDetails: SnowflakeFormDetails = {
@@ -82,7 +83,7 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.expectSourceNotVisible(updatedSourceName);
   });
 
-  test('create and run an ingestion source', async ({ cleanup }) => {
+  test('create and run an ingestion source', { tag: [TestTag.P0, DomainTag.Ingestion] }, async ({ cleanup }) => {
     test.slow();
 
     const sourceName = withRandomSuffix('create and run source');

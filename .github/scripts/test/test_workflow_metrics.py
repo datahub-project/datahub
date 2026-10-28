@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from utils.github.workflow_metrics import JobMetrics, WorkflowMetrics
 
@@ -31,189 +33,85 @@ def test_parse_matrix_reusable_workflow_dynamic_inner_name():
     ) == ("Playwright E2E Tests", ["5", "5"])
 
 
-def test_workflow_metrics_base_branch_from_pull_request():
-    metrics = WorkflowMetrics.from_api(
-        {
-            "workflow_id": 1,
-            "name": "lint",
-            "event": "pull_request",
-            "actor": {"login": "alice"},
-            "triggering_actor": {"login": "alice"},
-            "pull_requests": [
-                {
-                    "number": 42,
-                    "url": "https://api.github.com/repos/org/repo/pulls/42",
-                    "base": {"ref": "main"},
-                }
-            ],
-            "head_repository": {"full_name": "org/repo"},
-            "head_branch": "feature/foo",
-            "head_sha": "abc123",
-            "conclusion": "success",
-            "created_at": "2026-01-01T00:00:00Z",
-            "run_started_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-01T00:01:00Z",
-        },
+# Shared GitHub "workflow run attempt" API payload. Individual tests override only
+# the keys they exercise, so a change to the API shape lands in one place.
+_REPOSITORY = "org/repo"
+
+_PR_ASSOCIATION = [
+    {
+        "number": 42,
+        "url": "https://api.github.com/repos/org/repo/pulls/42",
+        "base": {"ref": "main"},
+    }
+]
+
+_BASE_RUN = {
+    "workflow_id": 1,
+    "name": "lint",
+    "event": "pull_request",
+    "actor": {"login": "alice"},
+    "triggering_actor": {"login": "alice"},
+    "pull_requests": _PR_ASSOCIATION,
+    "head_repository": {"full_name": _REPOSITORY},
+    "head_branch": "feature/foo",
+    "head_sha": "abc123",
+    "conclusion": "success",
+    "created_at": "2026-01-01T00:00:00Z",
+    "run_started_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-01-01T00:01:00Z",
+}
+
+
+def _make_metrics(**overrides):
+    """Build WorkflowMetrics from the shared run payload with the given overrides."""
+    return WorkflowMetrics.from_api(
+        {**_BASE_RUN, **overrides},
         run_id=99,
         attempt=1,
         rerun_type="initial",
-        repository="org/repo",
+        repository=_REPOSITORY,
     )
-    assert metrics.base_branch == "main"
-    assert metrics.pull_request_number == 42
-    assert metrics.is_community_contribution is False
 
 
-def test_workflow_metrics_base_branch_from_pull_request_target():
-    metrics = WorkflowMetrics.from_api(
-        {
-            "workflow_id": 1,
-            "name": "lint",
-            "event": "pull_request_target",
-            "actor": {"login": "alice"},
-            "triggering_actor": {"login": "alice"},
-            "pull_requests": [
-                {
-                    "number": 42,
-                    "url": "https://api.github.com/repos/org/repo/pulls/42",
-                    "base": {"ref": "main"},
-                }
-            ],
-            "head_repository": {"full_name": "org/repo"},
-            "head_branch": "feature/foo",
-            "head_sha": "abc123",
-            "conclusion": "success",
-            "created_at": "2026-01-01T00:00:00Z",
-            "run_started_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-01T00:01:00Z",
-        },
-        run_id=99,
-        attempt=1,
-        rerun_type="initial",
-        repository="org/repo",
-    )
-    assert metrics.base_branch == "main"
-    assert metrics.is_community_contribution is False
+@pytest.mark.parametrize(
+    "event,pull_requests,expected_base_branch,expected_pr_number",
+    [
+        # PR triggers with an associated open PR: base.ref is the PR base branch.
+        ("pull_request", _PR_ASSOCIATION, "main", 42),
+        ("pull_request_target", _PR_ASSOCIATION, "main", 42),
+        # GitHub returns an empty pull_requests array for fork PRs, and for PRs
+        # already closed/merged by the time metrics are collected — the array
+        # only ever lists *open*, same-repository PRs. Both yield a null base.
+        ("pull_request", [], None, None),
+        ("pull_request_target", [], None, None),
+        # GitHub may associate an open PR with a push run; base_branch stays null
+        # because the run was not PR-triggered.
+        ("push", _PR_ASSOCIATION, None, 42),
+        ("push", [], None, None),
+    ],
+)
+def test_workflow_metrics_base_branch(
+    event, pull_requests, expected_base_branch, expected_pr_number
+):
+    metrics = _make_metrics(event=event, pull_requests=pull_requests)
+    assert metrics.base_branch == expected_base_branch
+    assert metrics.pull_request_number == expected_pr_number
 
 
-def test_workflow_metrics_base_branch_absent_without_pull_request():
-    metrics = WorkflowMetrics.from_api(
-        {
-            "workflow_id": 1,
-            "name": "lint",
-            "event": "push",
-            "actor": {"login": "alice"},
-            "triggering_actor": {"login": "alice"},
-            "pull_requests": [],
-            "head_repository": {"full_name": "org/repo"},
-            "head_branch": "main",
-            "head_sha": "abc123",
-            "conclusion": "success",
-            "created_at": "2026-01-01T00:00:00Z",
-            "run_started_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-01T00:01:00Z",
-        },
-        run_id=99,
-        attempt=1,
-        rerun_type="initial",
-        repository="org/repo",
-    )
-    assert metrics.base_branch is None
-    assert metrics.pull_request_number is None
-    assert metrics.is_community_contribution is False
-
-
-def test_workflow_metrics_base_branch_ignored_for_non_pull_request_event():
-    # GitHub may associate an open PR with a push run; base_branch stays null.
-    metrics = WorkflowMetrics.from_api(
-        {
-            "workflow_id": 1,
-            "name": "lint",
-            "event": "push",
-            "actor": {"login": "alice"},
-            "triggering_actor": {"login": "alice"},
-            "pull_requests": [
-                {
-                    "number": 42,
-                    "url": "https://api.github.com/repos/org/repo/pulls/42",
-                    "base": {"ref": "main"},
-                }
-            ],
-            "head_repository": {"full_name": "contributor/repo"},
-            "head_branch": "feature/foo",
-            "head_sha": "abc123",
-            "conclusion": "success",
-            "created_at": "2026-01-01T00:00:00Z",
-            "run_started_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-01T00:01:00Z",
-        },
-        run_id=99,
-        attempt=1,
-        rerun_type="initial",
-        repository="org/repo",
-    )
-    assert metrics.base_branch is None
-    assert metrics.pull_request_number == 42
-    assert metrics.is_community_contribution is False
-
-
-def test_workflow_metrics_community_contribution_from_fork_pr():
-    metrics = WorkflowMetrics.from_api(
-        {
-            "workflow_id": 1,
-            "name": "lint",
-            "event": "pull_request",
-            "actor": {"login": "contributor"},
-            "triggering_actor": {"login": "contributor"},
-            "pull_requests": [
-                {
-                    "number": 99,
-                    "url": "https://api.github.com/repos/org/repo/pulls/99",
-                    "base": {"ref": "main"},
-                }
-            ],
-            "head_repository": {"full_name": "contributor/repo"},
-            "head_branch": "fix-typo",
-            "head_sha": "def456",
-            "conclusion": "success",
-            "created_at": "2026-01-01T00:00:00Z",
-            "run_started_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-01T00:01:00Z",
-        },
-        run_id=100,
-        attempt=1,
-        rerun_type="initial",
-        repository="org/repo",
-    )
-    assert metrics.is_community_contribution is True
-
-
-def test_workflow_metrics_community_contribution_from_fork_pr_target():
-    metrics = WorkflowMetrics.from_api(
-        {
-            "workflow_id": 1,
-            "name": "lint",
-            "event": "pull_request_target",
-            "actor": {"login": "contributor"},
-            "triggering_actor": {"login": "contributor"},
-            "pull_requests": [
-                {
-                    "number": 99,
-                    "url": "https://api.github.com/repos/org/repo/pulls/99",
-                    "base": {"ref": "main"},
-                }
-            ],
-            "head_repository": {"full_name": "contributor/repo"},
-            "head_branch": "fix-typo",
-            "head_sha": "def456",
-            "conclusion": "success",
-            "created_at": "2026-01-01T00:00:00Z",
-            "run_started_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-01T00:01:00Z",
-        },
-        run_id=100,
-        attempt=1,
-        rerun_type="initial",
-        repository="org/repo",
-    )
-    assert metrics.is_community_contribution is True
+@pytest.mark.parametrize(
+    "event,head_repository,expected",
+    [
+        # PR-triggered run whose head repo differs from the workflow repo: fork PR.
+        ("pull_request", {"full_name": "contributor/repo"}, True),
+        ("pull_request_target", {"full_name": "contributor/repo"}, True),
+        # Same-repo PR branch.
+        ("pull_request", {"full_name": _REPOSITORY}, False),
+        # Not PR-triggered, so never a community contribution.
+        ("push", {"full_name": "contributor/repo"}, False),
+        # head_repository can be absent (e.g. the fork was deleted).
+        ("pull_request", None, False),
+    ],
+)
+def test_workflow_metrics_is_community_contribution(event, head_repository, expected):
+    metrics = _make_metrics(event=event, head_repository=head_repository)
+    assert metrics.is_community_contribution is expected

@@ -45,6 +45,9 @@
     "fieldDescription.proposalFailed": "Proposal Failed!\n{{message}}",
     "fieldDescription.sectionTitle": "Description",
     "fieldDescription.updateDescriptionTitle": "Update description",
+    "fieldDescription.addDescriptionButton": "+ Add Description",
+    "fieldDescription.edited": "(edited)",
+    "fieldDescription.updateFailed": "Update Failed!\n{{message}}",
     "fieldDetails.addNote": "+ Add Note",
     "fieldDetails.deprecation": "Deprecation",
     "fieldDetails.notes": "Notes",
@@ -103,6 +106,9 @@
     "queriesSidebarTab.noQueriesFound": "No queries for this column found",
     "queriesSidebarTab.sectionTitle": "Queries",
     "queriesSidebarTab.seeAllQueries": "See All Queries",
+    "schemaTab.fullMetadataLoadError": "Could not load field metadata (tags, terms and descriptions).",
+    "schemaTab.metadataUnavailable": "Unavailable",
+    "schemaTab.structuralLoadError": "Could not load schema.",
     "schemaTable.businessAttributeColumn": "Business Attribute",
     "schemaTable.descriptionColumn": "Description",
     "schemaTable.glossaryTermsColumn": "Glossary Terms",
@@ -181,5 +187,6 @@
     "fieldLogical.logicalParentTitle": "Logical Parent",
     "fieldLogical.physicalChildrenInfo": "Physical implementations of this Logical Model column. Changes to this column's metadata propagate automatically to these child columns.",
     "fieldLogical.physicalChildrenTitle": "Physical Children",
-    "fieldLogical.viewAllPhysicalChildren": "View All Physical Children"
+    "fieldLogical.viewAllPhysicalChildren": "View All Physical Children",
+    "historySidebar.categoryLifecycle": "Lifecycle stage"
 }

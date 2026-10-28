@@ -76,8 +76,8 @@ dev_requirements = {
     "pytest-cov>=2.8.1",
     "tox",
     "tox-uv",
-    # Missing numpy requirement in 8.0.0
-    "deepdiff!=8.0.0",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    "deepdiff>=8.6.2,<9.0.0",
     "tenacity",
     "build",
     "twine",

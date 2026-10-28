@@ -1,5 +1,5 @@
-import { PartitionOutlined } from '@ant-design/icons';
 import { Pagination } from '@components';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { useUpdateNodeInternals } from 'reactflow';
@@ -7,12 +7,12 @@ import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { FetchedEntity } from '@app/lineage/types';
 import Column from '@app/lineageV3/LineageEntityNode/Column';
 import ColumnSearch from '@app/lineageV3/LineageEntityNode/ColumnSearch';
 import { LineageDisplayColumn } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import { LineageNodesContext, TRANSITION_DURATION_MS, onClickPreventSelect } from '@app/lineageV3/common';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
+import { FetchedEntity } from '@app/lineageV3/types';
 
 const MainColumnsWrapper = styled.div<{ isGhost: boolean }>`
     display: flex;
@@ -43,7 +43,7 @@ const OnlyColumnsWrapper = styled.div`
 `;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const FilterLineageIcon = styled(PartitionOutlined)<{ count: number; selected: boolean }>`
+const FilterLineageIcon = styled(TreeStructure)<{ count: number; selected: boolean }>`
     ${(props) => (props.selected ? `color: ${props.theme.colors.iconSelected};` : '')};
     padding-right: 4px;
 
@@ -207,12 +207,12 @@ function Columns(props: Props) {
     return (
         <MainColumnsWrapper isGhost={isGhost}>
             {showAllColumns && (
-                <SearchBarWrapper>
+                <SearchBarWrapper data-testid="column-search">
                     <ColumnSearch searchText={filterText} setSearchText={setFilterText} />
                 </SearchBarWrapper>
             )}
             {((showAllColumns && !!paginatedColumns.length) || !!highlightedColumns.length) && (
-                <OnlyColumnsWrapper onMouseLeave={handleMouseLeave}>
+                <OnlyColumnsWrapper data-testid="columns-list" onMouseLeave={handleMouseLeave}>
                     {showAllColumns &&
                         paginatedColumns.map((col) => <Column key={col.fieldPath} {...col} {...columnProps} />)}
                     {showAllColumns && !!paginatedColumns.length && !!highlightedColumns.length && (
@@ -224,7 +224,7 @@ function Columns(props: Props) {
                 </OnlyColumnsWrapper>
             )}
             {hasColumnPagination && (
-                <ColumnPaginationWrapper onClick={(e) => e.stopPropagation()}>
+                <ColumnPaginationWrapper data-testid="column-pagination" onClick={(e) => e.stopPropagation()}>
                     <ColumnPagination
                         className="nodrag"
                         currentPage={pageIndex + 1}

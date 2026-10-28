@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { DatasetAssertionLogicModal } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionLogicModal';
 import { toReadableLocalDateTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
 import { getFormattedParameterValue } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import { decodeSchemaField } from '@app/lineageV3/utils/columnLineageUtils';
 
 import {
     AssertionRunEvent,
@@ -53,6 +53,7 @@ const StyledLastRunText = styled(Typography.Text)`
 export type StructuredAssertionDescriptionProps = {
     description?: string;
     lastEvaluation?: AssertionRunEvent;
+    ellipsis?: boolean;
     scope?: Maybe<DatasetAssertionScope>;
     aggregation?: Maybe<AssertionStdAggregation>;
     operator?: Maybe<AssertionStdOperator>;
@@ -220,6 +221,7 @@ const TOOLTIP_MAX_WIDTH = 440;
 export const DatasetAssertionDescription = ({
     description,
     lastEvaluation,
+    ellipsis,
     scope,
     aggregation,
     fields,
@@ -239,7 +241,7 @@ export const DatasetAssertionDescription = ({
     const descriptionFragment = (
         <>
             {description || (
-                <Typography.Text>
+                <Typography.Text ellipsis={ellipsis ? { tooltip: false } : undefined}>
                     <Trans
                         t={t}
                         i18nKey={`datasetDescription.${agg.key}.${operatorKey}`}

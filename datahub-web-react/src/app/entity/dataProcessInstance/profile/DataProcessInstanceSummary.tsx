@@ -1,7 +1,7 @@
 import { Pill } from '@components';
 import { Space, Table, Typography } from 'antd';
 import type { ColumnType } from 'antd/es/table';
-import { capitalize } from 'lodash';
+import capitalize from 'lodash/capitalize';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -9,7 +9,7 @@ import styled from 'styled-components';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
 import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
-import { formatDetailedDuration } from '@src/app/shared/time/timeUtils';
+import { formatDetailedDuration } from '@src/app/sharedV2/time/timeUtils';
 
 import { GetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
 import { DataProcessInstanceRunResultType, MlHyperParam, MlMetric } from '@types';

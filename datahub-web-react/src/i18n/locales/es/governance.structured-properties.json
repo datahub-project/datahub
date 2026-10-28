@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "Añadir un nuevo valor a la lista de valores permitidos",
     "allowedValues.anyValueAllowed": "Se permitirá cualquier valor de tipo <type>{{valueType}}</type>",
     "allowedValues.descriptionPlaceholder": "Proporcione una descripción",
+    "allowedValues.descriptionTooltip": "Añadir una descripción",
+    "allowedValues.dragTooltip": "Arrastrar para reordenar",
     "allowedValues.editExistingTooltip": "No se permite editar los valores permitidos existentes",
     "allowedValues.fieldTooltip": "Defina el conjunto de valores válidos para esta propiedad. Si no se proporciona ninguno, se permitirá cualquier valor",
+    "allowedValues.hideDescriptionTooltip": "Ocultar descripción",
     "allowedValues.removeTooltip": "Quitar de la lista de valores permitidos",
     "allowedValues.title": "Valores permitidos",
     "allowedValues.updateButton": "Actualizar valores permitidos",
@@ -33,6 +36,7 @@
     "appliesTo.title": "Se aplica a",
     "appliesTo.titleCapitalized": "Se aplica a",
     "appliesTo.tooltip": "Seleccione los tipos de entidades a las que se puede añadir esta propiedad",
+    "badgeReplaceError": "Se guardó la propiedad estructurada, pero no se pudo actualizar la insignia del activo.",
     "create.nameError": "Introduzca el nombre",
     "create.namePlaceholder": "Proporcione un nombre",
     "create.propertyType": "Tipo de propiedad",
@@ -64,6 +68,7 @@
     "page.subtitle": "Cree y gestione propiedades personalizadas para sus activos de datos",
     "page.title": "Propiedades estructuradas",
     "permissionTooltip": "Debe tener permiso para gestionar propiedades estructuradas. Consulte a su administrador de DataHub.",
+    "table.allowedPlatformsColumn": "Plataformas",
     "table.confirmDeleteText": "¿Está seguro de que desea eliminar? Al eliminarla, se quitará esta propiedad estructurada de todos los activos en los que se encuentra actualmente.",
     "table.confirmDeleteTitle": "Confirmar eliminación",
     "table.copyUrn": "Copiar URN",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Tipos de entidad",
     "table.noPropertiesYet": "¡Aún no hay propiedades!",
     "table.noSearchResults": "¡No hay resultados de búsqueda!",
+    "table.typeColumn": "Tipo",
     "updateError": "No se pudo actualizar la propiedad estructurada.",
     "updateSuccess": "¡Propiedad estructurada actualizada!",
     "valueType.dateDescription": "Una fecha específica",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "Un valor de cadena",
     "valueType.textLabel": "Texto",
     "valueType.textListDescription": "Una lista de valores de cadena",
-    "valueType.textListLabel": "Texto - Lista"
+    "valueType.textListLabel": "Texto - Lista",
+    "viewTitle": "Ver propiedad estructurada"
 }

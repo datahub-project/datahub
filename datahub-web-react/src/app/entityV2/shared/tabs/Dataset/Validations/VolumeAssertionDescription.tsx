@@ -19,12 +19,13 @@ import {
 
 type Props = {
     assertionInfo: VolumeAssertionInfo;
+    ellipsis?: boolean;
 };
 
 /**
  * A human-readable description of a Volume Assertion.
  */
-export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
+export const VolumeAssertionDescription = ({ assertionInfo, ellipsis }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
@@ -54,7 +55,9 @@ export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
 
     return (
         <div>
-            <Typography.Text>{t(key, interpolation)}</Typography.Text>
+            <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>
+                {t(key, interpolation)}
+            </Typography.Text>
         </div>
     );
 };

@@ -25,8 +25,13 @@ source:
     topic_routes:
       mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
       pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
-filter:
-  event_type: "EntityChangeEvent_v1"
+filters:
+  - type: event_type
+    config:
+      filter:
+        EntityChangeEvent_v1:
+          event:
+            - category: "GLOSSARY_TERM"
 action:
   type: term_propagation
   # By default every term is propagated. To restrict to specific terms (and terms

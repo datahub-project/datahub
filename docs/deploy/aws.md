@@ -230,7 +230,7 @@ Update the sql settings under global in the values.yaml as follows.
       host: "<<rds-endpoint>>:3306"
       hostForMysqlClient: "<<rds-endpoint>>"
       port: "3306"
-      url: "jdbc:mysql://<<rds-endpoint>>:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8"
+      url: "jdbc:mysql://<<rds-endpoint>>:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&rewriteBatchedStatements=true"
       driver: "com.mysql.jdbc.Driver"
       username: "root"
       password:
@@ -242,7 +242,7 @@ Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to app
 
 ### Elasticsearch Service
 
-Provision an elasticsearch domain running elasticsearch version 7.10 or above that shares the VPC with the kubernetes
+Provision an Elasticsearch domain running Elasticsearch 8.x or above (or OpenSearch 2.x or 3.x) that shares the VPC with the kubernetes
 cluster or has VPC peering set up between the VPC of the kubernetes cluster. Once the domain is provisioned, you should
 be able to see the following page. Take a note of the endpoint marked by the red box.
 

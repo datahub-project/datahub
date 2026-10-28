@@ -91,6 +91,9 @@ AGENT_MODE=1 scripts/dev/datahub-dev.sh test tests/test_system_info.py
 For the frontend pre-completion checklist (lint, Vitest), see
 [`datahub-web-react/AGENTS.md`](../../datahub-web-react/AGENTS.md).
 
+For pytest smoke tests, see [`smoke-test/AGENTS.md`](../../smoke-test/AGENTS.md)
+(authoring) and [`smoke-test/README.md`](../../smoke-test/README.md) (how to run).
+
 ---
 
 Canonical source: [`AGENTS.md`](../../AGENTS.md) — keep this file in sync with AGENTS.md

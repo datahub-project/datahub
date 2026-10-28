@@ -9,7 +9,7 @@ import { ActionButtonsProps } from '@components/components/Select/types';
 
 import { shadows } from '@src/alchemy-components/theme';
 
-export const StyledClearButton = styled(Button).attrs({
+const StyledClearButton = styled(Button).attrs({
     variant: 'text',
 })(({ theme }) => ({
     color: theme?.colors?.text,
@@ -47,7 +47,9 @@ export default function SelectActionButtons({
     );
 
     return (
-        <ActionButtonsContainer>
+        // flexShrink: 0 keeps the clear/chevron controls fixed-size when a truncating
+        // label (see SelectValue) shrinks to fit a capped SelectBase `maxWidth`.
+        <ActionButtonsContainer style={{ flexShrink: 0 }}>
             {showClear && hasSelectedValues && !isDisabled && !isReadOnly && (
                 <StyledClearButton
                     icon={{ icon: X, size: 'md' }}
