@@ -188,6 +188,9 @@ def test_a_bigquery_dataset_is_not_reported_excluded_on_a_pattern_it_rewrote() -
     assert "dataset_pattern" in message
     assert "--parent" in message
     assert "project_ids" in message
+    # The listing that answers it, so the refusal is one hop rather than a
+    # dead end the caller has to resolve out of band.
+    assert "probe run projects" in message
 
 
 def test_naming_the_project_answers_the_same_question() -> None:

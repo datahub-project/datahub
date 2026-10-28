@@ -3123,6 +3123,8 @@ def test_probe_filter_refuses_a_bigquery_dataset_it_cannot_qualify(tmp_path):
     error = json.loads(res.stderr)["error"]
     assert "--parent" in error
     assert "project_ids" in error
+    # The listing that resolves it, so the caller's next step is named.
+    assert "probe run projects" in error
 
 
 def test_probe_filter_answers_the_same_recipe_once_the_project_is_named(tmp_path):

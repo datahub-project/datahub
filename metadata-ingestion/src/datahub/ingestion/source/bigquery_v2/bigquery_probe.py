@@ -1,6 +1,8 @@
 import itertools
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
+from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.provider_helpers import soft_listing
 from datahub.ingestion.agent.sql_gate import INFORMATION_SCHEMA, CatalogScope
 from datahub.ingestion.agent.sql_passthrough import (
     PROBE_QUERY_LABEL,
@@ -8,10 +10,12 @@ from datahub.ingestion.agent.sql_passthrough import (
     QueryBudget,
     SqlCatalogPassthrough,
 )
+from datahub.ingestion.agent.verdicts import ProbeSoftError
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.common.gcp_errors import gcp_error_code
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
 # One GiB scanned. BigQuery bills by bytes read regardless of how few rows come
 # back, so max_results caps the page and this caps the bill -- generous for the
@@ -93,6 +97,40 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
     def probe_error_code(exc: BaseException) -> Optional[str]:
         """The HTTP status a google-api-core error carries ("HTTP 403")."""
         return gcp_error_code(exc)
+
+    @probe_method(kind=DatasetContainerSubTypes.BIGQUERY_PROJECT)
+    def projects(self) -> List[str]:
+        """Projects this credential can see, which is the set ingestion
+        discovers when `project_ids` is unset.
+
+        The container every dataset and table is matched under: BigQuery
+        filters `dataset_pattern` on `<project>.<dataset>`, so `probe filter`
+        cannot judge a dataset until it knows which project, and this is where
+        that comes from.
+
+        Reported unfiltered, including projects `project_id_pattern` would
+        exclude: a denied project is explained by `probe filter`, not hidden
+        here. Listing them needs `resourcemanager.projects.list`, which is
+        exactly the permission `project_ids` exists for recipes that cannot
+        have it, so a refusal degrades to an empty list rather than failing.
+        """
+        with soft_listing(self._warn):
+            try:
+                return sorted(
+                    project.project_id for project in self._client.list_projects()
+                )
+            except Exception as exc:
+                # google-api-core carries the status on `.code`, not the
+                # `.response.status_code` soft_listing duck-types on, so the
+                # mapping this provider already declares does the translating.
+                if gcp_error_code(exc) in ("HTTP 403", "HTTP 401"):
+                    raise ProbeSoftError(
+                        "listing projects needs `resourcemanager.projects.list`, "
+                        "which this credential does not have; set `project_ids` "
+                        "in the recipe to name the projects instead"
+                    ) from exc
+                raise
+        return []
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         # lazy: the bigquery client library is only needed once a probe runs
