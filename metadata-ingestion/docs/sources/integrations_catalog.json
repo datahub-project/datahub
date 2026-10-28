@@ -853,7 +853,8 @@
   "sqs": {
     "platform_type": "Messaging",
     "title": "Amazon SQS",
-    "description": "AWS managed message queues. Catalogs queues with lineage to dead-letter queues; pairs with the SNS connector for topic-to-queue lineage."
+    "description": "AWS managed message queues. Catalogs queues with lineage to dead-letter queues; pairs with the SNS connector for topic-to-queue lineage.",
+    "img_path": "img/logos/platforms/sqs.svg"
   },
   "redpanda": {
     "supported_via": "kafka",
