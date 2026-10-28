@@ -1,13 +1,18 @@
 import io
 import json
 import zipfile
-from typing import Any, Dict, List, Set, Type
+from typing import Any, Dict, List, Optional, Set, Type
 from unittest.mock import MagicMock
 
 import boto3
+import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase
+from datahub.ingestion.source.aws_messaging.eventbridge import (
+    event_path_prefix,
+    template_field_map,
+)
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
 from datahub.metadata.schema_classes import (
@@ -220,7 +225,13 @@ def _schema(*paths: str) -> SchemaMetadataClass:
     )
 
 
-def _pipe_source(enrichment: bool) -> SnsSource:
+def _graph(schemas: Dict[str, SchemaMetadataClass]) -> MagicMock:
+    graph = MagicMock()
+    graph.get_schema_metadata.side_effect = schemas.get
+    return graph
+
+
+def _pipe_source(enrichment: bool = False, template: Optional[str] = None) -> SnsSource:
     queue_arn = create_queue("orders")
     topic_arn = sns_client().create_topic(Name="order-events")["TopicArn"]
     pipe: Dict[str, Any] = {
@@ -231,23 +242,56 @@ def _pipe_source(enrichment: bool) -> SnsSource:
     }
     if enrichment:
         pipe["Enrichment"] = create_function("enrich")
+    if template is not None:
+        pipe["TargetParameters"] = {"InputTemplate": template}
     boto3.client("pipes", region_name=REGION).create_pipe(**pipe)
-    graph = MagicMock()
-    graph.get_schema_metadata.side_effect = lambda urn: {
-        QUEUE_URN: _schema("order_id", "amount"),
-        TOPIC_URN: _schema("ORDER_ID", "other"),
-    }.get(urn)
+    graph = _graph(
+        {
+            QUEUE_URN: _schema("order_id", "amount", "customer.id"),
+            TOPIC_URN: _schema("ORDER_ID", "total", "customer_id", "other"),
+        }
+    )
     return SnsSource.create(
         base_config(lineage={"lambda_functions": False}),
         PipelineContext(run_id="lineage", graph=graph),
     )
 
 
-def test_pipe_without_enrichment_gets_column_lineage(aws: None) -> None:
-    source = _pipe_source(enrichment=False)
+def _pairs(edges: Edges, job: str) -> Set[str]:
+    return {
+        f"{path.rsplit(',', 1)[-1].rstrip(')')} -> {path.split('/')[1].rsplit(',', 1)[-1].rstrip(')')}"
+        for path in edges.get(job, {}).get("fineGrainedLineages", set())
+    }
+
+
+def test_pipe_with_plain_template_maps_fields(aws: None) -> None:
+    source = _pipe_source(
+        template='{"order_id": <$.body.order_id>, "total": "<$.body.amount>", "customer_id": <$.body.customer.id>}'
+    )
     edges = job_edges(list(source.get_workunits()))
-    assert set(edges[PIPE_JOB]["fineGrainedLineages"]) == {
-        f"NONE/urn:li:schemaField:({TOPIC_URN},ORDER_ID)/NONE/urn:li:schemaField:({QUEUE_URN},order_id)"
+    assert _pairs(edges, PIPE_JOB) == {
+        "order_id -> ORDER_ID",
+        "amount -> total",
+        "customer.id -> customer_id",
+    }
+
+
+def test_pipe_without_template_gets_table_lineage_only(aws: None) -> None:
+    # Without a template the target receives the SQS record, not the message.
+    source = _pipe_source()
+    edges = job_edges(list(source.get_workunits()))
+    assert "fineGrainedLineages" not in edges[PIPE_JOB]
+    assert source.get_report().column_lineage_skipped == {
+        "pipe without an input template delivers the SQS record": 1
+    }
+
+
+def test_pipe_with_mixed_template_is_skipped(aws: None) -> None:
+    source = _pipe_source(template='{"order_id": "id-<$.body.order_id>"}')
+    edges = job_edges(list(source.get_workunits()))
+    assert "fineGrainedLineages" not in edges[PIPE_JOB]
+    assert source.get_report().column_lineage_skipped == {
+        "pipe input template is not a plain field mapping": 1
     }
 
 
@@ -257,4 +301,74 @@ def test_pipe_with_enrichment_gets_table_lineage_only(aws: None) -> None:
     assert "fineGrainedLineages" not in edges[PIPE_JOB]
     assert source.get_report().column_lineage_skipped == {
         "pipe has an enrichment step": 1
+    }
+
+
+@pytest.mark.parametrize(
+    "template, expected",
+    [
+        ('{"a": <$.body.x>, "b": {"c": "<$.body.y.z>"}}', {"a": "x", "b.c": "y.z"}),
+        ('{"a": <$.body.x>, "b": "literal"}', None),
+        ('{"a": <$.messageId>}', None),
+        ('{"a": [<$.body.x>]}', None),
+        ("<$.body>", None),
+        ("not json", None),
+    ],
+)
+def test_template_field_map(template: str, expected: Optional[Dict[str, str]]) -> None:
+    assert template_field_map(template) == expected
+
+
+def test_event_path_prefix() -> None:
+    assert event_path_prefix(None) == ""
+    assert event_path_prefix("$") == ""
+    assert event_path_prefix("$.detail") == "detail"
+    assert event_path_prefix("$.detail.items[0]") is None
+
+
+def _rule_source(**target: Any) -> SqsSource:
+    queue_arn = create_queue("orders")
+    events = boto3.client("events", region_name=REGION)
+    events.put_rule(Name="new-orders", EventPattern=json.dumps({"source": ["shop"]}))
+    events.put_targets(
+        Rule="new-orders", Targets=[{"Id": "q", "Arn": queue_arn, **target}]
+    )
+    graph = _graph(
+        {
+            BUS_URN: _schema("source", "detail.order_id", "detail.amount"),
+            QUEUE_URN: _schema("order_id", "AMOUNT", "unrelated"),
+        }
+    )
+    return SqsSource.create(
+        base_config(lineage={"lambda_functions": False}),
+        PipelineContext(run_id="lineage", graph=graph),
+    )
+
+
+def test_rule_input_path_maps_the_detail_subtree(aws: None) -> None:
+    edges = job_edges(list(_rule_source(InputPath="$.detail").get_workunits()))
+    assert _pairs(edges, RULE_JOB) == {
+        "detail.order_id -> order_id",
+        "detail.amount -> AMOUNT",
+    }
+
+
+def test_rule_without_input_path_maps_the_whole_event(aws: None) -> None:
+    edges = job_edges(list(_rule_source().get_workunits()))
+    # The queue has no top-level `source` field, and `order_id` is not top-level
+    # in the event, so nothing matches.
+    assert _pairs(edges, RULE_JOB) == set()
+
+
+def test_rule_with_input_transformer_is_skipped(aws: None) -> None:
+    source = _rule_source(
+        InputTransformer={
+            "InputPathsMap": {"id": "$.detail.order_id"},
+            "InputTemplate": '{"order_id": <id>}',
+        }
+    )
+    edges = job_edges(list(source.get_workunits()))
+    assert _pairs(edges, RULE_JOB) == set()
+    assert source.get_report().column_lineage_skipped == {
+        "rule target uses an input transformer or constant input": 1
     }

@@ -53,6 +53,10 @@ from datahub.sdk import Dataset
     SourceCapability.SCHEMA_METADATA,
     "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
 )
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Queue to dead-letter queue, when both have schemas",
+)
 @capability(SourceCapability.DESCRIPTIONS, "SQS has no description", supported=False)
 class SqsSource(AwsMessagingSourceBase):
     """Catalogs Amazon SQS queues of one region as datasets on the `sqs` platform,
@@ -137,6 +141,8 @@ class SqsSource(AwsMessagingSourceBase):
                 if self.registry is not None
                 else None
             )
+            if schema is not None:
+                self.schemas.fetched[urn] = schema
             yield from Dataset(
                 platform=SQS_PLATFORM,
                 name=self.urns.resource_id(queue.arn),
@@ -178,6 +184,9 @@ class SqsSource(AwsMessagingSourceBase):
             downstream=dlq_urn,
             relationship=LineageRelationship.DEAD_LETTER,
         )
+        # SQS moves the failed message itself to the dead-letter queue.
+        if self.config.column_lineage:
+            self.add_identity_column_lineage(source_urn, dlq_urn)
 
     def get_report(self) -> SqsSourceReport:
         return self.report

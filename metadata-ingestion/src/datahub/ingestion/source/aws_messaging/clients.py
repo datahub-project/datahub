@@ -7,6 +7,7 @@ from datahub.ingestion.source.aws_messaging.arn import parse_arn
 from datahub.ingestion.source.aws_messaging.constants import ALL_ATTRIBUTES
 from datahub.ingestion.source.aws_messaging.models import (
     EventBridgePipe,
+    RuleTarget,
     SnsSubscription,
 )
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
@@ -285,7 +286,7 @@ class EventBridgeClient:
             EventBusName=bus_name,
         )
 
-    def list_target_arns(self, rule_name: str, bus_name: str) -> Iterator[str]:
+    def list_targets(self, rule_name: str, bus_name: str) -> Iterator[RuleTarget]:
         for target in paginate(
             client=self._client,
             operation="list_targets_by_rule",
@@ -296,7 +297,11 @@ class EventBridgeClient:
             EventBusName=bus_name,
         ):
             if target.get("Arn"):
-                yield target["Arn"]
+                yield RuleTarget(
+                    arn=target["Arn"],
+                    input_path=target.get("InputPath"),
+                    reshaped="Input" in target or "InputTransformer" in target,
+                )
 
 
 class PipesClient:
@@ -324,9 +329,9 @@ class PipesClient:
                 state=item.get("CurrentState"),
             )
 
-    def has_input_template(self, name: str) -> Optional[bool]:
-        """Whether the pipe reshapes its payload with an input template, or None if
-        the pipe can't be described."""
+    def input_template(self, name: str) -> Optional[str]:
+        """The pipe's target input template, "" when it has none, or None if the
+        pipe can't be described."""
         response = call_or_warn(
             call=lambda: self._client.describe_pipe(Name=name),
             report=self.report,
@@ -335,4 +340,4 @@ class PipesClient:
         )
         if response is None:
             return None
-        return bool((response.get("TargetParameters") or {}).get("InputTemplate"))
+        return (response.get("TargetParameters") or {}).get("InputTemplate") or ""
