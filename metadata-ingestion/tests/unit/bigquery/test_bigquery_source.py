@@ -43,6 +43,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTableSnapshot,
     BigqueryView,
     ExternalTableOptions,
+    ShardedTableStats,
     get_projects,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
@@ -58,10 +59,8 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdgeColumnMapping,
 )
 from datahub.ingestion.source.bigquery_v2.queries import (
-    SHARDED_TABLE_REGEX,
     BigqueryQuery,
     BigqueryTableType,
-    sharded_table_base_expr,
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
@@ -1378,73 +1377,6 @@ def test_get_tables_for_dataset_query_selection(
 @patch.object(BigQuerySchemaApi, "get_query_result")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
-@pytest.mark.parametrize("aggregate_sharded_stats", [True, False])
-def test_get_tables_for_dataset_shard_rollup_toggle(
-    get_projects_client: MagicMock,
-    get_bq_client_mock: Mock,
-    query_mock: Mock,
-    aggregate_sharded_stats: bool,
-) -> None:
-    # Only the latest shard of a collapsed sharded table is queried, so when the shards
-    # collapse into one entity the query must sum their stats back onto it; otherwise the
-    # latest shard's own stats are kept unchanged.
-    query_mock.return_value = []
-    schema_api = BigQuerySchemaApi(
-        report=BigQueryV2Report().schema_api_perf,
-        client=MagicMock(),
-        projects_client=MagicMock(),
-    )
-
-    list(
-        schema_api.get_tables_for_dataset(
-            project_id="test-project",
-            dataset_name="test-dataset",
-            tables={"events_20250101": MagicMock()},
-            report=BigQueryV2Report(),
-            with_partitions=True,
-            aggregate_sharded_stats=aggregate_sharded_stats,
-        )
-    )
-
-    executed_query = query_mock.call_args[0][0]
-    rollup_present = ") as sh on" in executed_query
-    assert rollup_present is aggregate_sharded_stats
-    if aggregate_sharded_stats:
-        assert "COALESCE(sh.total_rows, p.total_rows) as row_count" in executed_query
-    else:
-        assert "p.total_rows as row_count" in executed_query
-    # Profiling and classification read the queried shard's own stats either way.
-    assert "p.total_rows as physical_row_count" in executed_query
-
-
-@patch.object(BigQuerySchemaApi, "get_query_result")
-def test_get_tables_for_dataset_skips_rollup_without_shards(query_mock: Mock) -> None:
-    # The rollup re-reads the whole dataset's PARTITIONS view, so a batch with no
-    # sharded table must not pay for it.
-    query_mock.return_value = []
-    schema_api = BigQuerySchemaApi(
-        report=BigQueryV2Report().schema_api_perf,
-        client=MagicMock(),
-        projects_client=MagicMock(),
-    )
-
-    list(
-        schema_api.get_tables_for_dataset(
-            project_id="test-project",
-            dataset_name="test-dataset",
-            tables={"customers": MagicMock(), "orders120250101": MagicMock()},
-            report=BigQueryV2Report(),
-            with_partitions=True,
-            aggregate_sharded_stats=True,
-        )
-    )
-
-    assert ") as sh on" not in query_mock.call_args[0][0]
-
-
-@patch.object(BigQuerySchemaApi, "get_query_result")
-@patch.object(BigQueryV2Config, "get_bigquery_client")
-@patch.object(BigQueryV2Config, "get_projects_client")
 @pytest.mark.parametrize("entity", ["views", "snapshots"])
 @pytest.mark.parametrize("use_legacy_table_stats", [False, True])
 def test_get_views_and_snapshots_legacy_tables_selection(
@@ -1503,162 +1435,13 @@ def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() 
     # _make_bigquery_table reads these columns by name; renaming an alias here would
     # silently null out row count / size / last-altered rather than raise.
     query = BigqueryQuery.tables_for_dataset_with_partition_stats
-    assert "{row_count_select} as row_count" in query
-    assert "{bytes_select} as bytes" in query
+    assert "p.total_rows as row_count" in query
+    assert "p.total_logical_bytes as bytes" in query
     assert "p.last_modified_time as last_altered" in query
     # last_modified_time must stay wrapped in UNIX_MILLIS: PARTITIONS returns a
     # TIMESTAMP, but the mapper expects epoch millis. Dropping the wrap would
     # silently feed wrong timestamps rather than raise.
     assert "UNIX_MILLIS(max(last_modified_time)) as last_modified_time" in query
-
-    # Without shard aggregation the row_count / bytes / billable-bytes aliases map straight
-    # onto the PARTITIONS rollup `p`, preserving the pre-existing behaviour.
-    clauses = BigqueryQuery.build_sharded_stats_clauses(
-        project_id="p",
-        dataset_name="d",
-        use_legacy_table_stats=False,
-        aggregate_sharded_stats=False,
-    )
-    assert clauses["row_count_select"] == "p.total_rows"
-    assert clauses["bytes_select"] == "p.total_logical_bytes"
-    assert clauses["active_billable_select"] == "p.active_billable_bytes"
-    assert (
-        clauses["long_term_billable_select"] == "IFNULL(p.long_term_billable_bytes, 0)"
-    )
-    assert clauses["shard_stats_join"] == ""
-
-
-def test_build_sharded_stats_clauses_sums_across_shards() -> None:
-    # Collapsing a date-sharded table keeps only the latest shard, so its stats must be
-    # summed across every shard and fall back to the latest shard's own stats for
-    # un-sharded tables (COALESCE over a rollup whose key is NULL for them).
-    partition = BigqueryQuery.build_sharded_stats_clauses(
-        project_id="p",
-        dataset_name="d",
-        use_legacy_table_stats=False,
-        aggregate_sharded_stats=True,
-    )
-    assert partition["row_count_select"] == "COALESCE(sh.total_rows, p.total_rows)"
-    assert (
-        partition["bytes_select"] == "COALESCE(sh.total_bytes, p.total_logical_bytes)"
-    )
-    # Billable bytes always come from PARTITIONS, so the single PARTITIONS rollup `sh`
-    # covers them too in the default path.
-    assert (
-        partition["active_billable_select"]
-        == "COALESCE(sh.active_billable_bytes, p.active_billable_bytes)"
-    )
-    # Long-term billable bytes must also roll up over the shards, not stay on the latest
-    # shard; a regression that drops this COALESCE would still pass the active-only checks.
-    assert (
-        partition["long_term_billable_select"]
-        == "IFNULL(COALESCE(sh.long_term_billable_bytes, p.long_term_billable_bytes), 0)"
-    )
-    assert "INFORMATION_SCHEMA.PARTITIONS" in partition["shard_stats_join"]
-    assert "sum(total_rows) as total_rows" in partition["shard_stats_join"]
-    assert "sum(total_logical_bytes) as total_bytes" in partition["shard_stats_join"]
-    assert "then total_billable_bytes" in partition["shard_stats_join"]
-    assert (
-        f"{sharded_table_base_expr('t.table_name')} = sh.table_base"
-        in partition["shard_stats_join"]
-    )
-    # One rollup only: no separate billable subquery is needed in the default path.
-    assert "as shb on" not in partition["shard_stats_join"]
-
-    # Legacy opt-in sums the undocumented __TABLES__ columns for row count / size, and a
-    # second PARTITIONS rollup `shb` for billable bytes (absent from __TABLES__).
-    legacy = BigqueryQuery.build_sharded_stats_clauses(
-        project_id="p",
-        dataset_name="d",
-        use_legacy_table_stats=True,
-        aggregate_sharded_stats=True,
-    )
-    assert legacy["row_count_select"] == "COALESCE(sh.total_rows, ts.row_count)"
-    assert legacy["bytes_select"] == "COALESCE(sh.total_bytes, ts.size_bytes)"
-    assert (
-        legacy["active_billable_select"]
-        == "COALESCE(shb.active_billable_bytes, p.active_billable_bytes)"
-    )
-    # Long-term bytes come from the second PARTITIONS rollup `shb` in the legacy path.
-    assert (
-        legacy["long_term_billable_select"]
-        == "IFNULL(COALESCE(shb.long_term_billable_bytes, p.long_term_billable_bytes), 0)"
-    )
-    assert "__TABLES__" in legacy["shard_stats_join"]
-    assert "sum(size_bytes) as total_bytes" in legacy["shard_stats_join"]
-    assert "as shb on" in legacy["shard_stats_join"]
-    assert "then total_billable_bytes" in legacy["shard_stats_join"]
-
-
-def _sql_shard_key(table_name: str) -> Optional[str]:
-    # Python mirror of sharded_table_base_expr, so the rollup key can be checked without
-    # BigQuery.
-    if re.match(SHARDED_TABLE_REGEX, table_name):
-        return table_name[:-8].rstrip("_")
-    return None
-
-
-def test_shard_rollup_key_groups_like_python_shard_matcher() -> None:
-    # The SQL rollup must sum exactly the tables that the Python collapse logic merges
-    # into one entity: over-grouping adds unrelated tables' rows, under-grouping drops
-    # shards, and a non-shard must never join a rollup.
-    matcher = BigQueryShardPatternMatcher()
-
-    def python_key(name: str) -> Optional[str]:
-        match = matcher.match(name)
-        if not match:
-            return None
-        return BigqueryTableIdentifier.extract_base_table_name(name, "ds", match)
-
-    names = [
-        "events_20250101",
-        "events_20250102",
-        "events20250103",
-        "events$20250101",
-        "orders1_20250101",
-        "orders1_20250615",
-        "orders120250101",
-        "a20250101",
-        "ab20250101",
-        "20250101",
-        "20250102",
-        "events_20251301",
-        "events",
-        "customers",
-    ]
-    for name in names:
-        assert (_sql_shard_key(name) is None) == (python_key(name) is None), name
-    for a in names:
-        for b in names:
-            same_sql = _sql_shard_key(a) is not None and _sql_shard_key(
-                a
-            ) == _sql_shard_key(b)
-            same_python = python_key(a) is not None and python_key(a) == python_key(b)
-            assert same_sql == same_python, (a, b)
-
-
-def test_make_bigquery_table_keeps_shard_totals_and_physical_stats_apart() -> None:
-    cols = [
-        "table_name",
-        "table_type",
-        "created",
-        "comment",
-        "ddl",
-        "row_count",
-        "bytes",
-        "physical_row_count",
-        "physical_bytes",
-    ]
-    row = Row(
-        ("events_20250101", BigqueryTableType.BASE_TABLE, None, None, None)
-        + (3000, 30_000, 1000, 10_000),
-        {c: i for i, c in enumerate(cols)},
-    )
-
-    table = BigQuerySchemaApi._make_bigquery_table(row, table_basic=None)
-
-    assert (table.rows_count, table.size_in_bytes) == (3000, 30_000)
-    assert (table.physical_rows_count, table.physical_size_in_bytes) == (1000, 10_000)
 
 
 def test_make_bigquery_table_null_partition_stats() -> None:
@@ -1675,8 +1458,6 @@ def test_make_bigquery_table_null_partition_stats() -> None:
     assert table.last_altered is None
     assert table.size_in_bytes is None
     assert table.rows_count is None
-    assert table.physical_size_in_bytes is None
-    assert table.physical_rows_count is None
 
 
 @patch.object(BigQueryV2Config, "get_bigquery_client")
@@ -3211,3 +2992,200 @@ def test_probe_qualifies_tables_through_the_project_ids_field():
     # get_identifier shim cannot build `project.dataset.table`; the Qualifier
     # on `project_ids` declares it.
     assert declares_qualifier(BigQueryV2Config.model_construct())
+
+
+def _list_item(table_id: str) -> TableListItem:
+    return TableListItem(
+        {
+            "tableReference": {
+                "projectId": "test-project",
+                "datasetId": "test-dataset",
+                "tableId": table_id,
+            }
+        }
+    )
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_get_core_table_details_records_shard_families(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    client_mock.list_tables.return_value = [
+        _list_item("events_20250101"),
+        _list_item("events_20250102"),
+        _list_item("events20250103"),
+        _list_item("single_20250101"),
+        # Copies of a real table are skipped, so they form no family.
+        _list_item("orders"),
+        _list_item("orders_20250101"),
+        _list_item("orders_20250102"),
+        _list_item("customers"),
+    ]
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    shard_families: Dict[str, List[str]] = {}
+    tables = source.bq_schema_extractor.get_core_table_details(
+        "test-dataset", "test-project", "_", shard_families=shard_families
+    )
+
+    assert sorted(tables) == [
+        "customers",
+        "events20250103",
+        "orders",
+        "single_20250101",
+    ]
+    assert shard_families == {
+        "events20250103": ["events_20250101", "events_20250102", "events20250103"]
+    }
+
+
+def _partition_row(
+    table_name: str, rows: int, logical: int, active: int, long_term: int
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        table_name=table_name,
+        total_rows=rows,
+        total_logical_bytes=logical,
+        active_billable_bytes=active,
+        long_term_billable_bytes=long_term,
+    )
+
+
+def test_get_sharded_table_stats_sums_each_family_in_bounded_queries() -> None:
+    # PARTITIONS rejects a query that reads more than 1000 tables, so a long shard
+    # history must be summed over several filtered queries.
+    events = [f"events_{20200101 + i}" for i in range(1001)]
+    families = {events[-1]: events, "logs_20250102": ["logs_20250101", "logs_20250102"]}
+    queries: List[str] = []
+
+    def run(query: str) -> List[SimpleNamespace]:
+        queries.append(query)
+        return [
+            _partition_row(name, 10, 100, 60, 40)
+            for name in sorted(n for shards in families.values() for n in shards)
+            if f"'{name}'" in query
+        ]
+
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+    with patch.object(schema_api, "get_query_result", side_effect=run):
+        totals = schema_api.get_sharded_table_stats(
+            "test-project", "test-dataset", families
+        )
+
+    assert len(queries) == 2
+    assert all(len(re.findall(r"'(?:events|logs)_\d+'", q)) <= 1000 for q in queries)
+    assert totals == {
+        events[-1]: ShardedTableStats(10010, 100100, 60060, 40040),
+        "logs_20250102": ShardedTableStats(20, 200, 120, 80),
+    }
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize("fails", [False, True])
+def test_table_batch_attaches_shard_totals_or_warns(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock, fails: bool
+) -> None:
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+    latest = BigqueryTable(
+        name="events_20250102",
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+    plain = BigqueryTable(
+        name="customers",
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+    totals = ShardedTableStats(rows_count=30, size_in_bytes=300)
+
+    with (
+        patch.object(
+            schema_gen.schema_api,
+            "get_tables_for_dataset",
+            return_value=iter([latest, plain]),
+        ),
+        patch.object(
+            schema_gen.schema_api,
+            "get_sharded_table_stats",
+            side_effect=RuntimeError("boom") if fails else None,
+            return_value={"events_20250102": totals},
+        ) as stats_mock,
+    ):
+        tables = list(
+            schema_gen._get_table_batch(
+                "test-project",
+                "test-dataset",
+                {"events_20250102": MagicMock(), "customers": MagicMock()},
+                True,
+                {
+                    "events_20250102": ["events_20250101", "events_20250102"],
+                    "other_20250102": ["other_20250101", "other_20250102"],
+                },
+            )
+        )
+
+    # Only families in this batch are queried.
+    assert stats_mock.call_args.args[2] == {
+        "events_20250102": ["events_20250101", "events_20250102"]
+    }
+    assert latest.sharded_table_stats == (None if fails else totals)
+    assert plain.sharded_table_stats is None
+    assert len(tables) == 2
+    assert bool(source.report.warnings) is fails
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_gen_table_dataset_workunits_reports_shard_totals(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    table = BigqueryTable(
+        name="events_20250102",
+        comment=None,
+        created=None,
+        last_altered=None,
+        rows_count=10,
+        size_in_bytes=100,
+        active_billable_bytes=60,
+        long_term_billable_bytes=40,
+        sharded_table_stats=ShardedTableStats(
+            rows_count=30,
+            size_in_bytes=300,
+            active_billable_bytes=180,
+            long_term_billable_bytes=120,
+        ),
+    )
+
+    mcps = list(
+        source.bq_schema_extractor.gen_table_dataset_workunits(
+            table, [], "test-project", "test-dataset"
+        )
+    )
+
+    properties = next(
+        mcp.metadata.aspect  # type: ignore
+        for mcp in mcps
+        if isinstance(mcp.metadata.aspect, DatasetPropertiesClass)  # type: ignore
+    )
+    assert properties.customProperties["size_in_bytes"] == "300"
+    assert properties.customProperties["billable_bytes_active"] == "180"
+    assert properties.customProperties["billable_bytes_long_term"] == "120"

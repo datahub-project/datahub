@@ -1,28 +1,11 @@
 import textwrap
-from typing import Dict, Optional
+from typing import Optional
 
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_NULL_PARTITION_ID,
     BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
     BQ_UNPARTITIONED_PARTITION_ID,
 )
-
-# The default sharded_table_pattern (BigQueryShardPatternMatcher) as an RE2 regex: a
-# trailing YYYYMMDD after a prefix that ends in a non-digit, or a name that is only a date.
-SHARDED_TABLE_REGEX = (
-    r"^(?:.+\D[_$]?)?\d\d\d\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])$"
-)
-
-
-def sharded_table_base_expr(column: str) -> str:
-    """SQL rollup key for a shard: its name without the date and trailing underscores,
-    as extract_base_table_name computes it, so the rollup sums exactly the shards that
-    collapse into one entity. Date-only shards share the empty key. Other tables get
-    NULL, which never matches in a join."""
-    return (
-        f'IF(REGEXP_CONTAINS({column}, r"{SHARDED_TABLE_REGEX}"), '
-        f'RTRIM(SUBSTR({column}, 1, LENGTH({column}) - 8), "_"), NULL)'
-    )
 
 
 class BigqueryTableType:
@@ -68,14 +51,12 @@ SELECT
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl,
-  {{row_count_select}} as row_count,
-  {{bytes_select}} as bytes,
-  {{physical_row_count_select}} as physical_row_count,
-  {{physical_bytes_select}} as physical_bytes,
+  ts.row_count as row_count,
+  ts.size_bytes as bytes,
   p.num_partitions,
   p.max_partition_id,
-  {{active_billable_select}} as active_billable_bytes,
-  {{long_term_billable_select}} as long_term_billable_bytes,
+  p.active_billable_bytes as active_billable_bytes,
+  IFNULL(p.long_term_billable_bytes, 0) as long_term_billable_bytes,
   REGEXP_EXTRACT(t.table_name, r"(?:(?:.+\\D)[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
   REGEXP_REPLACE(t.table_name, r"(?:[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
 
@@ -97,7 +78,7 @@ FROM
         `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
-    t.table_name = p.table_name{{shard_stats_join}}
+    t.table_name = p.table_name
 WHERE
   table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
@@ -123,14 +104,12 @@ SELECT
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl,
-  {{row_count_select}} as row_count,
-  {{bytes_select}} as bytes,
-  {{physical_row_count_select}} as physical_row_count,
-  {{physical_bytes_select}} as physical_bytes,
+  p.total_rows as row_count,
+  p.total_logical_bytes as bytes,
   p.num_partitions,
   p.max_partition_id,
-  {{active_billable_select}} as active_billable_bytes,
-  {{long_term_billable_select}} as long_term_billable_bytes,
+  p.active_billable_bytes as active_billable_bytes,
+  IFNULL(p.long_term_billable_bytes, 0) as long_term_billable_bytes,
   REGEXP_EXTRACT(t.table_name, r"(?:(?:.+\\D)[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
   REGEXP_REPLACE(t.table_name, r"(?:[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
 
@@ -153,7 +132,7 @@ FROM
         `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
-    t.table_name = p.table_name{{shard_stats_join}}
+    t.table_name = p.table_name
 WHERE
   table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
@@ -189,6 +168,24 @@ order by
   table_schema ASC,
   table_base ASC,
   table_suffix DESC
+"""
+
+    # Per-table stats for the shards of collapsed sharded tables, which are summed per
+    # family in Python. The table filter keeps each query within the 1000-table limit
+    # of INFORMATION_SCHEMA.PARTITIONS.
+    partition_stats_for_tables = """
+SELECT
+  table_name,
+  sum(total_rows) as total_rows,
+  sum(total_logical_bytes) as total_logical_bytes,
+  sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
+  sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes
+FROM
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
+WHERE
+  table_name in ({table_filter})
+GROUP BY
+  table_name
 """
 
     # Views keep last_altered / row_count / size_bytes from the legacy __TABLES__ construct.
@@ -406,115 +403,6 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
     and tc.constraint_schema = ccu.constraint_schema
     and tc.constraint_name = ccu.constraint_name
 """
-
-    @staticmethod
-    def build_sharded_stats_clauses(
-        project_id: str,
-        dataset_name: str,
-        use_legacy_table_stats: bool,
-        aggregate_sharded_stats: bool,
-    ) -> Dict[str, str]:
-        """Build the row_count / bytes / billable-bytes selects and the optional
-        shard-rollup join(s) for the stats query templates.
-
-        A collapsed date-sharded table (the default, legacy support on) is represented by
-        its latest shard alone, so its row_count / size / billable bytes would otherwise
-        reflect only that one shard. When aggregate_sharded_stats is set we LEFT JOIN a
-        per-base rollup that sums every shard's stats and COALESCE it over the latest
-        shard's own values. Un-sharded tables have a NULL rollup key, so they keep their
-        own stats. physical_row_count / physical_bytes always describe the queried table
-        itself, which is what profiling and classification read.
-
-        Row count and size come from __TABLES__ under use_legacy_table_stats and from
-        PARTITIONS otherwise, so the rollup `sh` mirrors that source. Billable bytes are
-        always sourced from PARTITIONS in both templates, so under legacy stats they are
-        summed by a second PARTITIONS rollup `shb`.
-        """
-        if use_legacy_table_stats:
-            own_rows, own_bytes = "ts.row_count", "ts.size_bytes"
-            source, name_col = "__TABLES__", "table_id"
-            src_rows, src_bytes = "row_count", "size_bytes"
-        else:
-            own_rows, own_bytes = "p.total_rows", "p.total_logical_bytes"
-            source, name_col = "INFORMATION_SCHEMA.PARTITIONS", "table_name"
-            src_rows, src_bytes = "total_rows", "total_logical_bytes"
-
-        own_active = "p.active_billable_bytes"
-        own_long_term = "IFNULL(p.long_term_billable_bytes, 0)"
-
-        physical = {
-            "physical_row_count_select": own_rows,
-            "physical_bytes_select": own_bytes,
-        }
-        if not aggregate_sharded_stats:
-            return {
-                **physical,
-                "row_count_select": own_rows,
-                "bytes_select": own_bytes,
-                "active_billable_select": own_active,
-                "long_term_billable_select": own_long_term,
-                "shard_stats_join": "",
-            }
-
-        table_base = sharded_table_base_expr("t.table_name")
-        billable_rollup = (
-            "\n        sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes"
-            " else 0 end) as long_term_billable_bytes,"
-            "\n        sum(case when storage_tier = 'ACTIVE' then total_billable_bytes"
-            " else 0 end) as active_billable_bytes"
-        )
-
-        if use_legacy_table_stats:
-            # Row count / size are summed from __TABLES__; billable bytes come from a
-            # separate PARTITIONS rollup since __TABLES__ does not expose them.
-            billable_alias = "shb"
-            shard_stats_join = f"""
-  left join (
-    select
-        {sharded_table_base_expr(name_col)} as table_base,
-        sum({src_rows}) as total_rows,
-        sum({src_bytes}) as total_bytes
-    from
-        `{project_id}`.`{dataset_name}`.{source}
-    group by
-        table_base) as sh on
-    {table_base} = sh.table_base
-  left join (
-    select
-        {sharded_table_base_expr("table_name")} as table_base,{billable_rollup}
-    from
-        `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
-    group by
-        table_base) as shb on
-    {table_base} = shb.table_base"""
-        else:
-            # A single PARTITIONS rollup covers row count, size and billable bytes.
-            billable_alias = "sh"
-            shard_stats_join = f"""
-  left join (
-    select
-        {sharded_table_base_expr(name_col)} as table_base,
-        sum({src_rows}) as total_rows,
-        sum({src_bytes}) as total_bytes,{billable_rollup}
-    from
-        `{project_id}`.`{dataset_name}`.{source}
-    group by
-        table_base) as sh on
-    {table_base} = sh.table_base"""
-
-        return {
-            **physical,
-            "row_count_select": f"COALESCE(sh.total_rows, {own_rows})",
-            "bytes_select": f"COALESCE(sh.total_bytes, {own_bytes})",
-            "active_billable_select": (
-                f"COALESCE({billable_alias}.active_billable_bytes, {own_active})"
-            ),
-            "long_term_billable_select": (
-                f"IFNULL(COALESCE({billable_alias}.long_term_billable_bytes,"
-                " p.long_term_billable_bytes), 0)"
-            ),
-            "shard_stats_join": shard_stats_join,
-        }
 
 
 BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE = """
