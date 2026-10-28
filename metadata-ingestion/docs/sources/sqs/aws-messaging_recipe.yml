@@ -1,0 +1,22 @@
+source:
+  type: aws-messaging
+  config:
+    aws_config:
+      aws_region: "us-east-1"
+      # aws_role: "arn:aws:iam::123456789012:role/datahub-read"
+    # platform_instance defaults to the AWS account id.
+    env: "PROD"
+
+    include_sqs: true
+    queue_pattern:
+      deny:
+        - ".*-tmp$"
+    include_sns: true
+    topic_pattern:
+      allow:
+        - ".*"
+
+    extract_tags: true
+
+    stateful_ingestion:
+      enabled: true

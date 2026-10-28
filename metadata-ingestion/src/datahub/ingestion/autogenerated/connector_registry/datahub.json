@@ -192,6 +192,56 @@
       "platform_name": "Athena",
       "support_status": "GA"
     },
+    "aws-messaging": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "SQS and SNS have no description",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Defaults to the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "SQS and SNS have no schema",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.aws_messaging.source.AwsMessagingSource",
+      "platform_id": "sqs",
+      "platform_name": "Amazon SQS",
+      "support_status": "ALPHA"
+    },
     "azure-ad": {
       "capabilities": [
         {
