@@ -528,6 +528,20 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     assertEquals(withDefaults.getNumEntities().intValue(), 1);
     assertEquals(withDefaults.getEntities().get(0).getEntity(), dbtUrn);
 
+    // A view made only of exclusions keeps hiding on.
+    Filter exclusionView =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion("platform", Condition.EQUAL, true, "hive"))))));
+    SearchResult withExclusions = searchSiblings(hidingSearchService, exclusionView);
+    assertEquals(withExclusions.getNumEntities().intValue(), 1);
+    assertEquals(withExclusions.getEntities().get(0).getEntity(), dbtUrn);
+
     Filter platformFilter =
         new Filter()
             .setOr(

@@ -125,6 +125,40 @@ public class ESUtilsNonPrimarySiblingsFilterTest {
     assertTrue(apply(true, filter).mustNot().isEmpty());
   }
 
+  /** A default view made only of exclusions, e.g. "tag is not deprecated", keeps hiding on. */
+  @Test
+  public void testNegatedCriteriaStillHide() {
+    Filter filter =
+        documentVisibilityDefaults(
+            criterion("tags", "urn:li:tag:deprecated").setNegated(true),
+            criterion("deprecated", "true").setNegated(true));
+    assertEquals(apply(true, filter).mustNot().size(), 1);
+  }
+
+  /** A negated IS_NULL means "has a value", which selects. */
+  @Test
+  public void testNegatedIsNullTurnsHidingOff() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                new Criterion()
+                                    .setField("description")
+                                    .setCondition(Condition.IS_NULL)
+                                    .setNegated(true)))));
+    assertTrue(apply(true, filter).mustNot().isEmpty());
+  }
+
+  @Test
+  public void testNegatedSiblingFieldIsExempt() {
+    Filter filter = filterOn("hasSiblings", "true");
+    filter.getOr().get(0).getAnd().get(0).setNegated(true);
+    assertTrue(apply(true, filter).mustNot().isEmpty());
+  }
+
   @Test
   public void testFilterOnSiblingFieldsIsExempt() {
     for (String field : new String[] {"siblings", "hasSiblings", "siblingsPrimary.keyword"}) {

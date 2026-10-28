@@ -143,6 +143,10 @@ public class ESUtils {
       Set.of(
           INDEX_VIRTUAL_FIELD, "entity", REMOVED, "state", LIFECYCLE_STAGE, "showInGlobalContext");
 
+  /** A filter on any of these is a question about the sibling group itself; it is not narrowed. */
+  private static final Set<String> SIBLING_FIELDS =
+      Set.of(SIBLINGS, HAS_SIBLINGS, SIBLINGS_PRIMARY);
+
   private static final String ENTITY_SUB_TYPE_FILTER_FIELD =
       INDEX_VIRTUAL_FIELD + AGGREGATION_SEPARATOR_CHAR + "typeNames";
 
@@ -1791,17 +1795,19 @@ public class ESUtils {
    * Hides non-primary members of dataset sibling groups so a group surfaces as one result. A no-op
    * unless {@link SearchConfiguration#isHideNonPrimarySiblings()} is on.
    *
-   * <p>Hiding only applies to unfiltered searches: a filter that names nothing but entity types
-   * (without a sub-type) or the soft-delete flag. Any other filter turns it off, because the
-   * sibling that matches the filter may be the hidden one. For example, {@code platform=snowflake}
-   * matches only the Snowflake table, while its dbt primary is a different platform, so hiding the
-   * table would return nothing. Sub-types differ between members too (dbt "Model" vs "Table").
-   * Filters from a default view are merged into the request filter, so a view also turns hiding
-   * off. The document visibility defaults that search adds to every request keep hiding on. A
-   * filter on a siblings field (the sibling list on an entity page, the "has siblings" facet) is a
-   * question about the group itself and is likewise left alone. Because the hiding clause also
-   * applies to aggregations, the "has siblings" facet counts only primary members, while selecting
-   * it lists every member.
+   * <p>Hiding applies only when no filter criterion selects: every criterion is on entity type
+   * (without a sub-type), the soft-delete flag or the document visibility defaults that search adds
+   * to every request, or is negated. Any selecting criterion turns it off, because the sibling that
+   * matches it may be the hidden one. For example, {@code platform=snowflake} matches only the
+   * Snowflake table, while its dbt primary is a different platform, so hiding the table would
+   * return nothing. Sub-types differ between members too (dbt "Model" vs "Table"). A negated
+   * criterion ("tag is not deprecated") only removes documents, so it keeps hiding on. It can still
+   * drop a group: when it excludes the primary but not another member, that member is hidden too. A
+   * negated IS_NULL means "has a value" and counts as selecting. Filters from a view are merged
+   * into the request filter and follow the same rule. A filter on a siblings field (the sibling
+   * list on an entity page, the "has siblings" facet) is a question about the group itself and is
+   * likewise left alone. Because the hiding clause also applies to aggregations, the "has siblings"
+   * facet counts only primary members, while selecting it lists every member.
    *
    * <p>Only documents that carry {@code siblingsPrimary=false} are hidden, so documents indexed
    * before the field existed stay visible. Each document carries only its own flag, so two cases
@@ -1855,15 +1861,23 @@ public class ESUtils {
   }
 
   /**
-   * True when a criterion selects every member of a sibling group alike, so hiding the non-primary
-   * members cannot drop the only match.
+   * True when hiding non-primary siblings cannot leave a hidden member as the group's only match: a
+   * criterion every member matches alike, or one that only excludes documents.
    */
   private static boolean isNeutralForSiblingHiding(@Nonnull final Criterion criterion) {
     String field = criterion.getField();
     if (field.endsWith(KEYWORD_SUFFIX)) {
       field = field.substring(0, field.length() - KEYWORD_SUFFIX.length());
     }
+    if (SIBLING_FIELDS.contains(field)) {
+      return false;
+    }
     if (SIBLING_HIDING_NEUTRAL_FIELDS.contains(field)) {
+      return true;
+    }
+    // A negated criterion only removes documents, so it cannot make a hidden member the only
+    // match. A negated IS_NULL is the exception: it means "has a value" and selects.
+    if (criterion.isNegated() && criterion.getCondition() != Condition.IS_NULL) {
       return true;
     }
     if (ENTITY_SUB_TYPE_FILTER_FIELD.equals(field)) {
