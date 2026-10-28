@@ -1645,6 +1645,17 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     run_results_path, prefetched
                 )
                 load_run_results(self.config, run_results_json, nodes_by_name)
+                if (
+                    self.config.ingest_contracts
+                    and run_results_json.get("args", {}).get("which") is None
+                ):
+                    self.report.warning(
+                        title="run_results without a dbt command",
+                        message="The run_results file does not record which dbt "
+                        "command produced it (args.which), so its model results "
+                        "produce no contract run events.",
+                        context=run_results_path,
+                    )
             except MemoryError:
                 raise
             except Exception as e:

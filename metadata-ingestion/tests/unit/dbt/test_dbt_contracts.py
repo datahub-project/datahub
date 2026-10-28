@@ -1138,6 +1138,23 @@ def test_load_run_results_marks_relation_building_commands(
     assert perf.built_relation is built
 
 
+def test_run_results_without_command_warns_when_contracts_enabled() -> None:
+    fixture = json.loads(
+        (
+            Path(__file__).parent / "artifacts" / "run_results_contract_preflight.json"
+        ).read_text()
+    )
+    del fixture["args"]
+    source = _make_source()
+    with mock.patch.object(source._artifacts, "load_json", return_value=fixture):
+        source._load_run_results_files(
+            ["run_results.json"], None, [_make_model()], multi_project=False
+        )
+    assert any(
+        w.title == "run_results without a dbt command" for w in source.report.warnings
+    )
+
+
 def test_inferred_timing_is_not_emitted_as_process_run() -> None:
     source = _make_source()
     node = _make_model()
@@ -2054,8 +2071,13 @@ def test_cloud_test_connection_probes_contracts_in_run_environment() -> None:
 
 
 def test_cloud_test_connection_rejects_unknown_environment() -> None:
+    # A pinned environment_id still probes the run's timing fields.
     with mock.patch.object(DBTCloudSource, "_send_graphql_query") as mock_send:
-        mock_send.side_effect = [{"job": {"id": 1}}, {"environment": None}]
+        mock_send.side_effect = [
+            {"job": {"id": 1}},
+            {"job": {"models": [{"environmentId": 7}]}},
+            {"environment": None},
+        ]
         report = DBTCloudSource.test_connection(
             {
                 "access_url": "https://test.getdbt.com",
@@ -2068,5 +2090,7 @@ def test_cloud_test_connection_rejects_unknown_environment() -> None:
                 "environment_id": 42,
             }
         )
+    assert "runGeneratedAt" in mock_send.call_args_list[1].args[2]
+    assert mock_send.call_args_list[2].args[3]["environmentId"] == 42
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable is False

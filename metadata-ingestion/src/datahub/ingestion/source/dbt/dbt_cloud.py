@@ -573,15 +573,10 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 )
 
             environment_id = source_config.environment_id
-            if (
-                source_config.ingest_contracts
-                and environment_id is None
-                and not is_auto_discovery
-            ):
-                # Contracts default to the run's environment; read it from the
-                # job's models so the contract query is probed too. The timing
-                # fields are requested as in the run, so a rejected field fails
-                # here rather than during ingestion.
+            if source_config.ingest_contracts and not is_auto_discovery:
+                # The timing fields are requested as in the run, so a rejected
+                # field fails here rather than during ingestion. Contracts
+                # default to the run's environment, read from the same models.
                 job_data = DBTCloudSource._send_graphql_query(
                     source_config.metadata_endpoint,
                     source_config.token.get_secret_value(),
@@ -591,14 +586,15 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                     ),
                     {"jobId": source_config.job_id, "runId": source_config.run_id},
                 )
-                environment_id = next(
-                    (
-                        model["environmentId"]
-                        for model in (job_data.get("job") or {}).get("models") or []
-                        if model.get("environmentId")
-                    ),
-                    None,
-                )
+                if environment_id is None:
+                    environment_id = next(
+                        (
+                            model["environmentId"]
+                            for model in (job_data.get("job") or {}).get("models") or []
+                            if model.get("environmentId")
+                        ),
+                        None,
+                    )
             if source_config.ingest_contracts and environment_id is not None:
                 discovery_data = DBTCloudSource._send_graphql_query(
                     source_config.metadata_endpoint,

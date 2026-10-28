@@ -938,7 +938,9 @@ class DBTCommonConfig(
             "contract. By default such contracts are left untouched; the dbt "
             "contract assertions are still emitted as standalone assertions. "
             "Also lets dbt write contracts without a DataHub graph connection, "
-            "where existing contracts cannot be checked."
+            "where existing contracts cannot be checked. Without a graph, dbt "
+            "writes to the dataset-derived URN, so a dataset that already has "
+            "a contract at another URN (e.g. from the UI) ends up with two."
         ),
     )
 
