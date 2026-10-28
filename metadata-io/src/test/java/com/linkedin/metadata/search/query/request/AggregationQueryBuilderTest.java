@@ -24,6 +24,7 @@ import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -33,6 +34,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQuery
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.time.OffsetDateTime;
@@ -1665,5 +1667,63 @@ public class AggregationQueryBuilderTest {
         .thenReturn(mockResult);
 
     return mockAspectRetriever;
+  }
+
+  private AggregationBuilder getEntityTypeAggregation(List<AggregationBuilder> aggs) {
+    return aggs.stream()
+        .filter(agg -> agg.getName().equals(INDEX_VIRTUAL_FIELD))
+        .findFirst()
+        .orElseThrow();
+  }
+
+  @Test
+  public void testMaxAggValuesCallerWins() {
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(60);
+    config.setDefaultMaxAggValues(20);
+
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, Collections.emptyMap());
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization()
+            .withSearchFlags(flags -> new SearchFlags().setMaxAggValues(5));
+
+    AggregationBuilder entityTypeAgg = getEntityTypeAggregation(builder.getAggregations(opContext));
+
+    Assert.assertTrue(entityTypeAgg instanceof TermsAggregationBuilder);
+    Assert.assertEquals(((TermsAggregationBuilder) entityTypeAgg).size(), 5);
+  }
+
+  @Test
+  public void testMaxAggValuesFallsBackToConfigDefaultWhenUnset() {
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(60);
+    config.setDefaultMaxAggValues(7);
+
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, Collections.emptyMap());
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization()
+            .withSearchFlags(flags -> new SearchFlags());
+
+    AggregationBuilder entityTypeAgg = getEntityTypeAggregation(builder.getAggregations(opContext));
+
+    // 7, not SearchFlags.pdl's schema default of 20 -- proves the value came from
+    // SearchConfiguration.defaultMaxAggValues, not from the caller or the PDL default.
+    Assert.assertEquals(((TermsAggregationBuilder) entityTypeAgg).size(), 7);
+  }
+
+  @Test
+  public void testMaxAggValuesAboveCeilingIsClamped() {
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(60);
+    config.setDefaultMaxAggValues(20);
+
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, Collections.emptyMap());
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization()
+            .withSearchFlags(flags -> new SearchFlags().setMaxAggValues(999));
+
+    AggregationBuilder entityTypeAgg = getEntityTypeAggregation(builder.getAggregations(opContext));
+
+    Assert.assertEquals(((TermsAggregationBuilder) entityTypeAgg).size(), 60);
   }
 }

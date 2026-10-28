@@ -33,6 +33,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.*;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.BadRequestException;
 import org.apache.iceberg.exceptions.NotFoundException;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -162,6 +163,200 @@ public class DataHubIcebergWarehouseTest {
 
     DataHubIcebergWarehouse.of(
         platformInstance, entityService, secretService, cacheEvictionService, operationContext);
+  }
+
+  @Test(expectedExceptions = BadRequestException.class)
+  public void testGetStorageProviderCredentials_MissingClientIdSecret() throws Exception {
+    String platformInstance = "test-platform";
+
+    Urn clientIdUrn = Urn.createFromString("urn:li:secret:clientId");
+    Urn clientSecretUrn = Urn.createFromString("urn:li:secret:clientSecret");
+
+    icebergWarehouse = new IcebergWarehouseInfo();
+    icebergWarehouse.setClientId(clientIdUrn);
+    icebergWarehouse.setClientSecret(clientSecretUrn);
+    icebergWarehouse.setDataRoot("s3://data-root/test/");
+    icebergWarehouse.setRegion("us-east-1");
+    icebergWarehouse.setRole("testRole");
+
+    when(entityService.getLatestAspect(
+            any(),
+            any(),
+            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
+        .thenReturn(warehouseAspect);
+    when(warehouseAspect.data()).thenReturn(icebergWarehouse.data());
+
+    when(entityService.getLatestAspects(
+            eq(operationContext),
+            eq(Set.of(clientIdUrn, clientSecretUrn)),
+            eq(Set.of("dataHubSecretValue")),
+            eq(false)))
+        .thenReturn(Map.of());
+
+    DataHubIcebergWarehouse warehouse =
+        DataHubIcebergWarehouse.of(
+            platformInstance, entityService, secretService, cacheEvictionService, operationContext);
+
+    warehouse.getStorageProviderCredentials();
+  }
+
+  @Test(expectedExceptions = BadRequestException.class)
+  public void testGetStorageProviderCredentials_EmptyClientIdAspectList() throws Exception {
+    String platformInstance = "test-platform";
+
+    Urn clientIdUrn = Urn.createFromString("urn:li:secret:clientId");
+    Urn clientSecretUrn = Urn.createFromString("urn:li:secret:clientSecret");
+
+    icebergWarehouse = new IcebergWarehouseInfo();
+    icebergWarehouse.setClientId(clientIdUrn);
+    icebergWarehouse.setClientSecret(clientSecretUrn);
+    icebergWarehouse.setDataRoot("s3://data-root/test/");
+    icebergWarehouse.setRegion("us-east-1");
+    icebergWarehouse.setRole("testRole");
+
+    when(entityService.getLatestAspect(
+            any(),
+            any(),
+            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
+        .thenReturn(warehouseAspect);
+    when(warehouseAspect.data()).thenReturn(icebergWarehouse.data());
+
+    Map<Urn, List<RecordTemplate>> aspectsMap = new HashMap<>();
+    aspectsMap.put(clientIdUrn, List.of());
+    aspectsMap.put(clientSecretUrn, List.of());
+
+    when(entityService.getLatestAspects(
+            eq(operationContext),
+            eq(Set.of(clientIdUrn, clientSecretUrn)),
+            eq(Set.of("dataHubSecretValue")),
+            eq(false)))
+        .thenReturn(aspectsMap);
+
+    DataHubIcebergWarehouse warehouse =
+        DataHubIcebergWarehouse.of(
+            platformInstance, entityService, secretService, cacheEvictionService, operationContext);
+
+    warehouse.getStorageProviderCredentials();
+  }
+
+  @Test(expectedExceptions = BadRequestException.class)
+  public void testGetStorageProviderCredentials_EmptyClientSecretAspectList() throws Exception {
+    String platformInstance = "test-platform";
+    String clientId = "testClientId";
+
+    Urn clientIdUrn = Urn.createFromString("urn:li:secret:clientId");
+    Urn clientSecretUrn = Urn.createFromString("urn:li:secret:clientSecret");
+
+    icebergWarehouse = new IcebergWarehouseInfo();
+    icebergWarehouse.setClientId(clientIdUrn);
+    icebergWarehouse.setClientSecret(clientSecretUrn);
+    icebergWarehouse.setDataRoot("s3://data-root/test/");
+    icebergWarehouse.setRegion("us-east-1");
+    icebergWarehouse.setRole("testRole");
+
+    when(entityService.getLatestAspect(
+            any(),
+            any(),
+            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
+        .thenReturn(warehouseAspect);
+    when(warehouseAspect.data()).thenReturn(icebergWarehouse.data());
+
+    DataHubSecretValue clientIdValue = new DataHubSecretValue();
+    clientIdValue.setValue(clientId);
+
+    Map<Urn, List<RecordTemplate>> aspectsMap = new HashMap<>();
+    aspectsMap.put(clientIdUrn, Arrays.asList(clientIdValue));
+    aspectsMap.put(clientSecretUrn, List.of());
+
+    when(entityService.getLatestAspects(
+            eq(operationContext),
+            eq(Set.of(clientIdUrn, clientSecretUrn)),
+            eq(Set.of("dataHubSecretValue")),
+            eq(false)))
+        .thenReturn(aspectsMap);
+
+    DataHubIcebergWarehouse warehouse =
+        DataHubIcebergWarehouse.of(
+            platformInstance, entityService, secretService, cacheEvictionService, operationContext);
+
+    warehouse.getStorageProviderCredentials();
+  }
+
+  @Test(expectedExceptions = BadRequestException.class)
+  public void testGetStorageProviderCredentials_NullCredsMap() throws Exception {
+    String platformInstance = "test-platform";
+
+    Urn clientIdUrn = Urn.createFromString("urn:li:secret:clientId");
+    Urn clientSecretUrn = Urn.createFromString("urn:li:secret:clientSecret");
+
+    icebergWarehouse = new IcebergWarehouseInfo();
+    icebergWarehouse.setClientId(clientIdUrn);
+    icebergWarehouse.setClientSecret(clientSecretUrn);
+    icebergWarehouse.setDataRoot("s3://data-root/test/");
+    icebergWarehouse.setRegion("us-east-1");
+    icebergWarehouse.setRole("testRole");
+
+    when(entityService.getLatestAspect(
+            any(),
+            any(),
+            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
+        .thenReturn(warehouseAspect);
+    when(warehouseAspect.data()).thenReturn(icebergWarehouse.data());
+
+    when(entityService.getLatestAspects(
+            eq(operationContext),
+            eq(Set.of(clientIdUrn, clientSecretUrn)),
+            eq(Set.of("dataHubSecretValue")),
+            eq(false)))
+        .thenReturn(null);
+
+    DataHubIcebergWarehouse warehouse =
+        DataHubIcebergWarehouse.of(
+            platformInstance, entityService, secretService, cacheEvictionService, operationContext);
+
+    warehouse.getStorageProviderCredentials();
+  }
+
+  @Test(expectedExceptions = BadRequestException.class)
+  public void testGetStorageProviderCredentials_MissingClientSecretSecret() throws Exception {
+    String platformInstance = "test-platform";
+    String clientId = "testClientId";
+
+    Urn clientIdUrn = Urn.createFromString("urn:li:secret:clientId");
+    Urn clientSecretUrn = Urn.createFromString("urn:li:secret:clientSecret");
+
+    icebergWarehouse = new IcebergWarehouseInfo();
+    icebergWarehouse.setClientId(clientIdUrn);
+    icebergWarehouse.setClientSecret(clientSecretUrn);
+    icebergWarehouse.setDataRoot("s3://data-root/test/");
+    icebergWarehouse.setRegion("us-east-1");
+    icebergWarehouse.setRole("testRole");
+
+    when(entityService.getLatestAspect(
+            any(),
+            any(),
+            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
+        .thenReturn(warehouseAspect);
+    when(warehouseAspect.data()).thenReturn(icebergWarehouse.data());
+
+    DataHubSecretValue clientIdValue = new DataHubSecretValue();
+    clientIdValue.setValue(clientId);
+
+    Map<Urn, List<RecordTemplate>> aspectsMap = new HashMap<>();
+    aspectsMap.put(clientIdUrn, Arrays.asList(clientIdValue));
+
+    when(entityService.getLatestAspects(
+            eq(operationContext),
+            eq(Set.of(clientIdUrn, clientSecretUrn)),
+            eq(Set.of("dataHubSecretValue")),
+            eq(false)))
+        .thenReturn(aspectsMap);
+
+    DataHubIcebergWarehouse warehouse =
+        DataHubIcebergWarehouse.of(
+            platformInstance, entityService, secretService, cacheEvictionService, operationContext);
+
+    warehouse.getStorageProviderCredentials();
   }
 
   @Test

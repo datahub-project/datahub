@@ -248,8 +248,11 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Integer limit,
       @Nullable String field)
       throws RemoteInvocationException {
-    return cachingEntitySearchService.autoComplete(
-        opContext, entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit);
+    return ValidationUtils.validateAutoCompleteResult(
+        opContext,
+        cachingEntitySearchService.autoComplete(
+            opContext, entityType, query, field, filterOrDefaultEmptyFilter(requestFilters), limit),
+        entityService);
   }
 
   /**
@@ -270,8 +273,11 @@ public class JavaEntityClient implements EntityClient {
       @Nullable Filter requestFilters,
       @Nullable Integer limit)
       throws RemoteInvocationException {
-    return cachingEntitySearchService.autoComplete(
-        opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit);
+    return ValidationUtils.validateAutoCompleteResult(
+        opContext,
+        cachingEntitySearchService.autoComplete(
+            opContext, entityType, query, "", filterOrDefaultEmptyFilter(requestFilters), limit),
+        entityService);
   }
 
   /**

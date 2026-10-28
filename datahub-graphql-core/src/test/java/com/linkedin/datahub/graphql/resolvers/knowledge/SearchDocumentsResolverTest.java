@@ -29,6 +29,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
@@ -47,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -272,17 +274,33 @@ public class SearchDocumentsResolverTest {
 
     assertNotNull(result);
 
-    // Verify service was called with filters
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
     verify(mockService, times(1))
         .searchDocuments(
             any(OperationContext.class),
             eq("test query"),
-            any(),
+            filterCaptor.capture(),
             any(),
             eq(0),
             eq(10),
             isNull(),
             isNull());
+
+    final List<Criterion> criteria =
+        filterCaptor.getValue().getOr().stream()
+            .filter(conj -> conj.getAnd() != null)
+            .flatMap(conj -> conj.getAnd().stream())
+            .collect(Collectors.toList());
+    assertTrue(
+        criteria.stream().noneMatch(c -> "subTypes".equals(c.getField())),
+        "must filter on the ES field typeNames, not the aspect name subTypes");
+    assertTrue(
+        criteria.stream()
+            .anyMatch(
+                c ->
+                    "typeNames".equals(c.getField())
+                        && c.getValues().containsAll(ImmutableList.of("tutorial", "guide"))),
+        "typeNames filter should carry the requested subtypes");
   }
 
   @Test
