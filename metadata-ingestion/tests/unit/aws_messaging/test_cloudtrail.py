@@ -87,26 +87,40 @@ def test_failed_query_is_a_warning() -> None:
     assert report.warnings
 
 
-def _run(monkeypatch: pytest.MonkeyPatch, rows: List[Dict[str, str]]) -> List[Any]:
+def _run(
+    monkeypatch: pytest.MonkeyPatch,
+    rows: List[Dict[str, str]],
+    store: str = STORE,
+    calls: Optional[List[Dict[str, Any]]] = None,
+) -> List[Any]:
     statements: List[str] = []
 
     def fake_run_query(
-        self: CloudTrailLakeClient, statement: str, store: str, timeout: int
+        self: CloudTrailLakeClient,
+        statement: str,
+        event_data_store: str,
+        timeout: int,
+        owner_account_id: Optional[str] = None,
     ) -> Optional[List[Dict[str, str]]]:
         statements.append(statement)
+        if calls is not None:
+            calls.append(
+                {"region": self._client.meta.region_name, "owner": owner_account_id}
+            )
         return rows
 
     monkeypatch.setattr(CloudTrailLakeClient, "run_query", fake_run_query)
     source = SqsSource.create(
         base_config(
-            cloudtrail_producers={"enabled": True, "event_data_store": STORE},
+            cloudtrail_producers={"enabled": True, "event_data_store": store},
             lineage={"lambda_async_destinations": False},
         ),
         PipelineContext(run_id="cloudtrail-test"),
     )
     workunits = list(source.get_workunits())
-    assert "FROM abc-123" in statements[0]
+    assert f"FROM {store.rsplit('/', 1)[-1]}" in statements[0]
     assert "'SendMessage', 'SendMessageBatch'" in statements[0]
+    assert f"awsRegion = '{REGION}'" in statements[0]
     return workunits
 
 
@@ -125,6 +139,11 @@ def test_lambda_producer_becomes_an_upstream_job(
             {
                 "producer": f"arn:aws:sts::{ACCOUNT}:assumed-role/ecs-task/abc123",
                 "resource": QUEUE_URL,
+            },
+            # Same name and account, other region: not this run's queue.
+            {
+                "producer": f"arn:aws:sts::{ACCOUNT}:assumed-role/eu-role/x",
+                "resource": f"https://sqs.eu-west-1.amazonaws.com/{ACCOUNT}/orders",
             },
             # A queue this run didn't ingest is ignored.
             {
@@ -152,3 +171,26 @@ def test_lambda_producer_becomes_an_upstream_job(
             }
         ]
     ]
+
+
+def test_query_runs_in_the_event_data_stores_region_and_account(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sqs_client().create_queue(QueueName="orders")
+    calls: List[Dict[str, Any]] = []
+    _run(
+        monkeypatch,
+        [],
+        store="arn:aws:cloudtrail:eu-west-1:210987654321:eventdatastore/shared-123",
+        calls=calls,
+    )
+    assert calls == [{"region": "eu-west-1", "owner": "210987654321"}]
+
+
+def test_query_with_a_bare_store_id_uses_the_recipe_region(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sqs_client().create_queue(QueueName="orders")
+    calls: List[Dict[str, Any]] = []
+    _run(monkeypatch, [], store="abc-123", calls=calls)
+    assert calls == [{"region": REGION, "owner": None}]

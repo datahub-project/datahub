@@ -126,3 +126,11 @@ class QueryStatus(StrEnum):
 
 
 QUERY_POLL_SECONDS = 2
+
+# SQS queue URL hosts: `sqs.<region>.amazonaws.com[.cn]`, the legacy
+# `<region>.queue.amazonaws.com`, and `queue.amazonaws.com` for us-east-1.
+QUEUE_URL_HOST_PATTERN = re.compile(
+    r"^(?:sqs\.(?P<region>[a-z0-9-]+)|(?P<legacy_region>[a-z0-9-]+)\.queue|(?P<global>queue))"
+    r"\.amazonaws\.com(?P<china>\.cn)?$"
+)
+LEGACY_GLOBAL_QUEUE_REGION = "us-east-1"

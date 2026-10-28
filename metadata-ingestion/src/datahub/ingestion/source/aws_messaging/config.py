@@ -120,7 +120,12 @@ class CloudTrailProducersConfig(ConfigModel):
     )
     event_data_store: Optional[str] = Field(
         default=None,
-        description="ARN or id of the CloudTrail Lake event data store to query.",
+        description=(
+            "ARN or id of the CloudTrail Lake event data store to query. With an ARN "
+            "the query runs in the store's region; with a bare id, in this recipe's "
+            "region. A store in another account must be shared with this role through "
+            "its resource policy."
+        ),
     )
     lookback_days: int = Field(
         default=7,
@@ -213,10 +218,13 @@ class AwsMessagingConfigBase(
         description="Stateful ingestion configuration for stale entity removal.",
     )
 
-    def make_client(self, session: Any, service: AwsService) -> Any:
+    def make_client(
+        self, session: Any, service: AwsService, region: Optional[str] = None
+    ) -> Any:
         # boto3 clients have no common static type; callers annotate the result.
         return session.client(
             service.value,
+            region_name=region,
             endpoint_url=self.aws_config.aws_endpoint_url,
             config=self.aws_config._aws_config(),
         )

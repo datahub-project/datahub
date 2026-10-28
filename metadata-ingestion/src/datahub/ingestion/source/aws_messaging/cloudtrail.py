@@ -3,14 +3,17 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, Optional, Set
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
+from datahub.ingestion.source.aws_messaging.arn import (
+    UrnBuilder,
+    parse_arn,
+    parse_queue_url,
+)
 from datahub.ingestion.source.aws_messaging.clients import CloudTrailLakeClient
 from datahub.ingestion.source.aws_messaging.config import CloudTrailProducersConfig
 from datahub.ingestion.source.aws_messaging.constants import (
     ASSUMED_ROLE_PATTERN,
     OBSERVED_PRODUCERS_PROPERTY,
     PRODUCER_COLUMN,
-    QUEUE_URL_PATTERN,
     RESOURCE_COLUMN,
     AwsService,
 )
@@ -76,6 +79,7 @@ class ProducerLineage:
             f"element_at(requestParameters, '{parameter}') AS {RESOURCE_COLUMN} "
             f"FROM {store_id} "
             f"WHERE eventTime > '{since}' AND eventSource = '{event_source}' "
+            f"AND awsRegion = '{self.resolver.region}' "
             f"AND eventName IN ({names}) "
             f"GROUP BY 1, 2"
         )
@@ -83,23 +87,27 @@ class ProducerLineage:
     def _target_arn(self, resource: str) -> Optional[Arn]:
         if self.resolver.service == AwsService.SNS:
             return parse_arn(resource)
-        match = QUEUE_URL_PATTERN.search(resource)
-        if match is None:
-            return None
-        return Arn(
-            partition="aws",
-            service=AwsService.SQS.value,
-            region=self.resolver.region,
-            account=match.group("account"),
-            resource=match.group("name"),
-        )
+        # The region comes from the URL: a multi-region trail also records
+        # same-named queues in other regions.
+        return parse_queue_url(resource)
 
     def collect(self, now: Optional[datetime] = None) -> None:
         assert self.config.event_data_store is not None
+        store = parse_arn(self.config.event_data_store)
+        # An event data store shared from another account is queried with its
+        # owner's account id; the store's resource policy must allow this role.
+        owner = (
+            store.account
+            if store is not None
+            and store.account
+            and store.account != self.urns.account_id
+            else None
+        )
         rows = self.client.run_query(
             self.statement(now or datetime.now(timezone.utc)),
             self.config.event_data_store,
             self.config.query_timeout_seconds,
+            owner_account_id=owner,
         )
         for row in rows or []:
             producer = row.get(PRODUCER_COLUMN)

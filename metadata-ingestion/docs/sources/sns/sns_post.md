@@ -67,6 +67,8 @@ Code that sends with the AWS SDK leaves no trace in any configuration API, so mo
 
 - A caller that is a Lambda function in the recipe's account and region becomes an upstream job of the topic. The match relies on Lambda naming the execution role session after the function. That convention has not yet been checked against a real trail for every runtime and invocation path, so treat these edges as best effort.
 - Any other caller (an ECS task or EC2 role, an IAM user) is listed by role ARN in the topic's `observed_producers` property, not drawn as lineage, because a role is not a DataHub entity.
+- The query only covers events in the recipe's region, and SQS targets are matched on the region and account in each queue URL, so a multi-region trail doesn't mix up same-named topics.
+- Give `event_data_store` as an ARN when the store is in another region: the query runs in the store's region. A store in another account must be shared with the ingestion role through its resource policy; the connector then queries it with the owner's account id.
 - CloudTrail Lake bills queries by data scanned, and data events must be enabled for the topics, which also costs. Both are off by default.
 
 #### Tags and data protection

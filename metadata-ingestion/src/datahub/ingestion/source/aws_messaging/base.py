@@ -126,7 +126,12 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             config=producers_config,
             report=self.base_report,
             client=CloudTrailLakeClient(
-                self.base_config.make_client(self.session, AwsService.CLOUDTRAIL),
+                self.base_config.make_client(
+                    self.session,
+                    AwsService.CLOUDTRAIL,
+                    # Lake queries run in the event data store's own region.
+                    region=self._event_data_store_region(),
+                ),
                 self.base_report,
             ),
             urns=self.urns,
@@ -135,6 +140,10 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         )
         producers.collect()
         yield from producers.workunits()
+
+    def _event_data_store_region(self) -> Optional[str]:
+        store = parse_arn(self.base_config.cloudtrail_producers.event_data_store)
+        return store.region if store is not None and store.region else None
 
     def collect_s3_notifications(self) -> None:
         if not self.base_config.lineage.s3_notifications:

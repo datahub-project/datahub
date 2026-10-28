@@ -6,8 +6,12 @@ from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.aws_messaging.constants import (
     ARN_PATTERN,
     EVENTBRIDGE_PLATFORM,
+    LEGACY_GLOBAL_QUEUE_REGION,
+    QUEUE_URL_HOST_PATTERN,
+    QUEUE_URL_PATTERN,
     SNS_PLATFORM,
     SQS_PLATFORM,
+    AwsService,
 )
 from datahub.ingestion.source.aws_messaging.models import Arn, RedrivePolicy
 
@@ -24,6 +28,33 @@ def parse_arn(value: Optional[str]) -> Optional[Arn]:
         region=match.group("region"),
         account=match.group("account") or "",
         resource=match.group("resource"),
+    )
+
+
+def parse_queue_url(url: str) -> Optional[Arn]:
+    """The ARN for an SQS queue URL, or None when the host doesn't name a region
+    (a VPC endpoint or custom domain): the region can't be guessed safely."""
+    parts = urlsplit(url)
+    path = QUEUE_URL_PATTERN.search(parts.path or "")
+    host = QUEUE_URL_HOST_PATTERN.match(parts.hostname or "")
+    if path is None or host is None:
+        return None
+    region = host.group("region") or host.group("legacy_region")
+    if host.group("global"):
+        region = LEGACY_GLOBAL_QUEUE_REGION
+    assert region is not None
+    if host.group("china"):
+        partition = "aws-cn"
+    elif region.startswith("us-gov-"):
+        partition = "aws-us-gov"
+    else:
+        partition = "aws"
+    return Arn(
+        partition=partition,
+        service=AwsService.SQS.value,
+        region=region,
+        account=path.group("account"),
+        resource=path.group("name"),
     )
 
 

@@ -407,11 +407,22 @@ class CloudTrailLakeClient:
         self.report = report
 
     def run_query(
-        self, statement: str, event_data_store: str, timeout_seconds: int
+        self,
+        statement: str,
+        event_data_store: str,
+        timeout_seconds: int,
+        owner_account_id: Optional[str] = None,
     ) -> Optional[List[Dict[str, str]]]:
         """Rows as column-to-value dicts, or None if the query failed or timed out."""
         try:
-            query_id = self._client.start_query(QueryStatement=statement)["QueryId"]
+            owner: Dict[str, str] = (
+                {"EventDataStoreOwnerAccountId": owner_account_id}
+                if owner_account_id
+                else {}
+            )
+            query_id = self._client.start_query(QueryStatement=statement, **owner)[
+                "QueryId"
+            ]
             deadline = time.monotonic() + timeout_seconds
             rows: List[Dict[str, str]] = []
             token: Optional[str] = None
@@ -419,6 +430,7 @@ class CloudTrailLakeClient:
                 kwargs: Dict[str, Any] = {
                     "EventDataStore": event_data_store,
                     "QueryId": query_id,
+                    **owner,
                 }
                 if token:
                     kwargs["NextToken"] = token
