@@ -227,3 +227,32 @@ def test_dead_letter_without_dlq_schema_is_counted(aws: None) -> None:
     assert source.get_report().column_lineage_skipped == {
         "schema missing on one side": 1
     }
+
+
+def _queue_with_registry(**registry: Any) -> SqsSource:
+    sqs_client().create_queue(QueueName="orders")
+    boto3.client("glue", region_name=REGION).create_registry(
+        RegistryName="default-registry"
+    )
+    return SqsSource.create(
+        base_config(glue_schema_registry={"enabled": True, **registry}),
+        PipelineContext(run_id="schemas-test"),
+    )
+
+
+def test_missing_mapped_schema_is_a_warning(aws: None) -> None:
+    source = _queue_with_registry(queue_schema_map={"orders": "not-there"})
+    assert schemas(list(source.get_workunits())) == {}
+    report = source.get_report()
+    assert [entry.split(":")[0] for entry in report.schema_resolution_failures] == [
+        "orders"
+    ]
+    assert report.warnings
+
+
+def test_naming_convention_miss_is_not_a_warning(aws: None) -> None:
+    source = _queue_with_registry(use_naming_convention=True)
+    assert schemas(list(source.get_workunits())) == {}
+    report = source.get_report()
+    assert list(report.schema_naming_convention_misses) == ["orders"]
+    assert not report.schema_resolution_failures
