@@ -15,6 +15,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.lock.NoOpEntityWriteLock;
 import com.linkedin.metadata.entity.retention.buffer.RetentionBuffer;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import org.springframework.beans.factory.ObjectProvider;
@@ -23,6 +24,11 @@ import org.testng.annotations.Test;
 public class EntityServiceFactoryTest {
 
   private EntityService<ChangeItemImpl> build(boolean syncIngestStamping) {
+    return build(syncIngestStamping, false, "[]");
+  }
+
+  private EntityService<ChangeItemImpl> build(
+      boolean syncIngestStamping, boolean semanticNoOpEnabled, String rulesJson) {
     FeatureFlags featureFlags = new FeatureFlags();
     featureFlags.setPreProcessHooks(new PreProcessHooks());
     ConfigurationProvider provider = mock(ConfigurationProvider.class);
@@ -40,6 +46,9 @@ public class EntityServiceFactoryTest {
             false,
             false,
             syncIngestStamping,
+            semanticNoOpEnabled,
+            rulesJson,
+            mock(EntityRegistry.class),
             "false",
             "false",
             Collections.emptyList(),
@@ -68,5 +77,10 @@ public class EntityServiceFactoryTest {
   @Test
   public void testSyncIngestStampingDefaultsOff() throws Exception {
     assertFalse(stampingEnabled(build(false)));
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testSemanticNoOpRejectsMalformedRulesAtStartup() {
+    build(false, false, "{");
   }
 }

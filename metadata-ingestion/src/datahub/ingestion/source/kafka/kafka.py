@@ -331,6 +331,10 @@ class KafkaConnectionTest:
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
