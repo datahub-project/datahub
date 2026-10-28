@@ -77,7 +77,8 @@ function IngestionSourceTable({
         timezone: source.schedule?.timezone,
         execCount: source.executions?.total || 0,
         lastExecUrn: source.executions?.executionRequests?.[0]?.urn,
-        lastExecTime: source.executions?.executionRequests?.[0]?.result?.startTimeMs,
+        // Matches the lastRunRequestedAtMillis sort key, and is set before the executor starts.
+        lastExecTime: source.executions?.executionRequests?.[0]?.input?.requestedAt,
         lastExecStatus: getSourceStatus(source, sourcesToRefetch, executedUrns),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
         owners: source.ownership?.owners,

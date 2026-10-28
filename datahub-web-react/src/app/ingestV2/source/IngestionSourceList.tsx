@@ -224,7 +224,9 @@ export const IngestionSourceList = ({
 
     const sourceTypes = useMemo(() => sourceTypesFromUrl ?? [], [sourceTypesFromUrl]);
     const prevSourceTypes = usePrevious(sourceTypes);
-    const prevLastRunStatus = usePrevious(lastRunStatus);
+    // '' rather than undefined when unset, so usePrevious's undefined only means first render.
+    const lastRunStatusKey = lastRunStatus ?? '';
+    const prevLastRunStatusKey = usePrevious(lastRunStatusKey);
 
     // Debounce the search query
     useDebounce(
@@ -256,10 +258,10 @@ export const IngestionSourceList = ({
     }, [sourceTypes, setPage, prevSourceTypes]);
 
     useEffect(() => {
-        if (prevLastRunStatus !== undefined && prevLastRunStatus !== lastRunStatus) {
+        if (prevLastRunStatusKey !== undefined && prevLastRunStatusKey !== lastRunStatusKey) {
             setPage(1);
         }
-    }, [lastRunStatus, setPage, prevLastRunStatus]);
+    }, [lastRunStatusKey, setPage, prevLastRunStatusKey]);
 
     /**
      * Show or hide system ingestion sources using a hidden command S command.
