@@ -3,8 +3,10 @@ import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCount
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
+import { FlagBanner } from '@phosphor-icons/react/dist/csr/FlagBanner';
 import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { FolderPlus } from '@phosphor-icons/react/dist/csr/FolderPlus';
+import { GitBranch } from '@phosphor-icons/react/dist/csr/GitBranch';
 import { GitCommit } from '@phosphor-icons/react/dist/csr/GitCommit';
 import { Link } from '@phosphor-icons/react/dist/csr/Link';
 import { LinkBreak } from '@phosphor-icons/react/dist/csr/LinkBreak';
@@ -26,9 +28,11 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { DrawerType, GenericEntityProperties } from '@app/entity/shared/types';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import CreateGlossaryTermVersionModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryTermVersionModal';
 import { DeprecatedMenuIcon } from '@app/entityV2/shared/EntityDropdown/DeprecatedMenuIcon';
 import EditGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/EditGlossaryEntityModal';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import LifecycleStageModal from '@app/entityV2/shared/EntityDropdown/LifecycleStageModal';
 import MoveEntityModal from '@app/entityV2/shared/EntityDropdown/MoveEntityModal';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
@@ -37,8 +41,10 @@ import {
     useHandleDeprecateDomain,
 } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import {
+    canCreateTermVersion,
     getDeprecationMenuActions,
     isDeleteDisabled,
+    isGlossaryTermVersion,
     isMoveDisabled,
     shouldDisplayChildDeletionWarning,
 } from '@app/entityV2/shared/EntityDropdown/utils';
@@ -142,6 +148,9 @@ const EntityDropdown = (props: Props) => {
     const [isLinkAssetVersionModalVisible, setIsLinkAssetVersionModalVisible] = useState(false);
     const [isUnlinkAssetVersionModalVisible, setIsUnlinkAssetVersionModalVisible] = useState(false);
     const [isChangeHistoryOpen, setIsChangeHistoryOpen] = useState(false);
+    const [isNewVersionModalVisible, setIsNewVersionModalVisible] = useState(false);
+    const [isLifecycleStageModalVisible, setIsLifecycleStageModalVisible] = useState(false);
+    const canEditLifecycleStage = !!entityData?.privileges?.canEditLifecycleStage;
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
         toast.loading(tcf('updating'));
@@ -254,6 +263,17 @@ const EntityDropdown = (props: Props) => {
         });
     }
 
+    if (onEntityProfile && menuItems.has(EntityMenuItems.LIFECYCLE_STAGE) && canEditLifecycleStage) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: 'lifecycleStage',
+            title: t('lifecycleStage.change'),
+            icon: FlagBanner,
+            'data-testid': 'entity-menu-lifecycle-stage-button',
+            onClick: () => setIsLifecycleStageModalVisible(true),
+        });
+    }
+
     if (menuItems.has(EntityMenuItems.ANNOUNCE)) {
         menuItemsList.push({
             type: 'item' as const,
@@ -362,6 +382,21 @@ const EntityDropdown = (props: Props) => {
             title: t('menuItem.unlinkVersion'),
             icon: LinkBreak,
             onClick: () => setIsUnlinkAssetVersionModalVisible(true),
+        });
+    }
+
+    if (
+        onEntityProfile &&
+        menuItems.has(EntityMenuItems.NEW_VERSION) &&
+        canCreateTermVersion(versioningEnabled, entityData)
+    ) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: 'newVersion',
+            title: t('newVersion.title'),
+            icon: GitBranch,
+            'data-testid': 'entity-menu-new-version-button',
+            onClick: () => setIsNewVersionModalVisible(true),
         });
     }
 
@@ -483,7 +518,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: 'delete',
-            title: tc('delete'),
+            title: isGlossaryTermVersion(entityType, entityData) ? t('delete.versionTitle') : tc('delete'),
             icon: Trash,
             danger: true,
             disabled: isDeleteDisabled(entityType, entityData, me.platformPrivileges),
@@ -530,6 +565,24 @@ const EntityDropdown = (props: Props) => {
                     entityData={entityData}
                     onClose={() => setIsEditGlossaryModalVisible(false)}
                     refetchData={refetchForEntity}
+                />
+            )}
+            {onEntityProfile && isLifecycleStageModalVisible && canEditLifecycleStage && (
+                <LifecycleStageModal
+                    urn={urn}
+                    entityType={entityType}
+                    currentStage={entityData?.status?.lifecycleStage}
+                    onClose={() => setIsLifecycleStageModalVisible(false)}
+                    onSuccess={() => refetchForEntity?.()}
+                />
+            )}
+            {isNewVersionModalVisible && onEntityProfile && (
+                <CreateGlossaryTermVersionModal
+                    termUrn={urn}
+                    currentName={entityData?.properties?.name ?? entityData?.name ?? ''}
+                    currentDefinition={entityData?.properties?.description}
+                    currentVersionLabel={entityData?.versionProperties?.version?.versionTag}
+                    onClose={() => setIsNewVersionModalVisible(false)}
                 />
             )}
             {isDeprecationModalVisible && (
