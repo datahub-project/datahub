@@ -1,9 +1,11 @@
 package com.linkedin.metadata.search.client;
 
 import com.hazelcast.map.IMap;
+import com.hazelcast.nio.serialization.HazelcastSerializationException;
 import com.linkedin.common.urn.Urn;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -60,10 +62,9 @@ public class CacheEvictionService {
           try {
             evictMatching(matcher, cacheName, cache);
           } catch (RuntimeException e) {
-            // A key this member cannot read (e.g. one written by an older GMS version that the
-            // Hazelcast serialization filter rejects) fails the whole key scan. Clear the cache so
-            // the update still becomes visible, and keep going: callers run this after a write has
-            // already succeeded.
+            // Last resort when the key scan itself fails. Clear the cache so the update still
+            // becomes visible, and keep going: callers run this after a write has already
+            // succeeded.
             log.warn("Could not scan keys of cache {}; clearing it instead", cacheName, e);
             clearQuietly(cacheName, cache);
           }
@@ -74,8 +75,19 @@ public class CacheEvictionService {
 
   private void evictMatching(CacheKeyMatcher matcher, String cacheName, Cache cache) {
     long evictCount = 0;
-    Set<Object> keys = getKeys(cacheName);
-    for (Object key : keys) {
+    long unreadableCount = 0;
+    Iterator<Object> keys = getKeys(cacheName).iterator();
+    while (keys.hasNext()) {
+      Object key;
+      try {
+        // Hazelcast decodes each key as the iterator reaches it, so one key that this member
+        // cannot read (e.g. written by an older GMS version and rejected by the serialization
+        // filter) is skipped without failing the scan. It still expires with the cache TTL.
+        key = keys.next();
+      } catch (HazelcastSerializationException e) {
+        unreadableCount++;
+        continue;
+      }
       if (matcher.match(cacheName, key)) {
         cache.evict(key);
         evictCount++;
@@ -84,6 +96,9 @@ public class CacheEvictionService {
     }
     if (evictCount > 0) {
       log.info("Evicted {} keys from cache {}", evictCount, cacheName);
+    }
+    if (unreadableCount > 0) {
+      log.warn("Skipped {} unreadable keys in cache {}", unreadableCount, cacheName);
     }
   }
 
