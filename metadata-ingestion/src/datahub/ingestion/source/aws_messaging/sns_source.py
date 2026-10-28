@@ -153,6 +153,7 @@ class SnsSource(AwsMessagingSourceBase):
             self.topics.append(topic)
             self.resolver.add(topic.arn)
             urn = self.urns.topic_urn(topic.arn)
+            self.lineage.owned.add(urn)
             yield from Dataset(
                 platform=SNS_PLATFORM,
                 name=self.urns.resource_id(topic.arn),
