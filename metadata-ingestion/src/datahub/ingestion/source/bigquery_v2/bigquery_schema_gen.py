@@ -30,7 +30,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
+    BigQueryV2Config,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import (
     unquote_and_decode_unicode_escape_seq,
@@ -763,8 +766,8 @@ class BigQuerySchemaGenerator:
                         sample_size_percent=(
                             self.config.classification.sample_size
                             * SAMPLE_SIZE_MULTIPLIER
-                            / table.rows_count
-                            if table.rows_count
+                            / table.physical_rows_count
+                            if table.physical_rows_count
                             else None
                         )
                     ),
@@ -1663,6 +1666,13 @@ class BigQuerySchemaGenerator:
                 base_batch_size, len(table_items)
             )
 
+            # The SQL rollup implements only the default shard pattern, so a custom
+            # sharded_table_pattern keeps each entity on its latest shard's stats.
+            aggregate_sharded_stats = (
+                self.config.enable_legacy_sharded_table_support
+                and self.config.sharded_table_pattern
+                == _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX
+            )
             items_to_get: Dict[str, TableListItem] = {}
             for table_item in table_items:
                 items_to_get[table_item] = table_items[table_item]
@@ -1673,7 +1683,7 @@ class BigQuerySchemaGenerator:
                         items_to_get,
                         with_partitions=with_partitions,
                         use_legacy_table_stats=self.config.use_legacy_table_stats,
-                        aggregate_sharded_stats=self.config.enable_legacy_sharded_table_support,
+                        aggregate_sharded_stats=aggregate_sharded_stats,
                         report=self.report,
                     )
                     items_to_get.clear()
@@ -1685,7 +1695,7 @@ class BigQuerySchemaGenerator:
                     items_to_get,
                     with_partitions=with_partitions,
                     use_legacy_table_stats=self.config.use_legacy_table_stats,
-                    aggregate_sharded_stats=self.config.enable_legacy_sharded_table_support,
+                    aggregate_sharded_stats=aggregate_sharded_stats,
                     report=self.report,
                 )
 

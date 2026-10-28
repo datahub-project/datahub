@@ -270,6 +270,11 @@ class BigqueryTable(BaseTable):
     max_shard_id: Optional[str] = None
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
+    # rows_count / size_in_bytes of a collapsed sharded table cover every shard. These
+    # describe the physical table that was queried (its latest shard), which is the
+    # data profiling and classification actually read.
+    physical_rows_count: Optional[int] = None
+    physical_size_in_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
     external: bool = False
     external_source_format: Optional[str] = None
@@ -577,12 +582,19 @@ class BigQuerySchemaApi:
 
             # Only the latest shard of a sharded table is queried, so its stats cover that
             # one shard. When the shards collapse into a single entity, sum every shard's
-            # stats back onto it (see build_sharded_stats_clauses).
+            # stats back onto it (see build_sharded_stats_clauses). The rollup re-reads the
+            # dataset's PARTITIONS view, so skip it for batches without a shard.
+            has_shard = any(
+                BigqueryTableIdentifier.get_table_and_shard(name)[1] is not None
+                for name in tables
+            )
             stats_clauses = BigqueryQuery.build_sharded_stats_clauses(
                 project_id=project_id,
                 dataset_name=dataset_name,
                 use_legacy_table_stats=use_legacy_table_stats,
-                aggregate_sharded_stats=with_partitions and aggregate_sharded_stats,
+                aggregate_sharded_stats=(
+                    with_partitions and aggregate_sharded_stats and has_shard
+                ),
             )
 
             # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
@@ -643,6 +655,8 @@ class BigQuerySchemaApi:
             last_altered=parse_ts_millis(table.get("last_altered")),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
+            physical_size_in_bytes=table.get("physical_bytes"),
+            physical_rows_count=table.get("physical_row_count"),
             comment=table.comment,
             ddl=table.ddl,
             expires=expiration,
