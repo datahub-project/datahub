@@ -1060,6 +1060,9 @@ snowplow = [
 sns = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "grpcio-tools>=1.44.0,<2.0.0",
+    "grpcio>=1.84.0,<2.0.0",
+    "networkx>=2.6.2,<4.0.0",
 ]
 
 sql-parser = [
@@ -1085,6 +1088,9 @@ sqlalchemy = [
 sqs = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "grpcio-tools>=1.44.0,<2.0.0",
+    "grpcio>=1.84.0,<2.0.0",
+    "networkx>=2.6.2,<4.0.0",
 ]
 
 starburst-trino-usage = [

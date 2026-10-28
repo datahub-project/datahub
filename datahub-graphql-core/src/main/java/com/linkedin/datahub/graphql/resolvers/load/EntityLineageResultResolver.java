@@ -97,7 +97,7 @@ public class EntityLineageResultResolver
                     count != null ? count : 100,
                     1,
                     separateSiblings != null ? input.getSeparateSiblings() : false,
-                    input.getIncludeGhostEntities(),
+                    Boolean.TRUE.equals(input.getIncludeGhostEntities()),
                     new HashSet<>());
 
             Set<Urn> restrictedUrns = new HashSet<>();
