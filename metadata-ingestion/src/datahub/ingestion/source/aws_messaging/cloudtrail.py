@@ -96,10 +96,14 @@ class ProducerLineage:
         store = parse_arn(self.config.event_data_store)
         # An event data store shared from another account is queried with its
         # owner's account id; the store's resource policy must allow this role.
+        # With no resolved account id there's no telling whether the store is
+        # another account's, and naming an owner for one's own store fails the
+        # query, so the owner is only sent when it's known to differ.
         owner = (
             store.account
             if store is not None
             and store.account
+            and self.urns.account_id
             and store.account != self.urns.account_id
             else None
         )

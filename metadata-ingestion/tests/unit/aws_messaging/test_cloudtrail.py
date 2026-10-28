@@ -194,3 +194,17 @@ def test_query_with_a_bare_store_id_uses_the_recipe_region(
     calls: List[Dict[str, Any]] = []
     _run(monkeypatch, [], store="abc-123", calls=calls)
     assert calls == [{"region": REGION, "owner": None}]
+
+
+def test_owner_account_is_omitted_when_this_account_is_unknown(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # No queues, so the account id can't be read from a resource ARN.
+    calls: List[Dict[str, Any]] = []
+    _run(
+        monkeypatch,
+        [],
+        store="arn:aws:cloudtrail:eu-west-1:210987654321:eventdatastore/shared-123",
+        calls=calls,
+    )
+    assert calls == [{"region": "eu-west-1", "owner": None}]
