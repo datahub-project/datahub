@@ -1,5 +1,6 @@
 from typing import Any, Dict, Optional
 
+import pydantic
 from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -15,6 +16,62 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+
+
+class GlueSchemaRegistryConfigBase(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Attach schemas from AWS Glue Schema Registry. Needs glue:GetSchemaVersion. "
+            "AWS stores no link between a queue or topic and a schema, so list them "
+            "in the schema map."
+        ),
+    )
+    registry_name: str = Field(
+        default="default-registry",
+        description="Glue Schema Registry registry to read schemas from.",
+    )
+    use_naming_convention: bool = Field(
+        default=False,
+        description=(
+            "When the schema map has no entry, look for a schema with the same name "
+            "as the queue or topic. Off by default: AWS defines no such convention."
+        ),
+    )
+
+    def schema_map(self) -> Dict[str, str]:
+        raise NotImplementedError
+
+    @pydantic.model_validator(mode="after")
+    def reject_configured_but_disabled(self) -> "GlueSchemaRegistryConfigBase":
+        # A map or naming convention with enabled=False is silently ignored, which
+        # is almost never what was meant.
+        if not self.enabled and (self.schema_map() or self.use_naming_convention):
+            raise ValueError(
+                "glue_schema_registry has a schema map or use_naming_convention set but "
+                "enabled=False. Set enabled=True, or remove those fields."
+            )
+        return self
+
+
+class QueueGlueSchemaRegistryConfig(GlueSchemaRegistryConfigBase):
+    queue_schema_map: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Queue name to schema name in `registry_name`.",
+    )
+
+    def schema_map(self) -> Dict[str, str]:
+        return self.queue_schema_map
+
+
+class TopicGlueSchemaRegistryConfig(GlueSchemaRegistryConfigBase):
+    topic_schema_map: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Topic name to schema name in `registry_name`.",
+    )
+
+    def schema_map(self) -> Dict[str, str]:
+        return self.topic_schema_map
 
 
 class AwsMessagingConfigBase(
@@ -76,6 +133,10 @@ class SqsSourceConfig(AwsMessagingConfigBase):
         default_factory=AllowDenyPattern.allow_all,
         description="Regex patterns on queue names to include.",
     )
+    glue_schema_registry: QueueGlueSchemaRegistryConfig = Field(
+        default_factory=QueueGlueSchemaRegistryConfig,
+        description="Queue schemas from AWS Glue Schema Registry (off by default).",
+    )
 
 
 class SnsDataProtectionConfig(ConfigModel):
@@ -110,6 +171,19 @@ class SnsSourceConfig(AwsMessagingConfigBase):
         description=(
             "Call sns:GetSubscriptionAttributes for each subscription to read its "
             "dead-letter queue. One call per subscription."
+        ),
+    )
+    glue_schema_registry: TopicGlueSchemaRegistryConfig = Field(
+        default_factory=TopicGlueSchemaRegistryConfig,
+        description="Topic schemas from AWS Glue Schema Registry (off by default).",
+    )
+    column_lineage: bool = Field(
+        default=True,
+        description=(
+            "Add field-level lineage from a topic to a queue subscribed with raw "
+            "message delivery, for fields present in both schemas. Needs "
+            "include_subscription_attributes and schemas on both sides (from Glue "
+            "Schema Registry in this run, or already in DataHub)."
         ),
     )
     data_protection: SnsDataProtectionConfig = Field(

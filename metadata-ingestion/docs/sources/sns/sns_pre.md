@@ -2,7 +2,7 @@
 
 The `sns` module reads the SNS control-plane APIs for one AWS region per recipe. It never publishes or reads messages.
 
-SNS has no schema, so topics carry no schema fields. Topic settings (display name, FIFO, KMS key, archive policy) and subscription counts per protocol are stored as custom properties.
+SNS has no schema of its own; topic schemas can be attached from AWS Glue Schema Registry (opt-in). Topic settings (display name, FIFO, KMS key, archive policy) and subscription counts per protocol are stored as custom properties.
 
 SQS queues are ingested by the separate `sqs` source. Topic-to-queue lineage is written by this source onto the queue URNs, so run both with the same `env`, `platform_instance` and `account_platform_instance_map`, or the edges will point at queue URNs the `sqs` source doesn't emit.
 
@@ -34,6 +34,12 @@ SQS queues are ingested by the separate `sqs` source. Topic-to-queue lineage is 
       "Resource": "*"
     },
     {
+      "Sid": "GlueSchemaRegistryRead",
+      "Effect": "Allow",
+      "Action": ["glue:GetSchemaVersion"],
+      "Resource": "*"
+    },
+    {
       "Sid": "TagsRead",
       "Effect": "Allow",
       "Action": ["tag:GetResources"],
@@ -50,3 +56,5 @@ SQS queues are ingested by the separate `sqs` source. Topic-to-queue lineage is 
 #### Authentication
 
 Credentials come from `aws_config` or the standard boto3 chain: environment variables, a shared credentials profile, an IAM role on the host, or SSO. `aws_config.aws_role` assumes a role, including one in another account.
+
+`glue:GetSchemaVersion` is only needed with `glue_schema_registry.enabled`.

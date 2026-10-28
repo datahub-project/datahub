@@ -46,7 +46,10 @@ from datahub.sdk import Dataset
 @capability(SourceCapability.PLATFORM_INSTANCE, "Defaults to the AWS account id")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@capability(SourceCapability.SCHEMA_METADATA, "SQS has no schema", supported=False)
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+)
 @capability(SourceCapability.DESCRIPTIONS, "SQS has no description", supported=False)
 class SqsSource(AwsMessagingSourceBase):
     """Catalogs Amazon SQS queues of one region as datasets on the `sqs` platform,
@@ -67,6 +70,7 @@ class SqsSource(AwsMessagingSourceBase):
         self.config = config
         self.report = report
         self.queues: List[SqsQueue] = []
+        self.registry = self.schema_registry(config.glue_schema_registry)
         self.tagging = TaggingClient(
             config.make_client(self.session, AwsService.TAGGING), report
         )
@@ -124,6 +128,11 @@ class SqsSource(AwsMessagingSourceBase):
             self.queues.append(queue)
             self.resolver.add(queue.arn)
             urn = self.urns.queue_urn(queue.arn)
+            schema = (
+                self.registry.get_schema_metadata(queue.name)
+                if self.registry is not None
+                else None
+            )
             yield from Dataset(
                 platform=SQS_PLATFORM,
                 name=self.urns.resource_id(queue.arn),
@@ -141,6 +150,7 @@ class SqsSource(AwsMessagingSourceBase):
                     queue.attributes.get(QueueAttribute.LAST_MODIFIED_TIMESTAMP)
                 ),
                 domain=domain_for(queue.name, self.config.domain),
+                schema=schema,
             ).as_workunits()
             yield from tag_patch_workunits(urn, queue.tags)
 

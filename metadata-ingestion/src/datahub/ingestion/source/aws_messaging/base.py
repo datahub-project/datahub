@@ -8,12 +8,21 @@ from datahub.ingestion.api.source import CapabilityReport, TestableSource
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
-from datahub.ingestion.source.aws_messaging.config import AwsMessagingConfigBase
+from datahub.ingestion.source.aws_messaging.config import (
+    AwsMessagingConfigBase,
+    GlueSchemaRegistryConfigBase,
+)
 from datahub.ingestion.source.aws_messaging.constants import AwsService
-from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
+from datahub.ingestion.source.aws_messaging.lineage import (
+    DatasetLineageCollector,
+    SchemaLookup,
+)
 from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.ingestion.source.aws_messaging.schema_registry import (
+    MessagingSchemaRegistry,
+)
 from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -60,6 +69,19 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             urns=self.urns, region=self.region, service=self.service
         )
         self.lineage = DatasetLineageCollector(report)
+        self.schemas = SchemaLookup(ctx.graph)
+
+    def schema_registry(
+        self, config: GlueSchemaRegistryConfigBase
+    ) -> Optional[MessagingSchemaRegistry]:
+        if not config.enabled:
+            return None
+        return MessagingSchemaRegistry(
+            config=config,
+            glue_client=self.base_config.make_client(self.session, AwsService.GLUE),
+            platform=self.platform,
+            report=self.base_report,
+        )
 
     def first_resource_arn(self) -> Optional[str]:
         """One ARN of this service, used only to read the account id."""

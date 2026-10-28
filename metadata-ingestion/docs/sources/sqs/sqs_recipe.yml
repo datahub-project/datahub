@@ -23,5 +23,11 @@ source:
     # account_platform_instance_map:
     #   "210987654321": "shared-services"
 
+    glue_schema_registry:
+      enabled: false
+      registry_name: "default-registry"
+      queue_schema_map: {}
+      #   orders: "order-v1"
+
     stateful_ingestion:
       enabled: true

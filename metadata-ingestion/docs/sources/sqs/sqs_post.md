@@ -8,6 +8,10 @@ When `platform_instance` is not set, the connector reads the account id from a q
 
 Each queue with a redrive policy becomes an upstream of its dead-letter queue, with a `relationship: dead_letter` property on the edge. Edges are written as patches, so lineage that the `sns` source or another account's recipe adds to the same queue is kept. The edge is only added when the dead-letter queue was ingested in the same run; one excluded by `queue_pattern` gets none. Skipped edges are listed in the report under `lineage_edges_skipped`.
 
+#### Schemas from Glue Schema Registry
+
+SQS stores opaque messages, so there is no schema by default. If producers register message schemas in [AWS Glue Schema Registry](https://docs.aws.amazon.com/glue/latest/dg/schema-registry.html), set `glue_schema_registry.enabled` and list each queue and its schema in `glue_schema_registry.queue_schema_map`. AWS keeps no link between a queue and a schema, so the map is the reliable way; `use_naming_convention` looks for a schema named like the queue when the map has no entry. AVRO, JSON and PROTOBUF schemas are supported, read with `glue:GetSchemaVersion`.
+
 #### Tags
 
 AWS resource tags become DataHub tags named `Key:Value` (or `Key` when the value is empty), the same format as the `kinesis` source. They are added to the queue rather than replacing its tags, so tags added in the DataHub UI stay. The flip side is that a tag removed in AWS stays in DataHub until removed there. To turn an `owner` tag into ownership, add the `extract_ownership_from_tags` transformer to the recipe.
@@ -19,7 +23,7 @@ AWS resource tags become DataHub tags named `Key:Value` (or `Key` when the value
 ### Limitations
 
 - One region per recipe. Run one recipe per region for multi-region accounts.
-- No schema metadata: SQS stores opaque message bodies.
+- Schema metadata needs Glue Schema Registry and an explicit map; SQS itself stores opaque message bodies.
 - Queue depth (`ApproximateNumberOfMessages` and similar) is not ingested; it changes every few seconds.
 
 ### Troubleshooting
