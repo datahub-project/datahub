@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -92,8 +93,14 @@ public class StructuredPropertyMappingCache {
   }
 
   /**
-   * Child names of {@code structuredProperties.properties}, including a V3 {@code __urn_name}
+   * Dotted document keys under {@code structuredProperties}, including a V3 {@code __urn_name}
    * sibling. An unwrapped mapping body and a legacy type-wrapped body are both accepted.
+   *
+   * <p>Unversioned properties are first-level children. Versioned properties are a nested {@code
+   * _versioned} object in the mapping and dotted leaves on the document ({@code
+   * structuredProperties._versioned.<name>.<version>.<type>}). The parent object is not a field:
+   * nulling it would clear leaves the aspect still sets, and would leave removed leaves in the
+   * index. Multi-fields under {@code fields} are not separate document keys.
    */
   @Nonnull
   @VisibleForTesting
@@ -119,12 +126,47 @@ public class StructuredPropertyMappingCache {
       return Set.of();
     }
     Set<String> names = new LinkedHashSet<>();
-    for (String child : children.keySet()) {
-      if (child != null && !child.isEmpty()) {
-        names.add(STRUCTURED_PROPERTY_MAPPING_FIELD + "." + child);
+    for (Map.Entry<String, Object> entry : children.entrySet()) {
+      String child = entry.getKey();
+      if (child == null || child.isEmpty()) {
+        continue;
+      }
+      String path = STRUCTURED_PROPERTY_MAPPING_FIELD + "." + child;
+      if (STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(child)
+          && entry.getValue() instanceof Map) {
+        collectVersionedLeaves(path, castMap(entry.getValue()), names);
+      } else {
+        names.add(path);
       }
     }
     return Set.copyOf(names);
+  }
+
+  /**
+   * Walks the nested {@code _versioned} object down to field mappings. A leaf declares a scalar
+   * {@code type} and has no nested {@code properties}.
+   */
+  private static void collectVersionedLeaves(
+      @Nonnull String prefix, @Nonnull Map<String, Object> node, @Nonnull Set<String> names) {
+    Map<String, Object> properties = childMap(node, PROPERTIES);
+    if (!properties.isEmpty() && !hasScalarType(node)) {
+      for (Map.Entry<String, Object> entry : properties.entrySet()) {
+        String child = entry.getKey();
+        if (child == null || child.isEmpty() || !(entry.getValue() instanceof Map)) {
+          continue;
+        }
+        collectVersionedLeaves(prefix + "." + child, castMap(entry.getValue()), names);
+      }
+      return;
+    }
+    if (hasScalarType(node)) {
+      names.add(prefix);
+    }
+  }
+
+  private static boolean hasScalarType(@Nonnull Map<String, Object> node) {
+    Object type = node.get("type");
+    return type != null && !(type instanceof Map);
   }
 
   @Nonnull

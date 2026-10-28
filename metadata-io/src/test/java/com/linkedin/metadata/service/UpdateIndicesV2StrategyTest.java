@@ -1791,6 +1791,56 @@ public class UpdateIndicesV2StrategyTest {
   }
 
   @Test
+  public void testRestateNullsVersionedLeavesAndKeepsTheOnesTheAspectSets() throws Exception {
+    Map<String, Object> mapping =
+        Map.of(
+            "properties",
+            Map.of(
+                "structuredProperties",
+                Map.of(
+                    "properties",
+                    Map.of(
+                        "_versioned",
+                        Map.of(
+                            "properties",
+                            Map.of(
+                                "hello",
+                                Map.of(
+                                    "properties",
+                                    Map.of(
+                                        "00000000000001",
+                                        Map.of(
+                                            "properties",
+                                            Map.of("string", Map.of("type", "keyword"))))),
+                                "gone",
+                                Map.of(
+                                    "properties",
+                                    Map.of(
+                                        "00000000000001",
+                                        Map.of(
+                                            "properties",
+                                            Map.of("string", Map.of("type", "keyword")))))))))));
+    StructuredPropertyMappingCache cache =
+        new StructuredPropertyMappingCache(true, 300, (opContext, indexName) -> mapping);
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.put("structuredProperties._versioned.hello.00000000000001.string", "yes");
+    document.put("name", "table");
+    stubTransform(document);
+    when(mockAspectSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.RESTATE);
+
+    strategyWithCatalog(cache, null, v2IndexConvention())
+        .updateSearchIndicesForEvent(operationContext, mockEvent, null);
+
+    JsonNode written = writtenV2Document();
+    assertEquals(
+        written.get("structuredProperties._versioned.hello.00000000000001.string").asText(), "yes");
+    assertTrue(written.get("structuredProperties._versioned.gone.00000000000001.string").isNull());
+    assertFalse(written.has("structuredProperties._versioned"));
+    assertEquals(written.get("name").asText(), "table");
+  }
+
+  @Test
   public void testRestateNullsTheUnionOfTheV2AndSemanticMappings() throws Exception {
     IndexConvention indexConvention = v2IndexConvention();
     SemanticSearchConfiguration semanticConfig = enabledSemanticConfig();

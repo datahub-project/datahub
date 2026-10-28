@@ -39,6 +39,52 @@ public class StructuredPropertyMappingCacheTest {
   }
 
   @Test
+  public void testFieldNamesFlattenVersionedLeaves() {
+    Map<String, Object> stringLeaf =
+        Map.of("type", "keyword", "fields", Map.of("keyword", Map.of("type", "keyword")));
+    Map<String, Object> mapping =
+        Map.of(
+            "properties",
+            Map.of(
+                "structuredProperties",
+                Map.of(
+                    "properties",
+                    Map.of(
+                        "kept",
+                        Map.of("type", "keyword"),
+                        "_versioned",
+                        Map.of(
+                            "properties",
+                            Map.of(
+                                "hello",
+                                Map.of(
+                                    "properties",
+                                    Map.of(
+                                        "00000000000001",
+                                        Map.of("properties", Map.of("string", stringLeaf)))),
+                                "gone",
+                                Map.of(
+                                    "properties",
+                                    Map.of(
+                                        "00000000000001",
+                                        Map.of(
+                                            "properties",
+                                            Map.of(
+                                                "string",
+                                                Map.of("type", "keyword"),
+                                                "string__urn_name",
+                                                Map.of("type", "keyword")))))))))));
+
+    assertEquals(
+        StructuredPropertyMappingCache.fieldNames(mapping),
+        Set.of(
+            "structuredProperties.kept",
+            "structuredProperties._versioned.hello.00000000000001.string",
+            "structuredProperties._versioned.gone.00000000000001.string",
+            "structuredProperties._versioned.gone.00000000000001.string__urn_name"));
+  }
+
+  @Test
   public void testFieldNamesAcceptATypeWrappedMapping() {
     Map<String, Object> mapping =
         Map.of(
