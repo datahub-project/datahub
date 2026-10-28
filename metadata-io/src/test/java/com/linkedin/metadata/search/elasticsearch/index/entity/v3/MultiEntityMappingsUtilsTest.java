@@ -457,7 +457,7 @@ public class MultiEntityMappingsUtilsTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> nameField = (Map<String, Object>) properties.get("name");
     assertEquals(nameField.get("type"), "keyword", "name should be keyword type");
-    assertEquals(nameField.get("normalizer"), "keyword_normalizer", "name should have normalizer");
+    assertFalse(nameField.containsKey("normalizer"), nameField.toString());
 
     // Verify search label destination fields
     assertTrue(properties.containsKey("score"), "Should contain score field");
@@ -466,8 +466,7 @@ public class MultiEntityMappingsUtilsTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> scoreField = (Map<String, Object>) properties.get("score");
     assertEquals(scoreField.get("type"), "keyword", "score should be keyword type");
-    assertEquals(
-        scoreField.get("normalizer"), "keyword_normalizer", "score should have normalizer");
+    assertFalse(scoreField.containsKey("normalizer"), scoreField.toString());
 
     // Verify entity field name destinations
     assertTrue(properties.containsKey("customField"), "Should contain customField field");
@@ -475,8 +474,7 @@ public class MultiEntityMappingsUtilsTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> customField = (Map<String, Object>) properties.get("customField");
     assertEquals(customField.get("type"), "keyword", "customField should be keyword type");
-    assertEquals(
-        customField.get("normalizer"), "keyword_normalizer", "customField should have normalizer");
+    assertFalse(customField.containsKey("normalizer"), customField.toString());
   }
 
   // Helper methods for testing relocated utility methods

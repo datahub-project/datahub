@@ -43,6 +43,7 @@ public final class SearchFieldResolver {
   private final Map<String, Field> fields;
   private final Map<String, Field> exactSourceFields;
   private final Set<String> sharedHasValues;
+  private final Map<String, String> unlabeledHasValuesSources;
 
   public SearchFieldResolver(@Nonnull Collection<EntitySpec> entitySpecs) {
     Map<String, MutableField> byName = new LinkedHashMap<>();
@@ -50,6 +51,7 @@ public final class SearchFieldResolver {
     Map<String, List<SearchableFieldSpec>> byLabel = new LinkedHashMap<>();
     Map<String, List<String>> labelContributors = new LinkedHashMap<>();
     Set<String> sharedHasValuesNames = new LinkedHashSet<>();
+    Map<String, String> unlabeledHasValues = new LinkedHashMap<>();
     Set<String> splitSourceNames = new LinkedHashSet<>();
     Map<String, MutableField> aliasedTo = new LinkedHashMap<>();
 
@@ -66,7 +68,8 @@ public final class SearchFieldResolver {
               sources,
               byLabel,
               labelContributors,
-              sharedHasValuesNames);
+              sharedHasValuesNames,
+              unlabeledHasValues);
         }
       } else {
         for (AspectSpec aspect : aspects) {
@@ -79,7 +82,8 @@ public final class SearchFieldResolver {
                 sources,
                 byLabel,
                 labelContributors,
-                sharedHasValuesNames);
+                sharedHasValuesNames,
+                unlabeledHasValues);
           }
         }
       }
@@ -131,7 +135,6 @@ public final class SearchFieldResolver {
     for (String field : MappingConstants.SYSTEM_KEYWORD_FIELDS) {
       if (!byName.containsKey(field)) {
         MutableField direct = new MutableField(field);
-        // System keyword fields have no case-preserving .keyword multi-field.
         direct.addRoot(FieldMapping.root(Type.URN), "system keyword " + field);
         byName.put(field, direct);
       }
@@ -152,12 +155,14 @@ public final class SearchFieldResolver {
                         return created;
                       });
               field.parsedExactPaths.addAll(paths);
-              if (V3SearchFields.isParsedUrnRoot(name, entitySpecs)) {
+              if (V3SearchFields.isParsedKeywordLabel(name, entitySpecs)) {
                 field.parsedKeywordLabel = true;
                 if (V3SearchFields.urnRootHasAnalyzers(name, entitySpecs)) {
                   field.addSubfield(FieldMapping.subfield(V3SearchFields.TEXT, Type.TEXT));
                   field.addSubfield(FieldMapping.subfield(V3SearchFields.STEMMED, Type.STEMMED));
                 }
+              } else if (V3SearchFields.dedicatedParsedNameRoot(name, entitySpecs)) {
+                field.fullUrnOnly = true;
               }
             });
 
@@ -173,11 +178,31 @@ public final class SearchFieldResolver {
         });
     exactSourceFields = Collections.unmodifiableMap(exactSources);
     sharedHasValues = Set.copyOf(sharedHasValuesNames);
+    unlabeledHasValuesSources = Map.copyOf(unlabeledHasValues);
+  }
+
+  /**
+   * Source field for a {@code has*} name Search V3 does not map. The boolean is kept only for a
+   * {@code searchLabel}. A filter or sort that still names the old boolean reads this field.
+   */
+  @Nonnull
+  public Optional<String> unlabeledHasValuesSource(@Nonnull String fieldName) {
+    String source = unlabeledHasValuesSources.get(parent(fieldName));
+    return source == null ? Optional.empty() : Optional.of(source);
   }
 
   /** A shared-label hasValues field stores only true. False is the field being missing. */
   public boolean falseIsMissing(@Nonnull String fieldName) {
     return sharedHasValues.contains(parent(fieldName));
+  }
+
+  /**
+   * The field opted into {@code v3.lowercase}. Case-insensitive contains, prefix, and suffix read
+   * {@code <field>.lowercase}. Absent means the keyword is case-sensitive.
+   */
+  public boolean hasLowercaseSubfield(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    return field != null && field.isLowercase();
   }
 
   /**
@@ -255,9 +280,10 @@ public final class SearchFieldResolver {
       }
       return V3SearchFields.fullUrnField(field.getPath());
     }
-    return field.isKeywordSubfield() && intent != Intent.SORT
-        ? field.getPath() + ESUtils.KEYWORD_SUFFIX
-        : field.getPath();
+    if (field.isFullUrnOnly()) {
+      return V3SearchFields.fullUrnField(field.getPath());
+    }
+    return field.getPath();
   }
 
   /**
@@ -295,7 +321,7 @@ public final class SearchFieldResolver {
     if (field == null) {
       return "";
     }
-    if (field.isParsedKeywordLabel()) {
+    if (field.isParsedKeywordLabel() || field.isFullUrnOnly()) {
       return V3SearchFields.fullUrnLowercaseField(field.getPath());
     }
     if (MappingConstants.URN_FIELD.equals(field.getPath())
@@ -439,13 +465,14 @@ public final class SearchFieldResolver {
     @Nonnull Type rootType;
     boolean indexed;
     boolean docValues;
-    boolean keywordSubfield;
     boolean parsedKeywordLabel;
+    boolean fullUrnOnly;
     @Nonnull Set<String> subfields;
     @Nonnull Set<String> sourceFields;
     @Nonnull Set<Intent> supportedIntents;
     @Nonnull List<String> hasValuesFieldNames;
     @Nonnull List<String> analyzedPaths;
+    boolean lowercase;
 
     boolean supports(Intent intent) {
       return supportedIntents.contains(intent);
@@ -460,7 +487,8 @@ public final class SearchFieldResolver {
       Map<String, MutableField> sources,
       Map<String, List<SearchableFieldSpec>> byLabel,
       Map<String, List<String>> labelContributors,
-      Set<String> sharedHasValuesNames) {
+      Set<String> sharedHasValuesNames,
+      Map<String, String> unlabeledHasValues) {
     if (!spec.getSearchableAnnotation().isV3Searchable()) {
       return;
     }
@@ -472,7 +500,6 @@ public final class SearchFieldResolver {
             annotation.getFieldName(), ignored -> new MutableField(annotation.getFieldName()));
     source.addRoot(root, described);
     source.addSource(annotation.getFieldName());
-    annotation.getHasValuesFieldName().ifPresent(source::setHasValues);
     sources.put(annotation.getFieldName(), source);
     Optional.ofNullable(annotation.getFieldNameAliases())
         .orElse(List.of())
@@ -481,19 +508,37 @@ public final class SearchFieldResolver {
                 byName
                     .computeIfAbsent(alias, ignored -> new MutableField(annotation.getFieldName()))
                     .merge(source));
-    annotation
-        .indexedHasValuesFieldName()
-        .ifPresent(
-            field ->
-                byName
-                    .computeIfAbsent(field, ignored -> new MutableField(field))
-                    .addRoot(FieldMapping.root(Type.BOOLEAN), described + " hasValues=" + field));
-    SearchableAnnotation.sharedHasValuesName(annotation)
-        .ifPresent(
-            field ->
-                byName
-                    .computeIfAbsent(field, ignored -> new MutableField(field))
-                    .addRoot(FieldMapping.root(Type.BOOLEAN), described + " hasValues=" + field));
+    if (annotation.indexedFieldName().isPresent()) {
+      annotation.getHasValuesFieldName().ifPresent(source::setHasValues);
+      annotation
+          .indexedHasValuesFieldName()
+          .ifPresent(
+              field ->
+                  byName
+                      .computeIfAbsent(field, ignored -> new MutableField(field))
+                      .addRoot(FieldMapping.root(Type.BOOLEAN), described + " hasValues=" + field));
+      SearchableAnnotation.sharedHasValuesName(annotation)
+          .ifPresent(
+              field ->
+                  byName
+                      .computeIfAbsent(field, ignored -> new MutableField(field))
+                      .addRoot(FieldMapping.root(Type.BOOLEAN), described + " hasValues=" + field));
+    } else {
+      annotation
+          .getHasValuesFieldName()
+          .ifPresent(
+              name ->
+                  recordUnlabeledHasValues(unlabeledHasValues, name, annotation.getFieldName()));
+      annotation
+          .indexedHasValuesFieldName()
+          .ifPresent(
+              name ->
+                  recordUnlabeledHasValues(unlabeledHasValues, name, annotation.getFieldName()));
+      SearchableAnnotation.sharedHasValuesName(annotation)
+          .ifPresent(
+              name ->
+                  recordUnlabeledHasValues(unlabeledHasValues, name, annotation.getFieldName()));
+    }
     annotation
         .getNumValuesFieldName()
         .ifPresent(
@@ -513,6 +558,32 @@ public final class SearchFieldResolver {
               SearchableAnnotation.sharedHasValuesName(annotation)
                   .ifPresent(sharedHasValuesNames::add);
             });
+    if (annotation.isV3Lowercase()
+        || annotation.getFieldType() == SearchableAnnotation.FieldType.KEYWORD) {
+      String indexed = annotation.indexedFieldName().orElse(annotation.getFieldName());
+      MutableField indexedField =
+          indexed.equals(annotation.getFieldName())
+              ? source
+              : byName.computeIfAbsent(indexed, ignored -> new MutableField(indexed));
+      indexedField.setLowercase(annotation.isV3Lowercase(), described);
+    }
+  }
+
+  private static void recordUnlabeledHasValues(
+      @Nonnull Map<String, String> unlabeled,
+      @Nonnull String hasName,
+      @Nonnull String sourceField) {
+    String previous = unlabeled.putIfAbsent(hasName, sourceField);
+    if (previous != null && !previous.equals(sourceField)) {
+      throw new IllegalArgumentException(
+          "Search V3 has-field '"
+              + hasName
+              + "' is declared by both '"
+              + previous
+              + "' and '"
+              + sourceField
+              + "'");
+    }
   }
 
   /** The boolean attached to a label: the shared V3 name when set, otherwise the top-level name. */
@@ -556,11 +627,13 @@ public final class SearchFieldResolver {
     private FieldMapping root;
     private String rootContributor;
     private boolean parsedKeywordLabel;
+    private boolean fullUrnOnly;
     private final List<String> parsedExactPaths = new ArrayList<>();
     private final Set<String> subfields = new LinkedHashSet<>();
     private final Set<String> sources = new LinkedHashSet<>();
     private final Set<String> hasValuesFieldNames = new LinkedHashSet<>();
     private final Set<String> analyzedPaths = new LinkedHashSet<>();
+    private Boolean lowercase;
 
     private MutableField(String path) {
       this.path = path;
@@ -614,6 +687,17 @@ public final class SearchFieldResolver {
       }
     }
 
+    private void setLowercase(boolean value, @Nullable String contributor) {
+      if (lowercase != null && lowercase != value) {
+        throw new IllegalArgumentException(
+            "Search V3 field '"
+                + path
+                + "' contributors disagree on v3.lowercase"
+                + (contributor == null ? "" : ": " + contributor));
+      }
+      lowercase = value;
+    }
+
     private void merge(MutableField source) {
       if (source.root != null) {
         addRoot(source.root, source.rootContributor);
@@ -654,13 +738,14 @@ public final class SearchFieldResolver {
           resolvedRoot.getType(),
           resolvedRoot.isIndex(),
           resolvedRoot.isDocValues(),
-          resolvedRoot.getType() == Type.KEYWORD && resolvedRoot.isIndex(),
           parsedKeywordLabel,
+          fullUrnOnly,
           Set.copyOf(subfields),
           Set.copyOf(sources),
           Set.copyOf(intents),
           List.copyOf(hasValuesFieldNames),
-          List.copyOf(analyzedPaths));
+          List.copyOf(analyzedPaths),
+          Boolean.TRUE.equals(lowercase));
     }
   }
 }

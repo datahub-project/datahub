@@ -14,9 +14,11 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
@@ -26,6 +28,7 @@ import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.testng.annotations.Test;
@@ -71,7 +74,30 @@ public class StructuredPropertyUrnIdentityTest {
   }
 
   @Test
-  public void testExactUrnWithoutFullTextStillProjectsTheName() throws Exception {
+  public void testParsedNameFollowsQueryByDefaultAndCopyTo() {
+    EntitySpec dataset =
+        TestOperationContexts.systemContextNoSearchAuthorization()
+            .getEntityRegistry()
+            .getEntitySpec("dataset");
+    StructuredPropertyDefinition queried =
+        urnDefinition().setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(true));
+    StructuredPropertyDefinition filtered =
+        urnDefinition().setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(false));
+    StructuredPropertyDefinition copied =
+        urnDefinition()
+            .setSearchConfiguration(
+                new DataHubSearchConfig()
+                    .setQueryByDefault(false)
+                    .setCopyTo(new StringArray("name")));
+
+    assertTrue(StructuredPropertyUrnIdentity.indexesParsedName(queried, List.of(dataset)));
+    assertFalse(StructuredPropertyUrnIdentity.indexesParsedName(filtered, List.of(dataset)));
+    assertTrue(StructuredPropertyUrnIdentity.indexesParsedName(copied, List.of(dataset)));
+  }
+
+  /** No search configuration: the property is filtered on the exact URN and is not full text. */
+  @Test
+  public void testFilterOnlyUrnDoesNotProjectAParsedName() throws Exception {
     Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:steward");
     StructuredPropertyDefinition definition =
         new StructuredPropertyDefinition()
@@ -84,8 +110,7 @@ public class StructuredPropertyUrnIdentityTest {
 
     StructuredPropertyUrnIdentity.project(opContext, document, properties(propertyUrn));
 
-    assertEquals(
-        document.get("structuredProperties.steward__urn_name").get(0).asText(), "Confidential");
+    assertTrue(document.path("structuredProperties.steward__urn_name").isMissingNode());
   }
 
   @Test
@@ -104,6 +129,13 @@ public class StructuredPropertyUrnIdentityTest {
         operationContext(propertyUrn, definition), document, properties(propertyUrn));
 
     assertTrue(document.get("structuredProperties.steward__urn_name").isNull());
+  }
+
+  private static StructuredPropertyDefinition urnDefinition() {
+    return new StructuredPropertyDefinition()
+        .setQualifiedName("steward")
+        .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+        .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.urn"));
   }
 
   private static StructuredProperties properties(Urn propertyUrn) {

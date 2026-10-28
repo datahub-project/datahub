@@ -247,14 +247,18 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         "entity-boost-domain",
     ]
     term = boosts[0]
-    assert term["orderedContains"] == ["dataProduct:entityboost"]
+    assert "orderedContains" not in term
     assert boosts[1]["orderedContains"] == [
         "dataProduct:entityboost",
         "glossaryNode:entityboost",
     ]
     assert term["containsInTop"] == {
         "n": 3,
-        "values": ["dataProduct:entityboost", "catalogprobe,entityboost"],
+        "values": [
+            "glossaryTerm:entityboost",
+            "dataProduct:entityboost",
+            "catalogprobe,entityboost",
+        ],
     }
     assert "orderedContains" not in boosts[2]
     assert set(boosts[2]["present"]) == {
