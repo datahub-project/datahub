@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterable, List, Optional, cast
+from typing import Callable, Dict, Iterable, List, Optional
 
 from sqlalchemy.engine import Engine
 
@@ -11,7 +11,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.ingestion.source.profiling.common import ProfilerRequest
 from datahub.ingestion.source.profiling.config import ProfilingConfig
-from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import check_table_with_profile_pattern
 
 logger = logging.getLogger(__name__)
@@ -75,9 +74,7 @@ def emit_dataset_profiles(
 
     profiler = SQLAlchemyProfiler(
         conn=engine,
-        # The profiler types its report as SQLSourceReport. Fabric's report
-        # implements the methods the profiler calls.
-        report=cast(SQLSourceReport, report),
+        report=report,
         config=profiling,
         platform=PROFILING_SQL_PLATFORM,
         env=env,
