@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Iterator
+from typing import Iterable, Iterator, List
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws_messaging.arn import (
@@ -21,8 +21,9 @@ from datahub.ingestion.source.aws_messaging.mapper import (
     queue_properties,
     tag_urns,
 )
-from datahub.ingestion.source.aws_messaging.models import Arn, SqsQueue
+from datahub.ingestion.source.aws_messaging.models import SqsQueue
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
+from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.sdk import Dataset
 
@@ -42,6 +43,7 @@ class SqsExtractor:
         self.client = client
         self.urns = urns
         self.region_key = region_key
+        self.queues: List[SqsQueue] = []
 
     def list_queues(self) -> Iterator[SqsQueue]:
         for url in self.client.list_queue_urls():
@@ -91,7 +93,7 @@ class SqsExtractor:
         self,
         queue: SqsQueue,
         lineage: DatasetLineageCollector,
-        queue_exists: Callable[[Arn], bool],
+        resolver: ResourceResolver,
     ) -> None:
         redrive = parse_redrive_policy(
             queue.attributes.get(QueueAttribute.REDRIVE_POLICY)
@@ -100,7 +102,7 @@ class SqsExtractor:
             return
         source_urn = self.urns.queue_urn(queue.arn)
         dlq = parse_arn(redrive.dead_letter_target_arn)
-        if dlq is None or not queue_exists(dlq):
+        if dlq is None or not resolver.queue_exists(dlq):
             self.report.report_edge_skipped(
                 source_urn,
                 redrive.dead_letter_target_arn,

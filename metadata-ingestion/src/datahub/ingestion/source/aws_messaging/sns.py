@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, Iterator, List
+from typing import Dict, Iterable, Iterator, List, Optional
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws_messaging.arn import (
@@ -16,6 +16,8 @@ from datahub.ingestion.source.aws_messaging.constants import (
     SubscriptionAttribute,
     SubscriptionProtocol,
 )
+from datahub.ingestion.source.aws_messaging.firehose import FirehoseLineage
+from datahub.ingestion.source.aws_messaging.lambda_lineage import LambdaLineage
 from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
 from datahub.ingestion.source.aws_messaging.mapper import (
     AwsRegionKey,
@@ -24,11 +26,11 @@ from datahub.ingestion.source.aws_messaging.mapper import (
     topic_properties,
 )
 from datahub.ingestion.source.aws_messaging.models import (
-    Arn,
     SnsSubscription,
     SnsTopic,
 )
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
+from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.sdk import Dataset
 
@@ -48,6 +50,7 @@ class SnsExtractor:
         self.client = client
         self.urns = urns
         self.region_key = region_key
+        self.topics: List[SnsTopic] = []
         self.subscriptions: Dict[str, List[SnsSubscription]] = defaultdict(list)
 
     def load_subscriptions(self) -> None:
@@ -92,8 +95,11 @@ class SnsExtractor:
     def add_lineage(
         self,
         topic: SnsTopic,
+        *,
         lineage: DatasetLineageCollector,
-        queue_exists: Callable[[Arn], bool],
+        resolver: ResourceResolver,
+        lambdas: Optional[LambdaLineage] = None,
+        firehose: Optional[FirehoseLineage] = None,
     ) -> None:
         topic_urn = self.urns.topic_urn(topic.arn)
         for subscription in self.subscriptions.get(str(topic.arn), []):
@@ -106,8 +112,16 @@ class SnsExtractor:
                     subscription.endpoint,
                     LineageRelationship.SUBSCRIPTION,
                     lineage,
-                    queue_exists,
+                    resolver,
                 )
+            elif subscription.protocol == SubscriptionProtocol.LAMBDA and lambdas:
+                edges = lambdas.function(subscription.endpoint, topic_urn)
+                if edges is not None:
+                    edges.inputs.add(topic_urn)
+            elif subscription.protocol == SubscriptionProtocol.FIREHOSE and firehose:
+                stream = parse_arn(subscription.endpoint)
+                if stream is not None:
+                    firehose.add(stream, topic_urn)
             if self.config.include_subscription_attributes:
                 attributes = self.client.get_subscription_attributes(
                     subscription.subscription_arn
@@ -121,7 +135,7 @@ class SnsExtractor:
                         redrive.dead_letter_target_arn,
                         LineageRelationship.SUBSCRIPTION_DEAD_LETTER,
                         lineage,
-                        queue_exists,
+                        resolver,
                     )
 
     def _add_queue_edge(
@@ -130,7 +144,7 @@ class SnsExtractor:
         queue_arn: str,
         relationship: LineageRelationship,
         lineage: DatasetLineageCollector,
-        queue_exists: Callable[[Arn], bool],
+        resolver: ResourceResolver,
     ) -> None:
         arn = parse_arn(queue_arn)
         if arn is None:
@@ -138,7 +152,7 @@ class SnsExtractor:
                 topic_urn, queue_arn, "unparseable queue ARN"
             )
             return
-        if not queue_exists(arn):
+        if not resolver.queue_exists(arn):
             self.report.report_edge_skipped(
                 topic_urn,
                 queue_arn,

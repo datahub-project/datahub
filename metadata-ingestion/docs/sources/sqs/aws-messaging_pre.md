@@ -33,6 +33,27 @@ SQS and SNS have no schema, so datasets carry no schema fields. Queue settings (
         "sns:GetSubscriptionAttributes"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "LambdaRead",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:ListEventSourceMappings",
+        "lambda:ListFunctions",
+        "lambda:ListFunctionEventInvokeConfigs"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EventBridgeRead",
+      "Effect": "Allow",
+      "Action": [
+        "events:ListEventBuses",
+        "events:ListRules",
+        "events:ListTargetsByRule",
+        "pipes:ListPipes"
+      ],
+      "Resource": "*"
     }
   ]
 }
@@ -40,6 +61,8 @@ SQS and SNS have no schema, so datasets carry no schema fields. Queue settings (
 
 - `sqs:ListQueueTags` and `sns:ListTagsForResource` are only called when `extract_tags` is on.
 - `sns:GetSubscriptionAttributes` is only called when `include_subscription_attributes` is on.
+- `LambdaRead` is used when `lineage.lambda_functions` is on; `lambda:ListFunctions` and `lambda:ListFunctionEventInvokeConfigs` only when `lineage.lambda_async_destinations` is also on.
+- `EventBridgeRead` is used when `lineage.eventbridge_rules` or `lineage.eventbridge_pipes` is on.
 - If a listing call is denied on its first page, that service is skipped with a warning and the other service still runs.
 
 #### Authentication

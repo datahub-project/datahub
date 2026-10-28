@@ -3,8 +3,12 @@ from typing import Any, Callable, Dict, Iterator, List, Optional
 from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.source.aws.aws_common import aws_error_code
+from datahub.ingestion.source.aws_messaging.arn import parse_arn
 from datahub.ingestion.source.aws_messaging.constants import ALL_ATTRIBUTES
-from datahub.ingestion.source.aws_messaging.models import SnsSubscription
+from datahub.ingestion.source.aws_messaging.models import (
+    EventBridgePipe,
+    SnsSubscription,
+)
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
 
 
@@ -156,3 +160,122 @@ class SnsClient:
             context=f"subscription={arn}",
         )
         return dict((response or {}).get("Attributes") or {})
+
+
+class LambdaClient:
+    def __init__(self, client: Any, report: AwsMessagingSourceReport):
+        self._client = client
+        self.report = report
+
+    def list_event_source_mappings(self) -> Iterator[Dict[str, Any]]:
+        yield from paginate(
+            client=self._client,
+            operation="list_event_source_mappings",
+            result_key="EventSourceMappings",
+            report=self.report,
+            api_label="lambda:ListEventSourceMappings",
+        )
+
+    def list_functions(self) -> Iterator[Dict[str, Any]]:
+        yield from paginate(
+            client=self._client,
+            operation="list_functions",
+            result_key="Functions",
+            report=self.report,
+            api_label="lambda:ListFunctions",
+        )
+
+    def list_async_destinations(self, function_name: str) -> Iterator[str]:
+        for item in paginate(
+            client=self._client,
+            operation="list_function_event_invoke_configs",
+            result_key="FunctionEventInvokeConfigs",
+            report=self.report,
+            api_label="lambda:ListFunctionEventInvokeConfigs",
+            FunctionName=function_name,
+        ):
+            # Each config is for one version or alias; destinations hang off the
+            # unqualified function either way.
+            destinations = item.get("DestinationConfig") or {}
+            for outcome in ("OnSuccess", "OnFailure"):
+                destination = (destinations.get(outcome) or {}).get("Destination")
+                if destination:
+                    yield destination
+
+
+class EventBridgeClient:
+    def __init__(self, client: Any, report: AwsMessagingSourceReport):
+        self._client = client
+        self.report = report
+
+    def list_event_bus_arns(self) -> Iterator[str]:
+        # boto3 has no paginator for ListEventBuses.
+        token: Optional[str] = None
+        pages_fetched = 0
+        while True:
+            kwargs: Dict[str, Any] = {"NextToken": token} if token else {}
+            try:
+                response = self._client.list_event_buses(**kwargs)
+            except (ClientError, BotoCoreError) as e:
+                self.report.report_listing_failure(
+                    pages_fetched=pages_fetched,
+                    exc=e,
+                    api_label="events:ListEventBuses",
+                )
+                return
+            pages_fetched += 1
+            for bus in response.get("EventBuses") or []:
+                if bus.get("Arn"):
+                    yield bus["Arn"]
+            token = response.get("NextToken")
+            if not token:
+                return
+
+    def list_rules(self, bus_name: str) -> Iterator[Dict[str, Any]]:
+        yield from paginate(
+            client=self._client,
+            operation="list_rules",
+            result_key="Rules",
+            report=self.report,
+            api_label="events:ListRules",
+            EventBusName=bus_name,
+        )
+
+    def list_target_arns(self, rule_name: str, bus_name: str) -> Iterator[str]:
+        for target in paginate(
+            client=self._client,
+            operation="list_targets_by_rule",
+            result_key="Targets",
+            report=self.report,
+            api_label="events:ListTargetsByRule",
+            Rule=rule_name,
+            EventBusName=bus_name,
+        ):
+            if target.get("Arn"):
+                yield target["Arn"]
+
+
+class PipesClient:
+    def __init__(self, client: Any, report: AwsMessagingSourceReport):
+        self._client = client
+        self.report = report
+
+    def list_pipes(self) -> Iterator[EventBridgePipe]:
+        for item in paginate(
+            client=self._client,
+            operation="list_pipes",
+            result_key="Pipes",
+            report=self.report,
+            api_label="pipes:ListPipes",
+        ):
+            arn = parse_arn(item.get("Arn"))
+            if arn is None or not item.get("Source") or not item.get("Target"):
+                continue
+            yield EventBridgePipe(
+                arn=arn,
+                name=item.get("Name") or arn.resource_name,
+                source=item["Source"],
+                target=item["Target"],
+                enrichment=item.get("Enrichment"),
+                state=item.get("CurrentState"),
+            )

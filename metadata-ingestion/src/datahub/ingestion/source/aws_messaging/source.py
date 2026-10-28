@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterable, List, Optional, Set
+from typing import Any, Callable, Iterable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -20,18 +20,28 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
-from datahub.ingestion.source.aws_messaging.clients import SnsClient, SqsClient
+from datahub.ingestion.source.aws_messaging.clients import (
+    EventBridgeClient,
+    LambdaClient,
+    PipesClient,
+    SnsClient,
+    SqsClient,
+)
 from datahub.ingestion.source.aws_messaging.config import AwsMessagingSourceConfig
 from datahub.ingestion.source.aws_messaging.constants import (
+    EVENTBRIDGE_PLATFORM,
     SNS_PLATFORM,
     SQS_PLATFORM,
     AwsService,
     QueueAttribute,
 )
+from datahub.ingestion.source.aws_messaging.eventbridge import EventBridgeLineage
+from datahub.ingestion.source.aws_messaging.firehose import FirehoseLineage
+from datahub.ingestion.source.aws_messaging.lambda_lineage import LambdaLineage
 from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
 from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey
-from datahub.ingestion.source.aws_messaging.models import Arn, SnsTopic, SqsQueue
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
+from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.ingestion.source.aws_messaging.sns import SnsExtractor
 from datahub.ingestion.source.aws_messaging.sqs import SqsExtractor
 from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
@@ -47,7 +57,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 @capability(SourceCapability.TAGS, "From AWS resource tags")
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "SNS subscriptions and dead-letter queues",
+    "SNS subscriptions, dead-letter queues, Lambda, EventBridge rules and Pipes",
 )
 @capability(SourceCapability.PLATFORM_INSTANCE, "Defaults to the AWS account id")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
@@ -60,7 +70,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 class AwsMessagingSource(StatefulIngestionSourceBase, TestableSource):
     """Catalogs Amazon SQS queues and Amazon SNS topics as datasets, one region
-    per recipe, under the `sqs` and `sns` platforms."""
+    per recipe, under the `sqs` and `sns` platforms, with lineage through SNS
+    subscriptions, dead-letter queues, Lambda, EventBridge rules and Pipes."""
 
     config: AwsMessagingSourceConfig
     report: AwsMessagingSourceReport
@@ -98,7 +109,7 @@ class AwsMessagingSource(StatefulIngestionSourceBase, TestableSource):
             account_platform_instance_map=config.account_platform_instance_map,
         )
         self.lineage = DatasetLineageCollector(self.report)
-        self._queue_arns: Set[str] = set()
+        self.resolver = ResourceResolver(urns=self.urns, region=self.region)
         self.sqs_extractor = SqsExtractor(
             config=config,
             report=self.report,
@@ -113,6 +124,45 @@ class AwsMessagingSource(StatefulIngestionSourceBase, TestableSource):
             urns=self.urns,
             region_key=self._region_key(SNS_PLATFORM),
         )
+        lineage_config = config.lineage
+        self.lambdas: Optional[LambdaLineage] = (
+            LambdaLineage(
+                config=config,
+                report=self.report,
+                client=LambdaClient(
+                    config.make_client(self._session, AwsService.LAMBDA), self.report
+                ),
+                urns=self.urns,
+                resolver=self.resolver,
+            )
+            if lineage_config.lambda_functions
+            else None
+        )
+        self.eventbridge = EventBridgeLineage(
+            config=config,
+            report=self.report,
+            events=EventBridgeClient(
+                config.make_client(self._session, AwsService.EVENTS), self.report
+            ),
+            pipes=PipesClient(
+                config.make_client(self._session, AwsService.PIPES), self.report
+            ),
+            urns=self.urns,
+            resolver=self.resolver,
+            lambdas=self.lambdas,
+            region_key=self._region_key(EVENTBRIDGE_PLATFORM),
+        )
+        self.firehose: Optional[FirehoseLineage] = (
+            FirehoseLineage(
+                env=config.env,
+                urns=self.urns,
+                kinesis_platform_instance=config.kinesis_platform_instance,
+                graph=ctx.graph,
+                report=self.report,
+            )
+            if lineage_config.firehose
+            else None
+        )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "AwsMessagingSource":
@@ -120,43 +170,64 @@ class AwsMessagingSource(StatefulIngestionSourceBase, TestableSource):
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        # Every queue and topic must be known before any lineage is resolved,
+        # since an edge to a local queue or topic is only kept if it was ingested.
         if self.config.include_sqs:
             yield from self._sqs_workunits()
         if self.config.include_sns:
             yield from self._sns_workunits()
+        for queue in self.sqs_extractor.queues:
+            self.sqs_extractor.add_lineage(queue, self.lineage, self.resolver)
+        for topic in self.sns_extractor.topics:
+            self.sns_extractor.add_lineage(
+                topic,
+                lineage=self.lineage,
+                resolver=self.resolver,
+                lambdas=self.lambdas,
+                firehose=self.firehose,
+            )
+        if self.lambdas is not None:
+            self.lambdas.collect()
+        if self.config.lineage.eventbridge_rules:
+            yield from self._with_region_container(
+                EVENTBRIDGE_PLATFORM, self.eventbridge.rule_workunits()
+            )
+        if self.config.lineage.eventbridge_pipes:
+            yield from self.eventbridge.pipe_workunits()
+        # Lambda jobs go last: rules and pipes add themselves as upstream jobs.
+        if self.lambdas is not None:
+            yield from self.lambdas.workunits()
+        if self.firehose is not None:
+            yield from self.firehose.workunits()
         yield from self.lineage.workunits()
 
     def _sqs_workunits(self) -> Iterable[MetadataWorkUnit]:
-        queues: List[SqsQueue] = []
         for queue in self.sqs_extractor.list_queues():
-            if not queues:
+            if not self.sqs_extractor.queues:
                 yield from self._region_container(SQS_PLATFORM)
-            queues.append(queue)
-            self._queue_arns.add(str(queue.arn))
+            self.sqs_extractor.queues.append(queue)
+            self.resolver.queue_arns.add(str(queue.arn))
             yield from self.sqs_extractor.to_workunits(queue)
-        # Dead-letter targets are checked once every queue in the region is known.
-        for queue in queues:
-            self.sqs_extractor.add_lineage(queue, self.lineage, self._queue_exists)
 
     def _sns_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.sns_extractor.load_subscriptions()
-        topics: List[SnsTopic] = []
         for topic in self.sns_extractor.list_topics():
-            if not topics:
+            if not self.sns_extractor.topics:
                 yield from self._region_container(SNS_PLATFORM)
-            topics.append(topic)
+            self.sns_extractor.topics.append(topic)
+            self.resolver.topic_arns.add(str(topic.arn))
             yield from self.sns_extractor.to_workunits(topic)
-        for topic in topics:
-            self.sns_extractor.add_lineage(topic, self.lineage, self._queue_exists)
 
-    def _queue_exists(self, arn: Arn) -> bool:
-        # A queue in this account and region exists only if this run ingested it.
-        # Queues elsewhere belong to another recipe, and their URN is fully
-        # determined by the ARN.
-        own_account = not self.urns.account_id or arn.account == self.urns.account_id
-        if own_account and arn.region == self.region:
-            return str(arn) in self._queue_arns
-        return True
+    def _with_region_container(
+        self, platform: str, workunits: Iterable[MetadataWorkUnit]
+    ) -> Iterable[MetadataWorkUnit]:
+        # Only emit the region container once something is placed in it.
+        first = True
+        for workunit in workunits:
+            if first:
+                yield from self._region_container(platform)
+                first = False
+            yield workunit
 
     def _region_key(self, platform: str) -> AwsRegionKey:
         return AwsRegionKey(

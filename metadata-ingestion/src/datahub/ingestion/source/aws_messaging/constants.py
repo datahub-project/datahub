@@ -4,11 +4,25 @@ from datahub.utilities.str_enum import StrEnum
 
 SQS_PLATFORM = "sqs"
 SNS_PLATFORM = "sns"
+LAMBDA_PLATFORM = "lambda"
+EVENTBRIDGE_PLATFORM = "eventbridge"
+EVENTBRIDGE_PIPES_PLATFORM = "eventbridge-pipes"
+# Owned by the kinesis source; only referenced here for SNS-to-Firehose lineage.
+FIREHOSE_PLATFORM = "kinesis-firehose"
+FIREHOSE_DELIVERY_JOB_ID = "delivery"
+
+LAMBDA_JOB_ID = "invoke"
+EVENTBRIDGE_RULE_JOB_ID = "route"
+EVENTBRIDGE_PIPE_JOB_ID = "pipe"
 
 
 class AwsService(StrEnum):
     SQS = "sqs"
     SNS = "sns"
+    LAMBDA = "lambda"
+    EVENTS = "events"
+    PIPES = "pipes"
+    FIREHOSE = "firehose"
 
 
 class SubscriptionProtocol(StrEnum):
@@ -89,6 +103,7 @@ class SubscriptionAttribute(StrEnum):
 
 class LineageRelationship(StrEnum):
     SUBSCRIPTION = "subscription"
+    LAMBDA_FAILURE_DESTINATION = "lambda_failure_destination"
     DEAD_LETTER = "dead_letter"
     SUBSCRIPTION_DEAD_LETTER = "subscription_dead_letter"
 

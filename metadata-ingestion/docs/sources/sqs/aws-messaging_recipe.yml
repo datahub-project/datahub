@@ -22,5 +22,13 @@ source:
     # account_platform_instance_map:
     #   "210987654321": "shared-services"
 
+    lineage:
+      lambda_functions: true
+      lambda_async_destinations: true
+      eventbridge_rules: true
+      eventbridge_pipes: true
+      firehose: true
+    # kinesis_platform_instance: "prod-account"
+
     stateful_ingestion:
       enabled: true

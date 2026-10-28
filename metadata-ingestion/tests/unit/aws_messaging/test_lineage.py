@@ -6,8 +6,9 @@ from datahub.ingestion.source.aws_messaging.config import AwsMessagingSourceConf
 from datahub.ingestion.source.aws_messaging.constants import LineageRelationship
 from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
 from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey
-from datahub.ingestion.source.aws_messaging.models import Arn, SnsSubscription, SnsTopic
+from datahub.ingestion.source.aws_messaging.models import SnsSubscription, SnsTopic
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
+from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.ingestion.source.aws_messaging.sns import SnsExtractor
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -36,6 +37,13 @@ def _extractor(client: FakeSnsClient, **config: object) -> SnsExtractor:
         client=client,  # type: ignore[arg-type]
         urns=UrnBuilder(env="PROD", account_id=OWN, platform_instance=OWN),
         region_key=AwsRegionKey(region="us-east-1", platform="sns", instance=OWN),
+    )
+
+
+def _resolver() -> ResourceResolver:
+    return ResourceResolver(
+        urns=UrnBuilder(env="PROD", account_id=OWN, platform_instance=OWN),
+        region="us-east-1",
     )
 
 
@@ -82,11 +90,8 @@ def test_cross_account_queue_edge_is_kept_and_unknown_local_queue_is_skipped() -
         ),
     ]
     lineage = DatasetLineageCollector(extractor.report)
-
-    def queue_exists(arn: Arn) -> bool:
-        return arn.account != OWN
-
-    extractor.add_lineage(_topic(), lineage, queue_exists)
+    # No local queues were ingested.
+    extractor.add_lineage(_topic(), lineage=lineage, resolver=_resolver())
 
     assert _upstreams(lineage) == {
         "urn:li:dataset:(urn:li:dataPlatform:sqs,210987654321.eu-west-1.remote,PROD)": {
@@ -107,7 +112,9 @@ def test_subscription_dead_letter_queue_edge() -> None:
         _subscription("https://hooks.example.com/x", 1, protocol="https")
     ]
     lineage = DatasetLineageCollector(extractor.report)
-    extractor.add_lineage(_topic(), lineage, lambda arn: True)
+    resolver = _resolver()
+    resolver.queue_arns.add(dlq)
+    extractor.add_lineage(_topic(), lineage=lineage, resolver=resolver)
 
     dlq_urn = (
         f"urn:li:dataset:(urn:li:dataPlatform:sqs,{OWN}.us-east-1.events-dlq,PROD)"

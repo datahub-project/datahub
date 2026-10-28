@@ -22,6 +22,9 @@ class AwsMessagingSourceReport(StaleEntityRemovalSourceReport):
     queues_failed: LossyList[str] = field(default_factory=LossyList)
     topics_failed: LossyList[str] = field(default_factory=LossyList)
     subscriptions_scanned: int = 0
+    lambda_functions_emitted: int = 0
+    eventbridge_rules_emitted: int = 0
+    eventbridge_pipes_emitted: int = 0
     lineage_edges_emitted: int = 0
     # "<from> -> <to>: <reason>" for edges left out because one end could not
     # be resolved to an entity that exists.

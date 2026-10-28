@@ -232,7 +232,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "SNS subscriptions and dead-letter queues",
+          "description": "SNS subscriptions, dead-letter queues, Lambda, EventBridge rules and Pipes",
           "subtype_modifier": null,
           "supported": true
         },

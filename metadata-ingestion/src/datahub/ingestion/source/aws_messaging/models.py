@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -55,3 +55,27 @@ class SnsSubscription(BaseModel):
     endpoint: str
     owner: Optional[str] = None
     attributes: Dict[str, str] = Field(default_factory=dict)
+
+
+class LambdaFunctionEdges(BaseModel):
+    arn: Arn
+    inputs: Set[str] = Field(default_factory=set)
+    outputs: Set[str] = Field(default_factory=set)
+    input_jobs: Set[str] = Field(default_factory=set)
+
+
+class EventBridgeRule(BaseModel):
+    bus_arn: Arn
+    name: str
+    state: Optional[str] = None
+    event_pattern: Optional[str] = None
+    target_arns: Set[str] = Field(default_factory=set)
+
+
+class EventBridgePipe(BaseModel):
+    arn: Arn
+    name: str
+    source: str
+    target: str
+    enrichment: Optional[str] = None
+    state: Optional[str] = None
