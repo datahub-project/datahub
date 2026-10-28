@@ -24,12 +24,17 @@ import javax.annotation.Nullable;
  * arrays, and the entries below add what DataHub stores. Types with a Hazelcast {@code
  * StreamSerializer} (entity graph snapshots) or zero-config Compact serialization (lineage cache
  * keys) do not pass through this filter.
+ *
+ * <p>This is defense in depth, not access control. Anything that can reach the cluster port can
+ * still join as a member and write to the maps, and payloads made only of JDK types (large arrays,
+ * deeply nested collections) are not limited by class name. Keep the port on a private network.
  */
 public final class HazelcastSerializationFilter {
 
   /**
    * DataHub's own Serializable cache values, keys and entry processors (search, lineage, key-aspect
-   * counts, retention buffer).
+   * counts, retention buffer). No dependency on the GMS classpath is shaded into these packages; a
+   * relocation into them would pass this filter unchecked.
    */
   static final Set<String> DEFAULT_PACKAGE_PREFIXES =
       Set.of("com.linkedin.metadata.", "org.javatuples.");

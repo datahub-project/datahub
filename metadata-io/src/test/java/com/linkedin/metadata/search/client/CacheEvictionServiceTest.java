@@ -1,10 +1,16 @@
 package com.linkedin.metadata.search.client;
 
 import static com.linkedin.metadata.search.client.CachingEntitySearchService.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.hazelcast.map.IMap;
+import com.hazelcast.nio.serialization.HazelcastSerializationException;
 import com.linkedin.common.urn.Urn;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -347,5 +353,37 @@ public class CacheEvictionServiceTest {
     service.invalidateAll(); // should be no op though
     service.invalidate("anycache"); // should be no op
     service.evict(List.of(Urn.createFromString("urn:li:container:bar")));
+  }
+
+  @Test
+  void testUnreadableKeysClearThatCacheAndEvictionContinues() throws URISyntaxException {
+    IMap<Object, Object> unreadable = mock(IMap.class);
+    when(unreadable.keySet())
+        .thenThrow(new HazelcastSerializationException("Resolving class is not allowed"));
+    org.springframework.cache.Cache searchCache = mock(org.springframework.cache.Cache.class);
+    when(searchCache.getNativeCache()).thenReturn(unreadable);
+
+    Octet<Object, List<String>, String, String, Object, String, List<String>, Integer> scrollKey =
+        Octet.with(
+            null, List.of("container"), "*", "urn:li:container:foo", null, null, List.of(), 10);
+    Cache<Object, Object> scrollNative = Caffeine.newBuilder().build();
+    scrollNative.put(scrollKey, "result");
+    org.springframework.cache.Cache scrollCache = mock(org.springframework.cache.Cache.class);
+    when(scrollCache.getNativeCache()).thenReturn(scrollNative);
+
+    CacheManager manager = mock(CacheManager.class);
+    when(manager.getCacheNames())
+        .thenReturn(
+            List.of(
+                ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME, ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME));
+    when(manager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME)).thenReturn(searchCache);
+    when(manager.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME)).thenReturn(scrollCache);
+
+    new CacheEvictionService(manager, true, true)
+        .evict(List.of(Urn.createFromString("urn:li:container:foo")));
+
+    verify(searchCache).invalidate();
+    verify(scrollCache).evict(scrollKey);
+    verify(scrollCache, never()).invalidate();
   }
 }

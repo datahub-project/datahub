@@ -54,23 +54,44 @@ public class CacheEvictionService {
     if (cachingEnabled && enableEviction) {
       Collection<String> cacheNames = cacheManager.getCacheNames();
       for (String cacheName : cacheNames) {
-        long evictCount = 0;
         if (matcher.supportsCache(cacheName)) {
           Cache cache = cacheManager.getCache(cacheName);
           assert (cache != null);
-          Set<Object> keys = getKeys(cacheName);
-          for (Object key : keys) {
-            if (matcher.match(cacheName, key)) {
-              cache.evict(key);
-              evictCount++;
-              log.debug("From cache '{}' evicting key {}", cacheName, key);
-            }
-          }
-          if (evictCount > 0) {
-            log.info("Evicted {} keys from cache {}", evictCount, cacheName);
+          try {
+            evictMatching(matcher, cacheName, cache);
+          } catch (RuntimeException e) {
+            // A key this member cannot read (e.g. one written by an older GMS version that the
+            // Hazelcast serialization filter rejects) fails the whole key scan. Clear the cache so
+            // the update still becomes visible, and keep going: callers run this after a write has
+            // already succeeded.
+            log.warn("Could not scan keys of cache {}; clearing it instead", cacheName, e);
+            clearQuietly(cacheName, cache);
           }
         }
       }
+    }
+  }
+
+  private void evictMatching(CacheKeyMatcher matcher, String cacheName, Cache cache) {
+    long evictCount = 0;
+    Set<Object> keys = getKeys(cacheName);
+    for (Object key : keys) {
+      if (matcher.match(cacheName, key)) {
+        cache.evict(key);
+        evictCount++;
+        log.debug("From cache '{}' evicting key {}", cacheName, key);
+      }
+    }
+    if (evictCount > 0) {
+      log.info("Evicted {} keys from cache {}", evictCount, cacheName);
+    }
+  }
+
+  private void clearQuietly(String cacheName, Cache cache) {
+    try {
+      cache.invalidate();
+    } catch (RuntimeException e) {
+      log.error("Could not clear cache {}", cacheName, e);
     }
   }
 
