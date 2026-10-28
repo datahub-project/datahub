@@ -7,9 +7,10 @@ import com.linkedin.timeseries.TimeseriesAspectBase
  * A change in the status of one of the ingestion source's runs, recorded each time an execution
  * request for the source is created or its result status changes.
  *
- * The searchable fields are copied onto the source's search document by every event, so the
- * source can be sorted and filtered by its latest run. Events for a run that is no longer the
- * source's newest request are not written, so an older run finishing late cannot replace them.
+ * Every event carries all of the source's searchable fields, which are copied onto its search
+ * document, so the source can be sorted and filtered by its latest run. An event is not written
+ * for a run older than the source's newest request or latest event, so an older run finishing
+ * late cannot replace them.
  */
 @Aspect = {
   "name": "dataHubIngestionSourceRunEvent",
@@ -47,8 +48,8 @@ record DataHubIngestionSourceRunEvent includes TimeseriesAspectBase {
   status: string
 
   /**
-   * Set to requestedAtMillis on SUCCESS events only, so the source keeps the request time of its
-   * last successful run.
+   * Request time of the source's most recent successful run as of this event: this run's
+   * requestedAtMillis on a SUCCESS event, otherwise carried over from the previous event.
    */
   @Searchable = {
     "fieldName": "lastSuccessfulRunRequestedAtMillis",
@@ -58,8 +59,8 @@ record DataHubIngestionSourceRunEvent includes TimeseriesAspectBase {
   successfulRunRequestedAtMillis: optional long
 
   /**
-   * Set to requestedAtMillis on FAILURE events only, so the source keeps the request time of its
-   * last failed run.
+   * Request time of the source's most recent FAILURE run as of this event: this run's
+   * requestedAtMillis on a FAILURE event, otherwise carried over from the previous event.
    */
   @Searchable = {
     "fieldName": "lastFailedRunRequestedAtMillis",

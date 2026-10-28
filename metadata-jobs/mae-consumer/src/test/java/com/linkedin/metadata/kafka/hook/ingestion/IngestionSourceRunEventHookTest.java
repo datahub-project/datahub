@@ -39,6 +39,7 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.mockito.ArgumentCaptor;
@@ -99,11 +100,45 @@ public class IngestionSourceRunEventHookTest {
   @Test
   public void testOlderRunFinishingLateIsSkipped() throws Exception {
     latestRequest(NEWER_RUN);
+    requestedAt(NEWER_RUN, 200L);
 
     hook.invoke(
         opContext, mcl(EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS"), result("RUNNING")));
 
     verify(client, never()).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testNewRequestNotYetIndexedIsRecorded() throws Exception {
+    // A request's input MCL can arrive before the request is searchable, so the newest indexed
+    // request is still the previous run.
+    latestRequest(NEWER_RUN);
+    requestedAt(NEWER_RUN, 50L);
+
+    hook.invoke(opContext, mcl(EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(), null));
+
+    assertEquals(emitted().getStatus(), "PENDING");
+  }
+
+  @Test
+  public void testRequestOlderThanTheLatestEventIsSkipped() throws Exception {
+    latestEvent(event(200L, null));
+
+    hook.invoke(opContext, mcl(EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(), null));
+
+    verify(client, never()).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testLastSuccessCarriesForwardOntoAFailure() throws Exception {
+    latestEvent(event(80L, 80L));
+
+    hook.invoke(
+        opContext, mcl(EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("FAILURE"), result("RUNNING")));
+
+    DataHubIngestionSourceRunEvent event = emitted();
+    assertEquals(event.getSuccessfulRunRequestedAtMillis(), Long.valueOf(80L));
+    assertEquals(event.getFailedRunRequestedAtMillis(), Long.valueOf(100L));
   }
 
   @Test
@@ -151,6 +186,42 @@ public class IngestionSourceRunEventHookTest {
         .thenReturn(
             new SearchResult()
                 .setEntities(new SearchEntityArray(new SearchEntity().setEntity(runUrn))));
+  }
+
+  private void requestedAt(Urn runUrn, long requestedAt) throws Exception {
+    when(client.getV2(any(), eq(EXECUTION_REQUEST_ENTITY_NAME), eq(runUrn), any(), anyBoolean()))
+        .thenReturn(
+            response(EXECUTION_REQUEST_INPUT_ASPECT_NAME, input().setRequestedAt(requestedAt)));
+  }
+
+  private void latestEvent(DataHubIngestionSourceRunEvent event) throws Exception {
+    when(client.getTimeseriesAspectValues(
+            any(),
+            eq(SOURCE.toString()),
+            eq(INGESTION_SOURCE_ENTITY_NAME),
+            eq(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME),
+            any(),
+            any(),
+            any(),
+            any()))
+        .thenReturn(
+            List.of(
+                new com.linkedin.metadata.aspect.EnvelopedAspect()
+                    .setAspect(GenericRecordUtils.serializeAspect(event))));
+  }
+
+  private static DataHubIngestionSourceRunEvent event(
+      long requestedAt, @Nullable Long successfulRequestedAt) {
+    DataHubIngestionSourceRunEvent event =
+        new DataHubIngestionSourceRunEvent()
+            .setTimestampMillis(1L)
+            .setExecutionRequest(NEWER_RUN)
+            .setRequestedAtMillis(requestedAt)
+            .setStatus("SUCCESS");
+    if (successfulRequestedAt != null) {
+      event.setSuccessfulRunRequestedAtMillis(successfulRequestedAt);
+    }
+    return event;
   }
 
   private static MetadataChangeLog mcl(

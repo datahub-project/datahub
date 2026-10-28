@@ -41,12 +41,35 @@ public final class IngestionSourceRunEvents {
         : input.getRequestedAt();
   }
 
+  /**
+   * Builds the event for a run, carrying the source's last successful and last failed run forward
+   * from its previous event. Every event then holds all of the source's searchable fields, so the
+   * search document is right even when only the newest event of a batch is indexed.
+   */
   @Nonnull
   public static DataHubIngestionSourceRunEvent buildEvent(
       @Nonnull Urn executionRequestUrn,
       @Nonnull ExecutionRequestInput input,
       @Nullable ExecutionRequestResult result,
-      long timestampMillis) {
+      long timestampMillis,
+      @Nullable DataHubIngestionSourceRunEvent previous) {
+    return buildEvent(
+        executionRequestUrn,
+        input,
+        result,
+        timestampMillis,
+        previous != null ? previous.getSuccessfulRunRequestedAtMillis() : null,
+        previous != null ? previous.getFailedRunRequestedAtMillis() : null);
+  }
+
+  @Nonnull
+  public static DataHubIngestionSourceRunEvent buildEvent(
+      @Nonnull Urn executionRequestUrn,
+      @Nonnull ExecutionRequestInput input,
+      @Nullable ExecutionRequestResult result,
+      long timestampMillis,
+      @Nullable Long lastSuccessfulRequestedAtMillis,
+      @Nullable Long lastFailedRequestedAtMillis) {
     String status = status(result);
     DataHubIngestionSourceRunEvent event =
         new DataHubIngestionSourceRunEvent()
@@ -54,13 +77,25 @@ public final class IngestionSourceRunEvents {
             // One document per run and status, so a replayed event overwrites itself.
             .setMessageId(executionRequestUrn + ":" + status)
             .setExecutionRequest(executionRequestUrn)
-            .setRequestedAtMillis(input.getRequestedAt())
-            .setStatus(status);
+            .setRequestedAtMillis(input.getRequestedAt());
+    event.setStatus(status);
     if (SUCCESS_STATUS.equals(status)) {
-      event.setSuccessfulRunRequestedAtMillis(input.getRequestedAt());
+      lastSuccessfulRequestedAtMillis = input.getRequestedAt();
     } else if (FAILURE_STATUS.equals(status)) {
-      event.setFailedRunRequestedAtMillis(input.getRequestedAt());
+      lastFailedRequestedAtMillis = input.getRequestedAt();
+    }
+    if (lastSuccessfulRequestedAtMillis != null) {
+      event.setSuccessfulRunRequestedAtMillis(lastSuccessfulRequestedAtMillis);
+    }
+    if (lastFailedRequestedAtMillis != null) {
+      event.setFailedRunRequestedAtMillis(lastFailedRequestedAtMillis);
     }
     return event;
+  }
+
+  /** Whether the source already has an event for a run requested after this one. */
+  public static boolean isSupersededBy(
+      @Nonnull ExecutionRequestInput input, @Nullable DataHubIngestionSourceRunEvent latest) {
+    return latest != null && latest.getRequestedAtMillis() > input.getRequestedAt();
   }
 }
