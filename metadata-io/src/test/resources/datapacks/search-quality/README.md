@@ -1,9 +1,10 @@
-"""Cranfield plus the long-tail catalog, scored by separate judgments.
+"""Cranfield plus the longtail-ecommerce catalog, scored by separate judgments.
 
 This directory is a normal multi-file datapack. `index.json` lists only MCP shards.
 `judgments.json` is test metadata and is not ingested by `datahub datapack load`.
-The long-tail shards in this pack are the catalog. Search tests load this datapack
-and do not read Elasticsearch index snapshots.
+`03-longtail-ecommerce.json` is the companions catalog followed by the ecommerce
+catalog. `04-longtail-ecommerce-timeseries.json` is the profile shard. Search tests
+load this datapack and do not read Elasticsearch index snapshots.
 
 Regenerate judgments, Cranfield, and the probes with:
 
@@ -11,7 +12,11 @@ Regenerate judgments, Cranfield, and the probes with:
 python3 metadata-ingestion/tests/unit/search_quality/generate_search_quality_pack.py
 ```
 
-That command leaves `03-long-tail.json` and `04-long-tail-timeseries.json` in place.
+The generator leaves both longtail-ecommerce shards in place. The ecommerce entities
+were normalized from `datahub-project/static-assets` `datapacks/showcase-ecommerce`
+at commit `a4228e9f9e9c6ca4ccb453528448fca07170ce88` and are not rebuilt from that
+snapshot. Provenance is in `source/showcase-ecommerce/provenance.json`. The profile
+shard is not rebuilt.
 
 Cranfield (Cleverdon, 1400 abstracts, 225 queries, graded qrels) is adapted for internal
 search testing. Each abstract is one dataset: the title is the name and the abstract is
@@ -27,18 +32,35 @@ Two quirks of the source files decide whether the benchmark measures anything at
   minimum interest, and -1 is of no interest. The generator flips them so that a larger
   `relevance` in `judgments.json` always means more relevant.
 
-The `longtail` queries use the same gain scale. A 4 is the asset whose name, title, or
+The `longtail-ecommerce` queries use the same gain scale. A 4 is the asset whose name, title, or
 description is the query. A 3 is that asset on another platform or a close variant. A 2 is a
-related asset a user would still open. A 1 is a neighbor. `longtailNdcgAt10` is the mean nDCG@10
-of those queries on the template path. `javaBuilderLongtailNdcgAt10` is the same mean with
-template execution skipped. The `ranking` queries are pass/fail constraints on the template
-path: top hit, order, and presence.
+related asset a user would still open. A 1 is a neighbor. `longtailEcommerceNdcgAt10` is the mean
+nDCG@10 of those queries on the template path. `javaBuilderLongtailEcommerceNdcgAt10` is the same
+mean with template execution skipped. The `keyword-probe` queries are pass/fail constraints on the
+template path: top hit, order, presence, and name/qualified-name relationships. `entity-boost` compares one glossary term, glossary
+node, data product, domain, and dataset that share a name and description. `entity-search` checks
+that one imported user and one imported group are findable. Neither group is part of an nDCG mean.
+The `autocomplete` queries are also pass/fail and stay out of both nDCG floors: a two-character
+prefix of a name that does not occur in Cranfield, a one-character prefix of the rank users, and a
+prefix that matches nothing.
+
+Two kinds of judgment are kept apart. Ground truth is `benchmark` (Cranfield qrels) and
+`longtail-ecommerce` (the 4/3/2/1 scale applied to catalog text). Those are the only groups in an
+nDCG mean, and a grade has to be defensible from the asset's name, title, description, or field
+text. Mechanism probes encode a ranking rule and stay out of both means: `entity-boost`,
+`entity-search`, `structured-property`, `sort`, `field-probe`, `autocomplete`, and
+`keyword-probe`. `entity-boost` gives a glossary term, glossary node, data
+product, domain, and dataset one shared name and description, so their order only checks the
+shipped `entityTypeBoosts` (glossary term and node 10, domain and data product 5, dataset
+unweighted). That order is not evidence that those weights are the right product choice.
 
 Each engine writes one JSON file per gate to
-`metadata-io/build/reports/search-quality/<engine>-<metric>.json` before the floor check. OpenSearch
-3 uses the `opensearch3` name so it does not overwrite the OpenSearch 2 report. When the metadata-io
-job fails, CI uploads that directory as `Search Quality (metadata-io <suite>)` and keeps it for one
-day.
+`metadata-io/build/reports/search-quality/<engine>-<metric>.json` before the floor check. A named
+profile writes `<engine>-<profile>-<metric>.json` so two profiles of one engine keep both files.
+OpenSearch 3 uses the `opensearch3` name so it does not overwrite the OpenSearch 2 report. Each
+query and each probe records its top hits with rank, urn, name, score, and relevance. When the
+metadata-io job fails, CI uploads that directory as `Search Quality (metadata-io <suite>)` and
+keeps it for one day.
 
 Until this pack is on `master`, load the checkout instead of the registry name:
 

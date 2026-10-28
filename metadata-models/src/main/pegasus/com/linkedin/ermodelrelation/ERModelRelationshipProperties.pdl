@@ -21,6 +21,7 @@ record ERModelRelationshipProperties includes CustomProperties {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -39,6 +40,9 @@ record ERModelRelationshipProperties includes CustomProperties {
      "entityTypes": [ "dataset" ]
    }
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
     "boostScore": 10.0
@@ -53,6 +57,9 @@ record ERModelRelationshipProperties includes CustomProperties {
      "entityTypes": [ "dataset" ]
    }
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
     "boostScore": 10.0

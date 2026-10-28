@@ -174,7 +174,13 @@ public class ESUtils {
   /** Mapping parameter name for the keyword length guard described above. */
   public static final String IGNORE_ABOVE = "ignore_above";
 
-  /** Byte-safe {@code ignore_above} (characters) for a configured keyword max length in bytes. */
+  /**
+   * Byte-safe {@code ignore_above} (characters) for a configured keyword max length in bytes.
+   *
+   * <p>{@code ignore_above} is measured in <b>characters</b> by Elasticsearch/OpenSearch, but
+   * Lucene's per-term limit is in <b>bytes</b>. A UTF-8 character is at most 4 bytes, so dividing
+   * by 4 yields the largest character threshold that can never exceed the byte limit.
+   */
   public static int keywordIgnoreAboveForMaxBytes(int keywordMaxBytes) {
     int maxBytes = keywordMaxBytes > 0 ? keywordMaxBytes : KEYWORD_MAXLENGTH;
     return maxBytes / 4;
@@ -860,12 +866,24 @@ public class ESUtils {
       List<SortCriterion> sortCriteria,
       List<EntitySpec> entitySpecs,
       @Nullable SearchFieldResolver v3FieldResolver) {
+    buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, v3FieldResolver, null, null);
+  }
+
+  public static void buildSortOrder(
+      @Nonnull SearchSourceBuilder searchSourceBuilder,
+      List<SortCriterion> sortCriteria,
+      List<EntitySpec> entitySpecs,
+      @Nullable SearchFieldResolver v3FieldResolver,
+      @Nullable OperationFingerprint opContext,
+      @Nullable AspectRetriever aspectRetriever) {
     buildSortOrder(
         searchSourceBuilder,
         sortCriteria == null ? List.of() : sortCriteria,
         entitySpecs,
         true,
-        v3FieldResolver);
+        v3FieldResolver,
+        opContext,
+        aspectRetriever);
   }
 
   /**
@@ -889,13 +907,38 @@ public class ESUtils {
       List<EntitySpec> entitySpecs,
       boolean enableDefaultSort,
       @Nullable SearchFieldResolver v3FieldResolver) {
+    buildSortOrder(
+        searchSourceBuilder,
+        sortCriteria,
+        entitySpecs,
+        enableDefaultSort,
+        v3FieldResolver,
+        null,
+        null);
+  }
+
+  public static void buildSortOrder(
+      @Nonnull SearchSourceBuilder searchSourceBuilder,
+      @Nullable List<SortCriterion> sortCriteria,
+      List<EntitySpec> entitySpecs,
+      boolean enableDefaultSort,
+      @Nullable SearchFieldResolver v3FieldResolver,
+      @Nullable OperationFingerprint opContext,
+      @Nullable AspectRetriever aspectRetriever) {
     if (sortCriteria.isEmpty() && enableDefaultSort) {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
     } else {
       sortCriteria = sortCriteria != null ? sortCriteria : Collections.emptyList();
       for (SortCriterion sortCriterion : sortCriteria) {
-        Optional<SearchableAnnotation.FieldType> fieldTypeForDefault = Optional.empty();
+        // urn is a synthetic keyword root on every entity index, not an annotated entity field.
+        Optional<SearchableAnnotation.FieldType> fieldTypeForDefault =
+            DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD.equals(sortCriterion.getField())
+                ? Optional.of(SearchableAnnotation.FieldType.KEYWORD)
+                : Optional.empty();
         for (EntitySpec entitySpec : entitySpecs) {
+          if (fieldTypeForDefault.isPresent()) {
+            break;
+          }
           List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
           for (SearchableFieldSpec fieldSpec : fieldSpecs) {
             SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
@@ -909,7 +952,9 @@ public class ESUtils {
             break;
           }
         }
-        if (fieldTypeForDefault.isEmpty() && !entitySpecs.isEmpty()) {
+        if (fieldTypeForDefault.isEmpty()
+            && !entitySpecs.isEmpty()
+            && !StructuredPropertyUtils.isStructuredPropertyField(sortCriterion.getField())) {
           log.warn(
               "Sort criterion field "
                   + sortCriterion.getField()
@@ -930,6 +975,12 @@ public class ESUtils {
           if (esFieldtype != null) {
             sortBuilder.unmappedType(esFieldtype);
           }
+        } else {
+          // A structured property is not an entity-spec field, so the loop above does not
+          // learn a type. An index whose entity does not declare the property has no mapping.
+          // unmappedType has to match the mapped type or the cross-index merge rejects the sort.
+          structuredPropertySortType(opContext, aspectRetriever, sortCriterion.getField())
+              .ifPresent(sortBuilder::unmappedType);
         }
 
         // How missing value in documents should be treated in sorting.
@@ -947,6 +998,31 @@ public class ESUtils {
       searchSourceBuilder.sort(
           new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
     }
+  }
+
+  /**
+   * Elasticsearch type of a structured property, used as {@code unmapped_type} when another index
+   * in the same search does not map the field. Empty when the definition is not loaded, so a
+   * missing property still fails the query instead of sorting as the wrong type.
+   */
+  private static Optional<String> structuredPropertySortType(
+      @Nullable OperationFingerprint opContext,
+      @Nullable AspectRetriever aspectRetriever,
+      @Nonnull String field) {
+    if (aspectRetriever == null || !StructuredPropertyUtils.isStructuredPropertyField(field)) {
+      return Optional.empty();
+    }
+    if (StructuredPropertyUtils.lookupDefinitionFromFilterOrFacetName(
+            opContext, field, aspectRetriever)
+        .isEmpty()) {
+      return Optional.empty();
+    }
+    Set<String> types =
+        StructuredPropertyUtils.toElasticsearchFieldType(opContext, field, aspectRetriever);
+    if (types.size() != 1) {
+      return Optional.empty();
+    }
+    return Optional.of(types.iterator().next());
   }
 
   /**

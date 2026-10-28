@@ -68,6 +68,23 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertTrue(result.getCanManageEntity());
+    assertTrue(result.getCanEditLifecycleStage());
+  }
+
+  @Test
+  public void testGetTermCanEditLifecycleStageWithOnlyLifecyclePrivilege() throws Exception {
+    final GlossaryTerm glossaryTerm = new GlossaryTerm();
+    glossaryTerm.setUrn(glossaryTermUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv =
+        setUpTestWithContext(glossaryTerm, contextGrantingOnly("EDIT_ENTITY_LIFECYCLE_STAGE"));
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertTrue(result.getCanEditLifecycleStage());
+    assertFalse(result.getCanManageEntity());
   }
 
   @Test
@@ -106,6 +123,7 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertFalse(result.getCanManageEntity());
+    assertFalse(result.getCanEditLifecycleStage());
   }
 
   @Test

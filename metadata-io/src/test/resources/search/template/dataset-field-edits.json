@@ -12,16 +12,6 @@
     }, {
       "filter" : {
         "term" : {
-          "materialized" : {
-            "boost" : 1.0,
-            "value" : "true"
-          }
-        }
-      },
-      "weight" : 0.5
-    }, {
-      "filter" : {
-        "term" : {
           "deprecated" : {
             "boost" : 1.0,
             "value" : "true"
@@ -45,9 +35,22 @@
                 "auto_generate_synonyms_phrase_query" : true,
                 "boost" : 1.0,
                 "default_operator" : "or",
-                "fields" : [ "platformInstance.text^0.4", "applications.stemmed^0.2", "applications.text^0.4", "dataProduct.text^0.4", "platform.stemmed^0.2", "glossaryTerms.stemmed^0.1", "other.stemmed^0.1", "description.stemmed^0.2", "tags.stemmed^0.1", "name.text^4.0", "qualifiedName.text^4.0", "domains.text^0.4", "domains.stemmed^0.2", "qualifiedName.stemmed^2.0", "platformInstance.stemmed^0.2", "tags.text^0.2", "container.text^0.4", "description.text^0.4", "platform.text^0.4", "name.stemmed^2.0", "glossaryTerms.text^0.2", "dataProduct.stemmed^0.2", "other.text^0.2", "container.stemmed^0.2" ],
+                "fields" : [ "glossaryTerms.stemmed^0.1", "tags.text^0.2", "other.stemmed^0.1", "description.stemmed^0.2", "tags.stemmed^0.1", "description.text^0.4", "name.text^4.0", "name.stemmed^2.0", "glossaryTerms.text^0.2", "other.text^0.2" ],
                 "flags" : -1,
                 "fuzzy_max_expansions" : 10,
+                "fuzzy_prefix_length" : 0,
+                "fuzzy_transpositions" : true,
+                "query" : "customer~2 orders~1"
+              }
+            }, {
+              "simple_query_string" : {
+                "analyze_wildcard" : false,
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 1.0,
+                "default_operator" : "or",
+                "fields" : [ "qualifiedName.text^4.0", "qualifiedName.stemmed^2.0" ],
+                "flags" : -1,
+                "fuzzy_max_expansions" : 50,
                 "fuzzy_prefix_length" : 0,
                 "fuzzy_transpositions" : true,
                 "query" : "customer~2 orders~1"
@@ -93,16 +96,19 @@
                 }
               }
             }, {
-              "constant_score" : {
-                "boost" : 1000.0,
-                "filter" : {
-                  "term" : {
-                    "name.keyword" : {
-                      "boost" : 1.0,
-                      "case_insensitive" : true,
-                      "value" : "customer orders"
-                    }
-                  }
+              "term" : {
+                "name.keyword" : {
+                  "boost" : 100.0,
+                  "case_insensitive" : true,
+                  "value" : "customer orders"
+                }
+              }
+            }, {
+              "term" : {
+                "qualifiedName.keyword" : {
+                  "boost" : 100.0,
+                  "case_insensitive" : true,
+                  "value" : "customer orders"
                 }
               }
             }, {
@@ -111,7 +117,20 @@
                 "auto_generate_synonyms_phrase_query" : true,
                 "boost" : 3.0,
                 "default_operator" : "and",
-                "fields" : [ "name.text^4.0", "qualifiedName.text^4.0", "name.stemmed^2.0", "qualifiedName.stemmed^2.0" ],
+                "fields" : [ "name.text^4.0", "name.stemmed^2.0" ],
+                "flags" : -1,
+                "fuzzy_max_expansions" : 50,
+                "fuzzy_prefix_length" : 0,
+                "fuzzy_transpositions" : true,
+                "query" : "customer orders"
+              }
+            }, {
+              "simple_query_string" : {
+                "analyze_wildcard" : false,
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 3.0,
+                "default_operator" : "and",
+                "fields" : [ "qualifiedName.text^4.0", "qualifiedName.stemmed^2.0" ],
                 "flags" : -1,
                 "fuzzy_max_expansions" : 50,
                 "fuzzy_prefix_length" : 0,
@@ -182,6 +201,6 @@
         } ]
       }
     },
-    "score_mode" : "avg"
+    "score_mode" : "multiply"
   }
 }

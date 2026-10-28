@@ -29,10 +29,10 @@ import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
@@ -52,6 +52,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.opensearch.action.search.SearchRequest;
@@ -323,15 +324,20 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                     .v3(new SearchV3Configuration().setTemplates(templates))
                     .build())
             .build();
-    SearchTemplates.install(
-        new SearchTemplateCoordinator(
-            elastic, null, new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH)));
+    opContext =
+        opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                elastic,
+                null,
+                new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH),
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty()));
     try {
       assertBrowseQuery(elastic, "", "*", "match_all");
       assertBrowseQuery(elastic, "", "orders", "simple_query_string");
       assertBrowseQuery(elastic, "␟prod", "orders", "simple_query_string");
     } finally {
-      SearchTemplates.install(null);
+      opContext = opContext.withSearchTemplateRuntime(null);
     }
   }
 
@@ -372,9 +378,14 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                     .v3(new SearchV3Configuration().setTemplates(templates))
                     .build())
             .build();
-    SearchTemplates.install(
-        new SearchTemplateCoordinator(
-            elastic, null, new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog)));
+    opContext =
+        opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                elastic,
+                null,
+                new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH, catalog),
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty()));
     try {
       SearchRequest single = browseRequest(elastic, "dataset-path");
       SearchRequest across = browseAcrossRequest(elastic, "dataset-path");
@@ -402,7 +413,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
                 .noneMatch(aggregation -> "platform".equals(aggregation.getName())));
       }
     } finally {
-      SearchTemplates.install(null);
+      opContext = opContext.withSearchTemplateRuntime(null);
     }
   }
 
@@ -509,7 +520,12 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     SearchRequest request = requestCaptor.getValue();
     String query = request.source().query().toString();
     assertTrue(query.contains(lexicalClause), query);
-    assertTrue(query.contains("function_score"), query);
+    // An empty query or * is the complete URN list, which does not rank.
+    if ("*".equals(input) || input.isEmpty()) {
+      assertFalse(query.contains("function_score"), query);
+    } else {
+      assertTrue(query.contains("function_score"), query);
+    }
     assertTrue(query.contains("\"browsePathV2.length\""), query);
     assertTrue(query.contains("removed"), query);
     if (path.isEmpty()) {

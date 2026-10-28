@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -12,12 +12,12 @@ import { recordAnalyticsEvents } from '@app/lineageV3/manualLineage/recordManual
 import updateNodeContext from '@app/lineageV3/manualLineage/updateNodeContext';
 import { filterManualLineageUrns, getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
 import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
 import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/SearchSelect';
-import ClickOutside from '@src/app/shared/ClickOutside';
+import ClickOutside from '@src/app/sharedV2/ClickOutside';
 
 import { useUpdateLineageMutation } from '@graphql/mutations.generated';
 import { Entity, EntityType, LineageDirection } from '@types';
@@ -115,7 +115,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
             .then((res) => {
                 if (res.data?.updateLineage) {
                     closeModal();
-                    message.success(t('manualLineage.updateLineageSuccess'));
+                    toast.success(t('manualLineage.updateLineageSuccess'));
                     updateNodeContext(node.urn, direction, user, nodeContext, entitiesToAdd, entitiesToRemove);
                     refetch?.();
 
@@ -131,7 +131,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 }
             })
             .catch((error) => {
-                message.error(error.message || t('manualLineage.updateLineageError'));
+                toast.error(error.message || t('manualLineage.updateLineageError'));
                 setIsSaving(false);
             });
     }

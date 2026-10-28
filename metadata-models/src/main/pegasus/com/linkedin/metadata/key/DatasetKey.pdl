@@ -7,7 +7,8 @@ import com.linkedin.common.FabricType
  * Key for a Dataset
  */
 @Aspect = {
-  "name": "datasetKey"
+  "name": "datasetKey",
+  "schemaVersion": 2
 }
 record DatasetKey {
   /**
@@ -17,7 +18,8 @@ record DatasetKey {
     "fieldType": "URN",
     "enableAutocomplete": true,
     "v3": {
-      "searchLabel": "platform"
+      "searchLabel": "platform",
+      "copyToOther": true
     }
   }
   platform: Urn
@@ -27,10 +29,19 @@ record DatasetKey {
   */
   //This is no longer to be used for Dataset native name. Use name, qualifiedName from DatasetProperties instead.
   @Searchable = {
-    "fieldName": "id"
+    "fieldName": "id",
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 

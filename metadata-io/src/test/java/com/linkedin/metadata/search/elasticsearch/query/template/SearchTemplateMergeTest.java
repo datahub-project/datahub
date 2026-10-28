@@ -33,6 +33,7 @@ import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import org.testng.annotations.Test;
 
 public class SearchTemplateMergeTest extends SearchTemplateFixture {
@@ -354,12 +355,22 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
     elastic.getEntityIndex().setV3(indexV3);
     elastic.getSearch().getV3().setTemplates(templates);
     SearchTemplateCoordinator semanticCoordinator =
-        new SearchTemplateCoordinator(elastic, null, loader);
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     templates.getDefaults().put("fulltext", Map.of("default", "urn:li:searchTemplate:child"));
     assertThrows(
         SearchTemplateException.class,
         () ->
-            new SearchTemplateCoordinator(v3Config(), null, loader)
+            new SearchTemplateCoordinator(
+                    v3Config(),
+                    null,
+                    loader,
+                    ForkJoinPool.commonPool(),
+                    SearchTemplateComponentRegistry.empty())
                 .bind(opContext, "customer orders"));
     OperationContext semanticBound =
         semanticCoordinator.bind(opContext, "customer orders", false, List.of("document"));
@@ -406,7 +417,13 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
     none.setRanking(supported);
     SearchTemplateChecks.check(none, 1024);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, none);
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(v3Config(), null, loader);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     assertNotNull(
         coordinator
             .bind(opContext, "customer orders")

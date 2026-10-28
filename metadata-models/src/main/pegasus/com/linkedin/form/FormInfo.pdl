@@ -7,7 +7,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "formInfo",
-  "schemaVersion": 3
+  "schemaVersion": 5
 }
 record FormInfo {
   /**
@@ -17,6 +17,7 @@ record FormInfo {
     "fieldType": "TEXT_PARTIAL",
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -34,6 +35,7 @@ record FormInfo {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },

@@ -65,6 +65,7 @@ public abstract class OpenTelemetryBaseFactory {
     return SystemTelemetryContext.builder()
         .metricUtils(metricUtils)
         .tracer(tracer(openTelemetry))
+        .textMapPropagator(openTelemetry.getPropagators().getTextMapPropagator())
         .usageSpanExporter(usageSpanExporter)
         .build();
   }

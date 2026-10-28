@@ -24,6 +24,7 @@ record DataJobInfo includes CustomProperties, ExternalReference {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
       "mappings": [
         { "type": "KEYWORD" },
@@ -42,6 +43,7 @@ record DataJobInfo includes CustomProperties, ExternalReference {
     "hasValuesFieldName": "hasDescription",
     "sanitizeRichText": true,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },

@@ -1,13 +1,17 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.testng.annotations.Test;
 
 public class V3SearchFieldModelTest {
@@ -47,5 +51,37 @@ public class V3SearchFieldModelTest {
         V3SearchFieldModel.forIndexGroup(REGISTRY, List.of(REGISTRY.getEntitySpec("dataset"))),
         V3SearchFieldModel.of(
             V3SearchFields.indexGroupSpecs(REGISTRY, List.of(REGISTRY.getEntitySpec("dataset")))));
+  }
+
+  @Test
+  public void testSearchReadsTheSharedMappingFieldModel() {
+    V3SearchFieldModel shared = V3SearchFieldModel.forSearchableEntities(REGISTRY);
+    SearchFieldResolver document = shared.resolver();
+    SearchFieldResolver dataset = V3SearchFieldModel.forSearchableEntities(REGISTRY).resolver();
+
+    SearchFieldResolver.Field description = document.resolve("description", Intent.FULL_TEXT);
+
+    assertSame(document, dataset);
+    assertEquals(description.getPath(), "description");
+    assertTrue(description.getSubfields().containsAll(Set.of("text", "stemmed")));
+    assertFalse(
+        V3SearchFieldModel.forIndexGroup(REGISTRY, List.of(REGISTRY.getEntitySpec("document")))
+            .resolver()
+            .supports("description", Intent.FULL_TEXT));
+    assertEquals(document.exactPath("id", Intent.EXACT), "id.keyword");
+    assertEquals(document.exactPath("id", Intent.FILTER), "name.keyword");
+    assertEquals(document.exactPath("title", Intent.FILTER), "name.keyword");
+    assertEquals(document.exactPath("createdAt", Intent.RANGE), "sourceCreatedAt");
+    assertEquals(document.exactPath("createdAt", Intent.SORT), "sourceCreatedAt");
+    assertEquals(
+        V3SearchFieldModel.of(List.of(REGISTRY.getEntitySpec("mlModel")))
+            .resolver()
+            .exactPath("id", Intent.EXACT),
+        "name.keyword");
+    assertEquals(
+        V3SearchFieldModel.of(List.of(REGISTRY.getEntitySpec("dataset")))
+            .resolver()
+            .exactPath("id", Intent.EXACT),
+        "name.keyword");
   }
 }

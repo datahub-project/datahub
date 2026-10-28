@@ -17,8 +17,8 @@ import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import { filterHiddenProperties } from '@app/entityV2/shared/tabs/Properties/utils';
 import { TabRenderType } from '@app/entityV2/shared/types';
-import Loading from '@app/shared/Loading';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import Loading from '@app/sharedV2/Loading';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
 import { Maybe, SchemaFieldEntity } from '@src/types.generated';
 
@@ -62,7 +62,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const refetch = properties?.refetch;
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const {
         structuredPropertyRows,

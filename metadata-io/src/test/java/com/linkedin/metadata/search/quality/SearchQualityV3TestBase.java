@@ -14,7 +14,12 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.SessionActorIdentity;
 import com.datahub.context.OperationFingerprint;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -22,6 +27,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
@@ -37,6 +43,7 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -44,6 +51,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -57,11 +65,13 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateBootstrap;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -77,11 +87,14 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.search.template.HighlightFieldOverrides;
+import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.test.metadata.aspect.MockAspectRetriever;
 import com.linkedin.test.metadata.aspect.batch.TestMCL;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -102,8 +115,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.client.RequestOptions;
@@ -125,6 +140,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
   private OperationContext opContext;
   private ElasticSearchService searchService;
   private int shardCount;
+  private JsonNode judgmentsFile;
 
   @Nonnull
   protected abstract SearchClientShim<?> getSearchClient();
@@ -135,11 +151,33 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
   @Nonnull
   protected abstract String engineName();
 
+  /** Empty uses the OSS pack. A name also reads index.{name}.json and judgments.{name}.json. */
+  @Nonnull
+  protected String profile() {
+    return "";
+  }
+
+  @Nonnull
+  protected SearchTemplateConfiguration templateConfiguration() {
+    return shippedTemplateConfiguration();
+  }
+
+  @Nonnull
+  protected String indexPrefix() {
+    return "searchquality";
+  }
+
+  @Nonnull
+  protected SearchTemplateComponentRegistry componentRegistry() {
+    return SearchTemplateComponentRegistry.empty();
+  }
+
   @BeforeClass
   public void loadPack() throws Exception {
-    List<JsonNode> shards = SearchQualityPack.readShards();
-    shardCount = shards.size();
-    assertEquals(shardCount, 6);
+    SearchQualityPack.Loaded loaded = SearchQualityPack.load(profile());
+    judgmentsFile = loaded.judgments();
+    List<JsonNode> shards = loaded.shards();
+    shardCount = loaded.shardCount();
     EntityIndexConfiguration entityIndex =
         V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
@@ -153,20 +191,30 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             .entityIndex(entityIndex)
             .search(
                 TEST_ES_SEARCH_CONFIG.getSearch().toBuilder()
-                    .v3(new SearchV3Configuration().setTemplates(shippedTemplateConfiguration()))
+                    .v3(new SearchV3Configuration().setTemplates(templateConfiguration()))
                     .build())
             .build();
-    SearchTemplates.install(
+    SearchTemplateCoordinator coordinator =
         new SearchTemplateCoordinator(
-            config, null, new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH)));
+            config,
+            null,
+            new SearchTemplateLoader(0, SearchTemplateSource.STORAGE),
+            ForkJoinPool.commonPool(),
+            componentRegistry());
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
-            new ConfiguredIndexPrefixResolver("searchquality"),
+            new ConfiguredIndexPrefixResolver(indexPrefix()),
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
     MappingsBuilder mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
     Map<Urn, List<RecordTemplate>> definitionAspects = new LinkedHashMap<>();
+    for (String templateUrn : SearchTemplateBootstrap.urns()) {
+      SearchTemplateProperties template = SearchTemplateBootstrap.get(templateUrn);
+      if (template != null) {
+        definitionAspects.put(UrnUtils.getUrn(templateUrn), List.of(template));
+      }
+    }
     List<Pair<Urn, StructuredPropertyDefinition>> structuredProperties = new ArrayList<>();
     Map<Urn, List<MCLItem>> events = new LinkedHashMap<>();
     Set<String> entityTypes = new HashSet<>();
@@ -176,6 +224,10 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
         entityTypes.add(urn.getEntityType());
         RecordTemplate aspect = aspect(entityRegistry, urn, proposal);
         rememberCard(proposal, aspect);
+        // The imported catalog keeps aspects this model does not define.
+        if (aspect == null) {
+          continue;
+        }
         events
             .computeIfAbsent(urn, ignored -> new ArrayList<>())
             .add(event(entityRegistry, urn, aspect));
@@ -213,6 +265,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
                 SearchContext.builder()
                     .indexConvention(indexConvention)
                     .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
+                    .searchTemplateRuntime(coordinator)
                     .searchableFieldTypes(
                         ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
                     .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
@@ -275,7 +328,6 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
 
   @AfterClass(alwaysRun = true)
   public void deleteIndices() throws Exception {
-    SearchTemplates.install(null);
     for (String index : createdIndices) {
       getSearchClient()
           .deleteIndex(
@@ -285,7 +337,6 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
 
   @Test
   public void testEveryShardWasIndexed() {
-    assertEquals(shardCount, 6);
     assertTrue(cards.containsKey("urn:li:dataPlatform:cranfield"));
     assertTrue(
         cards.containsKey("urn:li:dataset:(urn:li:dataPlatform:cranfield,cranfield.1,PROD)"));
@@ -339,7 +390,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
             .withSearchFlags(flags -> flags.setFulltext(true));
     ResolvedSearchTemplate entities =
-        SearchTemplates.current()
+        SearchTemplateRuntimes.coordinator(keyword)
             .bind(keyword, "experimental investigation of the aerodynamics", false)
             .getSearchContext()
             .getResolvedSearchTemplate();
@@ -350,7 +401,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
             .withSearchFlags(flags -> flags.setFulltext(true));
     ResolvedSearchTemplate lineageTemplate =
-        SearchTemplates.current()
+        SearchTemplateRuntimes.coordinator(lineage)
             .bind(lineage, "pet profiles", false)
             .getSearchContext()
             .getResolvedSearchTemplate();
@@ -360,14 +411,19 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
 
   @Test
   public void testBenchmarkNdcgAndProbes() throws Exception {
-    JsonNode file = SearchQualityPack.judgments();
+    JsonNode file = judgments();
     double floor = file.path("floors").path(engineName()).path("benchmarkNdcgAt10").asDouble(0.0);
     List<SearchQualityReport.QueryScore> scores = new ArrayList<>();
     List<String> probeFailures = new ArrayList<>();
     List<SearchQualityReport.ProbeScore> probes = new ArrayList<>();
     for (JsonNode judgment : file.path("judgments")) {
       String group = judgment.path("group").asText();
-      if ("semantic-probe".equals(group)) {
+      if ("semantic-probe".equals(group)
+          || "sort".equals(group)
+          || "field-probe".equals(group)
+          || "autocomplete".equals(group)
+          || "entity-boost".equals(group)
+          || "entity-search".equals(group)) {
         continue;
       }
       if ("benchmark".equals(group)) {
@@ -378,9 +434,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
         if (!probe.passed()) {
           probeFailures.add(probe.message());
         }
-        if ("ranking".equals(group)
-            || "catalog-probe".equals(group)
-            || "structured-property".equals(group)) {
+        if ("keyword-probe".equals(group) || "structured-property".equals(group)) {
           probes.add(probe);
         }
       }
@@ -409,8 +463,8 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
             .withSkipTemplateExecution(true)
             .withSearchFlags(flags -> flags.setFulltext(true));
-    assertFalse(SearchTemplates.current().executes(javaContext));
-    JsonNode file = SearchQualityPack.judgments();
+    assertFalse(SearchTemplateRuntimes.coordinator(javaContext).executes(javaContext));
+    JsonNode file = judgments();
     double floor =
         file.path("floors").path(engineName()).path("javaBuilderBenchmarkNdcgAt10").asDouble(0.0);
     List<SearchQualityReport.QueryScore> scores = new ArrayList<>();
@@ -431,12 +485,128 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
   }
 
   /**
-   * Mean nDCG@10 of the long-tail catalog queries on the template path. Grades prefer the asset
-   * whose name or description is the query, then the same asset on another platform.
+   * Mean nDCG@10 of the longtail-ecommerce catalog queries on the template path. Grades prefer the
+   * asset whose name or description is the query, then the same asset on another platform.
    */
   @Test
   public void testLongtailNdcg() throws Exception {
-    scoreGroup("longtail", false, "longtailNdcgAt10");
+    scoreGroup("longtail-ecommerce", false, "longtailEcommerceNdcgAt10");
+  }
+
+  /**
+   * Isolated entity-type weights. The control set shares one name and description, so the wrapper
+   * is the only score difference. These queries stay out of both nDCG means. The Java builder skips
+   * templates and does not apply the weights.
+   */
+  @Test
+  public void testEntityBoostProbes() throws Exception {
+    assertProbeGroup("entity-boost", 3);
+  }
+
+  /** Imported users and groups are searchable. They have no shipped entity-type weight. */
+  @Test
+  public void testEntitySearchProbes() throws Exception {
+    assertProbeGroup("entity-search", 2);
+  }
+
+  /** Caller sort on the closed sort-probe set. These queries are not part of either nDCG floor. */
+  @Test
+  public void testSortProbes() throws Exception {
+    JsonNode file = judgments();
+    List<String> failures = new ArrayList<>();
+    int seen = 0;
+    for (JsonNode judgment : file.path("judgments")) {
+      if (!"sort".equals(judgment.path("group").asText())) {
+        continue;
+      }
+      seen++;
+      SearchQualityReport.ProbeScore probe = SearchQualityReport.probe(judgment, run(judgment));
+      if (!probe.passed()) {
+        failures.add(probe.message());
+      }
+    }
+    assertEquals(seen, 5, "sort probes were not loaded");
+    assertTrue(failures.isEmpty(), String.join("\n", failures));
+  }
+
+  /**
+   * One token whose only copy is a single field. A miss stays out of both nDCG floors. The template
+   * path and the Java builder are recorded separately.
+   */
+  @Test
+  public void testFieldProbes() throws Exception {
+    JsonNode file = judgments();
+    List<String> failures = new ArrayList<>();
+    List<SearchQualityReport.ProbeScore> probes = new ArrayList<>();
+    int seen = 0;
+    for (JsonNode judgment : file.path("judgments")) {
+      if (!"field-probe".equals(judgment.path("group").asText())) {
+        continue;
+      }
+      seen++;
+      for (boolean javaBuilder : List.of(false, true)) {
+        String path = javaBuilder ? "javaBuilder" : "template";
+        RankedSearchResult result = run(judgment, javaBuilder);
+        SearchQualityReport.ProbeScore probe = SearchQualityReport.probe(judgment, result);
+        probes.add(probe);
+        if (!probe.passed()) {
+          failures.add(path + " " + probe.message());
+        }
+      }
+    }
+    Path report = writeReport("fieldProbes", 0.0, List.of(), probes);
+    assertEquals(seen, 6, "field probes were not loaded");
+    assertTrue(failures.isEmpty(), withReport(String.join("\n", failures), report));
+  }
+
+  /** Prefix suggestions. These queries are not part of either nDCG floor. */
+  @Test
+  public void testAutocompleteProbes() throws Exception {
+    JsonNode file = judgments();
+    List<String> failures = new ArrayList<>();
+    int seen = 0;
+    for (JsonNode judgment : file.path("judgments")) {
+      if (!"autocomplete".equals(judgment.path("group").asText())) {
+        continue;
+      }
+      seen++;
+      String entityType = judgment.path("entityTypes").get(0).asText();
+      AutoCompleteResult result =
+          searchService.autoComplete(
+              opContext, entityType, judgment.path("query").asText(), null, null, 10);
+      if (result.getSuggestions().size() != result.getEntities().size()) {
+        failures.add(judgment.path("id").asText() + " suggestions and entities differ");
+      }
+      List<String> urns = new ArrayList<>();
+      result.getEntities().forEach(entity -> urns.add(entity.getUrn().toString()));
+      List<String> expected = new ArrayList<>();
+      judgment.path("expectedUrns").forEach(node -> expected.add(node.asText()));
+      for (String urn : expected) {
+        if (!urns.contains(urn)) {
+          failures.add(judgment.path("id").asText() + " missing " + urn + " got " + urns);
+        }
+      }
+      if (expected.isEmpty() && !result.getSuggestions().isEmpty()) {
+        failures.add(
+            judgment.path("id").asText()
+                + " expected no suggestions, got "
+                + result.getSuggestions());
+      }
+      if (judgment.hasNonNull("expectedSuggestion") && !expected.isEmpty()) {
+        int index = urns.indexOf(expected.get(0));
+        String suggestion = judgment.path("expectedSuggestion").asText();
+        if (index < 0 || !suggestion.equals(result.getSuggestions().get(index))) {
+          failures.add(
+              judgment.path("id").asText()
+                  + " suggestion "
+                  + result.getSuggestions()
+                  + " for "
+                  + urns);
+        }
+      }
+    }
+    assertEquals(seen, 3, "autocomplete probes were not loaded");
+    assertTrue(failures.isEmpty(), String.join("\n", failures));
   }
 
   /**
@@ -449,12 +619,33 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
             .withSkipTemplateExecution(true)
             .withSearchFlags(flags -> flags.setFulltext(true));
-    assertFalse(SearchTemplates.current().executes(javaContext));
-    scoreGroup("longtail", true, "javaBuilderLongtailNdcgAt10");
+    assertFalse(SearchTemplateRuntimes.coordinator(javaContext).executes(javaContext));
+    scoreGroup("longtail-ecommerce", true, "javaBuilderLongtailEcommerceNdcgAt10");
+  }
+
+  private void assertProbeGroup(String group, int expected) throws Exception {
+    JsonNode file = judgments();
+    List<String> failures = new ArrayList<>();
+    List<SearchQualityReport.ProbeScore> probes = new ArrayList<>();
+    int seen = 0;
+    for (JsonNode judgment : file.path("judgments")) {
+      if (!group.equals(judgment.path("group").asText())) {
+        continue;
+      }
+      seen++;
+      SearchQualityReport.ProbeScore probe = SearchQualityReport.probe(judgment, run(judgment));
+      probes.add(probe);
+      if (!probe.passed()) {
+        failures.add(probe.message());
+      }
+    }
+    Path report = writeReport(group, 0.0, List.of(), probes);
+    assertEquals(seen, expected, group + " probes were not loaded");
+    assertTrue(failures.isEmpty(), withReport(String.join("\n", failures), report));
   }
 
   private void scoreGroup(String group, boolean javaBuilder, String floorName) throws Exception {
-    JsonNode file = SearchQualityPack.judgments();
+    JsonNode file = judgments();
     double floor = file.path("floors").path(engineName()).path(floorName).asDouble(0.0);
     List<SearchQualityReport.QueryScore> scores = new ArrayList<>();
     for (JsonNode judgment : file.path("judgments")) {
@@ -481,7 +672,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
         getSearchClient().getEngineType() == SearchClientShim.SearchEngineType.OPENSEARCH_3
             ? "opensearch3"
             : engineName();
-    return SearchQualityReport.write(engine, metric, floor, queries, probes);
+    return SearchQualityReport.write(engine, profile(), metric, floor, queries, probes);
   }
 
   private static String withReport(String message, Path report) {
@@ -525,41 +716,118 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
     List<String> entityTypes = new ArrayList<>();
     judgment.path("entityTypes").forEach(node -> entityTypes.add(node.asText()));
     String surface = SearchTemplateSurfaces.SEARCH_ENTITIES;
+    OperationContext judgmentContext = viewerContext(judgment);
     return search(
+        judgmentContext,
         entityTypes,
         judgment.path("query").asText(),
         filter,
+        sortCriteria(judgment),
         surface,
         judgment.path("id").asText(),
-        javaBuilder);
+        javaBuilder,
+        "field-probe".equals(judgment.path("group").asText()),
+        highlightFields(judgment));
+  }
+
+  /**
+   * Matched fields are opt-in, so a probe that asserts one opts that field in for its own query.
+   */
+  @Nonnull
+  private static List<String> highlightFields(JsonNode judgment) {
+    JsonNode matched = judgment.path("matchedFieldContains");
+    if (!matched.hasNonNull("value")) {
+      return List.of();
+    }
+    return List.of(matched.get("value").asText());
+  }
+
+  @Nullable
+  private static List<SortCriterion> sortCriteria(JsonNode judgment) {
+    if (!judgment.hasNonNull("sort")) {
+      return null;
+    }
+    JsonNode sort = judgment.get("sort");
+    return List.of(
+        new SortCriterion()
+            .setField(sort.path("field").asText())
+            .setOrder(SortOrder.valueOf(sort.path("order").asText())));
+  }
+
+  private OperationContext viewerContext(JsonNode judgment) {
+    if (!judgment.hasNonNull("viewerUrn")) {
+      return opContext;
+    }
+    Urn viewer = UrnUtils.getUrn(judgment.get("viewerUrn").asText());
+    List<Urn> groups = new ArrayList<>();
+    judgment.path("viewerGroups").forEach(node -> groups.add(UrnUtils.getUrn(node.asText())));
+    Authorizer authorizer =
+        new Authorizer() {
+          @Override
+          public Optional<SessionActorIdentity> resolveSessionActorIdentity(@Nonnull Urn actorUrn) {
+            return Optional.of(new SessionActorIdentity(actorUrn, groups, Set.of()));
+          }
+
+          @Override
+          public List<Urn> getActorGroups(@Nonnull Urn actorUrn) {
+            return groups;
+          }
+        };
+    return OperationContext.asSession(
+        opContext,
+        RequestContext.TEST,
+        authorizer,
+        new Authentication(new Actor(ActorType.USER, viewer.getId()), ""),
+        false);
   }
 
   private RankedSearchResult search(String entityType, String query, Filter filter)
       throws Exception {
     return search(
+        opContext,
         List.of(entityType),
         query,
         filter,
+        null,
         SearchTemplateSurfaces.SEARCH_ENTITIES,
         entityType + ":" + query,
-        false);
+        false,
+        false,
+        List.of());
   }
 
   private RankedSearchResult search(
+      OperationContext baseContext,
       List<String> entityTypes,
       String query,
       Filter filter,
+      @Nullable List<SortCriterion> sortCriteria,
       String surface,
       String queryId,
-      boolean javaBuilder)
+      boolean javaBuilder,
+      boolean explain,
+      List<String> highlightFields)
       throws Exception {
     OperationContext context =
-        opContext
+        baseContext
             .withSearchSurface(surface)
             .withSkipTemplateExecution(javaBuilder)
-            .withSearchFlags(flags -> flags.setFulltext(true).setSkipHighlighting(false));
+            .withSearchFlags(
+                flags -> {
+                  flags.setFulltext(true).setSkipHighlighting(false);
+                  if (explain) {
+                    flags.setIncludeExplain(true);
+                  }
+                  if (!highlightFields.isEmpty()) {
+                    flags.setHighlightFields(
+                        new HighlightFieldOverrides().setAdd(new StringArray(highlightFields)));
+                  }
+                  return flags;
+                });
     SearchEntityArray entities =
-        searchService.search(context, entityTypes, query, filter, null, 0, 10).getEntities();
+        searchService
+            .search(context, entityTypes, query, filter, sortCriteria, 0, 10)
+            .getEntities();
     List<RankedSearchHit> hits = new ArrayList<>();
     for (SearchEntity entity : entities) {
       String urn = entity.getEntity().toString();
@@ -573,6 +841,14 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
                   String rendered = field.getName() + " " + field.getValue();
                   matched.add(rendered);
                 });
+      }
+      if (explain && entity.hasExplainMatches()) {
+        entity
+            .getExplainMatches()
+            .forEach(match -> matched.add(match.getSubfield() + " " + match.getValue()));
+      }
+      if (explain && entity.hasExtraFields() && entity.getExtraFields().containsKey("_explain")) {
+        matched.add(entity.getExtraFields().get("_explain"));
       }
       hits.add(
           new RankedSearchHit(
@@ -613,7 +889,7 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
     AspectSpec aspectSpec =
         entityRegistry.getEntitySpec(urn.getEntityType()).getAspectSpec(aspectName);
     if (aspectSpec == null) {
-      throw new IllegalStateException("No aspect " + aspectName + " on " + urn);
+      return null;
     }
     return GenericRecordUtils.deserializeAspect(
         ByteString.copyString(
@@ -641,6 +917,10 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
         .recordTemplate(aspect)
         .auditStamp(new AuditStamp().setActor(ACTOR).setTime(PACK_TIME))
         .build();
+  }
+
+  private JsonNode judgments() {
+    return judgmentsFile;
   }
 
   private static SearchTemplateConfiguration shippedTemplateConfiguration() {

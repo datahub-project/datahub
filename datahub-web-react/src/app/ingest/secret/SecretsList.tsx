@@ -15,8 +15,8 @@ import {
     updateSecretInListSecretsCache,
 } from '@app/ingest/secret/cacheUtils';
 import { SecretBuilderState } from '@app/ingest/secret/types';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { Pagination, Table } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 

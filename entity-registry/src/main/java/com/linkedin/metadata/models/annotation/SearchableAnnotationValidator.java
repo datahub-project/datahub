@@ -19,7 +19,8 @@ import javax.annotation.Nonnull;
 /**
  * Validator for cross-annotation validation of SearchableAnnotation fields. Fields that share an
  * indexed name (a search label at one degree of separation) share one indexed field, so they must
- * have compatible types, the same resolved boost, and the same hasValuesFieldName.
+ * have compatible types, the same resolved boost, and one hasValuesFieldName. A shared {@code
+ * v3.hasValuesFieldName} lets the top-level names differ.
  */
 public class SearchableAnnotationValidator {
 
@@ -224,10 +225,12 @@ public class SearchableAnnotationValidator {
   }
 
   /**
-   * An indexed field publishes one hasValues boolean. Every source declares that name, or none do.
-   * Search V3 indexes degree 0 as the declared name and degree n as {@code <name>_<n>}. V2 keeps
-   * the declared name. A source that omits it, or names a different boolean, would make a false
-   * filter miss some of the field.
+   * An indexed field publishes one hasValues boolean. Every source declares that top-level name, or
+   * none do, unless every source declares the same {@code v3.hasValuesFieldName}. That shared name
+   * is an additional boolean, so {@code hasParentNode} and {@code hasParentDomain} can share {@code
+   * parent} while both also publish {@code hasParent}. Search V3 indexes degree 0 as the declared
+   * name and degree n as {@code <name>_<n>}. V2 keeps the top-level name. A source that omits the
+   * boolean while another declares one would make a false filter miss some of the field.
    */
   private static void validateHasValuesFieldName(
       @Nonnull String label, @Nonnull List<AnnotatedField> fields) {
@@ -235,25 +238,47 @@ public class SearchableAnnotationValidator {
       return;
     }
     AnnotatedField firstField = fields.get(0);
+    Optional<String> firstShared = sharedHasValuesName(firstField);
     Optional<String> firstName = firstField.getAnnotation().getHasValuesFieldName();
     for (int i = 1; i < fields.size(); i++) {
       AnnotatedField currentField = fields.get(i);
-      Optional<String> currentName = currentField.getAnnotation().getHasValuesFieldName();
-      if (firstName.equals(currentName)) {
-        continue;
+      if (!firstShared.equals(sharedHasValuesName(currentField))) {
+        throwHasValuesMismatch(label, firstField, firstShared, currentField, true);
       }
-      throw new ModelValidationException(
-          String.format(
-              "Failed to validate @%s annotations: fields with the same indexed field '%s' must"
-                  + " declare the same hasValuesFieldName. Field at %s has %s, but field at %s has"
-                  + " %s",
-              SearchableAnnotation.ANNOTATION_NAME,
-              label,
-              firstField.getContext(),
-              firstName.orElse("none"),
-              currentField.getContext(),
-              currentName.orElse("none")));
+      if (firstShared.isEmpty()
+          && !firstName.equals(currentField.getAnnotation().getHasValuesFieldName())) {
+        throwHasValuesMismatch(label, firstField, firstName, currentField, false);
+      }
     }
+  }
+
+  @Nonnull
+  private static Optional<String> sharedHasValuesName(@Nonnull AnnotatedField field) {
+    return field.getAnnotation().getV3HasValuesFieldName().filter(name -> !name.isEmpty());
+  }
+
+  private static void throwHasValuesMismatch(
+      @Nonnull String label,
+      @Nonnull AnnotatedField firstField,
+      @Nonnull Optional<String> firstName,
+      @Nonnull AnnotatedField currentField,
+      boolean shared) {
+    Optional<String> currentName =
+        shared
+            ? sharedHasValuesName(currentField)
+            : currentField.getAnnotation().getHasValuesFieldName();
+    String property = shared ? "v3.hasValuesFieldName" : "hasValuesFieldName";
+    throw new ModelValidationException(
+        String.format(
+            "Failed to validate @%s annotations: fields with the same indexed field '%s' must"
+                + " declare the same %s. Field at %s has %s, but field at %s has %s",
+            SearchableAnnotation.ANNOTATION_NAME,
+            label,
+            property,
+            firstField.getContext(),
+            firstName.orElse("none"),
+            currentField.getContext(),
+            currentName.orElse("none")));
   }
 
   /** Subfields need a label, and each mapping must be able to parse the field's PDL type. */
