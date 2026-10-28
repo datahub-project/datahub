@@ -7,9 +7,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
-)
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.stats_collections import TopKDict
 
@@ -17,7 +15,6 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.fabric.onelake.schema_report import (
         SqlAnalyticsEndpointReport,
     )
-    from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 
 
 @dataclass
@@ -31,7 +28,7 @@ class FabricOneLakeClientReport(FabricClientReport):
 
 
 @dataclass
-class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
+class FabricOneLakeSourceReport(SQLSourceReport):
     """Ingestion report for Fabric OneLake source.
 
     Tracks metrics specific to OneLake ingestion including counts of
@@ -43,8 +40,6 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     lakehouses_scanned: int = 0
     warehouses_scanned: int = 0
     schemas_scanned: int = 0
-    tables_scanned: int = 0
-    views_scanned: int = 0
 
     # Filtered entities
     filtered_workspaces: LossyList[str] = field(default_factory=LossyList)
@@ -67,9 +62,6 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
 
     # Schema extraction report (optional, can be set from schema extraction client)
     schema_report: Optional["SqlAnalyticsEndpointReport"] = None
-
-    # SQL parsing aggregator report (lineage / view parsing metrics)
-    sql_aggregator: Optional["SqlAggregatorReport"] = None
 
     num_usage_queries_fetched: int = 0
     num_usage_queries_skipped: TopKDict[str, int] = field(default_factory=TopKDict)
