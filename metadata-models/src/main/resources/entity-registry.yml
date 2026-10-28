@@ -12,7 +12,6 @@ entities:
     aspects:
       - roleProperties
       - actors
-      - dataProducts
   - name: dataset
     doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
     category: core
