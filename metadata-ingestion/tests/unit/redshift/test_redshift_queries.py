@@ -488,6 +488,22 @@ class TestUserInfoJoinResilience:
         _assert_no_inner_join_on(sql, "svv_user_info")
         assert "qd.user_id <> 1" in sql
 
+    def test_provisioned_stl_scan_lineage_excludes_rdsdb_by_id_not_name(self):
+        sql = RedshiftProvisionedQuery.stl_scan_based_lineage_query(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        _assert_no_inner_join_on(sql, "svl_user_info")
+        assert "ss.userid <> 1" in sql
+        assert "usename <> 'rdsdb'" not in sql
+
+    def test_provisioned_insert_lineage_excludes_rdsdb_by_id_not_name(self):
+        sql = RedshiftProvisionedQuery.list_insert_create_queries_sql(
+            db_name="test_db", start_time=START_TIME, end_time=END_TIME
+        )
+        _assert_no_inner_join_on(sql, "svl_user_info")
+        assert "si.userid <> 1" in sql
+        assert "usename <> 'rdsdb'" not in sql
+
     def test_serverless_insert_lineage_excludes_rdsdb_by_id_not_name(self):
         # rdsdb has no row in SVV_USER_INFO, so a name-based `<> 'rdsdb'` relied on NULL
         # propagation and also dropped any real user the view couldn't resolve. Excluding
