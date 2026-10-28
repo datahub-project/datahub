@@ -10,7 +10,11 @@ from typing import (
 )
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.agent.pattern_path import require_pattern_at, unset_block_on
+from datahub.ingestion.agent.pattern_path import (
+    pattern_at,
+    require_pattern_at,
+    unset_block_on,
+)
 
 
 @dataclass(frozen=True)
@@ -93,6 +97,31 @@ def parent_required(ctx: ClassifyContext) -> bool:
     return True
 
 
+def _hint_container(config: object, kind: str) -> Tuple[Optional[str], Optional[str]]:
+    """(container kind, the command listing it) for a refusal's remedy, either
+    of which may be None.
+
+    Any failure is swallowed: this runs while a refusal is being built, and a
+    connector whose hooks raise would otherwise replace an actionable
+    "pass --parent" with an exit-1 defect report the caller cannot act on.
+    """
+    try:
+        return _container_kind_for(config, kind), _listing_command_for(config, kind)
+    except Exception:
+        return None, None
+
+
+def _container_kind_for(config: object, kind: str) -> Optional[str]:
+    """The kind of the container a `kind` is qualified by, or None."""
+    from datahub.ingestion.agent.probe_methods import config_hook
+
+    ancestors_for = config_hook(config, "probe_ancestor_kinds")
+    ancestors = ancestors_for(kind=kind) if ancestors_for else None
+    if not isinstance(ancestors, (list, tuple)) or not ancestors:
+        return None
+    return str(ancestors[0])
+
+
 def _listing_command_for(config: object, kind: str) -> Optional[str]:
     """A probe command that lists what contains a `kind`, or None.
 
@@ -108,9 +137,11 @@ def _listing_command_for(config: object, kind: str) -> Optional[str]:
 
     ancestors_for = config_hook(config, "probe_ancestor_kinds")
     ancestors = ancestors_for(kind=kind) if ancestors_for else None
-    # Only to name a command in a refusal, so a connector returning something
-    # unusable loses the hint rather than turning the refusal into a defect
-    # report; filter_check polices the hook's shape where it matters.
+    # A hint only. A connector that returns an unusable shape loses the hint
+    # rather than turning the refusal into a defect report -- and nothing
+    # polices the shape on this path, because filter_check's check sits behind
+    # `if not parent_path: return None` and this runs precisely when there is
+    # no parent.
     if not isinstance(ancestors, (list, tuple)) or not ancestors:
         return None
     # The outermost ancestor, not the nearest: the container being asked for is
@@ -119,7 +150,25 @@ def _listing_command_for(config: object, kind: str) -> Optional[str]:
     provider_cls = provider_class_for_config(type(config))
     if provider_cls is None:
         return None
-    return listing_command_for_kind(provider_cls, str(ancestors[0]))
+    return listing_command_for_kind(config, provider_cls, str(ancestors[0]))
+
+
+# Allow entries that admit every name, so a pattern built only from these
+# filters nothing whatever it is matched against. AllowDenyPattern.is_allow_all
+# recognises the literal `.*` alone, and reports False for "unknown" rather
+# than "restricted" -- which would refuse `^.*$`, a recipe that filters
+# nothing, for want of a container that could not change its verdict.
+_MATCHES_ANYTHING = frozenset({".*", "^.*", ".*$", "^.*$", ".+", "^.+", ".+$", "^.+$"})
+
+
+def filters_nothing(pattern: Optional[AllowDenyPattern]) -> bool:
+    """Whether `pattern` admits every name, so no container can change the
+    verdict it gives -- only the target reported beside it."""
+    if pattern is None:
+        return True
+    if pattern.is_allow_all():
+        return True
+    return not pattern.deny and any(a in _MATCHES_ANYTHING for a in pattern.allow)
 
 
 def require_container(
@@ -127,7 +176,6 @@ def require_container(
     *,
     config: object,
     kind: str,
-    pattern: Optional[AllowDenyPattern],
     pattern_field: Optional[str],
     shape: str,
     pin_field: Optional[str],
@@ -147,24 +195,32 @@ def require_container(
     rather than assumed, because a reader comparing `target` with what
     ingestion logs would otherwise see a difference nothing explains.
 
-    `pin_field` and the pattern are passed in rather than read off `config`:
-    declarations imports this module, so the dependency cannot be inverted.
+    The deciding field is named rather than the pattern passed, so a caller
+    cannot name one field while another decides. `pin_field` is passed in
+    because declarations imports this module and the dependency cannot be
+    inverted.
     """
     if container:
         return container
-    if pattern is None or pattern.is_allow_all():
+    pattern = pattern_at(config, pattern_field) if pattern_field else None
+    if filters_nothing(pattern):
+        where = f"nothing at `{pattern_field}`" if pattern_field else "nothing"
         warn(
             f"no container was given, so `target` below shows the bare name "
             f"rather than the '{shape}' this source matches; the verdict is "
-            f"unaffected, as nothing at `{pattern_field}` filters these"
+            f"unaffected, as {where} filters these"
         )
         return None
+    wanted, listing = _hint_container(config, kind)
+    naming = f"the {wanted} as the outermost --parent" if wanted else "--parent"
     remedies = []
-    listing = _listing_command_for(config, kind)
     if listing:
-        remedies.append(f"run `probe run {listing}` to list them, then pass --parent")
+        remedies.append(f"run `probe run {listing}` to list them, then pass {naming}")
     else:
-        remedies.append("pass --parent")
+        # Named even with no listing to point at: a caller who passed
+        # `--parent PUBLIC` and is told to "pass --parent" cannot tell that
+        # what is missing is the database ABOVE it.
+        remedies.append(f"pass {naming}")
     if pin_field:
         remedies.append(f"or pin a single value in `{pin_field}`")
     raise ProbeArgumentError(

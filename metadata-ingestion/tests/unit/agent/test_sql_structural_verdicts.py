@@ -230,6 +230,26 @@ def test_an_allow_all_pattern_answers_without_a_container() -> None:
     assert "bare name" in result.warnings[0]
 
 
+def test_a_pattern_that_filters_nothing_is_not_refused_for_being_spelled_oddly() -> (
+    None
+):
+    """`^.*$` admits every name exactly as `.*` does.
+
+    AllowDenyPattern.is_allow_all recognises only the bare `.*`, and documents
+    its False as "unknown" rather than "restricted" -- so keying the carve-out
+    on it alone refused a recipe that filters nothing, for want of a container
+    that could not have changed its verdict.
+    """
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={"dataset_pattern": {"allow": ["^.*$"]}},
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["analytics"],
+    )
+    assert _rows(result) == [("analytics", "analytics", True, None)]
+
+
 def test_a_single_pinned_project_still_needs_no_parent() -> None:
     """The Qualifier fallback must survive: one pinned project IS the
     container, so nothing is missing and nothing is said about it."""

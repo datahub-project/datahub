@@ -293,7 +293,7 @@ and the `ProbeArgumentError` family in `datahub.ingestion.agent.verdicts`; `Filt
 | `pattern_verdict(config, field, target)`                 | the standard allow/deny check, for a `probe_verdict_override` that defers to a pattern                                       |
 | `Verdict.include()` / `Verdict.exclude(field)`           | a verdict, naming the field or rule that excluded it                                                                         |
 | `parent_required(ctx)`                                   | a `probe_match_target` that needs the container: warns and returns `True` when there is no `--parent`                        |
-| `require_container(container, *, pattern, ...)`          | a verdict that needs the container: the container, or `None` when the pattern filters nothing, else refuses                  |
+| `require_container(container, *, pattern_field, ...)`    | a verdict that needs the container: the container, or `None` when the field filters nothing, else refuses                    |
 | `ancestors_in(chain, kind, leaves)`                      | implementing `probe_ancestor_kinds` from a container chain                                                                   |
 
 ```python
@@ -492,6 +492,14 @@ verdict, only the `target` reported beside it. Those answer normally, with a
 note that `target` is the bare name. Keeping that case answerable is what
 stops "no filters yet, what is in here?" from erroring.
 
+Which field decides is resolved by the framework, per kind, and passed as
+`pattern_field` -- never chosen by the connector. A `probe_filter_target` is
+not told whether it is judging a Table or a View, so a connector picking the
+pattern itself judged Views against `table_pattern`: it refused ones that
+field did not decide, and let through the inversion this rule exists to stop.
+A hook that cannot build its target returns `None` and reports its own
+degrade; `sql_probe` then applies this rule with the field it resolved.
+
 ### One predicate for ingestion and the probe
 
 An override that restates ingestion's rules drifts from them. Put the connector's selection
@@ -591,9 +599,10 @@ config field that pins the container with `Qualifier()` (a list field qualifies 
 one value; `Qualifier(authoritative=True)` makes it beat `--parent`), or, where only the caller knows
 the container, return `qualified_table_target(database, schema, entity, warn)` from
 `probe_filter_target`, importing it from `source/sql/sql_probe_verdicts.py` inside the hook: a
-config module imports no probe framework at load, since ingestion would pay for it. Pass the
-deciding `pattern` (with `config`, `kind`, `pattern_field` and `pin_field`) to opt that call into
-the rule below; without it the old warn-and-degrade is kept, so no existing caller changes. Override `probe_filter_target` too when your `Source` is not a
+config module imports no probe framework at load, since ingestion would pay for it. Pass
+`config` and `pattern_field` (with `kind` and `pin_field`) to opt that call into the rule below;
+omit both and the old warn-and-degrade is kept, so an out-of-tree caller is unaffected. Passing one
+without the other is refused rather than half-applied. Override `probe_filter_target` too when your `Source` is not a
 `SQLAlchemySource` or its `get_identifier` reads state ingestion sets while walking. It is called by
 keyword, `database` included, and `warn` reports a less precise fallback. Which provider a connector
 brings is never read as a declaration.

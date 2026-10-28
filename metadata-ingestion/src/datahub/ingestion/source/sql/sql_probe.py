@@ -15,9 +15,12 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.agent.declarations import declares_qualifier, qualifier_field
-from datahub.ingestion.agent.pattern_path import pattern_at
 from datahub.ingestion.agent.sql_passthrough import CatalogRows
-from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    parent_required,
+    require_container,
+)
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -242,7 +245,27 @@ def _declared_target(
         if not callable(hook):
             return None
         answer = hook(schema=schema, entity=ctx.name, warn=ctx.warn, database=database)
-        if answer is None or isinstance(answer, str):
+        if answer is None:
+            # The override could not qualify it. The rule is applied here, not
+            # inside the hook: the hook is not told which kind it is judging,
+            # so a connector guessing the field judged a View against
+            # table_pattern -- the very inversion this exists to prevent.
+            # ctx.pattern_field is the field the framework resolved for this
+            # kind, so Table and View each get the one that decides them.
+            require_container(
+                qualifying_container(ctx.config, [database] if database else []),
+                config=ctx.config,
+                kind=ctx.kind,
+                pattern_field=ctx.pattern_field,
+                shape="<container>.<schema>.<entity>",
+                pin_field=qualifier_field(ctx.config),
+                # Silenced: an override answering None has already reported its
+                # own degrade in its own words. Only the refusal is wanted
+                # here, and a second message for one condition reads as two.
+                warn=lambda _message: None,
+            )
+            return None
+        if isinstance(answer, str):
             return answer
         # Not a string: unusable, as an empty one is, which _complete_target
         # refuses with a warning rather than letting the shim overrule a
@@ -253,10 +276,9 @@ def _declared_target(
     # Resolved as at the Schema level, so an authoritative Qualifier beats
     # --parent at both levels. An empty --parent names no database.
     container = qualifying_container(ctx.config, [database] if database else [])
-    # The deciding pattern goes with it: without a container, judging
+    # The deciding field goes with it: without a container, judging
     # `schema.entity` against a pattern written for `container.schema.entity`
     # reports an exclusion ingestion does not make.
-    pattern = pattern_at(ctx.config, ctx.pattern_field) if ctx.pattern_field else None
     return qualified_table_target(
         container,
         schema,
@@ -264,7 +286,6 @@ def _declared_target(
         ctx.warn,
         config=ctx.config,
         kind=ctx.kind,
-        pattern=pattern,
         pattern_field=ctx.pattern_field,
         pin_field=qualifier_field(ctx.config),
     )

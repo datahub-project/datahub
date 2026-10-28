@@ -1000,27 +1000,12 @@ class SnowflakeV2Config(
         # caller's --parent: a recipe spans several, so no config field
         # names one.
         # lazy: keeps the probe framework out of ingestion's import
-        from datahub.ingestion.agent.declarations import qualifier_field
-        from datahub.ingestion.source.common.subtypes import DatasetSubTypes
         from datahub.ingestion.source.sql.sql_probe_verdicts import (
             qualified_table_target,
         )
 
-        # table_pattern, though this hook is not told whether a Table or a
-        # View is being judged: view_pattern_is_table_pattern_unless_specified
-        # copies a set table_pattern into an unset view_pattern, so in any
-        # recipe that does not filter views separately it is the deciding
-        # pattern for both. A recipe that filters only view_pattern keeps the
-        # older warn-and-degrade for its views -- no worse than before, and it
-        # never refuses a Table it could have judged.
-        return qualified_table_target(
-            database,
-            schema,
-            entity,
-            warn,
-            config=self,
-            kind=str(DatasetSubTypes.TABLE),
-            pattern=self.table_pattern,
-            pattern_field="table_pattern",
-            pin_field=qualifier_field(self),
-        )
+        # No pattern named here: this hook is not told whether a Table or a
+        # View is being judged, and a guess judged Views against table_pattern.
+        # sql_probe applies the rule instead, with the field it resolved for
+        # the kind actually in hand.
+        return qualified_table_target(database, schema, entity, warn)

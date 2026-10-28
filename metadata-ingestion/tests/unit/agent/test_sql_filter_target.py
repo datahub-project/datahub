@@ -669,6 +669,54 @@ def test_a_filtering_table_pattern_without_its_container_refuses():
     assert "project_ids" in str(refusal.value)
 
 
+_SF_CONN = {"account_id": "a", "username": "u", "password": "p", "warehouse": "w"}
+
+
+def test_a_view_is_judged_against_view_pattern_not_table_pattern():
+    """The hook is not told which kind it is judging.
+
+    A connector guessing `table_pattern` judged Views against a field that
+    does not decide them, which went wrong in both directions: a filtering
+    `view_pattern` was never consulted, so a View it would have INCLUDED was
+    reported excluded on its bare name -- the inversion this whole rule
+    exists to stop, surviving on a sibling kind. The framework resolves the
+    deciding field per kind, so it is the one that decides here.
+    """
+    with pytest.raises(ProbeArgumentError) as refusal:
+        check_filters(
+            source_type="snowflake",
+            config_dict={
+                **_SF_CONN,
+                "view_pattern": {"allow": [r"^MYDB\.PUBLIC\.V1$"]},
+            },
+            kind=str(DatasetSubTypes.VIEW),
+            parent_path=["PUBLIC"],
+            names=["V1"],
+        )
+    assert "view_pattern" in str(refusal.value)
+    assert "table_pattern" not in str(refusal.value)
+
+
+def test_a_view_its_own_pattern_admits_is_not_refused_over_table_pattern():
+    """The other direction, and the one that was a regression rather than a
+    survival: a filtering `table_pattern` beside a deliberately allow-all
+    `view_pattern` refused a View that was answerable, and named
+    `table_pattern` -- sending the reader to edit a field that decides
+    nothing here."""
+    result = check_filters(
+        source_type="snowflake",
+        config_dict={
+            **_SF_CONN,
+            "table_pattern": {"allow": [r"^MYDB\.PUBLIC\.ORDERS$"]},
+            "view_pattern": {"allow": [".*"]},
+        },
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=["PUBLIC"],
+        names=["V1"],
+    )
+    assert result.results[0].included
+
+
 def test_a_snowflake_table_pattern_without_its_database_refuses():
     """Snowflake reaches the same rule by its own hook rather than the
     Qualifier path, and has no config field naming a database -- a recipe

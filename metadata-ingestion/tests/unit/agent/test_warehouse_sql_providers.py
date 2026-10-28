@@ -8,10 +8,11 @@ Both expose the query as a `sql` probe method whose `query` parameter the
 framework scope-checks before calling (see test_scoped_probe_methods).
 """
 
+from types import SimpleNamespace
 from typing import Dict, List, Optional
 
 import pytest
-from google.api_core.exceptions import Forbidden
+from google.api_core.exceptions import Forbidden, Unauthorized
 
 from datahub.ingestion.agent.probe_methods import ProbeMethodSpec
 from datahub.ingestion.source.bigquery_v2.bigquery_probe import BigQueryMetadataProbe
@@ -149,18 +150,26 @@ def test_bigquery_lists_the_projects_a_dataset_is_qualified_with() -> None:
     assert client.closed
 
 
-def test_bigquery_reports_projects_the_pattern_would_exclude() -> None:
-    """Unfiltered on purpose: a denied project is explained by `probe filter`,
-    which can say WHICH field excluded it. Filtering here would make it vanish
-    with no explanation, and "not in the list" and "excluded" are different
-    answers to the question the caller asked."""
+def test_bigquery_projects_declares_the_kind_the_refusal_looks_up() -> None:
+    """The refusal finds this command by the kind it declares, not by name, so
+    the declaration is the contract -- and the bound keeps a large org's
+    paginated project walk from running unbounded."""
     spec = getattr(BigQueryMetadataProbe.projects, "__probe_command__", None)
     assert isinstance(spec, ProbeMethodSpec)
     assert spec.command == "projects"
-    # The kind ties it to the container BigQuery declares above a dataset, so
-    # the refusal finds it by kind rather than by a hardcoded name.
     assert spec.kind == str(DatasetContainerSubTypes.BIGQUERY_PROJECT)
-    assert spec.params == []
+    assert spec.row_limit_param == "limit"
+
+
+def test_bigquery_stops_listing_projects_at_the_limit() -> None:
+    """Clamped before the call, not trimmed after: an org with thousands of
+    projects should not page them all back to be discarded."""
+    client = FakeProjectsClient([f"proj-{i}" for i in range(10)])
+    assert BigQueryMetadataProbe(client).projects(limit=3) == [
+        "proj-0",
+        "proj-1",
+        "proj-2",
+    ]
 
 
 def test_bigquery_without_permission_to_list_projects_degrades() -> None:
@@ -178,3 +187,42 @@ def test_bigquery_does_not_swallow_an_unrelated_listing_failure() -> None:
     probe = BigQueryMetadataProbe(FakeProjectsClient([], error=ValueError("boom")))
     with pytest.raises(ValueError):
         probe.projects()
+
+
+def test_bigquery_does_not_sell_an_auth_failure_as_a_missing_permission() -> None:
+    """A 401 is not a permission `project_ids` can route around.
+
+    The credential failed to authenticate at all -- an expired token, a bad
+    key -- and is about to fail every other command and the run itself.
+    Degrading it to an empty list, exit 0, and advice to name the projects
+    reads as "this credential sees no projects" and sends the reader to fix
+    the wrong thing.
+    """
+    probe = BigQueryMetadataProbe(
+        FakeProjectsClient([], error=Unauthorized("invalid credentials"))
+    )
+    with pytest.raises(Unauthorized):
+        probe.projects()
+
+
+def test_bigquery_names_a_disabled_api_rather_than_a_missing_permission() -> None:
+    """Both arrive as 403. The remedy for one is to grant a role; for the
+    other it is to enable the API, and `project_ids` helps with neither until
+    you know which you have. Keyed on the ErrorInfo reason, as
+    gcp_errors.is_service_disabled is, because GCP rewords the message."""
+    disabled = Forbidden("Cloud Resource Manager API has not been used")
+    disabled._response = None
+    disabled._error_info = SimpleNamespace(reason="SERVICE_DISABLED")
+    probe = BigQueryMetadataProbe(FakeProjectsClient([], error=disabled))
+    assert probe.projects() == []
+    assert any("not enabled" in w for w in probe.warnings), probe.warnings
+    assert not any("resourcemanager.projects.list" in w for w in probe.warnings)
+
+
+def test_bigquery_still_names_the_permission_when_the_api_is_enabled() -> None:
+    """The control for the test above: a plain 403 keeps the IAM remedy."""
+    denied = Forbidden("caller does not have permission")
+    denied._response = None
+    probe = BigQueryMetadataProbe(FakeProjectsClient([], error=denied))
+    assert probe.projects() == []
+    assert any("resourcemanager.projects.list" in w for w in probe.warnings)
