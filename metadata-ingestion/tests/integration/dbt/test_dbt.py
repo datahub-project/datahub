@@ -390,6 +390,21 @@ def run_and_verify(config: DbtTestConfig) -> None:
                 "platform_instance": "dbt-instance-1",
             },
         ),
+        # A real `dbt compile` manifest with an enforced contract: column and
+        # model constraints, foreign keys to a ref and to a source, and tests
+        # that match them, plus a build's run results. Without a graph,
+        # contracts are written only when replacing.
+        DbtTestConfig(
+            "dbt-test-contracts",
+            "dbt_test_contracts.json",
+            "dbt_test_contracts_golden.json",
+            manifest_file="../../unit/dbt/artifacts/contracts/manifest_compile.json",
+            run_results_files=["dbt_run_results_contracts.json"],
+            source_config_modifiers={
+                "ingest_contracts": True,
+                "replace_existing_contracts_with_dbt": True,
+            },
+        ),
     ],
     ids=lambda dbt_test_config: dbt_test_config.run_id,
 )
