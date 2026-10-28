@@ -131,6 +131,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
     query_metadata_cursor_based_pagination,
     sheet_graphql_query,
     tableau_field_to_schema_field,
+    with_inherited_field_descriptions,
     workbook_graphql_query,
 )
 from datahub.ingestion.source.tableau.tableau_initial_sql import (
@@ -581,6 +582,12 @@ class TableauConfig(
     ingest_tags: Optional[bool] = Field(
         default=False,
         description="Ingest Tags from source. This will override Tags entered from UI",
+    )
+    ingest_inherited_field_descriptions: bool = Field(
+        default=False,
+        description="For fields without a description of their own, ingest the description Tableau inherits "
+        "from the closest upstream column or published data source (the one shown in the Tableau UI). "
+        "Requires Tableau Server 2021.2 or later.",
     )
     ingest_owner: Optional[bool] = Field(
         default=False,
@@ -1900,6 +1907,9 @@ class TableauSiteSource:
     ) -> Iterable[dict]:
         query_filter = query_filter or {}
         query_filter = optimize_query_filter(query_filter)
+        query = with_inherited_field_descriptions(
+            query, self.config.ingest_inherited_field_descriptions
+        )
 
         # Calls the get_connection_object_page function to get the objects,
         # and automatically handles pagination.

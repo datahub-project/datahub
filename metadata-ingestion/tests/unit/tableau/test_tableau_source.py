@@ -36,15 +36,20 @@ from datahub.ingestion.source.tableau.tableau import (
     UpstreamTablesResult,
 )
 from datahub.ingestion.source.tableau.tableau_common import (
+    INHERITED_DESCRIPTION_PLACEHOLDER,
     TableauLineageOverrides,
     TableauUpstreamReference,
+    embedded_datasource_graphql_query,
     get_filter_pages,
     get_fully_qualified_table_name,
     get_overridden_info,
     make_filter,
     make_fine_grained_lineage_class,
     optimize_query_filter,
+    published_datasource_graphql_query,
+    sheet_graphql_query,
     tableau_field_to_schema_field,
+    with_inherited_field_descriptions,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
@@ -783,6 +788,41 @@ def test_tableau_source_handles_none_nativedatatype():
         field=field, ingest_tags=False
     )
     assert schema_field.nativeDataType == "UNKNOWN"
+
+
+def test_tableau_field_description_falls_back_to_inherited():
+    field: Dict[str, Any] = {
+        "name": "Test Field",
+        "description": None,
+        "descriptionInherited": [None, {"value": "From upstream column"}],
+    }
+    assert (
+        tableau_field_to_schema_field(field=field, ingest_tags=False).description
+        == "From upstream column\n\n"
+    )
+
+    field["description"] = "Own description"
+    assert (
+        tableau_field_to_schema_field(field=field, ingest_tags=False).description
+        == "Own description\n\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        sheet_graphql_query,
+        embedded_datasource_graphql_query,
+        published_datasource_graphql_query,
+    ],
+)
+def test_inherited_field_descriptions_only_queried_when_enabled(query: str) -> None:
+    enabled = with_inherited_field_descriptions(query, enabled=True)
+    disabled = with_inherited_field_descriptions(query, enabled=False)
+
+    assert "descriptionInherited { value }" in enabled
+    assert "descriptionInherited" not in disabled
+    assert INHERITED_DESCRIPTION_PLACEHOLDER not in enabled + disabled
 
 
 def test_tableau_source_unescapes_lt():
