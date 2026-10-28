@@ -1,7 +1,7 @@
 """REST API client for Microsoft Fabric OneLake."""
 
 import logging
-from typing import Callable, Iterator, Optional, Set, TypeVar
+from typing import Callable, Dict, Iterator, Optional, Set, TypeVar
 
 import requests
 
@@ -188,10 +188,10 @@ class OneLakeClient(BaseFabricClient):
     def _paginate_unity_catalog(
         self,
         url: str,
-        params: dict[str, str],
+        params: Dict[str, str],
         items_key: str,
         description: str,
-    ) -> Iterator[dict]:
+    ) -> Iterator[Dict]:
         """Yield every item from a paginated OneLake Unity Catalog list endpoint.
 
         The list endpoints return at most one page per call and carry the next

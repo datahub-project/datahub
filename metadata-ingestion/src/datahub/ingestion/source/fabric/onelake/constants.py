@@ -1,5 +1,7 @@
 """Constants for Fabric OneLake ingestion."""
 
+from typing import Tuple
+
 # Default T-SQL schema for the Fabric SQL layer. Applies to:
 #   * schemas-disabled Lakehouses (catalog returns no schema_name → fall back to dbo)
 #   * unqualified table refs in observed queries (parser default for dataset URN resolution)
@@ -10,7 +12,7 @@ FABRIC_SQL_DEFAULT_SCHEMA = "dbo"
 # catalog listing and from SQL schema and view discovery.
 # - INFORMATION_SCHEMA, sys: standard SQL Server system schemas.
 # - queryinsights: Fabric Warehouse's Microsoft-managed Query Insights views.
-FABRIC_SYSTEM_SCHEMAS: tuple[str, ...] = (
+FABRIC_SYSTEM_SCHEMAS: Tuple[str, ...] = (
     "INFORMATION_SCHEMA",
     "sys",
     "queryinsights",

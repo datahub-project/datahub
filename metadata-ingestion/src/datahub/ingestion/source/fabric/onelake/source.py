@@ -11,7 +11,7 @@ This connector extracts metadata from Microsoft Fabric OneLake including:
 
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Iterable, Literal, Optional, Union
+from typing import TYPE_CHECKING, Iterable, List, Literal, Optional, Set, Union
 
 from typing_extensions import assert_never
 
@@ -218,7 +218,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             # are not created as assets.
             is_allowed_table=self._is_usage_table_allowed,
         )
-        self._ingested_dataset_names: set[str] = set()
+        self._ingested_dataset_names: Set[str] = set()
         self.report.sql_aggregator = self.aggregator.report
 
         # Stateful skip-handler for the usage time window. None when stateful
@@ -453,7 +453,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Track emitted schema containers to avoid duplicates
         emitted_schemas: set[str] = set()
 
-        profile_targets: list[FabricProfileTarget] = []
+        profile_targets: List[FabricProfileTarget] = []
         # Process tables
         yield from self._process_item_tables(
             workspace,
@@ -519,7 +519,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Track emitted schema containers to avoid duplicates
         emitted_schemas: set[str] = set()
 
-        profile_targets: list[FabricProfileTarget] = []
+        profile_targets: List[FabricProfileTarget] = []
         # Process tables
         yield from self._process_item_tables(
             workspace,
@@ -588,7 +588,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         workspace_id: str,
         item_id: str,
         schema_client: Optional["SchemaExtractionClient"],
-        profile_targets: list[FabricProfileTarget],
+        profile_targets: List[FabricProfileTarget],
     ) -> Iterable[MetadataWorkUnit]:
         """Profile ingested tables on this item's SQL Analytics Endpoint."""
         if not self.config.is_profiling_enabled() or not profile_targets:
@@ -634,7 +634,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_display_name: str,
         schema_map: dict[tuple[str, str], list[FabricColumn]],
         emitted_schemas: set[str],
-        profile_targets: list[FabricProfileTarget],
+        profile_targets: List[FabricProfileTarget],
     ) -> Iterable[Union[Container, Dataset]]:
         """Process tables in a lakehouse or warehouse."""
         try:

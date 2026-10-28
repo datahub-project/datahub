@@ -1,13 +1,6 @@
-"""Table and column profiling for Fabric OneLake via the SQL Analytics Endpoint.
-
-Profiling uses the same SQLAlchemy profiler and MSSQL adapter as the
-`mssql-odbc` source. The SQL Analytics Endpoint is reached with
-`mssql+pyodbc` and the Microsoft ODBC Driver for SQL Server.
-"""
-
 import logging
 from dataclasses import dataclass
-from typing import Callable, Iterable, List, Optional, cast
+from typing import Callable, Dict, Iterable, List, Optional, cast
 
 from sqlalchemy.engine import Engine
 
@@ -54,7 +47,7 @@ def emit_dataset_profiles(
 ) -> Iterable[MetadataWorkUnit]:
     """Profile ingested tables and emit datasetProfile aspects on their URNs."""
     requests: List[ProfilerRequest] = []
-    dataset_names_by_pretty_name: dict[str, str] = {}
+    dataset_names_by_pretty_name: Dict[str, str] = {}
     for target in targets:
         pretty_name = f"{target.schema_name}.{target.table_name}"
         if not check_table_with_profile_pattern(profile_pattern, pretty_name):
