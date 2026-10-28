@@ -3,9 +3,12 @@ from typing import Any, Dict, List, Set, Type
 from unittest.mock import MagicMock
 
 import boto3
+from botocore.stub import Stubber
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase
+from datahub.ingestion.source.aws_messaging.clients import S3NotificationClient
+from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
@@ -148,3 +151,30 @@ def test_lowercase_matches_the_s3_source_setting(aws: None) -> None:
     # The S3 source lowercased `landing/Incoming` to `landing/incoming`.
     assert upstreams(source(lowercase=True)) == {QUEUE_URN: {PREFIX_URN}}
     assert upstreams(source(lowercase=False)) == {}
+
+
+def test_bucket_listing_is_filtered_to_the_recipe_region() -> None:
+    client = boto3.client(
+        "s3",
+        region_name=REGION,
+        aws_access_key_id="testing",
+        aws_secret_access_key="testing",
+    )
+    with Stubber(client) as stubber:
+        stubber.add_response(
+            "list_buckets",
+            {
+                "Buckets": [{"Name": "landing", "BucketRegion": REGION}],
+                "ContinuationToken": "page-2",
+            },
+            {"BucketRegion": REGION, "MaxBuckets": 1000},
+        )
+        stubber.add_response(
+            "list_buckets",
+            {"Buckets": [{"Name": "elsewhere", "BucketRegion": "eu-west-1"}]},
+            {"BucketRegion": REGION, "MaxBuckets": 1000, "ContinuationToken": "page-2"},
+        )
+        names = list(
+            S3NotificationClient(client, SqsSourceReport()).list_bucket_names(REGION)
+        )
+    assert names == ["landing"]
