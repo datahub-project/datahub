@@ -8,7 +8,7 @@ import { SortOrder } from '@types';
 // Mock useUrlQueryParam
 const mockUseUrlQueryParam = vi.fn();
 
-vi.mock('@app/shared/useUrlQueryParam', () => ({
+vi.mock('@app/sharedV2/useUrlQueryParam', () => ({
     useUrlQueryParam: (...args) => mockUseUrlQueryParam(...args),
 }));
 

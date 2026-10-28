@@ -6,7 +6,7 @@ import com.linkedin.datahub.DataHubSearchConfig
 
 @Aspect = {
    "name": "propertyDefinition",
-   "schemaVersion": 2
+   "schemaVersion": 4
 }
 record StructuredPropertyDefinition {
     /**
@@ -14,8 +14,17 @@ record StructuredPropertyDefinition {
     */
     @Searchable = {
       "fieldType": "KEYWORD",
-      "searchTier": 1,
-      "searchLabel": "qualifiedName"
+      "queryByDefault": true,
+      "boostScore": 10.0,
+      "v3": {
+        "queryByDefault": true,
+        "searchLabel": "qualifiedName",
+        "mappings": [
+          { "type": "KEYWORD" },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
     }
     qualifiedName: string
 
@@ -25,8 +34,16 @@ record StructuredPropertyDefinition {
     @Searchable = {
       "enableAutocomplete": true,
       "fieldType": "WORD_GRAM",
-      "searchTier": 1,
-      "searchLabel": "entityName"
+      "boostScore": 10.0,
+      "v3": {
+        "queryByDefault": true,
+        "searchLabel": "name",
+        "mappings": [
+          { "type": "KEYWORD" },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
       }
     displayName: optional string
 
@@ -71,6 +88,9 @@ record StructuredPropertyDefinition {
     }
     @Searchable = {
       "/*": {
+        "v3": {
+          "queryByDefault": true
+        },
         "fieldName": "entityTypes"
       }
     }
@@ -88,6 +108,9 @@ record StructuredPropertyDefinition {
     */
     @Searchable = {
       "/*": {
+        "v3": {
+          "queryByDefault": true
+        },
         "fieldName": "allowedPlatforms"
       }
     }
@@ -101,6 +124,19 @@ record StructuredPropertyDefinition {
     /**
     * The description of the property. This is the description that will be shown in the UI.
     */
+    @Searchable = {
+      "fieldType": "TEXT",
+      "hasValuesFieldName": "hasDescription",
+      "v3": {
+        "queryByDefault": true,
+        "searchLabel": "description",
+        "mappings": [
+          { "type": "KEYWORD", "index": false, "docValues": false },
+          { "subfield": "text", "type": "TEXT" },
+          { "subfield": "stemmed", "type": "STEMMED" }
+        ]
+      }
+    }
     description: optional string
 
     /**
@@ -108,6 +144,13 @@ record StructuredPropertyDefinition {
     * from the logical type.
     */
     searchConfiguration: optional DataHubSearchConfig
+
+    /**
+     * Range a search template uses when it scores this property and omits an extent.
+     * Setting this does not score the property. The template's {@code fieldValueScores}
+     * entry is what turns scoring on, and a value set there replaces the one here.
+     */
+    score: optional StructuredPropertyScore
 
     /**
      * Whether the structured property value is immutable once applied to an entity.
@@ -126,25 +169,31 @@ record StructuredPropertyDefinition {
     version: optional string
 
     /**
-      * Created Audit stamp
-      */
+     * When this property definition was created in DataHub.
+     * One definition is one entity, so this matches systemMetadata.aspectCreated,
+     * copied to _system.created.time. Search V3 does not index it.
+     */
+    @deprecated = "Use systemMetadata.aspectCreated instead."
     @Searchable = {
       "/time": {
         "fieldName": "createdTime",
         "fieldType": "DATETIME",
-        "searchLabel": "createdAt"
+        "v3": { "enabled": false }
       }
     }
     created: optional AuditStamp
 
     /**
-     * Last Modified Audit stamp
+     * When this property definition was last modified in DataHub.
+     * One definition is one entity, so this matches systemMetadata.aspectModified,
+     * copied to _system.modified.time. Search V3 does not index it.
      */
+    @deprecated = "Use systemMetadata.aspectModified instead."
     @Searchable = {
       "/time": {
-       "fieldName": "lastModified",
-       "fieldType": "DATETIME",
-       "searchLabel": "lastModifiedAt"
+        "fieldName": "lastModified",
+        "fieldType": "DATETIME",
+        "v3": { "enabled": false }
       }
     }
     lastModified: optional AuditStamp

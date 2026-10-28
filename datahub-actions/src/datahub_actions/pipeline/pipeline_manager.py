@@ -15,8 +15,8 @@
 import logging
 import traceback
 from dataclasses import dataclass
-from threading import Thread
-from typing import Dict
+from threading import RLock, Thread
+from typing import Dict, Optional
 
 from datahub_actions.pipeline.pipeline import Pipeline
 
@@ -49,7 +49,20 @@ def run_pipeline(pipeline: Pipeline) -> bool:
         logger.error(
             f"Caught exception while running pipeline with name {pipeline.name}: {traceback.format_exc(limit=3)}"
         )
-        pipeline.stop()
+        try:
+            pipeline.stop()
+        except Exception:
+            # The caller records this as a failed pipeline. Swallowing the stop error
+            # here is what lets that assignment run; re-raising skipped it.
+            logger.error(
+                f"Failed to stop pipeline with name {pipeline.name}: {traceback.format_exc(limit=3)}"
+            )
+        try:
+            pipeline.close()
+        except Exception:
+            logger.error(
+                f"Failed to close pipeline with name {pipeline.name}: {traceback.format_exc(limit=3)}"
+            )
         return False
     finally:
         logger.debug(f"Thread for pipeline with name {pipeline.name} has stopped.")
@@ -63,21 +76,34 @@ class PipelineManager:
     pipeline_registry: Dict[str, PipelineSpec] = {}
 
     def __init__(self) -> None:
-        pass
+        self._lock = RLock()
+        self._shutting_down = False
 
     # Start a new Action Pipeline.
     def start_pipeline(self, name: str, pipeline: Pipeline) -> None:
         logger.debug(f"Attempting to start pipeline with name {name}...")
-        if name not in self.pipeline_registry:
+        with self._lock:
+            if self._shutting_down:
+                raise Exception(
+                    f"Pipeline manager is shutting down; not starting pipeline {name}."
+                )
+            if name in self.pipeline_registry:
+                raise Exception(f"Pipeline with name {name} is already running.")
 
             def run_and_record() -> None:
-                spec.failed = not run_pipeline(pipeline)
+                try:
+                    spec.failed = not run_pipeline(pipeline)
+                except Exception:
+                    spec.failed = True
+                    logger.exception(
+                        f"Pipeline with name {pipeline.name} failed without recording it"
+                    )
 
             thread = Thread(target=run_and_record)
             spec = PipelineSpec(name, pipeline, thread)
-            # Register before starting: a shutdown signal arriving between these two
-            # statements must still find the pipeline, or its worker runs on unstopped
-            # (and, being non-daemon, blocks interpreter exit until SIGKILL).
+            # Register and start under the same lock as stop_all. Otherwise a shutdown
+            # can delete an unstarted spec (ident is None, so join is skipped) and
+            # thread.start() still runs the worker.
             self.pipeline_registry[name] = spec
             try:
                 thread.start()
@@ -85,8 +111,6 @@ class PipelineManager:
                 del self.pipeline_registry[name]
                 raise
             logger.debug(f"Started pipeline with name {name}.")
-        else:
-            raise Exception(f"Pipeline with name {name} is already running.")
 
     def has_running_pipelines(self) -> bool:
         return any(spec.thread.is_alive() for spec in self.pipeline_registry.values())
@@ -98,14 +122,29 @@ class PipelineManager:
     def stop_pipeline(self, name: str) -> None:
         logger.debug(f"Attempting to stop pipeline with name {name}...")
         if name in self.pipeline_registry:
-            # First, stop the pipeline.
+            # Signal first and join, then close. Closing before the worker leaves
+            # events() drops failed-event logging and can use a closed Kafka consumer.
             try:
                 pipeline_spec = self.pipeline_registry[name]
-                pipeline_spec.pipeline.stop()
-                if pipeline_spec.thread.ident is not None:
-                    # Skipped when the pipeline was registered but its thread had not
-                    # started yet: join() on an unstarted thread raises RuntimeError.
-                    pipeline_spec.thread.join()  # Wait for the pipeline thread to terminate.
+                stop_error: Optional[BaseException] = None
+                try:
+                    pipeline_spec.pipeline.stop()
+                    if pipeline_spec.thread.ident is not None:
+                        # Skipped when the pipeline was registered but its thread had not
+                        # started yet: join() on an unstarted thread raises RuntimeError.
+                        pipeline_spec.thread.join()  # Wait for the pipeline thread to terminate.
+                except Exception as e:
+                    stop_error = e
+                try:
+                    pipeline_spec.pipeline.close()
+                except Exception as e:
+                    logger.error(
+                        f"Failed to close pipeline with name {name}: {traceback.format_exc(limit=3)}"
+                    )
+                    if stop_error is None:
+                        stop_error = e
+                if stop_error is not None:
+                    raise stop_error
                 logger.info(f"Actions Pipeline with name '{name}' has been stopped.")
                 try:
                     pipeline_spec.pipeline.stats().pretty_print_summary(
@@ -134,8 +173,11 @@ class PipelineManager:
     # Stop all running pipelines.
     def stop_all(self) -> None:
         logger.debug("Attempting to stop all running pipelines...")
-        # Stop each running pipeline.
-        names = list(self.pipeline_registry.keys()).copy()
+        with self._lock:
+            self._shutting_down = True
+            # Stop each running pipeline. Copied so start_pipeline cannot insert
+            # a name this loop will miss, and cannot start once the flag is set.
+            names = list(self.pipeline_registry.keys()).copy()
         for name in names:
             self.stop_pipeline(name)
         logger.debug("Successfully stop all running pipelines.")

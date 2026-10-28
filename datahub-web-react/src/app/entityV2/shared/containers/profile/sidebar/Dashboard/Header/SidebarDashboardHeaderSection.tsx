@@ -8,7 +8,7 @@ import { SidebarHeaderSectionColumns } from '@app/entityV2/shared/containers/pro
 import SidebarTopUsersHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarTopUsersHeaderSection';
 import { getDashboardPopularityTier, userExists } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { SidebarStatsColumn, getPopularityColumn } from '@app/entityV2/shared/containers/profile/utils';
-import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 
 const StatContent = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};

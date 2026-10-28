@@ -1050,11 +1050,7 @@
                 }
             },
             "source": {
-                "type": "EXTERNAL",
-                "created": {
-                    "time": 1643871600000,
-                    "actor": "urn:li:corpuser:__datahub_system"
-                }
+                "type": "EXTERNAL"
             }
         }
     },

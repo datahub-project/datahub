@@ -15,7 +15,7 @@ import {
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { Sorting } from '@app/sharedV2/sorting/useSorting';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import dayjs from '@utils/dayjs';
 
 import { CorpUser, Entity } from '@types';
@@ -43,7 +43,7 @@ interface Props {
 export default function useQueryTableColumns({ showDetails, onDeleted, onEdited, sorting, showPagination }: Props) {
     const { t } = useTranslation('entity.profile.queries');
     const { t: tc } = useTranslation('common.labels');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     // only rely on backend sorting if we provide a sorting config and we are paginating
     const shouldRelyOnBackendSorting = sorting && showPagination;
 

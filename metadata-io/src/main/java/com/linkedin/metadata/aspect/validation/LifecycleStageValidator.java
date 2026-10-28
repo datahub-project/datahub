@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.service.LifecycleStages;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -141,17 +142,14 @@ public class LifecycleStageValidator extends AspectPayloadValidator {
     }
 
     String entityType = item.getUrn().getEntityType();
-    if (info.hasEntityTypes() && !info.getEntityTypes().isEmpty()) {
-      List<String> allowedTypes = info.getEntityTypes();
-      if (!allowedTypes.contains(entityType)) {
-        exceptions.addException(
-            AspectValidationException.forItem(
-                item,
-                String.format(
-                    "Lifecycle stage '%s' does not apply to entity type '%s'. "
-                        + "Allowed entity types: %s",
-                    stageUrn, entityType, allowedTypes)));
-      }
+    if (!LifecycleStages.appliesToEntityType(info, entityType)) {
+      exceptions.addException(
+          AspectValidationException.forItem(
+              item,
+              String.format(
+                  "Lifecycle stage '%s' does not apply to entity type '%s'. "
+                      + "Allowed entity types: %s",
+                  stageUrn, entityType, info.getEntityTypes())));
     }
   }
 

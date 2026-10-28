@@ -191,19 +191,13 @@ public class DataProductAssetsSideEffect extends MCPSideEffect {
           addUnsynced(operationContext, newByAsset, dataProductUrn, mclItem, retrieverContext)
               .collect(Collectors.toList());
       if (isSystemUpdate(mclItem.getSystemMetadata())) {
-        try {
-          List<MCPItem> removes =
-              removeStaleMirrors(dataProductUrn, newByAsset, mclItem, retrieverContext)
-                  .collect(Collectors.toList());
-          return Stream.concat(adds.stream(), removes.stream());
-        } catch (RuntimeException e) {
-          log.warn(
-              "REMOVE heal failed for {}; emitting {} ADD(s) anyway",
-              dataProductUrn,
-              adds.size(),
-              e);
-          return adds.stream();
-        }
+        // A scroll failure must fail the batch. Swallowing it and returning ADD-only patches
+        // lets ResyncDataProductAssetsStep save LAST_URN and skip the REMOVE heal on retry.
+        // addUnsynced is idempotent, so the ADDs are safe to rebuild when the batch is retried.
+        List<MCPItem> removes =
+            removeStaleMirrors(dataProductUrn, newByAsset, mclItem, retrieverContext)
+                .collect(Collectors.toList());
+        return Stream.concat(adds.stream(), removes.stream());
       }
       return adds.stream();
     }

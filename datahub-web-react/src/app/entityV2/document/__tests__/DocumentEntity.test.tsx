@@ -44,6 +44,7 @@ const mockEntityRegistry = {
     getCollectionName: () => 'Documents',
     getEntityName: () => 'Document',
     getGenericEntityProperties: () => null,
+    getCreatedTime: () => undefined,
     getSupportedEntityCapabilities: () => new Set(),
     hasEntity: () => true,
     renderPreview: () => null,
@@ -65,7 +66,6 @@ const mockEntityRegistry = {
 // Mock the useEntityRegistry hooks to return a mock entity registry
 vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: () => mockEntityRegistry,
-    useEntityRegistryV2: () => mockEntityRegistry,
 }));
 
 // Mock react-helmet-async to avoid context issues in tests
