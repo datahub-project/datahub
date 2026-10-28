@@ -63,9 +63,14 @@ public class SearchTemplateComponentTest {
   @Test
   public void testBuiltinPostProcessConfigIsCheckedWithoutARegisteredComponent() {
     SearchTemplateComponentRegistry empty = SearchTemplateComponentRegistry.empty();
-    SearchTemplateProperties valid = postProcessProperties("entityTypeDiversity,matchTier", "100");
+    SearchTemplateProperties valid = postProcessProperties(null, null);
     SearchTemplateComponents.checkWrite(valid, empty);
 
+    expectThrows(
+        SearchTemplateException.class,
+        () ->
+            SearchTemplateComponents.checkWrite(
+                postProcessProperties("entityTypeDiversity,matchTier", "100"), empty));
     expectThrows(
         SearchTemplateException.class,
         () -> SearchTemplateComponents.checkWrite(postProcessProperties("usage", "100"), empty));
@@ -123,9 +128,17 @@ public class SearchTemplateComponentTest {
     SearchTemplateComponents.applyPostProcess(empty, template, request, page);
     assertEquals(page.getEntities().get(0).getEntity().toString(), "urn:li:dataset:a");
 
-    valid.getComponent().getConfig().put("twiddlers", "usage");
+    MergedSearchTemplate named =
+        MergedSearchTemplate.builder()
+            .urn("urn:li:searchTemplate:ranked")
+            .dialect("ELASTICSEARCH")
+            .queryFragments(Map.of())
+            .parameters(Map.of())
+            .chain(List.of("urn:li:searchTemplate:ranked"))
+            .component(postProcessProperties("usage", "100").getComponent())
+            .build();
     assertEquals(
-        SearchTemplateCapabilities.rejectionCode(template, false, false, empty), "component");
+        SearchTemplateCapabilities.rejectionCode(named, false, false, empty), "component");
   }
 
   @Test
@@ -223,7 +236,9 @@ public class SearchTemplateComponentTest {
     Map<String, String> config = new java.util.LinkedHashMap<>();
     config.put("window", "100");
     config.put("windowSizer", "tokenCurve");
-    config.put("twiddlers", twiddlers);
+    if (twiddlers != null) {
+      config.put("twiddlers", twiddlers);
+    }
     if (topK != null) {
       config.put("topK", topK);
     }

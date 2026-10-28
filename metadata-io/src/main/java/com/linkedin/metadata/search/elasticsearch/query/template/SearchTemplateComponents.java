@@ -21,10 +21,6 @@ import javax.annotation.Nullable;
  * Shared component rules: empty records, skip conditions, the subset invariant, and cache identity.
  */
 public final class SearchTemplateComponents {
-  /** Stage 3 names a stored template may list. OSS checks the names and does not run them. */
-  public static final Set<String> POST_PROCESS_TWIDDLERS =
-      Set.of("entityTypeDiversity", "matchTier");
-
   private SearchTemplateComponents() {}
 
   public static boolean empty(
@@ -202,8 +198,9 @@ public final class SearchTemplateComponents {
   }
 
   /**
-   * Config rules for {@code postProcess}. {@code twiddlers} is a comma-separated list of {@link
-   * #POST_PROCESS_TWIDDLERS}. {@code topK} is required exactly when that list is set.
+   * Config rules for {@code postProcess}. A blank {@code twiddlers} value, a blank token, or a
+   * duplicate is rejected, and {@code topK} is rejected unless that list is set. OSS has no
+   * twiddler implementations, so any name is rejected.
    */
   public static void checkPostProcess(@Nonnull Map<String, String> config) {
     String sizer = config.get("windowSizer");
@@ -241,9 +238,6 @@ public final class SearchTemplateComponents {
       if (twiddler.isEmpty()) {
         throw new SearchTemplateException("twiddlers contains a blank name");
       }
-      if (!POST_PROCESS_TWIDDLERS.contains(twiddler)) {
-        throw new SearchTemplateException("Unknown twiddler " + twiddler);
-      }
       if (!seen.add(twiddler)) {
         throw new SearchTemplateException("Duplicate twiddler " + twiddler);
       }
@@ -259,6 +253,7 @@ public final class SearchTemplateComponents {
     } catch (NumberFormatException e) {
       throw new SearchTemplateException("postProcess topK must be an integer");
     }
+    throw new SearchTemplateException("postProcess twiddlers are not supported");
   }
 
   @Nonnull
