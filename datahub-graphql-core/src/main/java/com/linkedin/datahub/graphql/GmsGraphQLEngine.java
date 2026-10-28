@@ -2403,7 +2403,10 @@ public class GmsGraphQLEngine {
                 "actor",
                 new LoadableTypeResolver<>(
                     corpUserType,
-                    (env) -> ((ResolvedAuditStamp) env.getSource()).getActor().getUrn())));
+                    (env) -> {
+                      ResolvedAuditStamp stamp = (ResolvedAuditStamp) env.getSource();
+                      return stamp.getActor() != null ? stamp.getActor().getUrn() : null;
+                    })));
   }
 
   /**
@@ -3688,7 +3691,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "lineage",
                     new EntityLineageResultResolver(
-                        siblingGraphService, restrictedService, this.authorizationConfiguration))
+                        siblingGraphService,
+                        restrictedService,
+                        this.authorizationConfiguration,
+                        this.featureFlags))
                 .dataFetcher(
                     "platform",
                     new LoadableTypeResolver<>(

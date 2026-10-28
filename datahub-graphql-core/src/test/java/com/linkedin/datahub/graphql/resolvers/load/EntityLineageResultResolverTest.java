@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -35,6 +36,7 @@ import graphql.parser.Parser;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -192,5 +194,62 @@ public class EntityLineageResultResolverTest {
             .collect(Collectors.toMap(FragmentDefinition::getName, f -> f));
     when(environment.getMergedField()).thenReturn(MergedField.newMergedField(lineage).build());
     when(environment.getFragmentsByName()).thenReturn(byName);
+  }
+
+  @Test
+  public void testExplicitNullIncludeGhostEntitiesDefaultsToFalse() throws Exception {
+    SiblingGraphService siblingGraphService = mock(SiblingGraphService.class);
+    when(siblingGraphService.getLineage(
+            any(),
+            eq(DATASET_URN),
+            eq(LineageDirection.UPSTREAM),
+            anyInt(),
+            anyInt(),
+            anyInt(),
+            anyBoolean(),
+            anyBoolean(),
+            anySet()))
+        .thenReturn(
+            new com.linkedin.metadata.graph.EntityLineageResult()
+                .setStart(0)
+                .setCount(0)
+                .setTotal(0)
+                .setRelationships(new LineageRelationshipArray()));
+
+    EntityLineageResultResolver resolver =
+        new EntityLineageResultResolver(
+            siblingGraphService,
+            mock(RestrictedService.class),
+            new AuthorizationConfiguration(),
+            new FeatureFlags());
+
+    // An explicit null bypasses the schema default (`includeGhostEntities: Boolean = false`).
+    Map<String, Object> input = new HashMap<>();
+    input.put("direction", "UPSTREAM");
+    input.put("includeGhostEntities", null);
+
+    Dataset source = new Dataset();
+    source.setUrn(DATASET_URN.toString());
+
+    QueryContext context = getMockAllowContext();
+    DataFetchingEnvironment env = mock(DataFetchingEnvironment.class);
+    when(env.getContext()).thenReturn(context);
+    when(env.getSource()).thenReturn(source);
+    when(env.getArgument("input")).thenReturn(input);
+
+    EntityLineageResult result = resolver.get(env).get();
+
+    assertEquals(result.getTotal(), 0);
+    verify(siblingGraphService)
+        .getLineage(
+            any(),
+            eq(DATASET_URN),
+            eq(LineageDirection.UPSTREAM),
+            eq(0),
+            eq(100),
+            eq(1),
+            eq(false),
+            eq(false),
+            anySet());
   }
 }
