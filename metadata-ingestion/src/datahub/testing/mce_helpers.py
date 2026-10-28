@@ -85,6 +85,7 @@ def check_golden_file(
     ignore_paths_v2: Sequence[str] = (),
     ignore_order: bool = True,
     golden_mces_as_mcps: bool = False,
+    fail_on_output_mces: bool = False,
 ) -> None:
     # TODO: Remove the pytestconfig parameter since it's redundant.
     # Or more straightforward - we can remove the `check_golden_file` method
@@ -98,6 +99,7 @@ def check_golden_file(
         ignore_paths_v2=ignore_paths_v2,
         ignore_order=ignore_order,
         golden_mces_as_mcps=golden_mces_as_mcps,
+        fail_on_output_mces=fail_on_output_mces,
     )
 
 

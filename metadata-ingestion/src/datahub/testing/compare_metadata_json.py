@@ -73,14 +73,18 @@ def assert_metadata_files_equal(
     ignore_paths_v2: Sequence[str] = (),
     ignore_order: bool = True,
     golden_mces_as_mcps: bool = False,
+    fail_on_output_mces: bool = False,
 ) -> None:
     """Fail the test if the output file differs from the golden file.
 
-    With golden_mces_as_mcps, MCEs in the golden are read as one MCP per aspect and the
-    output must contain MCPs only; an MCE left in the output fails the test. ignore_paths
+    With golden_mces_as_mcps, MCEs in the golden are read as one MCP per aspect, so the
+    output is expected to contain MCPs only; fail_on_output_mces enforces this. ignore_paths
     must use the MCP shape (root[i]['aspect']['json']...), and record indices renumber
     because one MCE becomes several MCPs. With --update-golden-files, a differing golden
     is rewritten as MCPs.
+
+    With fail_on_output_mces, the test fails if the output contains any MCE, whatever
+    the golden contains and even with --update-golden-files.
     """
     settings = get_golden_settings()
 
@@ -96,6 +100,14 @@ def assert_metadata_files_equal(
         )
 
     output = load_json_file(output_path)
+
+    if fail_on_output_mces:
+        mce_count = sum("proposedSnapshot" in record for record in output)
+        if mce_count:
+            pytest.fail(
+                f"Output contains {mce_count} MCE(s); this source must emit MCPs only",
+                pytrace=False,
+            )
 
     if settings.update_golden and not golden_exists:
         shutil.copyfile(str(output_path), str(golden_path))

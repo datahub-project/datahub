@@ -6,6 +6,7 @@ import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
+from datahub.ingestion.source.file import read_metadata_file
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     InstitutionalMemoryClass,
@@ -253,6 +254,41 @@ def test_mce_left_in_output_fails(tmp_path: pathlib.Path) -> None:
     output = _write_json(tmp_path / "output.json", basic_1)
     with pytest.raises(pytest.fail.Exception):
         assert_metadata_files_equal(output, golden, golden_mces_as_mcps=True)
+
+
+def test_fail_on_output_mces_fails_even_when_golden_matches(
+    tmp_path: pathlib.Path,
+) -> None:
+    golden = _write_json(tmp_path / "golden.json", basic_1)
+    output = tmp_path / "output.json"
+    write_metadata_file(output, read_metadata_file(golden))
+    assert_metadata_files_equal(output, golden)
+    with pytest.raises(pytest.fail.Exception, match="MCE"):
+        assert_metadata_files_equal(output, golden, fail_on_output_mces=True)
+
+
+def test_fail_on_output_mces_blocks_update_golden(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    golden = tmp_path / "golden.json"
+    output = _write_json(tmp_path / "output.json", basic_1)
+    monkeypatch.setattr(
+        pytest_hooks,
+        "_settings",
+        pytest_hooks.GoldenFileSettings(update_golden=True, copy_output=False),
+    )
+    with pytest.raises(pytest.fail.Exception, match="MCE"):
+        assert_metadata_files_equal(output, golden, fail_on_output_mces=True)
+    assert not golden.exists()
+
+
+def test_fail_on_output_mces_passes_mcp_only_output(tmp_path: pathlib.Path) -> None:
+    golden = _write_json(tmp_path / "golden.json", basic_1)
+    output = tmp_path / "output.json"
+    write_metadata_file(output, _basic_1_as_mcps())
+    assert_metadata_files_equal(
+        output, golden, golden_mces_as_mcps=True, fail_on_output_mces=True
+    )
 
 
 def test_mce_golden_ignore_paths_v2_with_ordered_compare(
