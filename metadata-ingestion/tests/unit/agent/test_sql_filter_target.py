@@ -669,6 +669,29 @@ def test_a_filtering_table_pattern_without_its_container_refuses():
     assert "project_ids" in str(refusal.value)
 
 
+def test_a_snowflake_table_pattern_without_its_database_refuses():
+    """Snowflake reaches the same rule by its own hook rather than the
+    Qualifier path, and has no config field naming a database -- a recipe
+    spans several -- so --parent is the only way to qualify one.
+    """
+    with pytest.raises(ProbeArgumentError) as refusal:
+        check_filters(
+            source_type="snowflake",
+            config_dict={
+                "account_id": "a",
+                "username": "u",
+                "password": "p",
+                "warehouse": "w",
+                "table_pattern": {"allow": [r"^MYDB\.PUBLIC\.ORDERS$"]},
+            },
+            kind=str(DatasetSubTypes.TABLE),
+            parent_path=["PUBLIC"],
+            names=["ORDERS"],
+        )
+    assert "table_pattern" in str(refusal.value)
+    assert "--parent" in str(refusal.value)
+
+
 def test_a_single_pinned_container_needs_no_parent():
     """The other side of the same coin: Qualifier() on project_ids means a
     single-project recipe, the common case, is answerable without --parent
