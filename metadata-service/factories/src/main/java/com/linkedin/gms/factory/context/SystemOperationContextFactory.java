@@ -387,7 +387,7 @@ public class SystemOperationContextFactory {
                 unknownEnumTolerance,
                 new NextVersionEntityTypes(entityTypeRowExists))
             : StrictHandling.INSTANCE;
-    UnknownDataHandlings.use(handling);
+    UnknownDataHandlings.install(handling);
     log.info(
         "Unknown data tolerance: entity types, aspects and references {}; enum values {}",
         unknownEntityAspectTolerance ? "enabled" : "disabled",
