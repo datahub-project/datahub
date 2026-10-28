@@ -39,17 +39,6 @@ The Databricks Metadata Sync automation provides comprehensive metadata synchron
 
 > **A note about legacy Hive Metastore**: Bi-directional sync for _descriptions_ is supported for Hive Metastore Schemas & Tables, but Tag sync is _not_. This is because Databricks does not support applying of Tags to these assets on Hive Metastore.
 
-## Logical model descriptions
-
-When you sync Descriptions, you can also select **Sync descriptions from logical models** (off by default, since it replaces existing comments). Descriptions that a table or column gets from its logical model are then synced as comments, unless it has a description edited in DataHub, which always wins. Descriptions that arrive through lineage are not synced. Initialize writes the logical-model description of every linked table and column.
-
-:::note Limitations
-
-- Removing a logical-model description does not clear the comment in Databricks. Clear it there too, or the next ingestion imports it back.
-- Clearing a description edited in DataHub leaves the Databricks comment unchanged instead of restoring the logical-model description. Run Initialize to write it again.
-
-:::
-
 ## Prerequisites
 
 Before enabling Databricks Metadata Sync, ensure the following permissions and configurations are in place:
@@ -243,6 +232,17 @@ Confirm successful metadata syncing by examining Unity Catalog objects:
 1. **Access Databricks UI**: Navigate to your Databricks workspace
 2. **Browse Catalog**: Open the Unity Catalog explorer
 3. **Inspect Objects**: Select tables or columns to view applied tags and comments
+
+## Logical model descriptions
+
+When you sync Descriptions, you can also select **Sync descriptions from logical models** (off by default, since it replaces existing comments). Descriptions that a table or column gets from its logical model are then synced as comments, unless it has a description edited in DataHub, which always wins. Descriptions that arrive through lineage are not synced. Initialize writes the logical-model description of every linked table and column.
+
+:::note Limitations
+
+- Removing a logical-model description does not clear the comment in Databricks. Clear it there too, or the next ingestion imports it back.
+- Clearing a description edited in DataHub leaves the Databricks comment unchanged instead of restoring the logical-model description. Run Initialize to write it again.
+
+:::
 
 ## Troubleshooting
 

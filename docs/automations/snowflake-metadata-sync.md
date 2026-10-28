@@ -102,17 +102,6 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/automation-form.png"/>
 </p>
 
-## Logical model descriptions
-
-When you sync Descriptions, you can also select **Sync descriptions from logical models** (off by default, since it replaces existing comments). Descriptions that a table or column gets from its logical model are then synced as comments, unless it has a description edited in DataHub, which always wins. Descriptions that arrive through lineage are not synced. Initialize writes the logical-model description of every linked table and column.
-
-:::note Limitations
-
-- Removing a logical-model description does not clear the comment in Snowflake. Clear it there too, or the next ingestion imports it back.
-- Clearing a description edited in DataHub clears the Snowflake comment instead of restoring the logical-model description. Run Initialize to write it again.
-
-:::
-
 ## Propagating for Existing Assets
 
 You can back-fill historical data for existing assets to ensure that all current column and table Glossary Terms are propagated to Snowflake.
@@ -154,3 +143,14 @@ DataHub descriptions will be synced as Snowflake comments on tables and columns,
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/view-snowflake-tags.png"/>
 </p>
+
+## Logical model descriptions
+
+When you sync Descriptions, you can also select **Sync descriptions from logical models** (off by default, since it replaces existing comments). Descriptions that a table or column gets from its logical model are then synced as comments, unless it has a description edited in DataHub, which always wins. Descriptions that arrive through lineage are not synced. Initialize writes the logical-model description of every linked table and column.
+
+:::note Limitations
+
+- Removing a logical-model description does not clear the comment in Snowflake. Clear it there too, or the next ingestion imports it back.
+- Clearing a description edited in DataHub clears the Snowflake comment instead of restoring the logical-model description. Run Initialize to write it again.
+
+:::
