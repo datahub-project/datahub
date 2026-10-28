@@ -44,6 +44,7 @@ def jdk4py_home(tmp_path: Path) -> Path:
 def system_jvm_home(tmp_path: Path) -> Path:
     home = tmp_path / "usr" / "lib" / "jvm" / "java-25-openjdk"
     (home / "lib" / "server").mkdir(parents=True)
+    (home / "release").write_text('JAVA_VERSION="25.0.2"\n')
     return home
 
 
@@ -95,6 +96,36 @@ def test_jdk4py_fallback_uses_system_trust_store_when_present(
     monkeypatch.setattr(java_runtime, "SYSTEM_JAVA_TRUST_STORE", trust_store)
 
     assert prepare_jvm_settings() == [f"-Djavax.net.ssl.trustStore={trust_store}"]
+
+
+@pytest.mark.parametrize(
+    "release_content",
+    [
+        pytest.param('JAVA_VERSION="1.8.0_392"\n', id="java-8"),
+        pytest.param(None, id="no-release-file"),
+    ],
+)
+def test_unstartable_system_jvm_falls_back_to_jdk4py(
+    monkeypatch: pytest.MonkeyPatch,
+    clean_env: None,
+    jdk4py_home: Path,
+    tmp_path: Path,
+    release_content: Optional[str],
+) -> None:
+    # JPype's finder returns any libjvm regardless of Java version, but JPype
+    # cannot start pre-11 JVMs; such a JVM must not displace the jdk4py fallback.
+    home = tmp_path / "usr" / "lib" / "jvm" / "java-8-openjdk"
+    (home / "lib" / "server").mkdir(parents=True)
+    if release_content is not None:
+        (home / "release").write_text(release_content)
+    monkeypatch.setitem(sys.modules, "jpype", _fake_jpype(system_jvm=home))
+    monkeypatch.setitem(sys.modules, "jdk4py", _fake_jdk4py(jdk4py_home))
+    monkeypatch.setattr(
+        java_runtime, "SYSTEM_JAVA_TRUST_STORE", tmp_path / "missing-cacerts"
+    )
+
+    assert prepare_jvm_settings() == []
+    assert os.environ["JAVA_HOME"] == str(jdk4py_home)
 
 
 def test_preset_java_home_is_respected(
