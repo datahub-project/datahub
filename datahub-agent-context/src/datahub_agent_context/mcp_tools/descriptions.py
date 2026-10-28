@@ -5,6 +5,7 @@ from typing import Literal, Optional
 
 from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import execute_graphql
+from datahub_agent_context.mcp_tools.helpers import resolve_description
 
 logger = logging.getLogger(__name__)
 
@@ -113,17 +114,7 @@ def _get_existing_description(entity_urn: str, column_path: Optional[str]) -> st
                     return field.get("description", "")
             return ""
         else:
-            # Get entity description
-            # Try editableProperties first (for Dataset, Container, etc.)
-            editable_props = entity_data.get("editableProperties", {})
-            existing_description = editable_props.get("description", "")
-
-            # If not found, try properties (for Tag, GlossaryTerm, etc.)
-            if not existing_description:
-                properties = entity_data.get("properties", {})
-                existing_description = properties.get("description", "")
-
-            return existing_description
+            return resolve_description(entity_data)
 
     except Exception as e:
         logger.warning(
