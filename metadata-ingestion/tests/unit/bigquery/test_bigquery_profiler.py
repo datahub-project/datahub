@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -678,3 +679,212 @@ def test_extract_column_names_from_ddl_does_not_flatten_function_args(ddl, expec
         discovery._extract_column_names_from_sqlglot_partition(partition_expr)
         == expected
     )
+
+
+# ---------------------------------------------------------------------------
+# Partition selection and profile request shaping
+# ---------------------------------------------------------------------------
+
+
+def _partition_column(
+    name: str = "date", data_type: str = "TIMESTAMP"
+) -> BigqueryColumn:
+    return BigqueryColumn(
+        name=name,
+        field_path=name,
+        ordinal_position=1,
+        data_type=data_type,
+        is_partition_column=True,
+        cluster_column_position=None,
+        comment=None,
+        is_nullable=False,
+    )
+
+
+def _table(
+    name: str = "test_table",
+    partition_info: Optional[PartitionInfo] = None,
+    max_partition_id: Optional[str] = None,
+    max_shard_id: Optional[str] = None,
+    external: bool = False,
+    rows_count: int = 10,
+) -> BigqueryTable:
+    return BigqueryTable(
+        name=name,
+        comment=None,
+        rows_count=rows_count,
+        size_in_bytes=1,
+        last_altered=datetime.now(timezone.utc),
+        created=datetime.now(timezone.utc),
+        partition_info=partition_info,
+        max_partition_id=max_partition_id,
+        max_shard_id=max_shard_id,
+        external=external,
+    )
+
+
+def _profiler(**config: Any) -> BigqueryProfiler:
+    return BigqueryProfiler(
+        config=BigQueryV2Config(**config),
+        report=BigQueryV2Report(),
+    )
+
+
+def test_range_partitioned_table_filters_on_partition_column() -> None:
+    profiler = _profiler()
+    table = _table(
+        partition_info=PartitionInfo(
+            type="RANGE",
+            fields=("bucket",),
+            columns=(_partition_column("bucket", "INT64"),),
+        ),
+        max_partition_id="500",
+    )
+
+    partition, custom_sql = profiler.generate_partition_profiler_query(
+        "test_project", "test_dataset", table
+    )
+
+    assert partition == "500"
+    assert custom_sql is not None
+    assert "bucket >= 500" in custom_sql
+
+
+def test_range_partition_without_column_is_skipped() -> None:
+    profiler = _profiler()
+    table = _table(
+        partition_info=PartitionInfo(type="RANGE", fields=("bucket",)),
+        max_partition_id="500",
+    )
+
+    assert profiler.generate_partition_profiler_query(
+        "test_project", "test_dataset", table
+    ) == (None, None)
+    assert profiler.report.profiling_skipped_invalid_partition_ids == {
+        "test_project.test_dataset.test_table": "500"
+    }
+
+
+def test_unrecognised_partition_id_is_skipped() -> None:
+    profiler = _profiler()
+    table = _table(
+        partition_info=PartitionInfo(
+            type="DAY", fields=("date",), columns=(_partition_column(),)
+        ),
+        max_partition_id="2020-01-01",
+    )
+
+    assert profiler.generate_partition_profiler_query(
+        "test_project", "test_dataset", table
+    ) == (None, None)
+    assert profiler.report.profiling_skipped_invalid_partition_ids == {
+        "test_project.test_dataset.test_table": "2020-01-01"
+    }
+
+
+def test_unsupported_time_partition_type_is_skipped() -> None:
+    profiler = _profiler()
+    table = _table(
+        partition_info=PartitionInfo(
+            type="WEEK", fields=("date",), columns=(_partition_column(),)
+        ),
+        max_partition_id="20200101",
+    )
+
+    assert profiler.generate_partition_profiler_query(
+        "test_project", "test_dataset", table
+    ) == (None, None)
+    assert profiler.report.profiling_skipped_invalid_partition_type == {
+        "test_project.test_dataset.test_table": "WEEK"
+    }
+
+
+def test_profile_request_carries_partition_and_custom_sql() -> None:
+    profiler = _profiler()
+    table = _table(
+        partition_info=PartitionInfo(
+            type="DAY", fields=("date",), columns=(_partition_column(),)
+        ),
+        max_partition_id="20200101",
+    )
+
+    request = profiler.get_profile_request(table, "test_dataset", "test_project")
+
+    assert request is not None
+    assert request.batch_kwargs["partition"] == "20200101"
+    assert "`date` BETWEEN" in request.batch_kwargs["custom_sql"]
+    assert request.batch_kwargs["table"] == "test_dataset.test_table"
+
+
+def test_profile_request_for_sharded_table_has_shard_but_no_custom_sql() -> None:
+    request = _profiler().get_profile_request(
+        _table(max_shard_id="20200101"), "test_dataset", "test_project"
+    )
+
+    assert request is not None
+    assert request.batch_kwargs["partition"] == "20200101"
+    assert request.batch_kwargs["custom_sql"] is None
+
+
+def test_partitioned_table_is_skipped_when_partition_profiling_disabled() -> None:
+    profiler = _profiler(profiling={"partition_profiling_enabled": False})
+    table = _table(
+        partition_info=PartitionInfo(
+            type="DAY", fields=("date",), columns=(_partition_column(),)
+        ),
+        max_partition_id="20200101",
+    )
+
+    assert profiler.get_profile_request(table, "test_dataset", "test_project") is None
+    assert list(profiler.report.profiling_skipped_partition_profiling_disabled) == [
+        "test_project.test_dataset.test_table"
+    ]
+
+
+def test_partitioned_table_with_invalid_partition_is_skipped_with_warning() -> None:
+    profiler = _profiler()
+    table = _table(
+        partition_info=PartitionInfo(
+            type="DAY", fields=("date",), columns=(_partition_column(),)
+        ),
+        max_partition_id="bogus",
+    )
+
+    assert profiler.get_profile_request(table, "test_dataset", "test_project") is None
+    assert len(profiler.report.warnings) == 1
+
+
+def test_pseudo_partitioned_table_without_partition_id_is_still_profiled() -> None:
+    # _PARTITIONTIME tables report no column; a missing partition id must not
+    # block profiling of the whole table.
+    table = _table(partition_info=PartitionInfo(type="DAY", fields=("_PARTITIONTIME",)))
+
+    request = _profiler().get_profile_request(table, "test_dataset", "test_project")
+
+    assert request is not None
+    assert "partition" not in request.batch_kwargs
+
+
+def test_external_tables_are_only_profiled_when_enabled() -> None:
+    tables = {"test_dataset": [_table("plain"), _table("ext", external=True)]}
+
+    with patch.object(
+        BigqueryProfiler, "generate_profile_workunits", return_value=[]
+    ) as gen:
+        list(_profiler().get_workunits("test_project", tables))
+        skipped_requests = gen.call_args.args[0]
+
+        list(
+            _profiler(profiling={"profile_external_tables": True}).get_workunits(
+                "test_project", tables
+            )
+        )
+        included_requests = gen.call_args.args[0]
+
+    assert [r.pretty_name for r in skipped_requests] == [
+        "test_project.test_dataset.plain"
+    ]
+    assert [r.pretty_name for r in included_requests] == [
+        "test_project.test_dataset.plain",
+        "test_project.test_dataset.ext",
+    ]

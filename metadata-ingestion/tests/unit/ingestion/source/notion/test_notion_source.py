@@ -1217,3 +1217,17 @@ def test_embedding_failure_leaves_document_retryable(notion_source):
     # through to report accounting and the (enabled) state update, checkpointing the page.
     update_state.assert_not_called()
     assert notion_source.report.num_files_processed == 0
+
+
+def test_unexpected_embedding_exception_leaves_document_retryable(notion_source):
+    """A provider/credential error that is not a RuntimeError takes the generic
+    handler, which must likewise return before state is recorded."""
+    data = _document_entity_test_setup(
+        notion_source, Exception("AuthFailure: credentials could not be validated")
+    )
+
+    with patch.object(notion_source, "_update_document_state") as update_state:
+        list(notion_source._create_document_entity(data))
+
+    update_state.assert_not_called()
+    assert notion_source.report.num_files_processed == 0
