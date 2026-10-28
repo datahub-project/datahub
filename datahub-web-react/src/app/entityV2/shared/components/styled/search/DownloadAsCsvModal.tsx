@@ -14,7 +14,7 @@ import {
 } from '@app/entityV2/shared/components/styled/search/downloadAsCsvUtil';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { downloadRowsAsCsv } from '@app/search/utils/csvUtils';
-import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 

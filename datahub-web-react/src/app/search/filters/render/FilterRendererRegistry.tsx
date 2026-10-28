@@ -1,5 +1,5 @@
 import { FilterRenderer } from '@app/search/filters/render/FilterRenderer';
-import { FilterRenderProps } from '@app/search/filters/render/types';
+import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {

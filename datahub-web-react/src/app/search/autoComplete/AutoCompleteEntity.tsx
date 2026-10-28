@@ -4,13 +4,13 @@ import styled from 'styled-components/macro';
 
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getPlatformName } from '@app/entity/shared/utils';
-import AutoCompleteEntityIcon from '@app/search/autoComplete/AutoCompleteEntityIcon';
-import AutoCompletePlatformNames from '@app/search/autoComplete/AutoCompletePlatformNames';
 import ParentContainers from '@app/search/autoComplete/ParentContainers';
 import { SuggestionText } from '@app/search/autoComplete/styledComponents';
 import { getAutoCompleteEntityText } from '@app/search/autoComplete/utils';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { getParentEntities } from '@app/search/filters/utils';
+import AutoCompleteEntityIcon from '@app/searchV2/autoComplete/AutoCompleteEntityIcon';
+import AutoCompletePlatformNames from '@app/searchV2/autoComplete/AutoCompletePlatformNames';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType } from '@types';
