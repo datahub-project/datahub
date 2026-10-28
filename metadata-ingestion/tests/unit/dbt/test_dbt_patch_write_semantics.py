@@ -16,7 +16,6 @@ from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermsClass,
-    MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
@@ -135,12 +134,12 @@ FULL_META = {
 def _run(source: DBTCoreSource, node: DBTNode) -> List[Tuple[str, Any]]:
     # Deep-copy while iterating, so a later in-place edit of a yielded aspect is caught.
     out = []
-    for wu in source.create_dbt_platform_mces(
+    for wu in source.create_dbt_platform_mcps(
         dbt_nodes=[node], all_nodes_map={node.dbt_name: node}
     ):
         assert isinstance(wu, MetadataWorkUnit)
         out.append((wu.get_urn(), copy.deepcopy(wu)))
-    # create_dbt_platform_mces swallows per-node errors; a failed node must not pass.
+    # create_dbt_platform_mcps swallows per-node errors; a failed node must not pass.
     assert source.report.node_emission_failures == 0
     return out
 
@@ -157,15 +156,7 @@ def _aspect(out: List[Tuple[str, Any]], aspect_type: type) -> Any:
 
 
 def _aspect_names(out: List[Tuple[str, Any]]) -> List[Tuple[str, str]]:
-    names: List[Tuple[str, str]] = []
-    for urn, wu in out:
-        if isinstance(wu.metadata, MetadataChangeEventClass):
-            names.extend(
-                (urn, a.get_aspect_name()) for a in wu.metadata.proposedSnapshot.aspects
-            )
-        else:
-            names.append((urn, wu.metadata.aspectName))
-    return names
+    return [(urn, wu.metadata.aspectName) for urn, wu in out]
 
 
 def test_patch_merges_server_owners_tags_terms() -> None:
