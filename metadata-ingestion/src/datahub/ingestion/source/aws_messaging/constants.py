@@ -12,6 +12,8 @@ class AwsService(StrEnum):
     TAGGING = "resourcegroupstaggingapi"
 
 
+QUEUE_URL_PATTERN = re.compile(r"/(?P<account>\d{12})/(?P<name>[^/?#]+)/?$")
+
 ARN_PATTERN = re.compile(
     r"^arn:(?P<partition>aws[a-z-]*):(?P<service>[a-z0-9-]+):"
     r"(?P<region>[a-z0-9-]*):(?P<account>\d{12})?:(?P<resource>.+)$"
