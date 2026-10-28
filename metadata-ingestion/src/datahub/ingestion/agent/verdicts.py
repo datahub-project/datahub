@@ -9,6 +9,7 @@ from typing import (
     Tuple,
 )
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.pattern_path import require_pattern_at, unset_block_on
 
 
@@ -90,6 +91,88 @@ def parent_required(ctx: ClassifyContext) -> bool:
         return False
     ctx.warn(_NO_PARENT_WARNING)
     return True
+
+
+def _listing_command_for(config: object, kind: str) -> Optional[str]:
+    """A probe command that lists what contains a `kind`, or None.
+
+    Looked up by kind rather than named per connector, so a source that gains a
+    container listing earns the "run this first" sentence without the framework
+    learning its name. Lazy import: probe_methods imports this module.
+    """
+    from datahub.ingestion.agent.probe_methods import (
+        config_hook,
+        listing_command_for_kind,
+        provider_class_for_config,
+    )
+
+    ancestors_for = config_hook(config, "probe_ancestor_kinds")
+    ancestors = ancestors_for(kind=kind) if ancestors_for else None
+    # Only to name a command in a refusal, so a connector returning something
+    # unusable loses the hint rather than turning the refusal into a defect
+    # report; filter_check polices the hook's shape where it matters.
+    if not isinstance(ancestors, (list, tuple)) or not ancestors:
+        return None
+    # The outermost ancestor, not the nearest: the container being asked for is
+    # the one a Qualifier field pins (a database or project), and for a table
+    # the nearer ancestor -- its schema -- may already have come from --parent.
+    provider_cls = provider_class_for_config(type(config))
+    if provider_cls is None:
+        return None
+    return listing_command_for_kind(provider_cls, str(ancestors[0]))
+
+
+def require_container(
+    container: Optional[str],
+    *,
+    config: object,
+    kind: str,
+    pattern: Optional[AllowDenyPattern],
+    pattern_field: Optional[str],
+    shape: str,
+    pin_field: Optional[str],
+    warn: Callable[[str], None],
+) -> Optional[str]:
+    """`container`, or None after warning, or a refusal.
+
+    A source that matches a qualified identifier cannot be judged without the
+    container: matching the bare name against a pattern written (or rewritten)
+    for `shape` answers a question ingestion never asks, and the answer is
+    usually "excluded" about something every run ingests. That verdict is the
+    one failure `probe filter` exists to prevent, so it is not given.
+
+    An allow-all pattern is the exception and answers normally: it includes
+    everything whatever string it is matched against, so the missing container
+    cannot change the verdict -- only the `target` reported alongside it. Said
+    rather than assumed, because a reader comparing `target` with what
+    ingestion logs would otherwise see a difference nothing explains.
+
+    `pin_field` and the pattern are passed in rather than read off `config`:
+    declarations imports this module, so the dependency cannot be inverted.
+    """
+    if container:
+        return container
+    if pattern is None or pattern.is_allow_all():
+        warn(
+            f"no container was given, so `target` below shows the bare name "
+            f"rather than the '{shape}' this source matches; the verdict is "
+            f"unaffected, as nothing at `{pattern_field}` filters these"
+        )
+        return None
+    remedies = []
+    listing = _listing_command_for(config, kind)
+    if listing:
+        remedies.append(f"run `probe run {listing}` to list them, then pass --parent")
+    else:
+        remedies.append("pass --parent")
+    if pin_field:
+        remedies.append(f"or pin a single value in `{pin_field}`")
+    raise ProbeArgumentError(
+        f"this source matches `{pattern_field}` against the qualified '{shape}', "
+        f"and nothing here says which container to use. Judging the bare name "
+        f"against that pattern would report a verdict ingestion does not make, "
+        f"so none is given: " + ", ".join(remedies) + "."
+    )
 
 
 @dataclass(frozen=True)

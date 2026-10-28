@@ -622,6 +622,19 @@ def declared_kind_overrides(config: object) -> Dict[str, str]:
     return {str(key): str(value) for key, value in declared.items()}
 
 
+def listing_command_for_kind(provider_cls: type, kind: str) -> Optional[str]:
+    """The command on `provider_cls` that lists `kind`, or None.
+
+    For a refusal that wants to name the listing which would resolve it: the
+    kinds are declared on the commands, so this asks them rather than carrying
+    a per-connector table that would go stale.
+    """
+    for command, spec in _iter_specs(provider_cls):
+        if spec.kind is not None and str(spec.kind) == kind:
+            return command
+    return None
+
+
 def list_probe_methods(source_type: str) -> List[ProbeMethodSpec]:
     """Every command this source offers, with the kind each one reports."""
     provider_cls = _provider_class(source_type)

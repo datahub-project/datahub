@@ -293,6 +293,7 @@ and the `ProbeArgumentError` family in `datahub.ingestion.agent.verdicts`; `Filt
 | `pattern_verdict(config, field, target)`                 | the standard allow/deny check, for a `probe_verdict_override` that defers to a pattern                                       |
 | `Verdict.include()` / `Verdict.exclude(field)`           | a verdict, naming the field or rule that excluded it                                                                         |
 | `parent_required(ctx)`                                   | a `probe_match_target` that needs the container: warns and returns `True` when there is no `--parent`                        |
+| `require_container(container, *, pattern, ...)`          | a verdict that needs the container: the container, or `None` when the pattern filters nothing, else refuses                  |
 | `ancestors_in(chain, kind, leaves)`                      | implementing `probe_ancestor_kinds` from a container chain                                                                   |
 
 ```python
@@ -470,6 +471,27 @@ Never re-implement matching with `re.search`, `re.fullmatch` or `in`. To ask whe
 filters anything, use `pattern.is_allow_all()` and read `False` as "unknown"; do not compare with
 `AllowDenyPattern.allow_all()`, whose equality includes a regex cache.
 
+### A verdict you cannot stand behind is not given
+
+Where ingestion matches a qualified identifier (`project.dataset`,
+`database.schema.entity`) and nothing resolves the container -- no
+`Qualifier()` field pins one, no `--parent` names one -- there is no target to
+build. Judging the bare name against a pattern written, or rewritten, for the
+qualified one answers a question ingestion never asks, and the answer is
+usually "excluded" about something every run ingests. `require_container`
+refuses instead, naming `--parent`, the `Qualifier()` field to pin, and any
+probe command that lists the container kind.
+
+A warning is not enough. It used to carry exactly this, beside a flat
+`included: false` -- and the verdict is what gets read, so the warning
+contradicted the answer rather than replacing it.
+
+The exception is a pattern that filters nothing: it includes the name whatever
+string it is matched against, so the missing container cannot change the
+verdict, only the `target` reported beside it. Those answer normally, with a
+note that `target` is the bare name. Keeping that case answerable is what
+stops "no filters yet, what is in here?" from erroring.
+
 ### One predicate for ingestion and the probe
 
 An override that restates ingestion's rules drifts from them. Put the connector's selection
@@ -569,7 +591,9 @@ config field that pins the container with `Qualifier()` (a list field qualifies 
 one value; `Qualifier(authoritative=True)` makes it beat `--parent`), or, where only the caller knows
 the container, return `qualified_table_target(database, schema, entity, warn)` from
 `probe_filter_target`, importing it from `source/sql/sql_probe_verdicts.py` inside the hook: a
-config module imports no probe framework at load, since ingestion would pay for it. Override `probe_filter_target` too when your `Source` is not a
+config module imports no probe framework at load, since ingestion would pay for it. Pass the
+deciding `pattern` (with `config`, `kind`, `pattern_field` and `pin_field`) to opt that call into
+the rule below; without it the old warn-and-degrade is kept, so no existing caller changes. Override `probe_filter_target` too when your `Source` is not a
 `SQLAlchemySource` or its `get_identifier` reads state ingestion sets while walking. It is called by
 keyword, `database` included, and `warn` reports a less precise fallback. Which provider a connector
 brings is never read as a declaration.

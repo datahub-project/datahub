@@ -19,7 +19,11 @@ from datahub.configuration.common import (
 from datahub.ingestion.agent import filter_check
 from datahub.ingestion.agent.declarations import declared_kind_enablers
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    Verdict,
+    VerdictContext,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -49,12 +53,8 @@ _SF: Dict[str, object] = {
     "password": "p",
     "warehouse": "w",
 }
-_NEEDS_PARENT = (
-    "this source matches containers on a qualified name and could not tell "
-    "which one you mean, so these were judged on their bare names and will "
-    "mostly read as excluded; pass --parent to get the verdict ingestion "
-    "actually makes"
-)
+# What a filtering pattern with no container now raises, rather than a verdict.
+_REFUSED = "nothing here says which container to use"
 
 
 _Row = Tuple[str, str, bool, Optional[str]]
@@ -165,19 +165,105 @@ def test_the_callers_parent_qualifies_a_schema_on_a_multi_project_recipe() -> No
     assert result.warnings == []
 
 
-def test_a_qualified_source_with_no_container_says_to_pass_a_parent() -> None:
+def test_a_bigquery_dataset_is_not_reported_excluded_on_a_pattern_it_rewrote() -> None:
+    """The config BigQuery ships, which no other test here exercises.
+
+    `match_fully_qualified_names` defaults True and `project_ids` defaults
+    empty -- BigQuery discovers projects -- so this is what a recipe written
+    by hand looks like. BigQuery's own validator rewrites `^analytics$` to
+    `^.*\\.analytics$`, which the bare name `analytics` cannot match, and the
+    command reported `included: false` about a dataset every real run
+    ingests. Every other BigQuery case in this file pins `project_ids`, which
+    is why the default shape went unnoticed.
+    """
+    with pytest.raises(ProbeArgumentError) as refusal:
+        check_filters(
+            source_type="bigquery",
+            config_dict={"dataset_pattern": {"allow": ["^analytics$"]}},
+            kind=str(DatasetContainerSubTypes.SCHEMA),
+            parent_path=[],
+            names=["analytics"],
+        )
+    message = str(refusal.value)
+    assert "dataset_pattern" in message
+    assert "--parent" in message
+    assert "project_ids" in message
+
+
+def test_naming_the_project_answers_the_same_question() -> None:
+    """The refusal is a request, not a wall: what it asks for resolves it."""
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={"dataset_pattern": {"allow": ["^analytics$"]}},
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=["proj1"],
+        names=["analytics", "other"],
+    )
+    assert _rows(result) == [
+        ("analytics", "proj1.analytics", True, None),
+        ("other", "proj1.other", False, "dataset_pattern"),
+    ]
+    assert result.warnings == []
+
+
+def test_an_allow_all_pattern_answers_without_a_container() -> None:
+    """The carve-out, and the reason refusing is not simply "always refuse".
+
+    A recipe with no `dataset_pattern` includes every dataset whatever string
+    the pattern is matched against, so the missing project cannot change the
+    verdict -- only the `target` reported beside it, which is said. This is
+    the "I have not written any filters yet, what is in here?" call, and
+    refusing it would break the common case to fix the broken one.
+    """
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={},
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["analytics"],
+    )
+    assert _rows(result) == [("analytics", "analytics", True, None)]
+    assert len(result.warnings) == 1
+    assert "bare name" in result.warnings[0]
+
+
+def test_a_single_pinned_project_still_needs_no_parent() -> None:
+    """The Qualifier fallback must survive: one pinned project IS the
+    container, so nothing is missing and nothing is said about it."""
     result = check_filters(
         source_type="bigquery",
         config_dict={
-            "project_ids": ["p1", "p2"],
-            "dataset_pattern": {"allow": [r"^p1\.ds$"]},
+            "project_ids": ["p1"],
+            "dataset_pattern": {"allow": ["^analytics$"]},
         },
         kind=str(DatasetContainerSubTypes.SCHEMA),
         parent_path=[],
-        names=["ds"],
+        names=["analytics"],
     )
-    assert _rows(result) == [("ds", "ds", False, "dataset_pattern")]
-    assert result.warnings == [_NEEDS_PARENT]
+    assert _rows(result) == [("analytics", "p1.analytics", True, None)]
+    assert result.warnings == []
+
+
+def test_a_qualified_source_with_no_container_refuses_rather_than_guessing() -> None:
+    """It used to answer, and answer wrongly: `ds` judged against a pattern
+    written for `project.ds` reads as excluded, with the only correction in
+    `warnings` -- beside a flat `included: false` that a reader takes at face
+    value. A verdict the command cannot stand behind is the failure it exists
+    to prevent, so it now declines and says what to pass."""
+    with pytest.raises(ProbeArgumentError) as refusal:
+        check_filters(
+            source_type="bigquery",
+            config_dict={
+                "project_ids": ["p1", "p2"],
+                "dataset_pattern": {"allow": [r"^p1\.ds$"]},
+            },
+            kind=str(DatasetContainerSubTypes.SCHEMA),
+            parent_path=[],
+            names=["ds"],
+        )
+    assert _REFUSED in str(refusal.value)
+    assert "dataset_pattern" in str(refusal.value)
+    assert "project_ids" in str(refusal.value)
 
 
 def test_snowflake_summary_matches_schemas_the_way_snowflake_does() -> None:
@@ -201,15 +287,17 @@ def test_snowflake_summary_matches_schemas_the_way_snowflake_does() -> None:
         ("OTHER", "MYDB.OTHER", False, "schema_pattern"),
     ]
 
-    bare = check_filters(
-        source_type="snowflake-summary",
-        config_dict=config,
-        kind=str(DatasetContainerSubTypes.SCHEMA),
-        parent_path=[],
-        names=["PUBLIC"],
-    )
-    assert _rows(bare) == [("PUBLIC", "PUBLIC", False, "schema_pattern")]
-    assert bare.warnings == [_NEEDS_PARENT]
+    # Snowflake has no Qualifier field, so without --parent there is nothing
+    # to qualify with and the qualified pattern cannot be judged at all.
+    with pytest.raises(ProbeArgumentError) as refusal:
+        check_filters(
+            source_type="snowflake-summary",
+            config_dict=config,
+            kind=str(DatasetContainerSubTypes.SCHEMA),
+            parent_path=[],
+            names=["PUBLIC"],
+        )
+    assert _REFUSED in str(refusal.value)
 
 
 class _PinnedPostgres(PostgresConfig):
@@ -324,15 +412,17 @@ def test_snowflake_queries_matches_schemas_on_the_qualified_name() -> None:
         ("orders", "MYDB.orders", False, "schema_pattern"),
     ]
 
-    bare = check_filters(
-        source_type="snowflake-queries",
-        config_dict=config,
-        kind=str(DatasetContainerSubTypes.SCHEMA),
-        parent_path=[],
-        names=["PUBLIC"],
-    )
-    assert _rows(bare) == [("PUBLIC", "PUBLIC", False, "schema_pattern")]
-    assert bare.warnings == [_NEEDS_PARENT]
+    # Snowflake has no Qualifier field, so without --parent there is nothing
+    # to qualify with and the qualified pattern cannot be judged at all.
+    with pytest.raises(ProbeArgumentError) as refusal:
+        check_filters(
+            source_type="snowflake-queries",
+            config_dict=config,
+            kind=str(DatasetContainerSubTypes.SCHEMA),
+            parent_path=[],
+            names=["PUBLIC"],
+        )
+    assert _REFUSED in str(refusal.value)
 
 
 def test_bigquery_queries_matches_datasets_on_the_qualified_name() -> None:

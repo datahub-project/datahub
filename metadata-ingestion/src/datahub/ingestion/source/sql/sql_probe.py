@@ -14,7 +14,8 @@ from typing import Optional, Protocol, Sequence, Type, cast
 from sqlalchemy.engine import make_url
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.ingestion.agent.declarations import declares_qualifier
+from datahub.ingestion.agent.declarations import declares_qualifier, qualifier_field
+from datahub.ingestion.agent.pattern_path import pattern_at
 from datahub.ingestion.agent.sql_passthrough import CatalogRows
 from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
@@ -252,7 +253,21 @@ def _declared_target(
     # Resolved as at the Schema level, so an authoritative Qualifier beats
     # --parent at both levels. An empty --parent names no database.
     container = qualifying_container(ctx.config, [database] if database else [])
-    return qualified_table_target(container, schema, ctx.name, ctx.warn)
+    # The deciding pattern goes with it: without a container, judging
+    # `schema.entity` against a pattern written for `container.schema.entity`
+    # reports an exclusion ingestion does not make.
+    pattern = pattern_at(ctx.config, ctx.pattern_field) if ctx.pattern_field else None
+    return qualified_table_target(
+        container,
+        schema,
+        ctx.name,
+        ctx.warn,
+        config=ctx.config,
+        kind=ctx.kind,
+        pattern=pattern,
+        pattern_field=ctx.pattern_field,
+        pin_field=qualifier_field(ctx.config),
+    )
 
 
 def _overrides_filter_target(config: object) -> bool:

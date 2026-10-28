@@ -299,6 +299,17 @@ def declares_qualifier(config: object) -> bool:
     return _declarations(_class_of(config)).qualifier is not None
 
 
+def qualifier_field(config: object) -> Optional[str]:
+    """The name of the Qualifier-marked field, or None.
+
+    What a refusal names when it cannot resolve the container: the recipe is
+    told to pin `project_ids` rather than some field the connector does not
+    have, without the framework knowing which connector it is talking about.
+    """
+    marked = _declarations(_class_of(config)).qualifier
+    return None if marked is None else marked.path
+
+
 def declared_qualifier(config: object) -> Tuple[Optional[str], bool]:
     """(container, authoritative) from the Qualifier-marked field of a
     validated config. A list field names a container only when it pins exactly

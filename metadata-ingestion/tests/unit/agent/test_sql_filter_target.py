@@ -7,7 +7,7 @@ from sqlalchemy.engine.reflection import Inspector
 import datahub.ingestion.source.sql.sql_probe as sql_probe_module
 from datahub.configuration.common import Qualifier
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.verdicts import ClassifyContext
+from datahub.ingestion.agent.verdicts import ClassifyContext, ProbeArgumentError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -615,7 +615,14 @@ def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
     """One recipe spans several databases/projects, so there is nothing to
     fall back to. Guessing would give a verdict about an object in a
     different database; the partial answer plus a warning is the honest
-    one."""
+    one.
+
+    Neither recipe sets `table_pattern`, and that is load-bearing: an
+    allow-all pattern includes the name whatever string it is matched
+    against, so the missing container cannot invert the verdict and there is
+    nothing to refuse. The sibling below is the same call with a pattern that
+    DOES filter, which is refused. If this test ever starts raising, the
+    carve-out has been lost and every unfiltered probe call now errors."""
     result = check_filters(
         source_type=source_type,
         config_dict=config_dict,
@@ -637,6 +644,29 @@ def test_a_missing_parent_degrades_loudly_rather_than_inventing_one(
     )
     # And the partial answer is still an answer, not a silent exclusion.
     assert verdict.included
+
+
+def test_a_filtering_table_pattern_without_its_container_refuses():
+    """The sibling of the degrade test above, with a pattern that filters.
+
+    `^p1\\.ds1\\.t1$` is written about a project. Judged against `ds1.t1` --
+    the two parts --parent supplied -- it cannot match, so the table reads
+    excluded when ingestion looking at `p1.ds1.t1` would include it. Same
+    inversion as the Schema level, one level down.
+    """
+    with pytest.raises(ProbeArgumentError) as refusal:
+        check_filters(
+            source_type="bigquery",
+            config_dict={
+                "project_ids": ["p1", "p2"],
+                "table_pattern": {"allow": [r"^p1\.ds1\.t1$"]},
+            },
+            kind=str(DatasetSubTypes.TABLE),
+            parent_path=["ds1"],
+            names=["t1"],
+        )
+    assert "table_pattern" in str(refusal.value)
+    assert "project_ids" in str(refusal.value)
 
 
 def test_a_single_pinned_container_needs_no_parent():
@@ -690,37 +720,29 @@ def test_a_single_pinned_container_needs_no_parent():
         ),
     ],
 )
-def test_a_schema_judged_without_its_container_warns(
+def test_a_schema_judged_without_its_container_refuses_rather_than_guessing(
     source_type, config_dict, name, container
 ):
-    """A Schema verdict reached on the bare name must say so.
+    """A Schema verdict that needs a container it does not have is not given.
 
     This is the inverted-verdict case: the pattern is written against
-    `container.schema`, the caller passed no --parent, and the bare name is
-    judged against a qualified pattern -- so it reads excluded when ingestion
-    would include it. The warning was gated on `probe_schema_needs_parent`,
-    a hook no config implemented any more, so it could never fire and the
-    only assertion left was a negative one.
+    `container.schema`, the caller passed no --parent, and judging the bare
+    name against a qualified pattern reads EXCLUDED when ingestion would
+    include it. A warning used to sit beside that verdict; the verdict is what
+    gets read, so there is no longer a verdict for it to contradict.
     """
-    result = check_filters(
-        source_type=source_type,
-        config_dict=config_dict,
-        kind=str(DatasetContainerSubTypes.SCHEMA),
-        parent_path=[],
-        names=[name],
-    )
-    assert any("qualified" in w for w in result.warnings), result.warnings
+    with pytest.raises(ProbeArgumentError) as refusal:
+        check_filters(
+            source_type=source_type,
+            config_dict=config_dict,
+            kind=str(DatasetContainerSubTypes.SCHEMA),
+            parent_path=[],
+            names=[name],
+        )
+    assert "nothing here says which container to use" in str(refusal.value)
 
-    # The inverted verdict itself, which the warning does not assert: the
-    # bare name is judged against a qualified pattern and so reads EXCLUDED.
-    # That is the whole reason this warns.
-    bare = result.results[0]
-    assert bare.target == name
-    assert not bare.included
-
-    # And it really is an inversion rather than a name that is excluded
-    # either way -- given the container, the same name is included and
-    # nothing warns.
+    # And it really was an inversion rather than a name excluded either way:
+    # given the container, the same name is included and nothing warns.
     with_parent = check_filters(
         source_type=source_type,
         config_dict=config_dict,

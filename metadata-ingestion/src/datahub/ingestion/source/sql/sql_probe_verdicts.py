@@ -9,19 +9,16 @@ a connector calling these helpers from its own hooks imports them there too.
 
 from typing import Callable, Optional, Sequence
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pattern_utils import is_schema_allowed
-from datahub.ingestion.agent.declarations import declared_qualifier
+from datahub.ingestion.agent.declarations import declared_qualifier, qualifier_field
 from datahub.ingestion.agent.pattern_path import pattern_at
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
-
-_NEEDS_PARENT_WARNING = (
-    "this source matches containers on a qualified name and could not tell "
-    "which one you mean, so these were judged on their bare names and will "
-    "mostly read as excluded; pass --parent to get the verdict ingestion "
-    "actually makes"
+from datahub.ingestion.agent.verdicts import (
+    Verdict,
+    VerdictContext,
+    require_container,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
 
 def _in_defaults(config: ConfigModel, hook: str, name: str) -> bool:
@@ -57,17 +54,45 @@ _NO_CONTAINER_WARNING = (
 
 
 def qualified_table_target(
-    container: Optional[str], schema: str, entity: str, warn: Callable[[str], None]
+    container: Optional[str],
+    schema: str,
+    entity: str,
+    warn: Callable[[str], None],
+    *,
+    config: Optional[ConfigModel] = None,
+    kind: str = "",
+    pattern: Optional[AllowDenyPattern] = None,
+    pattern_field: Optional[str] = None,
+    pin_field: Optional[str] = None,
 ) -> Optional[str]:
     """`container.schema.entity`: what a source whose tables live under a
     database or project matches table_pattern and view_pattern against.
 
-    None after warning when the container is unknown, leaving the shim to
-    judge `schema.entity`: an invented container would judge another
-    database's object. The warning names no object, so it shows once.
+    Without a container an invented one would judge another database's object,
+    so there is no target to build. A caller that passes the deciding `pattern`
+    gets require_container's rule instead: refuse rather than let the shim
+    judge `schema.entity` against a pattern written for three parts. Omitting
+    it keeps the warn-and-degrade this has always done, so no caller changes
+    behaviour until it opts in.
     """
     if container:
         return f"{container}.{schema}.{entity}"
+    if pattern is not None and config is not None and not pattern.is_allow_all():
+        # Raises: the pattern is about a container this call cannot name, so
+        # there is a verdict to get wrong rather than merely a coarser target.
+        require_container(
+            None,
+            config=config,
+            kind=kind,
+            pattern=pattern,
+            pattern_field=pattern_field,
+            shape="<container>.<schema>.<entity>",
+            pin_field=pin_field,
+            warn=warn,
+        )
+    # A pattern that filters nothing cannot be inverted by the missing
+    # container, so this stays a degraded target rather than a refusal, and
+    # keeps the wording this call site has always used.
     warn(_NO_CONTAINER_WARNING)
     return None
 
@@ -79,16 +104,24 @@ def _qualified_schema_verdict(
     schema_pattern against once match_fully_qualified_names is on."""
     if not getattr(config, "match_fully_qualified_names", False):
         return None
-    container = qualifying_container(config, ctx.parent_path)
-    if container is None:
-        # The bare name is judged against a pattern written for qualified
-        # names. Names no object, so it shows once.
-        ctx.warn(_NEEDS_PARENT_WARNING)
-        return None
+    # Resolved before the container: a kind nothing filters must not be refused
+    # for want of a container that would decide nothing.
     if ctx.pattern_field is None:
         return None
     pattern = pattern_at(config, ctx.pattern_field)
     if pattern is None:
+        return None
+    container = require_container(
+        qualifying_container(config, ctx.parent_path),
+        config=config,
+        kind=ctx.kind,
+        pattern=pattern,
+        pattern_field=ctx.pattern_field,
+        shape="<container>.<schema>",
+        pin_field=qualifier_field(config),
+        warn=ctx.warn,
+    )
+    if container is None:
         return None
     included = is_schema_allowed(pattern, ctx.name, container, True)
     return Verdict(
