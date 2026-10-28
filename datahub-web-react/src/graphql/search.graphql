@@ -1077,6 +1077,7 @@ fragment searchResultsWithoutSchemaField on Entity {
                 time
             }
         }
+        ...glossaryTermLifecycleFields
         deprecation {
             ...deprecationFields
         }

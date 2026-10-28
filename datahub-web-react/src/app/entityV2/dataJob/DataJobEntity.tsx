@@ -39,7 +39,7 @@ import {
     StatusSection,
 } from '@app/entityV2/shared/profileChunks';
 import { SidebarTitleActionType, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
-import { EntityAndType } from '@app/lineage/types';
+import { EntityAndType } from '@app/lineageV3/types';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '@graphql/dataJob.generated';
@@ -66,6 +66,7 @@ const getDataJobPlatformName = (data?: DataJob | null): string => {
 };
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,

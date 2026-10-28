@@ -67,17 +67,95 @@ public final class SearchTemplateJson {
 
   public record TermsBoost(@Nonnull String field, @Nonnull List<String> values, double weight) {}
 
+  /**
+   * Functions and modes applied after the template JSON and list-membership boosts. Factors come
+   * before term weights. A null mode leaves the JSON mode in place.
+   */
+  public record FunctionScoreTail(
+      @Nonnull List<JsonNode> functions, @Nullable String scoreMode, @Nullable String boostMode) {
+    public FunctionScoreTail {
+      functions = List.copyOf(functions);
+    }
+
+    @Nonnull
+    public static FunctionScoreTail none() {
+      return new FunctionScoreTail(List.of(), null, null);
+    }
+
+    public boolean applies() {
+      return !functions.isEmpty() || scoreMode != null || boostMode != null;
+    }
+  }
+
   @Nonnull
-  public static QueryBuilder wrapFunctionScore(
-      @Nonnull QueryBuilder query, @Nonnull String functionScoreJson) {
-    return wrapFunctionScore(query, functionScoreJson, List.of());
+  public static ObjectNode fieldFactorFunction(
+      @Nonnull String field,
+      @Nullable Double factor,
+      @Nullable Double missing,
+      @Nullable String modifier) {
+    ObjectNode function = SearchTemplateMappers.JSON.createObjectNode();
+    ObjectNode factorNode = function.putObject("field_value_factor");
+    factorNode.put("field", field);
+    if (factor != null) {
+      factorNode.put("factor", factor);
+    }
+    if (missing != null) {
+      factorNode.put("missing", missing);
+    }
+    if (modifier != null) {
+      factorNode.put("modifier", modifier);
+    }
+    // field_value_factor fails the shard when its result is negative, and reciprocal also fails
+    // on zero. Square stays non-negative for a negative stored value, so it needs no filter.
+    if (!"square".equals(modifier)) {
+      function.set(
+          "filter", nonNegativeField(field, "reciprocal".equals(modifier), missing != null));
+    }
+    return function;
+  }
+
+  /**
+   * Documents this function may score. A negative stored value stays out. An absent field is
+   * included only when {@code missing} will replace it.
+   */
+  @Nonnull
+  private static ObjectNode nonNegativeField(
+      @Nonnull String field, boolean strictlyPositive, boolean includeMissing) {
+    ObjectNode range = SearchTemplateMappers.JSON.createObjectNode();
+    range.putObject("range").putObject(field).put(strictlyPositive ? "gt" : "gte", 0);
+    if (!includeMissing) {
+      return range;
+    }
+    ObjectNode filter = SearchTemplateMappers.JSON.createObjectNode();
+    ObjectNode bool = filter.putObject("bool");
+    ArrayNode should = bool.putArray("should");
+    should.add(range);
+    should
+        .addObject()
+        .putObject("bool")
+        .putArray("must_not")
+        .addObject()
+        .putObject("exists")
+        .put("field", field);
+    bool.put("minimum_should_match", 1);
+    return filter;
+  }
+
+  @Nonnull
+  public static ObjectNode termWeightFunction(
+      @Nonnull String field, @Nonnull JsonNode value, double weight) {
+    ObjectNode function = SearchTemplateMappers.JSON.createObjectNode();
+    function.putObject("filter").putObject("term").putObject(field).set("value", value);
+    function.put("weight", weight);
+    return function;
   }
 
   @Nonnull
   public static QueryBuilder wrapFunctionScore(
       @Nonnull QueryBuilder query,
       @Nullable String functionScoreJson,
-      @Nonnull List<TermsBoost> boosts) {
+      @Nonnull List<TermsBoost> boosts,
+      @Nonnull FunctionScoreTail tail) {
     try {
       ObjectNode body =
           functionScoreJson == null || functionScoreJson.isBlank()
@@ -92,6 +170,15 @@ public final class SearchTemplateJson {
         ArrayNode values = function.putObject("filter").putObject("terms").putArray(boost.field());
         boost.values().forEach(values::add);
         function.put("weight", boost.weight());
+      }
+      for (JsonNode extra : tail.functions()) {
+        functions.add(extra.deepCopy());
+      }
+      if (tail.scoreMode() != null) {
+        body.put("score_mode", tail.scoreMode());
+      }
+      if (tail.boostMode() != null) {
+        body.put("boost_mode", tail.boostMode());
       }
       body.set("query", SearchTemplateMappers.JSON.readTree(query.toString()));
       String wrapped =
