@@ -147,8 +147,8 @@ def run_and_verify(config: DbtTestConfig) -> None:
     [
         DbtTestConfig(
             "dbt-test-with-schemas-dbt-enabled",
-            "dbt_enabled_with_schemas_mces.json",
-            "dbt_enabled_with_schemas_mces_golden.json",
+            "dbt_enabled_with_schemas.json",
+            "dbt_enabled_with_schemas_golden.json",
             source_config_modifiers={
                 "enable_meta_mapping": True,
                 "owner_extraction_pattern": r"^@(?P<owner>(.*))",
@@ -156,8 +156,8 @@ def run_and_verify(config: DbtTestConfig) -> None:
         ),
         DbtTestConfig(
             "dbt-test-with-complex-owner-patterns",
-            "dbt_test_with_complex_owner_patterns_mces.json",
-            "dbt_test_with_complex_owner_patterns_mces_golden.json",
+            "dbt_test_with_complex_owner_patterns.json",
+            "dbt_test_with_complex_owner_patterns_golden.json",
             manifest_file="dbt_manifest_complex_owner_patterns.json",
             source_config_modifiers={
                 "node_name_pattern": {
@@ -169,24 +169,24 @@ def run_and_verify(config: DbtTestConfig) -> None:
         ),
         DbtTestConfig(
             "dbt-test-with-data-platform-instance",
-            "dbt_test_with_data_platform_instance_mces.json",
-            "dbt_test_with_data_platform_instance_mces_golden.json",
+            "dbt_test_with_data_platform_instance.json",
+            "dbt_test_with_data_platform_instance_golden.json",
             source_config_modifiers={
                 "platform_instance": "dbt-instance-1",
             },
         ),
         DbtTestConfig(
             "dbt-test-with-non-incremental-lineage",
-            "dbt_test_with_non_incremental_lineage_mces.json",
-            "dbt_test_with_non_incremental_lineage_mces_golden.json",
+            "dbt_test_with_non_incremental_lineage.json",
+            "dbt_test_with_non_incremental_lineage_golden.json",
             source_config_modifiers={
                 "incremental_lineage": "False",
             },
         ),
         DbtTestConfig(
             "dbt-test-with-target-platform-instance",
-            "dbt_test_with_target_platform_instance_mces.json",
-            "dbt_test_with_target_platform_instance_mces_golden.json",
+            "dbt_test_with_target_platform_instance.json",
+            "dbt_test_with_target_platform_instance_golden.json",
             source_config_modifiers={
                 "target_platform_instance": "ps-instance-1",
             },
@@ -300,8 +300,8 @@ def run_and_verify(config: DbtTestConfig) -> None:
         ),
         DbtTestConfig(
             "dbt-test-with-source-schema-pattern",
-            "dbt_test_with_source_schema_pattern_mces.json",
-            "dbt_test_with_source_schema_pattern_mces_golden.json",
+            "dbt_test_with_source_schema_pattern.json",
+            "dbt_test_with_source_schema_pattern_golden.json",
             manifest_file="dbt_manifest_complex_owner_patterns.json",
             source_config_modifiers={
                 "materialized_node_pattern": {
@@ -311,8 +311,8 @@ def run_and_verify(config: DbtTestConfig) -> None:
         ),
         DbtTestConfig(
             "dbt-test-with-source-database-pattern",
-            "dbt_test_with_source_database_pattern_mces.json",
-            "dbt_test_with_source_database_pattern_mces_golden.json",
+            "dbt_test_with_source_database_pattern.json",
+            "dbt_test_with_source_database_pattern_golden.json",
             manifest_file="dbt_manifest_complex_owner_patterns.json",
             source_config_modifiers={
                 "materialized_node_pattern": {"database_pattern": {"allow": ["pagila"]}}
@@ -320,8 +320,8 @@ def run_and_verify(config: DbtTestConfig) -> None:
         ),
         DbtTestConfig(
             "dbt-test-with-source-combined-patterns",
-            "dbt_test_with_source_combined_patterns_mces.json",
-            "dbt_test_with_source_combined_patterns_mces_golden.json",
+            "dbt_test_with_source_combined_patterns.json",
+            "dbt_test_with_source_combined_patterns_golden.json",
             manifest_file="dbt_manifest_complex_owner_patterns.json",
             source_config_modifiers={
                 "node_name_pattern": {
@@ -335,8 +335,8 @@ def run_and_verify(config: DbtTestConfig) -> None:
         ),
         DbtTestConfig(
             "dbt-test-with-source-table-pattern",
-            "dbt_test_with_source_table_pattern_mces.json",
-            "dbt_test_with_source_table_pattern_mces_golden.json",
+            "dbt_test_with_source_table_pattern.json",
+            "dbt_test_with_source_table_pattern_golden.json",
             manifest_file="dbt_manifest_complex_owner_patterns.json",
             source_config_modifiers={
                 "materialized_node_pattern": {
@@ -459,17 +459,7 @@ def test_dbt_multi_project_glob(pytestconfig, tmp_path):
 
 
 def _aspect_key(entry: Dict[str, Any]) -> Any:
-    snapshot = (
-        entry.get("proposedSnapshot", {}).get(
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot"
-        )
-        or {}
-    )
-    return (
-        entry.get("entityType", "snapshot"),
-        entry.get("entityUrn") or snapshot.get("urn"),
-        entry.get("aspectName", "SNAPSHOT"),
-    )
+    return (entry["entityType"], entry["entityUrn"], entry["aspectName"])
 
 
 def test_semantic_model_entities_are_purely_additive(test_resources_dir):
