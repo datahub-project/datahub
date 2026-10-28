@@ -137,6 +137,14 @@ class SqsSourceConfig(AwsMessagingConfigBase):
         default_factory=QueueGlueSchemaRegistryConfig,
         description="Queue schemas from AWS Glue Schema Registry (off by default).",
     )
+    column_lineage: bool = Field(
+        default=True,
+        description=(
+            "Add field-level lineage where a message passes through unchanged (queue "
+            "to its dead-letter queue), for fields present in both schemas. Schemas "
+            "come from Glue Schema Registry in this run or from DataHub."
+        ),
+    )
 
 
 class SnsDataProtectionConfig(ConfigModel):
