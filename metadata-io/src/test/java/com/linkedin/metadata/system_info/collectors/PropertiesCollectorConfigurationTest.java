@@ -1107,6 +1107,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "searchService.cache.hazelcast.service-dns-timeout",
           "searchService.cache.hazelcast.kubernetes-api-retries",
           "searchService.cache.hazelcast.resolve-not-ready-addresses",
+          "searchService.cache.hazelcast.serializationAllowList.classNames",
+          "searchService.cache.hazelcast.serializationAllowList.packagePrefixes",
           "searchService.cacheImplementation",
           "searchService.enableCache",
           "searchService.enableEviction",
