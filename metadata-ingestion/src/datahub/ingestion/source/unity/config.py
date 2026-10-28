@@ -313,6 +313,16 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    include_genie_spaces: bool = Field(
+        default=False,
+        description="Ingest Genie spaces as external AI agents, including text instructions and declared dataset lineage. Requires CAN EDIT permission on each space. Requires a DataHub server with the aiAgent entity (v1.7.0 or later).",
+    )
+
+    genie_space_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for Genie agent IDs. Only applies when include_genie_spaces is enabled.",
+    )
+
     include_metric_views: bool = pydantic.Field(
         default=False,
         description=(
