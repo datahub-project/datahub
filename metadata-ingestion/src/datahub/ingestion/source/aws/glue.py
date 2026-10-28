@@ -185,6 +185,14 @@ VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 GLUE_TABLE_TYPE_ICEBERG = "ICEBERG"
 
+# Actor stamped on system-generated tag attribution (matches the DataHub
+# tag-propagation action's actor).
+DATAHUB_SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
+# Marker written to a tag association's ``sourceDetail.origin`` to record that
+# the tag came from Lake Formation ingestion (as opposed to being added in the
+# DataHub UI, which leaves the association without attribution).
+LAKE_FORMATION_TAG_ORIGIN = "lake-formation"
+
 # Structural shape of a Glue catalog ARN authority: arn:{partition}:glue:{region}:{account}. The
 # partition/region agreement is validated separately (check_catalog_arn_keys) against botocore's
 # authoritative partition data, so the shape here only pins the segments and the 12-digit account.
@@ -426,7 +434,7 @@ class GlueSourceConfig(
 
     include_column_lineage: bool = Field(
         default=True,
-        description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
+        description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields, and between a Lake Formation resource link's columns and the same-named columns of the shared table it points at.",
     )
 
     resolve_resource_link_schema: bool = Field(
@@ -773,7 +781,9 @@ class GlueViewDefinition:
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
-    SourceCapability.LINEAGE_FINE, "Support via the `emit_storage_lineage` config field"
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default via `include_column_lineage` for Lake Formation resource links; "
+    "storage column lineage also needs `emit_storage_lineage` in the upstream direction",
 )
 @capability(
     SourceCapability.OPERATION_CAPTURE,
@@ -1044,22 +1054,18 @@ class GlueSource(StatefulIngestionSourceBase):
             platform_instance=owner.platform_instance,
         )
 
-    def _resource_link_owner_upstreams(
+    def _resource_link_upstream_urn(
         self, table: Dict, dataset_urn: str
-    ) -> List[UpstreamClass]:
-        """Table-level upstream edge from a Lake Formation resource link to its owning table.
+    ) -> Optional[str]:
+        """Owner URN a Lake Formation resource link gets lineage to, if it can have any.
 
-        A resource-link table carries a ``TargetTable`` pointing at the shared table in the owning
-        account. Emit a COPY edge to the owner's table URN — stamped with the owner account's
-        instance — so the shared dataset stitches back to its source instead of appearing as an
-        unrelated duplicate. Only the table-level upstream edge is built here; the link's own schema
-        is populated separately by ``_resource_link_schema`` (when ``resolve_resource_link_schema``
-        is enabled). Returns [] for non-resource-link tables, or when the target is missing
-        identifiers or resolves to the dataset's own URN (no catalog mapping).
+        Returns None for non-resource-link tables, and reports (with a counter and a warning) a
+        target that is missing identifiers or resolves to the dataset's own URN (no catalog
+        mapping).
         """
         target = table.get("TargetTable")
         if not target:
-            return []
+            return None
 
         owner_urn = self._resource_link_owner_urn(target)
         if owner_urn is None:
@@ -1071,7 +1077,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 "The shared table will be ingested without lineage back to its owner.",
                 context=f"{table.get('DatabaseName')}.{table.get('Name')} -> {target}",
             )
-            return []
+            return None
 
         if owner_urn == dataset_urn:
             # The owner resolves to the link's own URN, so a self-upstream edge would be
@@ -1090,9 +1096,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 "rename the link.",
                 context=f"{dataset_urn} -> owning catalog {target.get('CatalogId')}",
             )
-            return []
+            return None
 
-        return [UpstreamClass(dataset=owner_urn, type=DatasetLineageTypeClass.COPY)]
+        return owner_urn
 
     def _resource_link_schema(
         self, table: Dict, dataset_urn: str, table_name: str
@@ -2132,26 +2138,20 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_lineage_if_enabled(
         self,
         mce: MetadataChangeEventClass,
-        extra_upstreams: Optional[List[UpstreamClass]] = None,
+        resource_link_owner_urn: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit the dataset's UpstreamLineage, combining storage lineage with any ``extra_upstreams``.
-
-        This method is the single owner of the dataset's own ``UpstreamLineage`` aspect: callers pass
-        additional upstream edges (e.g. the Lake Formation resource-link edge) and this method folds
-        them into the one aspect that targets ``dataset_urn`` — so two independent sources can't emit
-        two full-replace aspects on the same URN and clobber each other.
-        """
+        """Emit the dataset's single UpstreamLineage aspect, merging storage lineage with the
+        resource-link edge to ``resource_link_owner_urn`` so neither overwrites the other."""
         dataset_urn = mce.proposedSnapshot.urn
-        extra_upstreams = extra_upstreams or []
+        schema_metadata: Optional[SchemaMetadataClass] = (
+            mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
+        )
 
         storage_upstreams: List[UpstreamClass] = []
         storage_fine_grained: List[FineGrainedLineageClass] = []
         if self.source_config.emit_storage_lineage:
             dataset_properties: Optional[DatasetPropertiesClass] = (
                 mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
-            )
-            schema_metadata: Optional[SchemaMetadataClass] = (
-                mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
             )
 
             # get urn for underlying table storage
@@ -2181,14 +2181,11 @@ class GlueSource(StatefulIngestionSourceBase):
                         else None
                     )
                     if self.source_config.include_column_lineage and schema_metadata:
-                        storage_fine_grained = (
-                            self.get_fine_grained_lineages(
-                                dataset_urn,
-                                table_storage_urn,
-                                schema_metadata,
-                                schema_metadata_for_upstream or schema_metadata,
-                            )
-                            or []
+                        storage_fine_grained = self.get_fine_grained_lineages(
+                            dataset_urn,
+                            table_storage_urn,
+                            schema_metadata,
+                            schema_metadata_for_upstream or schema_metadata,
                         )
                     storage_upstreams = [
                         UpstreamClass(
@@ -2211,13 +2208,33 @@ class GlueSource(StatefulIngestionSourceBase):
                         ),
                     ).as_workunit()
 
-        upstreams = storage_upstreams + extra_upstreams
+        link_upstreams: List[UpstreamClass] = []
+        link_fine_grained: List[FineGrainedLineageClass] = []
+        if resource_link_owner_urn is not None:
+            link_upstreams = [
+                UpstreamClass(
+                    dataset=resource_link_owner_urn, type=DatasetLineageTypeClass.COPY
+                )
+            ]
+            # Glue returns the owner's live table for both kinds of resource link, and a
+            # schemaless link either gets the owner's schema copied in or has none, so any
+            # columns the link has are the owner's columns.
+            if self.source_config.include_column_lineage and schema_metadata:
+                link_fine_grained = self.get_fine_grained_lineages(
+                    dataset_urn,
+                    resource_link_owner_urn,
+                    schema_metadata,
+                    schema_metadata,
+                )
+
+        upstreams = storage_upstreams + link_upstreams
         if upstreams:
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineageClass(
                     upstreams=upstreams,
-                    fineGrainedLineages=storage_fine_grained or None,
+                    fineGrainedLineages=(storage_fine_grained + link_fine_grained)
+                    or None,
                 ),
             ).as_workunit()
 
@@ -2227,44 +2244,32 @@ class GlueSource(StatefulIngestionSourceBase):
         upstream_urn: str,
         schema_metadata: SchemaMetadata,
         schema_metadata_for_upstream: SchemaMetadata,
-    ) -> Optional[List[FineGrainedLineageClass]]:
-        def simplify_field_path(field_path):
-            return Dataset._simplify_field_path(field_path)
-
-        if schema_metadata and schema_metadata_for_upstream:
-            fine_grained_lineages: List[FineGrainedLineageClass] = []
-            for field in schema_metadata.fields:
-                field_path_v1 = simplify_field_path(field.fieldPath)
-                matching_upstream_field = next(
-                    (
-                        f
-                        for f in schema_metadata_for_upstream.fields
-                        if simplify_field_path(f.fieldPath) == field_path_v1
-                    ),
-                    None,
-                )
-                if matching_upstream_field:
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                mce_builder.make_schema_field_urn(
-                                    dataset_urn, field_path_v1
-                                )
-                            ],
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                mce_builder.make_schema_field_urn(
-                                    upstream_urn,
-                                    simplify_field_path(
-                                        matching_upstream_field.fieldPath
-                                    ),
-                                )
-                            ],
-                        )
+    ) -> List[FineGrainedLineageClass]:
+        upstream_paths = {
+            Dataset._simplify_field_path(f.fieldPath)
+            for f in schema_metadata_for_upstream.fields
+        }
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+        for field in schema_metadata.fields:
+            field_path_v1 = Dataset._simplify_field_path(field.fieldPath)
+            if field_path_v1 in upstream_paths:
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            mce_builder.make_schema_field_urn(
+                                dataset_urn, field_path_v1
+                            )
+                        ],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            mce_builder.make_schema_field_urn(
+                                upstream_urn, field_path_v1
+                            )
+                        ],
                     )
-            return fine_grained_lineages
-        return None
+                )
+        return fine_grained_lineages
 
     def _create_profile_mcp(
         self,
@@ -2470,19 +2475,19 @@ class GlueSource(StatefulIngestionSourceBase):
     def gen_database_containers(
         self, database: Mapping[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
-        container_tags: Optional[List] = None
+        database_lf_tags: List[LakeFormationTag] = []
         if self.source_config.extract_lakeformation_tags:
             try:
-                tags = self.get_database_lf_tags(
+                for tag in self.get_database_lf_tags(
                     catalog_id=database["CatalogId"], database_name=database["Name"]
-                )
-                container_tags = []
-                for tag in tags:
+                ):
                     try:
-                        container_tags.append(tag.to_datahub_tag_urn().name)
-                        yield from self.gen_platform_resource(tag)
+                        # Validate the tag maps to a well-formed URN before keeping it.
+                        tag.to_datahub_tag_urn()
                     except InvalidUrnError:
                         continue
+                    database_lf_tags.append(tag)
+                    yield from self.gen_platform_resource(tag)
             except Exception:
                 self.report.warning(
                     "Failed to extract Lake Formation tags for database",
@@ -2511,9 +2516,20 @@ class GlueSource(StatefulIngestionSourceBase):
                 if catalog_id
                 else None
             ),
-            tags=container_tags,
             extra_properties=parameters,
         )
+
+        # Stamp the database container's own Lake Formation tags with attribution
+        # (external/origin), the same as table and column tags, so they can be told
+        # apart from tags added in the DataHub UI. Emitted as a separate GlobalTags
+        # aspect because gen_containers only accepts bare tag-name strings.
+        if database_lf_tags:
+            global_tags = self._build_lf_global_tags(database_lf_tags)
+            if global_tags:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=database_container_key.as_urn(),
+                    aspect=global_tags,
+                ).as_workunit()
 
     def add_table_to_database_container(
         self, dataset_urn: str, db_name: str
@@ -2862,11 +2878,11 @@ class GlueSource(StatefulIngestionSourceBase):
         if self.source_config.extract_column_parameters:
             yield from self._get_column_param_workunits(table, dataset_urn)
 
-        # Pass the resource-link table-level edge to get_lineage_if_enabled so it merges with any
-        # storage lineage into one aspect rather than being emitted as a competing one.
         yield from self.get_lineage_if_enabled(
             metadata_record,
-            self._resource_link_owner_upstreams(table, dataset_urn),
+            resource_link_owner_urn=self._resource_link_upstream_urn(
+                table, dataset_urn
+            ),
         )
 
         # Add profile if enabled
@@ -3307,25 +3323,50 @@ class GlueSource(StatefulIngestionSourceBase):
                 continue  # Skip invalid tags
         return urns
 
+    def _tag_attribution(
+        self, source_detail: Dict[str, str], source: Optional[str]
+    ) -> Tuple[MetadataAttributionClass, str]:
+        """Build a tag ``MetadataAttribution`` plus the equivalent legacy ``context``.
+
+        ``sourceDetail`` is surfaced in the UI (e.g. the "Propagated" indicator)
+        and ``context`` carries the same information as a JSON string for older
+        readers.
+        """
+        attribution = MetadataAttributionClass(
+            time=get_sys_time(),
+            actor=DATAHUB_SYSTEM_ACTOR,
+            source=source,
+            sourceDetail=source_detail,
+        )
+        return attribution, json.dumps(source_detail)
+
     def _propagated_tag_attribution(
         self, origin: Optional[str]
     ) -> Tuple[MetadataAttributionClass, str]:
-        """Build the attribution + legacy context marking a tag as propagated.
+        """Attribution marking a tag as propagated (inherited from db/table).
 
         Mirrors the DataHub tag-propagation action: ``sourceDetail.propagated``
-        drives the "Propagated" indicator in the UI, and ``context`` carries the
-        same information for older readers.
+        drives the "Propagated" indicator in the UI.
         """
         source_detail: Dict[str, str] = {"propagated": "true"}
         if origin:
             source_detail["origin"] = origin
-        attribution = MetadataAttributionClass(
-            time=get_sys_time(),
-            actor="urn:li:corpuser:__datahub_system",
-            source=origin,
-            sourceDetail=source_detail,
+        return self._tag_attribution(source_detail, source=origin)
+
+    def _direct_tag_attribution(self) -> Tuple[MetadataAttributionClass, str]:
+        """Attribution marking a tag as directly assigned in Lake Formation.
+
+        This records the tag's provenance so a Lake-Formation-ingested tag can be
+        told apart from one added in the DataHub UI (which carries no
+        attribution). ``source`` points at the Glue/Lake Formation platform.
+        """
+        source_detail: Dict[str, str] = {
+            "origin": LAKE_FORMATION_TAG_ORIGIN,
+            "external": "true",
+        }
+        return self._tag_attribution(
+            source_detail, source=make_data_platform_urn(self.platform)
         )
-        return attribution, json.dumps(source_detail)
 
     def _build_lf_global_tags(
         self,
@@ -3333,14 +3374,26 @@ class GlueSource(StatefulIngestionSourceBase):
         propagated_tags: Optional[List[LakeFormationTag]] = None,
         propagated_origin: Optional[str] = None,
     ) -> Optional[GlobalTagsClass]:
-        """Build a GlobalTags aspect, marking propagated tags with attribution.
+        """Build a GlobalTags aspect from Lake Formation tags, with provenance.
 
-        Direct tags take precedence: a propagated tag is skipped if the same tag
-        URN is already assigned directly.
+        Direct tags are stamped with Lake Formation attribution so they can be
+        distinguished from tags added in the DataHub UI. Propagated tags carry
+        propagation attribution instead. Direct tags take precedence: a
+        propagated tag is skipped if the same tag URN is already assigned
+        directly.
         """
         associations: Dict[str, TagAssociationClass] = {}
-        for urn in self._to_tag_urns(direct_tags):
-            associations.setdefault(urn, TagAssociationClass(tag=urn))
+        if direct_tags:
+            direct_attribution, direct_context = self._direct_tag_attribution()
+            for urn in self._to_tag_urns(direct_tags):
+                associations.setdefault(
+                    urn,
+                    TagAssociationClass(
+                        tag=urn,
+                        context=direct_context,
+                        attribution=direct_attribution,
+                    ),
+                )
 
         if propagated_tags:
             attribution, context = self._propagated_tag_attribution(propagated_origin)

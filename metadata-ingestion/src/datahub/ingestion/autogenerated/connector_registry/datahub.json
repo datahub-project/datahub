@@ -1748,7 +1748,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Support via the `emit_storage_lineage` config field",
+          "description": "Enabled by default via `include_column_lineage` for Lake Formation resource links; storage column lineage also needs `emit_storage_lineage` in the upstream direction",
           "subtype_modifier": null,
           "supported": true
         },

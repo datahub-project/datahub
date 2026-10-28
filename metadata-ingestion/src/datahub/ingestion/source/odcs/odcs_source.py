@@ -43,6 +43,8 @@ from datahub.ingestion.source.odcs.odcs_constants import VARIABLE_MARKER
 from datahub.ingestion.source.odcs.odcs_mapper import (
     PhysicalBinding,
     RefusalKind,
+    has_object_placeholder,
+    has_object_reference,
     iter_schema_rules,
     odcs_to_assertion_mcps,
     odcs_to_data_contract_mcps,
@@ -53,11 +55,14 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     odcs_to_logical_parent_mcp,
     odcs_to_physical_bindings,
     odcs_to_schema_assertion_mcps,
+    substitute_object_placeholder,
     unmapped_owner_roles,
+    unstorable_authoritative_definition_urls,
 )
 from datahub.ingestion.source.odcs.odcs_models import (
     KNOWN_UNMAPPED_AUTHDEF_FIELDS,
     KNOWN_UNMAPPED_CONTRACT_FIELDS,
+    KNOWN_UNMAPPED_ENTRY_FIELDS,
     KNOWN_UNMAPPED_PROPERTY_FIELDS,
     KNOWN_UNMAPPED_QUALITY_FIELDS,
     KNOWN_UNMAPPED_SCHEMA_FIELDS,
@@ -72,13 +77,17 @@ from datahub.ingestion.source.odcs.odcs_models import (
     READ_BUT_UNMAPPED_SERVER_FIELDS,
     READ_BUT_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition,
+    ODCSContext,
+    ODCSContextConstraint,
     ODCSContract,
+    ODCSEnumValue,
     ODCSProperty,
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
     ODCSTeam,
     ODCSTeamMember,
+    ODCSVerifiedStatement,
 )
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -139,6 +148,9 @@ _KNOWN_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
     ODCSTeam: KNOWN_UNMAPPED_TEAM_FIELDS,
     ODCSTeamMember: KNOWN_UNMAPPED_TEAM_MEMBER_FIELDS,
     ODCSAuthoritativeDefinition: KNOWN_UNMAPPED_AUTHDEF_FIELDS,
+    ODCSContextConstraint: KNOWN_UNMAPPED_ENTRY_FIELDS,
+    ODCSVerifiedStatement: KNOWN_UNMAPPED_ENTRY_FIELDS,
+    ODCSEnumValue: KNOWN_UNMAPPED_ENTRY_FIELDS,
 }
 
 _READ_BUT_UNMAPPED_BY_MODEL: Dict[type, frozenset] = {
@@ -157,13 +169,16 @@ class _ContractYamlLoader(yaml.SafeLoader):
     YAML 1.1 reads an unquoted `0777` as octal 511 and `12:30` as base-60 750,
     so an identifier such as a database name or an AWS account ID would turn
     into a different value and bind the contract to a table that does not
-    exist. Such values stay strings here, exactly as written.
+    exist. Such values stay strings here, exactly as written. Unquoted dates
+    stay strings too: the JSON Schema types them as strings, and a `date`
+    object fails validation.
     """
 
 
+_DROPPED_IMPLICIT_TAGS = ("tag:yaml.org,2002:int", "tag:yaml.org,2002:timestamp")
 _ContractYamlLoader.yaml_implicit_resolvers = {
     first: [
-        (tag, regexp) for tag, regexp in resolvers if tag != "tag:yaml.org,2002:int"
+        (tag, regexp) for tag, regexp in resolvers if tag not in _DROPPED_IMPLICIT_TAGS
     ]
     for first, resolvers in yaml.SafeLoader.yaml_implicit_resolvers.items()
 }
@@ -189,8 +204,19 @@ _CHILD_MODEL_BY_KEY: Dict[type, Dict[str, type]] = {
         "team": ODCSTeamMember,
     },
     ODCSTeam: {"members": ODCSTeamMember},
-    ODCSSchemaObject: {"properties": ODCSProperty, "quality": ODCSQualityRule},
-    ODCSProperty: {"properties": ODCSProperty, "quality": ODCSQualityRule},
+    ODCSSchemaObject: {
+        "properties": ODCSProperty,
+        "quality": ODCSQualityRule,
+    },
+    ODCSProperty: {
+        "properties": ODCSProperty,
+        "quality": ODCSQualityRule,
+        "enum": ODCSEnumValue,
+    },
+    ODCSContext: {
+        "constraints": ODCSContextConstraint,
+        "verifiedStatements": ODCSVerifiedStatement,
+    },
 }
 
 
@@ -260,6 +286,7 @@ class ODCSSourceReport(StaleEntityRemovalSourceReport):
     validation_errors: int = 0
     unmappable_servers: int = 0
     unresolved_variable_bindings: int = 0
+    invalid_physical_urn_overrides: int = 0
     ai_context_merge_skipped: int = 0
     physical_urns_verified: int = 0
     physical_urns_unverified: int = 0
@@ -807,6 +834,10 @@ class ODCSSource(StatefulIngestionSourceBase):
                 if child_cls is not None and isinstance(value, list):
                     for i, item in enumerate(value):
                         walk(item, child_cls, f"{path_hint}.{key}[{i}]")
+                elif key == "context" and isinstance(value, dict):
+                    # `context` is the one child object; a child list given as
+                    # a map is already reported by schema validation.
+                    walk(value, ODCSContext, f"{path_hint}.{key}")
 
         walk(raw_dict, ODCSContract, "<root>")
         # One entry per field, not per column: `properties[3].unique` and
@@ -992,6 +1023,17 @@ class ODCSSource(StatefulIngestionSourceBase):
                 ),
                 context=f"{source_uri}: {', '.join(defaulted_roles)}",
             )
+        unstorable_urls = unstorable_authoritative_definition_urls(contract)
+        if unstorable_urls:
+            self.report.warning(
+                title="ODCS authoritativeDefinitions URLs skipped",
+                message=(
+                    "DataHub only stores absolute http, https, ftp or mailto links "
+                    'that are valid URIs (no spaces or characters like | { } " < >), '
+                    "so these authoritativeDefinitions URLs were not added as links."
+                ),
+                context=f"{source_uri}: {', '.join(unstorable_urls)}",
+            )
         self._report_lossy_mappings(raw_dict, contract, source_uri)
 
         overrides = self.config.physical_urn_overrides.get(contract.id)
@@ -1038,11 +1080,18 @@ class ODCSSource(StatefulIngestionSourceBase):
             yield from self._emit_logical_dataset(
                 contract, binding, source_uri, source_file
             )
+            # Checked once, before the assertions, so a table the run reports
+            # as missing is not written into their SQL. True without a check
+            # when verify_physical_urns_exist is off.
+            physical_usable = binding.physical_urn is not None and (
+                not self.config.verify_physical_urns_exist
+                or self._physical_urn_exists(binding.physical_urn)
+            )
             assertion_urns: List[str] = []
             schema_assertion_urn: Optional[str] = None
             if self.config.emit_assertions:
                 assertion_urns = yield from self._emit_assertions(
-                    contract, binding, source_uri
+                    contract, binding, source_uri, physical_usable
                 )
             if self.config.emit_schema_assertion:
                 schema_assertion_urn = yield from self._emit_schema_assertion(
@@ -1055,7 +1104,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 assertion_urns,
             )
             physical_urn = yield from self._emit_logical_parent(
-                contract, binding, source_uri
+                contract, binding, source_uri, physical_usable
             )
             if physical_urn is not None:
                 yield from self._emit_physical_contract(
@@ -1124,7 +1173,6 @@ class ODCSSource(StatefulIngestionSourceBase):
     ) -> None:
         """Report contract content that parses but does not reach DataHub as written."""
         self._report_dropped_values(raw_dict, contract, source_uri)
-        self._report_shadowed_description(contract, source_uri)
         self._report_variables_in_rules(contract, source_uri)
 
     def _report_dropped_values(
@@ -1140,12 +1188,28 @@ class ODCSSource(StatefulIngestionSourceBase):
                 if raw_value is None:
                     continue
                 value = getattr(parsed, key)
-                if value is None or (
-                    isinstance(raw_value, list)
-                    and isinstance(value, list)
-                    and len(value) < len(raw_value)
-                ):
+                if value is None:
                     dropped.append(f"{path}.{key}")
+                elif isinstance(value, BaseModel):
+                    check(raw_value, value, f"{path}.{key}")
+                elif isinstance(raw_value, list) and isinstance(value, list):
+                    if len(value) < len(raw_value):
+                        dropped.append(
+                            f"{path}.{key} ({len(raw_value) - len(value)} of "
+                            f"{len(raw_value)} entries)"
+                        )
+                    for i, item in enumerate(raw_value):
+                        # Each entry is re-validated alone so it lines up with
+                        # what the list validator kept from it. That holds while
+                        # the lenient list validators judge each entry on its own.
+                        single = getattr(
+                            type(parsed).__pydantic_validator__.validate_assignment(
+                                parsed.model_copy(), key, [item]
+                            ),
+                            key,
+                        )
+                        if single and isinstance(single[0], BaseModel):
+                            check(item, single[0], f"{path}.{key}[{i}]")
             raw_props = raw.get("properties")
             props = getattr(parsed, "properties", None) or []
             if isinstance(raw_props, list):
@@ -1154,6 +1218,7 @@ class ODCSSource(StatefulIngestionSourceBase):
                 ):
                     check(raw_prop, prop, f"{path}.properties[{i}]")
 
+        check(raw_dict, contract, "<root>")
         raw_schema = raw_dict.get("schema")
         if isinstance(raw_schema, list):
             for i, (raw_entry, entry) in enumerate(
@@ -1164,33 +1229,29 @@ class ODCSSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="ODCS values dropped as off-spec",
                 message=(
-                    "These v3.2 values do not match the spec's type and were not "
+                    "These values do not match the spec's type and were not "
                     "mapped; the rest of the contract was ingested."
                 ),
                 context=f"{source_uri}: {', '.join(dropped)}",
             )
 
-    def _report_shadowed_description(
-        self, contract: ODCSContract, source_uri: str
+    def _report_unreplaced_object_placeholder(
+        self, binding: PhysicalBinding, source_uri: str, reason: str
     ) -> None:
-        if contract.description is None:
+        if binding.refusal_kind is RefusalKind.EXPLICITLY_UNBOUND:
             return
-        shadowed = [
-            entry.name
-            for entry in contract.schema_ or []
-            if entry.description is not None
-        ]
-        if shadowed:
-            # Info, not warning: tables with their own description are the
-            # common case (the official Bitol examples do it).
-            self.report.info(
-                title="ODCS contract description not applied",
+        schema_entry = binding.schema_entry
+        if any(
+            rule.query and has_object_placeholder(rule.query)
+            for rule, _, _ in iter_schema_rules(schema_entry)
+        ):
+            self.report.warning(
+                title="ODCS quality rule table placeholder not replaced",
                 message=(
-                    "These tables have their own description, so the contract "
-                    "`description` (usage, purpose, limitations) is not written "
-                    "to them."
+                    "{object} in the schema entry's SQL rules stays as written "
+                    "because the entry has no usable physical table."
                 ),
-                context=f"{source_uri}: {', '.join(shadowed)}",
+                context=f"{source_uri}: {schema_entry.name}: {reason}",
             )
 
     def _report_variables_in_rules(
@@ -1201,7 +1262,14 @@ class ODCSSource(StatefulIngestionSourceBase):
             for rule, column, _ in iter_schema_rules(entry):
                 body = rule.query or rule.implementation
                 text = body if isinstance(body, str) else json.dumps(body)
-                if body is not None and VARIABLE_MARKER in text:
+                # `${object}` in a query is the table placeholder, replaced
+                # once bound (or reported as unbound), not a variable to
+                # resolve. Only queries are substituted, so either placeholder
+                # in `implementation` stays as written and is reported here, as
+                # is a mistyped one such as `{object}}` that is never replaced.
+                left = substitute_object_placeholder(text, "") if rule.query else text
+                unresolved = VARIABLE_MARKER in left or has_object_reference(left)
+                if body is not None and unresolved:
                     location = f"{entry.name}.{column}" if column else entry.name
                     found.append(f"{location}: {text}")
         if found:
@@ -1264,16 +1332,30 @@ class ODCSSource(StatefulIngestionSourceBase):
         contract: ODCSContract,
         binding: PhysicalBinding,
         source_uri: str,
+        physical_usable: bool,
     ) -> Generator[MetadataWorkUnit, None, List[str]]:
         # Assertions target the LOGICAL dataset and are emitted whether or not a
         # physical binding resolved. Propagation onto bound physical datasets is
         # handled by a separate DataHub mechanism via the PhysicalInstanceOf link.
         # The URNs are returned so a native contract can reference them.
         schema_entry = binding.schema_entry
+        bound_table = binding.table_name if physical_usable else None
+        if bound_table is None:
+            if binding.physical_urn is None:
+                reason = binding.unmapped_reason or "the entry is not bound"
+            elif not physical_usable:
+                reason = "the bound physical table was not found in DataHub"
+            else:
+                reason = (
+                    "the override URN's name may start with a platform instance, "
+                    "so the table's SQL name is unknown"
+                )
+            self._report_unreplaced_object_placeholder(binding, source_uri, reason)
         assertion_urns, assertion_mcps, trace = odcs_to_assertion_mcps(
             contract=contract,
             schema_entry=schema_entry,
             logical_urn=binding.logical_urn,
+            bound_table=bound_table,
         )
         self.report.rules_routed_to_custom.extend(trace.routed_to_custom)
         if trace.deprecated_rule_key:
@@ -1328,6 +1410,7 @@ class ODCSSource(StatefulIngestionSourceBase):
         contract: ODCSContract,
         binding: PhysicalBinding,
         source_uri: str,
+        physical_usable: bool,
     ) -> Generator[MetadataWorkUnit, None, Optional[str]]:
         # Returns the bound physical URN (or None) so the caller can attach an
         # optional native contract to the physical dataset.
@@ -1335,32 +1418,35 @@ class ODCSSource(StatefulIngestionSourceBase):
         if binding.physical_urn is None:
             # No binding costs only the logicalParent link — never the
             # assertions. The unmapped reason is informational.
-            if binding.unresolved_variable:
+            message = (
+                "Emitted the logical dataset and its assertions; no logicalParent link."
+            )
+            context = (
+                f"file={source_uri} schema_index={binding.index} "
+                f"schema_name={schema_entry.name}: {binding.unmapped_reason}"
+            )
+            kind = binding.refusal_kind
+            if kind is RefusalKind.UNRESOLVED_VARIABLE:
                 self.report.unresolved_variable_bindings += 1
                 self.report.warning(
                     title="ODCS physical binding refused: unresolved variable",
-                    message=(
-                        f"{binding.unmapped_reason}. Emitted the logical "
-                        "dataset and its assertions; no logicalParent link."
-                    ),
-                    context=(
-                        f"file={source_uri} schema_index={binding.index} "
-                        f"schema_name={schema_entry.name}"
-                    ),
+                    message=message,
+                    context=context,
                 )
-            elif binding.refusal is not None:
-                if binding.refusal.kind is RefusalKind.UNMAPPABLE:
+            elif kind is RefusalKind.INVALID_OVERRIDE:
+                self.report.invalid_physical_urn_overrides += 1
+                self.report.warning(
+                    title="ODCS physical_urn_overrides entry is not a usable dataset URN",
+                    message=message,
+                    context=context,
+                )
+            elif kind is not None:
+                if kind is RefusalKind.UNMAPPABLE:
                     self.report.unmappable_servers += 1
                 self.report.info(
                     title="ODCS schema entry has no physical binding",
-                    message=(
-                        f"{binding.unmapped_reason}. Emitted the logical "
-                        "dataset and its assertions; no logicalParent link."
-                    ),
-                    context=(
-                        f"file={source_uri} schema_index={binding.index} "
-                        f"schema_name={schema_entry.name}"
-                    ),
+                    message=message,
+                    context=context,
                 )
             return None
 
@@ -1368,19 +1454,18 @@ class ODCSSource(StatefulIngestionSourceBase):
         if binding.name_passthrough:
             self.report.physical_names_passthrough += 1
 
-        if self.config.verify_physical_urns_exist and not self._physical_urn_exists(
-            physical_urn
-        ):
+        if not physical_usable:
             self.report.physical_urns_unverified += 1
             self.report.warning(
-                title="Derived physical dataset not found in DataHub",
+                title="Physical dataset not found in DataHub",
                 message=(
-                    "The physical URN derived from the contract's servers[] "
-                    "does not exist in DataHub, so no logicalParent link was "
-                    "emitted (this avoids creating a stub dataset). Ingest "
-                    "the physical platform first, fix the derived name via "
-                    "physical_urn_overrides, or set "
-                    "verify_physical_urns_exist=false to emit optimistically."
+                    "The physical URN, derived from the contract's servers[] "
+                    "or given in physical_urn_overrides, does not exist in "
+                    "DataHub, so no logicalParent link was emitted (this "
+                    "avoids creating a stub dataset). Ingest the physical "
+                    "platform first, correct the URN via physical_urn_overrides, "
+                    "or set verify_physical_urns_exist=false to emit "
+                    "optimistically."
                 ),
                 context=(
                     f"file={source_uri} schema_name={schema_entry.name} "

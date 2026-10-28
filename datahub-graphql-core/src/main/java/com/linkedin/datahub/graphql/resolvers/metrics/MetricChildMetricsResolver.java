@@ -20,9 +20,9 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,14 +58,12 @@ public class MetricChildMetricsResolver implements DataFetcher<CompletableFuture
         _viewService,
         ImmutableList.of(EntityType.METRIC),
         input.getQuery(),
-        SearchUtils.combineFilters(inputFilter, baseFilter),
+        FilterUtils.combineFilters(inputFilter, baseFilter),
         input.getViewUrn(),
         input.getSearchFlags(),
         input.getCount(),
         input.getScrollId(),
         input.getKeepAlive(),
-        List.of(),
-        List.of(),
         this.getClass().getSimpleName());
   }
 }

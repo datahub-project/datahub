@@ -1,6 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     FetchStatus,
     LineageEntity,
@@ -9,6 +8,7 @@ import {
     getEdgeId,
     setDefault,
 } from '@app/lineageV3/common';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 
 import { useGetDataFlowDagQuery } from '@graphql/dataFlow.generated';
 import { Entity, LineageDirection } from '@types';
