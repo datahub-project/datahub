@@ -229,6 +229,22 @@ public class ConsistencyServiceTest {
     consistencyService =
         new ConsistencyService(
             mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry);
+
+    // A null scroll is a failed search. These tests reach checkBatch without Elasticsearch, so
+    // the default page is an empty success rather than Mockito's null.
+    SearchHits emptyHits = mock(SearchHits.class);
+    when(emptyHits.getHits()).thenReturn(new SearchHit[0]);
+    SearchResponse emptyScroll = mock(SearchResponse.class);
+    when(emptyScroll.getHits()).thenReturn(emptyHits);
+    when(mockEsSystemMetadataDAO.scroll(
+            any(),
+            any(),
+            anyBoolean(),
+            nullable(String.class),
+            nullable(String.class),
+            nullable(String.class),
+            nullable(Integer.class)))
+        .thenReturn(emptyScroll);
   }
 
   // ============================================================================

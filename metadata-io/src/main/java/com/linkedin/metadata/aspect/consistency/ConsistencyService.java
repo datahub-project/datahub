@@ -9,6 +9,7 @@ import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
 import com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck;
+import com.linkedin.metadata.aspect.consistency.check.StructuredPropertyIndexMismatchCheck;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixDetail;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixResult;
@@ -22,6 +23,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -223,6 +225,8 @@ public class ConsistencyService {
       try {
         List<ConsistencyIssue> issues = check.check(ctx, entityResponses);
         allIssues.addAll(issues);
+      } catch (StructuredPropertyIndexMismatchCheck.IndexReadFailedException e) {
+        throw e;
       } catch (Exception e) {
         log.error(
             "Error running check {} on {} entities: {}. Continuing with other checks.",
@@ -309,6 +313,17 @@ public class ConsistencyService {
       return CheckResult.empty();
     }
 
+    // A previous page finished the SQL scroll and left the index pass to continue.
+    if (StructuredPropertyIndexMismatchCheck.isIndexContinuation(request.getScrollId())) {
+      StructuredPropertyIndexMismatchCheck propertyCheck = structuredPropertyCheck(checks);
+      if (propertyCheck == null) {
+        return CheckResult.empty();
+      }
+      return toResult(
+          propertyCheck.scanIndexes(
+              opContext, resolvedEntityType, request.getBatchSize(), request.getScrollId()));
+    }
+
     // Derive required aspects from checks (consolidated)
     // Returns null if any check requires all aspects
     Set<String> requiredAspects = deriveRequiredAspects(checks);
@@ -323,12 +338,16 @@ public class ConsistencyService {
               .keySet();
     }
 
+    Set<Urn> urnFilter = request.getUrns();
+
     // Build query for system metadata index (URNs are just another filter)
     BoolQueryBuilder query =
         buildSystemMetadataQuery(
             opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
 
-    // Scroll system metadata index
+    // Scroll system metadata index. A null response is a failed search, not the end of the
+    // results. Treating it as exhaustion starts the index pass, skips the remaining SQL pages,
+    // and can still publish a cursor so the job looks finished.
     SearchResponse response =
         esSystemMetadataDAO.scroll(
             opContext,
@@ -339,17 +358,32 @@ public class ConsistencyService {
             "5m", // keepAlive
             request.getBatchSize());
 
-    if (response == null
-        || response.getHits() == null
-        || response.getHits().getHits().length == 0) {
-      return CheckResult.empty();
+    if (response == null || response.getHits() == null || response.getHits().getHits() == null) {
+      throw new IllegalStateException("Failed to scroll system metadata for " + resolvedEntityType);
     }
 
-    // Extract unique URNs from results
+    if (response.getHits().getHits().length == 0) {
+      return afterSqlExhausted(opContext, request, resolvedEntityType, checks, List.of(), 0);
+    }
+
+    // Extract unique URNs from results. A page of unreadable hits is not the end of SQL: the
+    // index pass must wait until the scroll itself cannot continue.
     Set<Urn> urnsFromEs = UrnExtractionUtils.extractUniqueUrns(response);
 
     if (urnsFromEs.isEmpty()) {
-      return CheckResult.empty();
+      String nextScrollId = extractNextScrollId(response);
+      if (nextScrollId != null) {
+        log.warn(
+            "System metadata page for {} had no readable URNs; continuing the SQL scroll",
+            resolvedEntityType);
+        return CheckResult.builder()
+            .entitiesScanned(response.getHits().getHits().length)
+            .issuesFound(0)
+            .issues(List.of())
+            .scrollId(nextScrollId)
+            .build();
+      }
+      return afterSqlExhausted(opContext, request, resolvedEntityType, checks, List.of(), 0);
     }
 
     // Fetch entity data via EntityService (from SQL)
@@ -359,8 +393,8 @@ public class ConsistencyService {
           entityService.getEntitiesV2(
               opContext, resolvedEntityType, urnsFromEs, requiredAspects, false);
     } catch (java.net.URISyntaxException e) {
-      log.error("Failed to fetch entities for type {}: {}", resolvedEntityType, e.getMessage(), e);
-      return CheckResult.empty();
+      // An empty result has no scroll id, so the job looks finished and the index pass never runs.
+      throw new IllegalStateException("Failed to load entities for " + resolvedEntityType, e);
     }
 
     // Identify orphan URNs - entities in ES index but not in SQL (uses key aspect check)
@@ -386,15 +420,96 @@ public class ConsistencyService {
       issues.addAll(orphanIssues);
     }
 
+    int indexDocuments = 0;
+    StructuredPropertyIndexMismatchCheck propertyCheck = structuredPropertyCheck(checks);
+    if (propertyCheck != null && urnFilter != null && !urnFilter.isEmpty()) {
+      Set<Urn> missingAspect = new LinkedHashSet<>();
+      for (Urn urn : urnsFromEs) {
+        if (!StructuredPropertyIndexMismatchCheck.aspectPresent(entityResponses.get(urn))) {
+          missingAspect.add(urn);
+        }
+      }
+      if (!missingAspect.isEmpty()) {
+        StructuredPropertyIndexMismatchCheck.IndexScan lookup =
+            propertyCheck.lookupUrns(opContext, resolvedEntityType, missingAspect);
+        issues.addAll(lookup.issues());
+        indexDocuments = lookup.documents();
+      }
+    }
+
     // Extract next scrollId from search response
     String nextScrollId = extractNextScrollId(response);
+    if (nextScrollId != null) {
+      return CheckResult.builder()
+          .entitiesScanned(urnsFromEs.size() + indexDocuments)
+          .issuesFound(issues.size())
+          .issues(issues)
+          .scrollId(nextScrollId)
+          .build();
+    }
+    return afterSqlExhausted(
+        opContext, request, resolvedEntityType, checks, issues, urnsFromEs.size() + indexDocuments);
+  }
 
+  /**
+   * Starts the structured-property index pass once the SQL scroll cannot continue. Entities that
+   * still have the aspect were compared on the SQL pages; this pass finds mapped fields left behind
+   * after the aspect row is gone. A URN-filtered run finishes with SQL; it does not full-scan an
+   * index or revisit every requested URN.
+   */
+  @Nonnull
+  private CheckResult afterSqlExhausted(
+      @Nonnull OperationContext opContext,
+      @Nonnull CheckBatchRequest request,
+      @Nonnull String entityType,
+      @Nonnull List<ConsistencyCheck> checks,
+      @Nonnull List<ConsistencyIssue> issues,
+      int scanned) {
+    StructuredPropertyIndexMismatchCheck propertyCheck = structuredPropertyCheck(checks);
+    if (propertyCheck == null) {
+      return CheckResult.builder()
+          .entitiesScanned(scanned)
+          .issuesFound(issues.size())
+          .issues(issues)
+          .build();
+    }
+    Set<Urn> urnFilter = request.getUrns();
+    StructuredPropertyIndexMismatchCheck.IndexScan scan;
+    if (urnFilter != null && !urnFilter.isEmpty()) {
+      scan = new StructuredPropertyIndexMismatchCheck.IndexScan(List.of(), null, 0);
+    } else {
+      scan = propertyCheck.scanIndexes(opContext, entityType, request.getBatchSize(), null);
+    }
+    List<ConsistencyIssue> combined = new ArrayList<>(issues);
+    combined.addAll(scan.issues());
     return CheckResult.builder()
-        .entitiesScanned(urnsFromEs.size())
-        .issuesFound(issues.size())
-        .issues(issues)
-        .scrollId(nextScrollId)
+        .entitiesScanned(scanned + scan.documents())
+        .issuesFound(combined.size())
+        .issues(combined)
+        .scrollId(scan.scrollId())
         .build();
+  }
+
+  @Nonnull
+  private static CheckResult toResult(
+      @Nonnull StructuredPropertyIndexMismatchCheck.IndexScan scan) {
+    return CheckResult.builder()
+        .entitiesScanned(scan.documents())
+        .issuesFound(scan.issues().size())
+        .issues(scan.issues())
+        .scrollId(scan.scrollId())
+        .build();
+  }
+
+  @Nullable
+  private static StructuredPropertyIndexMismatchCheck structuredPropertyCheck(
+      @Nonnull List<ConsistencyCheck> checks) {
+    for (ConsistencyCheck check : checks) {
+      if (check instanceof StructuredPropertyIndexMismatchCheck propertyCheck) {
+        return propertyCheck;
+      }
+    }
+    return null;
   }
 
   /**
@@ -925,6 +1040,8 @@ public class ConsistencyService {
       try {
         List<ConsistencyIssue> issues = check.check(ctx, entityResponses);
         allIssues.addAll(issues);
+      } catch (StructuredPropertyIndexMismatchCheck.IndexReadFailedException e) {
+        throw e;
       } catch (Exception e) {
         log.error(
             "Error running check {} on {} entities: {}. Continuing with other checks.",
