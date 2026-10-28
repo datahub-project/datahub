@@ -4,6 +4,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
@@ -38,6 +39,7 @@ public class SystemOperationContextFactoryUnknownDataTest {
     SystemOperationContextFactory.configureUnknownDataHandling(provider(false), opContext);
     assertSame(UnknownDataHandlings.handling(), StrictHandling.INSTANCE);
 
+    UnknownDataHandlings.reset();
     SystemOperationContextFactory.configureUnknownDataHandling(provider(true), opContext);
     assertTrue(UnknownDataHandlings.handling().toleratesUnknownEntityAspect());
     assertTrue(UnknownDataHandlings.handling().toleratesUnknownEnum());
@@ -49,6 +51,7 @@ public class SystemOperationContextFactoryUnknownDataTest {
     assertTrue(UnknownDataHandlings.handling().toleratesUnknownEntityAspect());
     assertFalse(UnknownDataHandlings.handling().toleratesUnknownEnum());
 
+    UnknownDataHandlings.reset();
     SystemOperationContextFactory.configureUnknownDataHandling(provider(false, true), opContext);
     assertFalse(UnknownDataHandlings.handling().toleratesUnknownEntityAspect());
     assertTrue(UnknownDataHandlings.handling().toleratesUnknownEnum());
@@ -64,9 +67,24 @@ public class SystemOperationContextFactoryUnknownDataTest {
     assertTrue(handling.isUnknown(opContext.getEntityRegistry(), "zduRegisteredType", null));
     assertFalse(handling.isUnknown(opContext.getEntityRegistry(), "zduTypo", null));
 
+    UnknownDataHandlings.reset();
     assertSame(
         SystemOperationContextFactory.configureUnknownDataHandling(provider(false), urn -> true),
         StrictHandling.INSTANCE);
+  }
+
+  @Test
+  public void testInstallingDifferentFlagsAgainFails() {
+    // A process builds the system context more than once with the same flags; different ones would
+    // change the handling under every caller already using it.
+    SystemOperationContextFactory.configureUnknownDataHandling(provider(true), opContext);
+    SystemOperationContextFactory.configureUnknownDataHandling(provider(true), opContext);
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            SystemOperationContextFactory.configureUnknownDataHandling(provider(false), opContext));
+    assertTrue(UnknownDataHandlings.handling().toleratesUnknownEntityAspect());
   }
 
   private static ConfigurationProvider provider(final boolean tolerant) {
