@@ -479,6 +479,9 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     indexSiblingDocument(tableUrn, "snowflake", false, null);
     syncAfterWrite(getBulkProcessor());
 
+    ElasticSearchService hidingElasticSearchService =
+        buildEntitySearchService(
+            getSearchConfiguration().toBuilder().hideNonPrimarySiblings(true).build());
     SearchService hidingSearchService =
         new SearchService(
             new EntityDocCountCache(
@@ -486,11 +489,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
                 elasticSearchService,
                 new EntityDocCountCacheConfiguration()),
             new CachingEntitySearchService(
-                new ConcurrentMapCacheManager(),
-                buildEntitySearchService(
-                    getSearchConfiguration().toBuilder().hideNonPrimarySiblings(true).build()),
-                100,
-                false),
+                new ConcurrentMapCacheManager(), hidingElasticSearchService, 100, false),
             new SimpleRanker(),
             TEST_SEARCH_SERVICE_CONFIG);
 
@@ -569,6 +568,11 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     assertEquals(filtered.getNumEntities().intValue(), 1);
     assertEquals(filtered.getEntities().get(0).getEntity(), tableUrn);
 
+    // Browse v1 follows the same rule: unfiltered it counts only the primary, and a platform
+    // filter that only the table matches still finds it.
+    assertEquals(browseSiblingCount(hidingElasticSearchService, null), 1);
+    assertEquals(browseSiblingCount(hidingElasticSearchService, platformFilter), 1);
+
     // The default service leaves hiding off, so both members appear.
     assertEquals(searchSiblings(searchService, null).getNumEntities().intValue(), 2);
     clearCache();
@@ -582,10 +586,24 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
     document.set("keyPart1", JsonNodeFactory.instance.textNode("orders"));
     document.set("platform", JsonNodeFactory.instance.textNode(platform));
+    document.set("browsePaths", JsonNodeFactory.instance.textNode("/prod/orders"));
     document.set("hasSiblings", JsonNodeFactory.instance.booleanNode(true));
     document.set("siblingsPrimary", JsonNodeFactory.instance.booleanNode(primary));
     elasticSearchService.upsertDocument(
         operationContext, ENTITY_NAME, document.toString(), urn.toString());
+  }
+
+  private long browseSiblingCount(ElasticSearchService service, Filter filter) {
+    return service
+        .browse(
+            operationContext.withSearchFlags(flags -> flags.setSkipCache(true)),
+            ENTITY_NAME,
+            "",
+            filter,
+            0,
+            10)
+        .getMetadata()
+        .getTotalNumEntities();
   }
 
   private SearchResult searchSiblings(SearchService service, Filter filter) {
