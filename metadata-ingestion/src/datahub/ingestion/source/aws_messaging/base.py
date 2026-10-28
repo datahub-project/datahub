@@ -12,6 +12,7 @@ from datahub.ingestion.source.aws_messaging.clients import (
     EventBridgeClient,
     LambdaClient,
     PipesClient,
+    S3NotificationClient,
 )
 from datahub.ingestion.source.aws_messaging.config import (
     AwsMessagingConfigBase,
@@ -30,6 +31,9 @@ from datahub.ingestion.source.aws_messaging.lineage import (
 from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey, secondary
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.ingestion.source.aws_messaging.s3_notifications import (
+    S3NotificationLineage,
+)
 from datahub.ingestion.source.aws_messaging.schema_registry import (
     MessagingSchemaRegistry,
 )
@@ -108,6 +112,21 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             lambdas=self.lambdas,
             region_key=self.region_key(EVENTBRIDGE_PLATFORM),
         )
+
+    def collect_s3_notifications(self) -> None:
+        if not self.base_config.lineage.s3_notifications:
+            return
+        S3NotificationLineage(
+            client=S3NotificationClient(
+                self.base_config.make_client(self.session, AwsService.S3),
+                self.base_report,
+            ),
+            resolver=self.resolver,
+            graph=self.ctx.graph,
+            env=self.base_config.env,
+            s3_platform_instance=self.base_config.s3_platform_instance,
+            report=self.base_report,
+        ).collect(self.lineage)
 
     def service_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Lambda functions, EventBridge rules and Pipes around this source's

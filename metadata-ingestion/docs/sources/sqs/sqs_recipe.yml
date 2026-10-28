@@ -34,6 +34,8 @@ source:
       lambda_async_destinations: true
       eventbridge_rules: true
       eventbridge_pipes: true
+      s3_notifications: false
+    # s3_platform_instance: "data-lake"
 
     stateful_ingestion:
       enabled: true

@@ -43,6 +43,10 @@ With the `lineage` options on (the default), the connector follows the services 
 - A pipe with no enrichment step and no input template passes messages through unchanged, so it gets field-level lineage for fields present in both the source's and the target's schemas (from Glue Schema Registry or DataHub). Most pipes have no schema on one side and get table-level lineage only.
 - The Firehose delivery job belongs to the `kinesis` source, so the topic is added to its inputs only when the job already exists in DataHub. That check needs a DataHub connection (the `datahub-rest` sink provides one). Set `kinesis_platform_instance` if that source's `platform_instance` isn't the account id.
 
+#### S3 event notifications
+
+`lineage.s3_notifications` (off by default) reads each bucket's notification configuration and adds the bucket as an upstream of the topics it notifies. S3 datasets are named by bucket and path, while a notification only has a key prefix filter, so the connector looks for an existing S3 dataset named `<bucket>/<prefix>`, then `<bucket>`, and adds no edge if neither is in DataHub. Run the `s3` source first and set `s3_platform_instance` to match its `platform_instance`. This makes one `s3:GetBucketNotification` call per bucket in the recipe's region.
+
 #### Tags and data protection
 
 AWS resource tags become DataHub tags named `Key:Value` (or `Key` for an empty value), the same format as the `kinesis` and `sqs` sources. They are added to the topic rather than replacing its tags, so tags added in the DataHub UI stay; a tag removed in AWS stays in DataHub until removed there. Use the `extract_ownership_from_tags` transformer to turn an `owner` tag into ownership.

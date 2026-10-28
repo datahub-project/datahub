@@ -4,8 +4,12 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import parse_arn
-from datahub.ingestion.source.aws_messaging.constants import ALL_ATTRIBUTES
+from datahub.ingestion.source.aws_messaging.constants import (
+    ALL_ATTRIBUTES,
+    S3_PREFIX_FILTER,
+)
 from datahub.ingestion.source.aws_messaging.models import (
+    BucketNotification,
     EventBridgePipe,
     SnsSubscription,
 )
@@ -336,3 +340,54 @@ class PipesClient:
         if response is None:
             return None
         return bool((response.get("TargetParameters") or {}).get("InputTemplate"))
+
+
+class S3NotificationClient:
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
+        self._client = client
+        self.report = report
+
+    def list_bucket_names(self, region: str) -> Iterator[str]:
+        for bucket in paginate(
+            client=self._client,
+            operation="list_buckets",
+            result_key="Buckets",
+            report=self.report,
+            api_label="s3:ListAllMyBuckets",
+        ):
+            # Notifications only target queues and topics in the bucket's own
+            # region, so buckets elsewhere can be skipped when S3 says where they are.
+            bucket_region = bucket.get("BucketRegion")
+            if bucket_region is None or bucket_region == region:
+                yield bucket["Name"]
+
+    def get_notifications(self, bucket: str) -> Iterator[BucketNotification]:
+        response = call_or_warn(
+            call=lambda: self._client.get_bucket_notification_configuration(
+                Bucket=bucket
+            ),
+            report=self.report,
+            api_label="s3:GetBucketNotification",
+            context=f"bucket={bucket}",
+        )
+        if response is None:
+            return
+        for key, arn_field in (
+            ("TopicConfigurations", "TopicArn"),
+            ("QueueConfigurations", "QueueArn"),
+        ):
+            for item in response.get(key) or []:
+                rules = ((item.get("Filter") or {}).get("Key") or {}).get(
+                    "FilterRules"
+                ) or []
+                prefix = next(
+                    (
+                        rule.get("Value")
+                        for rule in rules
+                        if str(rule.get("Name", "")).lower() == S3_PREFIX_FILTER
+                    ),
+                    None,
+                )
+                yield BucketNotification(
+                    bucket=bucket, target_arn=item[arn_field], prefix=prefix
+                )

@@ -93,6 +93,7 @@ class SqsSource(AwsMessagingSourceBase):
         # Dead-letter targets are checked once every queue in the region is known.
         for queue in self.queues:
             self._add_dead_letter_edge(queue)
+        self.collect_s3_notifications()
         yield from self.service_lineage_workunits()
         yield from self.lineage.workunits()
 

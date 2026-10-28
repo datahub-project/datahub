@@ -78,3 +78,9 @@ class EventBridgePipe(BaseModel):
     target: str
     enrichment: Optional[str] = None
     state: Optional[str] = None
+
+
+class BucketNotification(BaseModel):
+    bucket: str
+    target_arn: str
+    prefix: Optional[str] = None

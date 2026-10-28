@@ -7,6 +7,7 @@ SNS_PLATFORM = "sns"
 LAMBDA_PLATFORM = "lambda"
 EVENTBRIDGE_PLATFORM = "eventbridge"
 EVENTBRIDGE_PIPES_PLATFORM = "eventbridge-pipes"
+S3_PLATFORM = "s3"
 # Owned by the kinesis source; only referenced here for SNS-to-Firehose lineage.
 FIREHOSE_PLATFORM = "kinesis-firehose"
 FIREHOSE_DELIVERY_JOB_ID = "delivery"
@@ -24,6 +25,7 @@ class AwsService(StrEnum):
     LAMBDA = "lambda"
     EVENTS = "events"
     PIPES = "pipes"
+    S3 = "s3"
 
 
 QUEUE_URL_PATTERN = re.compile(r"/(?P<account>\d{12})/(?P<name>[^/?#]+)/?$")
@@ -96,8 +98,11 @@ class LineageRelationship(StrEnum):
     DEAD_LETTER = "dead_letter"
     SUBSCRIPTION = "subscription"
     SUBSCRIPTION_DEAD_LETTER = "subscription_dead_letter"
+    S3_NOTIFICATION = "s3_notification"
 
 
 LINEAGE_RELATIONSHIP_PROPERTY = "relationship"
 
 GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
+
+S3_PREFIX_FILTER = "prefix"

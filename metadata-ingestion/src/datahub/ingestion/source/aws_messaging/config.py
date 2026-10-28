@@ -98,6 +98,15 @@ class AwsMessagingLineageConfig(ConfigModel):
         default=True,
         description="Emit EventBridge Pipes whose source or target is one of this source's queues or topics.",
     )
+    s3_notifications: bool = Field(
+        default=False,
+        description=(
+            "Add S3 buckets as upstreams of the queues or topics their event "
+            "notifications target. Reads every bucket's notification configuration "
+            "(one call per bucket) and only links an S3 dataset that already exists "
+            "in DataHub, so the run needs a DataHub graph connection."
+        ),
+    )
 
 
 class AwsMessagingConfigBase(
@@ -139,6 +148,10 @@ class AwsMessagingConfigBase(
             "accounts whose own recipes set a platform_instance other than the "
             "account id. Accounts not listed use their account id."
         ),
+    )
+    s3_platform_instance: Optional[str] = Field(
+        default=None,
+        description="platform_instance of the S3 source recipe, for S3 notification lineage.",
     )
     lineage: AwsMessagingLineageConfig = Field(
         default_factory=AwsMessagingLineageConfig,

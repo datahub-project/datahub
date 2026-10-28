@@ -28,6 +28,10 @@ With the `lineage` options on (the default), the connector follows the services 
 - The `sqs` and `sns` sources each add only the edges whose dataset end they own, as patches, so a rule targeting both a queue and a topic gets both outputs once both have run.
 - A pipe with no enrichment step and no input template passes messages through unchanged, so it gets field-level lineage for fields present in both the source's and the target's schemas (from Glue Schema Registry or DataHub). Most pipes have no schema on one side and get table-level lineage only.
 
+#### S3 event notifications
+
+`lineage.s3_notifications` (off by default) reads each bucket's notification configuration and adds the bucket as an upstream of the queues it notifies. S3 datasets are named by bucket and path, while a notification only has a key prefix filter, so the connector looks for an existing S3 dataset named `<bucket>/<prefix>`, then `<bucket>`, and adds no edge if neither is in DataHub. Run the `s3` source first and set `s3_platform_instance` to match its `platform_instance`. This makes one `s3:GetBucketNotification` call per bucket in the recipe's region.
+
 #### Tags
 
 AWS resource tags become DataHub tags named `Key:Value` (or `Key` when the value is empty), the same format as the `kinesis` source. They are added to the queue rather than replacing its tags, so tags added in the DataHub UI stay. The flip side is that a tag removed in AWS stays in DataHub until removed there. To turn an `owner` tag into ownership, add the `extract_ownership_from_tags` transformer to the recipe.
