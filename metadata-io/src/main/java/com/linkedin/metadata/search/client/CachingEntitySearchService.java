@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -171,11 +172,11 @@ public class CachingEntitySearchService {
             querySize ->
                 Septet.with(
                     opContext.getSearchContextId(),
-                    entityNames,
+                    cacheKeyList(entityNames),
                     query,
                     filters != null ? toJsonString(filters) : null,
                     CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
-                    facets,
+                    cacheKeyList(facets),
                     querySize),
             enableCache)
         .getSearchResults(opContext, from, size);
@@ -307,12 +308,12 @@ public class CachingEntitySearchService {
             Object cacheKey =
                 Octet.with(
                     opContext.getSearchContextId(),
-                    entities,
+                    cacheKeyList(entities),
                     query,
                     filters != null ? toJsonString(filters) : null,
                     CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
                     scrollId,
-                    facets,
+                    cacheKeyList(facets),
                     size);
             String json = cache.get(cacheKey, String.class);
             result = json != null ? toRecordTemplate(ScrollResult.class, json) : null;
@@ -416,6 +417,16 @@ public class CachingEntitySearchService {
       return entitySearchService.structuredScroll(
           opContext, entities, input, filters, sortCriteria, scrollId, keepAlive, count, facets);
     }
+  }
+
+  /**
+   * Cache keys are Java-serialized into Hazelcast and read back by peers (e.g. key scans during
+   * eviction). The embedded member only accepts JDK and DataHub types, so callers' list types
+   * (Guava {@code ImmutableList} and similar) are copied into an {@link ArrayList}.
+   */
+  @Nullable
+  private static List<String> cacheKeyList(@Nullable List<String> values) {
+    return values == null ? null : new ArrayList<>(values);
   }
 
   /** Returns true if the cache should be used or skipped when fetching search results */

@@ -224,6 +224,11 @@ searchService:
       kubernetes-api-retries: ${SEARCH_SERVICE_HAZELCAST_KUBERNETES_API_RETRIES:5} # Hazelcast defaults: 3 attempts.
       service-dns-timeout: ${SEARCH_SERVICE_HAZELCAST_SERVICE_DNS_TIMEOUT:10} # Hazelcast default: 5 seconds.
       resolve-not-ready-addresses: ${SEARCH_SERVICE_HAZELCAST_RESOLVE_NOT_READY_ADDRESSES:true} # Hazelcast default: true.
+      # Extra entries for the Java-serialization allow-list of the embedded Hazelcast member, comma-separated.
+      # Only needed for custom Serializable types stored in Hazelcast; JDK and DataHub types are allowed already.
+      serializationAllowList:
+        classNames: ${SEARCH_SERVICE_HAZELCAST_SERIALIZATION_ALLOWED_CLASSES:}
+        packagePrefixes: ${SEARCH_SERVICE_HAZELCAST_SERIALIZATION_ALLOWED_PACKAGE_PREFIXES:}
   queryFilterRewriter:
     containerExpansion:
       enabled: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_ENABLED:true}
