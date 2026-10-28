@@ -9,9 +9,11 @@ import {
     ENTITY_FILTER_NAME,
     ENTITY_INDEX_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
+    ENV_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     SCHEMA_FIELD_ALIASES_FILTER_NAME,
 } from '@app/search/utils/constants';
+import { mergeEnvIntoOriginFacets } from '@app/searchV2/utils/filterUtils';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
@@ -23,6 +25,7 @@ const FILTERS_TO_EXCLUDE = [
     ENTITY_INDEX_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     SCHEMA_FIELD_ALIASES_FILTER_NAME,
+    ENV_FILTER_NAME,
 ];
 
 interface Props {
@@ -72,7 +75,9 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
         onFilterSelect(newFilters);
     };
 
-    const filteredFacets = cachedProps.facets.filter((facet) => !FILTERS_TO_EXCLUDE.includes(facet.field));
+    const filteredFacets = mergeEnvIntoOriginFacets(cachedProps.facets).filter(
+        (facet) => !FILTERS_TO_EXCLUDE.includes(facet.field),
+    );
 
     const sortedFacets = filteredFacets.sort((facetA, facetB) => {
         if (TOP_FILTERS.indexOf(facetA.field) === -1) return 1;
