@@ -116,6 +116,7 @@ public class LogicalModelControllerTest extends AbstractTestNGSpringContextTests
   @BeforeMethod
   public void setup() {
     org.mockito.MockitoAnnotations.openMocks(this);
+    org.mockito.Mockito.reset(mockEntityService, mockSearchService, mockTimeseriesAspectService);
   }
 
   @Test
