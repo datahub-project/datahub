@@ -16,6 +16,7 @@ from datahub.ingestion.source.sap_datasphere.lineage import (
 from datahub.ingestion.source.sap_datasphere.models import (
     ColumnLineageContext,
     ColumnLineagePair,
+    ObjectLocator,
     UpstreamColRef,
     UpstreamRef,
 )
@@ -40,7 +41,7 @@ def test_lineage_from_simple_select_extracts_one_upstream():
     }
     extractor = CsnLineageExtractor()
     upstreams = extractor.extract_upstream_refs(csn_def)
-    assert upstreams == [UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION", qualified=True)]
+    assert upstreams == [UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION")]
 
 
 def test_lineage_returns_empty_when_no_query():
@@ -75,13 +76,13 @@ def test_lineage_handles_join_with_two_refs():
     extractor = CsnLineageExtractor()
     upstreams = extractor.extract_upstream_refs(csn_def)
     assert set(upstreams) == {
-        UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION", qualified=True),
-        UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION_TMONTH", qualified=True),
+        UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION"),
+        UpstreamRef(name="SAP.TIME.M_TIME_DIMENSION_TMONTH"),
     }
 
 
-def test_cross_space_from_ref_is_qualified_not_space_prefixed():
-    """Regression: a dotted FROM ref (``SPACE.OBJECT``) is already space-qualified; double-prefixing a cross-space ref into a phantom URN dropped the real lineage edge."""
+def test_from_refs_are_kept_as_written():
+    """The extractor keeps dotted and bare FROM refs verbatim; the source layer decides which dotted names are cross-space."""
     csn_def = {
         "kind": "entity",
         "query": {
@@ -100,8 +101,8 @@ def test_cross_space_from_ref_is_qualified_not_space_prefixed():
     }
     refs = CsnLineageExtractor().extract_upstream_refs(csn_def)
     assert set(refs) == {
-        UpstreamRef(name="SAP_BW.V_VCOPSER03_N045", qualified=True),
-        UpstreamRef(name="LOCAL_DIM", qualified=False),
+        UpstreamRef(name="SAP_BW.V_VCOPSER03_N045"),
+        UpstreamRef(name="LOCAL_DIM"),
     }
 
 
@@ -129,7 +130,7 @@ def test_walk_from_handles_inline_subquery():
         "query": {"SELECT": {"from": {"SELECT": {"from": {"ref": ["INNER_TABLE"]}}}}},
     }
     refs = extractor.extract_upstream_refs(csn_def)
-    assert refs == [UpstreamRef(name="INNER_TABLE", qualified=False)]
+    assert refs == [UpstreamRef(name="INNER_TABLE")]
 
 
 def test_walk_from_handles_doubly_nested_subquery():
@@ -143,25 +144,24 @@ def test_walk_from_handles_doubly_nested_subquery():
         },
     }
     refs = CsnLineageExtractor().extract_upstream_refs(csn_def)
-    assert refs == [UpstreamRef(name="DEEP", qualified=False)]
+    assert refs == [UpstreamRef(name="DEEP")]
 
 
-def test_lineage_skips_non_string_ref_element():
-    """A dict ref[0] (parametrized reference) must be skipped rather than yielding a non-string upstream."""
+@pytest.mark.parametrize(
+    "head, expected",
+    [
+        ({"id": "PARAM", "args": {}}, [UpstreamRef(name="PARAM")]),
+        ({"args": {}}, []),
+    ],
+    ids=["parameterized", "no_id"],
+)
+def test_lineage_dict_ref_uses_its_id(head, expected):
     csn_def = {
         "kind": "entity",
-        "query": {
-            "SELECT": {
-                "from": {"ref": [{"id": "PARAM", "args": []}]},
-                "columns": [{"ref": ["X"]}],
-            }
-        },
+        "query": {"SELECT": {"from": {"ref": [head]}, "columns": [{"ref": ["X"]}]}},
     }
-    extractor = CsnLineageExtractor()
-    upstreams = extractor.extract_upstream_refs(csn_def)
-    assert upstreams == [], (
-        f"Expected non-string ref[0] to be skipped; got: {upstreams}"
-    )
+
+    assert CsnLineageExtractor().extract_upstream_refs(csn_def) == expected
 
 
 def test_column_lineage_pair_carries_downstream_and_refs():
@@ -1092,7 +1092,7 @@ def test_association_projection_skip_is_silent_not_unresolved():
 
 
 def test_used_association_target_becomes_table_upstream():
-    """An association referenced by the query turns its target into a table-level upstream; a dotted target is flagged qualified so the source layer emits it as-is."""
+    """An association referenced by the query turns its target into a table-level upstream; the source layer resolves its space."""
     csn_def = {
         "kind": "entity",
         "elements": {
@@ -1111,9 +1111,7 @@ def test_used_association_target_becomes_table_upstream():
         },
     }
     targets = CsnLineageExtractor().extract_association_targets(csn_def)
-    assert [(t.name, t.qualified) for t in targets] == [
-        ("SAP.TIME.M_TIME_DIMENSION_TDAY", True)
-    ]
+    assert [t.name for t in targets] == ["SAP.TIME.M_TIME_DIMENSION_TDAY"]
 
 
 def test_declared_but_unused_association_is_not_a_lineage_edge():
@@ -1156,11 +1154,11 @@ def test_association_qualified_column_ref_resolves_to_target():
     pairs = extractor.extract_column_lineage(csn_def)
     by_col = {p.downstream_col: p for p in pairs}
     assert by_col["CUSTOMER_NAME"].upstream_refs == [
-        UpstreamColRef(qname="CUSTOMERS", col="NAME", qualified=False)
+        UpstreamColRef(qname="CUSTOMERS", col="NAME")
     ]
     # And the association target is a table-level upstream.
     targets = extractor.extract_association_targets(csn_def)
-    assert [(t.name, t.qualified) for t in targets] == [("CUSTOMERS", False)]
+    assert [t.name for t in targets] == ["CUSTOMERS"]
 
 
 def test_used_composition_target_and_projected_column_resolve_to_target():
@@ -1184,10 +1182,10 @@ def test_used_composition_target_and_projected_column_resolve_to_target():
     extractor = CsnLineageExtractor()
     by_col = {p.downstream_col: p for p in extractor.extract_column_lineage(csn_def)}
     assert by_col["ITEM_SKU"].upstream_refs == [
-        UpstreamColRef(qname="ORDER_ITEMS", col="SKU", qualified=False)
+        UpstreamColRef(qname="ORDER_ITEMS", col="SKU")
     ]
     targets = extractor.extract_association_targets(csn_def)
-    assert [(t.name, t.qualified) for t in targets] == [("ORDER_ITEMS", False)]
+    assert [t.name for t in targets] == ["ORDER_ITEMS"]
 
 
 def test_union_collects_upstreams_from_all_branches():
@@ -1206,8 +1204,8 @@ def test_union_collects_upstreams_from_all_branches():
     }
     refs = CsnLineageExtractor().extract_upstream_refs(csn_def)
     assert set(refs) == {
-        UpstreamRef(name="SALES_EU", qualified=False),
-        UpstreamRef(name="SALES_US", qualified=False),
+        UpstreamRef(name="SALES_EU"),
+        UpstreamRef(name="SALES_US"),
     }
 
 
@@ -1286,3 +1284,79 @@ def test_parse_remote_table_source_strips_sql_quoted_identifier():
     source = parse_remote_table_source(entity)
     assert source is not None
     assert source.qualified_name == "SAPTCH./BIC/AEADOSCM282"
+
+
+@pytest.mark.parametrize(
+    "ref, expected",
+    [
+        ("V_LOCAL", ObjectLocator(space="S", name="V_LOCAL")),
+        (
+            "SAP.TIME.VIEW_DIMENSION_DAY",
+            ObjectLocator(space="S", name="SAP.TIME.VIEW_DIMENSION_DAY"),
+        ),
+        (
+            "SAP.CURRENCY.VIEW.TCURR",
+            ObjectLocator(space="S", name="SAP.CURRENCY.VIEW.TCURR"),
+        ),
+        (
+            "SAP.V_SALES",
+            ObjectLocator(space="SAP", name="V_SALES", explicit_space=True),
+        ),
+        (
+            "FINANCE.V_SALES",
+            ObjectLocator(space="FINANCE", name="V_SALES", explicit_space=True),
+        ),
+        (
+            "SAP.SAP.TIME.VIEW_DIMENSION_DAY",
+            ObjectLocator(
+                space="SAP", name="SAP.TIME.VIEW_DIMENSION_DAY", explicit_space=True
+            ),
+        ),
+        (".V_SALES", ObjectLocator(space="S", name=".V_SALES")),
+    ],
+    ids=[
+        "bare",
+        "generated_time",
+        "generated_currency",
+        "sap_prefix_outside_generated",
+        "other_space",
+        "space_named_sap_own_time_data",
+        "empty_prefix",
+    ],
+)
+def test_object_locator_resolves_space(ref, expected):
+    assert ObjectLocator.from_ref(ref, "S") == expected
+
+
+def test_column_refs_use_the_same_aliases_as_type_resolution():
+    # Implicit alias is the last dotted segment; an aliased source is addressed
+    # by its alias only.
+    csn_def = {
+        "kind": "entity",
+        "query": {
+            "SELECT": {
+                "from": {
+                    "join": "inner",
+                    "args": [
+                        {"ref": ["SPACE.fact"]},
+                        {"ref": ["SPACE.dim"], "as": "d"},
+                    ],
+                },
+                "columns": [
+                    {"ref": ["fact", "amount"]},
+                    {"ref": ["d", "name"]},
+                    {"ref": ["SPACE.dim", "code"]},
+                ],
+            }
+        },
+    }
+
+    pairs = CsnLineageExtractor().extract_column_lineage(csn_def)
+
+    assert {p.downstream_col: p.upstream_refs for p in pairs} == {
+        "amount": [UpstreamColRef(qname="SPACE.fact", col="amount")],
+        "name": [UpstreamColRef(qname="SPACE.dim", col="name")],
+        "code": [],
+    }
+    code_pair = next(p for p in pairs if p.downstream_col == "code")
+    assert any("unknown alias" in reason for reason in code_pair.unresolved_refs)

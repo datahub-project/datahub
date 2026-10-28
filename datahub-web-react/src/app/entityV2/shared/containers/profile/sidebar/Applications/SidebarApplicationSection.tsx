@@ -12,7 +12,7 @@ import { SetApplicationModal } from '@app/entityV2/shared/containers/profile/sid
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
-import { ApplicationLink } from '@app/shared/tags/ApplicationLink';
+import { ApplicationLink } from '@app/sharedV2/tags/ApplicationLink';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useBatchUnsetApplicationMutation } from '@graphql/application.generated';

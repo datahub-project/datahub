@@ -17,6 +17,7 @@ import { TIMEOUTS, gmsUrl, LOAD_STATES } from '../../utils/constants';
 import { seedTimeRangeLineage } from '../../utils/lineage-time-seeder';
 import { readGmsToken } from '../../fixtures/login';
 import { users } from '../../data/users';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'lineage-v3' });
 
@@ -102,7 +103,7 @@ test.describe('impact analysis', () => {
     await lineagePage.expectResultTextHidden(UI_TEXT.USER_DELETIONS);
   });
 
-  test('can see lineage multiple hops away', async () => {
+  test('can see lineage multiple hops away', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await lineagePage.goToDatasetLineage(DATASET_URN, DATASET_NAME);
 
     await lineagePage.clickImpactAnalysis();
@@ -124,31 +125,35 @@ test.describe('impact analysis', () => {
     await lineagePage.expectResultTextVisible(UI_TEXT.USER_DELETIONS, TIMEOUTS.LONG);
   });
 
-  test('can view column level impact analysis and turn it off', async ({ page }) => {
-    // Navigate directly to the column lineage URL
-    const columnParam = encodeURIComponent('[version=2.0].[type=boolean].field_bar');
-    await page.goto(`/dataset/${DATASET_URN}/Lineage?column=${columnParam}&is_lineage_mode=false`);
-    await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
+  test(
+    'can view column level impact analysis and turn it off',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page }) => {
+      // Navigate directly to the column lineage URL
+      const columnParam = encodeURIComponent('[version=2.0].[type=boolean].field_bar');
+      await page.goto(`/dataset/${DATASET_URN}/Lineage?column=${columnParam}&is_lineage_mode=false`);
+      await page.waitForLoadState(LOAD_STATES.DOMCONTENTLOADED);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
-    await lineagePage.clickImpactAnalysis();
+      await lineagePage.clickImpactAnalysis();
 
-    await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.LONG);
-    await lineagePage.expectResultTextVisible(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.MEDIUM);
-    await lineagePage.expectResultTextHidden(UI_TEXT.FEATURE_1);
-    await lineagePage.expectResultTextHidden(UI_TEXT.BAZ_CHART);
+      await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.LONG);
+      await lineagePage.expectResultTextVisible(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.MEDIUM);
+      await lineagePage.expectResultTextHidden(UI_TEXT.FEATURE_1);
+      await lineagePage.expectResultTextHidden(UI_TEXT.BAZ_CHART);
 
-    // Toggle off column-level impact analysis
-    await lineagePage.clickColumnLineageToggle();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.SHORT);
+      // Toggle off column-level impact analysis
+      await lineagePage.clickColumnLineageToggle();
+      // eslint-disable-next-line playwright/no-wait-for-timeout
+      await page.waitForTimeout(TIMEOUTS.SHORT);
 
-    await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.MEDIUM);
-    await lineagePage.expectResultTextHidden(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.SHORT);
-    await lineagePage.expectResultTextVisible(UI_TEXT.FEATURE_1, TIMEOUTS.MEDIUM);
-    await lineagePage.expectResultTextVisible(UI_TEXT.BAZ_CHART, TIMEOUTS.MEDIUM);
-  });
+      await lineagePage.expectResultTextVisible(UI_TEXT.HDFS_DATASET, TIMEOUTS.MEDIUM);
+      await lineagePage.expectResultTextHidden(UI_TEXT.SHIPMENT_INFO, TIMEOUTS.SHORT);
+      await lineagePage.expectResultTextVisible(UI_TEXT.FEATURE_1, TIMEOUTS.MEDIUM);
+      await lineagePage.expectResultTextVisible(UI_TEXT.BAZ_CHART, TIMEOUTS.MEDIUM);
+    },
+  );
 
   test('can filter lineage edges by time', async ({ page }) => {
     await page.goto(

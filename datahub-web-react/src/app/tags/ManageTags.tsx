@@ -14,7 +14,7 @@ import {
 import CreateNewTagModal from '@app/tags/CreateNewTagModal/CreateNewTagModal';
 import EmptyTags from '@app/tags/EmptyTags';
 import TagsTable from '@app/tags/TagsTable';
-import { Message } from '@src/app/shared/Message';
+import { Message } from '@src/app/sharedV2/Message';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';

@@ -502,6 +502,25 @@ public interface EntityClient {
       throws RemoteInvocationException;
 
   /**
+   * Hard delete an entity, then hand back the delete of all references to it, for the caller to run
+   * where it ran {@link #deleteEntityReferences}. The entity delete runs before this returns and
+   * its failure is thrown, so references to an entity that stays are left alone.
+   */
+  @Nonnull
+  default ReferencesCleanup deleteEntityThenReferences(
+      @Nonnull OperationContext opContext, @Nonnull final Urn urn)
+      throws RemoteInvocationException {
+    deleteEntity(opContext, urn);
+    return () -> deleteEntityReferences(opContext, urn);
+  }
+
+  /** The delete of the references to an entity, as {@link #deleteEntityThenReferences} gives it. */
+  @FunctionalInterface
+  interface ReferencesCleanup {
+    void run() throws RemoteInvocationException;
+  }
+
+  /**
    * Filters entities based on a particular Filter and Sort criterion
    *
    * @param entity filter entity

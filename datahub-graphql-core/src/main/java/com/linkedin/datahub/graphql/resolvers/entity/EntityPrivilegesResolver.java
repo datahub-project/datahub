@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
+import com.linkedin.datahub.graphql.resolvers.lifecycle.LifecycleStageAssignmentUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.DescriptionUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DeprecationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
@@ -70,6 +71,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getDataJobPrivileges(urn, context);
             case Constants.DOCUMENT_ENTITY_NAME:
               return getDocumentPrivileges(urn, context);
+            case Constants.QUERY_ENTITY_NAME:
+              return getQueryPrivileges(urn, context);
             default:
               log.warn(
                   "Tried to get entity privileges for entity type {}. Adding common privileges only.",
@@ -190,6 +193,33 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     return result;
   }
 
+  private EntityPrivileges getQueryPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    result.setCanViewQueries(isQueryEntityViewable(urn, context));
+    return result;
+  }
+
+  /**
+   * A Query entity's statement is visible when query-view authorization is off, for system auth, or
+   * when {@link EntityAspectAuthorizationUtils#filterViewableQueryEntities} accepts this URN. That
+   * is the same subject-dataset check {@code QueryType} uses before returning the entity.
+   */
+  private boolean isQueryEntityViewable(Urn urn, QueryContext context) {
+    io.datahubproject.metadata.context.OperationContext opContext = context.getOperationContext();
+    if (!EntityAspectAuthorizationUtils.isQueryViewAuthorizationEnabled(opContext)
+        || opContext.isSystemAuth()) {
+      return true;
+    }
+    return EntityAspectAuthorizationUtils.filterViewableQueryEntities(
+            opContext,
+            opContext,
+            opContext.getAspectRetriever(),
+            List.of(urn),
+            EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext))
+        .contains(urn);
+  }
+
   private EntityPrivileges getDocumentPrivileges(Urn urn, QueryContext context) {
     final EntityPrivileges result = new EntityPrivileges();
     addCommonPrivileges(result, urn, context);
@@ -226,5 +256,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditDescription(DescriptionUtils.isAuthorizedToUpdateDescription(context, urn));
     result.setCanEditLinks(LinkUtils.isAuthorizedToUpdateLinks(context, urn));
     result.setCanManageAssetSummary(AuthorizationUtils.canManageAssetSummary(context, urn));
+    result.setCanEditLifecycleStage(
+        LifecycleStageAssignmentUtils.canEditLifecycleStage(context, urn));
   }
 }

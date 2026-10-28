@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { DatasetAssertionLogicModal } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionLogicModal';
 import { toReadableLocalDateTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
 import { getFormattedParameterValue } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import { decodeSchemaField } from '@app/lineageV3/utils/columnLineageUtils';
 
 import {
     AssertionRunEvent,

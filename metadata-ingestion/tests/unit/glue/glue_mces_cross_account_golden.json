@@ -394,6 +394,41 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:glue,owner_domain.test-database.transactions,PROD)",
                     "type": "COPY"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,owner_domain.test-database.transactions,PROD),txn_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD),txn_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,owner_domain.test-database.transactions,PROD),amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD),amount)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,owner_domain.test-database.transactions,PROD),currency)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD),currency)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },

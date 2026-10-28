@@ -181,45 +181,55 @@ class PathSpec(ConfigModel):
 
         return False
 
-    def allowed(self, path: str, ignore_ext: bool = False) -> bool:
+    def rejection_reason(self, path: str, ignore_ext: bool = False) -> Optional[str]:
+        """The field of this path_spec that drops `path`, or None when it is kept.
+
+        `allowed` is defined as this returning None, so the probe's explanation of
+        a verdict and ingestion's verdict cannot disagree.
+        """
         if self.is_path_hidden(path) and not self.include_hidden_folders:
-            return False
+            return "include_hidden_folders"
 
         if not pathlib.PurePath(path).globmatch(
             self.glob_include, flags=pathlib.GLOBSTAR
         ):
-            return False
+            return "include"
 
         if self.exclude:
             for exclude_path in self.exclude:
                 if pathlib.PurePath(path).globmatch(
                     exclude_path, flags=pathlib.GLOBSTAR
                 ):
-                    return False
+                    return "exclude"
 
         table_name, _ = self.extract_table_name_and_path(path)
         if not self.tables_filter_pattern.allowed(table_name):
-            return False
+            return "tables_filter_pattern"
 
-        if not ignore_ext:
-            # A glob like ``*`` with no explicit extension matches any file type.
-            if os.path.splitext(path)[1].strip(".").lower() == "*":
-                return True
+        if ignore_ext:
+            return None
 
-            fmt = self._recognised_format(path)
-            if fmt is not None:
-                # A recognised format: keep it only if this path_spec wants it.
-                if fmt not in self.file_types:
-                    return False
-            elif self.default_extension is None or self._is_disabled_compression(path):
-                # Nothing to go on: either no real format extension (empty, or a fake
-                # one from a dotted stem like ``foo.bar.baz-<hash>``) with no default
-                # to fall back on, or a compression suffix while ``enable_compression``
-                # is off. In the latter case the file can't be read as its inner
-                # format, so the ``default_extension`` fallback must not admit it.
-                return False
+        # A glob like ``*`` with no explicit extension matches any file type.
+        if os.path.splitext(path)[1].strip(".").lower() == "*":
+            return None
 
-        return True
+        fmt = self._recognised_format(path)
+        if fmt is not None:
+            # A recognised format: keep it only if this path_spec wants it.
+            return "file_types" if fmt not in self.file_types else None
+        if self.default_extension is None:
+            # No real format extension (empty, or a fake one from a dotted stem
+            # like ``foo.bar.baz-<hash>``) and no default to fall back on.
+            return "default_extension"
+        if self._is_disabled_compression(path):
+            # A compression suffix while ``enable_compression`` is off: the file
+            # can't be read as its inner format, so the ``default_extension``
+            # fallback must not admit it.
+            return "enable_compression"
+        return None
+
+    def allowed(self, path: str, ignore_ext: bool = False) -> bool:
+        return self.rejection_reason(path, ignore_ext=ignore_ext) is None
 
     def _is_disabled_compression(self, path: str) -> bool:
         """True if ``path`` ends in a compression suffix but compression is disabled.
@@ -310,22 +320,26 @@ class PathSpec(ConfigModel):
 
         return True
 
-    def folder_allowed(self, path: str) -> bool:
-        """Filter for folders-only traversal. Applies the folder-relevant rules —
-        hidden-folder skipping and `exclude` — but not the file-extension or table-name
-        checks in `allowed`/`dir_allowed`, since folders-only produces no files or datasets.
-        `is_path_hidden` inspects every path component and `exclude` globs match the full
-        path, so filtering a resolved leaf also drops hidden/excluded ancestors."""
+    def folder_rejection_reason(self, path: str) -> Optional[str]:
+        """As rejection_reason, for folders-only traversal (see folder_allowed)."""
         if self.is_path_hidden(path) and not self.include_hidden_folders:
-            return False
+            return "include_hidden_folders"
         if self.exclude:
             candidate = path.rstrip("/")
             for exclude_path in self.exclude:
                 if pathlib.PurePath(candidate).globmatch(
                     exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
                 ):
-                    return False
-        return True
+                    return "exclude"
+        return None
+
+    def folder_allowed(self, path: str) -> bool:
+        """Filter for folders-only traversal. Applies the folder-relevant rules —
+        hidden-folder skipping and `exclude` — but not the file-extension or table-name
+        checks in `allowed`/`dir_allowed`, since folders-only produces no files or datasets.
+        `is_path_hidden` inspects every path component and `exclude` globs match the full
+        path, so filtering a resolved leaf also drops hidden/excluded ancestors."""
+        return self.folder_rejection_reason(path) is None
 
     @classmethod
     def get_parsable_include(cls, include: str) -> str:

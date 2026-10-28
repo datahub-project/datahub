@@ -103,6 +103,21 @@ That is a complete probe: `probe methods` lists `tables`, `probe run tables` ret
 module and delegate to the connector's fetchers. Declare commands on the provider, never on the
 `Source`: a declaration error raises at import, which would break ingestion too.
 
+Declare the capability on the `Source` as well, so `recipe describe` and the connector docs list it:
+
+```python
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
+class MySource(Source): ...
+```
+
+`test_probe_contract.py` fails when a source's `@capability(SourceCapability.PROBE)` and its
+config's `probe_provider_class()` disagree. A config that inherits a provider it can't serve (a
+usage-only source, or one whose connection points somewhere else) returns `None` from
+`probe_provider_class()`, which also makes `probe run` refuse it.
+
 `probe_provider_class()` is the config's only statement about its provider: `probe methods` describes
 that class and `probe run` builds it with `for_config`, so the two cannot disagree. Build clients in a
 command (`_open_once`), not in `for_config`, so a bad credential is that command's failure. The SQL
@@ -348,7 +363,7 @@ and anything else it raises is the connector's defect (exit 1), reported by clas
 
 | Hook                       | Signature                                                       | Declare it when                                                                     |
 | -------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `probe_provider_class`     | classmethod `() -> type`                                        | always: it names the provider class                                                 |
+| `probe_provider_class`     | classmethod `() -> Optional[type]`                              | always: it names the provider class, or None to opt out of one it inherits          |
 | `probe_validation_context` | classmethod `(source_type: str) -> Optional[Dict[str, object]]` | registered names share a config class but validate with different pydantic contexts |
 | `probe_kind_overrides`     | classmethod `() -> Mapping[str, str]`                           | the config, not the provider, decides a command's kind (command → kind)             |
 | `probe_match_target`       | `(self, ctx: ClassifyContext) -> Optional[str]`                 | a pattern matches something other than the bare name (step 2)                       |
@@ -582,7 +597,7 @@ itself) are in `source/sql/protocol_probe_settings.py`.
 
 ## Testing and docs checklist
 
-- [ ] **Hooks and methods.** `probe_provider_class()` on the config, `for_config` on the provider,
+- [ ] **Hooks and methods.** `probe_provider_class()` on the config, `@capability(SourceCapability.PROBE, ...)` on the source, `for_config` on the provider,
       optional hooks copied from the [hook reference](#hook-reference). `kind=` and
       `row_limit_param=` on each listing, `Filters(...)` on each pattern field (`FiltersByRule(...)`
       on a rule field), `Enables(...)` on each switch.
