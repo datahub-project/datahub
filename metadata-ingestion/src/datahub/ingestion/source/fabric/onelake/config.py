@@ -401,8 +401,9 @@ class FabricOneLakeSourceConfig(
     def pass_profile_pattern_to_profiling(self):
         """Column filters inside the SQL profiler read `profiling._allow_deny_patterns`.
 
-        Copy the pattern even when profiling is disabled. An env override can
-        turn profiling on after this validator has already run.
+        Copied whether or not profiling is enabled: the copy is cheap, and the
+        profiler then never runs with the allow-all default in place of the
+        recipe's pattern.
         """
         self.profiling._allow_deny_patterns = self.profile_pattern
         return self
