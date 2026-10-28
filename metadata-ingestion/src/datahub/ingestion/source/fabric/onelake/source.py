@@ -642,7 +642,20 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             if item_type == "Lakehouse":
                 tables = list(self.client.list_lakehouse_tables(workspace.id, item_id))
             else:
-                tables = list(self.client.list_warehouse_tables(workspace.id, item_id))
+                tables = list(
+                    self.client.list_warehouse_tables(
+                        workspace.id,
+                        item_id,
+                        on_degraded=lambda reason: self.report.warning(
+                            title="Warehouse Tables Unavailable",
+                            message=(
+                                "The warehouse has no OneLake table catalog, so no "
+                                "tables were ingested for it."
+                            ),
+                            context=f"warehouse={item_display_name}, {reason}",
+                        ),
+                    )
+                )
 
             # Group tables by schema
             tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)

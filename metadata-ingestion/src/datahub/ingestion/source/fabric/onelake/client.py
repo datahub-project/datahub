@@ -1,7 +1,7 @@
 """REST API client for Microsoft Fabric OneLake."""
 
 import logging
-from typing import Callable, Iterator, Optional, TypeVar
+from typing import Callable, Iterator, Optional, Set, TypeVar
 
 import requests
 
@@ -196,6 +196,9 @@ class OneLakeClient(BaseFabricClient):
 
         The list endpoints return at most one page per call and carry the next
         page in `next_page_token`. The token is sent back as `page_token`.
+        Names are unique within one listing, so an item whose name was already
+        yielded is skipped: a server that ignores `page_token` and returns the
+        same page again would otherwise emit every table twice.
         Reference: https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
 
         Args:
@@ -211,7 +214,8 @@ class OneLakeClient(BaseFabricClient):
         request_params["max_results"] = str(ONELAKE_CATALOG_PAGE_SIZE)
         page = 1
         total = 0
-        seen_tokens: set[str] = set()
+        seen_tokens: Set[str] = set()
+        seen_names: Set[str] = set()
         while True:
             # A large catalog can outlive the token from the first page.
             try:
@@ -231,9 +235,18 @@ class OneLakeClient(BaseFabricClient):
             data = response.json()
 
             items = data.get(items_key, []) or []
-            total += len(items)
             logger.debug(f"Page {page}: got {len(items)} item(s) for {description}")
-            yield from items
+            for item in items:
+                name = item.get("name")
+                if name in seen_names:
+                    logger.debug(
+                        f"Skipping repeated {name} while listing {description}"
+                    )
+                    continue
+                if name:
+                    seen_names.add(name)
+                total += 1
+                yield item
 
             next_token = data.get("next_page_token")
             if not next_token:

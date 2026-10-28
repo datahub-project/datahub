@@ -164,7 +164,8 @@ def test_unity_catalog_listing_stops_on_repeated_page_token() -> None:
         )
     )
 
-    assert schemas == ["dbo", "dbo"]
+    # The second page repeats the first; its schema is not yielded again.
+    assert schemas == ["dbo"]
     assert harness.session.get.call_count == 2
 
 

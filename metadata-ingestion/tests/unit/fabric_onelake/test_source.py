@@ -1,12 +1,16 @@
 """Unit tests for Fabric OneLake source key hierarchy."""
 
+from typing import Callable, Iterator, Optional
 from unittest.mock import MagicMock
 
 from datahub.emitter.mce_builder import datahub_guid
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.fabric.common.models import (
     FABRIC_WORKSPACE_PLATFORM,
+    FabricWorkspace,
     WorkspaceKey,
 )
+from datahub.ingestion.source.fabric.onelake.models import FabricTable
 from datahub.ingestion.source.fabric.onelake.source import (
     PLATFORM,
     FabricOneLakeSource,
@@ -154,3 +158,38 @@ def test_norm_respects_convert_urns_to_lowercase() -> None:
     src.config.convert_urns_to_lowercase = False
     assert FabricOneLakeSource._norm(src, "Sales") == "Sales"
     assert FabricOneLakeSource._norm(src, "CUSTOMERS") == "CUSTOMERS"
+
+
+def test_warehouse_without_catalog_is_reported_as_a_warning() -> None:
+    source = FabricOneLakeSource.create({}, PipelineContext(run_id="wh-404"))
+
+    def list_warehouse_tables(
+        workspace_id: str,
+        warehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
+    ) -> Iterator[FabricTable]:
+        assert on_degraded is not None
+        on_degraded(f"warehouse {warehouse_id} has no OneLake schema catalog")
+        return iter([])
+
+    source.client = MagicMock()
+    source.client.list_warehouse_tables.side_effect = list_warehouse_tables
+    workspace = FabricWorkspace(id="ws-1", name="sales-ws")
+
+    emitted = list(
+        source._process_item_tables(
+            workspace=workspace,
+            item_id="wh-1",
+            item_type="Warehouse",
+            item_container_key=WarehouseKey(workspace_id="ws-1", warehouse_id="wh-1"),
+            item_display_name="staging_wh",
+            schema_map={},
+            emitted_schemas=set(),
+            profile_targets=[],
+        )
+    )
+
+    assert emitted == []
+    titles = [w.title for w in source.report.warnings]
+    assert titles == ["Warehouse Tables Unavailable"]
