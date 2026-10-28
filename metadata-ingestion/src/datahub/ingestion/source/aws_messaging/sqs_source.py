@@ -124,6 +124,7 @@ class SqsSource(AwsMessagingSourceBase):
             self.queues.append(queue)
             self.resolver.add(queue.arn)
             urn = self.urns.queue_urn(queue.arn)
+            self.lineage.owned.add(urn)
             yield from Dataset(
                 platform=SQS_PLATFORM,
                 name=self.urns.resource_id(queue.arn),
