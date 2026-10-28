@@ -45,7 +45,7 @@ omitted optional fields are cleared.
 `upsertCustomAssertion` requires:
 
 - `entityUrn` — dataset URN being monitored
-- `type` — free-text category shown in the UI (for example `My Custom Category`)
+- `type` — free-text category (for example `My Custom Category`). The assertion list shows these assertions as **Custom** in its Type column, and this value appears when you hover over **Custom**
 - `description` — human-readable assertion description
 - `platform` — **either** `platform.urn` **or** `platform.name` (at least one). An empty `platform: {}` fails with
   `Failed to upsert Custom Assertion. Platform Name or Platform Urn must be specified.`
@@ -129,7 +129,7 @@ mutation upsertCustomAssertion {
     urn: "urn:li:assertion:my-custom-assertion-id" # Optional: if you want to provide a custom id. If not, one will be generated for you.
     input: {
       entityUrn: "<urn of entity being monitored>"
-      type: "My Custom Category" # This is how your assertion will appear categorized in DataHub.
+      type: "My Custom Category" # Shown when hovering over "Custom" in the assertion list's Type column.
       description: "The description of my external assertion for my dataset"
       platform: {
         urn: "urn:li:dataPlatform:great-expectations" # OR you can provide name: "My Custom Platform" if you do not have an URN for the platform.

@@ -2,6 +2,8 @@ package com.linkedin.metadata.client;
 
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.AuditStamp;
@@ -9,16 +11,24 @@ import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.RequiredFieldNotPresentException;
 import com.linkedin.domain.Domains;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
+import com.linkedin.metadata.entity.DeleteCeiling;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
+import com.linkedin.metadata.entity.RollbackResult;
+import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
+import com.linkedin.metadata.entity.ebean.batch.AttributedActorHeaders;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.event.EventProducer;
@@ -26,6 +36,8 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.service.HardDeleteDispatcher;
+import com.linkedin.metadata.service.HardDeleteRequest;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -34,10 +46,14 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Supplier;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -85,7 +101,7 @@ public class JavaEntityClientTest {
         _metricUtils);
   }
 
-  private JavaEntityClient getJavaEntityClient(ReliableHardDelete reliableHardDelete) {
+  private JavaEntityClient getJavaEntityClient(HardDeleteService hardDeleteService) {
     return new JavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -98,45 +114,194 @@ public class JavaEntityClientTest {
         _eventProducer,
         EntityClientConfig.builder().batchGetV2Size(1).build(),
         _metricUtils,
-        reliableHardDelete);
+        hardDeleteService);
+  }
+
+  private HardDeleteService hardDeleteService(
+      final boolean reliableHardDelete, final HardDeleteDispatcher dispatcher) {
+    return new HardDeleteService(
+        _entityService,
+        _deleteEntityService,
+        _timeseriesAspectService,
+        new ReliableHardDelete(_entityService, reliableHardDelete),
+        dispatcher);
+  }
+
+  /** Without the service (system-update, tests): today's code. */
+  @Test
+  void testDeletesWithoutTheServiceRunTodaysCode() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:noService");
+    JavaEntityClient client = getJavaEntityClient();
+
+    client.deleteEntity(opContext, urn);
+    client.deleteEntityReferences(opContext, urn);
+
+    verify(_entityService).deleteUrn(opContext, urn);
+    verify(_deleteEntityService).deleteReferencesTo(opContext, urn, false);
+  }
+
+  /** Without the service the entity is deleted at once; the references wait for the cleanup. */
+  @Test
+  void testDeleteEntityThenReferencesWithoutTheServiceLeavesReferencesToTheCleanup()
+      throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:noServiceThenReferences");
+
+    EntityClient.ReferencesCleanup references =
+        getJavaEntityClient().deleteEntityThenReferences(opContext, urn);
+
+    verify(_entityService).deleteUrn(opContext, urn);
+    verifyNoInteractions(_deleteEntityService);
+
+    references.run();
+
+    verify(_deleteEntityService).deleteReferencesTo(opContext, urn, false);
   }
 
   @Test
-  void testDeleteEntityWithReliableHardDeleteOffDeletesInline() throws Exception {
-    Urn urn = UrnUtils.getUrn("urn:li:tag:reliableOff");
-    ReliableHardDelete reliableHardDelete = mock(ReliableHardDelete.class);
-    when(reliableHardDelete.isEnabled()).thenReturn(false);
+  void testDeleteEntityDelegatesToTheService() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:delegates");
+    HardDeleteService hardDeleteService = mock(HardDeleteService.class);
 
-    getJavaEntityClient(reliableHardDelete).deleteEntity(opContext, urn);
-    getJavaEntityClient().deleteEntity(opContext, urn);
+    getJavaEntityClient(hardDeleteService).deleteEntity(opContext, urn);
 
-    verify(_entityService, times(2)).deleteUrn(opContext, urn);
-    verify(reliableHardDelete, never()).delete(any(), any());
-  }
-
-  @Test
-  void testDeleteEntityWithReliableHardDeleteOnTakesReliablePath() throws Exception {
-    Urn urn = UrnUtils.getUrn("urn:li:tag:reliableOn");
-    ReliableHardDelete reliableHardDelete = mock(ReliableHardDelete.class);
-    when(reliableHardDelete.isEnabled()).thenReturn(true);
-
-    getJavaEntityClient(reliableHardDelete).deleteEntity(opContext, urn);
-
-    verify(reliableHardDelete).delete(opContext, urn);
+    verify(hardDeleteService).deleteEntity(opContext, urn);
     verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
   }
 
+  /**
+   * The system client offers its hard deletes to the service too. Before, it was built without one,
+   * so every service on the system client (data products and others) hard-deleted in-process.
+   */
   @Test
-  void testDeleteEntityReliableFailureDoesNotFallBackToInlineDelete() {
-    Urn urn = UrnUtils.getUrn("urn:li:tag:reliableFails");
-    ReliableHardDelete reliableHardDelete = mock(ReliableHardDelete.class);
-    when(reliableHardDelete.isEnabled()).thenReturn(true);
-    when(reliableHardDelete.delete(opContext, urn)).thenThrow(new IllegalStateException("failed"));
+  void testTheSystemClientDeletesThroughTheService() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:systemClient");
+    HardDeleteService hardDeleteService = mock(HardDeleteService.class);
+    SystemJavaEntityClient client =
+        new SystemJavaEntityClient(
+            _entityService,
+            _deleteEntityService,
+            _entitySearchService,
+            _cachingEntitySearchService,
+            _searchService,
+            _lineageSearchService,
+            _timeseriesAspectService,
+            rollbackService,
+            _eventProducer,
+            new EntityClientCacheConfig(),
+            EntityClientConfig.builder().batchGetV2Size(1).build(),
+            _metricUtils,
+            hardDeleteService);
 
-    JavaEntityClient client = getJavaEntityClient(reliableHardDelete);
+    client.deleteEntity(opContext, urn);
+
+    verify(hardDeleteService).deleteEntity(opContext, urn);
+    verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
+  }
+
+  /**
+   * A refused submit reaches the system client's caller as a failure: nothing is deleted in-process
+   * instead. The hard-delete dispatcher throws when the delete it took cannot be submitted.
+   */
+  @Test
+  void testTheSystemClientThrowsWhenTheDispatcherRefusesTheDelete() {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:systemClientRefused");
+    DeleteCeiling ceiling = new DeleteCeiling(Map.of("tagKey", 1L), 1L);
+    when(_entityService.captureDeleteCeiling(opContext, urn)).thenReturn(Optional.of(ceiling));
+    HardDeleteDispatcher dispatcher = mock(HardDeleteDispatcher.class);
+    when(dispatcher.dispatch(any(), any())).thenThrow(new IllegalStateException("refused"));
+    SystemJavaEntityClient client =
+        new SystemJavaEntityClient(
+            _entityService,
+            _deleteEntityService,
+            _entitySearchService,
+            _cachingEntitySearchService,
+            _searchService,
+            _lineageSearchService,
+            _timeseriesAspectService,
+            rollbackService,
+            _eventProducer,
+            new EntityClientCacheConfig(),
+            EntityClientConfig.builder().batchGetV2Size(1).build(),
+            _metricUtils,
+            hardDeleteService(true, dispatcher));
 
     assertThrows(IllegalStateException.class, () -> client.deleteEntity(opContext, urn));
     verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
+    verify(_entityService, never())
+        .deleteUrn(any(OperationContext.class), any(Urn.class), any(DeleteCeiling.class));
+  }
+
+  @Test
+  void testDeleteEntityFailureDoesNotFallBackToInlineDelete() {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:serviceFails");
+    HardDeleteService hardDeleteService = mock(HardDeleteService.class);
+    when(hardDeleteService.deleteEntity(opContext, urn))
+        .thenThrow(new IllegalStateException("failed"));
+
+    JavaEntityClient client = getJavaEntityClient(hardDeleteService);
+
+    assertThrows(IllegalStateException.class, () -> client.deleteEntity(opContext, urn));
+    verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
+  }
+
+  /**
+   * Declined: the entity is deleted now and the references when the caller runs them, with today's
+   * code; the combined delete is offered once and the references never on their own.
+   */
+  @Test
+  void testDeleteEntityThenReferencesDeclinedRunsBothHereAfterOneOffer() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:bothDeclined");
+    DeleteCeiling ceiling = new DeleteCeiling(Map.of("tagKey", 1L), 1L);
+    HardDeleteDispatcher dispatcher = mock(HardDeleteDispatcher.class);
+    when(_entityService.captureDeleteCeiling(opContext, urn)).thenReturn(Optional.of(ceiling));
+    when(_entityService.deleteUrn(opContext, urn, ceiling))
+        .thenReturn(
+            new RollbackRunResult(
+                List.of(),
+                1,
+                List.of(
+                    new RollbackResult(
+                        urn,
+                        "tag",
+                        "tagKey",
+                        null,
+                        null,
+                        null,
+                        null,
+                        ChangeType.DELETE,
+                        true,
+                        0))));
+    when(_deleteEntityService.deleteReferencesTo(opContext, urn, false))
+        .thenThrow(new IllegalArgumentException("transient"))
+        .thenReturn(null);
+
+    EntityClient.ReferencesCleanup references =
+        getJavaEntityClient(hardDeleteService(true, dispatcher))
+            .deleteEntityThenReferences(opContext, urn);
+
+    verify(_entityService).deleteUrn(opContext, urn, ceiling);
+    verifyNoInteractions(_deleteEntityService);
+    references.run();
+    verify(dispatcher, times(1)).dispatch(any(), any());
+    verify(dispatcher).dispatch(opContext, HardDeleteRequest.entityAndReferences(urn, ceiling));
+    verify(_deleteEntityService, times(2)).deleteReferencesTo(opContext, urn, false);
+  }
+
+  /** Taken: nothing runs here, now or when the caller runs the cleanup. */
+  @Test
+  void testDeleteEntityThenReferencesTakenRunsNothingHere() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:tag:bothTaken");
+    DeleteCeiling ceiling = new DeleteCeiling(Map.of("tagKey", 1L), 1L);
+    HardDeleteDispatcher dispatcher = mock(HardDeleteDispatcher.class);
+    when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    when(_entityService.captureDeleteCeiling(opContext, urn)).thenReturn(Optional.of(ceiling));
+
+    getJavaEntityClient(hardDeleteService(false, dispatcher))
+        .deleteEntityThenReferences(opContext, urn)
+        .run();
+
+    verify(_entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
+    verifyNoInteractions(_deleteEntityService);
   }
 
   @Test
@@ -274,5 +439,103 @@ public class JavaEntityClientTest {
     String urnStr = client.ingestProposal(opContext, mcp, false);
 
     assertEquals(urnStr, "urn:li:container:orderingTest");
+  }
+
+  private AuditStamp ingestAndCaptureStamp(OperationContext callerContext)
+      throws RemoteInvocationException {
+    MetadataChangeProposal mcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(UrnUtils.getUrn("urn:li:container:attributed"))
+            .setAspectName("status")
+            .setEntityType("container")
+            .setChangeType(ChangeType.UPSERT)
+            .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
+    AttributedActorHeaders.stamp(mcp, "urn:li:corpuser:alice");
+    ArgumentCaptor<AspectsBatch> batch = ArgumentCaptor.forClass(AspectsBatch.class);
+    when(_entityService.ingestProposal(any(OperationContext.class), batch.capture(), eq(false)))
+        .thenReturn(List.of());
+
+    getJavaEntityClient().ingestProposal(callerContext, mcp, false);
+
+    return batch.getValue().getItems().iterator().next().getAuditStamp();
+  }
+
+  @Test
+  void systemCallerHonorsAttributedActor() throws RemoteInvocationException {
+    AuditStamp stamp = ingestAndCaptureStamp(opContext);
+
+    assertEquals(stamp.getActor().toString(), "urn:li:corpuser:alice");
+    assertEquals(
+        stamp.getImpersonator().toString(),
+        opContext.getSessionAuthentication().getActor().toUrnStr());
+  }
+
+  @Test
+  void userCallerIgnoresAttributedActor() throws RemoteInvocationException {
+    AuditStamp stamp =
+        ingestAndCaptureStamp(
+            TestOperationContexts.userContextNoSearchAuthorization(
+                UrnUtils.getUrn("urn:li:corpuser:bob")));
+
+    assertEquals(stamp.getActor().toString(), "urn:li:corpuser:bob");
+    assertNull(stamp.getImpersonator(GetMode.NULL));
+  }
+
+  private static MetadataChangeProposal containerStatus(String id) {
+    return new MetadataChangeProposal()
+        .setEntityUrn(UrnUtils.getUrn("urn:li:container:" + id))
+        .setAspectName("status")
+        .setEntityType("container")
+        .setChangeType(ChangeType.UPSERT)
+        .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
+  }
+
+  @Test
+  void ingestValidProposalsWritesTheValidOnesAndReturnsTheRest() throws Exception {
+    MetadataChangeProposal valid = containerStatus("valid");
+    MetadataChangeProposal invalid = containerStatus("invalid").setAspectName("notAnAspect");
+    ArgumentCaptor<AspectsBatch> written = ArgumentCaptor.forClass(AspectsBatch.class);
+    when(_entityService.ingestProposal(any(OperationContext.class), written.capture(), eq(false)))
+        .thenReturn(List.of());
+
+    List<Pair<MetadataChangeProposal, Exception>> rejected =
+        getJavaEntityClient().ingestValidProposals(opContext, List.of(valid, invalid));
+
+    assertEquals(rejected.size(), 1);
+    assertSame(rejected.get(0).getFirst(), invalid);
+    assertEquals(
+        written.getValue().getMCPItems().stream()
+            .map(item -> item.getMetadataChangeProposal())
+            .toList(),
+        List.of(valid));
+  }
+
+  @Test
+  void ingestValidProposalsWritesNothingWhenEveryProposalIsRejected() throws Exception {
+    List<Pair<MetadataChangeProposal, Exception>> rejected =
+        getJavaEntityClient()
+            .ingestValidProposals(
+                opContext, List.of(containerStatus("invalid").setAspectName("notAnAspect")));
+
+    assertEquals(rejected.size(), 1);
+    verify(_entityService, never())
+        .ingestProposal(any(OperationContext.class), any(), anyBoolean());
+  }
+
+  @Test
+  void ingestValidProposalsHonorsAttributedActorForSystemCaller() throws Exception {
+    MetadataChangeProposal queued = containerStatus("queued");
+    AttributedActorHeaders.stamp(queued, "urn:li:corpuser:alice");
+    ArgumentCaptor<AspectsBatch> written = ArgumentCaptor.forClass(AspectsBatch.class);
+    when(_entityService.ingestProposal(any(OperationContext.class), written.capture(), eq(false)))
+        .thenReturn(List.of());
+
+    getJavaEntityClient().ingestValidProposals(opContext, List.of(queued));
+
+    AuditStamp stamp = written.getValue().getItems().iterator().next().getAuditStamp();
+    assertEquals(stamp.getActor().toString(), "urn:li:corpuser:alice");
+    assertEquals(
+        stamp.getImpersonator().toString(),
+        opContext.getSessionAuthentication().getActor().toUrnStr());
   }
 }

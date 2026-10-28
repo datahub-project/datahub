@@ -1,8 +1,12 @@
-import { Button, ButtonProps, Icon, Text, typography } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { Button, type ButtonProps } from '@components/components/Button';
+import { Icon } from '@components/components/Icon';
+import { Text } from '@components/components/Text';
+import { typography } from '@components/theme';
 
 import { ModalContext } from '@app/sharedV2/modals/ModalContext';
 

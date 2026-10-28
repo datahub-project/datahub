@@ -31,6 +31,7 @@ import { useTheme } from 'styled-components';
 import { EditorContainer, getEditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
 import RemirrorLocaleProvider from '@components/components/Editor/RemirrorLocaleProvider';
+import { registerEditorCodeLanguages } from '@components/components/Editor/editorCodeLanguages';
 import { DetailsExtension } from '@components/components/Editor/extensions/details/DetailsExtension';
 import { DetailsSummaryExtension } from '@components/components/Editor/extensions/details/DetailsSummaryExtension';
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
@@ -48,6 +49,10 @@ import { notEmpty } from '@app/entityV2/shared/utils';
 
 // CSS class applied to the editor surface for antd typography styling.
 const EDITOR_CLASS_NAMES = ['ant-typography'];
+
+// Register the full grammar catalog on the shared refractor instance before
+// the editor or a file preview asks it to highlight.
+registerEditorCodeLanguages();
 
 /**
  * Picks the prism syntax theme that matches the app theme. The light theme's

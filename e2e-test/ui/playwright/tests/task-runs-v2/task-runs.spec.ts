@@ -24,6 +24,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { TaskRunsPage } from '../../pages/task-runs.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 const SAMPLE_DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,SamplePlaywrightHiveDataset,PROD)';
 const SAMPLE_TASK_URN = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,playwright_dag_abc,PROD),playwright_task_123)';
@@ -44,15 +45,19 @@ test.describe('task runs', () => {
     taskRunsPage = new TaskRunsPage(page, logger, logDir);
   });
 
-  test('can visit dataset with runs aspect and verify the task run is present', async () => {
-    await taskRunsPage.navigateToDatasetRuns(SAMPLE_DATASET_URN);
+  test(
+    'can visit dataset with runs aspect and verify the task run is present',
+    { tag: [TestTag.P0, DomainTag.Ingestion] },
+    async () => {
+      await taskRunsPage.navigateToDatasetRuns(SAMPLE_DATASET_URN);
 
-    await taskRunsPage.verifyRunId(RUN_TIMESTAMP, RUN_TIMESTAMP);
-    await taskRunsPage.verifyRunStatus(RUN_TIMESTAMP, RUN_STATUS);
-    await taskRunsPage.assertInputDatasetLinkVisible(INPUT_DATASET_URN, INPUT_DATASET_NAME);
-    await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_1, OUTPUT_DATASET_NAME_1);
-    await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_2, OUTPUT_DATASET_NAME_2);
-  });
+      await taskRunsPage.verifyRunId(RUN_TIMESTAMP, RUN_TIMESTAMP);
+      await taskRunsPage.verifyRunStatus(RUN_TIMESTAMP, RUN_STATUS);
+      await taskRunsPage.assertInputDatasetLinkVisible(INPUT_DATASET_URN, INPUT_DATASET_NAME);
+      await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_1, OUTPUT_DATASET_NAME_1);
+      await taskRunsPage.assertOutputDatasetLinkVisible(OUTPUT_DATASET_URN_2, OUTPUT_DATASET_NAME_2);
+    },
+  );
 
   test('can visit task with runs aspect and verify the task run is present', async () => {
     await taskRunsPage.navigateToTaskRuns(SAMPLE_TASK_URN);

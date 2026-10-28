@@ -11,7 +11,7 @@ import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getEntityTypeFromEntityUrn, getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
-import { decommissionTimeToSeconds } from '@app/shared/time/timeUtils';
+import { decommissionTimeToSeconds } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import type { Dayjs } from '@utils/dayjs';
 import dayjs from '@utils/dayjs';

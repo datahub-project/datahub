@@ -1,6 +1,5 @@
 import { ApolloError } from '@apollo/client';
-import { Icon, Pill } from '@components';
-import { message } from 'antd';
+import { Icon, Pill, toast } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
@@ -20,7 +19,7 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
 } from '@app/ingestV2/executions/utils';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
@@ -138,10 +137,15 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
         ],
         [data, urn, result, status],
     );
+    useEffect(() => {
+        if (error) {
+            toast.error(t('runDetails.loadError'), { key: 'run-details-load-error' });
+        }
+    }, [error, t]);
+
     return (
         <ContentWrapper>
             {!data && loading && <Message type="loading" content={t('runDetails.loading')} />}
-            {error && message.error(t('runDetails.loadError'))}
             <Tabs
                 tabs={tabs}
                 selectedTab={selectedTab}

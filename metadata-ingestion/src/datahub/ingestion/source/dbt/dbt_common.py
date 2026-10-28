@@ -28,6 +28,7 @@ from typing import (
 import dateutil.parser
 import more_itertools
 import pydantic
+from packaging import version as packaging_version
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 
@@ -75,8 +76,10 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
     DBTTest,
     DBTTestResult,
+    ExistingAssertionNote,
     make_assertion_from_freshness,
     make_assertion_from_test,
+    make_assertion_note_from_test,
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
 )
@@ -110,6 +113,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    AssertionNoteClass,
     AuditStampClass,
     BrowsePathEntryClass,
     BrowsePathsV2Class,
@@ -159,6 +163,7 @@ from datahub.sql_parsing.sqlglot_utils import (
 from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
+from datahub.utilities.server_config_util import ServiceFeature
 from datahub.utilities.time import datetime_to_ts_millis
 from datahub.utilities.topological_sort import topological_sort
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
@@ -187,7 +192,6 @@ class _TwoTierSchemaResolver(SchemaResolver):
         return super().resolve_table(table.model_copy(update={"database": None}))
 
 
-_DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_SQL_LENGTH = 1 * 1024 * 1024  # 1MB
 _TARGET_PLATFORM_PREFETCH_ASPECT_NAMES = [
@@ -196,6 +200,9 @@ _TARGET_PLATFORM_PREFETCH_ASPECT_NAMES = [
     DatasetPropertiesClass.ASPECT_NAME,
 ]
 _TARGET_PLATFORM_PREFETCH_CHUNK_SIZE = 200
+_ASSERTION_NOTE_PREFETCH_CHUNK_SIZE = 200
+# dbt added a top-level `description:` on data tests in 1.9.
+_DBT_TEST_DESCRIPTION_MIN_VERSION = (1, 9)
 
 
 # (database, schema) as spelled in the dbt manifest, folded the same way the
@@ -458,6 +465,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     # Target-platform sibling browse path / display name statistics
     num_target_platform_aspect_prefetch_batches: int = 0
+    num_assertion_note_prefetch_batches: int = 0
     num_target_browse_paths_written: int = 0
     num_target_display_names_set: int = 0
     num_target_containers_inherited: int = 0
@@ -1981,14 +1989,14 @@ def make_mapping_upstream_lineage(
                 )
             )
 
+    # dbt has no per-edge event time. Omit auditStamp so the schema default
+    # (time 0 / unknown actor) stays stable across runs. A wall clock here
+    # makes an unchanged graph look modified.
     return UpstreamLineageClass(
         upstreams=[
             UpstreamClass(
                 dataset=upstream_urn,
                 type=DatasetLineageTypeClass.COPY,
-                auditStamp=AuditStamp(
-                    time=mce_builder.get_sys_time(), actor=_DEFAULT_ACTOR
-                ),
             )
         ],
         fineGrainedLineages=cll or None,
@@ -2200,47 +2208,38 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             match_nested_props=True,
         )
 
-        for node in sorted(test_nodes, key=lambda n: n.dbt_name):
+        # Resolved once per test: both the note prefetch and the emission loop need them.
+        upstreams_by_test: Dict[str, Dict[str, str]] = {}
+        upstream_errors: Dict[str, Exception] = {}
+        for node in test_nodes:
             try:
-                upstreams = get_upstreams_for_test(
+                upstreams_by_test[node.dbt_name] = get_upstreams_for_test(
                     test_node=node,
                     all_nodes_map=all_nodes_map,
                     platform_instance=self._dbt_platform_instance,
                     environment=self.config.env,
                 )
+            except Exception as e:
+                upstream_errors[node.dbt_name] = e
+
+        existing_notes = (
+            self._prefetch_assertion_notes(test_nodes, upstreams_by_test)
+            if self.config.entities_enabled.can_emit_test_definitions
+            and self._project_supports_test_descriptions()
+            and self._can_emit_assertion_notes(test_nodes)
+            else None
+        )
+
+        for node in sorted(test_nodes, key=lambda n: n.dbt_name):
+            try:
+                if node.dbt_name in upstream_errors:
+                    raise upstream_errors[node.dbt_name]
+                upstreams = upstreams_by_test[node.dbt_name]
 
                 # In case a dbt test depends on multiple tables, we create separate assertions for each.
                 for upstream_node_name, upstream_urn in upstreams.items():
-                    guid_upstream_part = {}
-                    if len(upstreams) > 1:
-                        # If we depend on multiple upstreams, we need to generate a unique guid for each assertion.
-                        # If there was only one upstream, we want to maintain the original assertion for backwards compatibility.
-                        guid_upstream_part = {
-                            "on_dbt_upstream": upstream_node_name,
-                        }
-
-                    assertion_urn = mce_builder.make_assertion_urn(
-                        mce_builder.datahub_guid(
-                            {
-                                k: v
-                                for k, v in {
-                                    "platform": DBT_PLATFORM,
-                                    "name": node.dbt_name,
-                                    "instance": self._dbt_platform_instance,
-                                    # Ideally we'd include the env unconditionally. However, we started out
-                                    # not including env in the guid, so we need to maintain backwards compatibility
-                                    # with existing PROD assertions.
-                                    **(
-                                        {"env": self.config.env}
-                                        if self.config.env != mce_builder.DEFAULT_ENV
-                                        and self.config.include_env_in_assertion_guid
-                                        else {}
-                                    ),
-                                    **guid_upstream_part,
-                                }.items()
-                                if v is not None
-                            }
-                        )
+                    assertion_urn = self._make_test_assertion_urn(
+                        node, upstream_node_name, len(upstreams)
                     )
 
                     custom_props = {
@@ -2260,7 +2259,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             node,
                             assertion_urn,
                             upstream_urn,
+                            upstream_unique_ids=list(upstreams.keys()),
                         )
+
+                        # Notes are skipped for the run when the server cannot store
+                        # them or the existing notes could not be read, so a user's
+                        # note is never overwritten.
+                        if existing_notes is not None:
+                            note_mcp = make_assertion_note_from_test(
+                                node,
+                                assertion_urn,
+                                existing_note=existing_notes.get(assertion_urn),
+                            )
+                            if note_mcp:
+                                yield note_mcp
 
                         # This is ownership metadata on the dbt test node itself, not ownership
                         # inherited from the upstream dataset under test.
@@ -2292,6 +2304,180 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     kind="emission",
                 )
 
+    def _make_test_assertion_urn(
+        self, node: DBTNode, upstream_node_name: str, num_upstreams: int
+    ) -> str:
+        guid_upstream_part = {}
+        if num_upstreams > 1:
+            # If we depend on multiple upstreams, we need to generate a unique guid for each assertion.
+            # If there was only one upstream, we want to maintain the original assertion for backwards compatibility.
+            guid_upstream_part = {
+                "on_dbt_upstream": upstream_node_name,
+            }
+
+        return mce_builder.make_assertion_urn(
+            mce_builder.datahub_guid(
+                {
+                    k: v
+                    for k, v in {
+                        "platform": DBT_PLATFORM,
+                        "name": node.dbt_name,
+                        "instance": self._dbt_platform_instance,
+                        # Ideally we'd include the env unconditionally. However, we started out
+                        # not including env in the guid, so we need to maintain backwards compatibility
+                        # with existing PROD assertions.
+                        **(
+                            {"env": self.config.env}
+                            if self.config.env != mce_builder.DEFAULT_ENV
+                            and self.config.include_env_in_assertion_guid
+                            else {}
+                        ),
+                        **guid_upstream_part,
+                    }.items()
+                    if v is not None
+                }
+            )
+        )
+
+    def _note_written_by_ingestion(
+        self, note: AssertionNoteClass, system_metadata: Optional[SystemMetadataClass]
+    ) -> bool:
+        """Whether this pipeline positively wrote the stored note, so it may update or clear it.
+
+        Requires the system actor and the stored pipeline name to match this run's.
+        UI edits carry the editing user, and a note from any other writer (or one
+        written while no pipeline name was set) is treated as foreign.
+        """
+        return (
+            note.lastModified.actor == mce_builder.SYSTEM_ACTOR
+            and self._written_by_this_pipeline(system_metadata)
+        )
+
+    def _project_supports_test_descriptions(self) -> bool:
+        """False when the manifest's dbt version predates test `description:` (1.9).
+
+        Such a project cannot have test descriptions, so the note reads are skipped.
+        dbt Cloud does not record the dbt version in the project's artifact props,
+        so there (and for any unparseable version) this returns True.
+        """
+        dbt_version = self._project.artifact_props.get("manifest_version")
+        if not dbt_version:
+            return True
+        try:
+            release = packaging_version.parse(dbt_version).release
+        except packaging_version.InvalidVersion:
+            return True
+        return release[:2] >= _DBT_TEST_DESCRIPTION_MIN_VERSION
+
+    def _can_emit_assertion_notes(self, test_nodes: List[DBTNode]) -> bool:
+        """Whether assertion notes can be emitted for this run.
+
+        Notes need a graph, both to check the server has the assertionNote aspect
+        (older servers reject it, which can fail neighbouring records in a batch)
+        and to read existing notes so user edits are not overwritten.
+
+        This does not depend on any test having a description: notes this pipeline
+        wrote earlier must still be read so they can be cleared once their
+        descriptions are removed.
+        """
+        has_descriptions = any(node.description for node in test_nodes)
+        graph = self.ctx.graph
+        if graph is None:
+            if has_descriptions:
+                self.report.info(
+                    title="dbt test descriptions not written as assertion notes",
+                    message="No DataHub graph is available to check server support "
+                    "and existing notes, so dbt test descriptions are not written as "
+                    "assertion notes.",
+                )
+            return False
+        try:
+            supported = graph.server_config.supports_feature(
+                ServiceFeature.ASSERTION_NOTE_ASPECT
+            )
+        except Exception as e:
+            # Only worth surfacing when there are descriptions to write; otherwise the
+            # skipped run can at most delay clearing a stale note.
+            if has_descriptions:
+                self.report.warning(
+                    title="Could not check server support for assertion notes",
+                    message="Skipping assertion notes from dbt test descriptions for this run.",
+                    exc=e,
+                )
+            else:
+                logger.debug(
+                    "Could not check server support for assertion notes", exc_info=e
+                )
+            return False
+        if not supported and has_descriptions:
+            self.report.info(
+                title="dbt test descriptions not written as assertion notes",
+                message="The DataHub server does not support assertion notes, so dbt "
+                "test descriptions are not written as assertion notes.",
+            )
+        return supported
+
+    def _prefetch_assertion_notes(
+        self,
+        test_nodes: List[DBTNode],
+        upstreams_by_test: Dict[str, Dict[str, str]],
+    ) -> Optional[Dict[str, ExistingAssertionNote]]:
+        """Batch-read the stored notes of every test assertion.
+
+        Returns None when the read fails, and the caller then skips notes for the
+        run instead of risking a user's note.
+        """
+        graph = self.ctx.graph
+        assert graph is not None
+
+        urns: List[str] = []
+        for node in test_nodes:
+            upstreams = upstreams_by_test.get(node.dbt_name)
+            if upstreams is None:
+                # The emission loop reports this node's failure.
+                continue
+            urns.extend(
+                self._make_test_assertion_urn(node, upstream_node_name, len(upstreams))
+                for upstream_node_name in upstreams
+            )
+
+        result: Dict[str, ExistingAssertionNote] = {}
+        try:
+            for chunk in more_itertools.chunked(
+                urns, _ASSERTION_NOTE_PREFETCH_CHUNK_SIZE
+            ):
+                entities = graph.get_entities(
+                    entity_name="assertion",
+                    urns=list(chunk),
+                    aspects=[AssertionNoteClass.ASPECT_NAME],
+                    with_system_metadata=True,
+                )
+                self.report.num_assertion_note_prefetch_batches += 1
+                for urn, aspects in entities.items():
+                    note = _get_prefetched_aspect(aspects, AssertionNoteClass)
+                    if note is None:
+                        continue
+                    result[urn] = ExistingAssertionNote(
+                        note=note,
+                        written_by_ingestion=self._note_written_by_ingestion(
+                            note,
+                            _get_prefetched_system_metadata(
+                                aspects, AssertionNoteClass
+                            ),
+                        ),
+                    )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to read existing assertion notes",
+                message="Could not batch-read existing assertion notes; skipping "
+                "assertion notes from dbt test descriptions for this run. Test "
+                "definitions and results are not affected.",
+                exc=e,
+            )
+            return None
+
+        return result
+
     def create_freshness_assertion_mcps(
         self,
         source_nodes: List[DBTNode],
@@ -2303,11 +2489,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
 
             try:
-                upstream_urn = node.get_urn(
-                    target_platform=self.config.target_platform,
-                    data_platform_instance=self._dbt_platform_instance,
-                    env=self.config.env,
-                )
+                upstream_urn = self._target_platform_urn(node)
 
                 assertion_urn = mce_builder.make_assertion_urn(
                     mce_builder.datahub_guid(
@@ -2428,6 +2610,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _dbt_platform_instance(self) -> Optional[str]:
         return self._project.platform_instance
 
+    def _dbt_platform_urn(self, node: DBTNode) -> str:
+        """The node's dbt dataset urn, under the current project's dbt instance."""
+        return node.get_urn(DBT_PLATFORM, self.config.env, self._dbt_platform_instance)
+
+    def _target_platform_urn(self, node: DBTNode) -> str:
+        """The node's warehouse dataset urn, under the warehouse's own instance.
+
+        Never pair the target platform with the dbt instance: that names a
+        warehouse dataset that does not exist.
+        """
+        return node.get_urn(
+            self.config.target_platform,
+            self.config.env,
+            self.config.target_platform_instance,
+        )
+
     @abstractmethod
     def load_projects(self) -> Iterator[DBTProject]:
         """Yield each dbt project to emit, one at a time."""
@@ -2478,11 +2676,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 for upstream_dbt_name in exposure.depends_on:
                     upstream_node = all_nodes_map.get(upstream_dbt_name)
                     if upstream_node:
-                        upstream_urn = upstream_node.get_urn(
-                            target_platform=DBT_PLATFORM,
-                            env=self.config.env,
-                            data_platform_instance=self._dbt_platform_instance,
-                        )
+                        upstream_urn = self._dbt_platform_urn(upstream_node)
                         upstream_urns.append(upstream_urn)
                     else:
                         logger.warning(
@@ -3089,11 +3283,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 target_node_urn = None
                 should_fetch_target_node_schema = False
                 if node.exists_in_target_platform:
-                    target_node_urn = node.get_urn(
-                        self.config.target_platform,
-                        self.config.env,
-                        self.config.target_platform_instance,
-                    )
+                    target_node_urn = self._target_platform_urn(node)
                     should_fetch_target_node_schema = True
                 elif node.is_ephemeral_model():
                     # For ephemeral nodes, we "pretend" that they exist in the target platform
@@ -3401,11 +3591,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             try:
-                node_datahub_urn = node.get_urn(
-                    DBT_PLATFORM,
-                    self.config.env,
-                    self._dbt_platform_instance,
-                )
+                node_datahub_urn = self._dbt_platform_urn(node)
 
                 meta_aspects: Dict[str, Any] = {}
                 if self.config.enable_meta_mapping and node.meta:
@@ -3474,11 +3660,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
                     if self._should_create_sibling_relationships(node):
                         # Get the target platform URN
-                        target_platform_urn = node.get_urn(
-                            self.config.target_platform,
-                            self.config.env,
-                            self.config.target_platform_instance,
-                        )
+                        target_platform_urn = self._target_platform_urn(node)
 
                         yield MetadataChangeProposalWrapper(
                             entityUrn=node_datahub_urn,
@@ -3567,11 +3749,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not node.model_performances:
             return
 
-        node_datahub_urn = node.get_urn(
-            DBT_PLATFORM,
-            self.config.env,
-            self._dbt_platform_instance,
-        )
+        node_datahub_urn = self._dbt_platform_urn(node)
 
         for model_performance in node.model_performances:
             data_process_instance = DataProcessInstance(
@@ -3771,18 +3949,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Create MCEs and MCPs for the target (e.g. Snowflake, BigQuery) platform."""
 
-        mce_platform = self.config.target_platform
-        mce_platform_instance = self.config.target_platform_instance
-
         prefetched_target_platform_aspects: Optional[
             Dict[str, _TargetPlatformAspects]
         ] = None
         sibling_containers: Dict[SiblingContainerKey, str] = {}
-        if mce_platform_instance and self.config.emit_target_platform_instance_aspects:
+        if (
+            self.config.target_platform_instance
+            and self.config.emit_target_platform_instance_aspects
+        ):
             target_nodes = [
                 (
                     node,
-                    node.get_urn(mce_platform, self.config.env, mce_platform_instance),
+                    self._target_platform_urn(node),
                 )
                 for node in dbt_nodes
                 if node.exists_in_target_platform
@@ -3798,11 +3976,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             try:
-                node_datahub_urn = node.get_urn(
-                    mce_platform,
-                    self.config.env,
-                    mce_platform_instance,
-                )
+                node_datahub_urn = self._target_platform_urn(node)
 
                 # Check if node exists in target platform first - needed for all emissions
                 # (queries need a target dataset to link to, other aspects need the dataset to exist)
@@ -3828,11 +4002,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 # This ensures the hook can detect explicit primary settings when processing later aspects.
                 if self._should_create_sibling_relationships(node):
                     # Get the dbt platform URN
-                    dbt_platform_urn = node.get_urn(
-                        DBT_PLATFORM,
-                        self.config.env,
-                        self._dbt_platform_instance,
-                    )
+                    dbt_platform_urn = self._dbt_platform_urn(node)
 
                     # Create patch for target platform entity (make it primary when dbt_is_primary_sibling=False)
                     target_patch = DatasetPatchBuilder(node_datahub_urn)
@@ -3864,11 +4034,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 # We will not link the platform not to the dbt node for type "source" because
                 # in this case the platform table existed first.
                 if node.node_type != "source":
-                    upstream_dbt_urn = node.get_urn(
-                        DBT_PLATFORM,
-                        self.config.env,
-                        self._dbt_platform_instance,
-                    )
+                    upstream_dbt_urn = self._dbt_platform_urn(node)
 
                     upstreams_lineage_class = make_mapping_upstream_lineage(
                         upstream_urn=upstream_dbt_urn,
@@ -4653,21 +4819,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         This method creates lineage amongst dbt nodes. A dbt node can be linked to other dbt nodes or a platform node.
         """
 
-        node_urn = node.get_urn(
-            target_platform=DBT_PLATFORM,
-            env=self.config.env,
-            data_platform_instance=self._dbt_platform_instance,
-        )
+        node_urn = self._dbt_platform_urn(node)
 
         # if a node is of type source in dbt, its upstream lineage should have the corresponding table/view
         # from the platform. This code block is executed when we are generating entities of type "dbt".
         if node.node_type == "source":
             return make_mapping_upstream_lineage(
-                upstream_urn=node.get_urn(
-                    self.config.target_platform,
-                    self.config.env,
-                    self.config.target_platform_instance,
-                ),
+                upstream_urn=self._target_platform_urn(node),
                 downstream_urn=node_urn,
                 node=node,
                 convert_column_urns_to_lowercase=self.config.convert_column_urns_to_lowercase,
@@ -4804,21 +4962,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if not upstream_urns:
                 return None
 
-            auditStamp = AuditStamp(
-                time=mce_builder.get_sys_time(),
-                actor=_DEFAULT_ACTOR,
-            )
-            sibling_urn = node.get_urn(
-                self.config.target_platform,
-                self.config.env,
-                self.config.target_platform_instance,
-            )
+            # Same as COPY lineage: dbt has no per-edge event time, so omit
+            # auditStamp and keep the schema's stable unknown default.
+            sibling_urn = self._target_platform_urn(node)
             return UpstreamLineageClass(
                 upstreams=[
                     UpstreamClass(
                         dataset=upstream,
                         type=DatasetLineageTypeClass.TRANSFORMED,
-                        auditStamp=auditStamp,
                     )
                     for upstream in upstream_urns
                     if not (node.node_type == "model" and upstream == sibling_urn)

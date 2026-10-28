@@ -3,6 +3,7 @@ package io.datahubproject.metadata.context;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.query.SearchFlags;
@@ -150,5 +151,73 @@ public class SearchContextTest {
 
     SearchContext copied = withAccess.withFlagDefaults(flags -> flags.setSkipCache(true));
     assertEquals(copied.getSearchClusterAccess(), accessA);
+  }
+
+  @Test
+  public void testSearchTemplateRuntimeIsExcludedFromCacheKeyAndEquals() {
+    EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
+    IndexConvention convention = IndexConventionImpl.noPrefix("MD5", entityIndexConfig);
+    SearchTemplateRuntime runtimeA = new SearchTemplateRuntime() {};
+    SearchTemplateRuntime runtimeB = new SearchTemplateRuntime() {};
+
+    SearchContext withoutRuntime = SearchContext.builder().indexConvention(convention).build();
+    SearchContext withRuntime =
+        SearchContext.builder().indexConvention(convention).searchTemplateRuntime(runtimeA).build();
+    SearchContext otherRuntime =
+        SearchContext.builder().indexConvention(convention).searchTemplateRuntime(runtimeB).build();
+
+    assertEquals(withoutRuntime.getCacheKeyComponent(), withRuntime.getCacheKeyComponent());
+    assertEquals(withRuntime.getCacheKeyComponent(), otherRuntime.getCacheKeyComponent());
+    assertEquals(withoutRuntime, withRuntime);
+    assertEquals(withRuntime, otherRuntime);
+
+    SearchContext copied = withRuntime.withFlagDefaults(flags -> flags.setSkipCache(true));
+    assertEquals(copied.getSearchTemplateRuntime(), runtimeA);
+  }
+
+  @Test
+  public void testResolvedSearchTemplateIsPartOfTheCacheKey() {
+    EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
+    IndexConvention convention = IndexConventionImpl.noPrefix("MD5", entityIndexConfig);
+    SearchContext plain = SearchContext.builder().indexConvention(convention).build();
+    SearchContext fulltext =
+        plain.toBuilder()
+            .resolvedSearchTemplate(
+                new ResolvedSearchTemplate("urn:li:searchTemplate:fulltext", 10L, "fulltext", null))
+            .build();
+    SearchContext edited =
+        plain.toBuilder()
+            .resolvedSearchTemplate(
+                new ResolvedSearchTemplate("urn:li:searchTemplate:fulltext", 11L, "fulltext", null))
+            .build();
+    SearchContext list =
+        plain.toBuilder()
+            .resolvedSearchTemplate(
+                new ResolvedSearchTemplate("urn:li:searchTemplate:list", 10L, "list", null))
+            .build();
+
+    assertNotEquals(plain.getCacheKeyComponent(), fulltext.getCacheKeyComponent());
+    assertNotEquals(fulltext.getCacheKeyComponent(), edited.getCacheKeyComponent());
+    assertNotEquals(fulltext.getCacheKeyComponent(), list.getCacheKeyComponent());
+  }
+
+  @Test
+  public void testUnresolvedSearchTemplateFlagIsNotPartOfTheCacheKey() {
+    EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
+    IndexConvention convention = IndexConventionImpl.noPrefix("MD5", entityIndexConfig);
+    SearchContext plain =
+        SearchContext.builder()
+            .indexConvention(convention)
+            .searchFlags(new SearchFlags().setFulltext(true))
+            .build();
+    SearchContext requested =
+        plain.toBuilder()
+            .searchFlags(
+                new SearchFlags()
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:fulltext")))
+            .build();
+
+    assertEquals(plain.getCacheKeyComponent(), requested.getCacheKeyComponent());
   }
 }
