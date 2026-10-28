@@ -61,45 +61,21 @@ public class SearchTemplateComponentTest {
   }
 
   @Test
-  public void testBuiltinPostProcessConfigIsCheckedWithoutARegisteredComponent() {
+  public void testEmptyPostProcessLeavesOrderUnchanged() {
     SearchTemplateComponentRegistry empty = SearchTemplateComponentRegistry.empty();
-    SearchTemplateProperties valid = postProcessProperties(null, null);
-    SearchTemplateComponents.checkWrite(valid, empty);
+    expectThrows(
+        SearchTemplateException.class,
+        () -> SearchTemplateComponents.checkWrite(postProcessProperties(null, null), empty));
 
+    SearchTemplateComponentRegistry registry =
+        new SearchTemplateComponentRegistry(List.of(new EmptyPostProcessComponent()));
+    SearchTemplateProperties valid = postProcessProperties("entityTypeDiversity,matchTier", "100");
+    SearchTemplateComponents.checkWrite(valid, registry);
+    SearchTemplateProperties ownRung = postProcessProperties(null, null);
+    ownRung.getComponent().setMode(SearchTemplateComponentMode.OWN_RUNG);
     expectThrows(
         SearchTemplateException.class,
-        () ->
-            SearchTemplateComponents.checkWrite(
-                postProcessProperties("entityTypeDiversity,matchTier", "100"), empty));
-    expectThrows(
-        SearchTemplateException.class,
-        () -> SearchTemplateComponents.checkWrite(postProcessProperties("usage", "100"), empty));
-    expectThrows(
-        SearchTemplateException.class,
-        () ->
-            SearchTemplateComponents.checkWrite(
-                postProcessProperties("entityTypeDiversity,", "100"), empty));
-    expectThrows(
-        SearchTemplateException.class,
-        () ->
-            SearchTemplateComponents.checkWrite(
-                postProcessProperties("matchTier,matchTier", "100"), empty));
-    expectThrows(
-        SearchTemplateException.class,
-        () -> SearchTemplateComponents.checkWrite(postProcessProperties("matchTier", null), empty));
-
-    com.linkedin.search.template.SearchTemplateComponent topKOnly =
-        new com.linkedin.search.template.SearchTemplateComponent();
-    topKOnly.setName("postProcess");
-    topKOnly.setVersion(1);
-    topKOnly.setMode(SearchTemplateComponentMode.POST_PROCESS);
-    topKOnly.setConfig(new StringMap(Map.of("topK", "100")));
-    SearchTemplateProperties topKWithoutTwiddlers = new SearchTemplateProperties();
-    topKWithoutTwiddlers.setName("ranked");
-    topKWithoutTwiddlers.setComponent(topKOnly);
-    expectThrows(
-        SearchTemplateException.class,
-        () -> SearchTemplateComponents.checkWrite(topKWithoutTwiddlers, empty));
+        () -> SearchTemplateComponents.checkWrite(ownRung, registry));
 
     MergedSearchTemplate template =
         MergedSearchTemplate.builder()
@@ -110,8 +86,10 @@ public class SearchTemplateComponentTest {
             .chain(List.of("urn:li:searchTemplate:ranked"))
             .component(valid.getComponent())
             .build();
-    assertEquals(SearchTemplateCapabilities.rejectionCode(template, false, false, empty), null);
-    SearchTemplateCapabilities.requireSupported(template, false, empty);
+    assertEquals(
+        SearchTemplateCapabilities.rejectionCode(template, false, false, empty), "component");
+    assertEquals(SearchTemplateCapabilities.rejectionCode(template, false, false, registry), null);
+    SearchTemplateCapabilities.requireSupported(template, false, registry);
 
     SearchResult page = new SearchResult();
     page.setEntities(
@@ -125,20 +103,9 @@ public class SearchTemplateComponentTest {
             .config(SearchTemplateComponents.config(valid.getComponent()))
             .mode(SearchTemplateComponentMode.POST_PROCESS)
             .build();
-    SearchTemplateComponents.applyPostProcess(empty, template, request, page);
+    SearchTemplateComponents.applyPostProcess(registry, template, request, page);
     assertEquals(page.getEntities().get(0).getEntity().toString(), "urn:li:dataset:a");
-
-    MergedSearchTemplate named =
-        MergedSearchTemplate.builder()
-            .urn("urn:li:searchTemplate:ranked")
-            .dialect("ELASTICSEARCH")
-            .queryFragments(Map.of())
-            .parameters(Map.of())
-            .chain(List.of("urn:li:searchTemplate:ranked"))
-            .component(postProcessProperties("usage", "100").getComponent())
-            .build();
-    assertEquals(
-        SearchTemplateCapabilities.rejectionCode(named, false, false, empty), "component");
+    assertEquals(new EmptyPostProcessComponent().plan(request, request.getConfig()), 0);
   }
 
   @Test

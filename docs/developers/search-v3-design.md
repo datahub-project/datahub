@@ -673,7 +673,7 @@ ranking:
 
 A ranking may store `signals`, an optional `formula`, or `ranking.template`. A reference and inline fields on the same ranking are rejected. `add` and `remove` patch the inherited list by signal name and may sit beside the reference. A non-empty `signals` list replaces the inherited list and cannot be combined with those patches. Signals or `ranking.template` require `rankingSignals`. A formula requires `rankingFormula`. Elasticsearch `rescore` is not combined with either. This release merges the stored section and does not score it.
 
-A `postProcess` component at version 1 may store `window` and `windowSizer` (`fixed` or `tokenCurve`). A blank `twiddlers` value, a blank token, or a duplicate is rejected. `topK` is required when `twiddlers` is set and rejected when `twiddlers` is absent. OSS has no twiddler implementations, so any name is rejected and the component does not reorder hits.
+A `postProcess` component at version 1 is a registered component. OSS registers an empty implementation when no other implementation uses that name and version. The empty implementation accepts the stored config, does not interpret it, and does not reorder hits.
 
 `fields.override` changes the engine score the ranking step reads. It applies only to a field that remains in the queried set. `ranking` and `rescore` do not carry a field-weight list, and they do not copy the query weights into one. A saved ranking is a child whose section is `fields.override`, as [Field weights](#field-weights) specifies. `ranking` still only reorders the fetched window.
 

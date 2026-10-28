@@ -122,13 +122,9 @@ public final class SearchTemplateCapabilities {
     }
     com.linkedin.search.template.SearchTemplateComponent component = template.getComponent();
     if (!SearchTemplateComponents.empty(component)) {
-      if (SearchTemplateComponents.builtinPostProcess(component)) {
-        SearchTemplateComponents.checkPostProcess(SearchTemplateComponents.config(component));
-      } else {
-        registry
-            .require(component.getName(), component.getVersion())
-            .validate(component.getMode(), SearchTemplateComponents.config(component));
-      }
+      registry
+          .require(component.getName(), component.getVersion())
+          .validate(component.getMode(), SearchTemplateComponents.config(component));
     }
   }
 
@@ -147,13 +143,7 @@ public final class SearchTemplateCapabilities {
     if (!SearchTemplateComponents.empty(component)) {
       String name = component.hasName() ? component.getName() : null;
       Integer version = component.hasVersion() ? component.getVersion() : null;
-      if (SearchTemplateComponents.builtinPostProcess(component)) {
-        try {
-          SearchTemplateComponents.checkPostProcess(SearchTemplateComponents.config(component));
-        } catch (SearchTemplateException ignored) {
-          return "component";
-        }
-      } else if (name == null
+      if (name == null
           || name.isBlank()
           || version == null
           || !component.hasMode()

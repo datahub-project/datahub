@@ -55,12 +55,8 @@ public final class SearchTemplateComponents {
           "Search template component requires name, version, and mode");
     }
     Map<String, String> config = config(component);
-    if (builtinPostProcess(component)) {
-      checkPostProcess(config);
-    } else {
-      SearchTemplateComponent implementation = registry.require(name, version);
-      implementation.validate(mode, config);
-    }
+    SearchTemplateComponent implementation = registry.require(name, version);
+    implementation.validate(mode, config);
     if (mode == SearchTemplateComponentMode.OWN_RUNG && mixesQuerySections(properties)) {
       throw new SearchTemplateException(
           "Search template OWN_RUNG component cannot be combined with query or ranking sections");
@@ -115,9 +111,6 @@ public final class SearchTemplateComponents {
       @Nonnull SearchResult page) {
     com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
     if (empty(spec) || spec.getMode() != SearchTemplateComponentMode.POST_PROCESS) {
-      return;
-    }
-    if (builtinPostProcess(spec) && registry.find(spec.getName(), spec.getVersion()).isEmpty()) {
       return;
     }
     SearchTemplateComponent implementation = registry.require(spec.getName(), spec.getVersion());
@@ -182,78 +175,6 @@ public final class SearchTemplateComponents {
       ordered.add(hit);
     }
     return List.copyOf(ordered);
-  }
-
-  /**
-   * The stored {@code postProcess} component, version 1. A registered component of another name
-   * still goes through the registry.
-   */
-  public static boolean builtinPostProcess(
-      @Nullable com.linkedin.search.template.SearchTemplateComponent component) {
-    return component != null
-        && "postProcess".equals(component.getName())
-        && component.hasVersion()
-        && Integer.valueOf(1).equals(component.getVersion())
-        && component.getMode() == SearchTemplateComponentMode.POST_PROCESS;
-  }
-
-  /**
-   * Config rules for {@code postProcess}. A blank {@code twiddlers} value, a blank token, or a
-   * duplicate is rejected, and {@code topK} is rejected unless that list is set. OSS has no
-   * twiddler implementations, so any name is rejected.
-   */
-  public static void checkPostProcess(@Nonnull Map<String, String> config) {
-    String sizer = config.get("windowSizer");
-    if (sizer != null
-        && !sizer.isBlank()
-        && !"tokenCurve".equals(sizer)
-        && !"fixed".equals(sizer)) {
-      throw new SearchTemplateException("postProcess windowSizer must be tokenCurve or fixed");
-    }
-    String window = config.get("window");
-    if (window != null && !window.isBlank()) {
-      try {
-        if (Integer.parseInt(window.trim()) <= 0) {
-          throw new SearchTemplateException("component window must be positive");
-        }
-      } catch (NumberFormatException e) {
-        throw new SearchTemplateException("component window must be an integer");
-      }
-    }
-    boolean named = config.containsKey("twiddlers");
-    boolean hasTopK = config.containsKey("topK");
-    if (!named && hasTopK) {
-      throw new SearchTemplateException("postProcess topK requires twiddlers");
-    }
-    if (!named) {
-      return;
-    }
-    String raw = config.get("twiddlers");
-    if (raw == null || raw.isBlank()) {
-      throw new SearchTemplateException("postProcess twiddlers must name at least one twiddler");
-    }
-    Set<String> seen = new LinkedHashSet<>();
-    for (String part : raw.split(",", -1)) {
-      String twiddler = part.trim();
-      if (twiddler.isEmpty()) {
-        throw new SearchTemplateException("twiddlers contains a blank name");
-      }
-      if (!seen.add(twiddler)) {
-        throw new SearchTemplateException("Duplicate twiddler " + twiddler);
-      }
-    }
-    String topK = config.get("topK");
-    if (topK == null || topK.isBlank()) {
-      throw new SearchTemplateException("postProcess topK is required when twiddlers is set");
-    }
-    try {
-      if (Integer.parseInt(topK.trim()) <= 0) {
-        throw new SearchTemplateException("postProcess topK must be positive");
-      }
-    } catch (NumberFormatException e) {
-      throw new SearchTemplateException("postProcess topK must be an integer");
-    }
-    throw new SearchTemplateException("postProcess twiddlers are not supported");
   }
 
   @Nonnull
