@@ -16,6 +16,7 @@ metadata-io/src/main/java/com/linkedin/metadata/domains/sideeffects/DomainRefere
 metadata-io/src/main/java/com/linkedin/metadata/entity/EntityServiceImpl.java 2
 metadata-io/src/main/java/com/linkedin/metadata/entity/EntityUtils.java 1
 metadata-io/src/main/java/com/linkedin/metadata/entity/ebean/EbeanSystemAspect.java 1
+metadata-io/src/main/java/com/linkedin/metadata/entity/versioning/sideeffects/LifecycleVersionSideEffect.java 1
 metadata-io/src/main/java/com/linkedin/metadata/entity/versioning/sideeffects/VersionPropertiesSideEffect.java 1
 metadata-io/src/main/java/com/linkedin/metadata/entity/versioning/sideeffects/VersionSetSideEffect.java 2
 metadata-io/src/main/java/com/linkedin/metadata/entity/versioning/validation/VersionPropertiesValidator.java 1
