@@ -149,7 +149,8 @@ public class StructuredPropertyMappingCache {
   private static void collectVersionedLeaves(
       @Nonnull String prefix, @Nonnull Map<String, Object> node, @Nonnull Set<String> names) {
     Map<String, Object> properties = childMap(node, PROPERTIES);
-    if (!properties.isEmpty() && !hasScalarType(node)) {
+    // GetMappings reports an object as type "object" plus properties. That node is not a leaf.
+    if (!properties.isEmpty()) {
       for (Map.Entry<String, Object> entry : properties.entrySet()) {
         String child = entry.getKey();
         if (child == null || child.isEmpty() || !(entry.getValue() instanceof Map)) {

@@ -85,6 +85,35 @@ public class StructuredPropertyMappingCacheTest {
   }
 
   @Test
+  public void testFieldNamesWalkObjectTypedVersionedNodes() {
+    Map<String, Object> stringLeaf =
+        Map.of("type", "keyword", "fields", Map.of("keyword", Map.of("type", "keyword")));
+    Map<String, Object> mapping =
+        Map.of(
+            "properties",
+            Map.of(
+                "structuredProperties",
+                objectMapping(
+                    Map.of(
+                        "kept",
+                        Map.of("type", "keyword"),
+                        "_versioned",
+                        objectMapping(
+                            Map.of(
+                                "hello",
+                                objectMapping(
+                                    Map.of(
+                                        "00000000000001",
+                                        objectMapping(Map.of("string", stringLeaf))))))))));
+
+    assertEquals(
+        StructuredPropertyMappingCache.fieldNames(mapping),
+        Set.of(
+            "structuredProperties.kept",
+            "structuredProperties._versioned.hello.00000000000001.string"));
+  }
+
+  @Test
   public void testFieldNamesAcceptATypeWrappedMapping() {
     Map<String, Object> mapping =
         Map.of(
@@ -161,6 +190,10 @@ public class StructuredPropertyMappingCacheTest {
 
     assertTrue(cache.fields(operationContext, "datasetindex_v2").orElseThrow().isEmpty());
     assertEquals(reads.get(), 0);
+  }
+
+  private static Map<String, Object> objectMapping(Map<String, Object> properties) {
+    return Map.of("type", "object", "properties", properties);
   }
 
   private static final class ManualTicker extends Ticker {
