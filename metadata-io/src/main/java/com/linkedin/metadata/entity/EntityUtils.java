@@ -187,8 +187,7 @@ public class EntityUtils {
   public static Optional<SystemAspect> toSystemAspect(
       @Nonnull OperationFingerprint operationContext,
       @Nonnull RetrieverContext retrieverContext,
-      @Nullable EntityAspect entityAspect,
-      boolean forUpdate) {
+      @Nullable EntityAspect entityAspect) {
     return Optional.ofNullable(entityAspect)
         .map(aspect -> toSystemAspects(operationContext, retrieverContext, List.of(aspect)))
         .filter(systemAspects -> !systemAspects.isEmpty())
