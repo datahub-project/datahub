@@ -4,7 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 
 import { NavSidebar } from '@app/homeV2/layout/NavSidebar';
-import AppLogoLink from '@app/shared/AppLogoLink';
+import AppLogoLink from '@app/sharedV2/AppLogoLink';
 import { PageRoutes } from '@conf/Global';
 import themeV2 from '@conf/theme/themeV2';
 
