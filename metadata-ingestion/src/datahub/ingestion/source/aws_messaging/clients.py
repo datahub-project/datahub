@@ -356,15 +356,19 @@ class S3NotificationClient:
         self.report = report
 
     def list_bucket_names(self, region: str) -> Iterator[str]:
+        # Notifications only target queues and topics in the bucket's own region,
+        # so S3 filters to the recipe's region server-side. BucketRegion is only
+        # returned when a filter or page size is sent, so the client-side check
+        # below is a guard, not the filter.
         for bucket in paginate(
             client=self._client,
             operation="list_buckets",
             result_key="Buckets",
             report=self.report,
             api_label="s3:ListAllMyBuckets",
+            BucketRegion=region,
+            PaginationConfig={"PageSize": 1000},
         ):
-            # Notifications only target queues and topics in the bucket's own
-            # region, so buckets elsewhere can be skipped when S3 says where they are.
             bucket_region = bucket.get("BucketRegion")
             if bucket_region is None or bucket_region == region:
                 yield bucket["Name"]
