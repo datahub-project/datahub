@@ -2,6 +2,7 @@ import json
 from typing import Dict, Optional
 from urllib.parse import urlsplit
 
+from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.aws_messaging.constants import (
     ARN_PATTERN,
@@ -63,13 +64,19 @@ class UrnBuilder:
     def instance_for(self, account: str) -> Optional[str]:
         if account in self.account_platform_instance_map:
             return self.account_platform_instance_map[account]
-        if not account or account == self.account_id:
+        # With no resolved account id, everything is treated as this recipe's, so
+        # datasets and the region container share one platform instance.
+        if not account or not self.account_id or account == self.account_id:
             return self.platform_instance
         return account
 
     @staticmethod
     def resource_id(arn: Arn) -> str:
-        return f"{arn.region}.{arn.resource_name}"
+        name = f"{arn.region}.{arn.resource_name}"
+        # make_dataset_urn_with_platform_instance lowercases under
+        # DATAHUB_DATASET_URN_TO_LOWER but the SDK Dataset doesn't, so the name is
+        # lowercased here to keep entities, tags and lineage on one URN.
+        return name.lower() if mce_builder.DATASET_URN_TO_LOWER else name
 
     def dataset_urn(self, platform: str, arn: Arn) -> str:
         return make_dataset_urn_with_platform_instance(
@@ -80,7 +87,8 @@ class UrnBuilder:
         )
 
     def event_bus_id(self, arn: Arn) -> str:
-        return f"{arn.region}.{arn.event_bus_name}"
+        name = f"{arn.region}.{arn.event_bus_name}"
+        return name.lower() if mce_builder.DATASET_URN_TO_LOWER else name
 
     def event_bus_urn(self, arn: Arn) -> str:
         return make_dataset_urn_with_platform_instance(
