@@ -13,7 +13,7 @@ from datahub.ingestion.api.source import CapabilityReport, TestConnectionReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws_messaging.arn import parse_arn, parse_redrive_policy
 from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase, probe
-from datahub.ingestion.source.aws_messaging.clients import SqsClient
+from datahub.ingestion.source.aws_messaging.clients import SqsClient, TaggingClient
 from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
 from datahub.ingestion.source.aws_messaging.constants import (
     SQS_PLATFORM,
@@ -22,10 +22,11 @@ from datahub.ingestion.source.aws_messaging.constants import (
     QueueAttribute,
 )
 from datahub.ingestion.source.aws_messaging.mapper import (
+    domain_for,
     epoch_seconds,
     queue_console_url,
     queue_properties,
-    tag_urns,
+    tag_patch_workunits,
 )
 from datahub.ingestion.source.aws_messaging.models import SqsQueue
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
@@ -37,7 +38,10 @@ from datahub.sdk import Dataset
 @config_class(SqsSourceConfig)
 @support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.CONTAINERS, "Region containers")
-@capability(SourceCapability.TAGS, "From AWS resource tags")
+@capability(
+    SourceCapability.TAGS, "From AWS resource tags, added without removing UI tags"
+)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.LINEAGE_COARSE, "Queue to dead-letter queue")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Defaults to the AWS account id")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
@@ -63,6 +67,9 @@ class SqsSource(AwsMessagingSourceBase):
         self.config = config
         self.report = report
         self.queues: List[SqsQueue] = []
+        self.tagging = TaggingClient(
+            config.make_client(self.session, AwsService.TAGGING), report
+        )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqsSource":
@@ -82,6 +89,11 @@ class SqsSource(AwsMessagingSourceBase):
         yield from self.lineage.workunits()
 
     def list_queues(self) -> Iterator[SqsQueue]:
+        bulk_tags = (
+            self.tagging.get_tags_by_arn(AwsService.SQS.value)
+            if self.config.extract_tags
+            else {}
+        )
         for url in self.sqs.list_queue_urls():
             name = url.rstrip("/").rsplit("/", 1)[-1]
             if not self.config.queue_pattern.allowed(name):
@@ -100,14 +112,18 @@ class SqsSource(AwsMessagingSourceBase):
                     context=f"queue={url}",
                 )
                 continue
-            tags = self.sqs.get_tags(url) if self.config.extract_tags else {}
+            if bulk_tags is None:
+                tags = self.sqs.get_tags(url)
+            else:
+                tags = bulk_tags.get(str(arn), {})
             self.report.queues_scanned += 1
             yield SqsQueue(url=url, arn=arn, attributes=attributes, tags=tags)
 
     def _queue_workunits(self) -> Iterable[MetadataWorkUnit]:
         for queue in self.list_queues():
             self.queues.append(queue)
-            self.resolver.known.add(str(queue.arn))
+            self.resolver.add(queue.arn)
+            urn = self.urns.queue_urn(queue.arn)
             yield from Dataset(
                 platform=SQS_PLATFORM,
                 name=self.urns.resource_id(queue.arn),
@@ -124,8 +140,9 @@ class SqsSource(AwsMessagingSourceBase):
                 last_modified=epoch_seconds(
                     queue.attributes.get(QueueAttribute.LAST_MODIFIED_TIMESTAMP)
                 ),
-                tags=tag_urns(queue.tags),
+                domain=domain_for(queue.name, self.config.domain),
             ).as_workunits()
+            yield from tag_patch_workunits(urn, queue.tags)
 
     def _add_dead_letter_edge(self, queue: SqsQueue) -> None:
         redrive = parse_redrive_policy(

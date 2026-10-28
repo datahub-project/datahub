@@ -10,7 +10,11 @@ Each queue with a redrive policy becomes an upstream of its dead-letter queue, w
 
 #### Tags
 
-AWS resource tags become DataHub tags. To turn an `owner` tag into ownership, add the `extract_ownership_from_tags` transformer to the recipe.
+AWS resource tags become DataHub tags named `Key:Value` (or `Key` when the value is empty), the same format as the `kinesis` source. They are added to the queue rather than replacing its tags, so tags added in the DataHub UI stay. The flip side is that a tag removed in AWS stays in DataHub until removed there. To turn an `owner` tag into ownership, add the `extract_ownership_from_tags` transformer to the recipe.
+
+#### Domains
+
+`domain` maps a domain urn or id to regex patterns on queue names, as in the `glue` source. A queue matching a pattern is assigned that domain.
 
 ### Limitations
 

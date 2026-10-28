@@ -23,8 +23,17 @@ class ResourceResolver:
         own_account = not self.urns.account_id or arn.account == self.urns.account_id
         return own_account and arn.region == self.region
 
+    @staticmethod
+    def key(account: str, region: str, name: str) -> str:
+        return f"{account}/{region}/{name}"
+
+    def add(self, arn: Arn) -> None:
+        self.known.add(self.key(arn.account, arn.region, arn.resource_name))
+
     def exists(self, arn: Arn) -> bool:
-        return str(arn) in self.known if self.is_local(arn) else True
+        if not self.is_local(arn):
+            return True
+        return self.key(arn.account, arn.region, arn.resource_name) in self.known
 
     def urn(self, arn: Optional[Arn]) -> Optional[str]:
         """The dataset URN for an ARN of this service that may be referenced, else None."""

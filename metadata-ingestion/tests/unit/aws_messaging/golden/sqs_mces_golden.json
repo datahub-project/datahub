@@ -295,16 +295,30 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
-    "changeType": "UPSERT",
+    "changeType": "PATCH",
     "aspectName": "globalTags",
     "aspect": {
         "json": {
-            "tags": [
+            "arrayPrimaryKeys": {
+                "tags": [
+                    "attribution\u241fsource",
+                    "tag"
+                ]
+            },
+            "patch": [
                 {
-                    "tag": "urn:li:tag:pii"
+                    "op": "add",
+                    "path": "/tags//urn:li:tag:pii",
+                    "value": {
+                        "tag": "urn:li:tag:pii"
+                    }
                 },
                 {
-                    "tag": "urn:li:tag:team:payments"
+                    "op": "add",
+                    "path": "/tags//urn:li:tag:team:payments",
+                    "value": {
+                        "tag": "urn:li:tag:team:payments"
+                    }
                 }
             ]
         }
@@ -505,38 +519,6 @@
     "aspect": {
         "json": {
             "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "sqs-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:pii",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "pii"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "sqs-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:team:payments",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "team:payments"
         }
     },
     "systemMetadata": {

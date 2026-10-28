@@ -91,3 +91,38 @@ class SqsClient:
             context=f"queue={url}",
         )
         return dict((response or {}).get("Tags") or {})
+
+
+class TaggingClient:
+    """Tags for every resource of one type in a single paginated call, instead
+    of one ListQueueTags or ListTagsForResource call per resource."""
+
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
+        self._client = client
+        self.report = report
+
+    def get_tags_by_arn(
+        self, resource_type: str
+    ) -> Optional[Dict[str, Dict[str, str]]]:
+        """Tags keyed by ARN, or None when the API can't be used, in which case
+        the caller reads tags per resource. Untagged resources are absent."""
+        tags: Dict[str, Dict[str, str]] = {}
+        try:
+            for page in self._client.get_paginator("get_resources").paginate(
+                ResourceTypeFilters=[resource_type]
+            ):
+                for item in page.get("ResourceTagMappingList") or []:
+                    tags[item["ResourceARN"]] = tags_to_dict(item.get("Tags") or [])
+        except (ClientError, BotoCoreError) as e:
+            self.report.tags_read_per_resource = True
+            self.report.warning(
+                title="Tag API unavailable",
+                message=(
+                    "tag:GetResources failed, so tags are read one resource at a time. "
+                    "Grant tag:GetResources to make this a single call."
+                ),
+                context=aws_error_code(e),
+                exc=e,
+            )
+            return None
+        return tags

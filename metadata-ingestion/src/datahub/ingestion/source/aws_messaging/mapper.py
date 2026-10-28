@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional
 from urllib.parse import quote
 
-from datahub.emitter.mce_builder import make_tag_urn
+from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import make_domain_urn, make_tag_urn
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws_messaging.arn import parse_redrive_policy
@@ -12,18 +13,38 @@ from datahub.ingestion.source.aws_messaging.constants import (
     QueueAttribute,
 )
 from datahub.ingestion.source.aws_messaging.models import SqsQueue
+from datahub.metadata.schema_classes import TagAssociationClass
+from datahub.specific.dataset import DatasetPatchBuilder
 
 
 class AwsRegionKey(ContainerKey):
     region: str
 
 
-def tag_urns(tags: Dict[str, str]) -> Optional[List[str]]:
-    # `Key:Value`, or just `Key` when AWS holds an empty value.
-    urns = [
+def tag_urns(tags: Dict[str, str]) -> List[str]:
+    # `Key:Value`, or just `Key` when AWS holds an empty value, as in the Kinesis source.
+    return sorted(
         make_tag_urn(f"{key}:{value}" if value else key) for key, value in tags.items()
-    ]
-    return sorted(urns) or None
+    )
+
+
+def tag_patch_workunits(urn: str, tags: Dict[str, str]) -> Iterable[MetadataWorkUnit]:
+    """AWS tags as additions, so tags added in the DataHub UI are kept."""
+    urns = tag_urns(tags)
+    if not urns:
+        return
+    patch = DatasetPatchBuilder(urn)
+    for tag in urns:
+        patch.add_tag(TagAssociationClass(tag=tag))
+    for mcp in patch.build():
+        yield MetadataWorkUnit(id=f"{urn}-globalTags-patch", mcp_raw=mcp)
+
+
+def domain_for(name: str, domains: Dict[str, AllowDenyPattern]) -> Optional[str]:
+    for domain, pattern in domains.items():
+        if pattern.allowed(name):
+            return make_domain_urn(domain)
+    return None
 
 
 def secondary(workunits: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:

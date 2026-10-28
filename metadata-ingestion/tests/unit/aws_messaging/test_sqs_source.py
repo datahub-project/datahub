@@ -1,15 +1,17 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, Set
+from typing import Any, Dict, List, Set
+from unittest.mock import MagicMock
 
 import pytest
 import time_machine
+from botocore.exceptions import ClientError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.metadata.schema_classes import DomainsClass, MetadataChangeProposalClass
 from datahub.testing import mce_helpers
 from tests.unit.aws_messaging.conftest import ACCOUNT, REGION, base_config, sqs_client
 
@@ -115,14 +117,67 @@ def test_explicit_platform_instance_wins(aws: None) -> None:
     assert queue_urn("orders", instance="prod") in urns
 
 
+def aspect_names(source: SqsSource) -> List[str]:
+    return [
+        str(wu.metadata.aspectName)
+        for wu in source.get_workunits()
+        if isinstance(
+            wu.metadata, (MetadataChangeProposalWrapper, MetadataChangeProposalClass)
+        )
+    ]
+
+
+def tag_patches(source: SqsSource) -> Dict[str, Set[str]]:
+    result: Dict[str, Set[str]] = {}
+    for workunit in source.get_workunits():
+        metadata = workunit.metadata
+        if (
+            isinstance(metadata, MetadataChangeProposalClass)
+            and metadata.aspectName == "globalTags"
+        ):
+            assert metadata.changeType == "PATCH"
+            assert metadata.entityUrn is not None and metadata.aspect is not None
+            result[metadata.entityUrn] = {
+                op["value"]["tag"] for op in json.loads(metadata.aspect.value)["patch"]
+            }
+    return result
+
+
 def test_tags_off(aws: None) -> None:
     create_queue("orders", tags={"team": "payments"})
-    aspects = [
-        wu.metadata.aspectName
-        for wu in _run(extract_tags=False).get_workunits()
+    assert "globalTags" not in aspect_names(_run(extract_tags=False))
+
+
+def test_tags_are_patched_from_the_tagging_api(aws: None) -> None:
+    create_queue("orders", tags={"team": "payments", "pii": ""})
+    assert tag_patches(_run()) == {
+        queue_urn("orders"): {"urn:li:tag:team:payments", "urn:li:tag:pii"}
+    }
+
+
+def test_tags_fall_back_to_per_queue_calls(aws: None) -> None:
+    create_queue("orders", tags={"team": "payments"})
+    source = _run()
+    denied = MagicMock()
+    denied.get_paginator.return_value.paginate.side_effect = ClientError(
+        {"Error": {"Code": "AccessDeniedException", "Message": "no"}}, "GetResources"
+    )
+    source.tagging._client = denied
+    assert tag_patches(source) == {queue_urn("orders"): {"urn:li:tag:team:payments"}}
+    assert source.get_report().tags_read_per_resource
+
+
+def test_domain(aws: None) -> None:
+    create_queue("orders")
+    create_queue("audit")
+    source = _run(domain={"urn:li:domain:payments": {"allow": ["orders"]}})
+    domains = {
+        wu.get_urn(): wu.metadata.aspect.domains
+        for wu in source.get_workunits()
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-    ]
-    assert "globalTags" not in aspects
+        and isinstance(wu.metadata.aspect, DomainsClass)
+    }
+    assert domains == {queue_urn("orders"): ["urn:li:domain:payments"]}
 
 
 def test_test_connection(aws: None) -> None:

@@ -38,6 +38,13 @@ class AwsMessagingConfigBase(
         default=True,
         description="Extract AWS resource tags as DataHub tags.",
     )
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default_factory=dict,
+        description=(
+            "Domain urn or id to regex patterns on resource names; a matching queue "
+            "or topic is assigned that domain."
+        ),
+    )
     account_platform_instance_map: Dict[str, str] = Field(
         default_factory=dict,
         description=(

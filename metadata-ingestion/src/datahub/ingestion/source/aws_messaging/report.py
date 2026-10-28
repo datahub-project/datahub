@@ -15,6 +15,8 @@ class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
     account_id: Optional[str] = None
     region: Optional[str] = None
     lineage_edges_emitted: int = 0
+    # True when tag:GetResources was unavailable and tags were read per resource.
+    tags_read_per_resource: bool = False
     # "<from> -> <to>: <reason>" for edges left out because one end could not
     # be resolved to an entity that exists.
     lineage_edges_skipped: LossyList[str] = field(default_factory=LossyList)

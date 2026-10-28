@@ -4907,8 +4907,14 @@
           "supported": true
         },
         {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "TAGS",
-          "description": "From AWS resource tags",
+          "description": "From AWS resource tags, added without removing UI tags",
           "subtype_modifier": null,
           "supported": true
         },

@@ -23,12 +23,18 @@ SNS topics are ingested by the separate `sns` source. Run both with the same `en
         "sqs:ListQueueTags"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "TagsRead",
+      "Effect": "Allow",
+      "Action": ["tag:GetResources"],
+      "Resource": "*"
     }
   ]
 }
 ```
 
-`sqs:ListQueueTags` is only called when `extract_tags` is on.
+With `extract_tags` on, the connector reads every queue's tags with one paginated `tag:GetResources` call. If that call is denied it warns and falls back to `sqs:ListQueueTags` per queue, so either permission works.
 
 #### Authentication
 

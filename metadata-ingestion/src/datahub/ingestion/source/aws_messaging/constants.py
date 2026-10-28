@@ -9,6 +9,7 @@ SNS_PLATFORM = "sns"
 class AwsService(StrEnum):
     SQS = "sqs"
     SNS = "sns"
+    TAGGING = "resourcegroupstaggingapi"
 
 
 ARN_PATTERN = re.compile(
