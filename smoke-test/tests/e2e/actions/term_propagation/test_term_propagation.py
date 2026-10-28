@@ -104,6 +104,23 @@ def _assert_term_absent_from_dataset(
     )
 
 
+def _term_entries(
+    graph_client: DataHubGraph, dataset_urn: str, term_urn: str
+) -> List[models.GlossaryTermAssociationClass]:
+    terms = graph_client.get_aspect(dataset_urn, models.GlossaryTermsClass)
+    return [t for t in (terms.terms if terms else []) if t.urn == term_urn]
+
+
+@with_test_retry(max_attempts=PROPAGATION_ATTEMPTS)
+def _assert_term_entry_count(
+    graph_client: DataHubGraph, dataset_urn: str, term_urn: str, expected: int
+) -> None:
+    entries = _term_entries(graph_client, dataset_urn, term_urn)
+    assert len(entries) == expected, (
+        f"expected {expected} entries of {term_urn} on {dataset_urn}, got {entries}"
+    )
+
+
 @pytest.fixture(scope="function")
 def glossary_term(graph_client: DataHubGraph) -> Iterator[str]:
     name = f"TermProp{unique_suffix()}"
@@ -178,5 +195,41 @@ def test_column_level_term_removal_propagates_to_downstream_dataset(
             sub_resource_type="DATASET_FIELD",
         )
         _assert_term_absent_from_dataset(graph_client, downstream, glossary_term)
+    finally:
+        _cleanup(graph_client, [downstream, source])
+
+
+def test_propagated_removal_keeps_user_applied_downstream_term(
+    graph_client: DataHubGraph, auth_session, glossary_term: str
+) -> None:
+    """A propagated removal must only delete the entry the action wrote; a term a
+    user applied directly to the downstream dataset must survive it."""
+    source, downstream = _emit_lineage_pair(graph_client, "term_prop_keep")
+    try:
+        assert add_term(auth_session, downstream, glossary_term)
+        _assert_term_entry_count(graph_client, downstream, glossary_term, 1)
+
+        assert add_term(
+            auth_session,
+            source,
+            glossary_term,
+            sub_resource=FIELD_PATH,
+            sub_resource_type="DATASET_FIELD",
+        )
+        # The user's entry plus the action's attributed entry.
+        _assert_term_entry_count(graph_client, downstream, glossary_term, 2)
+
+        assert remove_term(
+            auth_session,
+            source,
+            glossary_term,
+            sub_resource=FIELD_PATH,
+            sub_resource_type="DATASET_FIELD",
+        )
+        _assert_term_entry_count(graph_client, downstream, glossary_term, 1)
+        (remaining,) = _term_entries(graph_client, downstream, glossary_term)
+        assert remaining.attribution is None or not (
+            remaining.attribution.source or ""
+        ).startswith("urn:li:dataHubAction:")
     finally:
         _cleanup(graph_client, [downstream, source])
