@@ -500,6 +500,15 @@ field did not decide, and let through the inversion this rule exists to stop.
 A hook that cannot build its target returns `None` and reports its own
 degrade; `sql_probe` then applies this rule with the field it resolved.
 
+**Where the rule reaches.** Every SQL-family source, by either route: a
+config declaring `Qualifier()` (BigQuery, Redshift) through the shim, and a
+config overriding `probe_filter_target` (Snowflake, Unity Catalog, MSSQL)
+through the `None` it returns when it cannot qualify. A connector that
+degrades by returning a less precise _target_ instead of `None` keeps the old
+behaviour, so returning `None` is how an override opts its kinds in. Outside
+the SQL family, `parent_required` still warns and judges the bare name; those
+sources are not yet converted.
+
 ### One predicate for ingestion and the probe
 
 An override that restates ingestion's rules drifts from them. Put the connector's selection

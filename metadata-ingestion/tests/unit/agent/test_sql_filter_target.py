@@ -445,6 +445,40 @@ def test_unity_catalog_probe_filter_target_includes_the_catalog_segment():
     assert warn.messages == []
 
 
+_UC: Dict[str, object] = {"token": "token", "workspace_url": "https://workspace_url"}
+
+
+def test_unity_catalog_reaches_the_rule_through_its_own_hook():
+    """Unity builds its target in `probe_filter_target` rather than through
+    the Qualifier path, so it is worth pinning that the rule reaches it: the
+    hook reports its degrade and hands back None, and sql_probe refuses with
+    the field it resolved for the kind.
+    """
+    with pytest.raises(ProbeArgumentError) as refusal:
+        check_filters(
+            source_type="unity-catalog",
+            config_dict={**_UC, "table_pattern": {"allow": [r"^mycat\.sch\.t1$"]}},
+            kind=str(DatasetSubTypes.TABLE),
+            parent_path=["sch"],
+            names=["t1"],
+        )
+    assert "table_pattern" in str(refusal.value)
+
+
+def test_unity_catalog_still_answers_when_nothing_filters():
+    """And the carve-out reaches it too, so an unfiltered recipe is still
+    answerable without naming a catalog."""
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict=_UC,
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["sch"],
+        names=["t1"],
+    )
+    assert result.results[0].included
+    assert result.results[0].target == "sch.t1"
+
+
 def test_unity_catalog_probe_filter_target_falls_back_without_one_pinned_catalog():
     """Without exactly one catalog pinned (none, or several), there is no
     single catalog to prepend without guessing -- so this falls back to the

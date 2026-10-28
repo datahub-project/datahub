@@ -12,6 +12,7 @@ from datahub.ingestion.agent.probe_methods import list_probe_methods
 from datahub.ingestion.agent.recipe import validate_recipe
 from datahub.ingestion.agent.sql_gate import SqlScopeError, check_query_scope
 from datahub.ingestion.agent.sql_passthrough import QueryBudget
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.sql.mssql.mssql_probe import SqlServerMetadataProbe
 from datahub.ingestion.source.sql.mssql.source import (
     SQLServerConfig,
@@ -646,17 +647,40 @@ def test_table_targets_are_the_identifier_ingestion_builds(
     assert result.results[0].included
 
 
-def test_multi_database_recipe_warns_when_the_database_parent_is_missing() -> None:
+def test_multi_database_recipe_refuses_when_the_database_parent_is_missing() -> None:
+    """A multi-database recipe qualifies each table with the database it was
+    found in, so judging `dbo.orders` against a pattern written for
+    `DemoData.dbo.orders` reports an exclusion ingestion does not make. It
+    used to warn and answer anyway; the warning sat beside the wrong verdict.
+    """
+    with pytest.raises(ProbeArgumentError) as refusal:
+        check_filters(
+            source_type="mssql",
+            config_dict={
+                **_BASE,
+                "table_pattern": {"allow": ["^DemoData\\.dbo\\.orders$"]},
+            },
+            kind="Table",
+            parent_path=["dbo"],
+            names=["orders"],
+        )
+    assert "table_pattern" in str(refusal.value)
+    assert "Database" in str(refusal.value)
+
+
+def test_multi_database_recipe_still_answers_when_nothing_filters() -> None:
+    """The carve-out reaches MSSQL too: with no table_pattern the missing
+    database cannot change the verdict, so the question is still answered --
+    on the two-part name, and the warning says so."""
     result = check_filters(
         source_type="mssql",
-        config_dict={
-            **_BASE,
-            "table_pattern": {"allow": ["^DemoData\\.dbo\\.orders$"]},
-        },
+        config_dict=_BASE,
         kind="Table",
         parent_path=["dbo"],
         names=["orders"],
     )
+    assert result.results[0].included
+    assert result.results[0].target == "dbo.orders"
     assert any("--parent" in w and "database" in w for w in result.warnings), (
         result.warnings
     )
