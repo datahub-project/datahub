@@ -394,6 +394,78 @@ public class IngestionMetricsEmitterTest {
     assertTrue(runsCounter == null || runsCounter.count() == 0.0);
   }
 
+  /**
+   * Regression test for the LossyList sentinel bug.
+   *
+   * <p>When the Python ingestion framework's {@code LossyList} truncates a list that exceeds 10
+   * entries, it appends a plain-string sentinel as the 11th element (e.g. {@code "... sampled of
+   * 1246 total elements"}). Without {@link IngestionRunReport.LogEntryDeserializer}, Jackson throws
+   * a {@code MismatchedInputException} when it encounters that string while trying to construct a
+   * {@code LogEntry} object.
+   *
+   * <p>This test verifies that a report with more than 10 failures (triggering the sentinel) is
+   * deserialized successfully and that only the real log entries are counted/surfaced.
+   */
+  @Test
+  public void testLossyListSentinelDoesNotThrow() throws Exception {
+    // Build a failures array with 10 real LogEntry objects followed by the LossyList sentinel
+    // string — exactly what Python emits when sampled=True.
+    StringBuilder failuresJson = new StringBuilder("[");
+    for (int i = 0; i < 10; i++) {
+      if (i > 0) failuresJson.append(",");
+      failuresJson.append(
+          "{\"title\":\"Extraction error\",\"message\":\"error " + i + "\",\"context\":[]}");
+    }
+    failuresJson.append(",\"... sampled of 1246 total elements\"");
+    failuresJson.append("]");
+
+    String reportJson =
+        "{"
+            + "\"cli\": {\"cli_version\": \"1.2.0\"},"
+            + "\"source\": {"
+            + "  \"type\": \"mysql\","
+            + "  \"report\": {"
+            + "    \"events_produced\": 500,"
+            + "    \"warnings\": [],"
+            + "    \"failures\": "
+            + failuresJson
+            + ","
+            + "    \"platform\": \"mysql\""
+            + "  }"
+            + "},"
+            + "\"sink\": {"
+            + "  \"type\": \"datahub-rest\","
+            + "  \"report\": {"
+            + "    \"total_records_written\": 400,"
+            + "    \"failures\": []"
+            + "  }"
+            + "}"
+            + "}";
+
+    ExecutionRequestResult result = new ExecutionRequestResult();
+    result.setStatus("FAILURE");
+    result.setDurationMs(3000L);
+
+    StructuredExecutionReport structuredReport = new StructuredExecutionReport();
+    structuredReport.setType("CLI_INGEST");
+    structuredReport.setSerializedValue(reportJson);
+    structuredReport.setContentType("application/json");
+    result.setStructuredReport(structuredReport);
+
+    // Must not throw MismatchedInputException
+    emitter.observeMCPs(List.of(createBatchItem(result, ChangeType.UPSERT)), retrieverContext);
+
+    // Run is counted
+    Counter runsCounter = meterRegistry.find("com.datahub.ingest.runs").counter();
+    assertNotNull(runsCounter);
+    assertEquals(runsCounter.count(), 1.0);
+
+    // Only the 10 real entries are counted — the sentinel is silently dropped
+    Counter failuresCounter = meterRegistry.find("com.datahub.ingest.failures").counter();
+    assertNotNull(failuresCounter);
+    assertEquals(failuresCounter.count(), 10.0);
+  }
+
   // Helper methods
 
   private BatchItem createBatchItem(ExecutionRequestResult result, ChangeType changeType)
