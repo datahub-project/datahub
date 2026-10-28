@@ -38,6 +38,9 @@ class DriveFile(BaseModel):
     last_modifying_user: Optional[DriveUser] = Field(
         default=None, alias="lastModifyingUser"
     )
+    # Only fetched by GoogleDriveClient.get_file; listings leave both unset.
+    parents: List[str] = Field(default_factory=list)
+    trashed: bool = False
 
     @property
     def is_folder(self) -> bool:

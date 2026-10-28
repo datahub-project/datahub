@@ -13,6 +13,9 @@ record MLPrimaryKeyKey {
    * Namespace for the primary key
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL"
   }
   featureNamespace: string
@@ -23,10 +26,17 @@ record MLPrimaryKeyKey {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 8.0,
+    "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 }

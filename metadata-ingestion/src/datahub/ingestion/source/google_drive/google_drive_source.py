@@ -85,6 +85,13 @@ from datahub.ingestion.source.google_drive.google_drive_hierarchy import (
 from datahub.ingestion.source.google_drive.google_drive_report import (
     GoogleDriveSourceReport,
 )
+from datahub.ingestion.source.google_drive.google_drive_selection import (
+    MAX_TEXT_LENGTH,
+    MIN_TEXT_LENGTH,
+    SKIP_EMPTY_DOCUMENTS,
+    exported_text_verdict,
+    root_document_verdict,
+)
 from datahub.ingestion.source.google_drive.models import (
     DocumentRef,
     DriveFile,
@@ -194,6 +201,10 @@ def to_stored_document(
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default via `extract_owners`")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
     """Ingest Google Docs from Google Drive folders and shared drives as DataHub
     Document entities, preserving the folder hierarchy."""
@@ -316,7 +327,7 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             folders = [
                 folder
                 for folder in tree.folders.values()
-                if self.config.create_root_documents or not folder.is_root
+                if not folder.is_root or root_document_verdict(self.config).included
             ]
             for start in range(0, len(folders), CHANGE_DETECTION_BATCH_SIZE):
                 folder_page = folders[start : start + CHANGE_DETECTION_BATCH_SIZE]
@@ -520,12 +531,11 @@ class GoogleDriveSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         text = clean_markdown(result.text)
-        if (self.config.skip_empty_documents and not text) or len(
-            text
-        ) < self.config.min_text_length:
+        text_verdict = exported_text_verdict(self.config, len(text))
+        if text_verdict.excluded_by in (SKIP_EMPTY_DOCUMENTS, MIN_TEXT_LENGTH):
             self.report.documents_skipped_empty += 1
             return
-        if self.config.max_text_length and len(text) > self.config.max_text_length:
+        if text_verdict.excluded_by == MAX_TEXT_LENGTH:
             self.report.documents_skipped_too_long += 1
             # Not registered in state, so a previously ingested copy is soft-deleted.
             self.report.warning(

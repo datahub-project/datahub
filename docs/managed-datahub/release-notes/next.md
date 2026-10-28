@@ -17,9 +17,11 @@ TBD
 #### Recommended Versions
 
 - **CLI/SDK**: TBD
-- **Remote Executor**: TBD
+- **Remote Executor**:
+  - **Image**: TBD
+  - **Helm chart**: TBD ([`datahub-executor-worker`](https://executor-helm.acryl.io/index.yaml) from `https://executor-helm.acryl.io`)
 - **On-Prem Versions**:
-  - **Helm**: TBD
+  - **Helm**: TBD ([`acryl-datahub`](https://helm.acryl.io/index.yaml) from `https://helm.acryl.io`)
   - **API Gateway**: TBD
 
 ## Release Changelog

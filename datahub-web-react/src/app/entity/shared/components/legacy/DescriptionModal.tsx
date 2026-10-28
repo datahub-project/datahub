@@ -15,7 +15,8 @@ const StyledEditor = styled(Editor)`
 `;
 
 const StyledViewer = styled(Editor)`
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
     }
 `;

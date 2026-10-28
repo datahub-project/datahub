@@ -61,6 +61,9 @@ record GlossaryRelatedTerms {
     "/*": {
       "fieldName": "values",
       "fieldType": "URN",
+      "v3": {
+        "copyToOther": true
+      }
     }
   }
   values: optional array[GlossaryTermUrn]
@@ -79,6 +82,15 @@ record GlossaryRelatedTerms {
     "/*": {
       "fieldName": "relatedTerms",
       "fieldType": "URN",
+      "boostScore": 0.5,
+      "hasValuesFieldName": "hasGlossaryTerms",
+      "v3": {
+        "queryByDefault": true,
+        "searchLabel": "glossaryTerms",
+        "mappings": [
+          { "type": "URN" }
+        ]
+      }
     }
   }
   relatedTerms: optional array[GlossaryTermUrn]

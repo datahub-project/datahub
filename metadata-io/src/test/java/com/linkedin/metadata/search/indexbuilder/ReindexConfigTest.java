@@ -98,6 +98,38 @@ public class ReindexConfigTest {
   }
 
   @Test
+  void testArrayValuedOptionComparesEqualToTheListTheEngineReports() {
+    // A builder emits copy_to as an array; the engine stores and reports a list. Same mapping.
+    Map<String, Object> target = new HashMap<>();
+    target.put(
+        "properties",
+        ImmutableMap.of(
+            "runId",
+            ImmutableMap.of("type", "keyword", "copy_to", new String[] {"_search._system_runId"})));
+    Map<String, Object> current = new HashMap<>();
+    current.put(
+        "properties",
+        ImmutableMap.of(
+            "runId",
+            ImmutableMap.of("type", "keyword", "copy_to", List.of("_search._system_runId"))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .currentMappings(current)
+            .targetMappings(target)
+            .enableIndexMappingsReindex(true)
+            .enableIndexSettingsReindex(true)
+            .build();
+
+    Assert.assertFalse(config.requiresApplyMappings());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
   void testNonExistentIndex() {
     // Arrange & Act
     ReindexConfig config = ReindexConfig.builder().name(TEST_INDEX_NAME).exists(false).build();
@@ -1311,6 +1343,43 @@ public class ReindexConfigTest {
     Map<String, Object> targetMappings =
         createMappingsWithDynamicStructuredProperties(
             ImmutableMap.of("myStringProp", ImmutableMap.of("type", "keyword")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertyCopyToMismatchReindex(true)
+            .build();
+
+    Assert.assertTrue(config.hasStructuredPropertyCopyToMismatch());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testStructuredPropertyAnalyzedSubfieldMismatchRequiresReindex() {
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("myStringProp", ImmutableMap.of("type", "keyword")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of(
+                "myStringProp",
+                ImmutableMap.of(
+                    "type",
+                    "keyword",
+                    "fields",
+                    ImmutableMap.of(
+                        "text",
+                        ImmutableMap.of("type", "text"),
+                        "stemmed",
+                        ImmutableMap.of("type", "text"),
+                        "keyword",
+                        ImmutableMap.of("type", "keyword")))));
 
     ReindexConfig config =
         ReindexConfig.builder()

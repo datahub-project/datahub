@@ -357,8 +357,7 @@ public class AuthServiceController {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            Urn inviteTokenUrn = _inviteTokenService.getInviteTokenUrn(inviteTokenString);
-            if (!_inviteTokenService.isInviteTokenValid(opContext, inviteTokenUrn)) {
+            if (_inviteTokenService.getVerifiedInviteToken(opContext, inviteTokenString) == null) {
               log.error("Invalid invite token");
               return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
             }

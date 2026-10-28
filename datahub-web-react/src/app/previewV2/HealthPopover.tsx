@@ -7,7 +7,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
 
@@ -94,11 +95,11 @@ function healthIcon({ type }: Health) {
 export function healthUrlSuffix({ type }: Pick<Health, 'type'>) {
     switch (type) {
         case HealthStatusType.Incidents:
-            return '/Incidents';
+            return `/${EntityTabPath.INCIDENTS}`;
         case HealthStatusType.Assertions:
-            return '/Quality/List';
+            return `/${EntityTabPath.QUALITY}/List`;
         case HealthStatusType.Tests:
-            return '/Governance/Tests';
+            return `/${EntityTabPath.GOVERNANCE}/Tests`;
         default:
             return null;
     }

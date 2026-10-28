@@ -118,6 +118,7 @@ export default function FieldLogicalSection({ expandedField }: Props) {
             {physicalChildrenSection}
             {showAllChildren && (
                 <EmbeddedListSearchModal
+                    applyView
                     title={t('fieldLogical.viewAllPhysicalChildren')}
                     fixedFilters={{
                         unionType: UnionType.OR,

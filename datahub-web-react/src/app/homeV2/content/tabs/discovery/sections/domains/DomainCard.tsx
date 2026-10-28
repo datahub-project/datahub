@@ -6,7 +6,7 @@ import styled from 'styled-components/macro';
 
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { formatNumber } from '@app/shared/formatNumber';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 

@@ -11,6 +11,9 @@ record DashboardKey {
   * The name of the dashboard tool such as looker, redash etc.
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldName": "tool",
     "fieldType": "TEXT_PARTIAL",
     "boostScore": 4.0
