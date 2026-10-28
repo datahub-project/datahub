@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-    allBudgetMessages,
-    budgetExitCode,
-    evaluateEagerBudget,
-    sizeLimitJson,
-} from './eager-budget.mjs';
+import { budgetExitCode, evaluateEagerBudget, sizeLimitJson } from './eager-budget.mjs';
 
 const baseline = { totalGzip: 2_500_000, maxPhosphorModules: 80 };
 
@@ -19,15 +14,27 @@ test('accepts a build within the slack', () => {
 });
 
 test('soft-warns when eager gzip grows past the slack without failing CI', () => {
+    // +20 KB: past 10 KB slack, under 10% cliff (250 KB).
     const findings = evaluateEagerBudget(
-        { totalGzip: 3_400_000, chunks: [{ file: 'assets/vendor.js', phosphorModules: 10, muiIconModules: 0 }] },
+        { totalGzip: 2_520_000, chunks: [{ file: 'assets/vendor.js', phosphorModules: 10, muiIconModules: 0 }] },
         baseline,
     );
     assert.equal(findings.hard.length, 0);
     assert.equal(findings.soft.length, 1);
-    assert.match(findings.soft[0], /3400000/);
-    assert.match(findings.soft[0], /does not fail the build/);
+    assert.match(findings.soft[0], /2520000/);
     assert.equal(budgetExitCode(false, findings), 0);
+});
+
+test('fails when eager gzip grows past the 10% cliff', () => {
+    const findings = evaluateEagerBudget(
+        { totalGzip: 3_400_000, chunks: [{ file: 'assets/vendor.js', phosphorModules: 10, muiIconModules: 0 }] },
+        baseline,
+    );
+    assert.equal(findings.soft.length, 0);
+    assert.equal(findings.hard.length, 1);
+    assert.match(findings.hard[0], /3400000/);
+    assert.match(findings.hard[0], /10%/);
+    assert.equal(budgetExitCode(false, findings), 1);
 });
 
 test('soft-warns when eager gzip drops so the baseline can ratchet down', () => {
@@ -81,7 +88,6 @@ test('--json still exits 0 when hard composition fails so the comment can post',
     assert.equal(budgetExitCode(true, findings), 0);
     assert.equal(budgetExitCode(false, findings), 1);
     assert.equal(budgetExitCode(false, { hard: [], soft: ['warn'] }), 0);
-    assert.equal(budgetExitCode(false, []), 0);
 });
 
 test('fails when the baseline omits totalGzip', () => {
@@ -109,13 +115,12 @@ test('fails when the Phosphor catalog is split across eager chunks', () => {
 test('byte soft warn and composition hard fail can both appear', () => {
     const findings = evaluateEagerBudget(
         {
-            totalGzip: 3_400_000,
+            totalGzip: 2_520_000,
             chunks: [{ file: 'assets/phosphor-vendor-abc.js', phosphorModules: 10, muiIconModules: 0 }],
         },
         baseline,
     );
     assert.equal(findings.soft.length, 1);
     assert.equal(findings.hard.length, 1);
-    assert.equal(allBudgetMessages(findings).length, 2);
     assert.equal(budgetExitCode(false, findings), 1);
 });

@@ -10,7 +10,13 @@ import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
-import { budgetExitCode, gzipSize, printBudgetFindings, toleranceBytes } from './eager-budget.mjs';
+import {
+    budgetExitCode,
+    classifyGzipDelta,
+    emptyFindings,
+    gzipSize,
+    printBudgetFindings,
+} from './eager-budget.mjs';
 
 // Page modules are Vite manifest `src` values (project-relative), not hashed files.
 const AUTHENTICATED_APP_SRC = 'src/app/AuthenticatedApp.tsx';
@@ -240,16 +246,16 @@ function isFiniteNumber(value) {
 const PAGE_BUDGET_IDS = ['shell', 'search'];
 
 /**
- * Same slack as the index.html eager budget: max(10 KB, 0.5%).
- * Home is reported and not gated. Byte over/under is soft (warn only).
+ * Same slack / 10% cliff as the index.html eager budget.
+ * Home is reported and not gated. Byte over/under past slack is soft until the cliff.
  * A missing route or broken baseline fails closed (hard).
  *
  * @param {{ shell: number | null, search: number | null }} measured
  * @param {{ shell: number, search: number }} baseline
- * @returns {{ hard: string[], soft: string[] }}
+ * @returns {import('./eager-budget.mjs').BudgetFindings}
  */
 export function evaluatePageBudget(measured, baseline) {
-    const findings = { hard: [], soft: [] };
+    const findings = emptyFindings();
     for (const id of PAGE_BUDGET_IDS) {
         const actual = measured[id];
         const expected = baseline[id];
@@ -260,19 +266,13 @@ export function evaluatePageBudget(measured, baseline) {
             );
             continue;
         }
-        const slack = toleranceBytes(expected);
-        const delta = actual - expected;
-        if (delta > slack) {
-            findings.soft.push(
-                `Logged-in ${id} JS is ${actual} bytes gzip, ${delta} over the ${expected} baseline (allowed +${slack}). ` +
-                    `Byte overage warns; it does not fail the build. Raise or trim via the bundle-budget chore.`,
-            );
-        } else if (-delta > slack) {
-            findings.soft.push(
-                `Logged-in ${id} JS fell to ${actual} bytes gzip, ${-delta} under the ${expected} baseline. ` +
-                    `Update datahub-web-react/page-budget.json ${id} to ${actual} so the lower size becomes the new ceiling.`,
-            );
-        }
+        classifyGzipDelta({
+            label: `Logged-in ${id} JS`,
+            actual,
+            expected,
+            ratchetHint: `Update datahub-web-react/page-budget.json ${id} to ${actual} so the lower size becomes the new ceiling.`,
+            findings,
+        });
     }
     return findings;
 }

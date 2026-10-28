@@ -5,8 +5,14 @@ import zlib from 'zlib';
 
 export const FORBIDDEN_EAGER_CHUNK = /phosphor-vendor|mui-vendor|mui-icons-catalog/;
 
+/** Soft warn above this; below it size noise is ignored. */
 export function toleranceBytes(baselineGzip) {
     return Math.max(10_240, Math.round(baselineGzip * 0.005));
+}
+
+/** Hard-fail cliff: growth past 10% of the baseline fails CI (keeps soft warns bounded). */
+export function cliffBytes(baselineGzip) {
+    return Math.round(baselineGzip * 0.1);
 }
 
 /**
@@ -17,17 +23,47 @@ function isFiniteNumber(value) {
     return typeof value === 'number' && Number.isFinite(value);
 }
 
-function emptyFindings() {
+/** @returns {BudgetFindings} */
+export function emptyFindings() {
     return { hard: [], soft: [] };
 }
 
-/** Flatten for callers that only need messages (tests, printing). Soft first, then hard. */
-export function allBudgetMessages(findings) {
-    return [...findings.soft, ...findings.hard];
+/**
+ * Classify a gzip delta against baseline: within slack (ok), soft warn, or hard cliff.
+ * Shrinks past slack are always soft (ratchet the committed baseline down in the chore).
+ *
+ * @param {object} args
+ * @param {string} args.label human subject, e.g. "Eager JS" or "Logged-in search JS"
+ * @param {number} args.actual
+ * @param {number} args.expected
+ * @param {string} args.ratchetHint how to lower the committed baseline
+ * @param {string} [args.overageDetail] appended to soft/hard overage messages
+ * @param {BudgetFindings} args.findings
+ */
+export function classifyGzipDelta({ label, actual, expected, ratchetHint, overageDetail = '', findings }) {
+    const slack = toleranceBytes(expected);
+    const cliff = cliffBytes(expected);
+    const delta = actual - expected;
+    if (delta > cliff) {
+        findings.hard.push(
+            `${label} is ${actual} bytes gzip, ${delta} over the ${expected} baseline ` +
+                `(soft warn after +${slack}; hard fail after +${cliff} / 10%).${overageDetail}`,
+        );
+    } else if (delta > slack) {
+        findings.soft.push(
+            `${label} is ${actual} bytes gzip, ${delta} over the ${expected} baseline (allowed +${slack}). ` +
+                `Trim the graph or raise the baseline in the bundle-budget chore ` +
+                `(see datahub-web-react/AGENTS.md, Bundle size budgets).${overageDetail}`,
+        );
+    } else if (-delta > slack) {
+        findings.soft.push(
+            `${label} fell to ${actual} bytes gzip, ${-delta} under the ${expected} baseline. ${ratchetHint}`,
+        );
+    }
 }
 
 /**
- * Byte overage / under-baseline ratchet are soft (warn, do not fail CI).
+ * Byte overage past slack (and under the 10% cliff) is soft. Over the cliff is hard.
  * Composition denylist and broken baselines stay hard.
  *
  * @param {{ totalGzip: number, chunks: { file: string, phosphorModules: number, muiIconModules: number }[] }} report
@@ -42,21 +78,14 @@ export function evaluateEagerBudget(report, baseline) {
                 'Without it the size comparison does not run.',
         );
     } else {
-        const slack = toleranceBytes(baseline.totalGzip);
-        const delta = report.totalGzip - baseline.totalGzip;
-
-        if (delta > slack) {
-            findings.soft.push(
-                `Eager JS is ${report.totalGzip} bytes gzip, ${delta} over the ${baseline.totalGzip} baseline (allowed +${slack}). ` +
-                    `This is the sum of <script> and modulepreload JS in dist/index.html. ` +
-                    `Byte overage warns; it does not fail the build. Raise or trim via the bundle-budget chore.`,
-            );
-        } else if (-delta > slack) {
-            findings.soft.push(
-                `Eager JS fell to ${report.totalGzip} bytes gzip, ${-delta} under the ${baseline.totalGzip} baseline. ` +
-                    `Update datahub-web-react/eager-budget.json totalGzip to ${report.totalGzip} so the lower size becomes the new ceiling.`,
-            );
-        }
+        classifyGzipDelta({
+            label: 'Eager JS',
+            actual: report.totalGzip,
+            expected: baseline.totalGzip,
+            ratchetHint: `Update datahub-web-react/eager-budget.json totalGzip to ${report.totalGzip} so the lower size becomes the new ceiling.`,
+            overageDetail: ' This is the sum of <script> and modulepreload JS in dist/index.html.',
+            findings,
+        });
     }
 
     for (const chunk of report.chunks) {
@@ -112,26 +141,45 @@ export function sizeLimitJson(totalGzip) {
 }
 
 /**
- * Soft byte findings never fail the job. Hard composition / config findings do,
- * unless `--json` (Pages comment path must always exit 0).
+ * Soft findings never fail the job. Hard findings do, unless `--json`
+ * (Pages comment path must always exit 0).
  *
  * @param {boolean} json
- * @param {BudgetFindings | string[]} findingsOrHard
+ * @param {BudgetFindings} findings
  */
-export function budgetExitCode(json, findingsOrHard) {
-    if (json) {
+export function budgetExitCode(json, findings) {
+    if (json || findings.hard.length === 0) {
         return 0;
     }
-    const hard = Array.isArray(findingsOrHard) ? findingsOrHard : findingsOrHard.hard;
-    return hard.length === 0 ? 0 : 1;
+    return 1;
 }
 
+/** Escape a message for a GitHub Actions workflow command. */
+function escapeWorkflowMessage(message) {
+    return message.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+}
+
+/**
+ * Soft findings: Actions `::warning::` annotations on CI, console.warn locally.
+ * Hard findings: stderr (and `::error::` on CI).
+ *
+ * @param {BudgetFindings} findings
+ */
 export function printBudgetFindings(findings) {
+    const onActions = Boolean(process.env.GITHUB_ACTIONS);
     for (const message of findings.soft) {
-        console.warn(`WARNING (bundle budget, non-blocking): ${message}`);
+        if (onActions) {
+            console.warn(`::warning title=Bundle budget::${escapeWorkflowMessage(message)}`);
+        } else {
+            console.warn(`WARNING (bundle budget, non-blocking): ${message}`);
+        }
     }
     for (const message of findings.hard) {
-        console.error(message);
+        if (onActions) {
+            console.error(`::error title=Bundle budget::${escapeWorkflowMessage(message)}`);
+        } else {
+            console.error(message);
+        }
     }
 }
 
@@ -149,7 +197,7 @@ function main() {
                 `  ${chunk.gzip}  ${chunk.file}  phosphor=${chunk.phosphorModules} muiIcons=${chunk.muiIconModules}`,
         );
         console.log(
-            `Eager JS ${report.totalGzip} bytes gzip (baseline ${baseline.totalGzip}, slack ${toleranceBytes(baseline.totalGzip)})`,
+            `Eager JS ${report.totalGzip} bytes gzip (baseline ${baseline.totalGzip}, slack ${toleranceBytes(baseline.totalGzip)}, cliff ${cliffBytes(baseline.totalGzip)})`,
         );
         console.log(lines.join('\n'));
     }
