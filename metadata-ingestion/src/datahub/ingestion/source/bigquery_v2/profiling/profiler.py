@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, cast
 
@@ -265,7 +266,21 @@ WHERE
     def get_profile_request(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> Optional[TableProfilerRequest]:
-        profile_request = super().get_profile_request(table, schema_name, db_name)
+        bq_table = cast(BigqueryTable, table)
+        # A collapsed sharded table's rows_count / size_in_bytes cover every shard, but
+        # only the latest shard is profiled. Size limits, sampling and the profile's own
+        # counts must use that shard's stats, or a long shard history would shrink the
+        # sample and push the table over profile_table_size_limit.
+        if (
+            bq_table.physical_rows_count is not None
+            or bq_table.physical_size_in_bytes is not None
+        ):
+            bq_table = replace(
+                bq_table,
+                rows_count=bq_table.physical_rows_count,
+                size_in_bytes=bq_table.physical_size_in_bytes,
+            )
+        profile_request = super().get_profile_request(bq_table, schema_name, db_name)
 
         if not profile_request:
             return None
@@ -278,7 +293,6 @@ WHERE
         # selection should move down into the SQLAlchemy adapter — it only lives
         # here because the shape had to stay valid for a second profiler engine.
 
-        bq_table = cast(BigqueryTable, table)
         (partition, custom_sql) = self.generate_partition_profiler_query(
             db_name, schema_name, bq_table, self.config.profiling.partition_datetime
         )

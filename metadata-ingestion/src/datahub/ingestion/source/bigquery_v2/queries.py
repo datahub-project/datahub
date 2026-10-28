@@ -7,37 +7,22 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_UNPARTITIONED_PARTITION_ID,
 )
 
-# Collapses a date-sharded BigQuery table name (`events_20251121`, `events$20251121`,
-# `events20251121`) to its logical wildcard base so per-shard stats can be summed back onto
-# the single collapsed entity (see build_sharded_stats_clauses). The prefix group is
-# optional, mirroring the Python shard matcher (_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX /
-# extract_base_table_name in bigquery_audit.py):
-#   - `events_20250101` / `events20250101` -> `events`
-#   - date-only names (`20250101`, `20250102`) -> "" so they group together, matching the
-#     Python "dataset as a sharded table" collapse (extract_base_table_name falls back to
-#     the dataset name for these).
-#   - `orders120250101` (a digit, not a separator, before the date) does NOT match, so it
-#     stays a distinct table and is not merged into the `orders1` family's totals.
-# ponytail: when the character before the separator is a digit (e.g. `orders1_20250101`),
-# the captured base keeps the trailing `_`/`$` (-> `orders1_`) rather than Python's
-# rstrip("_") form (`orders1`). This base is only ever used internally as the GROUP BY /
-# join key and is applied identically to every shard of the family, so the rollup still
-# groups and sums the exact same shards - it just differs cosmetically from the Python
-# base string, which is never compared against it. Upgrade path: wrap in a second
-# REGEXP_REPLACE(..., r"[_$]+$", "") if exact base-string parity is ever required.
-SHARDED_TABLE_BASE_STRIP_REGEX = (
-    r"^((?:.*?\D)?)[_$]?(\d\d\d\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
+# The default sharded_table_pattern (BigQueryShardPatternMatcher) as an RE2 regex: a
+# trailing YYYYMMDD after a prefix that ends in a non-digit, or a name that is only a date.
+SHARDED_TABLE_REGEX = (
+    r"^(?:.+\D[_$]?)?\d\d\d\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01])$"
 )
 
 
 def sharded_table_base_expr(column: str) -> str:
-    """SQL expression that reduces a shard name to its wildcard base.
-
-    Single source of truth for both the entity-grouping key and the rollup subqueries in
-    build_sharded_stats_clauses, so they can never drift apart and aggregate a different
-    set of shards than the collapse logic groups together.
-    """
-    return f'REGEXP_REPLACE({column}, r"{SHARDED_TABLE_BASE_STRIP_REGEX}", r"\\1")'
+    """SQL rollup key for a shard: its name without the date and trailing underscores,
+    as extract_base_table_name computes it, so the rollup sums exactly the shards that
+    collapse into one entity. Date-only shards share the empty key. Other tables get
+    NULL, which never matches in a join."""
+    return (
+        f'IF(REGEXP_CONTAINS({column}, r"{SHARDED_TABLE_REGEX}"), '
+        f'RTRIM(SUBSTR({column}, 1, LENGTH({column}) - 8), "_"), NULL)'
+    )
 
 
 class BigqueryTableType:
@@ -85,6 +70,8 @@ SELECT
   t.ddl,
   {{row_count_select}} as row_count,
   {{bytes_select}} as bytes,
+  {{physical_row_count_select}} as physical_row_count,
+  {{physical_bytes_select}} as physical_bytes,
   p.num_partitions,
   p.max_partition_id,
   {{active_billable_select}} as active_billable_bytes,
@@ -138,6 +125,8 @@ SELECT
   t.ddl,
   {{row_count_select}} as row_count,
   {{bytes_select}} as bytes,
+  {{physical_row_count_select}} as physical_row_count,
+  {{physical_bytes_select}} as physical_bytes,
   p.num_partitions,
   p.max_partition_id,
   {{active_billable_select}} as active_billable_bytes,
@@ -432,8 +421,9 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
         its latest shard alone, so its row_count / size / billable bytes would otherwise
         reflect only that one shard. When aggregate_sharded_stats is set we LEFT JOIN a
         per-base rollup that sums every shard's stats and COALESCE it over the latest
-        shard's own values. The `t.table_name != <base>` join condition leaves un-sharded
-        tables on their own per-table stats.
+        shard's own values. Un-sharded tables have a NULL rollup key, so they keep their
+        own stats. physical_row_count / physical_bytes always describe the queried table
+        itself, which is what profiling and classification read.
 
         Row count and size come from __TABLES__ under use_legacy_table_stats and from
         PARTITIONS otherwise, so the rollup `sh` mirrors that source. Billable bytes are
@@ -452,8 +442,13 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
         own_active = "p.active_billable_bytes"
         own_long_term = "IFNULL(p.long_term_billable_bytes, 0)"
 
+        physical = {
+            "physical_row_count_select": own_rows,
+            "physical_bytes_select": own_bytes,
+        }
         if not aggregate_sharded_stats:
             return {
+                **physical,
                 "row_count_select": own_rows,
                 "bytes_select": own_bytes,
                 "active_billable_select": own_active,
@@ -484,7 +479,6 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
     group by
         table_base) as sh on
     {table_base} = sh.table_base
-    and t.table_name != {table_base}
   left join (
     select
         {sharded_table_base_expr("table_name")} as table_base,{billable_rollup}
@@ -492,8 +486,7 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
         `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_base) as shb on
-    {table_base} = shb.table_base
-    and t.table_name != {table_base}"""
+    {table_base} = shb.table_base"""
         else:
             # A single PARTITIONS rollup covers row count, size and billable bytes.
             billable_alias = "sh"
@@ -507,10 +500,10 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
         `{project_id}`.`{dataset_name}`.{source}
     group by
         table_base) as sh on
-    {table_base} = sh.table_base
-    and t.table_name != {table_base}"""
+    {table_base} = sh.table_base"""
 
         return {
+            **physical,
             "row_count_select": f"COALESCE(sh.total_rows, {own_rows})",
             "bytes_select": f"COALESCE(sh.total_bytes, {own_bytes})",
             "active_billable_select": (

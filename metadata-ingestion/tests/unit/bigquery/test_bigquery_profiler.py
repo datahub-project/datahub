@@ -52,6 +52,34 @@ def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table(
     assert query == (None, None)
 
 
+def test_profile_request_uses_latest_shard_stats_of_collapsed_table():
+    # A collapsed sharded table reports totals across every shard, but only the latest
+    # shard is profiled. The size limit and sampling row count must use that shard, or
+    # a long shard history would downgrade it to table-level profiling.
+    config = BigQueryV2Config.model_validate(
+        {"profiling": {"enabled": True, "profile_table_size_limit": 1}}
+    )
+    profiler = BigqueryProfiler(config=config, report=BigQueryV2Report())
+    test_table = BigqueryTable(
+        name="events_20250101",
+        comment=None,
+        rows_count=365_000_000,
+        size_in_bytes=365 * 2**30,
+        physical_rows_count=1_000_000,
+        physical_size_in_bytes=2**29,
+        last_altered=datetime.now(timezone.utc),
+        created=datetime.now(timezone.utc),
+    )
+
+    request = profiler.get_profile_request(
+        test_table, schema_name="test_dataset", db_name="test_project"
+    )
+
+    assert request is not None
+    assert not request.profile_table_level_only
+    assert request.batch_kwargs["row_count"] == 1_000_000
+
+
 def test_get_batch_kwargs_includes_row_count():
     # The SQLAlchemy profiler uses this row count to skip a COUNT(*) when
     # deciding whether to sample.
