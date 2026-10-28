@@ -76,6 +76,19 @@ public class IngestionSourceRunEventsTest {
   }
 
   @Test
+  public void testPendingPreviousEventCarriesNothing() {
+    DataHubIngestionSourceRunEvent pending =
+        IngestionSourceRunEvents.buildEvent(RUN, INPUT, null, 1L, null);
+
+    DataHubIngestionSourceRunEvent success =
+        IngestionSourceRunEvents.buildEvent(
+            RUN, INPUT, new ExecutionRequestResult().setStatus("SUCCESS"), 5L, pending);
+
+    assertEquals(success.getSuccessfulRunRequestedAtMillis(), Long.valueOf(100L));
+    assertFalse(success.hasFailedRunRequestedAtMillis());
+  }
+
+  @Test
   public void testOnlyALaterRecordedRunSupersedes() {
     DataHubIngestionSourceRunEvent later =
         new DataHubIngestionSourceRunEvent()

@@ -1770,9 +1770,10 @@ systemUpdate:
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_CLL_LIMIT:0}
   ingestionSourceRunEvents:
-    # Records a dataHubIngestionSourceRunEvent for each existing ingestion source's latest run
-    # (and latest successful and failed runs). New runs are recorded by IngestionSourceRunEventHook.
-    # Each batch makes one execution request aggregation.
+    # Records one dataHubIngestionSourceRunEvent for each ingestion source with no recorded run,
+    # from its latest run (carrying its latest successful and failed runs). New runs are recorded
+    # by IngestionSourceRunEventHook. Each batch makes one execution request aggregation.
+    # Reprocess rewrites every source, including ones the hook has already recorded.
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_EVENTS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_EVENTS_BATCH_SIZE:500}
     reprocess:

@@ -12,6 +12,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -226,6 +227,24 @@ public class BackfillIngestionSourceRunEventsStepTest {
     assertEquals(execute(), DataHubUpgradeState.FAILED);
 
     verifyMarkerWritten(false);
+  }
+
+  @Test
+  public void testReprocessRewritesRecordedSources() {
+    stubScroll(page(null));
+
+    assertEquals(step(true).executable().apply(context).result(), DataHubUpgradeState.SUCCEEDED);
+
+    verify(searchService)
+        .scrollAcrossEntities(
+            any(OperationContext.class),
+            any(),
+            anyString(),
+            isNull(),
+            any(),
+            any(),
+            any(),
+            anyInt());
   }
 
   @Test

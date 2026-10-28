@@ -58,8 +58,12 @@ public final class IngestionSourceRunEvents {
         input,
         result,
         timestampMillis,
-        previous != null ? previous.getSuccessfulRunRequestedAtMillis() : null,
-        previous != null ? previous.getFailedRunRequestedAtMillis() : null);
+        previous != null && previous.hasSuccessfulRunRequestedAtMillis()
+            ? previous.getSuccessfulRunRequestedAtMillis()
+            : null,
+        previous != null && previous.hasFailedRunRequestedAtMillis()
+            ? previous.getFailedRunRequestedAtMillis()
+            : null);
   }
 
   @Nonnull
