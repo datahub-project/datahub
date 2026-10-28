@@ -147,6 +147,14 @@ public class SearchableAnnotation {
   Optional<String> v3HasValuesFieldName;
 
   /**
+   * Search V3 only. When true, an indexed KEYWORD root also maps {@code <field>.lowercase}, folded
+   * with {@code keyword_normalizer}. A WORD_GRAM or TEXT field qualifies when its V3 root mapping
+   * is that keyword. Case-insensitive contains, prefix, and suffix read that subfield. False leaves
+   * the keyword case-sensitive and does not map the subfield. V2 never reads this.
+   */
+  boolean v3Lowercase;
+
+  /**
    * Constructor for annotations with no V3 overlay. Search V2 uses these settings. Search V3 leaves
    * the field out of an unqualified query until {@code v3.queryByDefault} is set.
    */
@@ -204,7 +212,8 @@ public class SearchableAnnotation {
         Optional.empty(),
         Optional.empty(),
         false,
-        Optional.empty());
+        Optional.empty(),
+        false);
   }
 
   /**
@@ -254,7 +263,8 @@ public class SearchableAnnotation {
         sourceIndex,
         sourceDocValues,
         copyToOther,
-        v3HasValuesFieldName);
+        v3HasValuesFieldName,
+        v3Lowercase);
   }
 
   /**
@@ -454,6 +464,10 @@ public class SearchableAnnotation {
     final Optional<String> v3HasValuesFieldName =
         v3Overlay.flatMap(
             overlay -> AnnotationUtils.getField(overlay, "hasValuesFieldName", String.class));
+    final boolean v3Lowercase =
+        v3Overlay
+            .flatMap(overlay -> AnnotationUtils.getField(overlay, "lowercase", Boolean.class))
+            .orElse(false);
     if (copyToOther && v3SearchLabel.filter(label -> !label.isEmpty()).isPresent()) {
       final String indexed = indexedFieldName(v3SearchLabel.get(), degree);
       if (!indexed.equals(fieldName.orElse(schemaFieldName))) {
@@ -484,6 +498,13 @@ public class SearchableAnnotation {
                 .map(raw -> FieldMapping.parse(raw, context))
                 .orElseGet(() -> FieldMapping.fallback(resolvedFieldType, hasSearchDestination))
             : List.of();
+    if (v3Lowercase && !allowsLowercaseSubfield(v3Mappings, resolvedFieldType)) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: v3.lowercase requires an indexed"
+                  + " KEYWORD root, but fieldType is %s",
+              ANNOTATION_NAME, context, resolvedFieldType));
+    }
     if (!hasSearchDestination && v3Mappings.stream().anyMatch(mapping -> !mapping.isRoot())) {
       throw new ModelValidationException(
           String.format(
@@ -538,7 +559,23 @@ public class SearchableAnnotation {
         sourceIndex,
         sourceDocValues,
         copyToOther,
-        v3HasValuesFieldName);
+        v3HasValuesFieldName,
+        v3Lowercase);
+  }
+
+  /**
+   * {@code v3.lowercase} sits on an indexed keyword root. A WORD_GRAM or TEXT field qualifies when
+   * its V3 mappings declare that root. A URN root keeps its own normalizer.
+   */
+  private static boolean allowsLowercaseSubfield(
+      @Nonnull List<FieldMapping> v3Mappings, @Nonnull FieldType fieldType) {
+    if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
+      return false;
+    }
+    List<FieldMapping> mappings =
+        v3Mappings.isEmpty() ? FieldMapping.fallback(fieldType, false) : v3Mappings;
+    FieldMapping root = FieldMapping.rootOf(mappings);
+    return root.getType() == FieldMapping.Type.KEYWORD && root.isIndex();
   }
 
   private static boolean canCopyToOther(@Nonnull FieldType fieldType) {

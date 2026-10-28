@@ -99,14 +99,9 @@ public final class SearchTemplateFields {
     return analyzedFields(identity);
   }
 
+  /** The exact field for an indexed name. A V3 keyword root is the exact field. */
   @Nonnull
   public static String keywordPath(@Nonnull String indexedName) {
-    if (URN_FIELD.equals(indexedName)) {
-      return URN_FIELD;
-    }
-    if (TEXT_FIELDS.contains(textBase(indexedName))) {
-      return indexedName + StructuredPropertySubfields.KEYWORD_SUFFIX;
-    }
     return indexedName;
   }
 
