@@ -1672,6 +1672,10 @@ assertions:
   hook:
     enabled: ${ENABLE_ASSERTIONS_HOOK:true}
     consumerGroupSuffix: ${ASSERTIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
+ingestionSourceRunEvents:
+  hook:
+    enabled: ${ENABLE_INGESTION_SOURCE_RUN_EVENTS_HOOK:true} # Records ingestion source run events so sources can be sorted and filtered by their latest run
+    consumerGroupSuffix: ${INGESTION_SOURCE_RUN_EVENTS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 bootstrap:
   async:
@@ -1765,14 +1769,14 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_BATCH_SIZE:5000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_CLL_LIMIT:0}
-  ingestionSourceRunSummary:
-    # Sets dataHubIngestionSourceRunSummary on existing ingestion sources from their latest
-    # execution request. New runs keep it current via IngestionSourceRunSummarySideEffect.
-    # Each batch makes one execution request search per source.
-    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_SUMMARY_ENABLED:true}
-    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_SUMMARY_BATCH_SIZE:500}
+  ingestionSourceRunEvents:
+    # Records a dataHubIngestionSourceRunEvent for each existing ingestion source's latest run
+    # (and latest successful and failed runs). New runs are recorded by IngestionSourceRunEventHook.
+    # Each batch makes one execution request aggregation.
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_EVENTS_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_EVENTS_BATCH_SIZE:500}
     reprocess:
-      enabled: ${REPROCESS_INGESTION_SOURCE_RUN_SUMMARY:false}
+      enabled: ${REPROCESS_INGESTION_SOURCE_RUN_EVENTS:false}
   policyFields:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
@@ -2401,8 +2405,6 @@ metadataChangeProposal:
     domainReferenceDetach:
       enabled: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_ENABLED:true}
       maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_MAX_FANOUT:500}
-    ingestionSourceRunSummary:
-      enabled: ${MCP_SIDE_EFFECTS_INGESTION_SOURCE_RUN_SUMMARY_ENABLED:true} # Keeps each ingestion source's latest run time and status searchable for sorting/filtering
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

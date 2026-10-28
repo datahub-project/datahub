@@ -17,6 +17,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.IncidentStats;
+import com.linkedin.metadata.search.LatestIngestionRuns;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -625,6 +626,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   public Map<Urn, IncidentStats> getActiveIncidentStats(
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
     return esSearchDAO.getActiveIncidentStats(opContext, entityUrns);
+  }
+
+  @Nonnull
+  @Override
+  public Map<Urn, LatestIngestionRuns> getLatestIngestionRuns(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns) {
+    return esSearchDAO.getLatestIngestionRuns(opContext, ingestionSourceUrns);
   }
 
   @Nonnull

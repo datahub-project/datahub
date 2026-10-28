@@ -410,8 +410,8 @@ public class Constants {
   // DataHub Ingestion Source
   public static final String INGESTION_SOURCE_KEY_ASPECT_NAME = "dataHubIngestionSourceKey";
   public static final String INGESTION_INFO_ASPECT_NAME = "dataHubIngestionSourceInfo";
-  public static final String INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME =
-      "dataHubIngestionSourceRunSummary";
+  public static final String INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME =
+      "dataHubIngestionSourceRunEvent";
 
   // DataHub Secret
   public static final String SECRET_VALUE_ASPECT_NAME = "dataHubSecretValue";

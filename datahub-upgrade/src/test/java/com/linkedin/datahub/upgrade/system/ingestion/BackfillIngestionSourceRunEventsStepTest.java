@@ -6,14 +6,13 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAM
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.INGESTION_SOURCE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -29,7 +28,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
-import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -39,16 +37,17 @@ import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
-import com.linkedin.ingestion.DataHubIngestionSourceRunSummary;
+import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.LatestIngestionRuns;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
-import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -64,17 +63,18 @@ import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class BackfillIngestionSourceRunSummaryStepTest {
+public class BackfillIngestionSourceRunEventsStepTest {
 
   private static final OperationContext OP_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
   private static final Urn SOURCE_A = UrnUtils.getUrn("urn:li:dataHubIngestionSource:source-a");
   private static final Urn SOURCE_B = UrnUtils.getUrn("urn:li:dataHubIngestionSource:source-b");
-  private static final Urn RUN_A = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:run-a");
+  private static final Urn SUCCESS_RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:ok");
+  private static final Urn FAILED_RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:failed");
+  private static final Urn LATEST_RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:latest");
   private static final Urn RUN_B = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:run-b");
-  private static final Urn NEWER_RUN = UrnUtils.getUrn("urn:li:dataHubExecutionRequest:run-new");
 
-  private final Map<Urn, Urn> latestRunBySource = new HashMap<>();
+  private final Map<Urn, LatestIngestionRuns> latestRuns = new HashMap<>();
   private final Map<Urn, Map<String, RecordTemplate>> store = new HashMap<>();
   private EntityService<?> entityService;
   private SearchService searchService;
@@ -83,31 +83,22 @@ public class BackfillIngestionSourceRunSummaryStepTest {
 
   @BeforeMethod
   public void setup() throws Exception {
-    latestRunBySource.clear();
+    latestRuns.clear();
     store.clear();
     entityService = mock(EntityService.class);
     searchService = mock(SearchService.class);
     entitySearchService = mock(EntitySearchService.class);
     context = mock(UpgradeContext.class);
     when(context.opContext()).thenReturn(OP_CONTEXT);
-
-    when(entitySearchService.filter(
-            any(OperationContext.class),
-            eq(EXECUTION_REQUEST_ENTITY_NAME),
-            any(Filter.class),
-            any(),
-            eq(0),
-            eq(1)))
+    when(entitySearchService.getLatestIngestionRuns(any(OperationContext.class), any()))
         .thenAnswer(
             invocation -> {
-              Filter filter = invocation.getArgument(2);
-              Urn source =
-                  UrnUtils.getUrn(filter.getOr().get(0).getAnd().get(0).getValues().get(0));
-              SearchEntityArray runs = new SearchEntityArray();
-              if (latestRunBySource.containsKey(source)) {
-                runs.add(new SearchEntity().setEntity(latestRunBySource.get(source)));
-              }
-              return new SearchResult().setEntities(runs);
+              Set<Urn> sources = invocation.getArgument(1);
+              Map<Urn, LatestIngestionRuns> result = new HashMap<>();
+              sources.stream()
+                  .filter(latestRuns::containsKey)
+                  .forEach(source -> result.put(source, latestRuns.get(source)));
+              return result;
             });
     when(entityService.getEntitiesV2(any(OperationContext.class), anyString(), any(), any()))
         .thenAnswer(
@@ -122,71 +113,91 @@ public class BackfillIngestionSourceRunSummaryStepTest {
   }
 
   @Test
-  public void testWritesSummaryFromLatestRun() {
-    source(SOURCE_A, RUN_A, 200, "SUCCESS");
+  public void testRecordsLatestSuccessFailureAndRunOldestFirst() {
+    source(SOURCE_A);
+    run(SUCCESS_RUN, SOURCE_A, 100, "SUCCESS");
+    run(FAILED_RUN, SOURCE_A, 200, "FAILURE");
+    run(LATEST_RUN, SOURCE_A, 300, "RUNNING");
+    latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, SUCCESS_RUN, FAILED_RUN));
     stubScroll(page(null, SOURCE_A));
 
-    assertEquals(run(), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(execute(), DataHubUpgradeState.SUCCEEDED);
 
-    DataHubIngestionSourceRunSummary summary = summaryOf(capturedItems(1).get(0));
-    assertEquals(summary.getLastExecutionRequest(), RUN_A);
-    assertEquals(summary.getLastRunRequestedAtMillis(), 200L);
-    assertEquals(summary.getLastRunStatus(), "SUCCESS");
+    List<DataHubIngestionSourceRunEvent> events =
+        capturedItems(3).stream().map(BackfillIngestionSourceRunEventsStepTest::eventOf).toList();
+    assertEquals(
+        events.stream().map(DataHubIngestionSourceRunEvent::getExecutionRequest).toList(),
+        List.of(SUCCESS_RUN, FAILED_RUN, LATEST_RUN));
+    assertEquals(events.get(2).getStatus(), "RUNNING");
+    assertEquals(events.get(0).getSuccessfulRunRequestedAtMillis(), Long.valueOf(100));
+    assertEquals(events.get(1).getFailedRunRequestedAtMillis(), Long.valueOf(200));
     verifyMarkerWritten(true);
   }
 
   @Test
-  public void testNewerSummaryIsNotOverwritten() {
-    source(SOURCE_A, RUN_A, 200, "SUCCESS");
-    put(
-        SOURCE_A,
-        INGESTION_SOURCE_RUN_SUMMARY_ASPECT_NAME,
-        new DataHubIngestionSourceRunSummary()
-            .setLastExecutionRequest(NEWER_RUN)
-            .setLastRunRequestedAtMillis(300));
+  public void testLatestRunThatSucceededIsRecordedOnce() {
+    source(SOURCE_A);
+    run(LATEST_RUN, SOURCE_A, 300, "SUCCESS");
+    latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, LATEST_RUN, null));
     stubScroll(page(null, SOURCE_A));
 
-    assertEquals(run(), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(execute(), DataHubUpgradeState.SUCCEEDED);
 
-    verifyNoSummaryWrites();
+    assertEquals(eventOf(capturedItems(1).get(0)).getStatus(), "SUCCESS");
   }
 
   @Test
   public void testDeletedSourceIsSkipped() {
-    source(SOURCE_A, RUN_A, 200, "SUCCESS");
-    store.get(SOURCE_A).remove(INGESTION_INFO_ASPECT_NAME);
+    run(LATEST_RUN, SOURCE_A, 300, "SUCCESS");
+    latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, null, null));
     stubScroll(page(null, SOURCE_A));
 
-    assertEquals(run(), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(execute(), DataHubUpgradeState.SUCCEEDED);
 
-    verifyNoSummaryWrites();
+    verify(entityService, never())
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
   }
 
   @Test
-  public void testFollowsScrollIdUntilExhausted() {
-    source(SOURCE_A, RUN_A, 200, "SUCCESS");
-    source(SOURCE_B, RUN_B, 100, "FAILURE");
+  public void testScrollsByUrnUntilExhausted() {
+    source(SOURCE_A);
+    source(SOURCE_B);
+    run(LATEST_RUN, SOURCE_A, 300, "SUCCESS");
+    run(RUN_B, SOURCE_B, 100, "FAILURE");
+    latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, null, null));
+    latestRuns.put(SOURCE_B, new LatestIngestionRuns(RUN_B, null, null));
     stubScroll(page("next", SOURCE_A), page(null, SOURCE_B));
 
-    assertEquals(run(), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(execute(), DataHubUpgradeState.SUCCEEDED);
 
     assertEquals(
         capturedItems(2).stream().map(MCPItem::getUrn).toList(), List.of(SOURCE_A, SOURCE_B));
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<SortCriterion>> sort = ArgumentCaptor.forClass(List.class);
+    verify(searchService, atLeastOnce())
+        .scrollAcrossEntities(
+            any(OperationContext.class),
+            any(),
+            anyString(),
+            any(),
+            sort.capture(),
+            any(),
+            any(),
+            anyInt());
+    assertEquals(
+        sort.getValue(),
+        List.of(new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING)));
   }
 
   @Test
-  public void testFailedBatchFailsWithoutMarker() {
-    source(SOURCE_A, RUN_A, 200, "SUCCESS");
-    source(SOURCE_B, RUN_B, 100, "FAILURE");
-    stubScroll(page("next", SOURCE_A), page(null, SOURCE_B));
-    doThrow(new RuntimeException("database unavailable"))
-        .doReturn(List.of())
-        .when(entityService)
-        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+  public void testFailedLookupFailsWithoutMarker() {
+    source(SOURCE_A);
+    stubScroll(page(null, SOURCE_A));
+    when(entitySearchService.getLatestIngestionRuns(any(OperationContext.class), any()))
+        .thenThrow(new RuntimeException("search unavailable"));
 
-    assertEquals(run(), DataHubUpgradeState.FAILED);
+    assertEquals(execute(), DataHubUpgradeState.FAILED);
 
-    capturedItems(2);
     verifyMarkerWritten(false);
   }
 
@@ -203,23 +214,16 @@ public class BackfillIngestionSourceRunSummaryStepTest {
     assertFalse(step(true).skip(context));
   }
 
-  @Test
-  public void testDoesNotSkipWithoutMarker() {
-    assertFalse(step(false).skip(context));
-  }
-
-  private BackfillIngestionSourceRunSummaryStep step(boolean reprocessEnabled) {
-    return new BackfillIngestionSourceRunSummaryStep(
+  private BackfillIngestionSourceRunEventsStep step(boolean reprocessEnabled) {
+    return new BackfillIngestionSourceRunEventsStep(
         OP_CONTEXT, entityService, searchService, entitySearchService, reprocessEnabled, 500);
   }
 
-  private DataHubUpgradeState run() {
-    UpgradeStepResult result = step(false).executable().apply(context);
-    return result.result();
+  private DataHubUpgradeState execute() {
+    return step(false).executable().apply(context).result();
   }
 
-  private void source(Urn sourceUrn, Urn runUrn, long requestedAt, String status) {
-    latestRunBySource.put(sourceUrn, runUrn);
+  private void source(Urn sourceUrn) {
     put(
         sourceUrn,
         INGESTION_INFO_ASPECT_NAME,
@@ -227,6 +231,9 @@ public class BackfillIngestionSourceRunSummaryStepTest {
             .setName(sourceUrn.getId())
             .setType("mysql")
             .setConfig(new DataHubIngestionSourceConfig().setRecipe("{}")));
+  }
+
+  private void run(Urn runUrn, Urn sourceUrn, long requestedAt, String status) {
     put(
         runUrn,
         EXECUTION_REQUEST_INPUT_ASPECT_NAME,
@@ -286,12 +293,9 @@ public class BackfillIngestionSourceRunSummaryStepTest {
     List<MCPItem> items =
         captor.getAllValues().stream().flatMap(batch -> batch.getMCPItems().stream()).toList();
     assertEquals(items.size(), expectedCount);
+    items.forEach(
+        item -> assertEquals(item.getAspectName(), INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME));
     return items;
-  }
-
-  private void verifyNoSummaryWrites() {
-    verify(entityService, never())
-        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
   }
 
   private void verifyMarkerWritten(boolean written) {
@@ -303,9 +307,9 @@ public class BackfillIngestionSourceRunSummaryStepTest {
             anyBoolean());
   }
 
-  private static DataHubIngestionSourceRunSummary summaryOf(MCPItem item) {
+  private static DataHubIngestionSourceRunEvent eventOf(MCPItem item) {
     return RecordUtils.toRecordTemplate(
-        DataHubIngestionSourceRunSummary.class,
+        DataHubIngestionSourceRunEvent.class,
         item.getMetadataChangeProposal().getAspect().getValue().asString(StandardCharsets.UTF_8));
   }
 }

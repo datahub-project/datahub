@@ -68,9 +68,8 @@ import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValid
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
 import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
-import com.linkedin.metadata.ingestion.sideeffects.IngestionSourceRunSummarySideEffect;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
-import com.linkedin.metadata.ingestion.validation.IngestionSourceRunSummaryValidator;
+import com.linkedin.metadata.ingestion.validation.IngestionSourceRunEventValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
@@ -354,21 +353,10 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  @ConditionalOnProperty(
-      name = "metadataChangeProposal.sideEffects.ingestionSourceRunSummary.enabled",
-      havingValue = "true",
-      matchIfMissing = true)
-  public MCPSideEffect ingestionSourceRunSummarySideEffect() {
-    log.info("Initialized {}", IngestionSourceRunSummarySideEffect.class.getName());
-    return new IngestionSourceRunSummarySideEffect()
-        .setConfig(IngestionSourceRunSummarySideEffect.pluginConfig());
-  }
-
-  @Bean
-  public AspectPayloadValidator ingestionSourceRunSummaryValidator() {
-    log.info("Initialized {}", IngestionSourceRunSummaryValidator.class.getName());
-    return new IngestionSourceRunSummaryValidator()
-        .setConfig(IngestionSourceRunSummaryValidator.pluginConfig());
+  public AspectPayloadValidator ingestionSourceRunEventValidator() {
+    log.info("Initialized {}", IngestionSourceRunEventValidator.class.getName());
+    return new IngestionSourceRunEventValidator()
+        .setConfig(IngestionSourceRunEventValidator.pluginConfig());
   }
 
   // Returns null when MeterRegistry/ObjectMapper unavailable

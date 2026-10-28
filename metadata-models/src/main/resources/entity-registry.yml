@@ -377,7 +377,7 @@ entities:
     keyAspect: dataHubIngestionSourceKey
     aspects:
       - dataHubIngestionSourceInfo
-      - dataHubIngestionSourceRunSummary
+      - dataHubIngestionSourceRunEvent
       - ownership
   - name: dataHubSecret
     category: internal

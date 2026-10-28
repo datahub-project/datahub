@@ -9,11 +9,11 @@ import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 
-public class BackfillIngestionSourceRunSummary implements NonBlockingSystemUpgrade {
+public class BackfillIngestionSourceRunEvents implements NonBlockingSystemUpgrade {
 
   private final List<UpgradeStep> steps;
 
-  public BackfillIngestionSourceRunSummary(
+  public BackfillIngestionSourceRunEvents(
       OperationContext opContext,
       EntityService<?> entityService,
       SearchService searchService,
@@ -24,7 +24,7 @@ public class BackfillIngestionSourceRunSummary implements NonBlockingSystemUpgra
     steps =
         enabled
             ? ImmutableList.of(
-                new BackfillIngestionSourceRunSummaryStep(
+                new BackfillIngestionSourceRunEventsStep(
                     opContext,
                     entityService,
                     searchService,

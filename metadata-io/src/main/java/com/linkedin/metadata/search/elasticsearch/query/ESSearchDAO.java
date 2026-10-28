@@ -31,6 +31,7 @@ import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.IncidentStats;
+import com.linkedin.metadata.search.LatestIngestionRuns;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -130,6 +131,7 @@ import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.aggregations.metrics.TopHits;
+import org.opensearch.search.aggregations.metrics.TopHitsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortBuilders;
 import org.opensearch.search.sort.SortOrder;
@@ -1736,6 +1738,140 @@ public class ESSearchDAO {
       result.put(entityUrn, new IncidentStats((int) bucket.getDocCount(), latestIncidentUrn));
     }
     return result;
+  }
+
+  static final String EXECUTION_REQUEST_INGESTION_SOURCE_FIELD = "ingestionSource.keyword";
+  static final String EXECUTION_REQUEST_STATUS_FIELD = "executionResultStatus.keyword";
+  static final String EXECUTION_REQUEST_TIME_FIELD = "requestTimeMs";
+  static final String BY_INGESTION_SOURCE_AGG = "byIngestionSource";
+  static final String LATEST_RUN_AGG = "latestRun";
+  static final String SUCCESSFUL_RUNS_AGG = "successfulRuns";
+  static final String FAILED_RUNS_AGG = "failedRuns";
+
+  /** Max ingestion sources per request, for the same terms and bucket limits as incident stats. */
+  @VisibleForTesting static final int INGESTION_RUN_STATS_URN_BATCH_SIZE = 1000;
+
+  @WithSpan
+  @Nonnull
+  public Map<Urn, LatestIngestionRuns> getLatestIngestionRuns(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns) {
+    if (ingestionSourceUrns.isEmpty()) {
+      return Map.of();
+    }
+    return opContext.withSpan(
+        "getLatestIngestionRuns_search",
+        () -> {
+          try {
+            final Map<Urn, LatestIngestionRuns> result = new HashMap<>();
+            for (List<Urn> batch :
+                Lists.partition(
+                    new ArrayList<>(ingestionSourceUrns), INGESTION_RUN_STATS_URN_BATCH_SIZE)) {
+              final SearchRequest searchRequest =
+                  buildLatestIngestionRunsRequest(opContext, new HashSet<>(batch));
+              final SearchResponse searchResponse =
+                  SearchTookMetrics.time(
+                      opContext,
+                      SearchOperation.INGESTION_RUN_STATS,
+                      () ->
+                          searchClient(opContext, searchRequest)
+                              .search(opContext, searchRequest, RequestOptions.DEFAULT));
+              result.putAll(extractLatestIngestionRuns(searchResponse));
+            }
+            return result;
+          } catch (Exception e) {
+            log.error("Latest ingestion runs query failed", e);
+            throw new ESQueryException("Latest ingestion runs query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "getLatestIngestionRuns_search"));
+  }
+
+  @VisibleForTesting
+  public SearchRequest buildLatestIngestionRunsRequest(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns) {
+    final String[] urnStrings =
+        ingestionSourceUrns.stream().map(Urn::toString).toArray(String[]::new);
+
+    final BoolQueryBuilder query =
+        QueryBuilders.boolQuery()
+            .filter(QueryBuilders.termsQuery(EXECUTION_REQUEST_INGESTION_SOURCE_FIELD, urnStrings));
+    ESUtils.applyDefaultSearchFilters(
+        opContext,
+        List.of(Constants.EXECUTION_REQUEST_ENTITY_NAME),
+        null,
+        query,
+        searchConfiguration.getEntityIndex());
+
+    final TermsAggregationBuilder bySource =
+        AggregationBuilders.terms(BY_INGESTION_SOURCE_AGG)
+            .field(EXECUTION_REQUEST_INGESTION_SOURCE_FIELD)
+            .includeExclude(new IncludeExclude(urnStrings, null))
+            .size(ingestionSourceUrns.size())
+            .subAggregation(latestRunAgg())
+            .subAggregation(
+                AggregationBuilders.filter(
+                        SUCCESSFUL_RUNS_AGG,
+                        QueryBuilders.termQuery(EXECUTION_REQUEST_STATUS_FIELD, "SUCCESS"))
+                    .subAggregation(latestRunAgg()))
+            .subAggregation(
+                AggregationBuilders.filter(
+                        FAILED_RUNS_AGG,
+                        QueryBuilders.termQuery(EXECUTION_REQUEST_STATUS_FIELD, "FAILURE"))
+                    .subAggregation(latestRunAgg()));
+
+    final SearchRequest request =
+        new SearchRequest(entityIndexName(opContext, Constants.EXECUTION_REQUEST_ENTITY_NAME));
+    request.source(new SearchSourceBuilder().size(0).query(query).aggregation(bySource));
+    return request;
+  }
+
+  private static TopHitsAggregationBuilder latestRunAgg() {
+    return AggregationBuilders.topHits(LATEST_RUN_AGG)
+        .size(1)
+        .sort(SortBuilders.fieldSort(EXECUTION_REQUEST_TIME_FIELD).order(SortOrder.DESC))
+        .fetchSource("urn", null);
+  }
+
+  private static Map<Urn, LatestIngestionRuns> extractLatestIngestionRuns(
+      @Nonnull SearchResponse searchResponse) {
+    final Map<Urn, LatestIngestionRuns> result = new HashMap<>();
+    if (searchResponse.getAggregations() == null) {
+      return result;
+    }
+    final Terms bySource = searchResponse.getAggregations().get(BY_INGESTION_SOURCE_AGG);
+    if (bySource == null) {
+      return result;
+    }
+    for (Terms.Bucket bucket : bySource.getBuckets()) {
+      final Urn latestRun = latestRunUrn(bucket.getAggregations().get(LATEST_RUN_AGG));
+      if (latestRun == null) {
+        continue;
+      }
+      result.put(
+          UrnUtils.getUrn(bucket.getKeyAsString()),
+          new LatestIngestionRuns(
+              latestRun,
+              latestRunUrn(filteredLatestRun(bucket, SUCCESSFUL_RUNS_AGG)),
+              latestRunUrn(filteredLatestRun(bucket, FAILED_RUNS_AGG))));
+    }
+    return result;
+  }
+
+  @Nullable
+  private static TopHits filteredLatestRun(@Nonnull Terms.Bucket bucket, @Nonnull String aggName) {
+    final org.opensearch.search.aggregations.bucket.filter.Filter filtered =
+        bucket.getAggregations().get(aggName);
+    return filtered != null ? filtered.getAggregations().get(LATEST_RUN_AGG) : null;
+  }
+
+  @Nullable
+  private static Urn latestRunUrn(@Nullable TopHits topHits) {
+    if (topHits == null || topHits.getHits().getHits().length == 0) {
+      return null;
+    }
+    final Object urnValue = topHits.getHits().getHits()[0].getSourceAsMap().get("urn");
+    return urnValue != null ? UrnUtils.getUrn(urnValue.toString()) : null;
   }
 
   /**
