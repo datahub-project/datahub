@@ -86,6 +86,45 @@ public class ESUtilsNonPrimarySiblingsFilterTest {
     assertTrue(apply(true, filter).mustNot().isEmpty());
   }
 
+  /**
+   * The shape GraphQL search adds to every request that includes documents: (lifecycleStage =
+   * PUBLISHED AND showInGlobalContext != false) OR (lifecycleStage IS NULL AND state != UNPUBLISHED
+   * AND showInGlobalContext != false).
+   */
+  private static Filter documentVisibilityDefaults(Criterion... extra) {
+    CriterionArray published =
+        new CriterionArray(
+            criterion("lifecycleStage", "urn:li:lifecycleStageType:PUBLISHED"),
+            criterion("showInGlobalContext", "false").setNegated(true));
+    CriterionArray legacy =
+        new CriterionArray(
+            new Criterion().setField("lifecycleStage").setCondition(Condition.IS_NULL),
+            criterion("state", "UNPUBLISHED").setNegated(true),
+            criterion("showInGlobalContext", "false").setNegated(true));
+    for (Criterion c : extra) {
+      published.add(c);
+      legacy.add(c);
+    }
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion().setAnd(published),
+                new ConjunctiveCriterion().setAnd(legacy)));
+  }
+
+  @Test
+  public void testDocumentVisibilityDefaultsStillHide() {
+    BoolQueryBuilder query = apply(true, documentVisibilityDefaults());
+    assertEquals(query.mustNot().size(), 1, query.toString());
+  }
+
+  @Test
+  public void testUserFilterCombinedWithDocumentDefaultsTurnsHidingOff() {
+    Filter filter =
+        documentVisibilityDefaults(criterion("platform", "urn:li:dataPlatform:snowflake"));
+    assertTrue(apply(true, filter).mustNot().isEmpty());
+  }
+
   @Test
   public void testFilterOnSiblingFieldsIsExempt() {
     for (String field : new String[] {"siblings", "hasSiblings", "siblingsPrimary.keyword"}) {

@@ -133,9 +133,15 @@ public class ESUtils {
   /**
    * Filter fields that every member of a sibling group matches alike, so non-primary siblings can
    * still be hidden. Any other filter field turns hiding off.
+   *
+   * <p>{@code state}, {@code lifecycleStage} and {@code showInGlobalContext} are the document
+   * visibility defaults that GraphQL search adds to every request that includes documents (see
+   * DefaultEntityFiltersUtil in datahub-graphql-core). They are stripped from aggregations, so they
+   * never come from a user-selected facet, and datasets pass them alike.
    */
   private static final Set<String> SIBLING_HIDING_NEUTRAL_FIELDS =
-      Set.of(INDEX_VIRTUAL_FIELD, "entity", REMOVED);
+      Set.of(
+          INDEX_VIRTUAL_FIELD, "entity", REMOVED, "state", LIFECYCLE_STAGE, "showInGlobalContext");
 
   private static final String ENTITY_SUB_TYPE_FILTER_FIELD =
       INDEX_VIRTUAL_FIELD + AGGREGATION_SEPARATOR_CHAR + "typeNames";
@@ -1791,8 +1797,11 @@ public class ESUtils {
    * matches only the Snowflake table, while its dbt primary is a different platform, so hiding the
    * table would return nothing. Sub-types differ between members too (dbt "Model" vs "Table").
    * Filters from a default view are merged into the request filter, so a view also turns hiding
-   * off. A filter on a siblings field (the sibling list on an entity page, the "has siblings"
-   * facet) is a question about the group itself and is likewise left alone.
+   * off. The document visibility defaults that search adds to every request keep hiding on. A
+   * filter on a siblings field (the sibling list on an entity page, the "has siblings" facet) is a
+   * question about the group itself and is likewise left alone. Because the hiding clause also
+   * applies to aggregations, the "has siblings" facet counts only primary members, while selecting
+   * it lists every member.
    *
    * <p>Only documents that carry {@code siblingsPrimary=false} are hidden, so documents indexed
    * before the field existed stay visible. Each document carries only its own flag, so two cases

@@ -498,6 +498,36 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     assertEquals(unfiltered.getNumEntities().intValue(), 1);
     assertEquals(unfiltered.getEntities().get(0).getEntity(), dbtUrn);
 
+    // GraphQL search adds the document visibility defaults to every request; they must not stop
+    // hiding.
+    Filter visibilityDefaults =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion(
+                                        "lifecycleStage",
+                                        Condition.EQUAL,
+                                        "urn:li:lifecycleStageType:PUBLISHED"),
+                                    buildCriterion(
+                                        "showInGlobalContext", Condition.EQUAL, true, "false")))),
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    new Criterion()
+                                        .setField("lifecycleStage")
+                                        .setCondition(Condition.IS_NULL),
+                                    buildCriterion("state", Condition.EQUAL, true, "UNPUBLISHED"),
+                                    buildCriterion(
+                                        "showInGlobalContext", Condition.EQUAL, true, "false"))))));
+    SearchResult withDefaults = searchSiblings(hidingSearchService, visibilityDefaults);
+    assertEquals(withDefaults.getNumEntities().intValue(), 1);
+    assertEquals(withDefaults.getEntities().get(0).getEntity(), dbtUrn);
+
     Filter platformFilter =
         new Filter()
             .setOr(
