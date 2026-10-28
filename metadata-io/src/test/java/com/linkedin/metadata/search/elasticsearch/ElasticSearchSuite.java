@@ -38,12 +38,6 @@ public class ElasticSearchSuite extends AbstractTestNGSpringContextTests {
         .getTestContext()
         .markApplicationContextDirty(DirtiesContext.HierarchyMode.EXHAUSTIVE);
 
-    TestContextManager goldenTestContextManager =
-        new TestContextManager(GoldenElasticSearchTest.class);
-    goldenTestContextManager
-        .getTestContext()
-        .markApplicationContextDirty(DirtiesContext.HierarchyMode.EXHAUSTIVE);
-
     TestContextManager lineageTestContextManager =
         new TestContextManager(LineageDataFixtureElasticSearchTest.class);
     lineageTestContextManager
@@ -64,7 +58,7 @@ public class ElasticSearchSuite extends AbstractTestNGSpringContextTests {
     }
   }
 
-  @Bean(name = "testSearchContainer")
+  @Bean(name = "testSearchContainer", destroyMethod = "")
   public GenericContainer<?> testSearchContainer() {
     String currentVersion = System.getProperty("ELASTIC_VERSION");
     boolean versionMismatch =

@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import AppLogoLink from '@app/shared/AppLogoLink';
+import AppLogoLink from '@app/sharedV2/AppLogoLink';
 
 // eslint-disable-next-line rulesdir/no-hardcoded-colors -- no inverse-surface token in design system; this bar is intentionally always dark
 const Header = styled.div`

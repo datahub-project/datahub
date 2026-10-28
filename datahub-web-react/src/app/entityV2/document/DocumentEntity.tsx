@@ -10,10 +10,10 @@ import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { EmbeddedProfile } from '@app/entityV2/shared/profileChunks';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
-import { Document, EntityType, SearchResult } from '@types';
+import { Document, DocumentSourceType, EntityType, SearchResult } from '@types';
 
 const DocumentProfile = lazyProfileComponent('DocumentProfile', () =>
     import('@app/entityV2/document/DocumentProfile').then((module) => ({
@@ -128,6 +128,17 @@ export class DocumentEntity implements Entity<Document> {
 
     displayName = (data: Document) => {
         return data?.info?.title || data?.urn;
+    };
+
+    createdTime = (data: Document) => {
+        const created = data?.info?.created?.time;
+        const lastModified = data?.info?.lastModified?.time;
+        // External connectors often default created to ingestion time, so only trust it if it predates lastModified.
+        const isExternal = data?.info?.source?.sourceType === DocumentSourceType.External;
+        if (!isExternal || (created && lastModified && created < lastModified)) {
+            return created;
+        }
+        return undefined;
     };
 
     getOverridePropertiesFromEntity = getDocumentOverrideProperties;

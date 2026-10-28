@@ -12,8 +12,8 @@ import { ItemType } from '@components/components/Menu/types';
 
 import { AddGroupMembersModal } from '@app/entityV2/group/AddGroupMembersModal';
 import { getExternalGroupMembershipTooltip } from '@app/entityV2/group/utils';
-import { scrollToTop } from '@app/shared/searchUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetAllGroupMembersQuery, useRemoveGroupMembersMutation } from '@graphql/group.generated';

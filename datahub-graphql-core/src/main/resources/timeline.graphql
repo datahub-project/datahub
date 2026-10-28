@@ -91,6 +91,11 @@ enum ChangeCategoryType {
   LIFECYCLE.
   """
   VERSIONING
+  """
+  When an entity's lifecycle stage changes, e.g. from Draft to Published. Emitted for documents
+  and glossary terms.
+  """
+  LIFECYCLE
 }
 
 """

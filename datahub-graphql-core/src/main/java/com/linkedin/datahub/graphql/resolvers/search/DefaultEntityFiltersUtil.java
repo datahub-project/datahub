@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -148,7 +149,7 @@ public class DefaultEntityFiltersUtil {
       return documentDefaults;
     }
 
-    return SearchUtils.combineFilters(baseFilter, documentDefaults);
+    return FilterUtils.combineFilters(baseFilter, documentDefaults);
   }
 
   /**

@@ -75,7 +75,7 @@ fragment applicationSearchFields on Application {
         ...glossaryTerms
     }
     domain {
-        ...entityDomain
+        ...entityDomainWithoutCounts
     }
     parentApplications {
         count
