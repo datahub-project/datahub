@@ -6,8 +6,8 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 
 /**
- * Registered {@code postProcess} v1 when no other implementation occupies that name and version.
- * It accepts the stored config and does not reorder hits.
+ * Registered {@code postProcess} v1 when no other implementation occupies that name and version. It
+ * accepts the stored config and does not reorder hits.
  */
 public final class EmptyPostProcessComponent implements SearchTemplateComponent {
   public static final String NAME = "postProcess";
