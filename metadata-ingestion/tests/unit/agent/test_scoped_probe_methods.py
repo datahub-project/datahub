@@ -24,7 +24,7 @@ from datahub.ingestion.agent.probe_methods import (
     probe_method,
 )
 from datahub.ingestion.agent.sql_gate import SqlScopeError
-from datahub.ingestion.agent.sql_passthrough import sql_result
+from datahub.ingestion.agent.sql_passthrough import MAX_SQL_CELL_CHARS, sql_result
 from datahub.ingestion.agent.verdicts import ProbeInternalError
 from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
 from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
@@ -414,6 +414,15 @@ def test_sql_result_trims_to_the_limit_and_flags_truncation():
     assert out["rows"] == [[0], [1], [2]]
     assert out["truncated"]
     assert out["row_count"] == 3
+
+
+def test_sql_result_clips_long_text_cells():
+    long_definition = "x" * (MAX_SQL_CELL_CHARS + 5)
+    out = sql_result(
+        ["name", "definition"], [["v", long_definition], ["w", "short"]], 10
+    )
+    assert out["rows"] == [["v", "x" * MAX_SQL_CELL_CHARS + "…"], ["w", "short"]]
+    assert out["cells_clipped"] == 1
 
 
 def test_sql_result_coerces_values_the_json_encoder_cannot_handle():
