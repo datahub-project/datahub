@@ -47,8 +47,8 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Helpers for domain-separated writers: privilege selection by entity existence, proposed-domain
  * resolution (including PATCH apply), and authorizing {@code domains} writes against domain-scoped
- * Create/Edit Entity policies or the aspect-specific Edit Domain privilege (including before/after
- * reconciliation for {@code domains} PATCH).
+ * Create/Edit Entity policies, Data Product Manage Data Products grants, or the aspect-specific
+ * Edit Domain privilege (including before/after reconciliation for {@code domains} PATCH).
  */
 @Slf4j
 public final class DomainWriteAuthorizationUtils {
@@ -518,8 +518,9 @@ public final class DomainWriteAuthorizationUtils {
    * domains (plus ancestors) as a request-scoped DOMAIN override so domain-scoped policies can
    * match.
    *
-   * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient; Create still
-   * requires Create/Edit Entity.
+   * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient. Creating a
+   * DataProduct may also be authorized by {@code MANAGE_DATA_PRODUCTS} on one of its proposed
+   * domains, matching the GraphQL DataProduct create path.
    */
   public static boolean isAuthorizedEntityWrite(
       @Nonnull AuthorizationSession session,
@@ -534,11 +535,22 @@ public final class DomainWriteAuthorizationUtils {
       seedProposedDomainsForResourceSpec((OperationContext) session, resourceSpec, proposedDomains);
     }
 
-    return AuthUtil.isAuthorized(
-        session,
-        AuthUtil.buildDisjunctivePrivilegeGroup(
-            lookupDomainsAspectPrivileges(apiOperation, urn.getEntityType())),
-        resourceSpec);
+    boolean authorized =
+        AuthUtil.isAuthorized(
+            session,
+            AuthUtil.buildDisjunctivePrivilegeGroup(
+                lookupDomainsAspectPrivileges(apiOperation, urn.getEntityType())),
+            resourceSpec);
+    if (authorized) {
+      return true;
+    }
+
+    return apiOperation == CREATE
+        && com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())
+        && useProposedDomains
+        && hasDomainMembership(proposedDomains)
+        && EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
+            session, EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(proposedDomains));
   }
 
   /**
