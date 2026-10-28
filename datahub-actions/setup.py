@@ -123,7 +123,8 @@ base_dev_requirements = {
     *framework_common,
     *mypy_stubs,
     "coverage>=5.1",
-    "pytest>=6.2.2",
+    # Cap matching metadata-ingestion.
+    "pytest>=6.2.2,<10.0.0",
     "pytest-cov>=2.8.1",
     "pytest-dependency>=0.5.1",
     "pytest-docker>=0.10.3",
