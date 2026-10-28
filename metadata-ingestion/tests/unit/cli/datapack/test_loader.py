@@ -1348,6 +1348,23 @@ class TestCertificationAttribution:
             == "urn:li:corpuser:admin"
         )
 
+    def test_oauth_subject_keeps_characters_gms_allows(self) -> None:
+        k8s_actor = actor_urn_from_token(
+            _unsigned_jwt(
+                {
+                    "iss": "https://kubernetes.default.svc",
+                    "sub": "system:serviceaccount:ns:sa",
+                }
+            )
+        )
+        assert k8s_actor == (
+            "urn:li:corpuser:__oauth_kubernetes_default_svc_system:serviceaccount:ns:sa"
+        )
+        auth0_actor = actor_urn_from_token(
+            _unsigned_jwt({"iss": "https://login.example.com", "sub": "auth0|abc"})
+        )
+        assert auth0_actor == "urn:li:corpuser:__oauth_login_example_com_auth0|abc"
+
     def test_actor_urn_from_client_reads_auth_provider(self) -> None:
         from datahub.ingestion.auth.registry import AuthConfig
         from datahub.ingestion.graph.config import DatahubClientConfig

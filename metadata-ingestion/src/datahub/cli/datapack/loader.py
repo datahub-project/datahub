@@ -831,7 +831,13 @@ def _token_claims(token: Optional[str]) -> Optional[dict]:
 
 
 def _oauth_service_actor(claims: dict) -> Optional[str]:
-    """Match ``ServiceAccountService.buildServiceUserUrn`` for the default claim."""
+    """Match ``ServiceAccountService.buildServiceUserUrn`` for the default claim.
+
+    The issuer is sanitized. The subject is copied unchanged: GMS does not
+    restrict it, and service-account tokens use characters such as ``:`` and
+    ``|``. Filtering those here skips certification stamping for a writer the
+    server will accept.
+    """
     issuer = claims.get("iss")
     subject = claims.get("sub")
     if not isinstance(issuer, str) or not isinstance(subject, str):
@@ -840,10 +846,7 @@ def _oauth_service_actor(claims: dict) -> Optional[str]:
         return None
     sanitized = re.sub(r"https?://", "", issuer)
     sanitized = re.sub(r"[^a-zA-Z0-9]", "_", sanitized)
-    actor_id = f"__oauth_{sanitized}_{subject}"
-    if _ACTOR_ID_PATTERN.fullmatch(actor_id) is None:
-        return None
-    return f"urn:li:corpuser:{actor_id}"
+    return f"urn:li:corpuser:__oauth_{sanitized}_{subject}"
 
 
 def _set_audit_actor(stamp: object, actor_urn: str) -> bool:
