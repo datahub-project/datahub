@@ -14,6 +14,7 @@ record CorpUserKey {
     "v3": {
       "queryByDefault": true,
       "searchLabel": "name",
+      "lowercase": true,
       "boostScore": 10.0,
       "mappings": [
         { "type": "KEYWORD" },
