@@ -318,7 +318,7 @@
     name: eventbridge-pipes
     displayName: Amazon EventBridge Pipes
     type: OTHERS
-    logoUrl: "assets/platforms/eventbridge-pipeslogo.png"
+    logoUrl: "assets/platforms/eventbridgelogo.png"
 - entityUrn: urn:li:dataPlatform:kusto
   entityType: dataPlatform
   aspectName: dataPlatformInfo
