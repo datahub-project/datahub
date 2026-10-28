@@ -8,6 +8,7 @@ import json
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Iterator, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1001,7 +1002,7 @@ class _SqlServerProfiler:
         max_workers: int,
         platform: str | None = None,
         profiler_args: object = None,
-    ):
+    ) -> Iterator[Tuple[object, DatasetProfileClass]]:
         assert self.platform == "mssql"
         assert platform == "mssql"
         yield requests[0], _sql_server_profile()
