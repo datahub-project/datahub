@@ -333,13 +333,15 @@ def test_create_dbt_platform_mces_partial_emission_before_failure(monkeypatch):
     source = _make_source()
     bad = _make_sql_model_node("model.pkg.bad_model", "models/bad_model.sql")
 
-    def fake_get_patched_mce(mce):
+    def fake_merge_with_server_aspects(urn, aspects):
         # Fires after the DataPlatformInstance aspect (and any subtype/standalone
-        # aspects) have already been yielded for this node, but before its main
-        # MCE snapshot would be.
+        # aspects) have already been yielded for this node, but before its
+        # dataset aspects would be.
         raise RuntimeError("simulated crash after partial emission")
 
-    monkeypatch.setattr(source, "get_patched_mce", fake_get_patched_mce)
+    monkeypatch.setattr(
+        source, "_merge_with_server_aspects", fake_merge_with_server_aspects
+    )
 
     workunits = list(
         source.create_dbt_platform_mces(

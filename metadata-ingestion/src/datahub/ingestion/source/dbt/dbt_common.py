@@ -103,8 +103,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageUpstreamType,
     UpstreamClass,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     NullTypeClass,
@@ -123,6 +121,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
+    DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnerClass,
@@ -139,6 +138,7 @@ from datahub.metadata.schema_classes import (
     QuerySubjectsClass,
     SiblingsClass,
     StatusClass,
+    StructuredPropertiesClass,
     SubTypesClass,
     SystemMetadataClass,
     TagAssociationClass,
@@ -3573,7 +3573,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         dbt_nodes: List[DBTNode],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        """Create MCEs and MCPs for the dbt platform."""
+        """Create MCPs for the dbt platform."""
 
         action_processor = OperationProcessor(
             self.config.meta_mapping,
@@ -3624,7 +3624,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if view_prop_aspect:
                     aspects.append(view_prop_aspect)
 
-                # Generate main MCE.
                 if self.config.entities_enabled.can_emit_node_type(node.node_type):
                     # Subtype.
                     sub_type_wu = self._create_subType_wu(node, node_datahub_urn)
@@ -3637,25 +3636,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         aspect=self._make_data_platform_instance_aspect(),
                     ).as_workunit()
 
-                    standalone_aspects, snapshot_aspects = more_itertools.partition(
-                        (
-                            lambda aspect: mce_builder.can_add_aspect_to_snapshot(
-                                DatasetSnapshot, type(aspect)
-                            )
+                    # Domains and structured properties are emitted before siblings, the
+                    # rest after. The target-platform path emits siblings first instead.
+                    other_aspects, standalone_aspects = more_itertools.partition(
+                        lambda aspect: isinstance(
+                            aspect, (DomainsClass, StructuredPropertiesClass)
                         ),
                         aspects,
                     )
 
                     for aspect in standalone_aspects:
-                        # The domains aspect, and some others, may not support being added to the snapshot.
                         yield MetadataChangeProposalWrapper(
                             entityUrn=node_datahub_urn,
                             aspect=aspect,
                         ).as_workunit()
-
-                    dataset_snapshot = DatasetSnapshot(
-                        urn=node_datahub_urn, aspects=list(snapshot_aspects)
-                    )
 
                     # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
                     if self._should_create_sibling_relationships(node):
@@ -3670,11 +3664,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             ),
                         ).as_workunit()
 
-                    mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                    dataset_aspects = list(other_aspects)
                     if self.config.write_semantics == "PATCH":
-                        mce = self.get_patched_mce(mce)
+                        self._merge_with_server_aspects(
+                            node_datahub_urn, dataset_aspects
+                        )
 
-                    yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+                    for aspect in dataset_aspects:
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=node_datahub_urn, aspect=aspect
+                        ).as_workunit()
                 else:
                     logger.debug(
                         f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
@@ -3947,7 +3946,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self,
         dbt_nodes: List[DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        """Create MCEs and MCPs for the target (e.g. Snowflake, BigQuery) platform."""
+        """Create MCPs for the target (e.g. Snowflake, BigQuery) platform."""
 
         prefetched_target_platform_aspects: Optional[
             Dict[str, _TargetPlatformAspects]
@@ -4468,44 +4467,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             else:
                 meta_aspects["add_tag"] = query_tag_aspects["add_tag"]
 
-    def get_aspect_from_dataset(
-        self, dataset_snapshot: DatasetSnapshot, aspect_type: type
-    ) -> Any:
-        for aspect in dataset_snapshot.aspects:
-            if isinstance(aspect, aspect_type):
-                return aspect
-        return None
-
-    def get_patched_mce(self, mce):
-        owner_aspect = self.get_aspect_from_dataset(
-            mce.proposedSnapshot, OwnershipClass
-        )
-        if owner_aspect:
-            transformed_owner_list = self.get_transformed_owners_by_source_type(
-                owner_aspect.owners,
-                mce.proposedSnapshot.urn,
-                str(OwnershipSourceTypeClass.SOURCE_CONTROL),
-            )
-            owner_aspect.owners = transformed_owner_list
-
-        tag_aspect = self.get_aspect_from_dataset(mce.proposedSnapshot, GlobalTagsClass)
-        if tag_aspect:
-            transformed_tag_list = self.get_transformed_tags_by_prefix(
-                tag_aspect.tags,
-                mce.proposedSnapshot.urn,
-                tag_prefix=self.config.tag_prefix,
-            )
-            tag_aspect.tags = transformed_tag_list
-
-        term_aspect: GlossaryTermsClass = self.get_aspect_from_dataset(
-            mce.proposedSnapshot, GlossaryTermsClass
-        )
-        if term_aspect:
-            transformed_terms = self.get_transformed_terms(
-                term_aspect.terms, mce.proposedSnapshot.urn
-            )
-            term_aspect.terms = transformed_terms
-        return mce
+    def _merge_with_server_aspects(self, urn: str, aspects: List[Any]) -> None:
+        """Merge Ownership, GlobalTags and GlossaryTerms with the server's, in place."""
+        for aspect in aspects:
+            if isinstance(aspect, OwnershipClass):
+                aspect.owners = self.get_transformed_owners_by_source_type(
+                    aspect.owners, urn, str(OwnershipSourceTypeClass.SOURCE_CONTROL)
+                )
+            elif isinstance(aspect, GlobalTagsClass):
+                aspect.tags = self.get_transformed_tags_by_prefix(
+                    aspect.tags, urn, tag_prefix=self.config.tag_prefix
+                )
+            elif isinstance(aspect, GlossaryTermsClass):
+                aspect.terms = self.get_transformed_terms(aspect.terms, urn)
 
     def _create_dataset_properties_aspect(
         self, node: DBTNode
@@ -4613,9 +4587,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if meta_links_aspect and self.config.enable_meta_mapping:
             aspects.append(meta_links_aspect)
 
-        # structuredProperties is not part of the DatasetSnapshot aspect union,
-        # but the create_*_platform_mces helpers automatically route any aspect
-        # not in the union into a standalone MCP.
         meta_structured_properties_aspect = meta_aspects.get(
             Constants.ADD_STRUCTURED_PROPERTY_OPERATION
         )
