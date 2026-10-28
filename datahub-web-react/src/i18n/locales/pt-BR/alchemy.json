@@ -9,6 +9,7 @@
     "calendarChart.weekday.wed": "Qua",
     "codeBlock.editorLabel": "Editor de código",
     "codeBlock.format": "Formatar",
+    "codeBlock.formatFailed": "Não foi possível carregar o formatador de SQL. Tente novamente.",
     "codeBlock.formatInvalid": "Não foi possível formatar este código. Verifique se ele é válido.",
     "codeBlock.formatSuccess": "Formatado",
     "codeBlock.languageSelectLabel": "Linguagem",

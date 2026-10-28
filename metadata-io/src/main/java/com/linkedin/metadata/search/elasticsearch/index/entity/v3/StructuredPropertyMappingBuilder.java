@@ -81,7 +81,9 @@ public class StructuredPropertyMappingBuilder {
         .forEach(
             pair -> {
               String fieldName = toElasticsearchFieldName(pair.getKey(), pair.getValue());
-              if (resolved.containsKey(fieldName)) {
+              if (resolved.containsKey(fieldName)
+                  && StructuredPropertyUrnIdentity.indexesParsedName(
+                      pair.getValue(), List.of(entitySpec))) {
                 resolved.put(
                     StructuredPropertyUrnIdentity.fieldName(fieldName),
                     StructuredPropertyUrnIdentity.mapping(pair.getValue(), List.of(entitySpec)));

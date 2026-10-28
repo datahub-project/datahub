@@ -1,8 +1,17 @@
 ---
-description: "Release notes and breaking change history for upgrading DataHub between versions, including required migration steps."
+title: Breaking Changes by Version
+description: "Breaking changes, deprecations and required migration steps for each DataHub release."
 ---
 
-# Updating DataHub
+# Breaking Changes by Version
+
+:::tip Looking for how to upgrade?
+
+See [Upgrading DataHub](upgrading-datahub.md) for the steps, including taking a backup first.
+This page is the per-version reference you consult along the way: read every version between
+the one you are on and the one you are moving to, not just the target.
+
+:::
 
 <!--
 
@@ -38,7 +47,14 @@ description: "Release notes and breaking change history for upgrading DataHub be
 
 This file documents any backwards-incompatible changes in DataHub and assists people when migrating to a new version.
 
-## Next
+## Unreleased
+
+:::info
+
+Nothing in this section has shipped yet. If you are upgrading to a released version, start at
+that version's heading below.
+
+:::
 
 Draft release notes for the upcoming version. Add entries here as breaking changes, deprecations, and notable fixes land on `master`; promote this section to a versioned heading (for example `## v1.8.1` or `## v1.9.0`) at release cut.
 
@@ -51,6 +67,8 @@ Requirements:
 
 - **(Ingestion / SDK) `DATAHUB_SYSTEM_CLIENT_ID` / `DATAHUB_SYSTEM_CLIENT_SECRET` are only sent to the env-configured server.** A DataHub client created without a token (REST emitter, `DataHubGraph`, `datahub-rest` sink) used to attach these credentials whatever server it pointed at. It now attaches them only when the server matches `DATAHUB_GMS_URL` (or `DATAHUB_GMS_HOST`/`DATAHUB_GMS_PORT`/`DATAHUB_GMS_PROTOCOL`), the same rule already used for env-configured OAuth. Otherwise it connects without credentials and logs a warning. Hosts are compared as written, so `http://localhost:8080` and `http://127.0.0.1:8080` do not match, and a client whose server comes from `~/.datahubenv` while the system credentials are only in the environment now connects without them. UI-managed ingestion also refuses to start a run whose recipe points a DataHub client at a different server without its own token, references these credential or `DATAHUB_AUTH_*` variables (directly or through `${!NAME}` indirection), or overrides `DATAHUB_GMS_*`, `DATAHUB_SYSTEM_CLIENT_*`, `DATAHUB_AUTH_*` or proxy variables in its extra environment variables. **Action:** if you rely on system credentials, set `DATAHUB_GMS_URL` to the server they are for. To send metadata to a different DataHub server, give that sink or client its own token.
 
+- **(GMS / Search V3 has-value fields)** Search V3 indexes a `has*` boolean only for a field with a `searchLabel`, such as `hasDescription`, `hasOwners`, `hasTags`, and `hasDomain`. A regular field no longer gets one: `hasRowCount`, `hasColumnCount`, `hasSizeInBytes`, `hasActiveIncidents`, `hasUpstreams`, and the other booleans declared without a label are not mapped. Presence is `EXISTS` or `IS_NULL` on the field itself. A dedicated URN root stores that value on `<field>_urn`, so active incidents are `activeIncidents_urn`. A row count of `0` still counts as present and an empty value does not. A filter that still names a removed boolean is corrected when it is a presence check: true or `EXISTS` becomes `exists` on that field, and false or `IS_NULL` matches documents where it is missing. A contains, range, or other condition is not a boolean check and matches nothing. A sort on that boolean sorts the field instead. Search V2 and V2.5 still index every `hasValuesFieldName`. Shipped ranking templates use `exists` on `rowCount`, `columnCount`, and `activeIncidents_urn`. **Action:** none if Search V3 write was never turned on. Otherwise rebuild the V3 indexes with `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true` on the next system update. See [Search and Graph Reindexing](./restore-indices.md).
+
 - [#19830](https://github.com/datahub-project/datahub/pull/19830) **(Ingestion / Monte Carlo)** **TABLE monitors that already had one assertion** in DataHub under the prior connector—typically TABLE monitors whose scope was a fixed list of tables (for example FULL_TABLE_ID filters) and that emitted a single monitor-level assertion on the first resolved table—now emit **one assertion per covered table** with a **stable per-table URN**. The first run after upgrading creates assertions on those new URNs. If you use stateful ingestion, assertions on the old URNs are soft-deleted once a healthy run finishes; alert and run history already stored on the old URNs stays on those URNs and is not copied to the new ones. **Pattern-scoped TABLE monitors** (tags, schemas, or other selection filters where getMonitors returned no entity list and the connector previously ingested nothing) are **newly covered** in this release with per-table URNs; that is new metadata, not a migration from an existing assertion URN. Custom SQL rules and single-table TABLE monitors are unchanged. **Action:** run ingestion again after upgrading; if you attached owners, tags, or documentation to the old assertion URNs, re-apply them on the new URNs if you still need them.
 
 - **(GraphQL / Lifecycle stages)** `setLifecycleStage` now requires the new **Edit Lifecycle Stage** privilege (`EDIT_ENTITY_LIFECYCLE_STAGE`) or Edit Entity on the target. The default Admin, Editor, and asset-owner policies include it. It also rejects a stage that doesn't apply to the entity type, a stage with `userAssignable=false`, the `DRAFT` stage on a document (reserved for internal document working copies), or a move that the destination stage's `allowedPreviousStages` excludes, and returns a `BAD_REQUEST` error. Previously the write succeeded, and a disallowed move silently kept the old stage. **Action:** grant Edit Lifecycle Stage to any custom role that sets lifecycle stages, and handle the error in clients that relied on the silent no-op.
@@ -60,6 +78,8 @@ Requirements:
 - #20643 **(Ingestion / SAP Datasphere)** Lineage to the time and currency conversion objects that SAP Datasphere creates inside a space (`SAP.TIME.*`, `SAP.CURRENCY.*`) now points at the dataset in that space, for example `my_space.sap.time.m_time_dimension`. Previously it pointed at a dataset with no space prefix that is never ingested, so the lineage did not connect. **Action:** none for lineage; the next ingestion run replaces the old edges. If earlier runs left space-less `sap.time.*` or `sap.currency.*` placeholder datasets in DataHub, they are not removed automatically and can be deleted with `datahub delete`.
 
 - [#20623](https://github.com/datahub-project/datahub/pull/20623) **(GMS / Conditional writes on generic patches)** A PATCH applied as a generic JSON patch (`forceGenericPatch`, or `arrayPrimaryKeys`) now honors the request's conditional-write headers (`If-Version-Match`, `If-Modified-Since`, `If-Unmodified-Since`) and keeps the request's system metadata (run id, properties), as template patches and upserts already did. Before, these headers were silently ignored for generic patches, so a stale `If-Version-Match` still wrote, and the write was recorded without the client's run id. Since [#17077](https://github.com/datahub-project/datahub/pull/17077) the Python SDK sends tag, glossary term, owner, domain, structured property and documentation patches this way, so rolling back an ingestion run skipped those changes. Rollback now reverts them along with the rest of the run. **Action:** none for clients that send correct versions. A client that sends a conditional header with a generic patch and relied on it being ignored now gets a precondition failure when the condition does not hold.
+
+- **(GMS / Search V3 keyword fields)** Search V3 indexes (`*index_v3`) no longer map a `.keyword` subfield. A keyword root field such as `name`, `platform`, or `lifecycleStage` now stores the value as written, with no lowercasing or accent folding, and is the field that filters, facets, sorts, and exact matches read. A `string` or `rich_text` structured property also drops `.keyword` on Search V3. Search V2 is unchanged. This roughly halves the number of mapped root fields, which keeps V3 indexes further from the field limit. This GMS still accepts a filter, facet, sort, or search template that names `<field>.keyword` and reads the root field. A plain exact match in the full-text query still ignores case. An exact keyword filter matches the stored casing. A contains, starts-with, or ends-with filter, and an unquoted fielded value such as `/q name:Orders*`, still ignore case. `v3.lowercase: true` adds `<field>.lowercase`, folded with `keyword_normalizer`, and those reads use that subfield. Shipped `name`, every `name_<degree>`, and `qualifiedName` set it. Other keywords keep the slower fallback: a case-insensitive term, or a second wildcard on the lowercased pattern. The default leaves the subfield unmapped. A quoted wildcard or a group stays a query string. Sorting on a keyword field on Search V3 now uses raw value order, so uppercase values sort before lowercase ones. Parsed URN names, `__urn_name`, and `.lowercase` subfields keep their normalized values. **Action:** none if Search V3 write (`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED`) was never turned on. Otherwise rebuild the V3 indexes with `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true` on the next system update. The V2 indexes are preserved and still map `.keyword`. A rollback sets `ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED=false` and reads those V2 indexes again. An older GMS that keeps V3 reads on still queries `.keyword` on the rebuilt V3 index, so that V3 search returns an empty result set. See [Search and Graph Reindexing](./restore-indices.md). A custom Search V3 mapping configuration that adds `fields.keyword` should remove it.
 
 - **(GMS / Search V3 query by default)** An unset `v3.queryByDefault` leaves a field out of an unqualified Search V3 query. The shipped model sets that flag true on the fields the unqualified query already reads, so that query is unchanged and no reindex is required. Search V2 still uses the top-level `queryByDefault`. **Action:** a custom `@Searchable` that omitted `v3.queryByDefault` and relied on the Search V2 default no longer matches in Search V3 until it sets `"v3": { "queryByDefault": true }`.
 
