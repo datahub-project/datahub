@@ -48,7 +48,7 @@ public class UpsertLinkResolver implements DataFetcher<CompletableFuture<Boolean
               context.getOperationContext(), linkUrl, targetUrn, _entityService);
           try {
 
-            log.warn("Upsert Link. input: {}", input.toString());
+            log.debug("Upsert Link. input: {}", input.toString());
 
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LinkUtils.upsertLink(
