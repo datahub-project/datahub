@@ -686,17 +686,6 @@ class SqlAnalyticsEndpointClient:
             f"server={endpoint_url}, connection_string={connection_string}"
         )
 
-        # Get token before creating engine (needed for attrs_before)
-        # SQL Analytics Endpoint requires database scope for Azure AD authentication
-        token = self.auth_helper.get_bearer_token(scope=SQL_ANALYTICS_ENDPOINT_SCOPE)
-
-        # Convert token to bytes format required by pyodbc
-        # Token needs to be encoded as UTF-16-LE and packed with length prefix
-        token_bytes = token.encode("utf-16-le")
-        token_struct = struct.pack(
-            f"<I{len(token_bytes)}s", len(token_bytes), token_bytes
-        )
-
         # Create a custom connection creator that passes attrs_before to pyodbc
         # SQLAlchemy doesn't support attrs_before directly, so the code uses a custom
         # connection creator that passes the token to pyodbc before the connection is
@@ -711,6 +700,19 @@ class SqlAnalyticsEndpointClient:
             using the attrs_before parameter with SQL_COPT_SS_ACCESS_TOKEN (1256).
             This enables passwordless authentication with the Fabric SQL Analytics Endpoint.
             """
+            # Fetched per connection, not once per engine: the pool recycles
+            # connections hourly and a long profiling run outlives the token.
+            # get_bearer_token caches it and refreshes it shortly before expiry.
+            # SQL Analytics Endpoint requires database scope for Azure AD authentication
+            token = self.auth_helper.get_bearer_token(
+                scope=SQL_ANALYTICS_ENDPOINT_SCOPE
+            )
+
+            # Token needs to be encoded as UTF-16-LE and packed with length prefix
+            token_bytes = token.encode("utf-16-le")
+            token_struct = struct.pack(
+                f"<I{len(token_bytes)}s", len(token_bytes), token_bytes
+            )
             return pyodbc_module.connect(
                 connection_string,
                 timeout=self.config.query_timeout,

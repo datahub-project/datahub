@@ -1,7 +1,9 @@
 """Unit tests for SQL Analytics Endpoint schema client."""
 
 import struct
-from typing import Literal
+import sys
+import types
+from typing import Dict, List, Literal
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -130,6 +132,42 @@ class TestSqlAnalyticsEndpointClient:
         # Verify pool settings
         assert call_args[1].get("pool_pre_ping") is True
         assert call_args[1].get("pool_recycle") == 3600
+
+    @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
+    def test_each_connection_fetches_a_current_token(
+        self,
+        mock_create_engine: MagicMock,
+        mock_auth_helper: MagicMock,
+        sql_endpoint_config: SqlEndpointConfig,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # The pool recycles connections hourly; a connection opened after the
+        # first token expired must not reuse it.
+        attrs_seen: List[Dict[int, bytes]] = []
+        fake_pyodbc = types.ModuleType("pyodbc")
+        fake_pyodbc.connect = lambda *args, **kwargs: attrs_seen.append(  # type: ignore[attr-defined]
+            kwargs["attrs_before"]
+        )
+        monkeypatch.setitem(sys.modules, "pyodbc", fake_pyodbc)
+        mock_auth_helper.get_bearer_token.side_effect = ["token-1", "token-2"]
+
+        client = SqlAnalyticsEndpointClient(
+            auth_helper=mock_auth_helper,
+            config=sql_endpoint_config,
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
+        )
+        client._create_engine(
+            workspace_id="ws-123",
+            item_id="item-456",
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+        )
+        creator = mock_create_engine.call_args.kwargs["creator"]
+        creator()
+        creator()
+
+        tokens = [attrs[1256][4:].decode("utf-16-le") for attrs in attrs_seen]
+        assert tokens == ["token-1", "token-2"]
 
     @patch("datahub.ingestion.source.fabric.onelake.schema_client.create_engine")
     def test_get_engine_caching(
