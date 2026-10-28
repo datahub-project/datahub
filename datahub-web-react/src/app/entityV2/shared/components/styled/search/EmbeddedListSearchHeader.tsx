@@ -11,7 +11,7 @@ import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { SearchBar } from '@app/search/SearchBar';
-import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';

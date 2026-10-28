@@ -4,7 +4,7 @@ import React from 'react';
 
 import { FilterRenderer } from '@app/search/filters/render/FilterRenderer';
 import { HasSiblingsFilter } from '@app/search/filters/render/siblings/HasSiblingsFilter';
-import { FilterRenderProps } from '@app/search/filters/render/types';
+import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 
 export class HasSiblingsRenderer implements FilterRenderer {
     field = 'hasSiblings';
