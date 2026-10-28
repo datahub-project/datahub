@@ -1,10 +1,16 @@
 import re
+from typing import Dict, Tuple
 
 MICROSTRATEGY_PLATFORM = "microstrategy"
 
 # REST endpoint paths that are referenced in more than one place -- the request
 # plus its response-shape/error check, or the re-auth guard -- are centralized
 # so the two uses cannot drift apart. Single-use paths stay inline.
+# Modeling-service header documented as the report instance id. Sending an
+# executed instance is the vendor's suggested route to metric expressions that
+# the static definition omits.
+MSTR_MS_INSTANCE_HEADER = "X-MSTR-MS-Instance"
+
 MSTR_API_AUTH_PREFIX = "/api/auth/"
 MSTR_API_AUTH_LOGIN = "/api/auth/login"
 MSTR_API_AUTH_LOGOUT = "/api/auth/logout"
@@ -12,22 +18,116 @@ MSTR_API_PROJECTS = "/api/projects"
 MSTR_API_OBJECT = "/api/objects/{object_id}"
 MSTR_API_METADATA_SEARCHES = "/api/metadataSearches/results"
 MSTR_API_SEARCHES = "/api/searches/results"
+MSTR_API_FOLDERS_PREDEFINED = "/api/folders/preDefined"
+
+# EnumDSSXMLFolderNames predefined folder type whose MicroStrategy-assigned label
+# ("Shared Reports") differs from its raw metadata folder name ("Reports", nested
+# under the project's "Public Objects" system folder). Resolved via
+# MSTR_API_FOLDERS_PREDEFINED so the browse hierarchy matches what Strategy Web
+# shows instead of the internal metadata name.
+MSTR_FOLDER_TYPE_SHARED_REPORTS = 7
+MSTR_PREDEFINED_FOLDER_LABELS: Dict[int, str] = {
+    MSTR_FOLDER_TYPE_SHARED_REPORTS: "Shared Reports",
+}
+# System containers every object's ancestor chain passes through but Strategy
+# Web never displays: the project root folder (named after the project, so it
+# renders as a duplicate project level) and "Public Objects". Resolved by id
+# via the same predefined-folders call and omitted from the browse hierarchy;
+# children re-parent to the nearest kept ancestor.
+MSTR_FOLDER_TYPE_PUBLIC_OBJECTS = 1
+MSTR_FOLDER_TYPE_PROJECT_ROOT = 39
+MSTR_PREDEFINED_HIDDEN_FOLDER_TYPES = frozenset(
+    {MSTR_FOLDER_TYPE_PUBLIC_OBJECTS, MSTR_FOLDER_TYPE_PROJECT_ROOT}
+)
+# EnumDSSXMLFolderNames profile folder types. Both resolve to the LOGGED-IN
+# principal's own folders: 19 is its profile folder (the per-user tree that
+# holds "My Reports", "My Objects", "My Answers", ...), 20 is its "My Reports".
+# The enum has no value for the "Profiles" system folder that holds every
+# user's profile folder, so that root is resolved as the type-19 folder's
+# parent (via GET /api/objects/{id}?type=8 ancestors); any object with that
+# ancestor is personal, whichever user owns it.
+MSTR_FOLDER_TYPE_PROFILE_OBJECTS = 19
+MSTR_FOLDER_TYPE_PROFILE_REPORTS = 20
+MSTR_PERSONAL_FOLDER_TYPES = (
+    MSTR_FOLDER_TYPE_PROFILE_OBJECTS,
+    MSTR_FOLDER_TYPE_PROFILE_REPORTS,
+)
+# EnumDSSXMLObjectTypes: Folder.
+MSTR_OBJECT_TYPE_FOLDER = 8
+# Fallback when the Profiles root id cannot be resolved (older server, no
+# privilege): an ancestor folder whose name equals one of these
+# (case-insensitive) marks an object as personal. The resolved label of the
+# type-20 folder is added when available.
+MSTR_PERSONAL_FOLDER_NAMES = frozenset({"profiles", "my reports"})
 
 MSTR_LOGIN_MODE_STANDARD = 1
 MSTR_LOGIN_MODE_GUEST = 8
 
 MSTR_OBJECT_TYPE_DASHBOARD = 55
 MSTR_OBJECT_TYPE_REPORT = 3
-# Documents share object type 55 with dossiers; the subtype distinguishes them.
+# Report Services documents and dossiers share object type 55 AND subtype
+# 14081 (DssXmlSubTypeReportWritingDocument): search results carry the same
+# type and subtype for both, and only viewMedia tells them apart (mstrio-py
+# lists each kind by searching this subtype and filtering on view_media). The
+# subtype still rules out the other type-55 subtypes (definition, theme, bot).
 MSTR_OBJECT_SUBTYPE_DOCUMENT = "14081"
+# EnumDSSXMLViewMedia flags that mark a type-55 object as a dossier: bits 30
+# and 29 set, bits 31 and 27 clear (mstrio-py helper.is_dashboard). Anything
+# else with the document subtype is a Report Services document.
+MSTR_VIEW_MEDIA_DOSSIER_MASK = 0xE800_0000
+MSTR_VIEW_MEDIA_DOSSIER_FLAGS = 0x6000_0000
 # EnumDSSXMLObjectTypes: Metric, Consolidation. Used for project-wide metric
-# search and to recognize a consolidation-type expression token.
-MSTR_OBJECT_TYPE_METRIC = 7
+# search and to recognize a consolidation-type expression token. Metric is
+# DssXmlTypeMetric = 4 (mstrio-py's ObjectTypes enum: METRIC = 4,
+# AGG_METRIC = 7); searching type 7 returns no plain metrics at all.
+MSTR_OBJECT_TYPE_METRIC = 4
+# EnumDSSXMLObjectTypes: AggMetric. Unused; kept so 7 is not read as Metric.
+MSTR_OBJECT_TYPE_AGG_METRIC = 7
 MSTR_OBJECT_TYPE_CONSOLIDATION = 47
+
+# Which REST endpoint supplied a report's derived metric definitions: the
+# Modeling service (GET /api/model/reports/{id}, carries expressions) or the
+# v2 report definition (GET /api/v2/reports/{id}, names derived metrics but
+# omits their formulas). Recorded per field so a formula-less description can
+# say which endpoint answered.
+MSTR_DEFINITION_ENDPOINT_MODEL = "model"
+MSTR_DEFINITION_ENDPOINT_V2 = "v2"
+# Document/dossier-level derived metrics read from GET /api/model/documents/{id}.
+MSTR_DEFINITION_ENDPOINT_MODEL_DOCUMENT = "model_document"
+# The formula came from GET /api/model/metrics/{id} for a metric the report
+# definition only named (an embedded, report-level derived metric).
+MSTR_DEFINITION_ENDPOINT_METRIC_MODEL = "metric_model"
+# Fixed prefix on the DEBUG-level payload-shape lines emitted while resolving
+# report derived metric definitions, so they can be grepped out of an
+# executor debug log.
+MSTR_DERIVED_DEBUG_LOG_PREFIX = "[mstr-derived-debug]"
+# Same purpose for Report Services document definitions that yield no
+# visualizations: the documented shape carries them under
+# layouts[].visualizations[], so an empty result means the tenant answered
+# with a shape the parser does not know yet.
+MSTR_DOCUMENT_DEBUG_LOG_PREFIX = "[mstr-document-debug]"
+# Diagnostic probe of GET /api/model/documents/{id} for those documents: how
+# many documents per project are probed, how much of a non-200 (or non-JSON)
+# answer is kept, and the key-name fragments that mark a path in the answer
+# as describing the document's contents (grids, layout, panels) rather than
+# its datasets or prompts.
+MSTR_DOCUMENT_MODEL_PROBES_PER_PROJECT = 3
+MSTR_DOCUMENT_MODEL_PROBE_EXCERPT_CHARS = 300
+MSTR_DOCUMENT_MODEL_PROBE_HINT_KEYWORDS = (
+    "layout",
+    "visualization",
+    "grid",
+    "section",
+    "node",
+    "panel",
+    "template",
+    "shape",
+)
 
 MEASURE_TAG_URN = "urn:li:tag:Measure"
 DIMENSION_TAG_URN = "urn:li:tag:Dimension"
 TEMPORAL_TAG_URN = "urn:li:tag:Temporal"
+DERIVED_TAG_URN = "urn:li:tag:Derived"
 
 # Entity kinds usage buckets can attach to (dashboards get
 # DashboardUsageStatistics, report charts get ChartUsageStatistics).
@@ -129,6 +229,15 @@ MSTR_OBJECT_ID_PARENT_KEYS = frozenset(
     {"metric", "metrics", "attribute", "attributes", "templatemetrics"}
 )
 MSTR_OBJECT_TYPES = frozenset({"metric", "attribute"})
+# Lowercased grid unit types used when walking a runtime grid definition: the
+# metrics container column, the metric elements inside it, and attribute units.
+MSTR_GRID_TEMPLATE_METRICS_TYPE = "templatemetrics"
+MSTR_GRID_METRIC_ELEMENT_TYPE = "metric"
+MSTR_GRID_ATTRIBUTE_TYPE = "attribute"
+# Grid axes in the order Strategy renders their headers (row attributes on the
+# left, then column units, then page-by); a compound grid's columnSets follow.
+MSTR_GRID_AXES = ("rows", "columns", "pageBy")
+MSTR_GRID_COLUMN_SETS_KEY = "columnSets"
 
 # Pre-compiled regexes. Matched case-insensitively; declared once so the
 # hot-path normalizers reuse a single compiled pattern.
@@ -202,6 +311,25 @@ MSTR_NAME_TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 MSTR_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
 # SQL identifier (column/table token) extractor for expression parsing.
 MSTR_SQL_IDENTIFIER_RE = re.compile(r"[A-Za-z_][\w$#]*")
+# Metric formulas reference sibling catalog objects as `{Object Name}` tokens
+# in the Modeling API's expression text, e.g. `({Net Amt} - {Net Amt LY}) /
+# Abs({Net Amt LY})`, and as `[Object Name]` in Strategy Web's editor syntax,
+# e.g. `([Net Amt] / [Plan Amt]) - 1`; report-level derived metric formulas
+# can surface in either form depending on the endpoint that returned them.
+MSTR_METRIC_REFERENCE_RE = re.compile(r"\{([^{}]+)\}|\[([^\[\]]+)\]")
+# Object type / subtype words that identify an embedded expression-bearing
+# node as a metric definition, and words that rule one out (filters and
+# thresholds also carry expression-like text in report definitions).
+MSTR_METRIC_DEFINITION_TYPE_WORDS = ("metric",)
+MSTR_NON_METRIC_DEFINITION_TYPE_WORDS = (
+    "attribute",
+    "consolidation",
+    "fact",
+    "filter",
+    "prompt",
+    "qualification",
+    "threshold",
+)
 # A 32-char hex string is MicroStrategy's canonical object-id form.
 MSTR_HEX_OBJECT_ID_RE = re.compile(r"[0-9A-Fa-f]{32}")
 # Collapses internal whitespace runs to a single space.
@@ -364,9 +492,18 @@ MSTR_USAGE_NAME_FORM_NAME = "Name"
 MSTR_USAGE_ID_FORM_NAME = "ID"
 MSTR_USAGE_USER_FORM_NAMES = ("Login", "Name")
 
-# Intelligent cube (776) and super cube (779) subtypes; the quick search for the
-# cube name can also match plain reports, which must be skipped.
-MSTR_USAGE_CUBE_SUBTYPES = frozenset({"776", "779"})
+# Intelligent cube (776) and super cube (779) subtypes. Cubes share object type
+# 3 with reports; only the subtype tells them apart. Used to skip plain reports
+# in the usage-cube quick search and to decide whether a dataset object can be
+# opened in Library (reports can, cubes cannot).
+MSTR_CUBE_SUBTYPES = frozenset({"776", "779"})
+MSTR_USAGE_CUBE_SUBTYPES = MSTR_CUBE_SUBTYPES
+# Grid report subtype (EnumDSSXMLObjectSubTypes DssXmlSubTypeReportGrid). A
+# Report Services document's datasets are grid reports, and only a report has
+# a report SQL view, so the document SQL-lineage path opens report instances
+# for datasets of this subtype alone; cubes and other subtypes are skipped and
+# counted. The only subtype observed as a document dataset so far.
+MSTR_OBJECT_SUBTYPE_REPORT_GRID = "768"
 
 # Date form values are rendered strings whose format follows the Intelligence
 # Server locale; month-first is the shipped default.
@@ -379,4 +516,34 @@ MSTR_OBJECT_TIMESTAMP_FORMATS = (
     "%Y-%m-%dT%H:%M:%S.%f%z",
     "%Y-%m-%dT%H:%M:%S%z",
     "%Y-%m-%d %H:%M:%S%z",
+)
+
+# Structured properties that place a dossier visualization chart in its
+# chapter and page (emit_chapter_page_structured_properties). Each entry is
+# the property's qualified name (the id of its urn:li:structuredProperty:
+# URN), display name, DataHub data type and description. The definitions are
+# emitted in this order, which is the order the UI lists them in: chapter
+# above page, then the page's position within its chapter.
+MSTR_STRUCTURED_PROPERTY_CHAPTER = "io.acryl.microstrategy.chapter"
+MSTR_STRUCTURED_PROPERTY_PAGE = "io.acryl.microstrategy.page"
+MSTR_STRUCTURED_PROPERTY_PAGE_POSITION = "io.acryl.microstrategy.pagePosition"
+MSTR_CHAPTER_PAGE_STRUCTURED_PROPERTIES: Tuple[Tuple[str, str, str, str], ...] = (
+    (
+        MSTR_STRUCTURED_PROPERTY_CHAPTER,
+        "MicroStrategy Chapter",
+        "string",
+        "Name of the dossier chapter the visualization sits in.",
+    ),
+    (
+        MSTR_STRUCTURED_PROPERTY_PAGE,
+        "MicroStrategy Page",
+        "string",
+        "Name of the dossier page the visualization sits on.",
+    ),
+    (
+        MSTR_STRUCTURED_PROPERTY_PAGE_POSITION,
+        "MicroStrategy Page Position",
+        "number",
+        "1-based position of the visualization's page within its chapter.",
+    ),
 )
