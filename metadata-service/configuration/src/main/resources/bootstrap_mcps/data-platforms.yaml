@@ -278,6 +278,7 @@
     name: sqs
     displayName: Amazon SQS
     type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/sqslogo.png"
 - entityUrn: urn:li:dataPlatform:sns
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -287,6 +288,7 @@
     name: sns
     displayName: Amazon SNS
     type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/snslogo.png"
 - entityUrn: urn:li:dataPlatform:lambda
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -296,6 +298,7 @@
     name: lambda
     displayName: AWS Lambda
     type: OTHERS
+    logoUrl: "assets/platforms/lambdalogo.png"
 - entityUrn: urn:li:dataPlatform:eventbridge
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -305,6 +308,7 @@
     name: eventbridge
     displayName: Amazon EventBridge
     type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/eventbridgelogo.png"
 - entityUrn: urn:li:dataPlatform:eventbridge-pipes
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -314,6 +318,7 @@
     name: eventbridge-pipes
     displayName: Amazon EventBridge Pipes
     type: OTHERS
+    logoUrl: "assets/platforms/eventbridge-pipeslogo.png"
 - entityUrn: urn:li:dataPlatform:kusto
   entityType: dataPlatform
   aspectName: dataPlatformInfo
