@@ -111,9 +111,16 @@ public class SearchTemplatePolicyTest {
             "{ \"bool\": { \"should\": [ {{&structuredQuery}}, { \"match_all\": {} } ], \"minimum_should_match\": 1 } }");
     harness.store("urn:li:searchTemplate:structuredCopy", copied);
     String rendered = render("urn:li:searchTemplate:structuredCopy", "name:orders");
-    List<JsonNode> clauses = queryStrings(rendered);
-    assertEquals(clauses.size(), 1, rendered);
-    assertEquals(clauses.get(0).get("query").asText(), "name:orders");
+    assertTrue(rendered.contains("\"match_all\""), rendered);
+    assertFalse(rendered.contains("match_phrase_prefix"), rendered);
+    assertTrue(
+        queryStrings(rendered).stream()
+            .noneMatch(clause -> "name:orders".equals(clause.path("query").asText())),
+        rendered);
+    List<JsonNode> nameTerms = terms(rendered, "name.lowercase");
+    assertEquals(nameTerms.size(), 1, rendered);
+    assertEquals(nameTerms.get(0).path("value").asText(), "orders");
+    assertFalse(nameTerms.get(0).path("case_insensitive").asBoolean(false), rendered);
   }
 
   @Test
@@ -265,6 +272,31 @@ public class SearchTemplatePolicyTest {
       return found;
     } catch (Exception e) {
       throw new IllegalStateException(json, e);
+    }
+  }
+
+  private static List<JsonNode> terms(String json, String field) {
+    try {
+      List<JsonNode> found = new ArrayList<>();
+      collectTerms(SearchTemplateFixtures.JSON.readTree(json), field, found);
+      return found;
+    } catch (Exception e) {
+      throw new IllegalStateException(json, e);
+    }
+  }
+
+  private static void collectTerms(JsonNode node, String field, List<JsonNode> found) {
+    if (node == null) {
+      return;
+    }
+    if (node.isObject()) {
+      JsonNode term = node.get("term");
+      if (term != null && term.has(field)) {
+        found.add(term.get(field));
+      }
+      node.fields().forEachRemaining(entry -> collectTerms(entry.getValue(), field, found));
+    } else if (node.isArray()) {
+      node.forEach(child -> collectTerms(child, field, found));
     }
   }
 
