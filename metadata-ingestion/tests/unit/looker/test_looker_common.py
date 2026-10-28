@@ -1,6 +1,7 @@
 import logging
 from typing import List, Optional
 from unittest.mock import MagicMock
+from urllib.parse import unquote, urlparse
 
 import pytest
 from looker_sdk.sdk.api40.models import (
@@ -13,6 +14,8 @@ from looker_sdk.sdk.api40.models import (
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.looker.looker_common import (
     ExploreUpstreamViewField,
+    LookerDashboard,
+    LookerDashboardElement,
     LookerExplore,
     LookerExploreJoin,
     LookerViewId,
@@ -21,6 +24,97 @@ from datahub.ingestion.source.looker.looker_common import (
 )
 from datahub.ingestion.source.looker.looker_config import LookerCommonConfig
 from datahub.ingestion.source.looker.lookml_config import BASE_PROJECT_NAME
+
+_LOOKER_BASE = "https://looker.example.com"
+
+
+class TestLookerEmbedUrlEncoding:
+    def test_dashboard_embed_url_encodes_spaces_preserves_lookml_separator(
+        self,
+    ) -> None:
+        dashboard_id = "model::My Dashboard"
+        dashboard = LookerDashboard(
+            id=dashboard_id,
+            title="Example",
+            dashboard_elements=[],
+            created_at=None,
+        )
+        url = dashboard.embed_url(_LOOKER_BASE)
+        assert url == f"{_LOOKER_BASE}/embed/dashboards/model::My%20Dashboard"
+
+    def test_dashboard_embed_url_unchanged_for_plain_lookml_id(self) -> None:
+        dashboard_id = "model::name"
+        dashboard = LookerDashboard(
+            id=dashboard_id,
+            title="Example",
+            dashboard_elements=[],
+            created_at=None,
+        )
+        url = dashboard.embed_url(_LOOKER_BASE)
+        assert url == f"{_LOOKER_BASE}/embed/dashboards/{dashboard_id}"
+
+    def test_dashboard_embed_url_round_trip_and_no_raw_space(self) -> None:
+        dashboard_id = "model::My Dashboard"
+        url = LookerDashboard(
+            id=dashboard_id,
+            title="Example",
+            dashboard_elements=[],
+            created_at=None,
+        ).embed_url(_LOOKER_BASE)
+        assert " " not in url
+        path = urlparse(url).path
+        assert unquote(path).endswith(f"/embed/dashboards/{dashboard_id}")
+
+    @pytest.mark.parametrize(
+        "dashboard_id,encoded_segment",
+        [
+            ("a?b#c", "a%3Fb%23c"),
+            ("model/with/slash", "model%2Fwith%2Fslash"),
+        ],
+    )
+    def test_dashboard_embed_url_encodes_special_characters(
+        self, dashboard_id: str, encoded_segment: str
+    ) -> None:
+        url = LookerDashboard(
+            id=dashboard_id,
+            title="Example",
+            dashboard_elements=[],
+            created_at=None,
+        ).embed_url(_LOOKER_BASE)
+        assert url.endswith(f"/embed/dashboards/{encoded_segment}")
+
+    def test_dashboard_element_embed_url_encodes_look_id_with_space(self) -> None:
+        element = LookerDashboardElement(
+            id="elem_1",
+            title="Tile",
+            query_slug="slug",
+            upstream_explores=[],
+            look_id="a b",
+        )
+        url = element.embed_url(_LOOKER_BASE)
+        assert url == f"{_LOOKER_BASE}/embed/looks/a%20b"
+
+    def test_dashboard_element_embed_url_unchanged_for_numeric_look_id(self) -> None:
+        look_id = "12345"
+        element = LookerDashboardElement(
+            id="elem_1",
+            title="Tile",
+            query_slug="slug",
+            upstream_explores=[],
+            look_id=look_id,
+        )
+        url = element.embed_url(_LOOKER_BASE)
+        assert url == f"{_LOOKER_BASE}/embed/looks/{look_id}"
+
+    def test_explore_embed_url_encodes_model_and_name(self) -> None:
+        explore = LookerExplore(name="my explore", model_name="my model")
+        url = explore._get_embed_url(_LOOKER_BASE)
+        assert url == f"{_LOOKER_BASE}/embed/explore/my%20model/my%20explore"
+
+    def test_explore_embed_url_unchanged_for_plain_names(self) -> None:
+        explore = LookerExplore(name="orders", model_name="ecommerce")
+        url = explore._get_embed_url(_LOOKER_BASE)
+        assert url == f"{_LOOKER_BASE}/embed/explore/ecommerce/orders"
 
 
 class TestExploreUpstreamViewFieldFormFieldName:

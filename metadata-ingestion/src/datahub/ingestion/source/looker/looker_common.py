@@ -20,6 +20,7 @@ from typing import (
     Union,
     cast,
 )
+from urllib.parse import quote
 
 import lkml
 from looker_sdk.error import SDKError
@@ -1494,7 +1495,10 @@ class LookerExplore:
 
     def _get_embed_url(self, base_url: str) -> str:
         base_url = remove_port_from_url(base_url)
-        return f"{base_url}/embed/explore/{self.model_name}/{self.name}"
+        return (
+            f"{base_url}/embed/explore/"
+            f"{quote(self.model_name, safe=':')}/{quote(self.name, safe=':')}"
+        )
 
     def _build_explore_view_logic(self) -> Optional[str]:
         """Reconstruct the explore's LookML join graph as view logic.
@@ -1942,7 +1946,7 @@ class LookerDashboardElement:
         # A dashboard element can use a look or just a raw query against an explore
         base_url = remove_port_from_url(base_url)
         if self.look_id is not None:
-            return f"{base_url}/embed/looks/{self.look_id}"
+            return f"{base_url}/embed/looks/{quote(str(self.look_id), safe=':')}"
         else:
             # No embeddable URL
             return None
@@ -1991,7 +1995,9 @@ class LookerDashboard:
 
     def embed_url(self, base_url: str) -> str:
         base_url = remove_port_from_url(base_url)
-        return f"{base_url}/embed/dashboards/{self.id}"
+        # LookML IDs use model::name; Looker routes on literal ::, so safe=':' not ''.
+        # Default safe='/' would leave slashes in an ID; safe=':' encodes them too.
+        return f"{base_url}/embed/dashboards/{quote(self.id, safe=':')}"
 
     def get_urn_dashboard_id(self):
         return get_urn_looker_dashboard_id(self.id)

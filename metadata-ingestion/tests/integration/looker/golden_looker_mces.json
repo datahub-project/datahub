@@ -771,7 +771,7 @@
     "aspectName": "embed",
     "aspect": {
         "json": {
-            "renderUrl": "https://looker.company.com/embed/explore/bogus data/my_view"
+            "renderUrl": "https://looker.company.com/embed/explore/bogus%20data/my_view"
         }
     },
     "systemMetadata": {
