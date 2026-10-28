@@ -563,6 +563,18 @@ confluence_common = {
     "graphql-core>=3.0.0,<4.0.0",
 } | unstructured_lib
 
+sharepoint_common = {
+    # MSAL for Microsoft Graph API authentication (client credentials / service principal)
+    "msal>=1.31.1,<2.0.0",
+    # openpyxl for Excel (.xlsx) schema inference in data_lake mode
+    "openpyxl>=3.1.5,<4.0.0",
+    # Schema inference deps (shared with s3/gcs/abs data lake connectors)
+    *pyarrow_common,
+    "tableschema>=1.20.2,<2.0.0",
+    "ujson>=5.12.0,<6.0.0",
+    *path_spec_common,
+} | unstructured_lib
+
 google_drive_common = {
     "google-api-python-client>=2.0.0,<3.0.0",
     "google-auth>=2.0.0,<3.0.0",
@@ -893,6 +905,7 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks_common | databricks | sql_common,
     "notion": notion_common,
     "confluence": confluence_common,
+    "sharepoint": sharepoint_common,
     "google-drive": google_drive_common,
     "github-documents": set(),
     "unstructured": unstructured_lib,
@@ -976,8 +989,8 @@ all_exclude_plugins: Set[str] = {
     # unstructured 0.24.x / unstructured-ingest 1.4.x require Python 3.11+. Keep
     # them out of "all" so uv can lock acryl-datahub for requires-python >=3.10.
     # Install explicitly: acryl-datahub[datahub-documents], [notion], [confluence],
-    # [google-drive], or [unstructured]. Managed ingestion still maps source type to
-    # those extras.
+    # [google-drive], [sharepoint], or [unstructured]. Managed ingestion still maps
+    # source type to those extras.
     # The full ingestion image re-adds them:
     # [all,datahub-documents,notion,confluence,google-drive].
     "datahub-documents",
@@ -985,6 +998,7 @@ all_exclude_plugins: Set[str] = {
     "notion",
     "confluence",
     "google-drive",
+    "sharepoint",
 }
 
 mypy_stubs = {
@@ -1324,6 +1338,7 @@ entry_points = {
         "presto-on-hive = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
+        "sharepoint = datahub.ingestion.source.sharepoint.sharepoint_source:SharePointSource",
         "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",

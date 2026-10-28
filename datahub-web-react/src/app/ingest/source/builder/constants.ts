@@ -56,6 +56,7 @@ import qlikLogo from '@images/qliklogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import s3Logo from '@images/s3logo.png';
 import sacLogo from '@images/saclogo.svg';
+import sharepointLogo from '@images/sharepointlogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
@@ -207,6 +208,8 @@ const FILE = 'file';
 const FILE_URN = `urn:li:dataPlatform:${FILE}`;
 const QLIK_SENSE = 'qlik-sense';
 const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
+export const SHAREPOINT = 'sharepoint';
+const SHAREPOINT_URN = `urn:li:dataPlatform:${SHAREPOINT}`;
 const SIGMA = 'sigma';
 const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
 export const SAC = 'sac';
@@ -305,6 +308,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [QLIK_SENSE_URN]: qlikLogo,
     [SIGMA_URN]: sigmaLogo,
     [SAC_URN]: sacLogo,
+    [SHAREPOINT_URN]: sharepointLogo,
     [CASSANDRA_URN]: cassandraLogo,
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
