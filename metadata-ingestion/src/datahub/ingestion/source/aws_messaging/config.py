@@ -184,6 +184,13 @@ class AwsMessagingConfigBase(
         default=None,
         description="platform_instance of the S3 source recipe, for S3 notification lineage.",
     )
+    s3_convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description=(
+            "Set to the S3 source recipe's convert_urns_to_lowercase, so S3 "
+            "notification lineage looks for the S3 dataset URNs that source emits."
+        ),
+    )
     cloudtrail_producers: CloudTrailProducersConfig = Field(
         default_factory=CloudTrailProducersConfig,
         description="Producer lineage from CloudTrail Lake (off by default).",

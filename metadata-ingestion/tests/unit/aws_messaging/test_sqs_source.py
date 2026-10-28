@@ -11,7 +11,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
-from datahub.metadata.schema_classes import DomainsClass, MetadataChangeProposalClass
+from datahub.metadata.schema_classes import (
+    DomainsClass,
+    MetadataChangeProposalClass,
+    StatusClass,
+)
 from datahub.testing import mce_helpers
 from tests.unit.aws_messaging.conftest import ACCOUNT, REGION, base_config, sqs_client
 
@@ -103,12 +107,19 @@ def test_dead_letter_edge(aws: None) -> None:
     assert upstreams(_run()) == {queue_urn("orders-dlq"): {queue_urn("orders")}}
 
 
-def test_lineage_patches_are_not_registered_for_stale_removal(aws: None) -> None:
+def test_dead_letter_queue_still_gets_status(aws: None) -> None:
+    # The DLQ's lineage patch must not hide it from the status processor.
     dlq_arn = create_queue("orders-dlq")
     create_queue("orders", Attributes=redrive(dlq_arn))
-    for workunit in _run().get_workunits_internal():
-        if isinstance(workunit.metadata, MetadataChangeProposalClass):
-            assert not workunit.is_primary_source
+    with_status = {
+        wu.get_urn()
+        for wu in _run().get_workunits()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, StatusClass)
+        or isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "status"
+    }
+    assert {queue_urn("orders"), queue_urn("orders-dlq")} <= with_status
 
 
 def test_explicit_platform_instance_wins(aws: None) -> None:

@@ -18,6 +18,15 @@ class Arn(BaseModel):
         # `rule/<bus>/<name>` and Pipes `pipe/<name>`.
         return self.resource.replace(":", "/").rsplit("/", 1)[-1]
 
+    @property
+    def event_bus_name(self) -> str:
+        # Event bus ARNs end in `event-bus/<name>`, and partner bus names contain
+        # slashes themselves (`aws.partner/<vendor>/<id>/<name>`).
+        prefix = "event-bus/"
+        if self.resource.startswith(prefix):
+            return self.resource[len(prefix) :]
+        return self.resource_name
+
     def __str__(self) -> str:
         return f"arn:{self.partition}:{self.service}:{self.region}:{self.account}:{self.resource}"
 

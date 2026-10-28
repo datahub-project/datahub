@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.aws_messaging.constants import (
     ARN_PATTERN,
+    EVENTBRIDGE_PLATFORM,
     SNS_PLATFORM,
     SQS_PLATFORM,
 )
@@ -74,6 +75,17 @@ class UrnBuilder:
         return make_dataset_urn_with_platform_instance(
             platform=platform,
             name=self.resource_id(arn),
+            platform_instance=self.instance_for(arn.account),
+            env=self.env,
+        )
+
+    def event_bus_id(self, arn: Arn) -> str:
+        return f"{arn.region}.{arn.event_bus_name}"
+
+    def event_bus_urn(self, arn: Arn) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=EVENTBRIDGE_PLATFORM,
+            name=self.event_bus_id(arn),
             platform_instance=self.instance_for(arn.account),
             env=self.env,
         )
