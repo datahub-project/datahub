@@ -60,9 +60,18 @@ class KafkaSinkConfig(KafkaEmitterConfig):
     )
 
 
-def _enhance_schema_registry_error(error_str: str) -> str:
+def _enhance_schema_registry_error(
+    error_str: str, auto_register_schemas: bool = True
+) -> str:
     """Enhance schema registry 404 errors with actionable guidance."""
     if "Schema Registry" in error_str and "404" in error_str:
+        if not auto_register_schemas:
+            return (
+                f"{error_str}\n"
+                "HINT: auto_register_schemas is disabled, so the MCE/MCP schemas must "
+                "be pre-registered under the '<topic>-value' subjects for the topics "
+                "in 'topic_routes'."
+            )
         return (
             f"{error_str}\n"
             "HINT: Topic names may not match schema registry. "
@@ -71,9 +80,9 @@ def _enhance_schema_registry_error(error_str: str) -> str:
     return error_str
 
 
-def _log_enhanced_error(error_str: str) -> None:
+def _log_enhanced_error(error_str: str, auto_register_schemas: bool = True) -> None:
     """Log enhanced error message if applicable."""
-    enhanced_error = _enhance_schema_registry_error(error_str)
+    enhanced_error = _enhance_schema_registry_error(error_str, auto_register_schemas)
     if enhanced_error != error_str:
         logger.error(enhanced_error)
 
@@ -88,6 +97,8 @@ class _KafkaCallback:
     # async write failed in the same run. Invoked from librdkafka's background
     # thread, so a threading.Event (thread-safe) is used.
     failure_signal: Optional[threading.Event] = None
+    # Selects the right hint for schema registry 404s (see _enhance_schema_registry_error).
+    auto_register_schemas: bool = True
 
     def kafka_callback(self, err: Any, msg: Any) -> None:
         """
@@ -99,7 +110,7 @@ class _KafkaCallback:
         """
         if err is not None:
             error_str = str(err)
-            _log_enhanced_error(error_str)
+            _log_enhanced_error(error_str, self.auto_register_schemas)
 
             if self.failure_signal is not None:
                 self.failure_signal.set()
@@ -123,7 +134,7 @@ class _KafkaCallback:
         This is separate from kafka_callback which handles delivery failures.
         """
         error_str = str(err)
-        _log_enhanced_error(error_str)
+        _log_enhanced_error(error_str, self.auto_register_schemas)
 
         if self.failure_signal is not None:
             self.failure_signal.set()
@@ -287,6 +298,7 @@ class DatahubKafkaSink(Sink[KafkaSinkConfig, KafkaSinkReport]):
             record_envelope,
             write_callback,
             failure_signal=self._delivery_failed,
+            auto_register_schemas=self.config.connection.auto_register_schemas,
         )
         try:
             record = record_envelope.record
