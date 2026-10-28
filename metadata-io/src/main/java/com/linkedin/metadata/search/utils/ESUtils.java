@@ -174,7 +174,13 @@ public class ESUtils {
   /** Mapping parameter name for the keyword length guard described above. */
   public static final String IGNORE_ABOVE = "ignore_above";
 
-  /** Byte-safe {@code ignore_above} (characters) for a configured keyword max length in bytes. */
+  /**
+   * Byte-safe {@code ignore_above} (characters) for a configured keyword max length in bytes.
+   *
+   * <p>{@code ignore_above} is measured in <b>characters</b> by Elasticsearch/OpenSearch, but
+   * Lucene's per-term limit is in <b>bytes</b>. A UTF-8 character is at most 4 bytes, so dividing
+   * by 4 yields the largest character threshold that can never exceed the byte limit.
+   */
   public static int keywordIgnoreAboveForMaxBytes(int keywordMaxBytes) {
     int maxBytes = keywordMaxBytes > 0 ? keywordMaxBytes : KEYWORD_MAXLENGTH;
     return maxBytes / 4;
