@@ -1,3 +1,6 @@
+import pytest
+
+from datahub.emitter import mce_builder
 from datahub.ingestion.source.aws_messaging.arn import (
     UrnBuilder,
     endpoint_host,
@@ -71,3 +74,25 @@ def test_urns_use_the_account_from_the_arn() -> None:
     assert urns.topic_urn(mapped) == (
         "urn:li:dataset:(urn:li:dataPlatform:sns,shared.us-east-1.orders,PROD)"
     )
+
+
+def test_unresolved_account_keeps_one_platform_instance() -> None:
+    urns = UrnBuilder(env="PROD", account_id=None, platform_instance=None)
+    arn = parse_arn("arn:aws:sqs:us-east-1:123456789012:orders")
+    assert arn is not None
+    assert urns.instance_for(arn.account) is None
+    assert (
+        urns.queue_urn(arn)
+        == "urn:li:dataset:(urn:li:dataPlatform:sqs,us-east-1.orders,PROD)"
+    )
+
+
+def test_resource_id_follows_dataset_urn_lowercasing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    arn = parse_arn("arn:aws:sqs:us-east-1:123456789012:Orders")
+    assert arn is not None
+    monkeypatch.setattr(mce_builder, "DATASET_URN_TO_LOWER", True)
+    assert UrnBuilder.resource_id(arn) == "us-east-1.orders"
+    monkeypatch.setattr(mce_builder, "DATASET_URN_TO_LOWER", False)
+    assert UrnBuilder.resource_id(arn) == "us-east-1.Orders"
