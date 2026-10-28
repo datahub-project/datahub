@@ -21,6 +21,16 @@ from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeClientRe
 
 logger = logging.getLogger(__name__)
 
+
+class IncompleteCatalogListing(Exception):
+    """The OneLake catalog listing did not finish.
+
+    A partial page or an empty response from a failed request is not the full
+    set of tables. Callers must surface this as a source failure so stale
+    entity removal does not soft-delete tables that were never listed.
+    """
+
+
 # OneLake Delta Table APIs base URL
 ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
 
@@ -255,12 +265,12 @@ class OneLakeClient(BaseFabricClient):
             if not next_token:
                 break
             if next_token in seen_tokens:
-                # Guard against an endpoint that keeps returning the same token.
-                logger.warning(
+                # A repeated token means the catalog is truncated. Returning the
+                # pages already seen would look like a complete listing.
+                raise IncompleteCatalogListing(
                     f"Repeated page token while listing {description}; stopping "
                     f"after {page} page(s)."
                 )
-                break
             seen_tokens.add(next_token)
             request_params["page_token"] = next_token
             page += 1
@@ -438,9 +448,11 @@ class OneLakeClient(BaseFabricClient):
                         workspace_id, lakehouse_id, schema_name
                     )
             except requests.exceptions.HTTPError as e:
-                # If OneLake APIs fail with 401/403, it might be an authentication/permission issue
-                # Log warning and return empty (don't fail the entire ingestion)
-                if e.response.status_code in (401, 403):
+                # 401/403 is not an empty lakehouse. During ingestion,
+                # returning nothing would soft-delete every table previously
+                # ingested for this item, so raise instead. The probe passes
+                # on_degraded and reports the refusal itself.
+                if e.response is not None and e.response.status_code in (401, 403):
                     logger.warning(
                         f"OneLake Delta Table APIs require additional permissions or different authentication. "
                         f"Unable to list tables for schemas-enabled lakehouse {lakehouse_id} "
@@ -457,8 +469,12 @@ class OneLakeClient(BaseFabricClient):
                             f"empty. The identity needs Lakehouse.Read.All (or "
                             f"ReadWrite.All)."
                         )
-                    # Return empty iterator instead of raising
-                    return
+                        return
+                    raise IncompleteCatalogListing(
+                        f"OneLake Delta Table APIs denied listing tables for "
+                        f"schemas-enabled lakehouse {lakehouse_id} "
+                        f"(HTTP {e.response.status_code})."
+                    ) from e
                 else:
                     logger.error(
                         f"Failed to list tables for schemas-enabled lakehouse {lakehouse_id}: {e}"
@@ -544,6 +560,58 @@ class OneLakeClient(BaseFabricClient):
                 logger.error(f"Failed to list tables for lakehouse {lakehouse_id}: {e}")
                 raise
 
+    def list_shortcuts(self, workspace_id: str, item_id: str) -> Iterator[dict]:
+        """List shortcuts on a lakehouse.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/onelake-shortcuts/list-shortcuts
+
+        The Fabric REST API pages with `continuationToken`. Only shortcuts whose
+        path is under `Tables` are lakehouse tables; callers filter the rest.
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse GUID
+
+        Yields:
+            Shortcut payload dictionaries
+        """
+        logger.info(f"Listing shortcuts for lakehouse {item_id}")
+        yield from self._paginate(
+            f"workspaces/{workspace_id}/items/{item_id}/shortcuts"
+        )
+
+    def get_workspace_display_name(self, workspace_id: str) -> Optional[str]:
+        """Return a workspace's display name.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/workspaces/get-workspace
+
+        Used to resolve shortcut targets, which only carry GUIDs. Returns None
+        when the workspace cannot be read (not found or no access).
+        """
+        try:
+            data = self.get(f"workspaces/{workspace_id}").json()
+        except Exception as e:
+            logger.warning(f"Failed to resolve workspace {workspace_id}: {e}")
+            return None
+        return data.get("displayName") or None
+
+    def get_item_display_name(self, workspace_id: str, item_id: str) -> Optional[str]:
+        """Return an item's display name.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/core/items/get-item
+
+        Used to resolve shortcut targets, which only carry GUIDs. Returns None
+        when the item cannot be read (not found or no access).
+        """
+        try:
+            data = self.get(f"workspaces/{workspace_id}/items/{item_id}").json()
+        except Exception as e:
+            logger.warning(
+                f"Failed to resolve item {item_id} in workspace {workspace_id}: {e}"
+            )
+            return None
+        return data.get("displayName") or None
+
     def list_warehouse_tables(
         self,
         workspace_id: str,
@@ -560,7 +628,7 @@ class OneLakeClient(BaseFabricClient):
 
         System schemas (`sys`, `INFORMATION_SCHEMA`, `queryinsights`) are
         skipped. A 404 means the item has no OneLake catalog (for example a
-        staging warehouse) and yields nothing.
+        staging warehouse): it is logged and the warehouse yields no tables.
 
         Reference: https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
 

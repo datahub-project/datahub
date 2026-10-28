@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Iterator, Optional
+from typing import Dict, Iterator, Optional, Set
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -176,6 +176,7 @@ class BaseFabricClient(ABC):
         """
         request_params: Dict[str, str] = dict(params or {})
         page = 1
+        seen_tokens: Set[str] = set()
         while True:
             response = self.get(endpoint, params=request_params)
             data = response.json()
@@ -186,6 +187,15 @@ class BaseFabricClient(ABC):
             continuation_token = data.get("continuationToken")
             if not continuation_token:
                 break
+            if continuation_token in seen_tokens:
+                # Without this, an endpoint that keeps returning the same token
+                # would be requested forever.
+                logger.warning(
+                    f"Repeated continuation token from {endpoint}; stopping "
+                    f"after {page} page(s)."
+                )
+                break
+            seen_tokens.add(continuation_token)
             request_params["continuationToken"] = continuation_token
             page += 1
 

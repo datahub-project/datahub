@@ -8,7 +8,10 @@ import pytest
 import requests
 
 from datahub.ingestion.source.fabric.common.auth import ONELAKE_STORAGE_SCOPE
-from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
+from datahub.ingestion.source.fabric.onelake.client import (
+    IncompleteCatalogListing,
+    OneLakeClient,
+)
 
 
 @dataclass
@@ -159,18 +162,17 @@ def test_unity_catalog_listing_stops_on_repeated_page_token() -> None:
         {"schemas": [{"name": "dbo"}], "next_page_token": "same"}
     )
 
-    schemas = list(
-        harness.client._list_schemas_via_onelake_api(
-            "ws-1", "lh-1", item_label="lakehouse"
+    with pytest.raises(IncompleteCatalogListing):
+        list(
+            harness.client._list_schemas_via_onelake_api(
+                "ws-1", "lh-1", item_label="lakehouse"
+            )
         )
-    )
 
-    # The second page repeats the first; its schema is not yielded again.
-    assert schemas == ["dbo"]
     assert harness.session.get.call_count == 2
 
 
-def test_list_warehouse_tables_404_yields_nothing() -> None:
+def test_list_warehouse_tables_404_yields_no_tables() -> None:
     harness = _client()
     response = MagicMock()
     response.status_code = 404
@@ -180,6 +182,7 @@ def test_list_warehouse_tables_404_yields_nothing() -> None:
     schema_resp.raise_for_status.side_effect = error
     harness.session.get.return_value = schema_resp
 
+    # No catalog is a lasting state of the warehouse, not a failed listing.
     assert list(harness.client.list_warehouse_tables("ws-1", "wh-1")) == []
     harness.report.report_error.assert_not_called()
 

@@ -25,7 +25,6 @@ class FabricItem:
     type: FabricItemType
     workspace_id: str
     description: Optional[str] = None
-    # TODO: Add support for shortcuts when available in API
 
 
 @dataclass
