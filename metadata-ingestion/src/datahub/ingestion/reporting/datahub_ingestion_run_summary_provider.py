@@ -1,7 +1,8 @@
+import copy
 import json
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from datahub._version import nice_version_name
 from datahub.configuration.common import (
@@ -48,6 +49,10 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     _EXECUTION_REQUEST_SOURCE_TYPE: str = "CLI_INGESTION_SOURCE"
     _INGESTION_TASK_NAME: str = "CLI Ingestion"
     _MAX_SUMMARY_SIZE: int = 800000
+    # Cap serializedValue at the same 800 KB budget so the whole
+    # dataHubExecutionRequestResult MCP fits under Kafka's max.request.size.
+    _MAX_STRUCTURED_REPORT_SIZE: int = 800000
+    _MAX_STRUCTURED_REPORT_TRUNCATION_PASSES: int = 100
 
     @staticmethod
     def get_cur_time_in_ms() -> int:
@@ -181,6 +186,48 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             )
 
     @staticmethod
+    def _collect_lists(obj: Any) -> List[list]:
+        found: List[list] = []
+        if isinstance(obj, dict):
+            for value in obj.values():
+                found.extend(DatahubIngestionRunSummaryProvider._collect_lists(value))
+        elif isinstance(obj, list):
+            found.append(obj)
+            for value in obj:
+                found.extend(DatahubIngestionRunSummaryProvider._collect_lists(value))
+        return found
+
+    @staticmethod
+    def _truncate_report_to_fit(
+        report: Dict[str, Any], max_size: int
+    ) -> Tuple[Dict[str, Any], bool]:
+        # Halve the largest list repeatedly until the serialized JSON fits
+        # under max_size. Preserves top-level shape (the frontend parses this)
+        # and leaves a sentinel entry so the truncation is visible.
+        # Non-mutating.
+        if len(json.dumps(report, indent=2)) <= max_size:
+            return report, False
+
+        shrunk = copy.deepcopy(report)
+        for _ in range(
+            DatahubIngestionRunSummaryProvider._MAX_STRUCTURED_REPORT_TRUNCATION_PASSES
+        ):
+            candidates = [
+                lst
+                for lst in DatahubIngestionRunSummaryProvider._collect_lists(shrunk)
+                if len(lst) > 1
+            ]
+            if not candidates:
+                break
+            biggest = max(candidates, key=lambda lst: len(json.dumps(lst)))
+            keep = max(1, len(biggest) // 2)
+            dropped = len(biggest) - keep
+            biggest[keep:] = [f"[truncated {dropped} entries for size]"]
+            if len(json.dumps(shrunk, indent=2)) <= max_size:
+                return shrunk, True
+        return shrunk, True
+
+    @staticmethod
     def _convert_sets_to_lists(obj: Any) -> Any:
         """
         Recursively converts all sets to lists in a Python object.
@@ -277,34 +324,67 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         report: Dict[str, Any],
         ctx: PipelineContext,
     ) -> None:
-        # Prepare a nicely formatted summary
         masking_filter = SecretMaskingFilter(SecretRegistry.get_instance())
-        structured_report_str = json.dumps(
-            masking_filter.mask_structure(report), indent=2
-        )
+        masked_report = masking_filter.mask_structure(report)
+        structured_report_str = json.dumps(masked_report, indent=2)
         summary = f"~~~~ Ingestion Report ~~~~\n{structured_report_str}\n\n"
         summary += "~~~~ Ingestion Logs ~~~~\n"
         summary += masking_filter.mask_text(get_log_buffer().format_lines())
 
-        # Construct the dataHubExecutionRequestResult aspect
-        structured_report = StructuredExecutionReportClass(
-            type="CLI_INGEST",
-            serializedValue=structured_report_str,
-            contentType=JSON_CONTENT_TYPE,
+        # Truncate on the masked report so redacted values survive the trim.
+        structured_report = self._build_structured_report(
+            masked_report, structured_report_str
         )
+
         execution_result_aspect = ExecutionRequestResultClass(
             status=status,
             startTimeMs=self.start_time_ms,
             durationMs=self.get_cur_time_in_ms() - self.start_time_ms,
-            # Truncate summary such that the generated MCP will not exceed GMS's payload limit.
-            # Hardcoding the overall size of dataHubExecutionRequestResult to >1MB by trimming summary to 800,000 chars
             report=summary[-self._MAX_SUMMARY_SIZE :],
             structuredReport=structured_report,
         )
 
-        # Emit the dataHubExecutionRequestResult aspect
         self._emit_aspect(
             entity_urn=self.execution_request_input_urn,
             aspect_value=execution_result_aspect,
         )
-        # Note: sink.close() is handled by the pipeline's context manager
+
+    def _build_structured_report(
+        self, report: Dict[str, Any], full_serialized: str
+    ) -> Optional[StructuredExecutionReportClass]:
+        # `report` is already capped elsewhere; serializedValue used to be
+        # written in full, which pushed large runs past Kafka's
+        # max.request.size and left them stuck in PENDING.
+        if len(full_serialized) <= self._MAX_STRUCTURED_REPORT_SIZE:
+            return StructuredExecutionReportClass(
+                type="CLI_INGEST",
+                serializedValue=full_serialized,
+                contentType=JSON_CONTENT_TYPE,
+            )
+
+        bounded_report, _ = self._truncate_report_to_fit(
+            report, self._MAX_STRUCTURED_REPORT_SIZE
+        )
+        bounded_serialized = json.dumps(bounded_report, indent=2)
+        if len(bounded_serialized) <= self._MAX_STRUCTURED_REPORT_SIZE:
+            logger.info(
+                "Truncated ingestion structured report from %d to %d chars "
+                "to fit under the execution-result aspect size limit.",
+                len(full_serialized),
+                len(bounded_serialized),
+            )
+            return StructuredExecutionReportClass(
+                type="CLI_INGEST",
+                serializedValue=bounded_serialized,
+                contentType=JSON_CONTENT_TYPE,
+            )
+
+        # Nothing left to shrink (e.g. a single huge string value). Skip
+        # structuredReport so the completion aspect still lands and the run
+        # transitions out of PENDING; the plain-text `report` field is enough.
+        logger.warning(
+            "Ingestion structured report is %d chars even after truncation; "
+            "omitting structuredReport so the run can complete.",
+            len(bounded_serialized),
+        )
+        return None
