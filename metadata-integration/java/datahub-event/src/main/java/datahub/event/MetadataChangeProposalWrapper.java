@@ -39,7 +39,9 @@ public class MetadataChangeProposalWrapper<T extends DataTemplate> {
   }
 
   public interface ChangeStepBuilder {
-    AspectStepBuilder upsert();
+    AspectStepBuilder upsert();;
+    AspectStepBuilder patch();
+    AspectStepBuilder addChangeType(ChangeType changeType);
   }
 
   public interface AspectStepBuilder {
@@ -94,6 +96,18 @@ public class MetadataChangeProposalWrapper<T extends DataTemplate> {
     @Override
     public AspectStepBuilder upsert() {
       this.changeType = ChangeType.UPSERT;
+      return this;
+    }
+
+    @Override
+    public AspectStepBuilder patch() {
+      this.changeType = ChangeType.PATCH;
+      return this;
+    }
+
+    @Override
+    public AspectStepBuilder addChangeType(ChangeType changeType) {
+      this.changeType = changeType;
       return this;
     }
 
