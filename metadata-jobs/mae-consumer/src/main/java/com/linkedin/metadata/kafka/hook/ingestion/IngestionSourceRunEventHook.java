@@ -18,6 +18,7 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.ingestion.IngestionSourceRunEvents;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
@@ -126,11 +127,7 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
       return;
     }
     ExecutionRequestInput input = aspect(event, false, ExecutionRequestInput.class);
-    Urn sourceUrn = IngestionSourceRunEvents.ingestionSourceUrn(input);
-    if (sourceUrn == null || !sourceExists(operationContext, sourceUrn)) {
-      return;
-    }
-    emit(operationContext, sourceUrn, executionRequestUrn, input, null, eventTime(event));
+    record(operationContext, executionRequestUrn, input, null, eventTime(event));
   }
 
   private void handleResult(
@@ -144,44 +141,75 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
     if (previous != null && Objects.equals(previous.getStatus(), result.getStatus())) {
       return;
     }
-    ExecutionRequestInput input = executionRequestInput(operationContext, executionRequestUrn);
-    Urn sourceUrn = IngestionSourceRunEvents.ingestionSourceUrn(input);
-    if (sourceUrn == null
-        || !sourceExists(operationContext, sourceUrn)
-        || !isLatestRequest(operationContext, sourceUrn, executionRequestUrn)) {
-      return;
-    }
-    emit(operationContext, sourceUrn, executionRequestUrn, input, result, eventTime(event));
+    record(
+        operationContext,
+        executionRequestUrn,
+        executionRequestInput(operationContext, executionRequestUrn),
+        result,
+        eventTime(event));
   }
 
-  private void emit(
+  /**
+   * MCLs for different runs of a source arrive on different partitions, so an older run's event can
+   * be processed after a newer run's. The source's search document keeps whichever event was
+   * written last, so a run is only recorded while it is the source's newest: no event for a later
+   * request has been recorded and no later request is indexed. Both checks read search, so two runs
+   * of one source changing status within the index refresh interval can still race.
+   */
+  private void record(
       @Nonnull OperationContext operationContext,
-      @Nonnull Urn sourceUrn,
       @Nonnull Urn executionRequestUrn,
-      @Nonnull ExecutionRequestInput input,
+      @Nullable ExecutionRequestInput input,
       @Nullable ExecutionRequestResult result,
       long timestampMillis)
       throws Exception {
+    Urn sourceUrn = IngestionSourceRunEvents.ingestionSourceUrn(input);
+    if (sourceUrn == null || !sourceExists(operationContext, sourceUrn)) {
+      return;
+    }
+    DataHubIngestionSourceRunEvent latest = latestEvent(operationContext, sourceUrn);
+    if (IngestionSourceRunEvents.isSupersededBy(input, latest)
+        || hasNewerRequest(operationContext, sourceUrn, executionRequestUrn, input)) {
+      return;
+    }
     systemEntityClient.ingestProposal(
         operationContext,
         AspectUtils.buildMetadataChangeProposal(
             sourceUrn,
             INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
             IngestionSourceRunEvents.buildEvent(
-                executionRequestUrn, input, result, timestampMillis)),
+                executionRequestUrn, input, result, timestampMillis, latest)),
         false);
   }
 
-  /**
-   * An older run that finishes after a newer one was requested must not replace the newer run on
-   * the source's search document, which keeps whichever event was written last.
-   */
-  private boolean isLatestRequest(
+  @Nullable
+  private DataHubIngestionSourceRunEvent latestEvent(
+      @Nonnull OperationContext operationContext, @Nonnull Urn sourceUrn) throws Exception {
+    List<com.linkedin.metadata.aspect.EnvelopedAspect> latest =
+        systemEntityClient.getTimeseriesAspectValues(
+            operationContext,
+            sourceUrn.toString(),
+            INGESTION_SOURCE_ENTITY_NAME,
+            INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
+            null,
+            null,
+            1,
+            null);
+    if (latest.isEmpty()) {
+      return null;
+    }
+    GenericAspect value = latest.get(0).getAspect();
+    return GenericRecordUtils.deserializeAspect(
+        value.getValue(), value.getContentType(), DataHubIngestionSourceRunEvent.class);
+  }
+
+  private boolean hasNewerRequest(
       @Nonnull OperationContext operationContext,
       @Nonnull Urn sourceUrn,
-      @Nonnull Urn executionRequestUrn)
+      @Nonnull Urn executionRequestUrn,
+      @Nonnull ExecutionRequestInput input)
       throws Exception {
-    SearchResult latest =
+    SearchResult newest =
         systemEntityClient.filter(
             operationContext,
             EXECUTION_REQUEST_ENTITY_NAME,
@@ -190,8 +218,15 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
                 new SortCriterion().setField(REQUEST_TIME_FIELD).setOrder(SortOrder.DESCENDING)),
             0,
             1);
-    return latest.getEntities().isEmpty()
-        || latest.getEntities().get(0).getEntity().equals(executionRequestUrn);
+    // A request that was just created may not be indexed yet, so only a different, later
+    // request counts as newer.
+    if (newest.getEntities().isEmpty()
+        || newest.getEntities().get(0).getEntity().equals(executionRequestUrn)) {
+      return false;
+    }
+    ExecutionRequestInput newestInput =
+        executionRequestInput(operationContext, newest.getEntities().get(0).getEntity());
+    return newestInput != null && newestInput.getRequestedAt() > input.getRequestedAt();
   }
 
   private boolean sourceExists(@Nonnull OperationContext operationContext, @Nonnull Urn sourceUrn)

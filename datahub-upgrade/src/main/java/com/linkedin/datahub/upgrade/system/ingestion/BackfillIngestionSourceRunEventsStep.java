@@ -35,14 +35,14 @@ import com.linkedin.metadata.search.LatestIngestionRuns;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -63,6 +63,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
 
   private static final String UPGRADE_ID = "BackfillIngestionSourceRunEventsStep_V1";
+  private static final String LAST_RUN_FIELD_NAME = "lastRunRequestedAtMillis";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
   // Sources are written as the scroll walks them, so the cursor must not depend on score.
   private static final List<SortCriterion> SCROLL_SORT =
@@ -152,7 +153,9 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
                         .setSkipAggregates(true)),
             List.of(INGESTION_SOURCE_ENTITY_NAME),
             "*",
-            null,
+            // Sources the hook has already recorded a run for are current; backfilling them from
+            // search could replace a newer run with an older one.
+            QueryUtils.newFilter(CriterionUtils.buildNotExistsCriterion(LAST_RUN_FIELD_NAME)),
             SCROLL_SORT,
             scrollId,
             null,
@@ -208,37 +211,48 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
           if (source == null || !source.getAspects().containsKey(INGESTION_INFO_ASPECT_NAME)) {
             return;
           }
-          // Oldest first, so the latest run is the last event written to the search document.
-          runUrns(latestRuns)
-              .map(runUrn -> runEvent(runUrn, runs.get(runUrn)))
-              .filter(Objects::nonNull)
-              .sorted(
-                  Comparator.comparingLong(DataHubIngestionSourceRunEvent::getRequestedAtMillis))
-              .forEach(
-                  event ->
-                      proposals.add(
-                          AspectUtils.buildMetadataChangeProposal(
-                              sourceUrn, INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, event)));
+          // One event per source: the index keeps only the last event per source in a batch, so
+          // the latest run's event carries the last success and failure times itself.
+          DataHubIngestionSourceRunEvent event =
+              runEvent(
+                  latestRuns.getLatestRun(),
+                  runs.get(latestRuns.getLatestRun()),
+                  requestedAt(runs, latestRuns.getLatestSuccessfulRun()),
+                  requestedAt(runs, latestRuns.getLatestFailedRun()));
+          if (event != null) {
+            proposals.add(
+                AspectUtils.buildMetadataChangeProposal(
+                    sourceUrn, INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, event));
+          }
         });
     return proposals;
   }
 
   @Nonnull
   private Stream<Urn> runUrns(@Nonnull LatestIngestionRuns latestRuns) {
-    Set<Urn> urns = new LinkedHashSet<>();
-    if (latestRuns.getLatestSuccessfulRun() != null) {
-      urns.add(latestRuns.getLatestSuccessfulRun());
-    }
-    if (latestRuns.getLatestFailedRun() != null) {
-      urns.add(latestRuns.getLatestFailedRun());
-    }
-    urns.add(latestRuns.getLatestRun());
-    return urns.stream();
+    return Stream.of(
+            latestRuns.getLatestRun(),
+            latestRuns.getLatestSuccessfulRun(),
+            latestRuns.getLatestFailedRun())
+        .filter(Objects::nonNull);
+  }
+
+  @Nullable
+  private static Long requestedAt(@Nonnull Map<Urn, EntityResponse> runs, @Nullable Urn runUrn) {
+    ExecutionRequestInput input =
+        runUrn != null
+            ? aspect(
+                runs.get(runUrn), EXECUTION_REQUEST_INPUT_ASPECT_NAME, ExecutionRequestInput.class)
+            : null;
+    return input != null ? input.getRequestedAt() : null;
   }
 
   @Nullable
   private static DataHubIngestionSourceRunEvent runEvent(
-      @Nonnull Urn runUrn, @Nullable EntityResponse run) {
+      @Nonnull Urn runUrn,
+      @Nullable EntityResponse run,
+      @Nullable Long lastSuccessfulRequestedAtMillis,
+      @Nullable Long lastFailedRequestedAtMillis) {
     ExecutionRequestInput input =
         aspect(run, EXECUTION_REQUEST_INPUT_ASPECT_NAME, ExecutionRequestInput.class);
     if (input == null) {
@@ -247,7 +261,12 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
     ExecutionRequestResult result =
         aspect(run, EXECUTION_REQUEST_RESULT_ASPECT_NAME, ExecutionRequestResult.class);
     return IngestionSourceRunEvents.buildEvent(
-        runUrn, input, result, IngestionSourceRunEvents.statusTimeMillis(input, result));
+        runUrn,
+        input,
+        result,
+        IngestionSourceRunEvents.statusTimeMillis(input, result),
+        lastSuccessfulRequestedAtMillis,
+        lastFailedRequestedAtMillis);
   }
 
   @Nonnull

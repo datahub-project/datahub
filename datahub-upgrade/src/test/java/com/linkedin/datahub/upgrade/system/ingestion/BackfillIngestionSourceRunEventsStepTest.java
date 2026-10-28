@@ -41,6 +41,9 @@ import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -113,7 +116,9 @@ public class BackfillIngestionSourceRunEventsStepTest {
   }
 
   @Test
-  public void testRecordsLatestSuccessFailureAndRunOldestFirst() {
+  public void testOneEventPerSourceCarriesLastSuccessAndFailure() {
+    // The index keeps only the newest event per source in a batch, so the latest run's event
+    // must carry the last success and failure times itself.
     source(SOURCE_A);
     run(SUCCESS_RUN, SOURCE_A, 100, "SUCCESS");
     run(FAILED_RUN, SOURCE_A, 200, "FAILURE");
@@ -123,15 +128,37 @@ public class BackfillIngestionSourceRunEventsStepTest {
 
     assertEquals(execute(), DataHubUpgradeState.SUCCEEDED);
 
-    List<DataHubIngestionSourceRunEvent> events =
-        capturedItems(3).stream().map(BackfillIngestionSourceRunEventsStepTest::eventOf).toList();
-    assertEquals(
-        events.stream().map(DataHubIngestionSourceRunEvent::getExecutionRequest).toList(),
-        List.of(SUCCESS_RUN, FAILED_RUN, LATEST_RUN));
-    assertEquals(events.get(2).getStatus(), "RUNNING");
-    assertEquals(events.get(0).getSuccessfulRunRequestedAtMillis(), Long.valueOf(100));
-    assertEquals(events.get(1).getFailedRunRequestedAtMillis(), Long.valueOf(200));
+    DataHubIngestionSourceRunEvent event = eventOf(capturedItems(1).get(0));
+    assertEquals(event.getExecutionRequest(), LATEST_RUN);
+    assertEquals(event.getStatus(), "RUNNING");
+    assertEquals(event.getSuccessfulRunRequestedAtMillis(), Long.valueOf(100));
+    assertEquals(event.getFailedRunRequestedAtMillis(), Long.valueOf(200));
     verifyMarkerWritten(true);
+  }
+
+  @Test
+  public void testOnlySourcesWithoutARecordedRunAreScrolled() {
+    // A source the hook has already recorded is current; backfilling it from search could
+    // replace a newer run with an older one.
+    stubScroll(page(null));
+
+    assertEquals(execute(), DataHubUpgradeState.SUCCEEDED);
+
+    ArgumentCaptor<Filter> filter = ArgumentCaptor.forClass(Filter.class);
+    verify(searchService)
+        .scrollAcrossEntities(
+            any(OperationContext.class),
+            any(),
+            anyString(),
+            filter.capture(),
+            any(),
+            any(),
+            any(),
+            anyInt());
+    Criterion criterion = filter.getValue().getOr().get(0).getAnd().get(0);
+    assertEquals(criterion.getField(), "lastRunRequestedAtMillis");
+    assertEquals(criterion.getCondition(), Condition.EXISTS);
+    assertTrue(criterion.isNegated());
   }
 
   @Test
