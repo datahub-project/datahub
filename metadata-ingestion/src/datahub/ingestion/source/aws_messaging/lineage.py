@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -100,6 +100,10 @@ class DatasetLineageCollector:
         self.report = report
         self._edges: Dict[str, Dict[str, LineageRelationship]] = defaultdict(dict)
         self._fine_grained: Dict[str, List[FineGrainedLineageClass]] = defaultdict(list)
+        # Datasets this run emitted itself. Their patches stay primary: the status
+        # processor treats a non-primary workunit as "status already handled", so a
+        # non-primary patch would leave an owned queue without a Status aspect.
+        self.owned: Set[str] = set()
 
     def add(
         self, *, upstream: str, downstream: str, relationship: LineageRelationship
@@ -128,10 +132,10 @@ class DatasetLineageCollector:
             for fine_grained in self._fine_grained.get(downstream, []):
                 patch.add_fine_grained_lineage(fine_grained)
             for mcp in patch.build():
-                # The downstream may be another account's queue; patching it must
-                # not make this source responsible for deleting it later.
+                # A downstream this run didn't emit may be another account's queue;
+                # patching it must not make this source responsible for deleting it.
                 yield MetadataWorkUnit(
                     id=f"{downstream}-upstreamLineage-patch",
                     mcp_raw=mcp,
-                    is_primary_source=False,
+                    is_primary_source=downstream in self.owned,
                 )

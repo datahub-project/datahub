@@ -184,6 +184,7 @@ class SnsSource(AwsMessagingSourceBase):
             )
             if schema is not None:
                 self.schemas.fetched[urn] = schema
+            self.lineage.owned.add(urn)
             yield from Dataset(
                 platform=SNS_PLATFORM,
                 name=self.urns.resource_id(topic.arn),
