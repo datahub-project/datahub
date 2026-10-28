@@ -148,9 +148,9 @@ class EventBridgeLineage:
             bus = parse_arn(bus_arn)
             if bus is None:
                 continue
-            for rule in self.events.list_rules(bus.resource_name):
+            for rule in self.events.list_rules(bus.event_bus_name):
                 targets = list(
-                    self.events.list_targets(rule["Name"], bus.resource_name)
+                    self.events.list_targets(rule["Name"], bus.event_bus_name)
                 )
                 if not any(self.resolver.urn(parse_arn(t.arn)) for t in targets):
                     continue
@@ -167,14 +167,14 @@ class EventBridgeLineage:
         for rule in self.list_rules():
             bus = rule.bus_arn
             instance = self.urns.instance_for(bus.account)
-            bus_urn = self.urns.dataset_urn(EVENTBRIDGE_PLATFORM, bus)
+            bus_urn = self.urns.event_bus_urn(bus)
             if bus_urn not in emitted_buses:
                 emitted_buses.add(bus_urn)
                 yield from secondary(
                     Dataset(
                         platform=EVENTBRIDGE_PLATFORM,
-                        name=self.urns.resource_id(bus),
-                        display_name=bus.resource_name,
+                        name=self.urns.event_bus_id(bus),
+                        display_name=bus.event_bus_name,
                         env=self.config.env,
                         platform_instance=instance,
                         subtype=DatasetSubTypes.EVENTBRIDGE_EVENT_BUS.value,
@@ -182,7 +182,7 @@ class EventBridgeLineage:
                         custom_properties={"arn": str(bus)},
                     ).as_workunits()
                 )
-            flow_id = f"{bus.region}.{bus.resource_name}.{rule.name}"
+            flow_id = f"{self.urns.event_bus_id(bus)}.{rule.name}"
             rule_job = self._job_urn(
                 EVENTBRIDGE_PLATFORM, flow_id, EVENTBRIDGE_RULE_JOB_ID, bus
             )
@@ -206,7 +206,7 @@ class EventBridgeLineage:
                 subtype=DataFlowSubTypes.EVENTBRIDGE_RULE.value,
                 custom_properties=non_empty(
                     {
-                        "event_bus": bus.resource_name,
+                        "event_bus": bus.event_bus_name,
                         "state": rule.state,
                         "event_pattern": rule.event_pattern,
                     }

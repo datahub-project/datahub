@@ -1,7 +1,7 @@
 import io
 import json
 import zipfile
-from typing import Any, Dict, List, Optional, Set, Type
+from typing import Any, Dict, Iterator, List, Optional, Set, Type
 from unittest.mock import MagicMock
 
 import boto3
@@ -9,10 +9,12 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase
+from datahub.ingestion.source.aws_messaging.clients import EventBridgeClient
 from datahub.ingestion.source.aws_messaging.eventbridge import (
     event_path_prefix,
     template_field_map,
 )
+from datahub.ingestion.source.aws_messaging.models import RuleTarget
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
 from datahub.metadata.schema_classes import (
@@ -90,6 +92,8 @@ def job_edges(workunits: List[Any]) -> Edges:
             assert not workunit.is_primary_source
             for op in json.loads(metadata.aspect.value):
                 _, kind, target = op["path"].split("/", 2)
+                # JSON Pointer escapes `/` inside a key as `~1`.
+                target = target.replace("~1", "/").replace("~0", "~")
                 edges.setdefault(metadata.entityUrn, {}).setdefault(kind, set()).add(
                     target
                 )
@@ -372,3 +376,37 @@ def test_rule_with_input_transformer_is_skipped(aws: None) -> None:
     assert source.get_report().column_lineage_skipped == {
         "rule target uses an input transformer or constant input": 1
     }
+
+
+def test_partner_event_bus_keeps_its_full_name(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # moto can't create partner buses, so the EventBridge calls are faked.
+    bus_name = "aws.partner/example.com/1234/orders"
+    queue_arn = create_queue("orders")
+    seen_buses: List[str] = []
+
+    def list_rules(self: EventBridgeClient, bus: str) -> Iterator[Dict[str, Any]]:
+        seen_buses.append(bus)
+        yield {"Name": "new-orders"}
+
+    monkeypatch.setattr(
+        EventBridgeClient,
+        "list_event_bus_arns",
+        lambda self: iter([f"arn:aws:events:{REGION}:{ACCOUNT}:event-bus/{bus_name}"]),
+    )
+    monkeypatch.setattr(EventBridgeClient, "list_rules", list_rules)
+    monkeypatch.setattr(
+        EventBridgeClient,
+        "list_targets",
+        lambda self, rule, bus: iter([RuleTarget(arn=queue_arn)]),
+    )
+
+    edges = run(
+        SqsSource, lineage={"lambda_functions": False, "eventbridge_pipes": False}
+    )
+
+    assert seen_buses == [bus_name]
+    bus_urn = f"urn:li:dataset:(urn:li:dataPlatform:eventbridge,{ACCOUNT}.{REGION}.{bus_name},PROD)"
+    rule_job = f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.{bus_name}.new-orders,PROD),route)"
+    assert edges[rule_job]["inputDatasetEdges"] == {bus_urn}
