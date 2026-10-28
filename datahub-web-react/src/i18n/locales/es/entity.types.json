@@ -309,7 +309,7 @@
     "shared.usersCount_one": "{{formattedCount}} usuario",
     "shared.usersCount_other": "{{formattedCount}} usuarios",
     "shared.versionLabel": "Versión",
-    "shared.viewTaskRunDetails": "Ver detalles de la ejecución de la tarea",
+    "shared.viewTaskRunDetails": "Ver detalles de la ejecución del Task",
     "shared.viewsCount_one": "{{formattedCount}} vista",
     "shared.viewsCount_other": "{{formattedCount}} vistas",
     "shared.viewsLast30DaysCount_one": "{{formattedCount}} vista el último mes",
