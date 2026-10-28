@@ -45,7 +45,9 @@ public final class SearchTemplateCapabilities {
               "sort",
               "boosts",
               "queryFragments",
-              "component"));
+              "component",
+              "rankingSignals",
+              "rankingFormula"));
 
   public static final Set<String> PRESETS = Set.of("none", "usage", "usageAndMatchTier");
   public static final Set<String> SIZERS = Set.of("fixed", "tokenCurve");
@@ -120,9 +122,13 @@ public final class SearchTemplateCapabilities {
     }
     com.linkedin.search.template.SearchTemplateComponent component = template.getComponent();
     if (!SearchTemplateComponents.empty(component)) {
-      registry
-          .require(component.getName(), component.getVersion())
-          .validate(component.getMode(), SearchTemplateComponents.config(component));
+      if (SearchTemplateComponents.builtinPostProcess(component)) {
+        SearchTemplateComponents.checkPostProcess(SearchTemplateComponents.config(component));
+      } else {
+        registry
+            .require(component.getName(), component.getVersion())
+            .validate(component.getMode(), SearchTemplateComponents.config(component));
+      }
     }
   }
 
@@ -141,7 +147,13 @@ public final class SearchTemplateCapabilities {
     if (!SearchTemplateComponents.empty(component)) {
       String name = component.hasName() ? component.getName() : null;
       Integer version = component.hasVersion() ? component.getVersion() : null;
-      if (name == null
+      if (SearchTemplateComponents.builtinPostProcess(component)) {
+        try {
+          SearchTemplateComponents.checkPostProcess(SearchTemplateComponents.config(component));
+        } catch (SearchTemplateException ignored) {
+          return "component";
+        }
+      } else if (name == null
           || name.isBlank()
           || version == null
           || !component.hasMode()
@@ -155,12 +167,14 @@ public final class SearchTemplateCapabilities {
     }
     SearchTemplateRanking ranking = template.getRanking();
     if (ranking != null) {
+      boolean signals =
+          ranking.hasSignals() && ranking.getSignals() != null && !ranking.getSignals().isEmpty();
       String preset = ranking.hasPreset() ? ranking.getPreset() : null;
-      if (preset != null && !preset.isBlank() && !"none".equals(preset)) {
+      if (!signals && preset != null && !preset.isBlank() && !"none".equals(preset)) {
         return "rankingPreset";
       }
       String sizer = ranking.hasWindowSizer() ? ranking.getWindowSizer() : null;
-      if (sizer != null && !sizer.isBlank() && !"fixed".equals(sizer)) {
+      if (!signals && sizer != null && !sizer.isBlank() && !"fixed".equals(sizer)) {
         return "rankingWindow";
       }
     }

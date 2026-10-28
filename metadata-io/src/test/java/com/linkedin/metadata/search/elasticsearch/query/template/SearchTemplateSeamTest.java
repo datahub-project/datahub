@@ -61,6 +61,8 @@ public class SearchTemplateSeamTest {
     assertEquals(templates.getMaxRoutes(), 0);
     assertEquals(templates.getMaxRoutePatternLength(), 0);
     assertEquals(templates.getMaxRouteHops(), 0);
+    assertEquals(templates.getMaxRankingSignals(), 0);
+    assertEquals(templates.getMaxRankingWindow(), 0);
     String yaml =
         Files.readString(
             Path.of(
@@ -85,6 +87,8 @@ public class SearchTemplateSeamTest {
         yaml.contains(
             "maxRoutePatternLength: ${SEARCH_V3_TEMPLATES_MAX_ROUTE_PATTERN_LENGTH:256}"));
     assertTrue(yaml.contains("maxRouteHops: ${SEARCH_V3_TEMPLATES_MAX_ROUTE_HOPS:5}"));
+    assertTrue(yaml.contains("maxRankingSignals: ${SEARCH_V3_TEMPLATES_MAX_RANKING_SIGNALS:32}"));
+    assertTrue(yaml.contains("maxRankingWindow: ${SEARCH_V3_TEMPLATES_MAX_RANKING_WINDOW:1000}"));
   }
 
   @Test

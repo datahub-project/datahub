@@ -845,6 +845,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.search.v3.templates.maxRouteHops",
           "elasticsearch.search.v3.templates.maxRoutePatternLength",
           "elasticsearch.search.v3.templates.maxRoutes",
+          "elasticsearch.search.v3.templates.maxRankingSignals",
+          "elasticsearch.search.v3.templates.maxRankingWindow",
           "elasticsearch.search.v3.templates.source",
           "elasticsearch.search.v3.templates.rollout.mode",
           "elasticsearch.search.v3.templates.rollout.percent",

@@ -105,6 +105,18 @@ public class SearchTemplatePolicyTest {
   }
 
   @Test
+  public void testStructuredQueryFollowsTheBodyNotTheUrn() {
+    SearchTemplateProperties copied =
+        body(
+            "{ \"bool\": { \"should\": [ {{&structuredQuery}}, { \"match_all\": {} } ], \"minimum_should_match\": 1 } }");
+    harness.store("urn:li:searchTemplate:structuredCopy", copied);
+    String rendered = render("urn:li:searchTemplate:structuredCopy", "name:orders");
+    List<JsonNode> clauses = queryStrings(rendered);
+    assertEquals(clauses.size(), 1, rendered);
+    assertEquals(clauses.get(0).get("query").asText(), "name:orders");
+  }
+
+  @Test
   public void testNormalizationInheritsAndBudgetClamps() {
     SearchTemplateProperties parent = body("{ \"match_all\": {} }");
     SearchTemplateNormalization parentLimits = new SearchTemplateNormalization();
