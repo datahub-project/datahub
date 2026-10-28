@@ -192,62 +192,6 @@
       "platform_name": "Athena",
       "support_status": "GA"
     },
-    "aws-messaging": {
-      "capabilities": [
-        {
-          "capability": "CONTAINERS",
-          "description": "Region containers",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "DESCRIPTIONS",
-          "description": "SQS and SNS have no description",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "DELETION_DETECTION",
-          "description": "Via stateful ingestion",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "TAGS",
-          "description": "From AWS resource tags",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "PLATFORM_INSTANCE",
-          "description": "Defaults to the AWS account id",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "SCHEMA_METADATA",
-          "description": "SQS and SNS have no schema",
-          "subtype_modifier": null,
-          "supported": false
-        },
-        {
-          "capability": "LINEAGE_COARSE",
-          "description": "SNS subscriptions, dead-letter queues, Lambda, EventBridge rules and Pipes",
-          "subtype_modifier": null,
-          "supported": true
-        },
-        {
-          "capability": "TEST_CONNECTION",
-          "description": "Enabled by default",
-          "subtype_modifier": null,
-          "supported": true
-        }
-      ],
-      "classname": "datahub.ingestion.source.aws_messaging.source.AwsMessagingSource",
-      "platform_id": "sqs",
-      "platform_name": "Amazon SQS",
-      "support_status": "ALPHA"
-    },
     "azure-ad": {
       "capabilities": [
         {
@@ -4809,6 +4753,80 @@
       "platform_name": "Snowplow",
       "support_status": "BETA"
     },
+    "sns": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Opt-in: topic to raw-delivery queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "SNS has no description",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags, added without removing UI tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Opt-in, from data protection policy identifiers you map to existing terms",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Defaults to the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Subscribed queues and dead-letter queues, Lambda, Firehose, EventBridge rules and Pipes",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.aws_messaging.sns_source.SnsSource",
+      "platform_id": "sns",
+      "platform_name": "Amazon SNS",
+      "support_status": "ALPHA"
+    },
     "sql-queries": {
       "capabilities": [
         {
@@ -4940,6 +4958,68 @@
       "classname": "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshSource",
       "platform_id": "sqlmesh",
       "platform_name": "SQLMesh",
+      "support_status": "ALPHA"
+    },
+    "sqs": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "SQS has no description",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags, added without removing UI tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Defaults to the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Dead-letter queues, Lambda triggers and destinations, EventBridge rules and Pipes",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.aws_messaging.sqs_source.SqsSource",
+      "platform_id": "sqs",
+      "platform_name": "Amazon SQS",
       "support_status": "ALPHA"
     },
     "starburst-trino-usage": {

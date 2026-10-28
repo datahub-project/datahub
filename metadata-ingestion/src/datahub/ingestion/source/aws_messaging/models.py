@@ -54,7 +54,6 @@ class SnsSubscription(BaseModel):
     protocol: str
     endpoint: str
     owner: Optional[str] = None
-    attributes: Dict[str, str] = Field(default_factory=dict)
 
 
 class LambdaFunctionEdges(BaseModel):

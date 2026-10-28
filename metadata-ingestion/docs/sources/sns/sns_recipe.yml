@@ -1,33 +1,40 @@
 source:
-  type: aws-messaging
+  type: sns
   config:
     aws_config:
       aws_region: "us-east-1"
       # aws_role: "arn:aws:iam::123456789012:role/datahub-read"
-    # platform_instance defaults to the AWS account id.
+    # platform_instance defaults to the AWS account id. Use the same env and
+    # platform_instance as the sqs recipe so topic-to-queue lineage joins.
     env: "PROD"
 
-    include_sqs: true
-    queue_pattern:
-      deny:
-        - ".*-tmp$"
-    include_sns: true
     topic_pattern:
       allow:
         - ".*"
 
     extract_tags: true
     include_subscription_attributes: true
-    # Platform instances used by other accounts' recipes, for cross-account lineage.
+
+    data_protection:
+      enabled: false
+      # glossary_term_map:
+      #   EmailAddress: "urn:li:glossaryTerm:pii.email"
+
     # account_platform_instance_map:
     #   "210987654321": "shared-services"
+
+    glue_schema_registry:
+      enabled: false
+      registry_name: "default-registry"
+      topic_schema_map: {}
+      #   orders: "order-v1"
 
     lineage:
       lambda_functions: true
       lambda_async_destinations: true
       eventbridge_rules: true
       eventbridge_pipes: true
-      firehose: true
+    firehose_lineage: true
     # kinesis_platform_instance: "prod-account"
 
     stateful_ingestion:

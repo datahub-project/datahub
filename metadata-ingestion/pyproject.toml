@@ -137,11 +137,6 @@ athena = [
     "tenacity!=8.4.0,<9.0.0",
 ]
 
-aws-messaging = [
-    "boto3>=1.35.0,<2.0.0",
-    "botocore!=1.23.0,<2.0.0",
-]
-
 aws-secret-manager = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
@@ -1062,6 +1057,11 @@ snowplow = [
     "cachetools<6.0.0",
 ]
 
+sns = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+]
+
 sql-parser = [
     "sqlglot[c]==30.12.0",
 ]
@@ -1080,6 +1080,11 @@ sqlalchemy = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+]
+
+sqs = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
 ]
 
 starburst-trino-usage = [
@@ -1860,7 +1865,8 @@ json-schema = "datahub.ingestion.source.schema.json_schema:JsonSchemaSource"
 kafka = "datahub.ingestion.source.kafka.kafka:KafkaSource"
 kafka-connect = "datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource"
 kinesis = "datahub.ingestion.source.kinesis.kinesis:KinesisSource"
-aws-messaging = "datahub.ingestion.source.aws_messaging.source:AwsMessagingSource"
+sqs = "datahub.ingestion.source.aws_messaging.sqs_source:SqsSource"
+sns = "datahub.ingestion.source.aws_messaging.sns_source:SnsSource"
 ldap = "datahub.ingestion.source.ldap:LDAPSource"
 looker = "datahub.ingestion.source.looker.looker_source:LookerDashboardSource"
 lookml = "datahub.ingestion.source.looker.lookml_source:LookMLSource"

@@ -9,7 +9,7 @@ from datahub.ingestion.source.aws_messaging.constants import (
     FIREHOSE_PLATFORM,
 )
 from datahub.ingestion.source.aws_messaging.models import Arn
-from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
+from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.specific.datajob import DataJobPatchBuilder
 
 
@@ -27,7 +27,7 @@ class FirehoseLineage:
         urns: UrnBuilder,
         kinesis_platform_instance: Optional[str],
         graph: Optional[DataHubGraph],
-        report: AwsMessagingSourceReport,
+        report: AwsMessagingReportBase,
     ):
         self.env = env
         self.urns = urns
@@ -67,4 +67,6 @@ class FirehoseLineage:
                 patch.add_input_dataset(topic_urn)
                 self.report.lineage_edges_emitted += 1
             for mcp in patch.build():
-                yield MetadataWorkUnit(id=f"{job_urn}-inputs-patch", mcp_raw=mcp)
+                yield MetadataWorkUnit(
+                    id=f"{job_urn}-inputs-patch", mcp_raw=mcp, is_primary_source=False
+                )
