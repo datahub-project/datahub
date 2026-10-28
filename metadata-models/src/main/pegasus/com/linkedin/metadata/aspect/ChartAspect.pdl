@@ -12,6 +12,7 @@ import com.linkedin.common.BrowsePathsV2
 import com.linkedin.common.DataPlatformInstance
 import com.linkedin.common.GlossaryTerms
 import com.linkedin.common.InstitutionalMemory
+import com.linkedin.common.InputFields
 
 /**
  * A union of all supported metadata aspects for a Chart
@@ -28,5 +29,6 @@ typeref ChartAspect = union[
   GlossaryTerms,
   InstitutionalMemory,
   DataPlatformInstance,
-  BrowsePathsV2
+  BrowsePathsV2,
+  InputFields
 ]
