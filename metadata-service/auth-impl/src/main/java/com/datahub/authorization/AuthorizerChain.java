@@ -188,6 +188,24 @@ public class AuthorizerChain
     return finalAuthorizedActors;
   }
 
+  @Override
+  public AuthorizedActors authorizedActorsForMissingResource(
+      String privilege, @Nonnull EntitySpec resourceSpec) {
+    if (this.authorizers.isEmpty()) {
+      return null;
+    }
+
+    AuthorizedActors finalAuthorizedActors =
+        this.authorizers.get(0).authorizedActorsForMissingResource(privilege, resourceSpec);
+    for (int i = 1; i < this.authorizers.size(); i++) {
+      finalAuthorizedActors =
+          mergeAuthorizedActors(
+              finalAuthorizedActors,
+              this.authorizers.get(i).authorizedActorsForMissingResource(privilege, resourceSpec));
+    }
+    return finalAuthorizedActors;
+  }
+
   private AuthorizedActors mergeAuthorizedActors(
       @Nullable AuthorizedActors original, @Nullable AuthorizedActors other) {
     if (original == null) {
@@ -224,6 +242,7 @@ public class AuthorizerChain
     List<Urn> mergedRoles = new ArrayList<>(roles);
 
     return AuthorizedActors.builder()
+        .privilege(original.getPrivilege())
         .allUsers(original.isAllUsers() || other.isAllUsers())
         .allGroups(original.isAllGroups() || other.isAllGroups())
         .users(mergedUsers)
