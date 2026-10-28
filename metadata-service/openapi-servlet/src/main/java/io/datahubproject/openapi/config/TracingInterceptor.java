@@ -7,6 +7,8 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
+import io.opentelemetry.context.propagation.TextMapGetter;
+import io.opentelemetry.context.propagation.TextMapPropagator;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -19,9 +21,24 @@ import org.springframework.web.servlet.AsyncHandlerInterceptor;
 @Component
 public class TracingInterceptor implements AsyncHandlerInterceptor {
   @Nullable private final Tracer tracer;
+  @Nullable private final TextMapPropagator propagator;
+
+  private static final TextMapGetter<HttpServletRequest> HTTP_GETTER =
+      new TextMapGetter<>() {
+        @Override
+        public Iterable<String> keys(HttpServletRequest request) {
+          return java.util.Collections.list(request.getHeaderNames());
+        }
+
+        @Override
+        public String get(HttpServletRequest request, String key) {
+          return request.getHeader(key);
+        }
+      };
 
   public TracingInterceptor(final SystemTelemetryContext systemTelemetryContext) {
     this.tracer = systemTelemetryContext.getTracer();
+    this.propagator = systemTelemetryContext.getTextMapPropagator();
   }
 
   @Override
@@ -37,13 +54,18 @@ public class TracingInterceptor implements AsyncHandlerInterceptor {
     }
 
     if (tracer != null) {
+      Context parentContext = Context.current();
+      if (propagator != null) {
+        parentContext = propagator.extract(parentContext, request, HTTP_GETTER);
+      }
+
       String spanName = request.getMethod() + " " + request.getRequestURI();
       Span span =
           tracer
               .spanBuilder(spanName)
               .setAttribute("http.method", request.getMethod())
               .setAttribute("http.url", request.getRequestURI())
-              .setParent(Context.current())
+              .setParent(parentContext)
               .startSpan();
 
       request.setAttribute("span", span);
