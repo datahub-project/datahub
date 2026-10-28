@@ -230,6 +230,20 @@ The format of a file is detected from its name. The connector first checks the a
 
 File names whose stem contains dots — for example `events.account.update-2026-05-27-<hash>.gz` — are **not** misinterpreted as having an extension of `.update-2026-05-27-<hash>`. When compression is enabled, such files fall back to `path_spec.default_extension` if it is set, and are skipped otherwise; when compression is disabled, compressed files are skipped. When `default_extension` is set, any other file whose format cannot be inferred from its name is parsed as that format, including stray files such as `.crc` checksums or `.txt` manifests; use the path_spec `exclude` patterns to filter those out.
 
+#### Compressed files
+
+The GCS connector runs on the same code as the S3 connector, so it shares the same compression handling. When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types. Supported compression formats are `.gz`, `.bz2`, and `.zip`.
+
+For `.zip` archives:
+
+- Only the **first entry with a supported extension** is read. If an archive contains more than one supported entry, a warning is added to the ingestion report and only the first is processed.
+- The archive is selected by its name like any other compressed file, so name it with the inner format (`data.csv.zip`) or set `default_extension` for bare `archive.zip` files. The member that is read is the first one whose extension is in `file_types`, and its extension decides how it is parsed.
+- macOS `__MACOSX/` and `._*` metadata members are ignored.
+- Only the bytes needed (the central directory and the selected entry) are downloaded from Google Cloud Storage via range requests, so large archives are not fully downloaded for schema inference.
+- To guard against zip-bomb archives, an entry whose **uncompressed** size exceeds `path_spec.max_zip_entry_size` (default 512 MiB) is skipped with a warning. Increase this value if you need to read larger entries.
+
+Set `path_spec.enable_compression` to `false` to skip compressed files; they are not ingested.
+
 #### Profiling
 
 Profiling is supported for GCS and, when enabled, extracts:

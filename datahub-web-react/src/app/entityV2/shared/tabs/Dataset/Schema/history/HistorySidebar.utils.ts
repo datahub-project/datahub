@@ -56,6 +56,7 @@ export const CATEGORY_STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY';
 export const CATEGORY_APPLICATION = 'APPLICATION';
 export const CATEGORY_ASSET_MEMBERSHIP = 'ASSET_MEMBERSHIP';
 export const CATEGORY_VERSIONING = 'VERSIONING';
+export const CATEGORY_LIFECYCLE = 'LIFECYCLE';
 
 // Re-export generated enums for convenience within the history feature
 export { ChangeCategoryType, ChangeOperationType };
@@ -102,6 +103,10 @@ function getAllCategoryOptions(): CategoryOption[] {
             value: CATEGORY_VERSIONING,
             label: i18next.t('entity.profile.schema:historySidebar.categoryVersions'),
         },
+        {
+            value: CATEGORY_LIFECYCLE,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryLifecycle'),
+        },
     ];
 }
 
@@ -129,6 +134,7 @@ const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategory
         CATEGORY_STRUCTURED_PROPERTY,
         CATEGORY_APPLICATION,
         CATEGORY_VERSIONING,
+        CATEGORY_LIFECYCLE,
     ]),
     [EntityType.Domain]: new Set([
         ChangeCategoryType.Documentation,
