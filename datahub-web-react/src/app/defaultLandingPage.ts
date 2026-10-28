@@ -9,7 +9,3 @@ export function getDefaultLandingPage(value?: string): string | undefined {
             return undefined;
     }
 }
-
-export function getHomePageRoute(value?: string): string {
-    return getDefaultLandingPage(value) ? PageRoutes.HOME : PageRoutes.ROOT;
-}

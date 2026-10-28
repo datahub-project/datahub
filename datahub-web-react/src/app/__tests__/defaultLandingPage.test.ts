@@ -1,4 +1,4 @@
-import { getDefaultLandingPage, getHomePageRoute } from '@app/defaultLandingPage';
+import { getDefaultLandingPage } from '@app/defaultLandingPage';
 import { PageRoutes } from '@conf/Global';
 
 describe('getDefaultLandingPage', () => {
@@ -17,13 +17,5 @@ describe('getDefaultLandingPage', () => {
 
     it('keeps the existing root route for unsupported values', () => {
         expect(getDefaultLandingPage('unknown')).toBeUndefined();
-    });
-});
-
-describe('getHomePageRoute', () => {
-    it('preserves the root Home route unless Discover is configured', () => {
-        expect(getHomePageRoute()).toBe(PageRoutes.ROOT);
-        expect(getHomePageRoute('home')).toBe(PageRoutes.ROOT);
-        expect(getHomePageRoute('discover')).toBe(PageRoutes.HOME);
     });
 });

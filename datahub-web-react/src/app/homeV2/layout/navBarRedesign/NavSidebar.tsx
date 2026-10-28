@@ -21,7 +21,6 @@ import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { getHomePageRoute } from '@app/defaultLandingPage';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
@@ -231,7 +230,7 @@ export const NavSidebar = () => {
                 icon: <SquaresFour />,
                 selectedIcon: <SquaresFour weight="fill" />,
                 key: 'home',
-                link: getHomePageRoute(import.meta.env.REACT_APP_DEFAULT_LANDING_PAGE),
+                link: PageRoutes.HOME,
                 onlyExactPathMapping: true,
                 onClick: () => handleHomeclick(),
                 dataTestId: 'nav-bar-item-home',
