@@ -19,7 +19,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -35,7 +35,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -52,7 +52,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -70,7 +70,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -91,7 +91,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -108,7 +108,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -142,7 +142,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -158,7 +158,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -176,7 +176,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -201,7 +201,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -218,7 +218,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -254,7 +254,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -270,7 +270,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -288,7 +288,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -311,7 +311,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -336,7 +336,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -353,7 +353,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -388,7 +388,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -404,7 +404,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -422,7 +422,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -447,364 +447,37 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders-dlq,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
     "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "sns",
-                "instance": "123456789012",
-                "env": "PROD",
-                "region": "us-east-1"
-            },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/sns/v3/home?region=us-east-1",
-            "name": "us-east-1",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:sns",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Region"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+                    "type": "TRANSFORMED",
+                    "properties": {
+                        "relationship": "dead_letter"
+                    }
                 }
-            ]
-        }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:sns",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "arn": "arn:aws:sns:us-east-1:123456789012:order-events",
-                "display_name": "Orders",
-                "fifo": "false",
-                "subscriptions_confirmed": "0",
-                "subscriptions_pending": "0"
-            },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/sns/v3/home?region=us-east-1#/topic/arn:aws:sns:us-east-1:123456789012:order-events",
-            "name": "order-events",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Topic"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:team:payments"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
-                },
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
-                },
-                {
-                    "id": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718",
-                    "urn": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.alerts,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:sns",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.alerts,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "arn": "arn:aws:sns:us-east-1:123456789012:alerts",
-                "fifo": "false",
-                "subscriptions_confirmed": "0",
-                "subscriptions_pending": "0"
-            },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/sns/v3/home?region=us-east-1#/topic/arn:aws:sns:us-east-1:123456789012:alerts",
-            "name": "alerts",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.alerts,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.alerts,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Topic"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.alerts,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.alerts,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
-                },
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
-                },
-                {
-                    "id": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718",
-                    "urn": "urn:li:container:6cf0e0b0ee42142fbbd615f5edd0b718"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -820,7 +493,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -836,23 +509,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders-dlq,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -868,7 +525,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -884,7 +541,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
-        "runId": "aws-messaging-test",
+        "runId": "sqs-test",
         "lastRunId": "no-run-id-provided"
     }
 }

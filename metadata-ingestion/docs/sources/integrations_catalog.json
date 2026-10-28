@@ -853,13 +853,7 @@
   "sqs": {
     "platform_type": "Messaging",
     "title": "Amazon SQS",
-    "description": "AWS managed message queues. The aws-messaging connector catalogs queues, dead-letter queues, and lineage from SNS subscriptions, Lambda, EventBridge, and S3 notifications."
-  },
-  "sns": {
-    "supported_via": "sqs",
-    "platform_type": "Messaging",
-    "title": "Amazon SNS",
-    "description": "AWS managed pub/sub topics. Ingested by the aws-messaging connector together with SQS, including topic-to-queue subscription lineage."
+    "description": "AWS managed message queues. Catalogs queues with lineage to dead-letter queues; pairs with the SNS connector for topic-to-queue lineage."
   },
   "redpanda": {
     "supported_via": "kafka",

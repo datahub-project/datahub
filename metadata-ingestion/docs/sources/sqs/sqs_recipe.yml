@@ -1,0 +1,22 @@
+source:
+  type: sqs
+  config:
+    aws_config:
+      aws_region: "us-east-1"
+      # aws_role: "arn:aws:iam::123456789012:role/datahub-read"
+    # platform_instance defaults to the AWS account id. Use the same env and
+    # platform_instance in the sns recipe so topic-to-queue lineage joins.
+    env: "PROD"
+
+    queue_pattern:
+      deny:
+        - ".*-tmp$"
+
+    extract_tags: true
+
+    # Platform instances used by other accounts' recipes, for cross-account lineage.
+    # account_platform_instance_map:
+    #   "210987654321": "shared-services"
+
+    stateful_ingestion:
+      enabled: true

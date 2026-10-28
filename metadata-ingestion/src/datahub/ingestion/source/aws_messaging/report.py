@@ -11,16 +11,16 @@ from datahub.utilities.lossy_collections import LossyList
 
 
 @dataclass
-class AwsMessagingSourceReport(StaleEntityRemovalSourceReport):
+class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
     account_id: Optional[str] = None
     region: Optional[str] = None
+    lineage_edges_emitted: int = 0
+    # "<from> -> <to>: <reason>" for edges left out because one end could not
+    # be resolved to an entity that exists.
+    lineage_edges_skipped: LossyList[str] = field(default_factory=LossyList)
 
-    queues_scanned: int = 0
-    topics_scanned: int = 0
-    filtered_queues: LossyList[str] = field(default_factory=LossyList)
-    filtered_topics: LossyList[str] = field(default_factory=LossyList)
-    queues_failed: LossyList[str] = field(default_factory=LossyList)
-    topics_failed: LossyList[str] = field(default_factory=LossyList)
+    def report_edge_skipped(self, upstream: str, downstream: str, reason: str) -> None:
+        self.lineage_edges_skipped.append(f"{upstream} -> {downstream}: {reason}")
 
     def report_listing_failure(
         self,
@@ -29,14 +29,14 @@ class AwsMessagingSourceReport(StaleEntityRemovalSourceReport):
         exc: Union[ClientError, BotoCoreError],
         api_label: str,
     ) -> None:
-        # A first-page failure usually means the section isn't permitted, which is
-        # a valid setup. A later failure leaves the listing incomplete, and stateful
+        # A first-page failure usually means the call isn't permitted, which is a
+        # valid setup. A later failure leaves the listing incomplete, and stateful
         # ingestion would soft-delete everything past that point, so it fails.
         code = aws_error_code(exc)
         if pages_fetched == 0:
             self.warning(
                 title="Listing denied",
-                message="The listing call failed on its first page; this section is skipped.",
+                message="The listing call failed on its first page; this part is skipped.",
                 context=f"{api_label} returned {code}",
                 exc=exc,
             )
@@ -50,3 +50,10 @@ class AwsMessagingSourceReport(StaleEntityRemovalSourceReport):
                 context=f"{api_label} returned {code} after {pages_fetched} page(s)",
                 exc=exc,
             )
+
+
+@dataclass
+class SqsSourceReport(AwsMessagingReportBase):
+    queues_scanned: int = 0
+    filtered_queues: LossyList[str] = field(default_factory=LossyList)
+    queues_failed: LossyList[str] = field(default_factory=LossyList)

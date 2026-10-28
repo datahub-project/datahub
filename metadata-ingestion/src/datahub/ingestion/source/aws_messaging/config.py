@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import Field
 
@@ -17,11 +17,15 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 
-class AwsMessagingSourceConfig(
+class AwsMessagingConfigBase(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
 ):
+    """Settings shared by the sqs and sns sources. Use the same env,
+    platform_instance and account_platform_instance_map in both recipes so
+    lineage between queues and topics joins."""
+
     aws_config: AwsConnectionConfig = Field(
         default_factory=AwsConnectionConfig,
         description=(
@@ -30,22 +34,16 @@ class AwsMessagingSourceConfig(
             "credential chain. One recipe covers one region."
         ),
     )
-    include_sqs: bool = Field(default=True, description="Extract SQS queues.")
-    queue_pattern: AllowDenyPattern = Field(
-        default_factory=AllowDenyPattern.allow_all,
-        description="Regex patterns on queue names to include.",
-    )
-    include_sns: bool = Field(default=True, description="Extract SNS topics.")
-    topic_pattern: AllowDenyPattern = Field(
-        default_factory=AllowDenyPattern.allow_all,
-        description="Regex patterns on topic names to include.",
-    )
     extract_tags: bool = Field(
         default=True,
+        description="Extract AWS resource tags as DataHub tags.",
+    )
+    account_platform_instance_map: Dict[str, str] = Field(
+        default_factory=dict,
         description=(
-            "Extract AWS resource tags as DataHub tags. SNS allows 10 "
-            "ListTagsForResource calls per second, so turn this off for accounts "
-            "with tens of thousands of topics."
+            "AWS account id to platform_instance, for lineage to resources in other "
+            "accounts whose own recipes set a platform_instance other than the "
+            "account id. Accounts not listed use their account id."
         ),
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -60,3 +58,10 @@ class AwsMessagingSourceConfig(
             endpoint_url=self.aws_config.aws_endpoint_url,
             config=self.aws_config._aws_config(),
         )
+
+
+class SqsSourceConfig(AwsMessagingConfigBase):
+    queue_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns on queue names to include.",
+    )

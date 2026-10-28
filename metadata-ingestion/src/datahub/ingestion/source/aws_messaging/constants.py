@@ -11,39 +11,13 @@ class AwsService(StrEnum):
     SNS = "sns"
 
 
-class SubscriptionProtocol(StrEnum):
-    SQS = "sqs"
-    LAMBDA = "lambda"
-    FIREHOSE = "firehose"
-    HTTP = "http"
-    HTTPS = "https"
-    EMAIL = "email"
-    EMAIL_JSON = "email-json"
-    SMS = "sms"
-    APPLICATION = "application"
-
-
-# Endpoints for these protocols are email addresses and phone numbers. Only
-# per-protocol counts ever leave the connector.
-PERSONAL_DATA_PROTOCOLS = frozenset(
-    {
-        SubscriptionProtocol.EMAIL,
-        SubscriptionProtocol.EMAIL_JSON,
-        SubscriptionProtocol.SMS,
-    }
-)
-WEB_PROTOCOLS = frozenset({SubscriptionProtocol.HTTP, SubscriptionProtocol.HTTPS})
-
-# ListSubscriptions reports an unconfirmed subscription with this literal in
-# place of a subscription ARN.
-PENDING_CONFIRMATION = "PendingConfirmation"
-
 ARN_PATTERN = re.compile(
     r"^arn:(?P<partition>aws[a-z-]*):(?P<service>[a-z0-9-]+):"
     r"(?P<region>[a-z0-9-]*):(?P<account>\d{12})?:(?P<resource>.+)$"
 )
 
 ALL_ATTRIBUTES = "All"
+TRUE_STRING = "true"
 
 
 class QueueAttribute(StrEnum):
@@ -59,17 +33,6 @@ class QueueAttribute(StrEnum):
     KMS_MASTER_KEY_ID = "KmsMasterKeyId"
     SQS_MANAGED_SSE_ENABLED = "SqsManagedSseEnabled"
     REDRIVE_POLICY = "RedrivePolicy"
-    REDRIVE_ALLOW_POLICY = "RedriveAllowPolicy"
-
-
-class TopicAttribute(StrEnum):
-    DISPLAY_NAME = "DisplayName"
-    FIFO_TOPIC = "FifoTopic"
-    CONTENT_BASED_DEDUPLICATION = "ContentBasedDeduplication"
-    KMS_MASTER_KEY_ID = "KmsMasterKeyId"
-    SUBSCRIPTIONS_CONFIRMED = "SubscriptionsConfirmed"
-    SUBSCRIPTIONS_PENDING = "SubscriptionsPending"
-    ARCHIVE_POLICY = "ArchivePolicy"
 
 
 class EncryptionType(StrEnum):
@@ -78,4 +41,8 @@ class EncryptionType(StrEnum):
     NONE = "none"
 
 
-TRUE_STRING = "true"
+class LineageRelationship(StrEnum):
+    DEAD_LETTER = "dead_letter"
+
+
+LINEAGE_RELATIONSHIP_PROPERTY = "relationship"

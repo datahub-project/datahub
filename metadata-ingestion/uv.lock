@@ -242,10 +242,6 @@ athena = [
     { name = "sqlparse" },
     { name = "tenacity" },
 ]
-aws-messaging = [
-    { name = "boto3" },
-    { name = "botocore" },
-]
 aws-secret-manager = [
     { name = "boto3" },
     { name = "botocore" },
@@ -1541,6 +1537,10 @@ sqlalchemy = [
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
+sqs = [
+    { name = "boto3" },
+    { name = "botocore" },
+]
 starburst-trino-usage = [
     { name = "cachetools" },
     { name = "greenlet" },
@@ -1716,7 +1716,6 @@ requires-dist = [
     { name = "azure-storage-file-datalake", marker = "extra == 'excel'", specifier = ">=12.14.0,<13.0.0" },
     { name = "azure-storage-file-datalake", marker = "extra == 'integration-tests'", specifier = ">=12.14.0,<13.0.0" },
     { name = "boto3", marker = "extra == 'all'", specifier = ">=1.35.0,<2.0.0" },
-    { name = "boto3", marker = "extra == 'aws-messaging'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'aws-secret-manager'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'cockroachdb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'confluence'", specifier = ">=1.35.0,<2.0.0" },
@@ -1746,13 +1745,13 @@ requires-dist = [
     { name = "boto3", marker = "extra == 's3-slim'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'sagemaker'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'sql-queries'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'sqs'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'tidb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'timescaledb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'unstructured'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3-stubs", extras = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "quicksight", "s3", "sagemaker", "sts"], marker = "extra == 'dev'", specifier = "==1.40.0" },
     { name = "boto3-stubs", extras = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "quicksight", "s3", "sagemaker", "sts"], marker = "extra == 'docs'", specifier = "==1.40.0" },
     { name = "botocore", marker = "extra == 'all'", specifier = "!=1.23.0,<2.0.0" },
-    { name = "botocore", marker = "extra == 'aws-messaging'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'aws-secret-manager'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'cockroachdb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'confluence'", specifier = "!=1.23.0,<2.0.0" },
@@ -1782,6 +1781,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 's3-slim'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'sagemaker'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'sql-queries'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'sqs'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'tidb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'timescaledb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'unstructured'", specifier = "!=1.23.0,<2.0.0" },
@@ -2974,7 +2974,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-messaging", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "duckdb", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "google-drive", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "onnx-embeddings", "openapi", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "duckdb", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "google-drive", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "onnx-embeddings", "openapi", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "sqs", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "adlfs"

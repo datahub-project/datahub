@@ -1,15 +1,15 @@
 ## Overview
 
-[Amazon SQS](https://aws.amazon.com/sqs/) is AWS's managed message queue service, and [Amazon SNS](https://aws.amazon.com/sns/) is its managed pub/sub service. Applications usually use them together: an SNS topic fans messages out to SQS queues, and queues hand failed messages to dead-letter queues.
+[Amazon SQS](https://aws.amazon.com/sqs/) is AWS's managed message queue service. Producers send messages to a queue, consumers poll it, and messages that keep failing move to a dead-letter queue.
 
-The `aws-messaging` source plugin catalogs both services in one ingestion recipe. Queues are emitted under the `sqs` platform and topics under the `sns` platform, each grouped in a region container, with AWS resource tags as DataHub tags and stateful deletion of queues and topics that no longer exist.
+The `sqs` source plugin catalogs the queues of one AWS region as datasets, grouped in a region container, with queue settings as properties, AWS resource tags as DataHub tags, lineage from each queue to its dead-letter queue, and stateful deletion. Its companion, the `sns` source, catalogs SNS topics and adds topic-to-queue lineage; both build URNs the same way so their lineage joins.
 
 ## Concept Mapping
 
 | Source Concept | DataHub Concept                                     | Notes                                                         |
 | -------------- | --------------------------------------------------- | ------------------------------------------------------------- |
-| AWS account    | [Platform Instance](../../../platform-instances.md) | Defaults to the account id read from a resource ARN           |
-| AWS region     | [Container](../../metamodel/entities/container.md)  | Subtype `Region`, one per platform                            |
-| SQS queue      | [Dataset](../../metamodel/entities/dataset.md)      | Platform `sqs`, subtype `Queue`; name `<region>.<queue name>` |
-| SNS topic      | [Dataset](../../metamodel/entities/dataset.md)      | Platform `sns`, subtype `Topic`; name `<region>.<topic name>` |
+| AWS account    | [Platform Instance](../../../platform-instances.md) | Defaults to the account id read from a queue ARN              |
+| AWS region     | [Container](../../metamodel/entities/container.md)  | Subtype `Region`                                              |
+| Queue          | [Dataset](../../metamodel/entities/dataset.md)      | Platform `sqs`, subtype `Queue`; name `<region>.<queue name>` |
+| Redrive policy | Upstream lineage (patch)                            | Queue to its dead-letter queue                                |
 | Resource tag   | [Tag](../../metamodel/entities/tag.md)              | `Key:Value`, or `Key` for an empty value                      |

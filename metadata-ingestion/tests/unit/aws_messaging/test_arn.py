@@ -1,6 +1,5 @@
 from datahub.ingestion.source.aws_messaging.arn import (
     UrnBuilder,
-    endpoint_host,
     parse_arn,
     parse_redrive_policy,
 )
@@ -39,14 +38,6 @@ def test_redrive_policy() -> None:
     assert policy.max_receive_count == 5
     assert parse_redrive_policy("not json") is None
     assert parse_redrive_policy(None) is None
-
-
-def test_endpoint_host_drops_path_and_query() -> None:
-    assert (
-        endpoint_host("https://hooks.example.com/a/b?token=secret")
-        == "hooks.example.com"
-    )
-    assert endpoint_host("not a url") is None
 
 
 def test_urns_use_the_account_from_the_arn() -> None:

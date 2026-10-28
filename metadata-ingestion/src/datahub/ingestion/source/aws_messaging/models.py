@@ -36,22 +36,3 @@ class SqsQueue(BaseModel):
     @property
     def name(self) -> str:
         return self.arn.resource_name
-
-
-class SnsTopic(BaseModel):
-    arn: Arn
-    attributes: Dict[str, str]
-    tags: Dict[str, str] = Field(default_factory=dict)
-
-    @property
-    def name(self) -> str:
-        return self.arn.resource_name
-
-
-class SnsSubscription(BaseModel):
-    subscription_arn: str
-    topic_arn: str
-    protocol: str
-    endpoint: str
-    owner: Optional[str] = None
-    attributes: Dict[str, str] = Field(default_factory=dict)

@@ -4,7 +4,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.constants import ALL_ATTRIBUTES
-from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
+from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 
 
 def paginate(
@@ -12,12 +12,12 @@ def paginate(
     client: Any,
     operation: str,
     result_key: str,
-    report: AwsMessagingSourceReport,
+    report: AwsMessagingReportBase,
     api_label: str,
     **kwargs: Any,
 ) -> Iterator[Any]:
     # boto3 paginators raise from inside iteration, so the page count at the time
-    # of the exception tells a denied section apart from a truncated listing.
+    # of the exception tells a denied call apart from a truncated listing.
     pages_fetched = 0
     try:
         for page in client.get_paginator(operation).paginate(**kwargs):
@@ -32,7 +32,7 @@ def paginate(
 def call_or_warn(
     *,
     call: Callable[[], Dict[str, Any]],
-    report: AwsMessagingSourceReport,
+    report: AwsMessagingReportBase,
     api_label: str,
     context: str,
 ) -> Optional[Dict[str, Any]]:
@@ -53,7 +53,7 @@ def tags_to_dict(tags: List[Dict[str, str]]) -> Dict[str, str]:
 
 
 class SqsClient:
-    def __init__(self, client: Any, report: AwsMessagingSourceReport):
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
         self._client = client
         self.report = report
 
@@ -91,41 +91,3 @@ class SqsClient:
             context=f"queue={url}",
         )
         return dict((response or {}).get("Tags") or {})
-
-
-class SnsClient:
-    def __init__(self, client: Any, report: AwsMessagingSourceReport):
-        self._client = client
-        self.report = report
-
-    def list_topic_arns(self) -> Iterator[str]:
-        for topic in paginate(
-            client=self._client,
-            operation="list_topics",
-            result_key="Topics",
-            report=self.report,
-            api_label="sns:ListTopics",
-        ):
-            yield topic["TopicArn"]
-
-    def first_topic_arn(self) -> Optional[str]:
-        topics = self._client.list_topics().get("Topics") or []
-        return topics[0].get("TopicArn") if topics else None
-
-    def get_topic_attributes(self, arn: str) -> Optional[Dict[str, str]]:
-        response = call_or_warn(
-            call=lambda: self._client.get_topic_attributes(TopicArn=arn),
-            report=self.report,
-            api_label="sns:GetTopicAttributes",
-            context=f"topic={arn}",
-        )
-        return None if response is None else dict(response.get("Attributes") or {})
-
-    def get_tags(self, arn: str) -> Dict[str, str]:
-        response = call_or_warn(
-            call=lambda: self._client.list_tags_for_resource(ResourceArn=arn),
-            report=self.report,
-            api_label="sns:ListTagsForResource",
-            context=f"topic={arn}",
-        )
-        return tags_to_dict((response or {}).get("Tags") or [])
