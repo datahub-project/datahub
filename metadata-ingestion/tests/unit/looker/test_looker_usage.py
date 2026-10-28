@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, cast
 from unittest import mock
 
 from datahub.ingestion.source.looker import looker_usage
@@ -7,6 +7,7 @@ from datahub.ingestion.source.looker.looker_common import (
     LookerDashboardSourceReport,
 )
 from datahub.ingestion.source.looker.looker_query_model import (
+    FieldUsageViewField,
     HistoryViewField,
     LookerModel,
     QueryViewField,
@@ -47,17 +48,21 @@ def test_explore_usage_queries_target_system_activity_query_view():
     assert UserViewField.USER_ID not in per_day.fields
     assert UserViewField.USER_ID in per_user.fields
 
-    # The per-field query is separate (adding query.fields to the per-day query
-    # would fragment the (model, view, date) grouping) and carries query.fields.
+    # The per-field query uses the field_usage explore (pre-aggregated, no row
+    # limit issues) instead of parsing query.fields from the History explore.
     per_field = looker_usage.query_collection[
-        looker_usage.QueryId.EXPLORE_PER_FIELD_PER_DAY_USAGE_STAT
+        looker_usage.QueryId.EXPLORE_FIELD_USAGE_STAT
     ]
     assert per_field.model == LookerModel.SYSTEM_ACTIVITY
-    assert QueryViewField.QUERY_FIELDS in per_field.fields
-    assert QueryViewField.QUERY_MODEL in per_field.fields
-    assert QueryViewField.QUERY_VIEW in per_field.fields
-    assert UserViewField.USER_ID not in per_field.fields
-    assert QueryViewField.QUERY_FIELDS not in per_day.fields
+    assert FieldUsageViewField.FIELD_USAGE_MODEL in per_field.fields
+    assert FieldUsageViewField.FIELD_USAGE_EXPLORE in per_field.fields
+    assert FieldUsageViewField.FIELD_USAGE_FIELD in per_field.fields
+    assert FieldUsageViewField.FIELD_USAGE_TIMES_USED in per_field.fields
+
+    # Lock the filter syntax: string fields use "-NULL", numeric use "NOT NULL".
+    # https://docs.cloud.google.com/looker/docs/filter-expressions
+    assert per_day.filters[QueryViewField.QUERY_VIEW] == "-NULL"
+    assert per_user.filters[QueryViewField.QUERY_VIEW] == "-NULL"
 
 
 def test_explore_stat_generator_builds_explore_dataset_urn():
@@ -89,22 +94,19 @@ def test_explore_stat_generator_emits_usage_stats():
             HistoryViewField.HISTORY_COUNT: 30,
         }
     ]
-    # Two field-set buckets for the same (explore, day): orders.count appears in
-    # both, so its per-field count sums across rows (18 + 12 = 30).
+    # Pre-aggregated field usage from the field_usage explore (lifetime counts).
     field_rows = [
         {
-            QueryViewField.QUERY_MODEL: "sales",
-            QueryViewField.QUERY_VIEW: "orders",
-            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
-            QueryViewField.QUERY_FIELDS: "orders.count,orders.created_date",
-            HistoryViewField.HISTORY_COUNT: 18,
+            FieldUsageViewField.FIELD_USAGE_MODEL: "sales",
+            FieldUsageViewField.FIELD_USAGE_EXPLORE: "orders",
+            FieldUsageViewField.FIELD_USAGE_FIELD: "orders.count",
+            FieldUsageViewField.FIELD_USAGE_TIMES_USED: 30,
         },
         {
-            QueryViewField.QUERY_MODEL: "sales",
-            QueryViewField.QUERY_VIEW: "orders",
-            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
-            QueryViewField.QUERY_FIELDS: "orders.count",
-            HistoryViewField.HISTORY_COUNT: 12,
+            FieldUsageViewField.FIELD_USAGE_MODEL: "sales",
+            FieldUsageViewField.FIELD_USAGE_EXPLORE: "orders",
+            FieldUsageViewField.FIELD_USAGE_FIELD: "orders.created_date",
+            FieldUsageViewField.FIELD_USAGE_TIMES_USED: 18,
         },
     ]
     user_rows = [
@@ -161,33 +163,131 @@ def test_explore_stat_generator_emits_usage_stats():
     entity_urn = mcps[0].entityUrn
     assert entity_urn is not None and "sales.explore.orders" in entity_urn
 
-    # query.fields is exploded and summed into per-field usage counts.
+    # Lifetime field usage is attached to the explore's single day bucket.
     assert aspect.fieldCounts is not None
     field_counts = {fc.fieldPath: fc.count for fc in aspect.fieldCounts}
     assert field_counts == {"orders.count": 30, "orders.created_date": 18}
 
 
-def test_parse_query_fields_handles_delimiters_and_blanks():
-    parse = looker_usage.ExploreStatGenerator._parse_query_fields
-    assert parse("orders.count,orders.created_date") == [
-        "orders.count",
-        "orders.created_date",
+def test_lifetime_field_counts_are_not_repeated_across_day_buckets():
+    # field_usage.times_used is a lifetime total, but GMS SUMs
+    # fieldCounts.count across every bucket in a queried range
+    # (UsageServiceUtil#getFieldUsageCounts).  Repeating the list on each day
+    # would report times_used x active-days, so it belongs on one bucket only.
+    entity_rows = [
+        {
+            QueryViewField.QUERY_MODEL: "sales",
+            QueryViewField.QUERY_VIEW: "orders",
+            HistoryViewField.HISTORY_CREATED_DATE: date,
+            HistoryViewField.HISTORY_COUNT: 10,
+        }
+        for date in ("2022-07-05", "2022-07-06", "2022-07-07")
     ]
-    assert parse("orders.count\norders.created_date") == [
-        "orders.count",
-        "orders.created_date",
+    field_rows = [
+        {
+            FieldUsageViewField.FIELD_USAGE_MODEL: "sales",
+            FieldUsageViewField.FIELD_USAGE_EXPLORE: "orders",
+            FieldUsageViewField.FIELD_USAGE_FIELD: "orders.count",
+            FieldUsageViewField.FIELD_USAGE_TIMES_USED: 1553,
+        },
     ]
-    assert parse(" orders.count , ,\n orders.state ") == [
-        "orders.count",
-        "orders.state",
+
+    mock_api = mock.MagicMock()
+    mock_api.execute_query.side_effect = [entity_rows, field_rows, []]
+
+    generator = looker_usage.create_explore_stat_generator(
+        config=_stat_config(api=mock_api),
+        report=LookerDashboardSourceReport(),
+        source_config=LookerCommonConfig(),
+        looker_explores=[
+            looker_usage.LookerExploreForUsage(
+                id=None, model_name="sales", name="orders"
+            )
+        ],
+    )
+
+    mcps = list(generator.generate_usage_stat_mcps())
+
+    assert len(mcps) == 3
+    total = 0
+    for mcp in mcps:
+        aspect = mcp.aspect
+        assert isinstance(aspect, DatasetUsageStatisticsClass)
+        total += sum(fc.count for fc in aspect.fieldCounts or [])
+    assert total == 1553
+
+    # It lands on the latest day bucket.
+    latest = max(
+        mcps,
+        key=lambda mcp: cast(DatasetUsageStatisticsClass, mcp.aspect).timestampMillis,
+    )
+    assert cast(DatasetUsageStatisticsClass, latest.aspect).fieldCounts
+
+
+def test_field_usage_query_failure_leaves_usage_stats_intact():
+    entity_rows = [
+        {
+            QueryViewField.QUERY_MODEL: "sales",
+            QueryViewField.QUERY_VIEW: "orders",
+            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+            HistoryViewField.HISTORY_COUNT: 30,
+        }
     ]
-    assert parse("") == []
-    # System Activity serialises the Query model's fields (Sequence[str])
-    # into a JSON array string when returned as a dimension value.
-    assert parse('["orders.count","orders.created_date"]') == [
-        "orders.count",
-        "orders.created_date",
+
+    mock_api = mock.MagicMock()
+    mock_api.execute_query.side_effect = [
+        entity_rows,
+        Exception("field_usage explore is not accessible"),
+        [],
     ]
+
+    report = LookerDashboardSourceReport()
+    generator = looker_usage.create_explore_stat_generator(
+        config=_stat_config(api=mock_api),
+        report=report,
+        source_config=LookerCommonConfig(),
+        looker_explores=[
+            looker_usage.LookerExploreForUsage(
+                id=None, model_name="sales", name="orders"
+            )
+        ],
+    )
+
+    mcps = list(generator.generate_usage_stat_mcps())
+
+    assert len(mcps) == 1
+    aspect = mcps[0].aspect
+    assert isinstance(aspect, DatasetUsageStatisticsClass)
+    assert aspect.totalSqlQueries == 30
+    assert aspect.fieldCounts is None
+    # The operator gets told why fieldCounts are missing.
+    assert len(report.warnings) == 1
+
+
+def test_generators_do_not_mutate_the_shared_query_collection():
+    # query_collection holds one shared LookerQuery per QueryId; a generator
+    # that filtered it in place would leak its interval and explore filters
+    # into every later generator in the same process.
+    per_day = looker_usage.query_collection[
+        looker_usage.QueryId.EXPLORE_PER_DAY_USAGE_STAT
+    ]
+    before = dict(per_day.filters)
+
+    mock_api = mock.MagicMock()
+    mock_api.execute_query.side_effect = [[], [], []]
+    generator = looker_usage.create_explore_stat_generator(
+        config=_stat_config(api=mock_api),
+        report=LookerDashboardSourceReport(),
+        source_config=LookerCommonConfig(),
+        looker_explores=[
+            looker_usage.LookerExploreForUsage(
+                id=None, model_name="sales", name="orders"
+            )
+        ],
+    )
+    list(generator.generate_usage_stat_mcps())
+
+    assert per_day.filters == before
 
 
 def test_explore_stat_key_round_trips_between_model_and_row():
