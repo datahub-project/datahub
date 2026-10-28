@@ -8,6 +8,11 @@ from typing import Tuple
 # Fabric Warehouse and Lakehouse SQL Analytics endpoints both use dbo.
 FABRIC_SQL_DEFAULT_SCHEMA = "dbo"
 
+# Application name the connector's SQL connections report. Query Insights
+# records it as program_name, so usage extraction can skip the connector's own
+# schema, usage and profiling queries.
+FABRIC_SQL_APP_NAME = "DataHub Fabric OneLake ingestion"
+
 # SQL Server / Fabric schemas that are not user tables. Excluded from warehouse
 # catalog listing and from SQL schema and view discovery.
 # - INFORMATION_SCHEMA, sys: standard SQL Server system schemas.

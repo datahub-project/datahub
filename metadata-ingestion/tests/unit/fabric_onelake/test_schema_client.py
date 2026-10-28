@@ -11,6 +11,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
+from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SQL_APP_NAME
 from datahub.ingestion.source.fabric.onelake.schema_client import (
     SqlAnalyticsEndpointClient,
 )
@@ -77,6 +78,7 @@ class TestSqlAnalyticsEndpointClient:
         assert "test-endpoint.datawarehouse.fabric.microsoft.com" in connection_string
         assert "Encrypt=yes" in connection_string
         assert "TrustServerCertificate=no" in connection_string
+        assert f"APP={FABRIC_SQL_APP_NAME};" in connection_string
 
     def test_get_connection_string_custom_options(
         self, mock_auth_helper, sql_endpoint_config

@@ -27,7 +27,10 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
-from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
+from datahub.ingestion.source.fabric.onelake.constants import (
+    FABRIC_SQL_APP_NAME,
+    FABRIC_SYSTEM_SCHEMAS,
+)
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
     FabricQueryInsightsRow,
@@ -578,6 +581,7 @@ class SqlAnalyticsEndpointClient:
                 start_time,
                 statement_type,
                 login_name,
+                program_name,
                 row_count,
                 status,
                 command
@@ -612,6 +616,7 @@ class SqlAnalyticsEndpointClient:
                             start_time=row_mapping["start_time"],
                             statement_type=row_mapping["statement_type"],
                             login_name=row_mapping["login_name"],
+                            program_name=row_mapping["program_name"],
                             row_count=row_mapping["row_count"],
                             status=row_mapping["status"],
                             command=row_mapping["command"],
@@ -762,6 +767,7 @@ class SqlAnalyticsEndpointClient:
             f"Database={self.item_display_name};",
             f"Encrypt={self.config.encrypt};",
             f"TrustServerCertificate={self.config.trust_server_certificate};",
+            f"APP={FABRIC_SQL_APP_NAME};",
         ]
         return "".join(parts)
 
