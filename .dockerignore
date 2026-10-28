@@ -2,6 +2,8 @@
 */build/
 */*/build/
 **/venv/
+**/.venv/
+.venv
 **/.tox/
 **/.mypy_cache/
 **/.pytest_cache/
@@ -23,3 +25,11 @@ out
 /metadata-ingestion/tests
 /metadata-ingestion/examples
 /metadata-ingestion/docs
+docs/generated/
+metadata-ingestion/generated/
+docs-website/genDocs/
+docs-website/genStatic/
+scripts/generated/
+**/bin/
+# Play installDist launcher must stay in context (see datahub-frontend/build.gradle stage task).
+!datahub-frontend/build/stage/main/bin/**
