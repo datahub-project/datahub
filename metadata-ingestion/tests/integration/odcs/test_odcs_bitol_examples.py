@@ -27,10 +27,13 @@ from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2024-01-15 12:00:00"
 
-# The only warning the official corpus is allowed to produce: upstream
+# The only warnings the official corpus is allowed to produce: upstream
 # examples that fail Bitol's own JSON Schema get the lenient-validation
-# notice. Anything else (unknown fields, routing skips) is a regression.
+# notice, and examples whose authoritativeDefinitions use jdbc: URLs get the
+# skipped-link notice. Anything else (unknown fields, routing skips) is a
+# regression.
 _ALLOWED_WARNING = "ODCS contract has JSON Schema validation issues"
+_ALLOWED_WARNINGS = {_ALLOWED_WARNING, "ODCS authoritativeDefinitions URLs skipped"}
 
 # Examples that materialize logical datasets and have per-file goldens.
 # postgresql-adventureworks (68 tables) is covered behaviorally below
@@ -97,7 +100,7 @@ def _run_example(
 
 def _assert_only_lenient_validation_warnings(report: Any) -> None:
     for warning in report.warnings:
-        assert str(getattr(warning, "title", warning)) == _ALLOWED_WARNING, (
+        assert str(getattr(warning, "title", warning)) in _ALLOWED_WARNINGS, (
             f"official Bitol example produced an unexpected warning: {warning}"
         )
     assert report.unknown_fields_count == 0
@@ -138,7 +141,15 @@ def test_bitol_schemaless_excerpt_skips_gracefully(
     dataset shells and without unknown-field warnings — their roles / SLA /
     team-object keys are all recognized as spec-valid."""
     mces, report, _ = _run_example(pytestconfig, tmp_path, fixture)
-    _assert_only_lenient_validation_warnings(report)
+    # A single schemaless contract emits nothing, so the pipeline's
+    # "No metadata was produced" notice is expected here alongside the
+    # lenient-validation one.
+    allowed = {_ALLOWED_WARNING, "No metadata was produced by the source"}
+    for warning in report.warnings:
+        assert str(getattr(warning, "title", warning)) in allowed, (
+            f"official Bitol example produced an unexpected warning: {warning}"
+        )
+    assert report.unknown_fields_count == 0
     assert report.contracts_skipped == 1
     assert not [m for m in mces if m.get("entityType") == "dataset"]
 
@@ -249,6 +260,14 @@ def test_adventureworks_contract_fans_out(
     )
     _assert_only_lenient_validation_warnings(report)
     assert report.contracts_skipped == 0
+    # 68 schemas and hundreds of jdbc: URLs still produce one context entry.
+    skipped_link_warnings = [
+        w
+        for w in report.warnings
+        if w.title == "ODCS authoritativeDefinitions URLs skipped"
+    ]
+    assert len(skipped_link_warnings) == 1
+    assert len(skipped_link_warnings[0].context) == 1
 
     logical_urns = {
         m["entityUrn"]

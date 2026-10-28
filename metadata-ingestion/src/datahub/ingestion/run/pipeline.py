@@ -998,7 +998,7 @@ class Pipeline:
         logger.exception(
             f"Ingestion pipeline threw an uncaught exception: {exc}", stacklevel=2
         )
-        self.source.get_report().report_failure(
+        self.source.get_report().failure(
             title="Pipeline Error",
             message="Ingestion pipeline raised an unexpected exception!",
             exc=exc,

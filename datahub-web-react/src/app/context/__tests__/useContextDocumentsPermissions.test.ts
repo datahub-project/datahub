@@ -8,7 +8,7 @@ import { UserContext } from '@app/context/userContext';
 // Mock user context values
 const createMockUserContext = (
     overrides: Partial<{
-        platformPrivileges: { manageDocuments: boolean };
+        platformPrivileges: { manageDocuments: boolean; createDocuments: boolean };
         loaded: boolean;
     }> = {},
 ) => ({
@@ -50,10 +50,10 @@ describe('useContextDocumentsPermissions', () => {
         expect(result.current.canManage).toBe(false);
     });
 
-    it('should return false for all permissions when manageDocuments is false', () => {
+    it('should allow create without platform-wide document management', () => {
         const mockContext = createMockUserContext({
             loaded: true,
-            platformPrivileges: { manageDocuments: false },
+            platformPrivileges: { manageDocuments: false, createDocuments: true },
         });
 
         const wrapper = ({ children }: { children: React.ReactNode }) =>
@@ -61,14 +61,14 @@ describe('useContextDocumentsPermissions', () => {
 
         const { result } = renderHook(() => useContextDocumentsPermissions(), { wrapper });
 
-        expect(result.current.canCreate).toBe(false);
+        expect(result.current.canCreate).toBe(true);
         expect(result.current.canManage).toBe(false);
     });
 
     it('should return true for all permissions when manageDocuments is true', () => {
         const mockContext = createMockUserContext({
             loaded: true,
-            platformPrivileges: { manageDocuments: true },
+            platformPrivileges: { manageDocuments: true, createDocuments: true },
         });
 
         const wrapper = ({ children }: { children: React.ReactNode }) =>

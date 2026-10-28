@@ -9,9 +9,14 @@ import {
     FilterValueOption,
 } from '@app/searchV2/filters/types';
 import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
-import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import {
+    CONTAINER_FILTER_NAME,
+    DOMAINS_FILTER_NAME,
+    FILTER_DELIMITER,
+    PARENT_DOCUMENT_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
 import { combineOrFilters } from '@app/searchV2/utils/filterUtils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
 import { ENTITY_FILTER_NAME } from '@src/app/search/utils/constants';
@@ -118,6 +123,18 @@ export const useLoadAggregationOptions = ({
     }
 
     const requestedAgg = data?.aggregateAcrossEntities?.facets?.find((facet: any) => facet.field === field.field);
+
+    // The aggregation facet's entity carries the structured-property definition (incl. valueType),
+    // which getStructuredPropFilterDisplayName needs to format numbers and dates. Prefer it over
+    // field.entity, which doesn't carry the definition in every dropdown path — without it, number
+    // buckets render as the raw double (e.g. "42000.0") and dates as raw epochs in the selector,
+    // inconsistent with how the selected-filter chip renders the same value.
+    const structuredPropEntity =
+        requestedAgg?.entity?.__typename === 'StructuredPropertyEntity'
+            ? (requestedAgg.entity as StructuredPropertyEntity)
+            : undefined;
+    const propertyEntity = structuredPropEntity ?? field.entity;
+
     // Filter out options with no count only if removeOptionsWithNoCount otherwise do not filter
     const filteredOptions = requestedAgg?.aggregations?.filter((agg) =>
         removeOptionsWithNoCount ? !!agg.count : true,
@@ -128,15 +145,11 @@ export const useLoadAggregationOptions = ({
             entity: aggregation.entity,
             icon: field.icon,
             count: includeCounts ? aggregation.count : undefined,
-            displayName: getStructuredPropFilterDisplayName(field.field, aggregation.value, field.entity),
+            displayName: getStructuredPropFilterDisplayName(field.field, aggregation.value, propertyEntity),
         };
     });
     // For structured property fields with allowedValues, surface every allowed value even if it
     // has no indexed documents yet — so the full set of filterable choices is always visible.
-    const structuredPropEntity =
-        requestedAgg?.entity?.__typename === 'StructuredPropertyEntity'
-            ? (requestedAgg.entity as StructuredPropertyEntity)
-            : undefined;
     const allowedValuesFromDefinition = structuredPropEntity?.definition?.allowedValues;
     if (allowedValuesFromDefinition?.length) {
         return {
@@ -144,7 +157,7 @@ export const useLoadAggregationOptions = ({
                 value: rawValue,
                 icon: field.icon,
                 count: includeCounts ? 0 : undefined,
-                displayName: getStructuredPropFilterDisplayName(field.field, rawValue, field.entity),
+                displayName: getStructuredPropFilterDisplayName(field.field, rawValue, propertyEntity),
             })),
             loading,
         };
@@ -206,8 +219,16 @@ export const useLoadSearchOptions = (field: EntityFilterField, query?: string, s
 };
 
 /**
- * Hook used to filter selector options by a raw search query string. This uses the name of the filter value
- * to match against the search query.
+ * Hook used to filter selector options by a raw search query string. Matches against the option's
+ * human-readable form only — the entity display name for urn-typed options, or the formatted display
+ * name otherwise.
+ *
+ * We deliberately do NOT match the raw underlying value. The raw value is only ever the interesting
+ * thing to search when it equals the human-readable form (strings, numbers), and in those cases the
+ * display name already covers it. When they differ — a urn behind an entity option, or an epoch behind
+ * a date option — the raw value is noise no user would type, so matching it only produces spurious
+ * hits. (This relies on getStructuredPropFilterDisplayName rendering the real value; previously a
+ * parseFloat bug corrupted numeric-looking strings to "Infinity", which is fixed separately.)
  */
 export const useFilterOptionsBySearchQuery = (
     options: FilterValueOption[],
@@ -234,5 +255,12 @@ export const getEntityTypeFilterValueDisplayName = (value: string, entityRegistr
 };
 
 export const getDefaultFieldOperatorType = (field: FilterField) => {
+    if (
+        field.field === DOMAINS_FILTER_NAME ||
+        field.field === CONTAINER_FILTER_NAME ||
+        field.field === PARENT_DOCUMENT_FILTER_NAME
+    ) {
+        return FilterOperatorType.WITHIN;
+    }
     return field.type === FieldType.TEXT ? FilterOperatorType.CONTAINS : FilterOperatorType.EQUALS;
 };

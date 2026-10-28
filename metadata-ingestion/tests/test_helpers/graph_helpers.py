@@ -18,6 +18,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
+    DataProductPropertiesClass,
     DomainPropertiesClass,
     SystemMetadataClass,
     UsageAggregationClass,
@@ -100,6 +101,30 @@ class MockDataHubGraph(DataHubGraph):
             urn
             for urn, name in domain_properties_metadata.items()
             if name == domain_name
+        ]
+        if urn_match:
+            return urn_match[0]
+        else:
+            return None
+
+    def get_data_product_urn_by_name(self, data_product_name: str) -> Optional[str]:
+        data_product_metadata = {
+            urn: metadata
+            for urn, metadata in self.entity_graph.items()
+            if urn.startswith("urn:li:dataProduct:")
+        }
+        data_product_properties_metadata = {
+            urn: metadata["dataProductProperties"].name
+            for urn, metadata in data_product_metadata.items()
+            if "dataProductProperties" in metadata
+            and isinstance(
+                metadata["dataProductProperties"], DataProductPropertiesClass
+            )
+        }
+        urn_match = [
+            urn
+            for urn, name in data_product_properties_metadata.items()
+            if name == data_product_name
         ]
         if urn_match:
             return urn_match[0]

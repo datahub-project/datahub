@@ -10,6 +10,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ParentDocumentsResult;
@@ -26,10 +27,36 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class ParentDocumentsResolverTest {
+  @Test
+  public void testUnauthorizedDocumentDoesNotLoadParents() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    QueryContext context = Mockito.mock(QueryContext.class);
+    DataFetchingEnvironment environment = Mockito.mock(DataFetchingEnvironment.class);
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:restricted");
+    Document document = new Document();
+    document.setUrn(documentUrn.toString());
+    Mockito.when(environment.getContext()).thenReturn(context);
+    Mockito.when(environment.getSource()).thenReturn(document);
+
+    try (MockedStatic<AuthorizationUtils> authorizationUtils =
+        Mockito.mockStatic(AuthorizationUtils.class)) {
+      authorizationUtils
+          .when(() -> AuthorizationUtils.canView(context.getOperationContext(), documentUrn))
+          .thenReturn(false);
+
+      ParentDocumentsResult result = new ParentDocumentsResolver(mockClient).get(environment).get();
+
+      assertEquals(result.getCount(), 0);
+      assertTrue(result.getDocuments().isEmpty());
+      Mockito.verifyNoInteractions(mockClient);
+    }
+  }
+
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);

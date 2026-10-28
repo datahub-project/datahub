@@ -22,6 +22,11 @@
 # Defaults equal the base hardcoded paths, so even when loaded with no
 # env vars set the resolved mounts are unchanged — this file is inert
 # unless the framework sets the DATAHUB_*_HOST_DIR vars.
+# Both topologies are covered (`debug` = consumers inside GMS, `debug-consumers`
+# = split out). Each service is restated rather than sharing a YAML anchor: the
+# base file's `system-update-debug-consumers: {<<: *system-update-debug}` merge
+# resolves at parse time, before Compose layers this override on, so an
+# un-restated service silently keeps the hardcoded dev-tree paths.
 services:
   datahub-gms-debug:
     volumes:
@@ -32,3 +37,24 @@ services:
     volumes:
       - ${DATAHUB_UPGRADE_BIN_HOST_DIR:-../../datahub-upgrade/build/libs/}:/datahub/datahub-upgrade/bin/
       - ${DATAHUB_MODELS_RESOURCES_HOST_DIR:-../../metadata-models/src/main/resources/}:/datahub/datahub-gms/resources
+
+  datahub-gms-debug-consumers:
+    volumes:
+      - ${DATAHUB_MODELS_RESOURCES_HOST_DIR:-../../metadata-models/src/main/resources/}:/datahub/datahub-gms/resources
+      - ${DATAHUB_GMS_WAR_HOST_DIR:-../../metadata-service/war/build/libs/}:/datahub/datahub-gms/bin
+
+  system-update-debug-consumers:
+    volumes:
+      - ${DATAHUB_UPGRADE_BIN_HOST_DIR:-../../datahub-upgrade/build/libs/}:/datahub/datahub-upgrade/bin/
+      - ${DATAHUB_MODELS_RESOURCES_HOST_DIR:-../../metadata-models/src/main/resources/}:/datahub/datahub-gms/resources
+
+  # The consumers carry the MCL/MCP write paths here, so their jars decide
+  # which side of the upgrade the write path actually runs.
+  datahub-mae-consumer-debug-consumers:
+    volumes:
+      - ${DATAHUB_MODELS_RESOURCES_HOST_DIR:-../../metadata-models/src/main/resources/}:/datahub/datahub-mae-consumer/resources
+      - ${DATAHUB_MAE_BIN_HOST_DIR:-../../metadata-jobs/mae-consumer-job/build/libs/}:/datahub/datahub-mae-consumer/bin/
+
+  datahub-mce-consumer-debug-consumers:
+    volumes:
+      - ${DATAHUB_MCE_BIN_HOST_DIR:-../../metadata-jobs/mce-consumer-job/build/libs/}:/datahub/datahub-mce-consumer/bin

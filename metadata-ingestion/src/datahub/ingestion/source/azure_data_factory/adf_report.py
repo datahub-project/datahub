@@ -38,9 +38,19 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     dataflow_lineage_extracted: int = 0  # Data Flow source/sink lineage
     lineage_extraction_failures: int = 0
     datasets_with_lineage: int = 0
+    unresolved_dynamic_properties: int = 0  # Dataset typeProperties using dynamic
+    # content (e.g. @dataset().table_name) that could not be resolved
+    # Per-pair sibling DataJobs for activities that read and wrote many
+    # distinct tables (e.g. a Copy activity inside a ForEach)
+    dynamic_lineage_sibling_jobs_emitted: int = 0
+    dynamic_lineage_pairs_over_cap: int = 0  # Dropped: over the per-activity cap
+    dynamic_lineage_pairs_unresolved: int = 0  # Dropped: a side was a placeholder
 
     # Column-level lineage metrics
     column_lineage_extracted: int = 0  # Number of column mappings extracted
+    # Source columns skipped because the sink schema in DataHub has no unique
+    # case-insensitive match for them
+    column_lineage_sink_columns_unmatched: int = 0
     column_lineage_activities_unsupported: Dict[str, int] = field(
         default_factory=dict
     )  # Activity types without CLL support
@@ -108,21 +118,49 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     def report_lineage_failed(self, entity_name: str, error: str) -> None:
         """Record a lineage extraction failure."""
         self.lineage_extraction_failures += 1
-        self.report_warning(
+        self.warning(
             title="Lineage Extraction Failed",
             message="Unable to extract lineage for this entity.",
             context=f"entity={entity_name}, error={error}",
+            log=False,
         )
 
     def report_unmapped_platform(
         self, dataset_name: str, linked_service_type: str
     ) -> None:
         """Record a dataset with unmapped platform via structured warning."""
-        self.report_warning(
+        self.warning(
             title="Unmapped Linked Service Type",
             message="Lineage skipped for dataset using unsupported linked service type.",
             context=f"dataset={dataset_name}, linked_service_type={linked_service_type}",
+            log=False,
         )
+
+    def report_unresolved_dynamic_property(
+        self, dataset_name: str, expression: str
+    ) -> None:
+        """Record a dataset typeProperty using dynamic content that could not
+        be resolved to a concrete value; lineage falls back to the ADF
+        dataset name instead."""
+        self.unresolved_dynamic_properties += 1
+        self.warning(
+            title="Unresolved Dynamic Dataset Property",
+            message="ADF dataset typeProperty uses dynamic content that could not be resolved; falling back to ADF dataset name for lineage URN.",
+            context=f"dataset={dataset_name}, expression={expression}",
+            log=False,
+        )
+
+    def report_dynamic_lineage_sibling_emitted(self) -> None:
+        self.dynamic_lineage_sibling_jobs_emitted += 1
+
+    def report_dynamic_lineage_pairs_over_cap(self, count: int) -> None:
+        self.dynamic_lineage_pairs_over_cap += count
+
+    def report_dynamic_lineage_pairs_unresolved(self, count: int) -> None:
+        self.dynamic_lineage_pairs_unresolved += count
+
+    def report_column_lineage_sink_column_unmatched(self) -> None:
+        self.column_lineage_sink_columns_unmatched += 1
 
     def report_column_lineage_extracted(self) -> None:
         """Increment column lineage mappings counter."""
@@ -164,8 +202,9 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     def report_api_error(self, endpoint: str, error: str) -> None:
         """Record an API error."""
         self.api_calls_total_error_count += 1
-        self.report_warning(
+        self.warning(
             title="API Error",
             message="Failed to call Azure Data Factory API.",
             context=f"endpoint={endpoint}, error={error}",
+            log=False,
         )

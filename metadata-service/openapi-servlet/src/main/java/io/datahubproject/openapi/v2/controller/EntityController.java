@@ -5,7 +5,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
@@ -18,6 +17,8 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -72,17 +73,26 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/*
+ Prefer /openapi/v3/entity instead
+*/
+@Deprecated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/openapi/v2/entity")
 @Slf4j
+@Tag(
+    name = "Generic Entities",
+    description = "Deprecated: prefer /openapi/v3/entity for entity operations.")
 public class EntityController
     extends GenericEntitiesController<
         GenericAspectV2, GenericEntityV2, GenericEntityScrollResultV2> {
 
-  @Tag(name = "Generic Entities")
   @PostMapping(value = "/batch/{entityName}", produces = MediaType.APPLICATION_JSON_VALUE)
-  @Operation(summary = "Get a batch of entities")
+  @Operation(
+      deprecated = true,
+      summary = "Get a batch of entities",
+      description = "Deprecated: prefer /openapi/v3/entity/{entityName}/batchGet.")
   public ResponseEntity<BatchGetUrnResponseV2<GenericAspectV2, GenericEntityV2>> getEntityBatch(
       HttpServletRequest httpServletRequest,
       @PathVariable("entityName") String entityName,
@@ -106,7 +116,7 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, urns)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, urns)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
@@ -141,6 +151,10 @@ public class EntityController
         .results(
             toRecordTemplates(opContext, searchEntities, aspectNames, withSystemMetadata, true))
         .scrollId(scrollId)
+        .routeChain(
+            searchResultMetadata != null && searchResultMetadata.hasRouteChain()
+                ? new ArrayList<>(searchResultMetadata.getRouteChain())
+                : null)
         .build();
   }
 
@@ -230,12 +244,21 @@ public class EntityController
 
     return urnAspectVersions.keySet().stream()
         .map(
-            u ->
-                GenericEntityV2.builder()
-                    .urn(u.toString())
-                    .build(
-                        objectMapper,
-                        toAspectMap(u, aspects.getOrDefault(u, List.of()), withSystemMetadata)))
+            u -> {
+              List<EnvelopedAspect> urnAspects =
+                  aspects.getOrDefault(u, List.of()).stream()
+                      .filter(
+                          a ->
+                              !EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                                  opContext, u, a.getName()))
+                      .collect(Collectors.toList());
+              return GenericEntityV2.builder()
+                  .urn(u.toString())
+                  .build(
+                      objectMapper,
+                      SensitiveAspectAuthUtil.omitUnauthorizedAspects(
+                          opContext, u, toAspectMap(u, urnAspects, withSystemMetadata)));
+            })
         .collect(Collectors.toList());
   }
 

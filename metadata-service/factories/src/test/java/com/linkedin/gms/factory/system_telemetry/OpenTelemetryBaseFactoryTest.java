@@ -8,10 +8,16 @@ import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
 import com.linkedin.metadata.config.UsageExportConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
-import com.linkedin.metadata.event.UsageEventPublisher;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.metadata.context.kafka.SpanProducerRecordResolver;
+import io.datahubproject.metadata.context.telemetry.EnrichingSpanProcessor;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.trace.ReadableSpan;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import java.lang.reflect.Field;
@@ -60,7 +66,9 @@ public class OpenTelemetryBaseFactoryTest {
 
   @Mock private ConfigurationProvider mockConfigurationProvider;
 
-  @Mock private UsageEventPublisher mockPublisher;
+  @Mock private GenericProducer<String> mockPublisher;
+  @Mock private SpanProducerRecordResolver mockSpanProducerRecordResolver;
+  @Mock private EnrichingSpanProcessor mockEnrichingSpanProcessor;
 
   @Mock private PlatformAnalyticsConfiguration mockPlatformAnalytics;
 
@@ -74,7 +82,7 @@ public class OpenTelemetryBaseFactoryTest {
   private AutoCloseable mocks;
 
   // Test implementation of the abstract class
-  private static class TestOpenTelemetryFactory extends OpenTelemetryBaseFactory {
+  private class TestOpenTelemetryFactory extends OpenTelemetryBaseFactory {
     private final String applicationComponent;
 
     public TestOpenTelemetryFactory(String applicationComponent) {
@@ -90,8 +98,26 @@ public class OpenTelemetryBaseFactoryTest {
     public SystemTelemetryContext testTraceContext(
         MetricUtils metricUtils,
         ConfigurationProvider configurationProvider,
-        UsageEventPublisher usageEventPublisher) {
-      return traceContext(metricUtils, configurationProvider, usageEventPublisher);
+        GenericProducer<String> usageEventPublisher) {
+      return traceContext(
+          metricUtils,
+          configurationProvider,
+          usageEventPublisher,
+          mockSpanProducerRecordResolver,
+          mockEnrichingSpanProcessor);
+    }
+
+    public OpenTelemetrySdk testOpenTelemetry(
+        MetricUtils metricUtils, SpanProcessor usageSpanExporter) throws Exception {
+      Method m =
+          OpenTelemetryBaseFactory.class.getDeclaredMethod(
+              "openTelemetry",
+              MetricUtils.class,
+              SpanProcessor.class,
+              EnrichingSpanProcessor.class);
+      m.setAccessible(true);
+      return (OpenTelemetrySdk)
+          m.invoke(this, metricUtils, usageSpanExporter, mockEnrichingSpanProcessor);
     }
   }
 
@@ -184,7 +210,10 @@ public class OpenTelemetryBaseFactoryTest {
     // Use reflection to test private method
     Method getUsageSpanExporterMethod =
         OpenTelemetryBaseFactory.class.getDeclaredMethod(
-            "getUsageSpanExporter", ConfigurationProvider.class, UsageEventPublisher.class);
+            "getUsageSpanExporter",
+            ConfigurationProvider.class,
+            GenericProducer.class,
+            SpanProducerRecordResolver.class);
     getUsageSpanExporterMethod.setAccessible(true);
 
     // Test with all conditions met
@@ -193,7 +222,8 @@ public class OpenTelemetryBaseFactoryTest {
 
     SpanProcessor result =
         (SpanProcessor)
-            getUsageSpanExporterMethod.invoke(factory, mockConfigurationProvider, mockPublisher);
+            getUsageSpanExporterMethod.invoke(
+                factory, mockConfigurationProvider, mockPublisher, mockSpanProducerRecordResolver);
 
     assertNotNull(result);
     assertTrue(result instanceof BatchSpanProcessor);
@@ -354,14 +384,15 @@ public class OpenTelemetryBaseFactoryTest {
     // Test the OpenTelemetry configuration
     Method openTelemetryMethod =
         OpenTelemetryBaseFactory.class.getDeclaredMethod(
-            "openTelemetry", MetricUtils.class, SpanProcessor.class);
+            "openTelemetry", MetricUtils.class, SpanProcessor.class, EnrichingSpanProcessor.class);
     openTelemetryMethod.setAccessible(true);
 
     SpanProcessor mockSpanProcessor = mock(SpanProcessor.class);
 
     io.opentelemetry.api.OpenTelemetry result =
         (io.opentelemetry.api.OpenTelemetry)
-            openTelemetryMethod.invoke(factory, mockMetricUtils, mockSpanProcessor);
+            openTelemetryMethod.invoke(
+                factory, mockMetricUtils, mockSpanProcessor, mockEnrichingSpanProcessor);
 
     assertNotNull(result);
   }
@@ -430,5 +461,47 @@ public class OpenTelemetryBaseFactoryTest {
 
     assertNotNull(context);
     // Should use MetricSpanExporter when OTEL_METRICS_EXPORTER is not set
+  }
+
+  @Test
+  public void testResourceAttributesPreserved() throws Exception {
+    String propKey = "otel.resource.attributes";
+    String original = System.getProperty(propKey);
+
+    try {
+      System.setProperty(propKey, "k8s.namespace.name=test-tenant,service.namespace=datahub");
+
+      when(mockEnrichingSpanProcessor.shutdown())
+          .thenReturn(io.opentelemetry.sdk.common.CompletableResultCode.ofSuccess());
+
+      TestOpenTelemetryFactory f = new TestOpenTelemetryFactory("datahub-mae-consumer");
+      OpenTelemetrySdk sdk = f.testOpenTelemetry(mockMetricUtils, null);
+      try {
+        Span span = sdk.getTracer("test").spanBuilder("test").startSpan();
+        try {
+          assertTrue(span instanceof ReadableSpan, "Span should be a ReadableSpan from the SDK");
+          ReadableSpan readable = (ReadableSpan) span;
+          var resource = readable.toSpanData().getResource();
+
+          assertEquals(
+              resource.getAttribute(AttributeKey.stringKey("service.name")),
+              "datahub-mae-consumer");
+          assertEquals(
+              resource.getAttribute(AttributeKey.stringKey("k8s.namespace.name")), "test-tenant");
+          assertEquals(
+              resource.getAttribute(AttributeKey.stringKey("service.namespace")), "datahub");
+        } finally {
+          span.end();
+        }
+      } finally {
+        sdk.close();
+      }
+    } finally {
+      if (original != null) {
+        System.setProperty(propKey, original);
+      } else {
+        System.clearProperty(propKey);
+      }
+    }
   }
 }

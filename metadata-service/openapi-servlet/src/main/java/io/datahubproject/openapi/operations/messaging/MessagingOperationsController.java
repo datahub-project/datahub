@@ -70,7 +70,7 @@ public class MessagingOperationsController {
   @GetMapping(path = "/transport", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Get active messaging transport and primary metadata queue topic names")
   public ResponseEntity<?> getTransport(HttpServletRequest httpServletRequest) {
-    if (!authorize(httpServletRequest, "getMessagingTransport", UsageOperation.OTHER_READ)) {
+    if (!authorizeStatus(httpServletRequest, "getMessagingTransport", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     MessagingTransportInfoResponse body =
@@ -90,7 +90,7 @@ public class MessagingOperationsController {
       HttpServletRequest httpServletRequest,
       @RequestParam(value = "skipCache", defaultValue = "false") boolean skipCache,
       @RequestParam(value = "detailed", defaultValue = "false") boolean detailed) {
-    if (!authorize(httpServletRequest, "getMcpConsumerLag", UsageOperation.OTHER_READ)) {
+    if (!authorizeStatus(httpServletRequest, "getMcpConsumerLag", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     return ResponseEntity.ok(
@@ -104,7 +104,8 @@ public class MessagingOperationsController {
       HttpServletRequest httpServletRequest,
       @RequestParam(value = "skipCache", defaultValue = "false") boolean skipCache,
       @RequestParam(value = "detailed", defaultValue = "false") boolean detailed) {
-    if (!authorize(httpServletRequest, "getMclVersionedConsumerLag", UsageOperation.OTHER_READ)) {
+    if (!authorizeStatus(
+        httpServletRequest, "getMclVersionedConsumerLag", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     return ResponseEntity.ok(
@@ -118,7 +119,8 @@ public class MessagingOperationsController {
       HttpServletRequest httpServletRequest,
       @RequestParam(value = "skipCache", defaultValue = "false") boolean skipCache,
       @RequestParam(value = "detailed", defaultValue = "false") boolean detailed) {
-    if (!authorize(httpServletRequest, "getUsageEventsConsumerLag", UsageOperation.OTHER_READ)) {
+    if (!authorizeStatus(
+        httpServletRequest, "getUsageEventsConsumerLag", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     return ResponseEntity.ok(
@@ -132,7 +134,8 @@ public class MessagingOperationsController {
       HttpServletRequest httpServletRequest,
       @RequestParam(value = "skipCache", defaultValue = "false") boolean skipCache,
       @RequestParam(value = "detailed", defaultValue = "false") boolean detailed) {
-    if (!authorize(httpServletRequest, "getMclTimeseriesConsumerLag", UsageOperation.OTHER_READ)) {
+    if (!authorizeStatus(
+        httpServletRequest, "getMclTimeseriesConsumerLag", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     return ResponseEntity.ok(
@@ -144,7 +147,7 @@ public class MessagingOperationsController {
   @Operation(summary = "List registered consumers for a topic (aggressive retention)")
   public ResponseEntity<?> listConsumers(
       HttpServletRequest httpServletRequest, @RequestParam("topicName") String topicName) {
-    if (!authorize(httpServletRequest, "listConsumers", UsageOperation.OTHER_READ)) {
+    if (!authorizeStatus(httpServletRequest, "listConsumers", UsageOperation.OTHER_READ)) {
       return forbidden();
     }
     if (metadataQueueStore == null) {
@@ -179,7 +182,7 @@ public class MessagingOperationsController {
   @Operation(summary = "Register a consumer group for a topic (aggressive retention)")
   public ResponseEntity<?> registerConsumer(
       HttpServletRequest httpServletRequest, @RequestBody ConsumerRegistrationRequest request) {
-    if (!authorize(httpServletRequest, "registerConsumer", UsageOperation.OTHER_OPERATIONS)) {
+    if (!authorizeOps(httpServletRequest, "registerConsumer", UsageOperation.OTHER_OPERATIONS)) {
       return forbidden();
     }
     if (metadataQueueStore == null) {
@@ -201,7 +204,7 @@ public class MessagingOperationsController {
       HttpServletRequest httpServletRequest,
       @RequestParam("consumerGroup") String consumerGroup,
       @RequestParam("topicName") String topicName) {
-    if (!authorize(httpServletRequest, "unregisterConsumer", UsageOperation.OTHER_OPERATIONS)) {
+    if (!authorizeOps(httpServletRequest, "unregisterConsumer", UsageOperation.OTHER_OPERATIONS)) {
       return forbidden();
     }
     if (metadataQueueStore == null) {
@@ -217,20 +220,32 @@ public class MessagingOperationsController {
     return ResponseEntity.ok(Map.of("deleted", deleted));
   }
 
-  private boolean authorize(
+  private boolean authorizeStatus(
+      HttpServletRequest request, String operation, UsageOperation usageOperation) {
+    return AuthUtil.isAPIOperationsAuthorized(
+        sessionContext(request, operation, usageOperation),
+        PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE);
+  }
+
+  private boolean authorizeOps(
+      HttpServletRequest request, String operation, UsageOperation usageOperation) {
+    return AuthUtil.isAPIAuthorized(
+        sessionContext(request, operation, usageOperation),
+        PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE);
+  }
+
+  private OperationContext sessionContext(
       HttpServletRequest request, String operation, UsageOperation usageOperation) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
-    OperationContext opContext =
-        OperationContext.asSession(
-            systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(actorUrnStr, request, operation, List.of())
-                .withUsageOperation(usageOperation),
-            authorizerChain,
-            authentication,
-            true);
-    return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE);
+    return OperationContext.asSession(
+        systemOperationContext,
+        RequestContext.builder()
+            .buildOpenapi(actorUrnStr, request, operation, List.of())
+            .withUsageOperation(usageOperation),
+        authorizerChain,
+        authentication,
+        true);
   }
 
   private ResponseEntity<?> forbidden() {

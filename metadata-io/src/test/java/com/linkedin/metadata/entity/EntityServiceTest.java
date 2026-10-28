@@ -48,6 +48,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.aspect.Aspect;
@@ -59,6 +60,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
+import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
@@ -112,13 +114,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
@@ -1168,7 +1173,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   }
 
   @Test
-  public void testRollbackKey() throws AssertionError {
+  public void testRollbackKeyKeepsEntityWithAspectFromAnotherRun() throws AssertionError {
     Urn entityUrn1 = UrnUtils.getUrn("urn:li:corpuser:test1");
 
     SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
@@ -1240,7 +1245,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityServiceImpl.getAspect(opContext, entityUrn1, aspectName, 0);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readAspectOverwrite));
 
-    // this should delete the most recent aspect
+    // the key is run-123's, but run-456 wrote an aspect to the entity since
     AspectRowSummary rollbackKeyWithCorrectRunId = new AspectRowSummary();
     rollbackKeyWithCorrectRunId.setRunId("run-123");
     rollbackKeyWithCorrectRunId.setAspectName("corpUserKey");
@@ -1249,10 +1254,191 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.rollbackRun(
         opContext, ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123", true);
 
-    // assert the new most recent aspect is null
+    // assert the entity is kept, with the aspect the other run wrote
+    assertNotNull(_entityServiceImpl.getLatestAspect(opContext, entityUrn1, keyAspectName));
     RecordTemplate readNewRecentAspect =
         _entityServiceImpl.getAspect(opContext, entityUrn1, aspectName, 0);
-    assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readNewRecentAspect));
+  }
+
+  @Test
+  public void testHardRollbackKeepsEntityWhenRunAspectWasOverwrittenByAnotherRun() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackKeepsOverwritten");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-keep");
+    SystemMetadata runB = AspectGenerationUtils.createSystemMetadata(1635792689, "run-b-keep");
+    CorpUserInfo overwrite = AspectGenerationUtils.createCorpUserInfo("overwrite@test.com");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, infoName, overwrite, runB);
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-keep"), rollbackRow(urn, infoName, "run-a-keep")),
+        "run-a-keep",
+        true);
+
+    assertNotNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            overwrite, _entityServiceImpl.getLatestAspect(opContext, urn, infoName)));
+  }
+
+  @Test
+  public void testHardRollbackDeletesEntityWrittenOnlyByTheRun() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackDeletesOwnEntity");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-own");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, editableName, new CorpUserEditableInfo().setAboutMe("about"), runA);
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-own"),
+            rollbackRow(urn, infoName, "run-a-own"),
+            rollbackRow(urn, editableName, "run-a-own")),
+        "run-a-own",
+        true);
+
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, infoName));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, editableName));
+  }
+
+  @Test
+  public void testHardRollbackKeepsEntityWhenAnAspectWasWrittenWithTheDefaultRunId() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackKeepsUiEdit");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-ui");
+    SystemMetadata uiEdit = AspectGenerationUtils.createSystemMetadata(1635792689, DEFAULT_RUN_ID);
+    CorpUserEditableInfo edited = new CorpUserEditableInfo().setAboutMe("edited in the UI");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, editableName, edited, uiEdit);
+
+    _entityServiceImpl.rollbackRun(
+        opContext, ImmutableList.of(rollbackRow(urn, keyName, "run-a-ui")), "run-a-ui", true);
+
+    assertNotNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            edited, _entityServiceImpl.getLatestAspect(opContext, urn, editableName)));
+  }
+
+  @Test
+  public void testHardRollbackDeletesEntityWhenOnlyItsStatusWasWrittenByAnotherRun() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackIgnoresStatus");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String statusName = AspectGenerationUtils.getAspectName(new Status());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-status");
+    SystemMetadata runB = AspectGenerationUtils.createSystemMetadata(1635792689, "run-b-status");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, statusName, new Status().setRemoved(false), runB);
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-status"), rollbackRow(urn, infoName, "run-a-status")),
+        "run-a-status",
+        true);
+
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, infoName));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, statusName));
+  }
+
+  @Test
+  public void testHardRollbackOfAKeptEntityStillRemovesTheRunsOwnAspects() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackKeptEntityLosesOwnAspects");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-kept-own");
+    SystemMetadata runB = AspectGenerationUtils.createSystemMetadata(1635792689, "run-b-kept-own");
+    CorpUserInfo overwrite = AspectGenerationUtils.createCorpUserInfo("overwrite@test.com");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, editableName, new CorpUserEditableInfo().setAboutMe("about"), runA);
+    ingestForRollback(urn, infoName, overwrite, runB);
+
+    _entityServiceImpl.rollbackRun(
+        opContext,
+        ImmutableList.of(
+            rollbackRow(urn, keyName, "run-a-kept-own"),
+            rollbackRow(urn, infoName, "run-a-kept-own"),
+            rollbackRow(urn, editableName, "run-a-kept-own")),
+        "run-a-kept-own",
+        true);
+
+    // Run B's write keeps the entity and its own value, but run A's other aspect still goes.
+    assertNotNull(_entityServiceImpl.getLatestAspect(opContext, urn, keyName));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            overwrite, _entityServiceImpl.getLatestAspect(opContext, urn, infoName)));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, urn, editableName));
+  }
+
+  @Test
+  public void testSoftRollbackMarksEntityRemovedEvenWithAnAspectFromAnotherRun() {
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:softRollbackWithOtherRun");
+    String keyName = opContext.getKeyAspectName(urn);
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String statusName = AspectGenerationUtils.getAspectName(new Status());
+    SystemMetadata runA = AspectGenerationUtils.createSystemMetadata(1625792689, "run-a-soft");
+    SystemMetadata runB = AspectGenerationUtils.createSystemMetadata(1635792689, "run-b-soft");
+    ingestKeyForRollback(urn, runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("a@test.com"), runA);
+    ingestForRollback(urn, infoName, AspectGenerationUtils.createCorpUserInfo("b@test.com"), runB);
+
+    _entityServiceImpl.rollbackRun(
+        opContext, ImmutableList.of(rollbackRow(urn, keyName, "run-a-soft")), "run-a-soft", false);
+
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            new Status().setRemoved(true),
+            _entityServiceImpl.getLatestAspect(opContext, urn, statusName)));
+  }
+
+  private void ingestForRollback(
+      Urn urn, String aspectName, RecordTemplate aspect, SystemMetadata systemMetadata) {
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(urn)
+                        .aspectName(aspectName)
+                        .recordTemplate(aspect)
+                        .systemMetadata(systemMetadata)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+  }
+
+  private void ingestKeyForRollback(Urn urn, SystemMetadata systemMetadata) {
+    ingestForRollback(
+        urn,
+        opContext.getKeyAspectName(urn),
+        EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), urn),
+        systemMetadata);
+  }
+
+  private static AspectRowSummary rollbackRow(Urn urn, String aspectName, String runId) {
+    return new AspectRowSummary().setUrn(urn.toString()).setAspectName(aspectName).setRunId(runId);
   }
 
   @Test
@@ -1958,7 +2144,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 new Retention().setVersion(new VersionBasedRetention().setMaxVersions(1))));
     _retentionService.deleteRetention(opContext, "corpuser", "status");
     // Invoke batch apply
-    _retentionService.batchApplyRetention(null, null);
+    _retentionService.batchApplyRetention(opContext, null, null);
     assertEquals(
         _entityServiceImpl
             .listLatestAspects(opContext, entityUrn.getEntityType(), aspectName, 0, 10)
@@ -2452,7 +2638,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               .map(
                   entityAspect ->
                       EntityUtils.toSystemAspect(
-                              opContext, opContext.getRetrieverContext(), entityAspect, false)
+                              opContext, opContext.getRetrieverContext(), entityAspect)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());
@@ -2539,7 +2725,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               .map(
                   entityAspect ->
                       EntityUtils.toSystemAspect(
-                              opContext, opContext.getRetrieverContext(), entityAspect, false)
+                              opContext, opContext.getRetrieverContext(), entityAspect)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());
@@ -3218,6 +3404,207 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     assertEquals(result.getAspectName(), aspectName);
   }
 
+  private <T extends RecordTemplate> void ingestOne(Urn urn, T aspect, Class<T> clazz)
+      throws Exception {
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        urn,
+        List.of(
+            new Pair<String, RecordTemplate>(AspectGenerationUtils.getAspectName(aspect), aspect)),
+        TEST_AUDIT_STAMP,
+        AspectGenerationUtils.createSystemMetadata());
+  }
+
+  private static Map<String, String> upToVersion(long version) {
+    return Map.of(EntityService.DELETE_CONDITION_MAX_VERSION, String.valueOf(version));
+  }
+
+  @Test
+  public void testDeleteAspectUpToVersionLeavesANewerLatestAndItsHistory() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:deleteUpToVersionNewer");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("v1@test.com"), CorpUserInfo.class);
+    CorpUserInfo latest = AspectGenerationUtils.createCorpUserInfo("v2@test.com");
+    ingestOne(entityUrn, latest, CorpUserInfo.class);
+
+    // The latest is version 2: a bound of 1 matches nothing.
+    assertTrue(
+        _entityServiceImpl
+            .deleteAspect(opContext, entityUrn.toString(), aspectName, upToVersion(1), true)
+            .isEmpty());
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            latest, _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName)));
+    assertNotNull(_aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 1L));
+  }
+
+  @Test
+  public void testDeleteAspectUpToVersionRemovesEveryVersionAtOrBelowIt() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:deleteUpToVersionAll");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("v1@test.com"), CorpUserInfo.class);
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("v2@test.com"), CorpUserInfo.class);
+
+    assertTrue(
+        _entityServiceImpl
+            .deleteAspect(opContext, entityUrn.toString(), aspectName, upToVersion(2), true)
+            .isPresent());
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName));
+    assertNull(_aspectDao.getAspect(opContext, entityUrn.toString(), aspectName, 1L));
+  }
+
+  @Test
+  public void testBoundedDeleteUrnDeletesAnUnchangedEntityAsToday() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteUnchanged");
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("a@test.com"), CorpUserInfo.class);
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+
+    RollbackRunResult result = _entityServiceImpl.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertEquals(result.getRollbackResults().size(), 1);
+    assertTrue(result.getRollbackResults().get(0).getKeyAffected());
+    assertTrue(_entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).isEmpty());
+  }
+
+  @Test
+  public void testBoundedDeleteUrnKeepsAnEntityWrittenSinceTheCapture() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteNewerVersion");
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("v1@test.com"), CorpUserInfo.class);
+    ingestOne(
+        entityUrn, new CorpUserEditableInfo().setAboutMe("captured"), CorpUserEditableInfo.class);
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+    CorpUserInfo newer = AspectGenerationUtils.createCorpUserInfo("v2@test.com");
+    ingestOne(entityUrn, newer, CorpUserInfo.class);
+
+    RollbackRunResult result = _entityServiceImpl.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertTrue(
+        result.getRollbackResults().stream()
+            .noneMatch(r -> Boolean.TRUE.equals(r.getKeyAffected())));
+    assertNotNull(
+        _entityServiceImpl.getLatestAspect(
+            opContext, entityUrn, opContext.getKeyAspectName(entityUrn)));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            newer, _entityServiceImpl.getLatestAspect(opContext, entityUrn, infoName)));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, entityUrn, editableName));
+  }
+
+  @Test
+  public void testBoundedDeleteUrnKeepsAnEntityWithAnAspectAddedSinceTheCapture() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteNewAspect");
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("a@test.com"), CorpUserInfo.class);
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+    CorpUserEditableInfo added = new CorpUserEditableInfo().setAboutMe("added later");
+    ingestOne(entityUrn, added, CorpUserEditableInfo.class);
+
+    _entityServiceImpl.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertNotNull(
+        _entityServiceImpl.getLatestAspect(
+            opContext, entityUrn, opContext.getKeyAspectName(entityUrn)));
+    assertNull(_entityServiceImpl.getLatestAspect(opContext, entityUrn, infoName));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            added, _entityServiceImpl.getLatestAspect(opContext, entityUrn, editableName)));
+  }
+
+  @Test
+  public void testBoundedDeleteUrnKeepsAnEntityDeletedAndRecreatedSinceTheCapture()
+      throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteRecreated");
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("old@test.com"), CorpUserInfo.class);
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+    _entityServiceImpl.deleteUrn(opContext, entityUrn);
+    // Recreated later: versions restart at 1, at or below the captured ones.
+    CorpUserInfo recreated = AspectGenerationUtils.createCorpUserInfo("new@test.com");
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        entityUrn,
+        List.of(new Pair<String, RecordTemplate>(infoName, recreated)),
+        new AuditStamp()
+            .setActor(TEST_AUDIT_STAMP.getActor())
+            .setTime(TEST_AUDIT_STAMP.getTime() + 1000),
+        AspectGenerationUtils.createSystemMetadata());
+
+    RollbackRunResult result = _entityServiceImpl.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertTrue(result.getRollbackResults().isEmpty());
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            recreated, _entityServiceImpl.getLatestAspect(opContext, entityUrn, infoName)));
+  }
+
+  /**
+   * The entity is deleted and recreated between two of the aspect-by-aspect deletes that follow a
+   * kept entity: its versions restart at 1, within the captured ones, so only the key row tells the
+   * entities apart. Nothing of the recreated entity is deleted.
+   */
+  @Test
+  public void testBoundedDeleteUrnLeavesAnEntityRecreatedDuringTheAspectDeletes() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:boundedDeleteRecreatedMidway");
+    String infoName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+    String editableName = AspectGenerationUtils.getAspectName(new CorpUserEditableInfo());
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("old@test.com"), CorpUserInfo.class);
+    ingestOne(entityUrn, new CorpUserEditableInfo().setAboutMe("old"), CorpUserEditableInfo.class);
+    DeleteCeiling ceiling = _entityServiceImpl.captureDeleteCeiling(opContext, entityUrn).get();
+    // Written since the capture: the entity is kept and its aspects deleted one by one.
+    ingestOne(
+        entityUrn, AspectGenerationUtils.createCorpUserInfo("newer@test.com"), CorpUserInfo.class);
+
+    CorpUserInfo recreatedInfo = AspectGenerationUtils.createCorpUserInfo("new@test.com");
+    CorpUserEditableInfo recreatedEditable = new CorpUserEditableInfo().setAboutMe("new");
+    EntityServiceImpl entityService = spy(_entityServiceImpl);
+    AtomicBoolean recreated = new AtomicBoolean();
+    doAnswer(
+            invocation -> {
+              Object deleted = invocation.callRealMethod();
+              if (recreated.compareAndSet(false, true)) {
+                _entityServiceImpl.deleteUrn(opContext, entityUrn);
+                _entityServiceImpl.ingestAspects(
+                    opContext,
+                    entityUrn,
+                    List.of(
+                        new Pair<String, RecordTemplate>(infoName, recreatedInfo),
+                        new Pair<String, RecordTemplate>(editableName, recreatedEditable)),
+                    new AuditStamp()
+                        .setActor(TEST_AUDIT_STAMP.getActor())
+                        .setTime(TEST_AUDIT_STAMP.getTime() + 1000),
+                    AspectGenerationUtils.createSystemMetadata());
+              }
+              return deleted;
+            })
+        .when(entityService)
+        .deleteAspect(any(), anyString(), anyString(), anyMap(), anyBoolean(), anyBoolean());
+
+    RollbackRunResult result = entityService.deleteUrn(opContext, entityUrn, ceiling);
+
+    assertTrue(recreated.get());
+    assertTrue(
+        result.getRollbackResults().stream()
+            .noneMatch(r -> Boolean.TRUE.equals(r.getKeyAffected())));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            recreatedInfo, _entityServiceImpl.getLatestAspect(opContext, entityUrn, infoName)));
+    assertTrue(
+        DataTemplateUtil.areEqual(
+            recreatedEditable,
+            _entityServiceImpl.getLatestAspect(opContext, entityUrn, editableName)));
+  }
+
   @Test
   public void testFailedAspectValidation() throws Exception {
     final OperationContext testContext =
@@ -3292,6 +3679,125 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       // Verify Future.get() was called
       verify(mockFuture, times(1)).get();
     }
+  }
+
+  @DataProvider(name = "forceGenericPatch")
+  public Object[][] forceGenericPatch() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  /**
+   * If-Version-Match on a PATCH applies whether the patch runs as a generic JSON patch or through
+   * the aspect's patch template: a stale version is rejected and the current version is written.
+   */
+  @Test(dataProvider = "forceGenericPatch")
+  public void testIfVersionMatchAppliesToPatch(boolean forceGenericPatch) throws Exception {
+    OperationContext testContext =
+        TestOperationContexts.Builder.builder()
+            .systemTelemetryContextSupplier(() -> null)
+            .entityRegistrySupplier(
+                () ->
+                    AspectTestUtils.enhanceRegistryWithTestPlugins(
+                        TestOperationContexts.defaultEntityRegistry()))
+            .buildSystemContext();
+    Mockito.doReturn(CompletableFuture.completedFuture(null))
+        .when(_mockProducer)
+        .produceFailedMetadataChangeProposalAsync(
+            any(OperationContext.class), any(MCPItem.class), any(Set.class));
+
+    Urn datasetUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:test,ifVersionMatchPatch"
+                + (forceGenericPatch ? "Generic" : "Template")
+                + ",PROD)");
+    _entityServiceImpl.ingestAspects(
+        testContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(testContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(datasetUrn)
+                        .aspectName(DATASET_PROPERTIES_ASPECT_NAME)
+                        .recordTemplate(new DatasetProperties().setDescription("initial"))
+                        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(testContext.getAspectRetriever())))
+            .build(testContext),
+        false,
+        true);
+    String currentVersion =
+        String.valueOf(
+            ConditionalWriteValidator.resolveAspectVersion(
+                _entityServiceImpl.getLatestEnvelopedAspect(
+                    testContext, DATASET_ENTITY_NAME, datasetUrn, DATASET_PROPERTIES_ASPECT_NAME)));
+
+    ingestDescriptionPatch(testContext, datasetUrn, forceGenericPatch, "stale", "999");
+    assertEquals(latestDescription(testContext, datasetUrn), "initial");
+    verify(_mockProducer, times(1))
+        .produceFailedMetadataChangeProposalAsync(
+            any(OperationContext.class), any(MCPItem.class), any(Set.class));
+
+    ingestDescriptionPatch(testContext, datasetUrn, forceGenericPatch, "current", currentVersion);
+    assertEquals(latestDescription(testContext, datasetUrn), "current");
+    verify(_mockProducer, times(1))
+        .produceFailedMetadataChangeProposalAsync(
+            any(OperationContext.class), any(MCPItem.class), any(Set.class));
+  }
+
+  private void ingestDescriptionPatch(
+      OperationContext testContext,
+      Urn datasetUrn,
+      boolean forceGenericPatch,
+      String description,
+      String ifVersionMatch)
+      throws Exception {
+    GenericJsonPatch.PatchOp descriptionOp = new GenericJsonPatch.PatchOp();
+    descriptionOp.setOp(PatchOperationType.ADD.getValue());
+    descriptionOp.setPath("/description");
+    descriptionOp.setValue(description);
+    GenericJsonPatch patch =
+        GenericJsonPatch.builder()
+            .patch(List.of(descriptionOp))
+            .forceGenericPatch(forceGenericPatch)
+            .build();
+    MetadataChangeProposal proposal =
+        new MetadataChangeProposal()
+            .setEntityType(DATASET_ENTITY_NAME)
+            .setEntityUrn(datasetUrn)
+            .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(
+                new GenericAspect()
+                    .setContentType("application/json")
+                    .setValue(
+                        ByteString.copyString(
+                            new ObjectMapper().writeValueAsString(patch), StandardCharsets.UTF_8)))
+            .setHeaders(
+                new StringMap(
+                    Map.of(
+                        ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH, ifVersionMatch)));
+    _entityServiceImpl.ingestAspects(
+        testContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(testContext.getRetrieverContext())
+            .items(
+                List.of(
+                    PatchItemImpl.builder()
+                        .build(proposal, TEST_AUDIT_STAMP, testContext.getEntityRegistry())))
+            .build(testContext),
+        false,
+        true);
+  }
+
+  private String latestDescription(OperationContext testContext, Urn datasetUrn) throws Exception {
+    return new DatasetProperties(
+            _entityServiceImpl
+                .getLatestEnvelopedAspect(
+                    testContext, DATASET_ENTITY_NAME, datasetUrn, DATASET_PROPERTIES_ASPECT_NAME)
+                .getValue()
+                .data())
+        .getDescription();
   }
 
   @Test

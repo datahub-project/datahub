@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from json import JSONDecodeError
 from typing import (
+    AbstractSet,
     Any,
     Dict,
     Iterable,
@@ -72,7 +73,25 @@ from datahub.ingestion.source.looker.looker_common import (
     get_urn_looker_element_id,
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
-from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.looker_lib_wrapper import (
+    BASIC_INGEST_REQUIRED_PERMISSIONS,
+    USAGE_INGEST_REQUIRED_PERMISSIONS,
+    LookerAPI,
+)
+from datahub.ingestion.source.looker.looker_selection import (
+    LOOK_HAS_NO_QUERY,
+    ON_A_KEPT_DASHBOARD,
+    SKIP_PERSONAL_FOLDERS,
+    LookFacts,
+    chart_id_verdict,
+    dashboard_id_verdict,
+    element_type_verdict,
+    folder_path_verdict,
+    is_personal_folder,
+    looker_folder_path,
+    personal_folder_verdict,
+    standalone_look_verdict,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -110,7 +129,7 @@ class DashboardProcessingResult:
 
 
 @platform_name("Looker")
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @config_class(LookerDashboardSourceConfig)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Use the `platform_instance` field")
@@ -134,6 +153,10 @@ class DashboardProcessingResult:
         SourceCapabilityModifier.LOOKML_MODEL,
         SourceCapabilityModifier.LOOKER_FOLDER,
     ],
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     """
@@ -190,27 +213,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             test_report.basic_connectivity = CapabilityReport(capable=True)
             test_report.capability_report = {}
 
-            BASIC_INGEST_REQUIRED_PERMISSIONS = {
-                # TODO: Make this a bit more granular.
-                "access_data",
-                "explore",
-                "manage_models",
-                "see_datagroups",
-                "see_lookml",
-                "see_lookml_dashboards",
-                "see_looks",
-                "see_pdts",
-                "see_queries",
-                "see_schedules",
-                "see_sql",
-                "see_user_dashboards",
-                "see_users",
-            }
-
-            USAGE_INGEST_REQUIRED_PERMISSIONS = {
-                "see_system_activity",
-            }
-
             LookerDashboardSource._set_test_connection_capability(
                 test_report,
                 permissions,
@@ -246,11 +248,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         test_report: TestConnectionReport,
         permissions: Set[str],
         perm: SourceCapability,
-        required: Set[str],
+        required: AbstractSet[str],
     ) -> None:
         assert test_report.capability_report is not None
 
-        if required.issubset(permissions):
+        if required <= permissions:
             test_report.capability_report[perm] = CapabilityReport(capable=True)
         else:
             missing = required - permissions
@@ -274,10 +276,11 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 view_name = self._extract_view_from_field(field_name)
                 views.add(view_name)
             except AssertionError:
-                self.reporter.report_warning(
+                self.reporter.warning(
                     title="Failed to Extract View Name from Field",
                     message="The field was not prefixed by a view name. This can happen when the field references another dynamic field.",
                     context=f"Field Name: {field_name}",
+                    log=False,
                 )
                 continue
 
@@ -969,7 +972,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # Step 1: Emit metadata for each Chart inside the Dashboard.
         chart_events: List[Chart] = []
         for element in looker_dashboard.dashboard_elements:
-            if element.type == "vis":
+            if element_type_verdict(element.type).included:
                 chart_events.extend(
                     self._make_chart_entities(element, looker_dashboard)
                 )
@@ -1053,10 +1056,13 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
     def _get_folder_path(self, folder: FolderBase, client: LookerAPI) -> str:
         assert folder.id
-        ancestors = [
-            ancestor.name for ancestor in client.folder_ancestors(folder_id=folder.id)
-        ]
-        return "/".join(ancestors + [folder.name])
+        return looker_folder_path(
+            [
+                ancestor.name
+                for ancestor in client.folder_ancestors(folder_id=folder.id)
+            ],
+            folder.name,
+        )
 
     def _get_looker_dashboard(self, dashboard: LookerAPIDashboard) -> LookerDashboard:
         self.reporter.accessed_dashboards += 1
@@ -1073,8 +1079,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
         for element in elements:
             self.reporter.report_charts_scanned()
-            if element.id is not None and not self.source_config.chart_pattern.allowed(
-                element.id
+            if (
+                element.id is not None
+                and not chart_id_verdict(self.source_config, element.id).included
             ):
                 self.reporter.report_charts_dropped(element.id)
                 continue
@@ -1228,13 +1235,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self, dashboard_object: LookerAPIDashboard
     ) -> bool:
         """Check if dashboard should be skipped due to being in personal folder."""
-        if not self.source_config.skip_personal_folders:
-            return False
-
-        if dashboard_object.folder is not None and (
-            dashboard_object.folder.is_personal
-            or dashboard_object.folder.is_personal_descendant
-        ):
+        if not personal_folder_verdict(
+            self.source_config, is_personal_folder(dashboard_object.folder)
+        ).included:
             self.reporter.info(
                 title="Dropped Dashboard",
                 message="Dropped due to being a personal folder",
@@ -1249,12 +1252,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self, looker_dashboard: LookerDashboard
     ) -> bool:
         """Check if dashboard should be skipped based on folder path pattern."""
-        if (
-            looker_dashboard.folder_path is not None
-            and not self.source_config.folder_path_pattern.allowed(
-                looker_dashboard.folder_path
-            )
-        ):
+        if not folder_path_verdict(
+            self.source_config, looker_dashboard.folder_path
+        ).included:
             logger.debug(
                 f"Folder path {looker_dashboard.folder_path} is denied in folder_path_pattern"
             )
@@ -1272,11 +1272,12 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 fields=fields,
             )
         except (SDKError, DeserializeError) as e:
-            self.reporter.report_warning(
+            self.reporter.warning(
                 title="Failed to fetch dashboard from the Looker API",
                 message="Error occurred while attempting to loading dashboard from Looker API. Skipping.",
                 context=f"Dashboard ID: {dashboard_id}",
                 exc=e,
+                log=False,
             )
             return None
 
@@ -1476,31 +1477,46 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         )
 
         for look in all_looks:
-            # Skip looks that are already referenced from a dashboard
             if look.id is None:
                 logger.warning("Encountered Look with no ID, skipping.")
                 continue
 
-            if look.id in self.reachable_look_registry:
+            verdict = standalone_look_verdict(
+                self.source_config,
+                LookFacts(
+                    on_kept_dashboard=look.id in self.reachable_look_registry,
+                    has_query=look.query_id is not None,
+                    personal=is_personal_folder(look.folder),
+                ),
+            )
+            # Skip looks that are already referenced from a dashboard
+            if verdict.excluded_by == ON_A_KEPT_DASHBOARD:
                 continue
 
-            if look.query_id is None:
+            if verdict.excluded_by == LOOK_HAS_NO_QUERY:
                 logger.info(f"query_id is None for look {look.title}({look.id})")
                 continue
 
-            # Skip looks in personal folders if configured
-            if self.source_config.skip_personal_folders:
-                if look.folder is not None and (
-                    look.folder.is_personal or look.folder.is_personal_descendant
-                ):
-                    self.reporter.info(
-                        title="Dropped Look",
-                        message="Dropped due to being a personal folder",
-                        context=f"Look ID: {look.id}",
-                    )
+            if verdict.excluded_by == SKIP_PERSONAL_FOLDERS:
+                self.reporter.info(
+                    title="Dropped Look",
+                    message="Dropped due to being a personal folder",
+                    context=f"Look ID: {look.id}",
+                )
 
-                    self.reporter.report_charts_dropped(look.id)
-                    continue
+                self.reporter.report_charts_dropped(look.id)
+                continue
+
+            # Unreachable today (the switch is on here and deleted is not
+            # judged); a rule added to standalone_look_verdict still drops.
+            if not verdict.included:
+                self.reporter.info(
+                    title="Dropped Look",
+                    message=f"Dropped by {verdict.excluded_by}",
+                    context=f"Look ID: {look.id}",
+                )
+                self.reporter.report_charts_dropped(look.id)
+                continue
 
             # Fetch the Look's query and filter to allowed fields
             query: Optional[Query] = None
@@ -1576,7 +1592,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             for dashboard_id in all_dashboard_ids:
                 if dashboard_id is None:
                     continue
-                if not self.source_config.dashboard_pattern.allowed(dashboard_id):
+                if not dashboard_id_verdict(self.source_config, dashboard_id).included:
                     self.reporter.report_dashboards_dropped(dashboard_id)
                 else:
                     filtered_dashboard_ids.append(dashboard_id)
@@ -1651,9 +1667,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             and self.reporter.email_ids_missing == self.reporter.resolved_user_ids
         ):
             # Looks like we tried to extract owners and could not find their email addresses. This is likely a permissions issue
-            self.reporter.report_warning(
+            self.reporter.warning(
                 "Failed to extract owner emails",
                 "Failed to extract owners emails for any dashboards. Please enable the see_users permission for your Looker API key",
+                log=False,
             )
 
         # Extract independent looks first, so their explores are considered in _make_explore_containers.

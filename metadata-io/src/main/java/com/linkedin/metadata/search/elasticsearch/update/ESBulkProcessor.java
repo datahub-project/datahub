@@ -47,6 +47,10 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default private Long retryInterval = 1L;
   @Builder.Default private Integer threadCount = 1; // Default to single processor
   @Builder.Default private TimeValue defaultTimeout = TimeValue.timeValueMinutes(1);
+  @Builder.Default private Boolean itemRequeueEnabled = true;
+  @Builder.Default private Integer itemRequeueMaxAttempts = 3;
+  @Builder.Default private Boolean ackAfterTransfer = false;
+  @Builder.Default private Integer ackAfterTransferTimeoutSeconds = 60;
 
   /**
    * HTTP {@link RequestOptions} for by-query operations (delete/update-by-query, async submit,
@@ -70,6 +74,10 @@ public class ESBulkProcessor implements Closeable {
       Long retryInterval,
       Integer threadCount,
       TimeValue defaultTimeout,
+      Boolean itemRequeueEnabled,
+      Integer itemRequeueMaxAttempts,
+      Boolean ackAfterTransfer,
+      Integer ackAfterTransferTimeoutSeconds,
       @Nonnull RequestOptions byQueryRequestOptions,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
       MetricUtils metricUtils) {
@@ -82,8 +90,16 @@ public class ESBulkProcessor implements Closeable {
     this.retryInterval = retryInterval;
     this.threadCount = threadCount;
     this.defaultTimeout = defaultTimeout;
+    this.itemRequeueEnabled = itemRequeueEnabled != null ? itemRequeueEnabled : true;
+    this.itemRequeueMaxAttempts =
+        itemRequeueMaxAttempts != null ? itemRequeueMaxAttempts : numRetries;
+    this.ackAfterTransfer = ackAfterTransfer != null ? ackAfterTransfer : false;
+    this.ackAfterTransferTimeoutSeconds =
+        ackAfterTransferTimeoutSeconds != null ? ackAfterTransferTimeoutSeconds : 60;
     this.byQueryRequestOptions = byQueryRequestOptions;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
+    searchClient.configureBulkProcessorWriteOptions(
+        this.itemRequeueEnabled, this.itemRequeueMaxAttempts);
     if (async) {
       searchClient.generateAsyncBulkProcessor(
           writeRequestRefreshPolicy,
@@ -247,5 +263,28 @@ public class ESBulkProcessor implements Closeable {
 
   public void flush() {
     searchClient.flushBulkProcessor();
+  }
+
+  /**
+   * Flush pending bulks and wait until tracked items reach a terminal outcome. Throws {@link
+   * BulkTransferException} if unrecovered transfer failures occurred. Version-conflict LWW
+   * exhaustion does not fail this call.
+   */
+  public void flushAndWait(java.time.Duration timeout)
+      throws InterruptedException, java.util.concurrent.TimeoutException {
+    searchClient.flushAndAwaitBulkTransfer(timeout.toMillis());
+    long failures = searchClient.drainBulkTransferFailures();
+    if (failures > 0) {
+      throw new BulkTransferException(
+          failures, "Bulk transfer completed with " + failures + " unrecovered item failure(s)");
+    }
+  }
+
+  public boolean isAckAfterTransfer() {
+    return Boolean.TRUE.equals(ackAfterTransfer);
+  }
+
+  public int getAckAfterTransferTimeoutSeconds() {
+    return ackAfterTransferTimeoutSeconds != null ? ackAfterTransferTimeoutSeconds : 60;
   }
 }

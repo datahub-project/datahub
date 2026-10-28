@@ -10,6 +10,13 @@ plugins {
 apply from: '../gradle/versioning/versioning.gradle'
 apply from: './play.gradle'
 
+// Gradle 9.5's scala plugin defaults zinc to 1.12.0, which pulls org.jline:jline:4.2.1 and resolves
+// a `jdk8`-classifier jar that was never published (404 on Maven Central). Pin zinc to 1.10.4 — it
+// is supported by Gradle 9.x, matches the existing lockfile, and keeps the working jline chain.
+scala {
+  zincVersion = '1.10.4'
+}
+
 play {
   getLang().set(Language.JAVA)
   routes { rs -> rs.getGenerateReverseRouter().set(true) }
@@ -63,7 +70,7 @@ task myTar(type: Tar) {
   }
   into("conf") {
     from("conf")
-    fileMode = 0600
+    filePermissions { unix(0600) }
   }
 }
 

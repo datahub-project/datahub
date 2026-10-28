@@ -4,11 +4,15 @@ Join us for community gatherings where we discuss roadmap updates, demo new feat
 
 ## 🗓️ Next Town Hall
 
-[Register for the July Town Hall](https://luma.com/77lmmyb5)
+Town Halls run monthly. [Register on our events calendar →](https://luma.com/datahubevents?tag=datahub%20town%20hall)
 
 ---
 
 ## 📺 Recent Town Halls
+
+**July 2026: Real Stories in Production feat. Miro & Just Eat Takeaway**
+
+- 📺 [Watch recording](https://youtu.be/B5cV9ZPgg30)
 
 **June 2026: Inside the Context Platform feat. TiDB / PingCAP**
 

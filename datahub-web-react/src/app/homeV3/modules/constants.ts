@@ -7,6 +7,7 @@ import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
 import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import { SortAscending } from '@phosphor-icons/react/dist/csr/SortAscending';
 import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
+import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
 import { Table } from '@phosphor-icons/react/dist/csr/Table';
 import { TextT } from '@phosphor-icons/react/dist/csr/TextT';
 import i18next from 'i18next';
@@ -31,6 +32,7 @@ export const MODULE_TYPE_TO_DESCRIPTION: Map<DataHubPageModuleType, string> = ne
     [DataHubPageModuleType.AiContext, 'AI context including synonyms, instructions, and examples'],
     [DataHubPageModuleType.MetricSql, 'SQL expression for this metric'],
     [DataHubPageModuleType.RelatedMetrics, 'Related metrics'],
+    [DataHubPageModuleType.SubDataProducts, 'Child data products of this data product'],
 ]);
 
 export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, React.ComponentType<any>> = new Map([
@@ -48,6 +50,7 @@ export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, React.ComponentType
     [DataHubPageModuleType.AiContext, Brain],
     [DataHubPageModuleType.MetricSql, TextT],
     [DataHubPageModuleType.RelatedMetrics, ChartBar],
+    [DataHubPageModuleType.SubDataProducts, Storefront],
 ]);
 
 export const DEFAULT_MODULE_ICON = Database;
@@ -61,6 +64,7 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:output_ports',
     'urn:li:dataHubPageModule:child_hierarchy',
     'urn:li:dataHubPageModule:data_products',
+    'urn:li:dataHubPageModule:sub_data_products',
     'urn:li:dataHubPageModule:related_terms',
     'urn:li:dataHubPageModule:platforms',
     'urn:li:dataHubPageModule:lineage',
@@ -94,6 +98,7 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.ChildHierarchy,
     DataHubPageModuleType.RelatedTerms,
     DataHubPageModuleType.DataProducts,
+    DataHubPageModuleType.SubDataProducts,
     DataHubPageModuleType.Columns,
     DataHubPageModuleType.SemanticModelDatasets,
     DataHubPageModuleType.SemanticModelMetrics,

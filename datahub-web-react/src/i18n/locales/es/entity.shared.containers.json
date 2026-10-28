@@ -233,5 +233,11 @@
     "sidebar.viewDefinition.sectionTitle": "Definición",
     "sidebar.viewDefinition.viewFullDefinitionLink": "Ver definición completa >",
     "structuredPropertyBadge.descriptionLabel": "Descripción",
-    "structuredPropertyBadge.valueLabel": "Valor"
+    "structuredPropertyBadge.valueLabel": "Valor",
+    "sidebar.logical.andMoreCount": "y {{count}} más",
+    "sidebar.logical.childrenInfo": "Implementaciones físicas de este Modelo lógico. Los cambios en los metadatos de este activo se propagan automáticamente a estos elementos secundarios.",
+    "sidebar.logical.childrenTitle": "Secundarios físicos",
+    "sidebar.logical.parentInfo": "Modelo lógico que define los metadatos de este activo. Los cambios en los metadatos del elemento principal lógico se propagan automáticamente a este activo.",
+    "sidebar.logical.parentTitle": "Elemento principal lógico",
+    "sidebar.logical.viewAllChildren": "Ver todos los secundarios físicos"
 }

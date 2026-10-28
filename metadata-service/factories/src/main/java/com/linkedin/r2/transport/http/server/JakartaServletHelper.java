@@ -181,6 +181,20 @@ import org.slf4j.LoggerFactory;
     } else {
       context.putLocalAttr(R2Constants.IS_SECURE, false);
     }
+
+    // Propagate the enrichments bundle (if any upstream servlet filter stamped one) into the
+    // R2 local attrs, so Rest.li endpoints can read it via
+    // resourceContext.getRawRequestContext().getLocalAttr(REQUEST_ENRICHMENTS_ATTR) — see
+    // io.datahubproject.metadata.context.RequestContext.RequestContextBuilder#readEnrichmentBundle(ResourceContext).
+    // FQN used because this file already imports the R2 RequestContext under the short name.
+    final Object enrichmentBundle =
+        req.getAttribute(
+            io.datahubproject.metadata.context.RequestContext.REQUEST_ENRICHMENTS_ATTR);
+    if (enrichmentBundle != null) {
+      context.putLocalAttr(
+          io.datahubproject.metadata.context.RequestContext.REQUEST_ENRICHMENTS_ATTR,
+          enrichmentBundle);
+    }
     return context;
   }
 

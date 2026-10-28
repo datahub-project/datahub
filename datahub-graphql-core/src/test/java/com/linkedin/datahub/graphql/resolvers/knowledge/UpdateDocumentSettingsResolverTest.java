@@ -11,6 +11,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateDocumentSettingsInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
@@ -66,7 +67,8 @@ public class UpdateDocumentSettingsResolverTest {
             any(OperationContext.class),
             eq(UrnUtils.getUrn(TEST_DOCUMENT_URN)),
             eq(expectedSettings),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -96,7 +98,8 @@ public class UpdateDocumentSettingsResolverTest {
             any(OperationContext.class),
             eq(UrnUtils.getUrn(TEST_DOCUMENT_URN)),
             eq(expectedSettings),
-            any(Urn.class));
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -116,7 +119,8 @@ public class UpdateDocumentSettingsResolverTest {
 
     // Verify service was NOT called
     verify(mockService, times(0))
-        .updateDocumentSettings(any(OperationContext.class), any(), any(), any());
+        .updateDocumentSettings(
+            any(OperationContext.class), any(), any(), any(), any(SearchIndexMode.class));
   }
 
   @Test
@@ -134,7 +138,12 @@ public class UpdateDocumentSettingsResolverTest {
     // Make service throw exception
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
-        .updateDocumentSettings(any(OperationContext.class), any(Urn.class), any(), any(Urn.class));
+        .updateDocumentSettings(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(),
+            any(Urn.class),
+            eq(SearchIndexMode.SYNC));
 
     // Execute and expect exception
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());

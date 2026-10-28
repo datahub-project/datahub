@@ -1,19 +1,27 @@
 import os
 import unittest.mock
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, Mock, patch
 
+import oracledb
 import pytest
 import sqlalchemy.exc
 from pydantic import ValidationError
 from sqlalchemy.dialects.oracle.base import ischema_names
-from sqlalchemy.engine import Inspector
+from sqlalchemy.engine import Connection, Inspector
 from sqlalchemy.sql import sqltypes
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import JobContainerSubTypes
 from datahub.ingestion.source.sql.oracle import (
+    _DEPENDENT_OBJECT_TYPES_SQL,
+    _PROCEDURE_LIKE_TYPES_SQL,
+    _PROCEDURE_SOURCE_TYPES_SQL,
+    _UPSTREAM_REFERENCED_TYPES_SQL,
     VSQL_USAGE_QUERY,
     OracleConfig,
     OracleInspectorObjectWrapper,
@@ -22,13 +30,23 @@ from datahub.ingestion.source.sql.oracle import (
     ProcedureDependencies,
     VSqlPrerequisiteCheckResult,
     _preload_oracle_client_libs,
+    _sql_type_list,
     extra_oracle_types,
 )
+from datahub.ingestion.source.sql.sql_common import get_column_type
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
     SqlAlchemyTableDataReader,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
+    OperationClass,
+    QuerySubjectsClass,
+    RecordTypeClass,
+    StringTypeClass,
+    UpstreamLineageClass,
+)
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
@@ -179,7 +197,7 @@ def test_oracle_get_db_name_with_service_name():
         mock_inspector.engine = mock_engine
 
         # Mock bind and the database query result
-        mock_bind = Mock()
+        mock_bind = Mock(spec=Connection)
         mock_result = Mock()
         mock_result.scalar.return_value = "TESTDB"  # Oracle returns uppercase
         mock_bind.execute.return_value = mock_result
@@ -270,9 +288,9 @@ def test_oracle_get_db_name_database_error():
         mock_inspector.engine = mock_engine
 
         # Mock bind to raise DatabaseError
-        mock_bind = Mock()
+        mock_bind = Mock(spec=Connection)
         mock_bind.execute.side_effect = sqlalchemy.exc.DatabaseError(
-            "Connection failed", None, None
+            "Connection failed", None, Exception("Connection failed")
         )
         mock_inspector.bind = mock_bind
 
@@ -296,7 +314,8 @@ class TestOracleInspectorObjectWrapper:
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_inspector = Mock(spec=Inspector)
-        self.mock_inspector.bind = Mock()
+        # _inspector_connection() asserts the bind is a Connection (SA 2.0 narrowing).
+        self.mock_inspector.bind = Mock(spec=Connection)
         self.mock_inspector.dialect = Mock()
         self.mock_inspector.dialect.normalize_name = Mock(
             side_effect=lambda x: x.lower()
@@ -313,7 +332,7 @@ class TestOracleInspectorObjectWrapper:
 
     def test_get_db_name_reports_failure_on_database_error(self):
         self.mock_inspector.bind.execute.side_effect = sqlalchemy.exc.DatabaseError(
-            "Connection failed", None, None
+            "Connection failed", None, Exception("Connection failed")
         )
         result = self.wrapper.get_db_name()
         assert result == ""
@@ -463,6 +482,7 @@ class TestOracleSource:
 
         # Mock inspector and connection
         mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
 
         # Set up context manager support
@@ -489,20 +509,32 @@ class TestOracleSource:
         mock_procedures = [mock_proc, mock_func]
         mock_connection.execute.return_value = mock_procedures
 
-        # Mock the helper methods
         with (
             patch.object(
                 source,
-                "_get_procedure_source_code",
-                return_value="CREATE PROCEDURE test_proc AS BEGIN NULL; END;",
-            ),
-            patch.object(
-                source, "_get_procedure_arguments", return_value="IN param1 VARCHAR2"
+                "_get_procedure_source_codes_for_schema",
+                return_value={
+                    (
+                        "TEST_PROC",
+                        "PROCEDURE",
+                    ): "CREATE PROCEDURE test_proc AS BEGIN NULL; END;",
+                    (
+                        "TEST_FUNC",
+                        "FUNCTION",
+                    ): "CREATE FUNCTION test_func RETURN NUMBER AS BEGIN RETURN 1; END;",
+                },
             ),
             patch.object(
                 source,
-                "_get_procedure_dependencies",
-                return_value=ProcedureDependencies(upstream=["TEST_TABLE"]),
+                "_get_procedure_arguments_for_schema",
+                return_value={"TEST_PROC": "IN param1 VARCHAR2"},
+            ),
+            patch.object(
+                source,
+                "_get_procedure_dependencies_for_schema",
+                return_value={
+                    "TEST_PROC": ProcedureDependencies(upstream=["TEST_TABLE"]),
+                },
             ),
         ):
             result = source.get_procedures_for_schema(
@@ -514,65 +546,362 @@ class TestOracleSource:
             assert result[0].name == "TEST_PROC"
             assert result[1].name == "TEST_FUNC"
             assert result[0].language == "SQL"
+            assert result[0].argument_signature == "IN param1 VARCHAR2"
+            assert result[1].argument_signature is None  # not present in schema map
+            assert (
+                result[0].procedure_definition
+                == "CREATE PROCEDURE test_proc AS BEGIN NULL; END;"
+            )
+            assert (
+                result[1].procedure_definition
+                == "CREATE FUNCTION test_func RETURN NUMBER AS BEGIN RETURN 1; END;"
+            )
             assert result[0].extra_properties is not None
             assert "upstream_dependencies" in result[0].extra_properties
 
-    def test_get_procedure_source_code(self):
-        """Test getting procedure source code."""
+    def test_get_procedures_for_schema_runs_constant_query_count(self):
+        """Regression: enrichment must be batched per schema, not per procedure.
+
+        Older implementations ran 3 enrichment queries per procedure, which
+        dominated ingestion time on schemas with hundreds of procedures. The
+        connection should be hit exactly 5 times regardless of procedure count:
+        once for the procedure list and once each for sources, arguments, and
+        the two combined dependency queries.
+        """
         source = OracleSource(self.config, self.ctx)
 
+        mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
         mock_connection = Mock()
-        mock_source_data = [
-            Mock(text="CREATE PROCEDURE test_proc AS\n"),
-            Mock(text="BEGIN\n"),
-            Mock(text="  NULL;\n"),
-            Mock(text="END;"),
-        ]
-        mock_connection.execute.return_value = mock_source_data
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__ = Mock(return_value=mock_connection)
+        mock_context_manager.__exit__ = Mock(return_value=None)
+        mock_inspector.engine.connect.return_value = mock_context_manager
 
-        result = source._get_procedure_source_code(
-            mock_connection, "TEST_SCHEMA", "TEST_PROC", "PROCEDURE", "DBA"
+        procedures = []
+        for i in range(50):
+            proc = Mock()
+            proc.name = f"PROC_{i}"
+            proc.type = "PROCEDURE"
+            proc.created = datetime.now()
+            proc.last_ddl_time = datetime.now()
+            proc.status = "VALID"
+            procedures.append(proc)
+
+        source_rows = [
+            Mock(name=p.name, type="PROCEDURE", line=1, text=f"body for {p.name}")
+            for p in procedures
+        ]
+        for row, p in zip(source_rows, procedures, strict=False):
+            row.name = p.name
+
+        arg_rows = [
+            Mock(
+                object_name=p.name,
+                argument_name="P1",
+                data_type="VARCHAR2",
+                in_out="IN",
+                position=1,
+            )
+            for p in procedures
+        ]
+
+        mock_connection.execute.side_effect = [
+            procedures,  # PROCEDURES_QUERY
+            source_rows,  # source codes
+            arg_rows,  # arguments
+            [],  # upstream deps
+            [],  # downstream deps
+        ]
+
+        result = source.get_procedures_for_schema(
+            inspector=mock_inspector, schema="TEST_SCHEMA", db_name="TEST_DB"
         )
 
-        expected = "CREATE PROCEDURE test_proc AS\nBEGIN\n  NULL;\nEND;"
-        assert result == expected
+        assert len(result) == 50
+        # 1 procedure list + 1 sources + 1 arguments + 2 dependencies = 5 round-trips,
+        # not 1 + 50*3 = 151.
+        assert mock_connection.execute.call_count == 5
 
-        # Verify the query was called with correct parameters
-        mock_connection.execute.assert_called_once()
-        call_args = mock_connection.execute.call_args
-        assert "dba_source" in str(call_args[0][0]).lower()
-
-    def test_get_procedure_arguments(self):
-        """Test getting procedure arguments."""
+    def test_get_procedure_source_codes_for_schema(self):
+        """Source code is fetched in one round-trip and grouped per procedure."""
         source = OracleSource(self.config, self.ctx)
 
         mock_connection = Mock()
-        mock_args_data = [
-            Mock(argument_name="PARAM1", data_type="VARCHAR2", in_out="IN", position=1),
-            Mock(argument_name="PARAM2", data_type="NUMBER", in_out="OUT", position=2),
+        rows = [
+            Mock(type="PROCEDURE", line=1, text="CREATE PROCEDURE p1 AS\n"),
+            Mock(type="PROCEDURE", line=2, text="BEGIN NULL; END;"),
+            Mock(type="FUNCTION", line=1, text="CREATE FUNCTION f1 RETURN NUMBER AS\n"),
+            Mock(type="FUNCTION", line=2, text="BEGIN RETURN 1; END;"),
         ]
-        mock_connection.execute.return_value = mock_args_data
+        # Mock auto-creates a `name` kwarg as the mock name, so set it explicitly.
+        rows[0].name = "P1"
+        rows[1].name = "P1"
+        rows[2].name = "F1"
+        rows[3].name = "F1"
+        mock_connection.execute.return_value = rows
 
-        result = source._get_procedure_arguments(
-            mock_connection, "TEST_SCHEMA", "TEST_PROC", "DBA"
+        result = source._get_procedure_source_codes_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
         )
 
-        expected = "IN PARAM1 VARCHAR2, OUT PARAM2 NUMBER"
-        assert result == expected
-
-        # Verify the query was called
+        assert result == {
+            ("P1", "PROCEDURE"): "CREATE PROCEDURE p1 AS\nBEGIN NULL; END;",
+            (
+                "F1",
+                "FUNCTION",
+            ): "CREATE FUNCTION f1 RETURN NUMBER AS\nBEGIN RETURN 1; END;",
+        }
         mock_connection.execute.assert_called_once()
-        call_args = mock_connection.execute.call_args
-        assert "dba_arguments" in str(call_args[0][0]).lower()
+        assert "dba_source" in str(mock_connection.execute.call_args[0][0]).lower()
 
-    def test_get_procedure_dependencies(self):
-        """Test getting procedure dependencies."""
+    def test_get_procedure_source_codes_for_schema_merges_package_body(self):
+        """PACKAGE BODY rows must merge into the PACKAGE key, since
+        PROCEDURES_QUERY only ever yields the 'PACKAGE' object type."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        rows = [
+            Mock(type="PACKAGE", line=1, text="CREATE PACKAGE pkg1 AS\n"),
+            Mock(type="PACKAGE", line=2, text="  PROCEDURE do_it;\nEND;"),
+            Mock(type="PACKAGE BODY", line=1, text="CREATE PACKAGE BODY pkg1 AS\n"),
+            Mock(
+                type="PACKAGE BODY",
+                line=2,
+                text="  PROCEDURE do_it IS BEGIN NULL; END;\nEND;",
+            ),
+        ]
+        for row in rows:
+            row.name = "PKG1"
+        mock_connection.execute.return_value = rows
+
+        result = source._get_procedure_source_codes_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert set(result.keys()) == {("PKG1", "PACKAGE")}
+        combined = result[("PKG1", "PACKAGE")]
+        assert "CREATE PACKAGE pkg1 AS" in combined
+        assert "CREATE PACKAGE BODY pkg1 AS" in combined
+        # Spec text must precede body text so the definition reads top-to-bottom.
+        assert combined.index("CREATE PACKAGE pkg1") < combined.index(
+            "CREATE PACKAGE BODY pkg1"
+        )
+
+    def test_get_procedure_source_codes_for_schema_inserts_newline_boundary(self):
+        """Oracle's ALL_SOURCE doesn't guarantee a trailing newline on the
+        spec's last source line; merging must still insert a boundary so the
+        body doesn't run into the spec on the same line."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        rows = [
+            Mock(type="PACKAGE", line=1, text="CREATE PACKAGE pkg1 AS\nEND;"),
+            Mock(type="PACKAGE BODY", line=1, text="CREATE PACKAGE BODY pkg1 AS\n"),
+        ]
+        for row in rows:
+            row.name = "PKG1"
+        mock_connection.execute.return_value = rows
+
+        result = source._get_procedure_source_codes_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert result[("PKG1", "PACKAGE")] == (
+            "CREATE PACKAGE pkg1 AS\nEND;\nCREATE PACKAGE BODY pkg1 AS\n"
+        )
+
+    def test_get_procedures_for_schema_package_definition_includes_body(self):
+        """End-to-end: a PACKAGE row from PROCEDURES_QUERY picks up both spec
+        and body source through get_procedures_for_schema."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
+        mock_connection = Mock()
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__ = Mock(return_value=mock_connection)
+        mock_context_manager.__exit__ = Mock(return_value=None)
+        mock_inspector.engine.connect.return_value = mock_context_manager
+
+        pkg = Mock()
+        pkg.name = "PKG1"
+        pkg.type = "PACKAGE"
+        pkg.created = datetime.now()
+        pkg.last_ddl_time = datetime.now()
+        pkg.status = "VALID"
+
+        source_rows = [
+            Mock(type="PACKAGE", line=1, text="CREATE PACKAGE pkg1 AS\nEND;"),
+            Mock(type="PACKAGE BODY", line=1, text="CREATE PACKAGE BODY pkg1 AS\nEND;"),
+        ]
+        for row in source_rows:
+            row.name = "PKG1"
+
+        mock_connection.execute.side_effect = [
+            [pkg],  # PROCEDURES_QUERY
+            source_rows,  # source codes (spec + body)
+            [],  # arguments
+            [],  # upstream deps
+            [],  # downstream deps
+        ]
+
+        result = source.get_procedures_for_schema(
+            inspector=mock_inspector, schema="TEST_SCHEMA", db_name="TEST_DB"
+        )
+
+        assert len(result) == 1
+        # A newline is forced between spec and body even though neither mock
+        # row ends with one, mirroring Oracle's actual ALL_SOURCE behavior.
+        assert result[0].procedure_definition == (
+            "CREATE PACKAGE pkg1 AS\nEND;\nCREATE PACKAGE BODY pkg1 AS\nEND;"
+        )
+
+    def test_get_procedure_source_codes_for_schema_preserves_spec_trailing_newline(
+        self,
+    ):
+        """When the spec's last source line already ends with a newline, the
+        merge must not insert a second boundary newline before the body."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        rows = [
+            Mock(type="PACKAGE", line=1, text="CREATE PACKAGE pkg1 AS\nEND;\n"),
+            Mock(type="PACKAGE BODY", line=1, text="CREATE PACKAGE BODY pkg1 AS\n"),
+        ]
+        for row in rows:
+            row.name = "PKG1"
+        mock_connection.execute.return_value = rows
+
+        result = source._get_procedure_source_codes_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert result[("PKG1", "PACKAGE")] == (
+            "CREATE PACKAGE pkg1 AS\nEND;\nCREATE PACKAGE BODY pkg1 AS\n"
+        )
+
+    def test_get_procedure_source_codes_for_schema_body_only_package(self):
+        """A package with only a body row (no spec) must still surface under
+        the PACKAGE key with the body text alone."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        rows = [
+            Mock(type="PACKAGE BODY", line=1, text="CREATE PACKAGE BODY pkg1 AS\n"),
+            Mock(
+                type="PACKAGE BODY",
+                line=2,
+                text="  PROCEDURE do_it IS BEGIN NULL; END;\nEND;",
+            ),
+        ]
+        for row in rows:
+            row.name = "PKG1"
+        mock_connection.execute.return_value = rows
+
+        result = source._get_procedure_source_codes_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert set(result.keys()) == {("PKG1", "PACKAGE")}
+        assert result[("PKG1", "PACKAGE")] == (
+            "CREATE PACKAGE BODY pkg1 AS\n  PROCEDURE do_it IS BEGIN NULL; END;\nEND;"
+        )
+
+    def test_get_procedures_for_schema_emits_unenriched_when_helpers_fail(self):
+        """If the procedures query succeeds but every enrichment helper
+        fails, procedures must still be emitted, just unenriched."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
+        mock_connection = Mock()
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__ = Mock(return_value=mock_connection)
+        mock_context_manager.__exit__ = Mock(return_value=None)
+        mock_inspector.engine.connect.return_value = mock_context_manager
+
+        procedures = []
+        for name in ("PROC_A", "PROC_B"):
+            proc = Mock()
+            proc.name = name
+            proc.type = "PROCEDURE"
+            proc.created = datetime.now()
+            proc.last_ddl_time = datetime.now()
+            proc.status = "VALID"
+            procedures.append(proc)
+        mock_connection.execute.return_value = procedures
+
+        with (
+            patch.object(
+                source, "_get_procedure_source_codes_for_schema", return_value={}
+            ),
+            patch.object(
+                source, "_get_procedure_arguments_for_schema", return_value={}
+            ),
+            patch.object(
+                source, "_get_procedure_dependencies_for_schema", return_value={}
+            ),
+        ):
+            result = source.get_procedures_for_schema(
+                inspector=mock_inspector, schema="TEST_SCHEMA", db_name="TEST_DB"
+            )
+
+        assert len(result) == 2
+        for base_procedure in result:
+            assert base_procedure.procedure_definition is None
+            assert base_procedure.argument_signature is None
+            extra_properties = base_procedure.extra_properties or {}
+            assert "upstream_dependencies" not in extra_properties
+            assert "downstream_dependencies" not in extra_properties
+
+    def test_get_procedure_arguments_for_schema(self):
+        """Arguments are fetched in one round-trip and grouped per procedure."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        mock_connection.execute.return_value = [
+            Mock(
+                object_name="P1",
+                argument_name="PARAM1",
+                data_type="VARCHAR2",
+                in_out="IN",
+                position=1,
+            ),
+            Mock(
+                object_name="P1",
+                argument_name="PARAM2",
+                data_type="NUMBER",
+                in_out="OUT",
+                position=2,
+            ),
+            Mock(
+                object_name="P2",
+                argument_name="ONLY",
+                data_type="DATE",
+                in_out="IN",
+                position=1,
+            ),
+        ]
+
+        result = source._get_procedure_arguments_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert result == {
+            "P1": "IN PARAM1 VARCHAR2, OUT PARAM2 NUMBER",
+            "P2": "IN ONLY DATE",
+        }
+        mock_connection.execute.assert_called_once()
+        assert "dba_arguments" in str(mock_connection.execute.call_args[0][0]).lower()
+
+    def test_get_procedure_dependencies_for_schema(self):
+        """Upstream/downstream deps are fetched in two round-trips per schema."""
         source = OracleSource(self.config, self.ctx)
 
         mock_connection = Mock()
 
-        # Mock upstream dependencies
-        mock_upstream_data = [
+        upstream_rows = [
             Mock(
                 referenced_owner="TEST_SCHEMA",
                 referenced_name="TEST_TABLE",
@@ -583,42 +912,191 @@ class TestOracleSource:
                 referenced_name="OTHER_PROC",
                 referenced_type="PROCEDURE",
             ),
+            Mock(
+                referenced_owner="TEST_SCHEMA",
+                referenced_name="P2_TABLE",
+                referenced_type="TABLE",
+            ),
         ]
-        # Set attributes explicitly to avoid Mock object issues
-        mock_upstream_data[0].referenced_name = "TEST_TABLE"
-        mock_upstream_data[1].referenced_name = "OTHER_PROC"
+        # Mock auto-creates a `name` kwarg; override explicitly so attribute access
+        # returns the intended string rather than a child Mock.
+        upstream_rows[0].name = "P1"
+        upstream_rows[1].name = "P1"
+        upstream_rows[2].name = "P2"
+        # `referenced_name` is also a kwarg but set explicitly above; ensure final values:
+        upstream_rows[0].referenced_name = "TEST_TABLE"
+        upstream_rows[1].referenced_name = "OTHER_PROC"
+        upstream_rows[2].referenced_name = "P2_TABLE"
 
-        # Mock downstream dependencies
-        mock_downstream_data = [
-            Mock(owner="TEST_SCHEMA", name="DEPENDENT_PROC", type="PROCEDURE"),
+        downstream_rows = [
+            Mock(owner="TEST_SCHEMA", type="PROCEDURE"),
         ]
-        # Set the name attribute explicitly to avoid Mock object issues
-        mock_downstream_data[0].name = "DEPENDENT_PROC"
+        downstream_rows[0].name = "DEPENDENT_PROC"
+        downstream_rows[0].referenced_name = "P1"
 
-        mock_connection.execute.side_effect = [mock_upstream_data, mock_downstream_data]
+        mock_connection.execute.side_effect = [upstream_rows, downstream_rows]
 
-        result = source._get_procedure_dependencies(
-            mock_connection, "TEST_SCHEMA", "TEST_PROC", "DBA"
+        result = source._get_procedure_dependencies_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
         )
 
-        assert result is not None
-        assert result.upstream is not None
-        assert result.downstream is not None
-        assert len(result.upstream) == 2
-        assert len(result.downstream) == 1
-        assert "TEST_SCHEMA.TEST_TABLE (TABLE)" in result.upstream
-        assert "TEST_SCHEMA.OTHER_PROC (PROCEDURE)" in result.upstream
-        assert "TEST_SCHEMA.DEPENDENT_PROC (PROCEDURE)" in result.downstream
+        assert set(result.keys()) == {"P1", "P2"}
 
-        # Verify both queries were called
+        p1_deps = result["P1"]
+        assert p1_deps.upstream is not None and len(p1_deps.upstream) == 2
+        assert "TEST_SCHEMA.TEST_TABLE (TABLE)" in p1_deps.upstream
+        assert "TEST_SCHEMA.OTHER_PROC (PROCEDURE)" in p1_deps.upstream
+        assert p1_deps.downstream is not None
+        assert "TEST_SCHEMA.DEPENDENT_PROC (PROCEDURE)" in p1_deps.downstream
+
+        p2_deps = result["P2"]
+        assert p2_deps.upstream is not None
+        assert "TEST_SCHEMA.P2_TABLE (TABLE)" in p2_deps.upstream
+        assert p2_deps.downstream is None
+
         assert mock_connection.execute.call_count == 2
+
+    def test_get_procedure_dependencies_for_schema_downstream_only_entry(self):
+        """A name that appears only in the downstream query must still
+        surface in the result, with upstream=None."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_connection = Mock()
+        upstream_rows: List[Mock] = []
+        downstream_rows = [Mock(owner="TEST_SCHEMA", type="PROCEDURE")]
+        downstream_rows[0].name = "P2"
+        downstream_rows[0].referenced_name = "P3"
+
+        mock_connection.execute.side_effect = [upstream_rows, downstream_rows]
+
+        result = source._get_procedure_dependencies_for_schema(
+            mock_connection, "TEST_SCHEMA", "DBA"
+        )
+
+        assert set(result.keys()) == {"P3"}
+        p3_deps = result["P3"]
+        assert p3_deps.upstream is None
+        assert p3_deps.downstream is not None
+        assert "TEST_SCHEMA.P2 (PROCEDURE)" in p3_deps.downstream
+
+    def test_get_procedures_for_schema_dependency_string_is_deterministic(self):
+        """The emitted upstream/downstream dependency strings must be sorted so
+        they're stable regardless of the order rows come back from Oracle."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
+        mock_connection = Mock()
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__ = Mock(return_value=mock_connection)
+        mock_context_manager.__exit__ = Mock(return_value=None)
+        mock_inspector.engine.connect.return_value = mock_context_manager
+
+        proc = Mock()
+        proc.name = "P1"
+        proc.type = "PROCEDURE"
+        proc.created = datetime.now()
+        proc.last_ddl_time = datetime.now()
+        proc.status = "VALID"
+        mock_connection.execute.return_value = [proc]
+
+        out_of_order = ProcedureDependencies(
+            upstream=[
+                "TEST_SCHEMA.Z_TABLE (TABLE)",
+                "TEST_SCHEMA.A_TABLE (TABLE)",
+                "TEST_SCHEMA.M_PROC (PROCEDURE)",
+            ],
+            downstream=[
+                "TEST_SCHEMA.Y_PROC (PROCEDURE)",
+                "TEST_SCHEMA.B_PROC (PROCEDURE)",
+            ],
+        )
+
+        with (
+            patch.object(
+                source, "_get_procedure_source_codes_for_schema", return_value={}
+            ),
+            patch.object(
+                source, "_get_procedure_arguments_for_schema", return_value={}
+            ),
+            patch.object(
+                source,
+                "_get_procedure_dependencies_for_schema",
+                return_value={"P1": out_of_order},
+            ),
+        ):
+            result = source.get_procedures_for_schema(
+                inspector=mock_inspector, schema="TEST_SCHEMA", db_name="TEST_DB"
+            )
+
+        assert len(result) == 1
+        extra_props = result[0].extra_properties or {}
+        assert extra_props["upstream_dependencies"] == (
+            "TEST_SCHEMA.A_TABLE (TABLE), "
+            "TEST_SCHEMA.M_PROC (PROCEDURE), "
+            "TEST_SCHEMA.Z_TABLE (TABLE)"
+        )
+        assert extra_props["downstream_dependencies"] == (
+            "TEST_SCHEMA.B_PROC (PROCEDURE), TEST_SCHEMA.Y_PROC (PROCEDURE)"
+        )
+
+    def test_get_procedures_for_schema_mixed_types_set_subtypes(self):
+        """A single fetch mixing PROCEDURE, FUNCTION and PACKAGE must map only
+        FUNCTION to the FUNCTION subtype; PROCEDURE and PACKAGE both fall
+        through to STORED_PROCEDURE."""
+        source = OracleSource(self.config, self.ctx)
+
+        mock_inspector = Mock()
+        mock_inspector.dialect.denormalize_name.return_value = "TEST_SCHEMA"
+        mock_connection = Mock()
+        mock_context_manager = Mock()
+        mock_context_manager.__enter__ = Mock(return_value=mock_connection)
+        mock_context_manager.__exit__ = Mock(return_value=None)
+        mock_inspector.engine.connect.return_value = mock_context_manager
+
+        rows = []
+        for name, obj_type in (
+            ("MY_PROC", "PROCEDURE"),
+            ("MY_FUNC", "FUNCTION"),
+            ("MY_PKG", "PACKAGE"),
+        ):
+            row = Mock()
+            row.name = name
+            row.type = obj_type
+            row.created = datetime.now()
+            row.last_ddl_time = datetime.now()
+            row.status = "VALID"
+            rows.append(row)
+        mock_connection.execute.return_value = rows
+
+        with (
+            patch.object(
+                source, "_get_procedure_source_codes_for_schema", return_value={}
+            ),
+            patch.object(
+                source, "_get_procedure_arguments_for_schema", return_value={}
+            ),
+            patch.object(
+                source, "_get_procedure_dependencies_for_schema", return_value={}
+            ),
+        ):
+            result = source.get_procedures_for_schema(
+                inspector=mock_inspector, schema="TEST_SCHEMA", db_name="TEST_DB"
+            )
+
+        subtypes = {proc.name: proc.subtype for proc in result}
+        assert subtypes == {
+            "MY_PROC": JobContainerSubTypes.STORED_PROCEDURE,
+            "MY_FUNC": JobContainerSubTypes.FUNCTION,
+            "MY_PKG": JobContainerSubTypes.STORED_PROCEDURE,
+        }
 
     def test_loop_materialized_views(self):
         """Test looping through materialized views."""
         source = OracleSource(self.config, self.ctx)
 
-        # Mock inspector with materialized view support
-        mock_inspector = Mock()
+        # DataHub's own inspector wrapper (DBA mode), which filters system schemas
+        mock_inspector = Mock(spec=OracleInspectorObjectWrapper)
         mock_inspector.get_materialized_view_names.return_value = ["MV1", "MV2"]
 
         # Mock the _process_materialized_view method
@@ -638,6 +1116,30 @@ class TestOracleSource:
             # Should process both materialized views
             assert len(result) == 2
             assert all(wu == mock_workunit for wu in result)
+
+    def test_loop_materialized_views_plain_inspector_uses_filtered_fallback(self):
+        # SA 2.0's Inspector has its own get_materialized_view_names, which doesn't
+        # exclude system schemas. ALL mode must still use DataHub's filtered query.
+        source = OracleSource(self.config, self.ctx)
+        plain_inspector = sqlalchemy.inspect(sqlalchemy.create_engine("sqlite://"))
+        assert hasattr(plain_inspector, "get_materialized_view_names")
+
+        with (
+            patch.object(
+                source, "_get_materialized_view_names_fallback", return_value=[]
+            ) as fallback,
+            patch.object(
+                type(plain_inspector), "get_materialized_view_names"
+            ) as sa_method,
+        ):
+            list(
+                source.loop_materialized_views(
+                    plain_inspector, "TEST_SCHEMA", self.config
+                )
+            )
+
+        fallback.assert_called_once()
+        sa_method.assert_not_called()
 
     def test_get_materialized_view_names_fallback(self):
         """Test fallback method for getting materialized view names."""
@@ -674,6 +1176,8 @@ class TestOracleSource:
         mock_inspector.dialect.denormalize_name.side_effect = lambda x: x.upper()
         mock_inspector.dialect.default_schema_name = "TEST_SCHEMA"
 
+        # _inspector_connection() asserts the bind is a Connection (SA 2.0 narrowing).
+        mock_inspector.bind = Mock(spec=Connection)
         mock_definition = "SELECT * FROM test_table"
         mock_inspector.bind.execute.return_value.scalar.return_value = mock_definition
 
@@ -771,39 +1275,111 @@ class TestOracleSource:
         assert result == []
 
     def test_error_handling_in_procedure_methods(self):
-        """Test error handling in procedure helper methods."""
+        """Batched helpers must return empty mappings on query failure rather
+        than propagate the exception, so the surrounding loop can still emit
+        procedure entities without enrichment."""
         source = OracleSource(self.config, self.ctx)
 
         mock_connection = Mock()
         mock_connection.execute.side_effect = Exception("Query error")
 
-        # Test source code method
-        source_result = source._get_procedure_source_code(
-            conn=mock_connection,
-            schema="TEST_SCHEMA",
-            procedure_name="TEST_PROC",
-            object_type="PROCEDURE",
-            tables_prefix="DBA",
+        assert (
+            source._get_procedure_source_codes_for_schema(
+                conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+            )
+            == {}
         )
-        assert source_result is None
+        assert (
+            source._get_procedure_arguments_for_schema(
+                conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+            )
+            == {}
+        )
+        assert (
+            source._get_procedure_dependencies_for_schema(
+                conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+            )
+            == {}
+        )
 
-        # Test arguments method
-        args_result = source._get_procedure_arguments(
-            conn=mock_connection,
-            schema="TEST_SCHEMA",
-            procedure_name="TEST_PROC",
-            tables_prefix="DBA",
-        )
-        assert args_result is None
+    def test_error_handling_in_procedure_methods_reports_via_report(self):
+        """Batch-helper failures must be visible on self.report, not just a
+        bare logger, and must increment procedure_enrichment_query_failures."""
+        source = OracleSource(self.config, self.ctx)
 
-        # Test dependencies method
-        deps_result = source._get_procedure_dependencies(
-            conn=mock_connection,
-            schema="TEST_SCHEMA",
-            procedure_name="TEST_PROC",
-            tables_prefix="DBA",
+        mock_connection = Mock()
+        mock_connection.execute.side_effect = Exception("ORA-01555: snapshot too old")
+
+        source._get_procedure_source_codes_for_schema(
+            conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
         )
-        assert deps_result is None
+        source._get_procedure_arguments_for_schema(
+            conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+        )
+        source._get_procedure_dependencies_for_schema(
+            conn=mock_connection, schema="TEST_SCHEMA", tables_prefix="DBA"
+        )
+
+        assert source.report.procedure_enrichment_query_failures == 3
+        assert len(source.report.warnings) == 3
+        for warning in source.report.warnings:
+            assert warning.title is not None and "Enrichment" in warning.title
+            assert any("TEST_SCHEMA" in c for c in warning.context)
+
+
+def _oracle_config(**overrides: object) -> OracleConfig:
+    base: Dict[str, object] = {
+        "username": "test_user",
+        "password": "test_pass",
+        "host_port": "localhost:1521",
+        "service_name": "test_service",
+    }
+    if "database" in overrides:
+        # database and service_name are mutually exclusive.
+        base.pop("service_name")
+    base.update(overrides)
+    return OracleConfig.model_validate(base)
+
+
+def _vsql_row(sql_id: str, sql_text: str, **extra: object) -> Dict[str, object]:
+    return {
+        "sql_id": sql_id,
+        "sql_text": sql_text,
+        "parsing_schema_name": "HR",
+        "first_load_time": "2024-01-01/12:00:00",
+        **extra,
+    }
+
+
+def _vsql_engine(rows: List[Dict[str, object]]) -> Mock:
+    """Engine whose V$SQL query returns `rows` through the SA 2.0 mappings() API."""
+    engine = Mock()
+    conn = Mock()
+    result = Mock()
+    result.mappings.return_value = rows
+    conn.execute.return_value = result
+    conn.__enter__ = Mock(return_value=conn)
+    conn.__exit__ = Mock(return_value=None)
+    engine.connect.return_value = conn
+    return engine
+
+
+def _populate_from_vsql(
+    source: OracleSource, rows: List[Dict[str, object]]
+) -> List[MetadataChangeProposalWrapper]:
+    """Run the V$SQL extraction into the real aggregator and collect its output."""
+    with (
+        patch.object(source, "_get_metadata_engine", return_value=_vsql_engine(rows)),
+        patch.object(
+            source,
+            "_check_vsql_prerequisites",
+            return_value=VSqlPrerequisiteCheckResult(
+                is_accessible=True, message="V$SQL accessible"
+            ),
+        ),
+    ):
+        source._populate_aggregator_from_queries()
+        return list(source.aggregator.gen_metadata())
 
 
 class TestOracleQueryExtraction:
@@ -913,7 +1489,8 @@ class TestOracleQueryExtraction:
         mock_conn = Mock()
         mock_inspector = Mock()
         mock_result = Mock()
-        mock_result.__iter__ = Mock(return_value=iter(mock_rows))
+        # Source reads V$SQL rows via .mappings() for dict-style access (SA 2.0).
+        mock_result.mappings.return_value = mock_rows
         mock_conn.execute.return_value = mock_result
         mock_conn.__enter__ = Mock(return_value=mock_conn)
         mock_conn.__exit__ = Mock(return_value=None)
@@ -928,10 +1505,221 @@ class TestOracleQueryExtraction:
         assert len(queries) == 2
         assert queries[0].query == "SELECT * FROM HR.EMPLOYEES WHERE dept_id = 10"
         assert queries[0].default_schema == "HR"
-        assert queries[0].default_db == "TESTDB"
+        # Entity URNs are schema.table by default, so no database is passed to the
+        # parser; otherwise parsed tables would resolve to db.schema.table URNs.
+        assert queries[0].default_db is None
         assert queries[0].session_id == "sql_id:abc123"
         assert queries[1].query == "SELECT COUNT(*) FROM SALES.ORDERS"
         assert queries[1].default_schema == "SALES"
+
+    @pytest.mark.parametrize(
+        ("overrides", "expected_default_db"),
+        [
+            pytest.param({}, None, id="two-part urns"),
+            pytest.param(
+                {"add_database_name_to_urn": True},
+                None,
+                id="service_name without urn_db_name keeps two-part urns",
+            ),
+            pytest.param(
+                {"add_database_name_to_urn": True, "database": "orcl"},
+                "orcl",
+                id="database",
+            ),
+            pytest.param(
+                {"add_database_name_to_urn": True, "urn_db_name": "ORCL"},
+                "orcl",
+                id="urn_db_name normalised",
+            ),
+        ],
+    )
+    def test_extract_queries_default_db_matches_entity_urns(
+        self, ctx, overrides, expected_default_db
+    ):
+        """default_db must equal the database component of entity URNs.
+
+        The parser fills a missing database from it, so any other value (such
+        as the name detected in Oracle) puts usage on URNs the crawl never emits.
+        """
+        config = _oracle_config(include_query_usage=True, **overrides)
+        source = OracleSource(config, ctx)
+        engine = _vsql_engine([_vsql_row("q1", "SELECT * FROM HR.EMPLOYEES")])
+
+        queries = list(source._extract_queries_from_vsql(engine))
+
+        assert len(queries) == 1
+        assert queries[0].default_db == expected_default_db
+        expected_urn_name = (
+            f"{expected_default_db}.hr.employees"
+            if expected_default_db
+            else "hr.employees"
+        )
+        assert config.get_identifier("hr", "employees") == expected_urn_name
+
+    def test_is_allowed_table_applies_schema_and_table_filters(self, ctx):
+        config = _oracle_config(
+            schema_pattern={"allow": ["hr", "sales"]},
+            table_pattern={"deny": [".*\\.tmp_.*"]},
+        )
+        source = OracleSource(config, ctx)
+
+        assert source._is_allowed_table("hr.employees")
+        assert source._is_allowed_table("HR.EMPLOYEES")
+        assert not source._is_allowed_table("finance.ledger")
+        assert not source._is_allowed_table("hr.tmp_load")
+        assert not source._is_allowed_table("employees")
+
+    def test_is_allowed_table_honours_allowed_system_schema(self, ctx):
+        # Recipes may deliberately ingest SYSTEM; lineage on those entities must
+        # not be filtered away by a hard-coded system-schema list.
+        source = OracleSource(
+            _oracle_config(schema_pattern={"allow": ["^system$"]}), ctx
+        )
+
+        assert source._is_allowed_table("system.product_privs")
+        assert not source._is_allowed_table("hr.employees")
+
+    @pytest.mark.parametrize(
+        ("overrides", "allowed", "denied"),
+        [
+            pytest.param(
+                {"database": "orcl"},
+                "orcl.hr.employees",
+                "orcl.finance.ledger",
+                id="database in urns",
+            ),
+            pytest.param(
+                {},
+                "hr.employees",
+                "finance.ledger",
+                id="service_name without urn_db_name keeps two-part urns",
+            ),
+        ],
+    )
+    def test_is_allowed_table_splits_names_like_get_identifier(
+        self, ctx, overrides, allowed, denied
+    ):
+        """With add_database_name_to_urn on, names are split via get_db_schema.
+
+        That keeps the filter in step with get_identifier, which still emits
+        two-part names for service_name without urn_db_name; rejecting those
+        would silently drop all view lineage in that configuration.
+        """
+        config = _oracle_config(
+            add_database_name_to_urn=True,
+            schema_pattern={"allow": ["hr"]},
+            **overrides,
+        )
+        source = OracleSource(config, ctx)
+
+        assert config.get_identifier("hr", "employees") == allowed
+        assert source._is_allowed_table(allowed)
+        assert not source._is_allowed_table(denied)
+        assert not source._is_allowed_table("employees")
+
+    @pytest.mark.parametrize(
+        ("overrides", "expected"),
+        [
+            pytest.param({}, "", id="two-part urns"),
+            pytest.param(
+                {"add_database_name_to_urn": True}, "", id="service_name only"
+            ),
+            pytest.param(
+                {"add_database_name_to_urn": True, "database": "orcl"},
+                "orcl",
+                id="database",
+            ),
+            pytest.param(
+                {"add_database_name_to_urn": True, "urn_db_name": "ORCL"},
+                "orcl",
+                id="urn_db_name normalised",
+            ),
+        ],
+    )
+    def test_procedure_default_db_matches_entity_urns(self, ctx, overrides, expected):
+        # Procedure lineage must resolve tables to the same tier as the crawl;
+        # "" tells the procedure parser to build two-part URNs.
+        config = _oracle_config(**overrides)
+        source = OracleSource(config, ctx)
+
+        assert source._get_procedure_default_db() == expected
+        assert config.get_identifier("hr", "t") == (
+            f"{expected}.hr.t" if expected else "hr.t"
+        )
+
+    def test_aggregator_receives_allowed_table_filter(self, ctx):
+        source = OracleSource(_oracle_config(schema_pattern={"allow": ["hr"]}), ctx)
+        hr_urn = make_dataset_urn("oracle", "hr.employees", "PROD")
+        other_urn = make_dataset_urn("oracle", "finance.ledger", "PROD")
+
+        assert source.aggregator.is_allowed_table(hr_urn)
+        assert not source.aggregator.is_allowed_table(other_urn)
+
+    def test_vsql_usage_lands_on_filtered_two_tier_urns(self, ctx):
+        """End to end through the real aggregator: V$SQL rows in, MCPs out.
+
+        Guards the two customer-facing symptoms: usage must attach to the same
+        two-tier URNs the schema crawl emits (no database prefix unless
+        add_database_name_to_urn is set), and tables outside the recipe
+        filters must get no usage, lineage or query subjects.
+        """
+        config = _oracle_config(
+            include_query_usage=True,
+            include_usage_stats=True,
+            include_operational_stats=True,
+            schema_pattern={"allow": ["^hr$"]},
+            start_time="2024-01-01T00:00:00Z",
+            end_time="2024-01-02T00:00:00Z",
+        )
+        source = OracleSource(config, ctx)
+
+        mcps = _populate_from_vsql(
+            source,
+            [
+                _vsql_row("allowed", "SELECT * FROM HR.EMPLOYEES"),
+                _vsql_row("denied", "SELECT * FROM FINANCE.LEDGER"),
+                _vsql_row(
+                    "denied_write",
+                    "INSERT INTO FINANCE.ARCHIVE SELECT * FROM HR.EMPLOYEES",
+                ),
+            ],
+        )
+
+        employees_urn = make_dataset_urn("oracle", "hr.employees", "PROD")
+        usage_urns = {
+            mcp.entityUrn
+            for mcp in mcps
+            if isinstance(mcp.aspect, DatasetUsageStatisticsClass)
+        }
+        lineage_urns = {
+            mcp.entityUrn
+            for mcp in mcps
+            if isinstance(mcp.aspect, UpstreamLineageClass)
+        }
+        operation_urns = {
+            mcp.entityUrn for mcp in mcps if isinstance(mcp.aspect, OperationClass)
+        }
+        query_subject_urns = {
+            subject.entity
+            for mcp in mcps
+            if isinstance(mcp.aspect, QuerySubjectsClass)
+            for subject in mcp.aspect.subjects
+        }
+
+        assert source.report.sql_aggregator is not None
+        assert source.report.sql_aggregator.num_observed_queries_failed == 0
+        # Two-tier URN, no database prefix, matching what the crawl emits.
+        assert usage_urns == {employees_urn}
+        # The write into a denied schema yields no lineage or operation there.
+        assert lineage_urns == set()
+        assert operation_urns == set()
+        # Queries may still name the denied tables as subjects, but only when
+        # they also touch an allowed table; the denied-only query is dropped.
+        assert employees_urn in query_subject_urns
+        assert (
+            make_dataset_urn("oracle", "finance.ledger", "PROD")
+            not in query_subject_urns
+        )
 
     def test_extract_queries_with_exclude_patterns(self, ctx):
         """Test query extraction with exclude patterns."""
@@ -979,7 +1767,8 @@ class TestOracleQueryExtraction:
         mock_conn = Mock()
         mock_inspector = Mock()
         mock_result = Mock()
-        mock_result.__iter__ = Mock(return_value=iter(mock_rows))
+        # Source reads V$SQL rows via .mappings() for dict-style access (SA 2.0).
+        mock_result.mappings.return_value = mock_rows
         mock_conn.execute.return_value = mock_result
         mock_conn.__enter__ = Mock(return_value=mock_conn)
         mock_conn.__exit__ = Mock(return_value=None)
@@ -1090,6 +1879,121 @@ class TestOracleQueryExtraction:
         assert "command_type IN" in VSQL_USAGE_QUERY
         assert "ROWNUM" in VSQL_USAGE_QUERY
         assert ":max_queries" in VSQL_USAGE_QUERY
+        # sql_text is capped at 1000 chars; the full statement comes from the CLOB.
+        assert "sql_fulltext" in VSQL_USAGE_QUERY
+
+    def test_extract_queries_uses_full_text_and_strips_empty_hints(
+        self, config_with_query_usage, ctx
+    ):
+        source = OracleSource(config_with_query_usage, ctx)
+
+        long_query = (
+            "INSERT INTO HR.TARGET (A) SELECT A FROM HR.SOURCE WHERE "
+            + " OR ".join(f"A = {i}" for i in range(400))
+        )
+        assert len(long_query) > 1000
+        hinted = "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S"
+        # Oracle accepts the hint glued to the verb, with or without spaces inside.
+        tight = "INSERT/*+ */ INTO HR.T (A) SELECT/*+*/A FROM HR.S"
+        literal = "SELECT '/*+ */' AS marker FROM HR.S"
+
+        lob = Mock()
+        lob.read.return_value = "SELECT * FROM HR.FROM_LOB"
+        broken_lob = Mock()
+        broken_lob.read.side_effect = oracledb.DatabaseError(
+            "ORA-22922: nonexistent LOB value"
+        )
+
+        engine = _vsql_engine(
+            [
+                _vsql_row("full", long_query[:1000], sql_fulltext=long_query),
+                _vsql_row("fallback", "SELECT 1 FROM HR.SMALL", sql_fulltext=None),
+                _vsql_row("hint", hinted, sql_fulltext=hinted),
+                _vsql_row("tight", tight, sql_fulltext=tight),
+                _vsql_row("literal", literal, sql_fulltext=literal),
+                _vsql_row("lob", "SELECT * FROM HR.FROM_LOB", sql_fulltext=lob),
+                _vsql_row(
+                    "broken_lob", "SELECT * FROM HR.BROKEN", sql_fulltext=broken_lob
+                ),
+                _vsql_row("empty", "", sql_fulltext=None),
+            ]
+        )
+
+        queries = {
+            q.session_id: q.query for q in source._extract_queries_from_vsql(engine)
+        }
+
+        assert queries["sql_id:full"] == long_query
+        assert queries["sql_id:fallback"] == "SELECT 1 FROM HR.SMALL"
+        assert queries["sql_id:hint"] == "INSERT INTO HR.T (A) SELECT A FROM HR.S"
+        assert queries["sql_id:tight"] == "INSERT INTO HR.T (A) SELECT A FROM HR.S"
+        # Only a hint right after the statement verb is removed; literals stay.
+        assert queries["sql_id:literal"] == literal
+        assert queries["sql_id:lob"] == "SELECT * FROM HR.FROM_LOB"
+        # A LOB that cannot be read falls back to sql_text and warns, instead of
+        # aborting the extraction for every remaining row.
+        assert queries["sql_id:broken_lob"] == "SELECT * FROM HR.BROKEN"
+        # A row with no text at all is skipped instead of being parsed.
+        assert "sql_id:empty" not in queries
+        assert len(source.report.warnings) == 1
+
+    def test_long_hinted_and_delete_queries_parse_cleanly(self, ctx):
+        """End to end through the real aggregator for the truncation fixes.
+
+        A statement longer than V$SQL.sql_text's 1000 characters, an empty
+        optimizer hint, and a DELETE must all parse: lineage is produced for
+        the writes and neither parse-failure counter moves.
+        """
+        source = OracleSource(_oracle_config(include_query_usage=True), ctx)
+
+        # Cutting this at 1000 chars leaves the IN list unbalanced, so the
+        # truncated text cannot parse; only the full text can.
+        long_query = (
+            "INSERT INTO HR.TARGET (A) SELECT A FROM HR.SOURCE WHERE A IN ("
+            + ", ".join(str(i) for i in range(400))
+            + ")"
+        )
+        assert len(long_query) > 1000
+        hinted_query = "INSERT /*+ */ INTO HR.T (A) SELECT A FROM HR.S"
+        delete_query = "DELETE FROM HR.T WHERE A = 1"
+
+        mcps = _populate_from_vsql(
+            source,
+            [
+                _vsql_row("long", long_query[:1000], sql_fulltext=long_query),
+                _vsql_row("hint", hinted_query, sql_fulltext=hinted_query),
+                _vsql_row("delete", delete_query, sql_fulltext=delete_query),
+            ],
+        )
+
+        report = source.aggregator.report
+        assert report.num_observed_queries == 3
+        assert report.num_observed_queries_failed == 0
+        assert report.num_observed_queries_column_failed == 0
+
+        lineage = {
+            mcp.entityUrn: {upstream.dataset for upstream in mcp.aspect.upstreams}
+            for mcp in mcps
+            if isinstance(mcp.aspect, UpstreamLineageClass)
+        }
+        assert lineage[make_dataset_urn("oracle", "hr.target", "PROD")] == {
+            make_dataset_urn("oracle", "hr.source", "PROD")
+        }
+        assert lineage[make_dataset_urn("oracle", "hr.t", "PROD")] == {
+            make_dataset_urn("oracle", "hr.s", "PROD")
+        }
+
+    def test_extra_oracle_types_map_to_datahub_types(self):
+        report = SQLSourceReport()
+        for oracle_type in extra_oracle_types:
+            field_type = get_column_type(report, "hr.t", oracle_type())
+            expected = (
+                StringTypeClass
+                if oracle_type.__name__ == "XMLTYPE"
+                else RecordTypeClass
+            )
+            assert isinstance(field_type.type, expected), oracle_type.__name__
+        assert not report.infos
 
     def test_query_usage_integration_flow(self, ctx):
         """Test end-to-end flow of query usage extraction."""
@@ -1133,93 +2037,56 @@ class TestOracleQueryExtraction:
         mock_engine.dispose.assert_called_once()
 
 
-class TestOracleProcedureLineage:
-    """Tests for stored procedure dependency extraction."""
-
-    @pytest.fixture
-    def ctx(self):
-        return PipelineContext(run_id="test")
-
-    @pytest.fixture
-    def config_with_procedures(self):
-        """Config with stored procedures enabled."""
-        return OracleConfig.model_validate(
-            {
-                "username": "test_user",
-                "password": "test_pass",
-                "host_port": "localhost:1521",
-                "service_name": "test_service",
-                "include_stored_procedures": True,
-            }
-        )
-
-    def test_get_procedure_dependencies_returns_upstream_tables(
-        self, config_with_procedures, ctx
-    ):
-        """Test that _get_procedure_dependencies returns structured upstream_tables."""
-        source = OracleSource(config_with_procedures, ctx)
-
-        mock_conn = Mock()
-
-        mock_upstream_result = Mock()
-        mock_upstream_result.__iter__ = Mock(
-            return_value=iter(
-                [
-                    Mock(
-                        referenced_owner="HR_SCHEMA",
-                        referenced_name="EMPLOYEES",
-                        referenced_type="TABLE",
-                    ),
-                    Mock(
-                        referenced_owner="HR_SCHEMA",
-                        referenced_name="DEPARTMENTS",
-                        referenced_type="VIEW",
-                    ),
-                    Mock(
-                        referenced_owner="HR_SCHEMA",
-                        referenced_name="OTHER_PROC",
-                        referenced_type="PROCEDURE",
-                    ),
-                ]
-            )
-        )
-
-        mock_downstream_result = Mock()
-        mock_downstream_result.__iter__ = Mock(return_value=iter([]))
-
-        mock_conn.execute = Mock(
-            side_effect=[mock_upstream_result, mock_downstream_result]
-        )
-
-        dependencies = source._get_procedure_dependencies(
-            conn=mock_conn,
-            schema="HR_SCHEMA",
-            procedure_name="PROCESS_EMPLOYEES",
-            tables_prefix="ALL",
-        )
-
-        assert dependencies is not None
-        assert dependencies.upstream_tables is not None
-        assert len(dependencies.upstream_tables) == 2
-        assert dependencies.upstream_tables[0].schema_name == "HR_SCHEMA"
-        assert dependencies.upstream_tables[0].table == "EMPLOYEES"
-        assert dependencies.upstream_tables[0].type == OracleObjectType.TABLE
-        assert dependencies.upstream_tables[1].type == OracleObjectType.VIEW
-
-
 def test_oracle_sample_query_uses_where_rownum():
+    from sqlalchemy.dialects import oracle
+    from sqlalchemy.sql import Select
+
     mock_conn = MagicMock()
     mock_conn.dialect.name = "oracle"
     mock_conn.execute.return_value.fetchall.return_value = []
 
-    with patch("datahub.ingestion.source.sql.sqlalchemy_data_reader.sa"):
-        reader = SqlAlchemyTableDataReader.__new__(SqlAlchemyTableDataReader)
-        reader.connection = mock_conn
-        reader.get_sample_data_for_table(["test_schema", "test_table"], sample_size=100)
+    reader = SqlAlchemyTableDataReader.__new__(SqlAlchemyTableDataReader)
+    reader.connection = mock_conn
+    reader.get_sample_data_for_table(["test_schema", "test_table"], sample_size=100)
 
     executed_query = mock_conn.execute.call_args[0][0]
-    assert "WHERE ROWNUM <= 100" in executed_query
-    assert "AND ROWNUM" not in executed_query
+    # SA 2.0 rejects raw strings with ObjectNotExecutableError.
+    assert isinstance(executed_query, Select)
+    sql = str(
+        executed_query.compile(
+            dialect=oracle.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    assert "WHERE ROWNUM <= 100" in sql
+    assert "FETCH FIRST" not in sql
+
+
+def test_sql_type_list_renders_quoted_in_list():
+    """_sql_type_list must render enum members as a comma-separated, quoted
+    SQL IN-list using each member's .value (which can contain a space)."""
+    assert (
+        _sql_type_list(OracleObjectType.TABLE, OracleObjectType.VIEW)
+        == "'TABLE', 'VIEW'"
+    )
+    assert _sql_type_list(OracleObjectType.PACKAGE_BODY) == "'PACKAGE BODY'"
+
+
+def test_generated_procedure_sql_fragments():
+    """Pin the rendered IN-list fragments so the SQL is documented here and a
+    reordering or rename of OracleObjectType members is caught immediately."""
+    assert _PROCEDURE_LIKE_TYPES_SQL == "'PROCEDURE', 'FUNCTION', 'PACKAGE'"
+    assert (
+        _PROCEDURE_SOURCE_TYPES_SQL
+        == "'PROCEDURE', 'FUNCTION', 'PACKAGE', 'PACKAGE BODY'"
+    )
+    assert (
+        _DEPENDENT_OBJECT_TYPES_SQL
+        == "'TABLE', 'VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'PACKAGE'"
+    )
+    assert _UPSTREAM_REFERENCED_TYPES_SQL == (
+        "'TABLE', 'VIEW', 'MATERIALIZED VIEW', "
+        "'PROCEDURE', 'FUNCTION', 'PACKAGE', 'SYNONYM'"
+    )
 
 
 def test_oracle_get_identifier_uses_urn_db_name():

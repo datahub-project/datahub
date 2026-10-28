@@ -65,9 +65,10 @@ module.exports = tseslint.config(
             // --- Intentional overrides (documented) --------------------------------
             // networkidle: GraphQL responses remain in-flight after navigation
             'playwright/no-networkidle': 'off',
-            // force/waitForTimeout: Ant Design component workarounds
+            // force: Ant Design component workarounds
             'playwright/no-force-option': 'off',
-            'playwright/no-wait-for-timeout': 'off',
+            // waitForTimeout: flag new usages; existing ones are annotated with disable comments
+            'playwright/no-wait-for-timeout': 'error',
             // expect-expect: assertions delegated into POM helper methods
             'playwright/expect-expect': 'off',
             'playwright/no-wait-for-selector': 'off',

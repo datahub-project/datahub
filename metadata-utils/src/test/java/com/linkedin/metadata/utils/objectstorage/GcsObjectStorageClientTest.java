@@ -9,10 +9,13 @@ import static org.testng.Assert.assertEquals;
 
 import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
@@ -79,5 +82,47 @@ public class GcsObjectStorageClientTest {
     GcsObjectStorageClient client =
         new GcsObjectStorageClient(mock(Storage.class), "", null, 1024, 1024);
     client.putObject("key", new byte[] {1});
+  }
+
+  @Test
+  public void testGetObjectAsStringReadsThroughPrefix() {
+    Storage storage = mock(Storage.class);
+    when(storage.readAllBytes(any(BlobId.class)))
+        .thenReturn("matrix-body".getBytes(StandardCharsets.UTF_8));
+
+    GcsObjectStorageClient client =
+        new GcsObjectStorageClient(storage, "my-bucket", "prefix", 1024, 1024);
+    String body = client.getObjectAsString("matrix.json");
+
+    assertEquals(body, "matrix-body");
+    ArgumentCaptor<BlobId> blobIdCaptor = ArgumentCaptor.forClass(BlobId.class);
+    verify(storage).readAllBytes(blobIdCaptor.capture());
+    assertEquals(blobIdCaptor.getValue().getBucket(), "my-bucket");
+    assertEquals(blobIdCaptor.getValue().getName(), "prefix/matrix.json");
+  }
+
+  @Test
+  public void testGetObjectAsStringWrapsProviderErrors() {
+    // ObjectStorageMatrixDocumentReader.classify() unwraps this RuntimeException to tell
+    // a permission failure apart from other errors, so the cause must be preserved, not swallowed.
+    Storage storage = mock(Storage.class);
+    StorageException forbidden = new StorageException(403, "Forbidden");
+    when(storage.readAllBytes(any(BlobId.class))).thenThrow(forbidden);
+
+    GcsObjectStorageClient client =
+        new GcsObjectStorageClient(storage, "my-bucket", null, 1024, 1024);
+    try {
+      client.getObjectAsString("matrix.json");
+      throw new AssertionError("Expected RuntimeException");
+    } catch (RuntimeException e) {
+      assertEquals(e.getCause(), forbidden);
+    }
+  }
+
+  @Test(expectedExceptions = IllegalStateException.class)
+  public void testGetObjectAsStringRejectsUnconfiguredBucket() {
+    GcsObjectStorageClient client =
+        new GcsObjectStorageClient(mock(Storage.class), "", null, 1024, 1024);
+    client.getObjectAsString("key");
   }
 }

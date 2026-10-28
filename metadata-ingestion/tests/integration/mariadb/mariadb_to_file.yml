@@ -5,7 +5,7 @@ source:
   config:
     username: root
     password: password
-    host_port: localhost:53300
+    host_port: "localhost:${MARIADB_HOST_PORT}"
     database: test_db
     include_stored_procedures: true
     procedure_pattern:

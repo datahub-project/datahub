@@ -81,10 +81,11 @@ class KafkaSchemaResolver:
         # OSError means the registry was unreachable — operators must see that, not lose it.
         if isinstance(error, OSError) and self.report is not None:
             self.report.schema_registry_connectivity_failures += 1
-            self.report.report_warning(
-                "schema-registry",
-                f"Schema registry was unreachable while resolving subject "
-                f"{subject_name}: {error}",
+            self.report.warning(
+                message="Schema registry was unreachable while resolving subject",
+                context=subject_name,
+                exc=error,
+                log=False,
             )
 
     def resolve_schemas_batch(
@@ -359,7 +360,7 @@ class KafkaSchemaResolver:
 
                 # Try to get the schema from the registry using the ID
                 try:
-                    schema = self.schema_registry_client.get_by_id(schema_id)
+                    schema = self.schema_registry_client.get_schema(schema_id)
                     if schema and schema.schema_str:
                         return self._extract_record_name_from_schema(schema.schema_str)
                 except (KeyError, ValueError, OSError) as e:

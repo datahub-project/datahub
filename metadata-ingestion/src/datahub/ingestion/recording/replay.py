@@ -145,7 +145,10 @@ class IngestionReplayer:
             # 1. Original sink was datahub-rest (different server URL now)
             # 2. Original sink was file with env vars (e.g., $INGESTION_ARTIFACT_DIR)
             original_sink = self._recipe.get("sink", {})
-            replay_output = f"/tmp/datahub_replay_{self._manifest.run_id}.json"
+            replay_output = str(
+                Path(tempfile.gettempdir())
+                / f"datahub_replay_{self._manifest.run_id}.json"
+            )
 
             logger.info(
                 f"Air-gapped mode: Replacing sink (type={original_sink.get('type')}) "

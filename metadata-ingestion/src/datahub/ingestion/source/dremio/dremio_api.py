@@ -398,13 +398,15 @@ class DremioAPIOperations:
                         )
                         return
                     else:
-                        self.report.failure("Failed to authenticate", login_url)
+                        self.report.failure(
+                            message="Failed to authenticate", context=login_url
+                        )
                         raise DremioAPIException("Failed to authenticate with Dremio")
             except (AssertionError, DremioAPIException):
                 # Credential / config errors: fail fast instead of looping.
                 raise
             except Exception as e:
-                self.report.failure("Failed to authenticate", str(e))
+                self.report.failure(message="Failed to authenticate", exc=e)
                 if attempt < self._retry_count:
                     sleep(1)
 
@@ -1266,11 +1268,10 @@ class DremioAPIOperations:
                     f"Error in chunked query extraction at offset {offset}: {e}"
                 )
                 if "'rows'" in str(e):
-                    self.report.report_warning(
-                        f"Dremio crash detected during query extraction "
-                        f"(KeyError: 'rows' - likely OOM). Current chunk_size: {chunk_size}. "
-                        f"Consider reducing chunk size if this persists.",
-                        context="query_extraction",
+                    self.report.warning(
+                        message="Dremio crash detected during query extraction (KeyError: 'rows' - likely OOM), consider reducing chunk size if this persists",
+                        context=f"query_extraction: chunk_size={chunk_size}",
+                        log=False,
                     )
                 break
 
@@ -1406,16 +1407,11 @@ class DremioAPIOperations:
             # Fall back to name if no ID is present (some sources have one but not the other).
             resource_id = container.id or container.name
             if resource_id:
-                try:
-                    sub_containers = self.get_containers_for_location(
-                        resource_id=resource_id,
-                        path=[container.name],
-                        root_container_type=container.container_type,
-                    )
-                except Exception as exc:
-                    logger.debug(
-                        f"Failed to get sub-containers for {container.name}: {exc}"
-                    )
+                sub_containers = self.get_containers_for_location(
+                    resource_id=resource_id,
+                    path=[container.name],
+                    root_container_type=container.container_type,
+                )
 
             return [container] + sub_containers
 
@@ -1495,17 +1491,23 @@ class DremioAPIOperations:
                 # Recursively process child containers
                 for container in response.get("children", []):
                     if container.get("type") == DremioEntityContainerType.CONTAINER:
-                        traverse_path(container.get("id"), container.get("path"))
+                        child_path = container.get("path")
+                        if not child_path or not isinstance(child_path[-1], str):
+                            self.report.warning(
+                                message="Dremio catalog child has no path; it and its sub-folders were skipped",
+                                context=f"{'.'.join(entity_path)}: {container.get('name') or container.get('id')}",
+                            )
+                            continue
+                        # The listing can case the parent segments differently
+                        # from the parent itself, so only the last one is used.
+                        traverse_path(
+                            container.get("id"), [*entity_path, child_path[-1]]
+                        )
 
             except Exception as exc:
-                logger.info(
-                    "Location {} contains no tables or views. Skipping...".format(
-                        location_id
-                    )
-                )
                 self.report.warning(
-                    message="Failed to get tables or views",
-                    context=f"{location_id}",
+                    message="Failed to list Dremio container; its sub-folders were skipped",
+                    context=f"{'.'.join(entity_path or [])} ({location_id})",
                     exc=exc,
                 )
 

@@ -1,4 +1,5 @@
 import difflib
+import json
 from pathlib import Path
 from typing import Any, Dict
 
@@ -6,11 +7,16 @@ import pytest
 import time_machine
 
 from datahub.api.entities.dataproduct.dataproduct import DataProduct
-from datahub.metadata.schema_classes import DomainPropertiesClass
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import (
+    DataProductPropertiesClass,
+    DomainPropertiesClass,
+)
 from datahub.testing.mce_helpers import check_golden_file
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 
 FROZEN_TIME = "2023-04-14 07:00:00+00:00"
+PARENT_DATA_PRODUCT_URN = "urn:li:dataProduct:vendor_equities"
 
 
 @pytest.fixture
@@ -20,7 +26,13 @@ def base_entity_metadata():
             "domainProperties": DomainPropertiesClass(
                 name="Marketing", description="Marketing Domain"
             )
-        }
+        },
+        PARENT_DATA_PRODUCT_URN: {
+            "dataProductProperties": DataProductPropertiesClass(
+                name="Vendor Equities",
+                description="Vendor equities feed",
+            )
+        },
     }
 
 
@@ -213,6 +225,143 @@ def test_dataproduct_ownership_type_urn_patch_yaml(
         str(dataproduct_output_file),
         str(test_resources_dir / "dataproduct_ownership_type_urn.yaml"),
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.parametrize(
+    "data_product_filename",
+    [
+        "dataproduct_with_parent.yaml",
+        "dataproduct_with_parent_by_name.yaml",
+    ],
+    ids=["parent_urn", "parent_name"],
+)
+def test_dataproduct_parent_from_yaml(
+    test_resources_dir: Path,
+    base_mock_graph: MockDataHubGraph,
+    data_product_filename: str,
+) -> None:
+    data_product = DataProduct.from_yaml(
+        test_resources_dir / data_product_filename, base_mock_graph
+    )
+    assert data_product._resolved_parent_data_product_urn == PARENT_DATA_PRODUCT_URN
+
+    mcps = list(data_product.generate_mcp(upsert=False))
+    properties_mcp = next(
+        mcp
+        for mcp in mcps
+        if isinstance(mcp, MetadataChangeProposalWrapper)
+        and mcp.aspectName == "dataProductProperties"
+    )
+    assert isinstance(properties_mcp.aspect, DataProductPropertiesClass)
+    assert properties_mcp.aspect.parentDataProduct == PARENT_DATA_PRODUCT_URN
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_dataproduct_parent_upsert_from_yaml(
+    test_resources_dir: Path,
+    base_mock_graph: MockDataHubGraph,
+) -> None:
+    data_product = DataProduct.from_yaml(
+        test_resources_dir / "dataproduct_with_parent.yaml", base_mock_graph
+    )
+    mcps = list(data_product.generate_mcp(upsert=True))
+    properties_mcp = next(
+        mcp
+        for mcp in mcps
+        if getattr(mcp, "aspectName", None) == "dataProductProperties"
+    )
+    patch_ops = json.loads(properties_mcp.aspect.value)  # type: ignore[union-attr]
+    assert {
+        "op": "add",
+        "path": "/parentDataProduct",
+        "value": PARENT_DATA_PRODUCT_URN,
+    } in patch_ops
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_dataproduct_parent_round_trip_from_datahub(
+    test_resources_dir: Path,
+    base_mock_graph: MockDataHubGraph,
+) -> None:
+    data_product = DataProduct.from_yaml(
+        test_resources_dir / "dataproduct_with_parent.yaml", base_mock_graph
+    )
+    for mcp in data_product.generate_mcp(upsert=False):
+        if (
+            isinstance(mcp, MetadataChangeProposalWrapper)
+            and mcp.entityUrn
+            and mcp.aspectName
+            and mcp.aspect
+        ):
+            if mcp.entityUrn not in base_mock_graph.entity_graph:
+                base_mock_graph.entity_graph[mcp.entityUrn] = {}
+            base_mock_graph.entity_graph[mcp.entityUrn][mcp.aspectName] = mcp.aspect
+
+    loaded = DataProduct.from_datahub(
+        base_mock_graph, id="urn:li:dataProduct:portfolio_analytics"
+    )
+    assert loaded.parent_data_product == PARENT_DATA_PRODUCT_URN
+    assert loaded._resolved_parent_data_product_urn == PARENT_DATA_PRODUCT_URN
+
+
+def _write_parent_yaml(tmp_path: Path, product_id: str, parent: str) -> Path:
+    path = tmp_path / f"{product_id}.yaml"
+    path.write_text(
+        "\n".join(
+            [
+                f"id: {product_id}",
+                "domain: Marketing",
+                f"parent_data_product: {parent}",
+                "assets:",
+                "  - urn:li:container:DATABASE",
+                "",
+            ]
+        )
+    )
+    return path
+
+
+def test_dataproduct_rejects_self_parent_from_yaml(
+    tmp_path: Path,
+    base_mock_graph: MockDataHubGraph,
+) -> None:
+    yaml_file = _write_parent_yaml(tmp_path, "vendor_equities", PARENT_DATA_PRODUCT_URN)
+    with pytest.raises(ValueError, match="Cannot nest a data product"):
+        DataProduct.from_yaml(yaml_file, base_mock_graph)
+
+
+def test_dataproduct_rejects_descendant_parent_from_yaml(
+    tmp_path: Path,
+    base_mock_graph: MockDataHubGraph,
+) -> None:
+    research_urn = "urn:li:dataProduct:research"
+    leaf_urn = "urn:li:dataProduct:portfolio_analytics"
+    base_mock_graph.entity_graph[research_urn] = {
+        "dataProductProperties": DataProductPropertiesClass(
+            name="Research",
+            parentDataProduct=PARENT_DATA_PRODUCT_URN,
+        )
+    }
+    base_mock_graph.entity_graph[leaf_urn] = {
+        "dataProductProperties": DataProductPropertiesClass(
+            name="Portfolio Analytics",
+            parentDataProduct=research_urn,
+        )
+    }
+    yaml_file = _write_parent_yaml(tmp_path, "vendor_equities", leaf_urn)
+    with pytest.raises(ValueError, match="Cannot nest a data product"):
+        DataProduct.from_yaml(yaml_file, base_mock_graph)
+
+
+def test_dataproduct_rejects_self_parent_on_generate_mcp() -> None:
+    data_product = DataProduct(
+        id="vendor_equities",
+        domain="urn:li:domain:12345",
+        parent_data_product=PARENT_DATA_PRODUCT_URN,
+    )
+    with pytest.raises(ValueError, match="Cannot nest a data product"):
+        list(data_product.generate_mcp(upsert=False))
 
 
 def test_dataproduct_output_ports_validation_not_urn(

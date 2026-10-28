@@ -7,6 +7,7 @@ import time
 from typing import (
     AbstractSet,
     Any,
+    Callable,
     Dict,
     FrozenSet,
     Iterable,
@@ -23,6 +24,7 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.expressions as sqlglot_exp
 import yaml
+from databricks.sdk import WorkspaceClient
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -74,6 +76,12 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.state.entity_removal_state import (
+    GenericCheckpointState,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -82,13 +90,15 @@ from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeP
 from datahub.ingestion.source.unity.config import (
     FederationConnectionDetail,
     UnityCatalogAnalyzeProfilerConfig,
-    UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
 )
-from datahub.ingestion.source.unity.connection import create_workspace_client
+from datahub.ingestion.source.unity.connection import (
+    create_workspace_client,
+    get_sql_connection_params,
+)
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
-from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
+from datahub.ingestion.source.unity.genie import GenieSpaceExtractor
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
@@ -97,6 +107,7 @@ from datahub.ingestion.source.unity.identifier_helper import split_databricks_id
 from datahub.ingestion.source.unity.platform_resource_repository import (
     UnityCatalogPlatformResourceRepository,
 )
+from datahub.ingestion.source.unity.profiler import UnityCatalogProfiler
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
@@ -159,6 +170,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import (
+    AiAgentUrn,
     MlModelGroupUrn,
     MlModelUrn,
     StructuredPropertyUrn,
@@ -171,6 +183,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -382,7 +395,11 @@ class _ExternalSchemaKey:
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following metadata from Databricks Unity Catalog:
@@ -390,6 +407,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     - schemas
     - tables and column lineage
     - model and model versions
+    - Genie agents (opt-in)
     """
 
     config: UnityCatalogSourceConfig
@@ -397,6 +415,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "databricks"
     platform_instance_name: Optional[str]
     sql_parser_schema_resolver: SchemaResolver
+    view_lineage_schema_resolver: Optional[SchemaResolver] = None
     platform_resource_repository: Optional[UnityCatalogPlatformResourceRepository] = (
         None
     )
@@ -419,12 +438,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
+            keep_platform_instance_case=True,
         )
 
-        self.init_hive_metastore_proxy()
+        workspace_client = create_workspace_client(self.config)
+        self.init_hive_metastore_proxy(workspace_client)
 
         self.unity_catalog_api_proxy = UnityCatalogApiProxy(
-            create_workspace_client(self.config),
+            workspace_client,
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
             lineage_data_source=config.lineage_data_source,
@@ -466,15 +487,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.platform_resource_repository = None
 
         if self.config._forced_disable_tag_extraction:
-            self.report.report_warning(
-                "Some features disabled because of configuration conflicts",
-                "Tag Extraction is disabled due to missing warehouse_id in config",
+            self.report.warning(
+                message="Tag Extraction is disabled due to missing warehouse_id in config",
+                context="configuration-conflicts",
+                log=False,
             )
 
         if self.config._forced_disable_hive_metastore_extraction:
-            self.report.report_warning(
-                "Some features disabled because of configuration conflicts",
-                "Hive Metastore Extraction is disabled due to missing warehouse_id in config",
+            self.report.warning(
+                message="Hive Metastore Extraction is disabled due to missing warehouse_id in config",
+                context="configuration-conflicts",
+                log=False,
             )
 
         # SDK lacks TableType.METRIC_VIEW; warn so the no-op flag isn't silent.
@@ -486,12 +509,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 from databricks.sdk.version import __version__ as _sdk_version
             except Exception:
                 _sdk_version = "unknown"
-            self.report.report_warning(
-                "include_metric_views has no effect with installed databricks-sdk",
-                f"databricks-sdk {_sdk_version} does not expose TableType.METRIC_VIEW. "
+            self.report.warning(
+                message="databricks-sdk does not expose TableType.METRIC_VIEW. "
                 "Metric views will be emitted as plain Tables. Upgrade databricks-sdk "
                 "to >= 0.58.0 (the release that added this enum) to enable "
                 "metric-view ingestion.",
+                context=f"include_metric_views has no effect with databricks-sdk {_sdk_version}",
+                log=False,
             )
 
         # Include platform resource repository in report for automatic cache statistics
@@ -526,26 +550,45 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             _ExternalSchemaKey, Optional[SchemaResolver]
         ] = {}
 
-    def init_hive_metastore_proxy(self):
+    def init_hive_metastore_proxy(self, workspace_client: WorkspaceClient) -> None:
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
         if self.config.include_hive_metastore:
             try:
+                # The SQLAlchemy URL carries no credentials; auth and the warehouse
+                # route come from the workspace client. User connect_args win so
+                # recipes that set them explicitly keep working.
+                options = {
+                    **self.config.options,
+                    "connect_args": {
+                        **get_sql_connection_params(workspace_client),
+                        **self.config.options.get("connect_args", {}),
+                    },
+                }
                 self.hive_metastore_proxy = HiveMetastoreProxy(
                     self.config.get_sql_alchemy_url(HIVE_METASTORE),
-                    self.config.options,
+                    options,
                     self.report,
                 )
                 self.report.hive_metastore_catalog_found = True
 
                 if self.config.include_table_lineage:
-                    # Reuse the resolver created unconditionally in __init__; do
-                    # not overwrite it so UC tables registered before this point
-                    # are preserved.
+                    # View lineage resolves column schemas for tables this run did
+                    # not ingest lazily from the graph, which is bounded by the
+                    # view definitions; every processed table is registered here as
+                    # well. Usage keeps the local-only sql_parser_schema_resolver,
+                    # whose lookups would scale with query history.
+                    self.view_lineage_schema_resolver = SchemaResolver(
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                        graph=self.ctx.graph,
+                        keep_platform_instance_case=True,
+                    )
                     self.sql_parsing_aggregator = SqlParsingAggregator(
                         platform=self.platform,
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
-                        schema_resolver=self.sql_parser_schema_resolver,
+                        schema_resolver=self.view_lineage_schema_resolver,
                         generate_lineage=True,
                         generate_queries=False,
                         generate_usage_statistics=False,
@@ -585,9 +628,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     # Can take several minutes, so start now and wait later
                     wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
                     if wait_on_warehouse is None:
-                        self.report.report_failure(
-                            "initialization",
-                            f"SQL warehouse {self.config.profiling.warehouse_id} not found",
+                        self.report.failure(
+                            message="SQL warehouse not found",
+                            context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
                         )
                         return
                     else:
@@ -634,9 +677,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 # longer time to complete
                 wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
                 if wait_on_warehouse is None:
-                    self.report.report_failure(
-                        "initialization",
-                        f"SQL warehouse {self.config.profiling.warehouse_id} not found",
+                    self.report.failure(
+                        message="SQL warehouse not found",
+                        context=f"SQL warehouse {self.config.profiling.warehouse_id} not found",
                     )
                     return
                 else:
@@ -658,19 +701,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     self.config.profiling, UnityCatalogSQLAlchemyProfilerConfig
                 ):
                     logger.info(
-                        "Using UnityCatalogGEProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
+                        "Using UnityCatalogProfiler with SQLAlchemyProfiler (method: sqlalchemy)"
                     )
                     # Use GenericProfiler which will use SQLAlchemyProfiler internally
-                    yield from UnityCatalogGEProfiler(
-                        config=self.config,
-                        profiling_config=self.config.profiling,
-                        report=self.report,
-                    ).get_workunits(list(self.tables.values()))
-                elif isinstance(self.config.profiling, UnityCatalogGEProfilerConfig):
-                    logger.info(
-                        "Using UnityCatalogGEProfiler with DatahubGEProfiler (method: ge)"
-                    )
-                    yield from UnityCatalogGEProfiler(
+                    yield from UnityCatalogProfiler(
                         config=self.config,
                         profiling_config=self.config.profiling,
                         report=self.report,
@@ -683,19 +717,27 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             for sp in self.unity_catalog_api_proxy.service_principals():
                 self.service_principals[sp.application_id] = sp
         except Exception as e:
-            self.report.report_warning(
-                "service-principals", f"Unable to fetch service principals: {e}"
+            self.report.warning(
+                message="Unable to fetch service principals",
+                context="service-principals",
+                exc=e,
+                log=False,
             )
 
     def build_groups_map(self) -> None:
         try:
             self.groups += self.unity_catalog_api_proxy.groups()
         except Exception as e:
-            self.report.report_warning("groups", f"Unable to fetch groups: {e}")
+            self.report.warning(
+                message="Unable to fetch groups",
+                context="groups",
+                exc=e,
+                log=False,
+            )
 
     def process_notebooks(self) -> Iterable[MetadataWorkUnit]:
         for notebook in self.unity_catalog_api_proxy.workspace_notebooks():
-            if not self.config.notebook_pattern.allowed(notebook.path):
+            if not self.config.notebook_ingested(notebook.path):
                 self.report.notebooks.dropped(notebook.path)
                 continue
 
@@ -757,15 +799,63 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             aspect=UpstreamLineageClass(upstreams=upstreams),
         ).as_workunit()
 
+    def _preserve_genie_agent_urn(self, urn: str) -> None:
+        # A warned space is not emitted, so stale removal would soft-delete it.
+        # Copy the URN forward only when a previous run ingested it. A space
+        # that has never been ingested is not tracked.
+        self._carry_forward_checkpoint_urns(lambda previous: previous == urn)
+
+    def _preserve_all_genie_agent_urns(self) -> None:
+        # Genie is the only aiAgent producer in this source, so after a listing
+        # failure every previously ingested agent is kept and stale removal for
+        # the other entity types still runs.
+        self._carry_forward_checkpoint_urns(
+            lambda previous: guess_entity_type(previous) == AiAgentUrn.ENTITY_TYPE
+        )
+
+    def _carry_forward_checkpoint_urns(self, keep: Callable[[str], bool]) -> None:
+        job_id = StaleEntityRemovalHandler.compute_job_id(self.platform)
+        # The current checkpoint is None without reading state when stale
+        # removal is off, so check it before loading the last checkpoint.
+        current_checkpoint = self.state_provider.get_current_checkpoint(job_id)
+        if current_checkpoint is None:
+            return
+        current_state = current_checkpoint.state
+        if not isinstance(current_state, GenericCheckpointState):
+            return
+        last_checkpoint = self.state_provider.get_last_checkpoint(
+            job_id, GenericCheckpointState
+        )
+        if last_checkpoint is None:
+            return
+        for urn in last_checkpoint.state.urns:
+            if keep(urn):
+                current_state.add_checkpoint_urn(type=AiAgentUrn.ENTITY_TYPE, urn=urn)
+
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastore: Optional[Metastore] = None
         if self.config.include_metastore:
             metastore = self.unity_catalog_api_proxy.assigned_metastore()
             if not metastore:
-                self.report.report_failure("Metastore", "Not found")
+                self.report.failure(
+                    message="Metastore not found",
+                    context="Metastore",
+                )
                 return
             yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
+        if self.config.include_genie_spaces:
+            with self.report.new_stage("Ingest Genie agents"):
+                yield from GenieSpaceExtractor(
+                    config=self.config,
+                    client=self.unity_catalog_api_proxy.genie,
+                    report=self.report,
+                    table_urn_builder=self.gen_dataset_urn,
+                    platform_instance=self.platform_instance_name,
+                    metastore=metastore.id if metastore else None,
+                    preserve_urn=self._preserve_genie_agent_urn,
+                    preserve_all_urns=self._preserve_all_genie_agent_urns,
+                ).get_workunits()
         if metastore and self.config.include_metastore:
             self.report.metastores.processed(metastore.id)
 
@@ -784,8 +874,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.catalogs.processed(catalog.id)
 
     def _get_catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
-        if self.config.catalogs:
-            for catalog_name in self.config.catalogs:
+        pinned = self.config.pinned_catalogs()
+        if pinned is not None:
+            for catalog_name in pinned:
                 catalog = self.unity_catalog_api_proxy.catalog(
                     catalog_name, metastore=metastore
                 )
@@ -807,11 +898,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     yield from self.process_ml_models(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
-                    self.report.report_warning(
+                    self.report.warning(
                         message="Missed schema because of parsing issues",
                         context=str(schema),
                         title="Error parsing schema",
                         exc=e,
+                        log=False,
                     )
                     continue
 
@@ -819,39 +911,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def process_tables(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         for table in self.unity_catalog_api_proxy.tables(schema=schema):
-            if not self.config.table_pattern.allowed(table.ref.qualified_table_name):
-                self.report.tables.dropped(table.id, f"table ({table.table_type})")
-                continue
-
-            # Views (VIEW / MATERIALIZED_VIEW / HIVE_VIEW) are honored via
-            # include_views + view_pattern, mirroring SQL-based sources. Metric
-            # views are not is_view and keep their dedicated filtering below.
-            if table.is_view and (
-                not self.config.include_views
-                or not self.config.view_pattern.allowed(table.ref.qualified_table_name)
-            ):
-                self.report.tables.dropped(table.id, f"view ({table.table_type})")
-                continue
-
-            if (
-                table.is_metric_view
-                and self.config.include_metric_views
-                and not self.config.metric_view_pattern.allowed(
-                    table.ref.qualified_table_name
+            rejected_by = self.config.table_like_rejected_by(
+                table.ref.qualified_table_name,
+                is_view=table.is_view,
+                is_metric_view=table.is_metric_view,
+            )
+            if rejected_by is not None:
+                dropped_as = (
+                    "view"
+                    if table.is_view and rejected_by != "table_pattern"
+                    else "table"
                 )
-            ):
-                self.report.tables.dropped(table.id, f"table ({table.table_type})")
-                self.report.metric_views.dropped(table.id)
-                continue
-
-            # Regular tables (neither view nor metric view) are honored via
-            # include_tables; views and metric views keep their own toggles above.
-            if (
-                not table.is_view
-                and not table.is_metric_view
-                and not self.config.include_tables
-            ):
-                self.report.tables.dropped(table.id, f"table ({table.table_type})")
+                self.report.tables.dropped(
+                    table.id, f"{dropped_as} ({table.table_type})"
+                )
+                if rejected_by == "metric_view_pattern":
+                    self.report.metric_views.dropped(table.id)
                 continue
 
             if (
@@ -935,10 +1010,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if lineage is None:
                 lineage = self.ingest_lineage(table)
                 if lineage is None:
-                    self.report.report_warning(
-                        "Metric view has no upstream lineage",
-                        f"{table.ref.qualified_table_name}: neither YAML parsing "
-                        "nor the table-lineage REST API produced any upstreams.",
+                    self.report.warning(
+                        message="Metric view has no upstream lineage: neither YAML parsing "
+                        "nor the table-lineage REST API produced any upstreams",
+                        context=table.ref.qualified_table_name,
+                        log=False,
                     )
         else:
             lineage = self.ingest_lineage(table)
@@ -956,12 +1032,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         table.ref, self.notebooks[str(notebook_id)]
                     )
 
-        # Register every processed table's schema so that the SQL parsing
-        # aggregator (used for both hive-metastore view lineage and UC usage)
-        # can resolve unqualified / partial table references in queries.
+        # Register every processed table's schema so that UC usage and
+        # hive-metastore view lineage can resolve unqualified / partial table
+        # references in queries.
         self.sql_parser_schema_resolver.add_schema_metadata(
             dataset_urn, schema_metadata
         )
+        if self.view_lineage_schema_resolver:
+            self.view_lineage_schema_resolver.add_schema_metadata(
+                dataset_urn, schema_metadata
+            )
         # Hive-metastore views also need their definitions fed to the lineage
         # aggregator so view lineage can be derived via SQL parsing.
         if (
@@ -1367,7 +1447,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
         if target is None:
             self.report.num_federation_targets_unresolved += 1
-            self.report.report_warning(
+            self.report.warning(
                 title="Could not resolve Lakehouse Federation target",
                 message=(
                     "Foreign-catalog tables will not be linked to their external "
@@ -1376,6 +1456,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     "to list Unity Catalog connections."
                 ),
                 context=f"catalog={catalog.name}, connection={catalog.connection_name}",
+                log=False,
             )
 
         self._federation_resolution_cache[catalog.name] = (detail, target)
@@ -2003,7 +2084,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return None
 
     def _create_table_sub_type_aspect(self, table: Table) -> SubTypesClass:
-        if table.is_metric_view and self.config.include_metric_views:
+        # Classification is always accurate regardless of include_metric_views: a
+        # metric view is a view, never a plain Table. The flag only gates the richer
+        # enrichment (YAML body parsing, lineage, Dimension/Measure tags), not the
+        # sub-type label. Mislabeling a metric view as "Table" breaks downstream
+        # consumers that reason about entity type (e.g. skipping ANALYZE TABLE, which
+        # Databricks rejects on views).
+        if table.is_metric_view:
             type_name = DatasetSubTypes.METRIC_VIEW
         elif table.is_view:
             type_name = DatasetSubTypes.VIEW
@@ -2033,34 +2120,38 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _load_metric_view_spec(self, table: Table) -> Optional[Dict[str, Any]]:
-        consequence = (
-            "Falling back to the REST table-lineage API; column-level lineage "
-            "and Dimension/Measure tags will be absent for this view."
-        )
         if not table.view_definition:
             self.report.num_metric_views_yaml_shape_invalid += 1
-            self.report.report_warning(
-                "Metric view has no YAML body",
-                f"{table.ref.qualified_table_name}: view_definition is empty. "
-                f"{consequence}",
+            self.report.warning(
+                message="Metric view has no YAML body: view_definition is empty. "
+                "Falling back to the REST table-lineage API; column-level lineage "
+                "and Dimension/Measure tags will be absent for this view.",
+                context=table.ref.qualified_table_name,
+                log=False,
             )
             return None
         try:
             spec = _safe_load_metric_view_yaml(table.view_definition)
         except (yaml.YAMLError, RecursionError, UnicodeDecodeError) as e:
             self.report.num_metric_views_yaml_parse_failures += 1
-            self.report.report_warning(
-                "Metric view YAML failed to parse",
-                f"{table.ref.qualified_table_name}: {type(e).__name__}: {e}. "
-                f"{consequence}",
+            self.report.warning(
+                message="Metric view YAML failed to parse. "
+                "Falling back to the REST table-lineage API; column-level lineage "
+                "and Dimension/Measure tags will be absent for this view.",
+                context=table.ref.qualified_table_name,
+                exc=e,
+                log=False,
             )
             return None
         if not isinstance(spec, dict):
             self.report.num_metric_views_yaml_shape_invalid += 1
-            self.report.report_warning(
-                "Metric view YAML is not a mapping",
-                f"{table.ref.qualified_table_name}: top-level type is "
-                f"{type(spec).__name__!r}, expected dict. {consequence}",
+            self.report.warning(
+                message="Metric view YAML is not a mapping. "
+                "Falling back to the REST table-lineage API; column-level lineage "
+                "and Dimension/Measure tags will be absent for this view.",
+                context=f"{table.ref.qualified_table_name}: top-level type is "
+                f"{type(spec).__name__!r}, expected dict",
+                log=False,
             )
             return None
         return spec
@@ -2099,10 +2190,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if shape_issues:
             self.report.num_metric_views_yaml_shape_invalid += 1
-            self.report.report_warning(
-                "Metric view YAML has unexpected shape",
-                f"{table.ref.qualified_table_name}: {'; '.join(shape_issues)}. "
+            self.report.warning(
+                message="Metric view YAML has unexpected shape. "
                 "Affected entries are skipped; remaining YAML continues to be processed.",
+                context=f"{table.ref.qualified_table_name}: {'; '.join(shape_issues)}",
+                log=False,
             )
 
         default_catalog = table.ref.catalog
@@ -2129,23 +2221,25 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if unparseable and upstreams:
             # All-rejected case is reported below via num_metric_views_no_parseable_sources.
             self.report.num_metric_view_unparseable_sources += len(unparseable)
-            self.report.report_warning(
-                "Metric view source(s) skipped",
-                f"{table.ref.qualified_table_name}: unparseable sources="
-                f"{unparseable!r}. Need 2-part (schema.table) or 3-part "
+            self.report.warning(
+                message="Metric view source(s) skipped: need 2-part (schema.table) or 3-part "
                 "(catalog.schema.table) identifiers; 1-part names and SQL "
-                "subqueries are not supported by the YAML lineage path.",
+                "subqueries are not supported by the YAML lineage path",
+                context=f"{table.ref.qualified_table_name}: unparseable sources="
+                f"{unparseable!r}",
+                log=False,
             )
 
         if not upstreams:
             if source_names:
                 self.report.num_metric_views_no_parseable_sources += 1
-                self.report.report_warning(
-                    "Metric view has no parseable upstream sources",
-                    f"{table.ref.qualified_table_name}: sources={source_names!r}. "
+                self.report.warning(
+                    message="Metric view has no parseable upstream sources. "
                     "Lineage extraction needs 2-part (schema.table) or 3-part "
                     "(catalog.schema.table) identifiers; 1-part names and SQL "
                     "subqueries fall back to the REST table-lineage API.",
+                    context=f"{table.ref.qualified_table_name}: sources={source_names!r}",
+                    log=False,
                 )
             return None
 
@@ -2193,11 +2287,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if joins_skipped:
             self.report.num_metric_view_joins_skipped += joins_skipped
-            self.report.report_warning(
-                "Metric view joins skipped",
-                f"{table.ref.qualified_table_name}: {joins_skipped} join "
-                "entry/entries skipped due to malformed shape or unparseable "
+            self.report.warning(
+                message="Metric view joins skipped due to malformed shape or unparseable "
                 "source. Column lineage for join-qualified columns will be absent.",
+                context=f"{table.ref.qualified_table_name}: {joins_skipped} join "
+                "entry/entries skipped",
+                log=False,
             )
 
         downstream_urn = self.gen_dataset_urn(table.ref)
@@ -2240,23 +2335,25 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if skipped_entries:
             self.report.num_metric_view_skipped_dim_measure_entries += skipped_entries
-            self.report.report_warning(
-                "Metric view dimension/measure entries skipped",
-                f"{table.ref.qualified_table_name}: {skipped_entries} "
-                "dimension/measure entry/entries skipped due to malformed shape "
-                "(non-mapping entry, missing or non-string `name`/`expr`). Column "
+            self.report.warning(
+                message="Metric view dimension/measure entries skipped due to malformed shape "
+                "(non-mapping entry, missing or non-string name/expr). Column "
                 "lineage for affected columns will be absent.",
+                context=f"{table.ref.qualified_table_name}: {skipped_entries} "
+                "dimension/measure entry/entries skipped",
+                log=False,
             )
 
         if unresolved_qualifiers:
             self.report.num_metric_view_unresolved_qualifiers += len(
                 unresolved_qualifiers
             )
-            self.report.report_warning(
-                "Metric view expression references unknown qualifier",
-                f"{table.ref.qualified_table_name}: qualifiers="
-                f"{sorted(unresolved_qualifiers)!r} not found in `source`/`joins`. "
-                "Lineage rows for affected columns were skipped.",
+            self.report.warning(
+                message="Metric view expression references unknown qualifier not found in "
+                "source/joins. Lineage rows for affected columns were skipped.",
+                context=f"{table.ref.qualified_table_name}: qualifiers="
+                f"{sorted(unresolved_qualifiers)!r}",
+                log=False,
             )
 
         fine.extend(self._extract_intra_mv_measure_lineage(spec, downstream_urn, table))
@@ -2342,9 +2439,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             TypeError,
         ) as e:
             self.report.num_metric_views_expr_parse_failures += 1
-            self.report.report_warning(
-                "Metric view expression failed to parse",
-                f"{context}: expr={expr!r}: {type(e).__name__}: {e}".lstrip(": "),
+            self.report.warning(
+                message="Metric view expression failed to parse",
+                context=f"{context}: expr={expr!r}",
+                exc=e,
+                log=False,
             )
             return [], set()
         if tree is None:
@@ -2431,11 +2530,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     logger.exception(
                         f"Error processing platform resource for tag {tag}"
                     )
-                    self.report.report_warning(
+                    self.report.warning(
                         message="Error processing platform resource for tag",
                         context=str(tag),
                         title="Error processing platform resource for tag",
                         exc=e,
+                        log=False,
                     )
                     continue
 
@@ -2829,6 +2929,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.sql_parsing_aggregator.close()
         if self.sql_parser_schema_resolver:
             self.sql_parser_schema_resolver.close()
+        if self.view_lineage_schema_resolver:
+            self.view_lineage_schema_resolver.close()
         if self._schema_resolver_provider:
             self._schema_resolver_provider.close()
 

@@ -207,7 +207,7 @@ def test_missing_operator_raises():
 
 def test_unexpected_token_raises():
     with pytest.raises(ValueError, match="Unexpected token"):
-        parse_filter_string("platform = snowflake bigquery")
+        parse_filter_string("platform = snowflake )")
 
 
 def test_nested_parens():
@@ -384,6 +384,42 @@ def test_status_multiple_values_raises():
 
 
 # ---------------------------------------------------------------------------
+# Over-escaped quoting (\"value\") is read as ordinary quoting
+# ---------------------------------------------------------------------------
+
+
+def test_over_escaped_quotes_in_in_list():
+    # Shape an agent actually sent: the quotes were escaped a second time while
+    # building the JSON, so the backslashes arrived literally. This used to fail
+    # in the tokenizer with "Unterminated string starting at position 13" — the
+    # opening \" was read as a bare word plus a string that then ate every
+    # following \" as an escape.
+    assert parse_filter_string(
+        r"subtype IN (\"Known Issues / Limitations\", Insight, \"Vendor Q&A\")"
+    ) == F.entity_subtype(["Known Issues / Limitations", "Insight", "Vendor Q&A"])
+
+
+def test_over_escaped_quotes_single_value():
+    assert parse_filter_string(r"subtype = \"Fact Sheet\"") == F.entity_subtype(
+        "Fact Sheet"
+    )
+    assert parse_filter_string(r"subtype = \'Fact Sheet\'") == F.entity_subtype(
+        "Fact Sheet"
+    )
+
+
+def test_over_escaped_opening_with_bare_closing_quote():
+    assert parse_filter_string(r'subtype = \"Fact Sheet"') == F.entity_subtype(
+        "Fact Sheet"
+    )
+
+
+def test_over_escaped_unterminated_still_raises():
+    with pytest.raises(ValueError, match="Unterminated string"):
+        parse_filter_string(r"subtype = \"Fact Sheet")
+
+
+# ---------------------------------------------------------------------------
 # Error message quality tests
 # ---------------------------------------------------------------------------
 
@@ -401,6 +437,93 @@ def test_trailing_equals_gives_parse_error():
 def test_missing_field_gives_parse_error():
     with pytest.raises(ValueError, match="Expected STRING"):
         parse_filter_string("= snowflake")
+
+
+# ---------------------------------------------------------------------------
+# Unquoted multi-word values are joined rather than rejected
+# ---------------------------------------------------------------------------
+
+
+def test_unquoted_multi_word_value_is_joined():
+    assert parse_filter_string("subtype = Fact Sheet") == F.entity_subtype("Fact Sheet")
+    assert parse_filter_string("subtype = Vendor Q&A") == F.entity_subtype("Vendor Q&A")
+
+
+def test_unquoted_multi_word_values_in_in_list_are_joined_per_member():
+    # Shapes agents actually sent to search_documents. Each comma-delimited
+    # member is one value, however many bare words it spans.
+    assert parse_filter_string(
+        "subtype IN (Fact Sheet, Semantic Anchor)"
+    ) == F.entity_subtype(["Fact Sheet", "Semantic Anchor"])
+    assert parse_filter_string(
+        "subtype IN (Technical Documentation, How-To Guides, Product Documentation)"
+    ) == F.entity_subtype(
+        ["Technical Documentation", "How-To Guides", "Product Documentation"]
+    )
+    assert parse_filter_string(
+        "subtype IN (Known Issues / Limitations, Fact Sheet)"
+    ) == F.entity_subtype(["Known Issues / Limitations", "Fact Sheet"])
+
+
+def test_unquoted_multi_word_urn_is_joined():
+    assert parse_filter_string("tag = urn:li:tag:my special tag") == F.tag(
+        "urn:li:tag:my special tag"
+    )
+
+
+def test_joining_collapses_runs_of_whitespace():
+    assert parse_filter_string("subtype =  Fact   Sheet ") == F.entity_subtype(
+        "Fact Sheet"
+    )
+
+
+def test_joining_stops_at_conjunctions():
+    # AND/OR/NOT/IN are legal value tokens but must terminate the run, or a
+    # conjunction would be swallowed into one long value.
+    assert parse_filter_string(
+        "subtype = Product Documentation OR subtype = How-To Guides"
+    ) == F.or_(
+        F.entity_subtype("Product Documentation"), F.entity_subtype("How-To Guides")
+    )
+    assert parse_filter_string("subtype = Runbook AND platform = notion") == F.and_(
+        F.entity_subtype("Runbook"), F.platform("notion")
+    )
+    assert parse_filter_string(
+        "subtype IN (Fact Sheet, FAQ) AND platform = notion"
+    ) == F.and_(F.entity_subtype(["Fact Sheet", "FAQ"]), F.platform("notion"))
+
+
+def test_joining_does_not_mask_a_missing_conjunction():
+    # `subtype = Fact Sheet platform = notion` is missing an AND. The run joins
+    # up to the stray `=`, which then has no valid parse.
+    with pytest.raises(ValueError, match="Unexpected token"):
+        parse_filter_string("subtype = Fact Sheet platform = notion")
+
+
+def test_keywords_are_absorbed_into_in_list_values():
+    # There is no boolean logic between the parens of an IN list, so AND/OR/NOT
+    # are ordinary words there and belong to the value.
+    assert parse_filter_string(
+        "subtype IN (Terms AND Conditions, Fact Sheet)"
+    ) == F.entity_subtype(["Terms AND Conditions", "Fact Sheet"])
+
+
+def test_comma_still_delimits_unless_quoted():
+    assert parse_filter_string("subtype IN (Redwood, CA)") == F.entity_subtype(
+        ["Redwood", "CA"]
+    )
+    assert parse_filter_string('subtype IN ("Redwood, CA")') == F.entity_subtype(
+        "Redwood, CA"
+    )
+
+
+def test_quoted_multi_word_values_still_parse():
+    assert parse_filter_string('subtype = "Knowledge Article"') == F.entity_subtype(
+        "Knowledge Article"
+    )
+    assert parse_filter_string(
+        'subtype IN ("Knowledge Article", Runbook)'
+    ) == F.entity_subtype(["Knowledge Article", "Runbook"])
 
 
 # ---------------------------------------------------------------------------
@@ -570,7 +693,7 @@ def test_is_without_null_raises():
 
 
 # ---------------------------------------------------------------------------
-# Boolean filter fields (deprecated, hasActiveIncidents, hasFailingAssertions)
+# Boolean filter fields (deprecated, hasActiveIncidents)
 # ---------------------------------------------------------------------------
 
 
@@ -587,11 +710,6 @@ def test_deprecated_false():
 def test_has_active_incidents_true():
     result = parse_filter_string("hasActiveIncidents = true")
     assert result == F.custom_filter("hasActiveIncidents", "EQUAL", ["true"])
-
-
-def test_has_failing_assertions_true():
-    result = parse_filter_string("hasFailingAssertions = true")
-    assert result == F.custom_filter("hasFailingAssertions", "EQUAL", ["true"])
 
 
 def test_deprecated_is_not_null():

@@ -2,10 +2,10 @@
 #
 # Download test artifacts from recent successful CI runs.
 #
-# This script uses the GitHub CLI (gh) to fetch workflow runs and download
+# This script uses resolve_workflow_runs.sh to fetch workflow runs and downloads
 # test result artifacts, organizing them by run ID for later processing.
 
-set -euo pipefail
+set -euxo pipefail
 
 # Default values
 OUTPUT_DIR="./dev-artifacts/test-results"
@@ -155,27 +155,31 @@ echo
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Build the run-selection jq filter. With --allow-failed we also harvest
-# completed-but-failed runs (e.g. a single flaky batch failing the whole run);
-# cancelled and in-progress runs are never selected.
-if [[ "$ALLOW_FAILED" == "true" ]]; then
-    RUN_FILTER='select((.conclusion=="success" or .conclusion=="failure") and .head_branch=="master")'
-else
-    RUN_FILTER='select(.conclusion=="success" and .head_branch=="master")'
-fi
-
-# Fetch recent successful workflow runs from master branch
+# Run selection (created>= window, local sort) lives in resolve_workflow_runs.sh.
 echo "Fetching recent workflow runs from master branch..."
-RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" \
-    --jq ".workflow_runs[] | $RUN_FILTER | .id" \
-    | head -n "$RUN_COUNT")
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+resolve_args=(
+    --workflow "$WORKFLOW_NAME"
+    --repository "$REPOSITORY"
+    --branch master
+    --run-count "$RUN_COUNT"
+)
+if [[ "$ALLOW_FAILED" == "true" ]]; then
+    resolve_args+=(--allow-failed)
+fi
+if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
+    resolve_args+=(--no-fail-on-empty)
+fi
+RUNS_JSON=$("$SCRIPT_DIR/resolve_workflow_runs.sh" "${resolve_args[@]}")
+
+RUN_IDS=$(printf '%s' "$RUNS_JSON" | jq -r '.[].id')
 
 if [[ -z "$RUN_IDS" ]]; then
     if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
         echo "NO_DATA=true"
         exit 0
     fi
-    echo "Error: No successful workflow runs found on master branch"
+    echo "Error: No qualifying workflow runs on master"
     exit 1
 fi
 
@@ -234,14 +238,11 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
             else
                 artifact_subdir="$RUN_DIR/pytests-0"
             fi
-        elif [[ $artifact_name =~ "cypress" ]]; then
-            # Extract batch number if present
-            if [[ $artifact_name =~ cypress[[:space:]]+([0-9]+) ]]; then
-                batch_num="${BASH_REMATCH[1]}"
-                artifact_subdir="$RUN_DIR/cypress-$batch_num"
-            else
-                artifact_subdir="$RUN_DIR/cypress-0"
-            fi
+        elif [[ $artifact_name =~ ^playwright-junit-([0-9]+)$ ]]; then
+            # Each shard's artifact contains a same-named test-results/junit.xml; without a
+            # per-shard subdirectory here, every shard after the first overwrites the last
+            # extracted into the shared "other" dir, silently dropping 7/8 shards' data.
+            artifact_subdir="$RUN_DIR/playwright-${BASH_REMATCH[1]}"
         else
             artifact_subdir="$RUN_DIR/other"
         fi
@@ -292,5 +293,4 @@ echo
 echo "Next step: Generate test weights with:"
 echo "  python .github/scripts/generate_test_weights.py \\"
 echo "    --input-dir $OUTPUT_DIR \\"
-echo "    --cypress-output ./dev-artifacts/generated-weights/cypress_weights.json \\"
 echo "    --pytest-output ./dev-artifacts/generated-weights/pytest_weights.json"

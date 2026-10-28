@@ -1,3 +1,4 @@
+import type { IconWeight, Icon as PhosphorIcon } from '@phosphor-icons/react';
 import React, { HTMLAttributes } from 'react';
 
 import { ColorOptions, PillVariantOptions, SizeOptions } from '@src/alchemy-components/theme/config';
@@ -11,12 +12,24 @@ export interface PillPropsDefaults {
     theme?: Theme;
 }
 
+/** Props forwarded to a Pill icon (matches what Alchemy `Icon` passes through). */
+export type PillIconProps = {
+    style?: React.CSSProperties;
+    weight?: IconWeight;
+    className?: string;
+    color?: string;
+    size?: number | string;
+};
+
+/** Phosphor icons plus any component that accepts the props we actually pass. */
+export type PillIcon = PhosphorIcon | React.ComponentType<PillIconProps>;
+
 /**
  * A trailing icon inside a Pill. Prefer this shape over `rightIcon`/`onClickRightIcon`
  * when you need MORE THAN ONE trailing icon (e.g. edit + remove).
  */
 export interface PillRightIcon {
-    icon: React.ComponentType<any>;
+    icon: PillIcon;
     onClick?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
     ariaLabel?: string;
     testId?: string;
@@ -25,13 +38,13 @@ export interface PillRightIcon {
 export interface PillProps extends Partial<PillPropsDefaults>, Omit<HTMLAttributes<HTMLElement>, 'color'> {
     label: string;
     color?: ColorOptions;
-    rightIcon?: React.ComponentType<any>;
+    rightIcon?: PillIcon;
     /**
      * Optional array of trailing icons — use instead of `rightIcon` when you need more
      * than one (e.g. edit + remove on the same pill). Ignored if empty.
      */
     rightIcons?: PillRightIcon[];
-    leftIcon?: React.ComponentType<any>;
+    leftIcon?: PillIcon;
     customStyle?: React.CSSProperties;
     showLabel?: boolean;
     customIconRenderer?: () => React.ReactNode;

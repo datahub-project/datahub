@@ -52,6 +52,7 @@ from datahub.ingestion.source.unity.config import (
     UsageDataSource,
 )
 from datahub.ingestion.source.unity.connection import get_sql_connection_params
+from datahub.ingestion.source.unity.genie_client import GenieSpaceClient
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy_profiling import (
@@ -74,6 +75,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    escape_unity_name,
+    make_schema,
     usage_statement_types,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -198,15 +201,16 @@ def _build_catalog_column_filter(
     bind_params: list[str] = []
 
     def transform(pattern: str) -> str:
-        return pattern.upper() if catalog_pattern.ignoreCase else pattern
-
-    col_expr = f"UPPER({column_expr})" if catalog_pattern.ignoreCase else column_expr
+        # Upper-casing the pattern text would flip escape classes (\d -> \D),
+        # so case-insensitivity goes through regex flags instead. Java's (?i)
+        # folds ASCII only; (?u) adds Unicode folding like Python's re.IGNORECASE.
+        return f"(?iu){pattern}" if catalog_pattern.ignoreCase else pattern
 
     allow_patterns = catalog_pattern.allow
     if allow_patterns and allow_patterns != [".*"]:
         allow_conditions = []
         for pattern in allow_patterns:
-            allow_conditions.append(f"{col_expr} RLIKE %s")
+            allow_conditions.append(f"{column_expr} RLIKE ?")
             bind_params.append(transform(pattern))
         if allow_conditions:
             pattern_parts.append(
@@ -219,7 +223,7 @@ def _build_catalog_column_filter(
     if deny_patterns:
         deny_conditions = []
         for pattern in deny_patterns:
-            deny_conditions.append(f"{col_expr} NOT RLIKE %s")
+            deny_conditions.append(f"{column_expr} NOT RLIKE ?")
             bind_params.append(transform(pattern))
         if deny_conditions:
             pattern_parts.append(
@@ -311,6 +315,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         databricks_api_page_size: int = 0,
     ):
         self._workspace_client = workspace_client
+        self.genie = GenieSpaceClient(workspace_client.api_client)
         self.warehouse_id = self._workspace_client.config.warehouse_id
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
@@ -381,11 +386,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 f"Unable to get run details for MLflow experiment, run-id: {run_id}",
                 exc_info=True,
             )
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to get run details for MLflow experiment",
                 message="Error while getting run details for MLflow experiment",
                 context=f"run-id: {run_id}",
                 exc=e,
+                log=False,
             )
             return None
 
@@ -501,11 +507,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         except Exception as e:
             model_name = getattr(model_version, "model_name", "unknown")
             version_num = getattr(model_version, "version", "unknown")
-            self.report.report_warning(
+            self.report.warning(
                 title="Unable to extract signature from MLmodel file",
                 message="Error while extracting signature from MLmodel file",
                 context=f"model-name: {model_name}, model-version: {version_num}",
                 exc=e,
+                log=False,
             )
             logger.warning(
                 f"Unable to extract signature from MLmodel file, model-name: {model_name}, model-version: {version_num}",
@@ -577,7 +584,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             # crash ingestion, but surface it in the report since it silently
             # degrades federation links/structured properties for this run.
             self.report.num_federation_connections_list_failed += 1
-            self.report.report_warning(
+            self.report.warning(
                 title="Failed to list Unity Catalog connections",
                 message=(
                     "Lakehouse Federation links and structured properties will be "
@@ -587,6 +594,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 ),
                 context="listing Unity Catalog connections",
                 exc=e,
+                log=False,
             )
         self._connections_cache = result
         return result
@@ -637,7 +645,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         yield optional_table
                 except Exception as e:
                     logger.warning(f"Error parsing table: {e}")
-                    self.report.report_warning("table-parse", str(e))
+                    self.report.warning(
+                        message="Error parsing table",
+                        context="table-parse",
+                        exc=e,
+                        log=False,
+                    )
 
     def ml_models(
         self, schema: Schema, max_results: Optional[int] = None
@@ -733,11 +746,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     yield optional_query
             except Exception as e:
                 logger.warning("Error parsing query", exc_info=True)
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to parse query",
                     message="A query from query history could not be parsed and was skipped.",
                     context=f"query_id={getattr(query_info, 'query_id', None)}",
                     exc=e,
+                    log=False,
                 )
 
     def _query_history(
@@ -811,8 +825,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 AND qh.statement_id IN (
                     SELECT DISTINCT tl2.statement_id
                     FROM system.access.table_lineage tl2
-                    WHERE tl2.event_time >= %s
-                        AND tl2.event_time <= %s
+                    WHERE tl2.event_time >= ?
+                        AND tl2.event_time <= ?
                         AND {catalog_filter}
                 )"""
 
@@ -832,11 +846,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             FROM system.query.history qh
             LEFT JOIN system.access.table_lineage tl
                 ON qh.statement_id = tl.statement_id
-                AND tl.event_time >= %s
-                AND tl.event_time <= %s
+                AND tl.event_time >= ?
+                AND tl.event_time <= ?
             WHERE
-                qh.start_time >= %s
-                AND qh.end_time <= %s
+                qh.start_time >= ?
+                AND qh.end_time <= ?
                 AND qh.execution_status = 'FINISHED'
                 AND qh.statement_type IN ({statement_type_filter}){catalog_pushdown_clause}
             ORDER BY qh.start_time, qh.statement_id
@@ -949,25 +963,27 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         finally:
             parse_failures = self.report.num_queries_missing_info - missing_info_before
             if parse_failures > 0:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to parse queries from system tables",
                     message=(
                         "Statements from system.query.history could not be parsed "
                         "and were skipped."
                     ),
                     context=f"count={parse_failures}",
+                    log=False,
                 )
             row_field_errors = (
                 self.report.num_lineage_row_field_read_errors - row_field_errors_before
             )
             if row_field_errors > 0:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to read lineage row fields",
                     message=(
                         "Lineage column values from system.access.table_lineage "
                         "could not be read and were skipped."
                     ),
                     context=f"count={row_field_errors}",
+                    log=False,
                 )
 
     def _build_datetime_where_conditions(
@@ -1003,7 +1019,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     max(event_time) as last_updated
                 FROM system.access.table_lineage
                 WHERE
-                    (target_table_catalog = %s or source_table_catalog = %s)
+                    (target_table_catalog = ? or source_table_catalog = ?)
                     {additional_where}
                 GROUP BY
                     entity_type, entity_id,
@@ -1109,7 +1125,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     max(event_time) as last_updated
                 FROM system.access.column_lineage
                 WHERE
-                    target_table_catalog = %s
+                    target_table_catalog = ?
                     AND target_table_schema IS NOT NULL
                     AND target_table_name IS NOT NULL
                     AND target_column_name IS NOT NULL
@@ -1385,7 +1401,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     @staticmethod
     def _escape_sequence(value: str) -> str:
-        return value.replace(" ", "_")
+        return escape_unity_name(value)
 
     @staticmethod
     def _create_metastore(
@@ -1426,13 +1442,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if not obj.name:
             self.report.num_schemas_missing_name += 1
             return None
-        return Schema(
-            name=obj.name,
-            id=f"{catalog.id}.{self._escape_sequence(obj.name)}",
-            catalog=catalog,
-            comment=obj.comment,
-            owner=obj.owner,
-        )
+        return make_schema(catalog, obj.name, comment=obj.comment, owner=obj.owner)
 
     def _create_column(self, table_id: str, obj: ColumnInfo) -> Optional[Column]:
         if not obj.name:
@@ -1509,9 +1519,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
             return table_info.table_constraints or []
         except Exception as e:
-            self.report.report_warning(
-                "table-constraints-fetch",
-                f"Unable to fetch table constraints for {table.ref}: {e}",
+            self.report.warning(
+                message="Unable to fetch table constraints",
+                context=str(table.ref),
+                exc=e,
+                log=False,
             )
             logger.warning(
                 f"Unable to fetch table constraints for {table.ref}: {e}",
@@ -1611,9 +1623,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         """
         if self.warehouse_id:
             return True
-        self.report.report_warning(
+        self.report.warning(
             title="Cannot execute SQL query",
             message="warehouse_id is not configured. SQL operations require a valid warehouse_id to be set in the Unity Catalog configuration.",
+            log=False,
         )
         logger.warning(
             "Cannot execute SQL query: warehouse_id is not configured. "
@@ -1664,11 +1677,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 f"Proxy environment variables detected: {list(proxy_env_debug.keys())}"
             )
 
-        self.report.report_warning(
+        self.report.warning(
             title="Failed to run SQL query",
-            message=(
-                f"A SQL query against the Databricks warehouse failed: {error}. Check that the service principal has SELECT on the system.access and system.query schemas and that system schemas are enabled for this workspace."
-            ),
+            message="A SQL query against the Databricks warehouse failed. "
+            "Check that the service principal has SELECT on the system.access "
+            "and system.query schemas and that system schemas are enabled for "
+            "this workspace.",
+            exc=error,
+            log=False,
         )
         if count_as_fetch_failure:
             self.report.num_usage_query_fetch_failures += 1

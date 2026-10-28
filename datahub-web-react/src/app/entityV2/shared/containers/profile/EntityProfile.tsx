@@ -1,4 +1,5 @@
 import { MutationHookOptions, MutationTuple, QueryHookOptions, QueryResult } from '@apollo/client/react/types/types';
+import { Loader } from '@components';
 import { Alert } from 'antd';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,13 +18,13 @@ import {
 } from '@app/entity/shared/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityHeader } from '@app/entityV2/shared/containers/profile/header/EntityHeader';
 import { EntityTabs } from '@app/entityV2/shared/containers/profile/header/EntityTabs';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGetDataForProfile';
 import {
     defaultTabDisplayConfig,
-    getEntityPath,
     getOnboardingStepIdsForEntityType,
     useFinalSidebarTabs,
     useRoutedTab,
@@ -31,25 +32,24 @@ import {
 } from '@app/entityV2/shared/containers/profile/utils';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
-import DynamicTab from '@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTab';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
-import LineageExplorer from '@app/lineage/LineageExplorer';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
-import LineageGraph from '@app/lineageV2/LineageGraph';
-import { useLineageV2 } from '@app/lineageV2/useLineageV2';
+import useIsLineageMode from '@app/lineageV3/utils/useIsLineageMode';
+import { useUpdateMarketplaceEntityDataOnChange } from '@app/marketplace/useUpdateMarketplaceEntityDataOnChange';
 import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     LINEAGE_GRAPH_INTRO_ID,
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '@app/onboarding/config/LineageGraphOnboardingConfig';
-import CompactContext from '@app/shared/CompactContext';
-import { EntityHead } from '@app/shared/EntityHead';
-import TabFullsizeContext from '@app/shared/TabFullsizedContext';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import TabFullsizeContext from '@app/sharedV2/TabFullsizedContext';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 import useEntityState from '@src/app/entity/shared/useEntityState';
@@ -57,6 +57,28 @@ import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetFormsForEntityQuery } from '@graphql/form.generated';
 import { EntityType, Exact } from '@types';
+
+const FullscreenLineageLoader = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+`;
+
+// Fullscreen lineage is a mode switch, not part of the profile shell. The lineage tab
+// already loads the graph on its own chunk.
+const LineageGraph = lazyProfileComponent('LineageGraph', () => import('@app/lineageV3/LineageGraph'), {
+    fallback: () => (
+        <FullscreenLineageLoader>
+            <Loader />
+        </FullscreenLineageLoader>
+    ),
+});
+const DynamicTab = lazyProfileComponent(
+    'DynamicTab',
+    () => import('@app/entityV2/shared/tabs/Entity/weaklyTypedAspects/DynamicTab'),
+);
 
 type Props<T, U> = {
     urn: string;
@@ -123,9 +145,7 @@ const HeaderAndTabsFlex = styled.div`
 `;
 
 const Header = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    /* padding: ${(props) => (props.$isShowNavBarRedesign ? '4px 8px 4px 4px' : '0px 16px 0px 16px')}; */
-    padding: ${(props) => (props.$isShowNavBarRedesign ? '5px 9px 4px 5px' : '0px 16px 0px 16px')};
-    ${(props) => props.$isShowNavBarRedesign && 'margin-right: 0px;'}
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '0' : '0px 16px 0px 16px')};
     display: flex;
     align-items: center;
 `;
@@ -142,7 +162,7 @@ const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    padding: ${(props) => (props.$isShowNavBarRedesign ? '12px 8px 4px 4px' : '12px 16px 12px 16px')};
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '8px 0 0 0' : '12px 16px 12px 16px')};
     height: 100%;
     overflow: hidden;
     display: flex;
@@ -198,7 +218,6 @@ export const EntityProfile = <T, U>({
 }: Props<T, U>): JSX.Element => {
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizeContext);
     const isLineageMode = useIsLineageMode();
-    const isLineageV2 = useLineageV2();
     const { t } = useTranslation('entity.shared.containers');
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
@@ -262,6 +281,7 @@ export const EntityProfile = <T, U>({
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChangeV2(entityData, entityType);
     useUpdateMetricsEntityDataOnChange(entityData, entityType);
+    useUpdateMarketplaceEntityDataOnChange(entityData, entityType);
 
     const maybeUpdateEntity = useUpdateQuery?.({
         onCompleted: () => refetch(),
@@ -277,6 +297,7 @@ export const EntityProfile = <T, U>({
     const autoRenderTabs: EntityTab[] =
         entityData?.autoRenderAspects?.map((aspect) => ({
             name: aspect.renderSpec?.displayName || aspect.aspectName,
+            path: aspect.renderSpec?.key || aspect.renderSpec?.displayName || aspect.aspectName,
             component: () => (
                 <DynamicTab
                     renderSpec={aspect.renderSpec}
@@ -359,8 +380,7 @@ export const EntityProfile = <T, U>({
     }
 
     const showError = error;
-    const showFullScreen = !error && isLineageMode && isLineageV2;
-    const showExplorer = isLineageMode && !isLineageV2;
+    const showFullScreen = !error && isLineageMode;
 
     return (
         <EntityContext.Provider
@@ -375,6 +395,7 @@ export const EntityProfile = <T, U>({
                 updateEntity,
                 routeToTab,
                 refetch,
+                refetchForms,
                 lineage,
                 shouldRefetchEmbeddedListSearch,
                 setShouldRefetchEmbeddedListSearch,
@@ -397,7 +418,6 @@ export const EntityProfile = <T, U>({
                 {showFullScreen && <LineageGraph isFullscreen />}
                 {!showFullScreen && (
                     <ContentContainer>
-                        {showExplorer && <LineageExplorer type={entityType} urn={urn} />}
                         {!isLineageMode && (
                             <>
                                 <HeaderAndTabsFlex>
@@ -429,6 +449,7 @@ export const EntityProfile = <T, U>({
                                         width={width}
                                         contextType={TabContextType.PROFILE_SIDEBAR}
                                         headerDropdownItems={headerDropdownItems}
+                                        flushOuterMargin={isShowNavBarRedesign}
                                         $isShowNavBarRedesign={isShowNavBarRedesign}
                                     />
                                 )}
@@ -441,6 +462,19 @@ export const EntityProfile = <T, U>({
                 <VersionsDrawer
                     versionSetUrn={entityData.versionProperties?.versionSet.urn}
                     open={drawer === DrawerType.VERSIONS}
+                />
+            )}
+            {drawer === DrawerType.CHANGE_HISTORY && (
+                <HistorySidebar
+                    open
+                    onClose={() => setDrawer(undefined)}
+                    urn={urn}
+                    versionList={[]}
+                    hideSemanticVersions
+                    entityType={entityType}
+                    versionSetUrn={entityData?.versionProperties?.versionSet?.urn}
+                    currentVersionUrn={entityData?.versionProperties?.versionSet?.urn ? urn : undefined}
+                    defaultShowAllVersions={!!entityData?.versionProperties?.versionSet?.urn}
                 />
             )}
         </EntityContext.Provider>

@@ -60,6 +60,13 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     create_dataplatform_instance_resolver,
 )
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
+from datahub.ingestion.source.powerbi.powerbi_selection import (
+    WORKSPACE_ID_PATTERN,
+    WORKSPACE_NAME_PATTERN,
+    WORKSPACE_TYPE_FILTER,
+    WorkspaceFacts,
+    workspace_verdict,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -1662,7 +1669,7 @@ class Mapper:
 
 @platform_name("PowerBI")
 @config_class(PowerBiDashboardSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -1693,6 +1700,10 @@ class Mapper:
     "Optionally enabled via configuration profiling.enabled",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -1789,20 +1800,23 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
         allowed_workspaces = []
         for workspace in all_workspaces:
-            if not self.source_config.workspace_id_pattern.allowed(
-                workspace.id
-            ) or not self.source_config.workspace_name_pattern.allowed(workspace.name):
+            verdict = workspace_verdict(
+                self.source_config,
+                WorkspaceFacts(workspace.name, workspace.id, workspace.type),
+            )
+            if verdict.excluded_by in (WORKSPACE_NAME_PATTERN, WORKSPACE_ID_PATTERN):
                 self.reporter.filtered_workspace_names.append(
                     f"{workspace.id} - {workspace.name}"
                 )
                 continue
-            elif workspace.type not in self.source_config.workspace_type_filter:
+            if verdict.excluded_by == WORKSPACE_TYPE_FILTER:
                 self.reporter.filtered_workspace_types.append(
                     f"{workspace.id} - {workspace.name} (type = {workspace.type})"
                 )
                 continue
-            else:
-                allowed_workspaces.append(workspace)
+            # A rule added to workspace_verdict needs its own report list.
+            assert verdict.included, f"unreported exclusion {verdict.excluded_by}"
+            allowed_workspaces.append(workspace)
 
         logger.info(f"Number of allowed workspaces = {len(allowed_workspaces)}")
         logger.debug(
@@ -1978,7 +1992,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 message = f"Error ({e}) occurred while loading dashboard {dashboard.displayName}(id={dashboard.id}) tiles."
 
                 logger.exception(message, e)
-                self.reporter.report_warning(dashboard.id, message)
+                self.reporter.warning(dashboard.id, message, log=False)
             # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
             workunits = self.mapper.to_datahub_work_units(dashboard, workspace)
             for workunit in workunits:

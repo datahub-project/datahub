@@ -233,5 +233,11 @@
     "sidebar.viewDefinition.sectionTitle": "Definisjon",
     "sidebar.viewDefinition.viewFullDefinitionLink": "Vis full definisjon >",
     "structuredPropertyBadge.descriptionLabel": "Beskrivelse",
-    "structuredPropertyBadge.valueLabel": "Verdi"
+    "structuredPropertyBadge.valueLabel": "Verdi",
+    "sidebar.logical.andMoreCount": "og {{count}} til",
+    "sidebar.logical.childrenInfo": "Fysiske implementasjoner av denne logiske modellen. Endringer i denne ressursens metadata forplantes automatisk til disse underordnede.",
+    "sidebar.logical.childrenTitle": "Fysiske underordnede",
+    "sidebar.logical.parentInfo": "Logisk modell som definerer denne ressursens metadata. Endringer i den logiske overordnedes metadata forplantes automatisk til denne ressursen.",
+    "sidebar.logical.parentTitle": "Logisk overordnet",
+    "sidebar.logical.viewAllChildren": "Vis alle fysiske underordnede"
 }

@@ -1,14 +1,14 @@
 import dataclasses
 import functools
+import io
 import logging
 import os
-import pathlib
 import posixpath
 import re
 import time
 from datetime import datetime
 from pathlib import PurePath
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
 from smart_open import open as smart_open
@@ -47,9 +47,20 @@ from datahub.ingestion.source.data_lake_common.data_lake_utils import (
 from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
+from datahub.ingestion.source.data_lake_common.path_listing import (
+    get_prefix,
+    listing_prefix,
+    resolve_templated_folders,
+    table_marker_prefix,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import (
     FolderTraversalMethod,
     PathSpec,
+)
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    ZipEntry,
+    is_zip_path,
+    read_first_supported_zip_entry,
 )
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
@@ -74,6 +85,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -182,7 +196,7 @@ class TableData:
 
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -200,6 +214,10 @@ class TableData:
     SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
 )
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class S3Source(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
@@ -280,26 +298,24 @@ class S3Source(StatefulIngestionSourceBase):
                     for config_flag in profiling_flags_to_report
                 },
             )
-            # Set SPARK_VERSION before importing profiling module
-            # This is needed because pydeequ imports require this to be set
-            os.environ.setdefault("SPARK_VERSION", "3.5")
 
             try:
-                from datahub.ingestion.source.s3.profiling import SparkProfiler
+                from datahub.ingestion.source.data_lake_common.profiling.profiler import (
+                    FileProfiler,
+                )
 
-                self.profiler = SparkProfiler(
+                self.profiler = FileProfiler(
                     aws_config=config.aws_config,
-                    spark_driver_memory=config.spark_driver_memory,
-                    spark_config=config.spark_config,
+                    verify_ssl=config.verify_ssl,
                     report=self.report,
                     profiling_times_taken=self.profiling_times_taken,
                     profiling_config=config.profiling,
                 )
             except (ImportError, ModuleNotFoundError) as e:
                 raise RuntimeError(
-                    "PySpark is not installed but is required for S3 profiling. "
-                    "Please install with profiling support: "
-                    "pip install 'acryl-datahub[data-lake-profiling]' or 'acryl-datahub[s3]'"
+                    "Profiling dependencies are not installed but are required for "
+                    "S3/GCS profiling. Please install with profiling support: "
+                    "pip install 'acryl-datahub[s3]' or 'acryl-datahub[gcs]'"
                 ) from e
 
     @classmethod
@@ -308,48 +324,73 @@ class S3Source(StatefulIngestionSourceBase):
 
         return cls(config, ctx)
 
+    def _open_zip_entry(
+        self,
+        full_path: str,
+        s3_client: Optional["S3Client"],
+        path_spec: PathSpec,
+    ) -> Optional[ZipEntry]:
+        # smart_open's S3 reader is seekable, so zipfile fetches only the central
+        # directory and the chosen member with range requests. Storage errors
+        # propagate so ingest_table drops the schema, as it does for other files.
+        with self._smart_open(full_path, s3_client) as zip_file:
+            return read_first_supported_zip_entry(
+                zip_file,
+                context=full_path,
+                report=self.report,
+                file_types=path_spec.file_types,
+                max_entry_size=path_spec.max_zip_entry_size,
+            )
+
+    def _smart_open(self, full_path: str, s3_client: Optional["S3Client"]) -> IO[bytes]:
+        if s3_client is not None:
+            path = re.sub(URI_SCHEME_REGEX, "s3://", full_path)
+            return smart_open(path, "rb", transport_params={"client": s3_client})
+        return smart_open(full_path, "rb")
+
     def get_fields(self, table_data: TableData, path_spec: PathSpec) -> List:
+        s3_client: Optional["S3Client"] = None
         if self.is_s3_platform():
             if self.source_config.aws_config is None:
                 raise ValueError("AWS config is required for S3 file sources")
-
             s3_client = self.source_config.aws_config.get_s3_client(
                 self.source_config.verify_ssl
             )
 
-            path = re.sub(URI_SCHEME_REGEX, "s3://", table_data.full_path)
-            file = smart_open(path, "rb", transport_params={"client": s3_client})
+        content_type = table_data.content_type
+        if path_spec.enable_compression and is_zip_path(table_data.full_path):
+            entry = self._open_zip_entry(table_data.full_path, s3_client, path_spec)
+            if entry is None:
+                return []
+            file: IO[bytes] = io.BytesIO(entry.data)
+            extension = entry.suffix
+            # A zip's content type describes the archive, not the member we
+            # just unwrapped, so it must not drive inference of the inner file.
+            content_type = None
         else:
-            # We still use smart_open here to take advantage of the compression
-            # capabilities of smart_open.
-            file = smart_open(table_data.full_path, "rb")
-
-        extension = pathlib.Path(table_data.full_path).suffix
-        from datahub.ingestion.source.data_lake_common.path_spec import (
-            SUPPORTED_COMPRESSIONS,
-        )
-
-        if path_spec.enable_compression and (extension[1:] in SUPPORTED_COMPRESSIONS):
-            # Removing the compression extension and using the one before that like .json.gz -> .json
-            extension = pathlib.Path(table_data.full_path).with_suffix("").suffix
-        if extension == "" and path_spec.default_extension:
-            extension = f".{path_spec.default_extension}"
+            # smart_open decompresses .gz / .bz2 transparently. Their content type
+            # describes the inner payload (e.g. application/json for a .json.gz).
+            file = self._smart_open(table_data.full_path, s3_client)
+            extension = path_spec.resolve_format_extension(table_data.full_path)
 
         fields = []
-        inferrer = self._get_inferrer(extension, table_data.content_type)
+        inferrer = self._get_inferrer(extension, content_type)
         if inferrer:
             try:
                 fields = inferrer.infer_schema(file)
                 logger.debug(f"Extracted fields in schema: {fields}")
             except Exception as e:
-                self.report.report_warning(
-                    table_data.full_path,
-                    f"could not infer schema for file {table_data.full_path}: {e}",
+                self.report.warning(
+                    message="Could not infer schema for file",
+                    context=table_data.full_path,
+                    exc=e,
+                    log=False,
                 )
         else:
-            self.report.report_warning(
-                table_data.full_path,
-                f"file {table_data.full_path} has unsupported extension",
+            self.report.warning(
+                message="File has unsupported extension",
+                context=table_data.full_path,
+                log=False,
             )
         file.close()
 
@@ -373,7 +414,7 @@ class S3Source(StatefulIngestionSourceBase):
         elif content_type == "text/tab-separated-values":
             return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
         elif content_type == "application/json":
-            return json.JsonInferrer()
+            return json.JsonInferrer(max_rows=self.source_config.max_rows)
         elif content_type == "application/avro":
             return avro.AvroInferrer()
         elif extension == ".parquet":
@@ -387,7 +428,7 @@ class S3Source(StatefulIngestionSourceBase):
                 max_rows=self.source_config.max_rows, format="jsonl"
             )
         elif extension == ".json":
-            return json.JsonInferrer()
+            return json.JsonInferrer(max_rows=self.source_config.max_rows)
         elif extension == ".avro":
             return avro.AvroInferrer()
         else:
@@ -456,8 +497,6 @@ class S3Source(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         aspects: List[Optional[_Aspect]] = []
 
-        logger.info(f"Extracting table schema from file: {table_data.full_path}")
-
         # remove protocol and any leading or trailing slashes
         browse_path = re.sub(URI_SCHEME_REGEX, "", table_data.table_path).strip("/")
 
@@ -482,7 +521,17 @@ class S3Source(StatefulIngestionSourceBase):
             )
             aspects.append(data_platform_instance)
 
-        customProperties = {"schema_inferred_from": str(table_data.full_path)}
+        # Schema is only inferred when the flag is on and the file is non-empty
+        # (see the schema block below). Keep schema_inferred_from in lockstep so a
+        # dataset never names a source file whose schema was not actually emitted.
+        schema_will_be_inferred = (
+            self.source_config.enable_schema_inference and table_data.size_in_bytes > 0
+        )
+
+        customProperties: Dict[str, str] = {}
+        if schema_will_be_inferred:
+            logger.info(f"Extracting table schema from file: {table_data.full_path}")
+            customProperties["schema_inferred_from"] = str(table_data.full_path)
 
         min_partition: Optional[Folder] = None
         max_partition: Optional[Folder] = None
@@ -524,7 +573,12 @@ class S3Source(StatefulIngestionSourceBase):
             externalUrl=self.get_external_url(table_data),
         )
         aspects.append(dataset_properties)
-        if table_data.size_in_bytes > 0:
+        if not self.source_config.enable_schema_inference:
+            logger.debug(
+                f"Skipping schema inference for {table_data.display_name} "
+                "because enable_schema_inference is set to False"
+            )
+        elif schema_will_be_inferred:
             try:
                 with PerfTimer() as schema_timer:
                     fields = self.get_fields(table_data, path_spec)
@@ -541,12 +595,16 @@ class S3Source(StatefulIngestionSourceBase):
                 )
                 aspects.append(schema_metadata)
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to extract schema from file",
                     message="Schema may be missed for dataset because of failure when extracting schema from file",
                     context=f"dataset={table_data.display_name}, file={table_data.full_path}",
                     exc=e,
+                    log=False,
                 )
+                # Schema was not emitted, so drop the property that names the
+                # source file to avoid a dangling schema_inferred_from.
+                dataset_properties.customProperties.pop("schema_inferred_from", None)
         else:
             logger.info(
                 f"Skipping schema extraction for empty file {table_data.full_path}"
@@ -595,14 +653,12 @@ class S3Source(StatefulIngestionSourceBase):
         )
 
         if self.source_config.is_profiling_enabled():
-            yield from self.profiler.get_table_profile(table_data, dataset_urn)
+            yield from self.profiler.get_table_profile(
+                table_data, dataset_urn, path_spec
+            )
 
     def get_prefix(self, relative_path: str) -> str:
-        index = re.search(r"[\*|\{]", relative_path)
-        if index:
-            return relative_path[: index.start()]
-        else:
-            return relative_path
+        return get_prefix(relative_path)
 
     def extract_table_name_and_path(
         self, path_spec: PathSpec, path: str
@@ -652,31 +708,7 @@ class S3Source(StatefulIngestionSourceBase):
         )
 
     def resolve_templated_folders(self, prefix: str) -> Iterable[str]:
-        folder_split: List[str] = prefix.split("*", 1)
-        # If the len of split is 1 it means we don't have * in the prefix
-        if len(folder_split) == 1:
-            yield prefix
-            return
-
-        basename_startswith = folder_split[0].split("/")[-1]
-        dirname = folder_split[0].removesuffix(basename_startswith)
-
-        folders = list_folders_path(
-            dirname,
-            startswith=basename_startswith,
-            aws_config=self.source_config.aws_config,
-        )
-        for folder in folders:
-            # Ensure proper path joining - folders from list_folders path never include a
-            # trailing slash, but we need to handle the case where folder_split[1] might
-            # start with a slash
-            remaining_pattern = folder_split[1]
-            if remaining_pattern.startswith("/"):
-                remaining_pattern = remaining_pattern[1:]
-
-            yield from self.resolve_templated_folders(
-                f"{folder.path}/{remaining_pattern}"
-            )
+        return resolve_templated_folders(prefix, self.source_config.aws_config)
 
     def _process_folders(self, path_spec: PathSpec) -> Iterable[MetadataWorkUnit]:
         """Emit folder Containers for a folders-only path spec, to the depth defined by
@@ -923,34 +955,7 @@ class S3Source(StatefulIngestionSourceBase):
             logger.info("No {table} marker found in path")
             return
 
-        # STEP 1: Replace template placeholders with stars (except {table}) to enable folder resolution
-        # This is the crucial missing logic from the original implementation
-        matches = re.finditer(r"{\s*\w+\s*}", path_spec.include, re.MULTILINE)
-        matches_list = list(matches)
-
-        if matches_list:
-            # Replace all templates with stars except keep {table} as the marker
-            max_start: int = -1
-            include: str = path_spec.include
-            max_match: str = ""
-
-            for match in matches_list:
-                pos = include.find(match.group())
-                if pos > max_start:
-                    if max_match:
-                        include = include.replace(max_match, "*")
-                    max_start = match.start()
-                    max_match = match.group()
-                    # We stop at {table}
-                    if max_match == "{table}":
-                        break
-
-            logger.info(f"Template replacement: {path_spec.include} -> {include}")
-        else:
-            include = path_spec.include
-
-        # Split the path at {table} to get the prefix that needs wildcard resolution
-        prefix_before_table = include.split(table_marker)[0]
+        prefix_before_table = table_marker_prefix(path_spec.include)
         logger.info(f"Prefix before table: {prefix_before_table}")
 
         try:
@@ -1069,9 +1074,10 @@ class S3Source(StatefulIngestionSourceBase):
 
         except Exception as e:
             if isinstance(e, s3.meta.client.exceptions.NoSuchBucket):
-                self.get_report().report_warning(
+                self.get_report().warning(
                     "Missing bucket",
                     f"No bucket found {e.response['Error'].get('BucketName')}",
+                    log=False,
                 )
                 return
             logger.error(f"Error in _process_templated_path: {e}")
@@ -1111,10 +1117,7 @@ class S3Source(StatefulIngestionSourceBase):
         path_spec.sample_files = False  # Disable sampling for simple paths
 
         # Extract the prefix from the path spec (stops at first wildcard)
-        prefix = self.get_prefix(path_spec.include)
-
-        basename_startswith = prefix.split("/")[-1]
-        dirname = prefix.removesuffix(basename_startswith)
+        dirname, basename_startswith = listing_prefix(path_spec.include)
 
         # Iterate through all objects in the bucket matching the prefix
         for obj in list_objects_recursive_path(

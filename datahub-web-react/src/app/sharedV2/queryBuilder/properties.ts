@@ -131,7 +131,7 @@ export const properties = [
         get description() {
             return i18next.t('shared.query-builder:prop.containerDesc');
         },
-        valueType: ValueTypeId.URN,
+        valueType: ValueTypeId.URN_HIERARCHY,
         valueOptions: {
             entityTypes: [EntityType.Container],
             mode: SelectInputMode.MULTIPLE,
@@ -145,7 +145,7 @@ export const properties = [
         get description() {
             return i18next.t('shared.query-builder:prop.domainDesc');
         },
-        valueType: ValueTypeId.URN,
+        valueType: ValueTypeId.URN_HIERARCHY,
         valueOptions: {
             entityTypes: [EntityType.Domain],
             mode: SelectInputMode.MULTIPLE,

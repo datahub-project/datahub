@@ -61,6 +61,7 @@ export class DomainsPage extends BasePage {
     await this.createDomainConfirmButton.click();
     await expect(this.page.getByText(name).first()).toBeVisible({ timeout: 15000 });
     // Allow ES to index the new domain before subsequent tests search for it
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(5000);
   }
 
@@ -78,6 +79,7 @@ export class DomainsPage extends BasePage {
     // On the flat-list layout, search to ensure the domain is visible before clicking
     if (await this.domainSearchInput.isVisible({ timeout: 2000 }).catch(() => false)) {
       await this.domainSearchInput.fill(name);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(500);
     }
     // Use link role to skip hidden aria-live spans that also match the text
@@ -102,6 +104,7 @@ export class DomainsPage extends BasePage {
       await this.modalSearchInput.click({ clickCount: 3 }); // select-all any existing text
       await this.modalSearchInput.pressSequentially(searchTerm);
       // Wait for the debounce (300ms) + search result render before checking the checkbox
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(800);
       await expect(checkbox).toBeVisible({ timeout: 10000 });
     }).toPass({ timeout: 90000, intervals: [3000] });
@@ -129,6 +132,7 @@ export class DomainsPage extends BasePage {
     await this.page.getByRole('button', { name: 'Yes' }).click();
     await this.page.waitForLoadState('networkidle', { timeout: 15000 });
     // Allow ES to de-index the deleted domain before asserting it's gone
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(5000);
   }
 

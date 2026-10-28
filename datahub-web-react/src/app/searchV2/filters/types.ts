@@ -48,7 +48,7 @@ interface FilterFieldBase {
     entity?: Entity; // if the filter itself is an entity ie. Structured Properties
 }
 
-export interface BasicFilterField extends FilterFieldBase {
+interface BasicFilterField extends FilterFieldBase {
     type: Exclude<FieldType, FieldType.BUCKETED_TIMESTAMP | FieldType.ENTITY>;
 }
 
@@ -86,6 +86,7 @@ export enum FilterOperatorType {
     LESS_THAN,
     LESS_THAN_OR_EQUALS,
     ALL_EQUALS, // used for splitting criterion values into multiple AND criterions
+    WITHIN, // hierarchical: selected URN + nested descendants (DESCENDANTS_INCL)
 }
 
 export enum FrontendFilterOperator {

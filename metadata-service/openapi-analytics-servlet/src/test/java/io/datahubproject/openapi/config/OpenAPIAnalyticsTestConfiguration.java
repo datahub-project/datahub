@@ -13,6 +13,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.models.registry.*;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.utils.SearchOperation;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -36,7 +37,10 @@ public class OpenAPIAnalyticsTestConfiguration {
     ElasticSearchService elasticSearchService = mock(ElasticSearchService.class);
     SearchResponse mockResp = mock(SearchResponse.class);
     when(elasticSearchService.raw(
-            any(OperationContext.class), eq(DATAHUB_USAGE_INDEX), anyString()))
+            any(OperationContext.class),
+            eq(DATAHUB_USAGE_INDEX),
+            anyString(),
+            eq(SearchOperation.DATAHUB_USAGE)))
         .thenReturn(Optional.of(mockResp));
     return elasticSearchService;
   }

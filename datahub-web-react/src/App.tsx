@@ -7,20 +7,25 @@ import Cookies from 'js-cookie';
 import React, { Suspense } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter as Router } from 'react-router-dom';
+import { StyleSheetManager } from 'styled-components';
 
 import { GlobalStyles } from '@components/components/GlobalStyles';
 import { ToastRenderer } from '@components/components/Toast';
 
 import { Routes } from '@app/Routes';
 import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
+import { injectGlobalSearchVariables } from '@app/appConfig/injectedOperationVariables';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
-import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
-import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
-import { ErrorCodes } from '@app/shared/constants';
+import { FilesUploadingDownloadingLatencyTracker } from '@app/sharedV2/FilesUploadingDownloadingLatencyTracker';
+import { SuspenseGlobal } from '@app/sharedV2/SuspenseGlobal';
+import { ErrorCodes } from '@app/sharedV2/constants';
+import { loadIsDarkMode } from '@app/theme/useIsDarkMode';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
+import { installApolloPollingContextPatch } from '@src/apolloPolling';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
+import { buildGraphqlHttpUri } from '@src/graphqlHttpUri';
 import { otelOperationLink } from '@src/otelApollo';
 import possibleTypesResult from '@src/possibleTypes.generated';
 import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
@@ -29,7 +34,7 @@ import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@util
     Construct Apollo Client
 */
 const httpLink = createHttpLink({
-    uri: resolveRuntimePath(`/api/v2/graphql`),
+    uri: ({ operationName }) => buildGraphqlHttpUri(operationName),
 });
 
 const errorLink = onError((error) => {
@@ -51,17 +56,16 @@ const errorLink = onError((error) => {
     //     const { extensions } = firstError;
     //     const errorCode = extensions && (extensions.code as number);
     //     // Fallback in case the calling component does not handle.
-    //     message.error(`${firstError.message} (code ${errorCode})`, 3); // TODO: Decide if we want this back.
+    //     toast.error(`${firstError.message} (code ${errorCode})`, { duration: 3 }); // TODO: Decide if we want this back.
     // }
 });
 
 const injectVariablesLink = new ApolloLink((operation, forward) => {
     // eslint-disable-next-line no-param-reassign
-    operation.variables = {
-        ...operation.variables,
-        skipSiblingsSearch: showSeparateSiblingsRef.current,
-        skipLineage: hideLineageInSearchCardsRef.current,
-    };
+    operation.variables = injectGlobalSearchVariables(operation.variables, {
+        showSeparateSiblings: showSeparateSiblingsRef.current,
+        hideLineageInSearchCards: hideLineageInSearchCardsRef.current,
+    });
 
     return forward(operation);
 });
@@ -73,6 +77,9 @@ const client = new ApolloClient({
         typePolicies: {
             Query: {
                 fields: {
+                    latestProductUpdate: {
+                        keyArgs: ['locale'],
+                    },
                     dataset: {
                         merge: (oldObj, newObj) => {
                             return { ...oldObj, ...newObj };
@@ -83,7 +90,19 @@ const client = new ApolloClient({
                             return { ...oldObj, ...newObj };
                         },
                     },
+                    // getGlossaryTerm and getRelatedTerms select different fields of the same term.
+                    // GlossaryTerm is not normalized, so without a merge the second write replaces
+                    // the first and the profile query refetches the whole term from the network.
+                    glossaryTerm: {
+                        merge: (oldObj, newObj) => {
+                            return { ...oldObj, ...newObj };
+                        },
+                    },
                 },
+            },
+            // ProductUpdate.id is a release version, not a unique cache identity across locales.
+            ProductUpdate: {
+                keyFields: false,
             },
         },
         // need to define possibleTypes to allow us to use Apollo cache with union types
@@ -100,24 +119,38 @@ const client = new ApolloClient({
     },
 });
 
-export const InnerApp: React.VFC = () => {
-    return (
-        <HelmetProvider>
-            <CustomThemeProvider>
-                <GlobalStyles />
-                <ToastRenderer />
-                <FilesUploadingDownloadingLatencyTracker />
+// Forward NetworkStatus.poll onto operation.context so GraphQL tracing links can skip
+// timer-driven poll ticks without an op-name denylist. Must run after `new ApolloClient`.
+installApolloPollingContextPatch(client);
 
-                <Helmet>
-                    <title>{useCustomTheme().theme?.content?.title}</title>
-                </Helmet>
-                <Router basename={getRuntimeBasePath()}>
-                    <Suspense fallback={<SuspenseGlobal />}>
-                        <Routes />
+export const InnerApp: React.VFC = () => {
+    const isDarkMode = loadIsDarkMode();
+
+    return (
+        // Lazy route chunks add library CSS to <head> after styled-components' tag. Keeping our styles in
+        // <body> puts them after every stylesheet, so they win at equal specificity however late a chunk loads.
+        <StyleSheetManager target={document.body}>
+            <HelmetProvider>
+                <CustomThemeProvider isDarkMode={isDarkMode} injectGlobalStyles>
+                    <GlobalStyles />
+                    {/* ToastRenderer translates its own labels and sits above the router's boundary,
+                        so it needs one of its own while the locale bundle loads. */}
+                    <Suspense fallback={null}>
+                        <ToastRenderer />
                     </Suspense>
-                </Router>
-            </CustomThemeProvider>
-        </HelmetProvider>
+                    <FilesUploadingDownloadingLatencyTracker />
+
+                    <Helmet>
+                        <title>{useCustomTheme().theme?.content?.title}</title>
+                    </Helmet>
+                    <Router basename={getRuntimeBasePath()}>
+                        <Suspense fallback={<SuspenseGlobal />}>
+                            <Routes />
+                        </Suspense>
+                    </Router>
+                </CustomThemeProvider>
+            </HelmetProvider>
+        </StyleSheetManager>
     );
 };
 

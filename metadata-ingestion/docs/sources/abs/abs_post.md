@@ -209,17 +209,29 @@ If you are ingesting datasets from AWS S3, we recommend running the ingestion on
 
 :::
 
+#### File type detection
+
+The format of a file is detected from its name. The connector first checks the apparent extension (everything after the last dot) and accepts it only if it matches one of the supported file types above. For files compressed with `.gz`, `.gzip`, or `.bz2` (when `enable_compression` is enabled on the path_spec, which is the default), the compression suffix is stripped and the inner extension is checked the same way (so `data.json.gz` is treated as JSON). Extension matching is case-insensitive.
+
+File names whose stem contains dots — for example `events.account.update-2026-05-27-<hash>.gz` — are **not** misinterpreted as having an extension of `.update-2026-05-27-<hash>`. When compression is enabled, such files fall back to `path_spec.default_extension` if it is set, and are skipped otherwise; when compression is disabled, compressed files are skipped. When `default_extension` is set, any other file whose format cannot be inferred from its name is parsed as that format, including stray files such as `.crc` checksums or `.txt` manifests; use the path_spec `exclude` patterns to filter those out.
+
+#### Compressed files
+
+When `path_spec.enable_compression` is `true` (the default), the connector transparently reads compressed files whose inner content is one of the supported file types. Supported compression formats are `.gz` (and its `.gzip` alias), `.bz2`, and `.zip`.
+
+For `.zip` archives:
+
+- Only the **first entry with a supported extension** is read. If an archive contains more than one supported entry, a warning is added to the ingestion report and only the first is processed.
+- The archive is selected by its name like any other compressed file, so name it with the inner format (`data.csv.zip`) or set `default_extension` for bare `archive.zip` files. The member that is read is the first one whose extension is in `file_types`, and its extension decides how it is parsed.
+- macOS `__MACOSX/` and `._*` metadata members are ignored.
+- Only the bytes needed (the central directory and the selected entry) are downloaded from Azure Blob Storage via range requests, so large archives are not fully downloaded for schema inference.
+- To guard against zip-bomb archives, an entry whose **uncompressed** size exceeds `path_spec.max_zip_entry_size` (default 512 MiB) is skipped with a warning. Increase this value if you need to read larger entries.
+
+Set `path_spec.enable_compression` to `false` to skip compressed files; they are not ingested.
+
 #### Compatibility
 
-Profiles are computed with PyDeequ, which relies on PySpark. Therefore, for computing profiles, we currently require Spark 3.0.3 with Hadoop 3.2 to be installed and the `SPARK_HOME` and `SPARK_VERSION` environment variables to be set. The Spark+Hadoop binary can be downloaded [here](https://www.apache.org/dyn/closer.lua/spark/spark-3.0.3/spark-3.0.3-bin-hadoop3.2.tgz).
-
-For an example guide on setting up PyDeequ on AWS, see [this guide](https://aws.amazon.com/blogs/big-data/testing-data-quality-at-scale-with-pydeequ/).
-
-:::caution
-
-From Spark 3.2.0+, Avro reader fails on column names that don't start with a letter and contains other character than letters, number, and underscore. [https://github.com/apache/spark/blob/72c62b6596d21e975c5597f8fff84b1a9d070a02/connector/avro/src/main/scala/org/apache/spark/sql/avro/AvroFileFormat.scala#L158]
-Avro files that contain such columns won't be profiled.
-:::
+Profiling is a pure-Python implementation (built on `pyarrow` and Apache DataSketches) and does not require Spark, Hadoop, PyDeequ, or any JVM. There is nothing extra to install beyond the `abs` extra. Distinct counts and quantiles/histograms are approximate (DataSketches), matching the precision the previous Spark/Deequ profiler provided.
 
 ### Limitations
 

@@ -43,6 +43,7 @@ platform_patterns = {
     "bigquery": r"bigquery",
     "athena": r"(athena|aws\s*athena)",
     "databricks": r"(databricks|spark)",
+    "elasticsearch": r"elasticsearch",
 }
 
 powerbi_platform_names = {
@@ -65,6 +66,7 @@ powerbi_platform_names = {
     "bigquery": "Google BigQuery",
     "athena": "Amazon Athena",
     "databricks": "Databricks",
+    "elasticsearch": "Elasticsearch",
 }
 
 

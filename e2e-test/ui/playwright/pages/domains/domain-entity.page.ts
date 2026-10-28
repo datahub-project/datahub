@@ -94,7 +94,10 @@ export class DomainEntityPage extends BasePage {
   }
 
   private getOwnerOption(displayName: string): Locator {
-    return this.page.getByTestId(/^option-/).filter({ hasText: displayName });
+    // Exact, case-insensitive match — substring matching can hit multiple options
+    // (e.g. searching "datahub" also matches a group named "DataHub SE Team").
+    const escaped = displayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return this.page.getByTestId(/^option-/).filter({ hasText: new RegExp(`^${escaped}$`, 'i') });
   }
 
   private getEditableContainer(): Locator {

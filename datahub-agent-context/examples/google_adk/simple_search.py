@@ -15,10 +15,10 @@ Usage:
 import asyncio
 import os
 
-from google.adk.agents import Agent
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.genai import types
+from google.adk.agents import Agent  # type: ignore[import-not-found]
+from google.adk.runners import Runner  # type: ignore[import-not-found]
+from google.adk.sessions import InMemorySessionService  # type: ignore[import-not-found]
+from google.genai import types  # type: ignore[import-not-found]
 
 from datahub.sdk.main_client import DataHubClient
 from datahub_agent_context.google_adk_tools import build_google_adk_tools

@@ -143,6 +143,7 @@ datahub datapack unload showcase-ecommerce --hard
 | ---------------------- | ----------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------- |
 | **bootstrap**          | Lightweight bootstrap data with basic datasets, dashboards, users, and tags         | ~50      | Kafka, Hive, HDFS                                               |
 | **showcase-ecommerce** | Rich e-commerce demo with lineage, governance, glossary, domains, and data products | ~1,050   | Snowflake, Looker, PowerBI, Tableau, dbt, Spark, PostgreSQL, S3 |
+| **search-quality**     | Cranfield datasets plus the longtail-ecommerce catalog for search regression        | ~4,800   | cranfield, long-tail, ecommerce                                 |
 
 ## Trust Model
 
@@ -196,7 +197,7 @@ Each entry in `files` can be a plain string (filename) or an object with `path` 
 
 ### Schema Downshift
 
-When loading a pack, the CLI queries the server's entity registry (`/openapi/v1/registry/models/entity/specifications`) to discover which `(entityType, aspectName)` pairs are supported. MCPs with unsupported aspects are automatically filtered out. This allows a single data pack to work across both DataHub OSS and Acryl Cloud, with Cloud-only aspects gracefully skipped on OSS.
+When loading a pack, the CLI queries the server's entity registry (`/openapi/v1/registry/models/entity/specifications`) to discover which `(entityType, aspectName)` pairs are supported. MCPs with unsupported aspects are automatically filtered out. This allows a single data pack to work across both DataHub Core and DataHub Cloud, with Cloud-only aspects gracefully skipped on Core.
 
 ### Time-Shifting
 

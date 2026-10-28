@@ -32,6 +32,7 @@ import { test as setup, expect } from '@playwright/test';
 import { users } from '../data/users';
 import { authStatePath, gmsTokenPath } from '../fixtures/login';
 import { LoginPage } from '../pages/login.page';
+import { DATAHUB_GRAPHQL_PATH } from '../utils/constants';
 import { createScriptLogger } from '../utils/logger';
 
 const logger = createScriptLogger('auth.setup');
@@ -85,7 +86,7 @@ setup('authenticate all users', async ({ page, playwright }) => {
           tokenId?: string;
         };
         if (existing.tokenId) {
-          await apiContext.post('/api/v2/graphql', {
+          await apiContext.post(DATAHUB_GRAPHQL_PATH, {
             data: {
               query: `
                 mutation revokeAccessToken($tokenId: String!) {
@@ -99,7 +100,7 @@ setup('authenticate all users', async ({ page, playwright }) => {
         }
       }
 
-      const tokenResponse = await apiContext.post('/api/v2/graphql', {
+      const tokenResponse = await apiContext.post(DATAHUB_GRAPHQL_PATH, {
         data: {
           query: `
             mutation createAccessToken($input: CreateAccessTokenInput!) {

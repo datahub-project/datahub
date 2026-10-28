@@ -10,6 +10,8 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { EntityDocumentationPage } from '../../pages/entity-documentation.page';
+import { TIMEOUTS } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'mutations' });
 
@@ -22,18 +24,26 @@ test.describe('edit documentation and link to dataset', () => {
     docPage = new EntityDocumentationPage(page, logger, logDir);
   });
 
-  test('edit field documentation', async ({ page }) => {
+  test('edit field documentation', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page }) => {
+    // Two edit→save→refetch cycles under CI load; default 60s is tight.
+    test.setTimeout(120_000);
+
     const testId = Math.floor(Math.random() * 100000);
     const documentationEdited = `This is test${testId} documentation EDITED`;
 
     await docPage.navigateToDatasetSchemaTab(DATASET_URN);
     await docPage.editFieldDescription('field_foo', documentationEdited);
-    await expect(page.getByText(documentationEdited).first()).toBeVisible();
-    await expect(page.getByText('(edited)')).toBeVisible();
+    // editFieldDescription only waits for the "Updated!" toast (mutation accepted); the
+    // schema table still needs to refetch and re-render, which can lag under load —
+    // use a generous timeout rather than the 5s default.
+    await expect(page.getByText(documentationEdited).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(page.getByText('(edited)')).toBeVisible({ timeout: TIMEOUTS.LONG });
 
     // Restore original description
     await docPage.editFieldDescription('field_foo', 'Foo field description has changed');
-    await expect(page.getByText('Foo field description has changed').first()).toBeVisible();
-    await expect(page.getByText('(edited)')).toBeVisible();
+    await expect(page.getByText('Foo field description has changed').first()).toBeVisible({
+      timeout: TIMEOUTS.LONG,
+    });
+    await expect(page.getByText('(edited)')).toBeVisible({ timeout: TIMEOUTS.LONG });
   });
 });

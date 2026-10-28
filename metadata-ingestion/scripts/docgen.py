@@ -46,12 +46,12 @@ def get_snippet(long_string: str, max_length: int = 100) -> str:
 
 
 def get_support_status_badge(support_status: SupportStatus) -> str:
-    if support_status == SupportStatus.CERTIFIED:
-        return "![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen)"
-    if support_status == SupportStatus.INCUBATING:
-        return "![Incubating](https://img.shields.io/badge/support%20status-incubating-blue)"
-    if support_status == SupportStatus.TESTING:
-        return "![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey)"
+    if support_status == SupportStatus.GA:
+        return "![GA](https://img.shields.io/badge/support%20status-GA-brightgreen)"
+    if support_status == SupportStatus.BETA:
+        return "![Beta](https://img.shields.io/badge/support%20status-Beta-blue)"
+    if support_status == SupportStatus.ALPHA:
+        return "![Alpha](https://img.shields.io/badge/support%20status-Alpha-lightgrey)"
 
     return ""
 
@@ -70,6 +70,7 @@ def get_capability_text(src_capability: SourceCapability) -> str:
         SourceCapability.PLATFORM_INSTANCE: "../../../platform-instances.md",
         SourceCapability.DATA_PROFILING: "../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md",
         SourceCapability.OPERATION_CAPTURE: "../../../api/tutorials/operations.md",
+        SourceCapability.PROBE: "../../../cli.md#recipe",
     }
 
     capability_doc = capability_docs_mapping.get(src_capability)
@@ -95,7 +96,7 @@ def map_capability_name_to_enum(capability_name: str) -> SourceCapability:
 
 
 def does_extra_exist(extra_name: str) -> bool:
-    for key, value in metadata("acryl-datahub").items():
+    for key, value in metadata("acryl-datahub").items():  # type: ignore[attr-defined]
         if key == "Provides-Extra" and value == extra_name:
             return True
     return False
@@ -233,6 +234,38 @@ def _validate_platform_readme_contract(file_path: str, markdown: str) -> None:
     )
 
 
+# The H3 sections a connector's docs/sources/<platform>/<plugin>_<pre|post>.md
+# must have, each exactly once and in this order. H1/H2 are reserved for the
+# generated page around them; H4+ are free.
+SOURCE_DOC_H3_SECTIONS: Dict[str, List[str]] = {
+    "pre": ["Overview", "Prerequisites"],
+    "post": ["Capabilities", "Limitations", "Troubleshooting"],
+}
+
+
+def validate_source_doc_headings(file_path: str, markdown: str) -> None:
+    """Raise ValueError if a docs/sources file breaks its heading contract.
+
+    The single definition docGen and tests/unit/test_source_doc_headings.py
+    both call. A name that is neither README nor <plugin>_<pre|post> is not
+    judged here; the docGen loop rejects those names itself.
+    """
+    stem = pathlib.Path(file_path).stem
+    if stem == "README":
+        _validate_platform_readme_contract(file_path, markdown)
+        return
+    parts = stem.split("_")
+    if len(parts) != 2 or parts[1] not in SOURCE_DOC_H3_SECTIONS:
+        return
+    _validate_heading_contract(
+        file_path=file_path,
+        markdown=markdown,
+        required_level=3,
+        required_headings=SOURCE_DOC_H3_SECTIONS[parts[1]],
+        disallowed_levels=[1, 2],
+    )
+
+
 def load_connector_registry(connector_registry_dir: str) -> Dict:
     """Load connector registry data from all package JSON files in directory."""
     registry_dir = pathlib.Path(connector_registry_dir) / "connector_registry"
@@ -260,7 +293,7 @@ def load_connector_registry(connector_registry_dir: str) -> Dict:
                 package_data = json.load(f)
                 package_name = json_file.stem
                 plugin_count = len(package_data.get("plugin_details", {}))
-                merged_data["plugin_details"].update(
+                merged_data["plugin_details"].update(  # type: ignore[attr-defined]
                     package_data.get("plugin_details", {})
                 )
                 logger.info(
@@ -271,6 +304,16 @@ def load_connector_registry(connector_registry_dir: str) -> Dict:
 
     logger.info(f"Total connectors loaded: {len(merged_data['plugin_details'])}")
     return merged_data
+
+
+# Connector registries generated before the Alpha/Beta/GA retiering store the old
+# tier names. The registry directory is globbed for one JSON file per package, so a
+# package built against an older datahub can still be read here.
+_LEGACY_STATUS_NAMES = {
+    "CERTIFIED": "GA",
+    "INCUBATING": "BETA",
+    "TESTING": "ALPHA",
+}
 
 
 def create_plugin_from_capability_data(
@@ -286,7 +329,10 @@ def create_plugin_from_capability_data(
 
     # Set support status
     if plugin_data.get("support_status"):
-        plugin.support_status = SupportStatus[plugin_data["support_status"]]
+        raw_status = plugin_data["support_status"]
+        plugin.support_status = SupportStatus[
+            _LEGACY_STATUS_NAMES.get(raw_status, raw_status)
+        ]
 
     # Set capabilities
     if plugin_data.get("capabilities"):
@@ -353,7 +399,8 @@ def create_plugin_from_capability_data(
                 source_config_class.model_json_schema(), indent=2
             )
             plugin.config_md = gen_md_table_from_pydantic(
-                source_config_class, current_source=plugin_name
+                source_config_class,  # type: ignore[arg-type]
+                current_source=plugin_name,
             )
 
             # Write the config json schema to the out_dir.
@@ -414,11 +461,20 @@ def _derive_features(platform: "Platform", meta: Dict[str, Any]) -> List[str]:
 
 
 def _get_support_status_tag(platform: "Platform") -> str:
-    """Get the support status tag string from a platform's plugins."""
-    for plugin in platform.plugins.values():
-        if plugin.support_status != SupportStatus.UNKNOWN:
-            return plugin.support_status.name.title()
-    return ""
+    """Get the support status tag string from a platform's plugins.
+
+    A platform can bundle several plugins (e.g. snowflake, snowflake-queries,
+    snowflake-summary). They share one card on the integrations page, so report
+    the highest tier rather than whichever plugin happens to be iterated first.
+    """
+    statuses = [
+        plugin.support_status
+        for plugin in platform.plugins.values()
+        if plugin.support_status != SupportStatus.UNKNOWN
+    ]
+    if not statuses:
+        return ""
+    return max(statuses, key=lambda status: status.value).display_name
 
 
 def _resolve_platform_type(meta: Dict[str, Any], default: str = "Metadata") -> str:
@@ -582,7 +638,7 @@ def generate_filter_tag_indexes(
 
         features_list = meta.get("extra_features", [])
         connection_type = "API" if is_api else meta.get("connection_type", "Pull")
-        tags: Dict[str, str] = {
+        tags = {
             "Platform Type": _resolve_platform_type(meta),
             "Connection Type": connection_type,
             "Features": ", ".join(features_list),
@@ -725,9 +781,9 @@ def generate(  # noqa: C901
                 with open(path, "r") as doc_file:
                     file_contents = doc_file.read()
                 final_markdown = rewrite_markdown(file_contents, path, destination_md)
+                validate_source_doc_headings(path, final_markdown)
 
                 if file_name == "README":
-                    _validate_platform_readme_contract(path, final_markdown)
                     # README goes as platform level docs
                     # all other docs are assumed to be plugin level
                     platforms[platform_name].custom_docs_pre = final_markdown
@@ -740,28 +796,10 @@ def generate(  # noqa: C901
                         )
                     plugin_name, suffix = plugin_doc_parts
                     if suffix == "pre":
-                        _validate_heading_contract(
-                            file_path=path,
-                            markdown=final_markdown,
-                            required_level=3,
-                            required_headings=["Overview", "Prerequisites"],
-                            disallowed_levels=[1, 2],
-                        )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_pre = final_markdown
                     elif suffix == "post":
-                        _validate_heading_contract(
-                            file_path=path,
-                            markdown=final_markdown,
-                            required_level=3,
-                            required_headings=[
-                                "Capabilities",
-                                "Limitations",
-                                "Troubleshooting",
-                            ],
-                            disallowed_levels=[1, 2],
-                        )
                         platforms[platform_name].plugins[
                             plugin_name
                         ].custom_docs_post = final_markdown
@@ -885,7 +923,7 @@ def generate(  # noqa: C901
                 f.write("</table>\n\n")
             # Insert platform-level authored docs from README.md before module docs.
             f.write("\n")
-            f.write(platform.custom_docs_pre.strip())
+            f.write((platform.custom_docs_pre or "").strip())
             f.write("\n")
 
             for plugin_name, plugin in platform.plugins.items():
@@ -917,7 +955,7 @@ def generate(  # noqa: C901
                 f.write("\n")
 
                 # PRE authored module docs (<module>_pre.md).
-                f.write(f"{plugin.custom_docs_pre.strip()}\n\n")
+                f.write(f"{(plugin.custom_docs_pre or '').strip()}\n\n")
 
                 # Always show Install the Plugin section
                 f.write(f"\n{section_heading} Install the Plugin\n")
@@ -975,7 +1013,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                     )
 
                 # POST authored module docs (<module>_post.md).
-                f.write(f"{plugin.custom_docs_post.strip()}\n\n")
+                f.write(f"{(plugin.custom_docs_post or '').strip()}\n\n")
 
                 if plugin.classname:
                     f.write(f"\n{section_heading} Code Coordinates\n")

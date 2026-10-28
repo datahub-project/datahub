@@ -1,32 +1,46 @@
-import { LOCALE_MAP } from '@app/i18n/constants';
-import { SupportedLanguage } from '@app/i18n/types';
+import { readCachedUserLanguage } from '@app/sharedV2/hooks/userLanguageStorage';
+import {
+    SupportedLanguage,
+    detectBrowserLanguage,
+    isSupportedLanguage,
+    pickEffectiveLanguage,
+} from '@src/i18n/supportedLanguages';
 
-export function isSupportedLanguage(lang: string): lang is SupportedLanguage {
-    return lang in LOCALE_MAP;
-}
+export { detectBrowserLanguage, isSupportedLanguage, pickEffectiveLanguage };
+
+const I18N_ENABLED_STORAGE_KEY = 'i18nEnabled';
 
 /**
- * Best-effort match of the browser's preferred languages (`navigator.languages`, most-preferred
- * first) to a supported UI locale. Tries an exact, case-insensitive match first, then folds region
- * variants to their base language (e.g. `de-DE` -> `de`, `fr-CA` -> `fr`, and `pt-PT` -> `pt-BR` as
- * the only Portuguese variant). Returns `undefined` when nothing matches, so callers can fall back
- * to the default language.
+ * Locale the UI will actually render — same rules as `useEffectiveLanguage`.
+ * Browser preference (`navigator.language`) is a different signal.
  */
-export function detectBrowserLanguage(): SupportedLanguage | undefined {
-    const supported = Object.keys(LOCALE_MAP) as SupportedLanguage[];
-    const preferred = typeof navigator !== 'undefined' ? (navigator.languages ?? [navigator.language]) : [];
+export function resolveEffectiveLanguage(
+    i18nEnabled: boolean,
+    userLanguage: string | null | undefined,
+    defaultLanguage?: SupportedLanguage,
+): SupportedLanguage {
+    return pickEffectiveLanguage({
+        i18nEnabled,
+        userLanguage,
+        browserLanguage: detectBrowserLanguage(),
+        defaultLanguage,
+    });
+}
 
-    const matchTag = (tag: string | undefined): SupportedLanguage | undefined => {
-        if (!tag) return undefined;
-        const lower = tag.toLowerCase();
-        const base = lower.split('-')[0];
-        // Exact (case-insensitive) match first, then fold region variants to their base language.
-        return (
-            supported.find((locale) => locale.toLowerCase() === lower) ??
-            supported.find((locale) => locale.toLowerCase().split('-')[0] === base)
-        );
-    };
+function loadUserLanguageFromStorage(): string | null | undefined {
+    // getServedLanguage runs on every analytics event, so a malformed cached value must degrade to
+    // "no preference" rather than throwing inside the analytics path.
+    try {
+        return readCachedUserLanguage();
+    } catch {
+        return undefined;
+    }
+}
 
-    // navigator.languages is ordered most-preferred first; take the first tag that maps to a locale.
-    return preferred.map(matchTag).find((match): match is SupportedLanguage => match !== undefined);
+/** Served UI locale for analytics (and anything else outside React). */
+export function getServedLanguage(): SupportedLanguage {
+    return resolveEffectiveLanguage(
+        localStorage.getItem(I18N_ENABLED_STORAGE_KEY) === 'true',
+        loadUserLanguageFromStorage(),
+    );
 }

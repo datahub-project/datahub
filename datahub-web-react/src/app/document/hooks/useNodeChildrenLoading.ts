@@ -1,12 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
+import { shouldFetchChildrenOnExpand } from '@app/document/utils/documentTreeNodeMerge';
 
 interface NodeLoaders {
     /** Loads (and returns) the first page of a node's children. */
     loadChildren: (parentUrn: string | null) => Promise<DocumentTreeNode[]>;
     /** Loads the next page of an already-expanded node's children. */
-    loadMoreChildren: (parentUrn: string) => Promise<void>;
+    loadMoreChildren: (parentUrn: string) => Promise<DocumentTreeNode[] | void>;
 }
 
 interface NodeChildrenLoading {
@@ -23,16 +24,16 @@ interface NodeChildrenLoading {
 /**
  * Per-node expand + lazy child-loading for the document sidebar tree.
  *
- * Owns the two "in flight" sets (first-page vs next-page) and the toggle/load-more
- * handlers, keeping that async bookkeeping out of the render-heavy tree component.
- * The loaders are passed in rather than pulled from `useLoadDocumentTree` here so
- * we don't spin up a second root-loading instance — the tree owns the single
- * loader and hands us the child fetches it already has.
+ * Loaders are injected so DocumentTree keeps a single `useLoadDocumentTree`
+ * instance (a second hook would re-fetch roots).
  */
 export function useNodeChildrenLoading({ loadChildren, loadMoreChildren }: NodeLoaders): NodeChildrenLoading {
     const { getNode, expandedUrns, expandNode, collapseNode } = useDocumentTree();
     const [loadingUrns, setLoadingUrns] = useState<Set<string>>(new Set());
     const [loadingChildrenUrns, setLoadingChildrenUrns] = useState<Set<string>>(new Set());
+    // Sync in-flight sets — React state alone can miss rapid double-clicks before re-render.
+    const loadingUrnsRef = useRef<Set<string>>(new Set());
+    const loadingChildrenUrnsRef = useRef<Set<string>>(new Set());
 
     const handleToggleExpand = useCallback(
         async (urn: string) => {
@@ -45,16 +46,18 @@ export function useNodeChildrenLoading({ loadChildren, loadMoreChildren }: NodeL
             }
 
             expandNode(urn);
-            // Always refetch on expand; the context merges server data with any
-            // optimistic local children rather than clobbering them.
-            if (node.hasChildren) {
-                setLoadingUrns((prev) => new Set(prev).add(urn));
+
+            if (!shouldFetchChildrenOnExpand(node) || loadingUrnsRef.current.has(urn)) {
+                return;
+            }
+
+            loadingUrnsRef.current.add(urn);
+            setLoadingUrns(new Set(loadingUrnsRef.current));
+            try {
                 await loadChildren(urn);
-                setLoadingUrns((prev) => {
-                    const next = new Set(prev);
-                    next.delete(urn);
-                    return next;
-                });
+            } finally {
+                loadingUrnsRef.current.delete(urn);
+                setLoadingUrns(new Set(loadingUrnsRef.current));
             }
         },
         [getNode, expandedUrns, expandNode, collapseNode, loadChildren],
@@ -62,13 +65,16 @@ export function useNodeChildrenLoading({ loadChildren, loadMoreChildren }: NodeL
 
     const handleLoadMoreChildren = useCallback(
         async (parentUrn: string) => {
-            setLoadingChildrenUrns((prev) => new Set(prev).add(parentUrn));
-            await loadMoreChildren(parentUrn);
-            setLoadingChildrenUrns((prev) => {
-                const next = new Set(prev);
-                next.delete(parentUrn);
-                return next;
-            });
+            if (loadingChildrenUrnsRef.current.has(parentUrn)) return;
+
+            loadingChildrenUrnsRef.current.add(parentUrn);
+            setLoadingChildrenUrns(new Set(loadingChildrenUrnsRef.current));
+            try {
+                await loadMoreChildren(parentUrn);
+            } finally {
+                loadingChildrenUrnsRef.current.delete(parentUrn);
+                setLoadingChildrenUrns(new Set(loadingChildrenUrnsRef.current));
+            }
         },
         [loadMoreChildren],
     );

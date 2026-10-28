@@ -113,6 +113,30 @@ public class AssertionUtils {
   }
 
   /**
+   * Extract the field path from a field assertion's nested definition.
+   *
+   * @param fieldAssertion the field assertion to inspect
+   * @return the field path, or null when it cannot be derived
+   */
+  @Nullable
+  public static String getFieldPathFromFieldAssertion(FieldAssertionInfo fieldAssertion) {
+    if (fieldAssertion == null) {
+      return null;
+    }
+    if (fieldAssertion.hasFieldValuesAssertion()
+        && fieldAssertion.getFieldValuesAssertion().hasField()
+        && fieldAssertion.getFieldValuesAssertion().getField().hasPath()) {
+      return fieldAssertion.getFieldValuesAssertion().getField().getPath();
+    }
+    if (fieldAssertion.hasFieldMetricAssertion()
+        && fieldAssertion.getFieldMetricAssertion().hasField()
+        && fieldAssertion.getFieldMetricAssertion().getField().hasPath()) {
+      return fieldAssertion.getFieldMetricAssertion().getField().getPath();
+    }
+    return null;
+  }
+
+  /**
    * Extract the entity URN from an AssertionInfo's type-specific sub-property.
    *
    * <p>Each assertion type stores the entity reference in a different sub-property:

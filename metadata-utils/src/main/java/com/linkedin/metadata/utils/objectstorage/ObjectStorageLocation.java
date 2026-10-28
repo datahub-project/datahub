@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils.objectstorage;
 
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -53,22 +54,89 @@ public record ObjectStorageLocation(
     return synthesizeFromLegacy(legacyBucketName, legacyPath, legacyProvider);
   }
 
+  /**
+   * A URI that addresses one object rather than a root: the location a client is rooted at, plus
+   * the key of the object within that root.
+   */
+  public record Document(@Nonnull ObjectStorageLocation root, @Nonnull String objectKey) {}
+
+  /**
+   * Splits a document URI into the root a client is built from and the object key within it —
+   * {@code s3://bucket/dir/matrix.json} becomes a client rooted at {@code s3://bucket/dir} reading
+   * key {@code matrix.json}, and {@code file:///dir/matrix.json} a client rooted at {@code /dir}.
+   *
+   * <p>{@link #parse} models a root, so callers holding a URI that names a single document would
+   * otherwise each reinvent this split — and reinvent it differently for cloud and local.
+   *
+   * @throws IllegalArgumentException if the URI names no object, e.g. a bare bucket or a filesystem
+   *     root
+   */
+  @Nonnull
+  public static Document parseDocument(@Nonnull String uri) {
+    ObjectStorageLocation parsed = parse(uri);
+    return switch (parsed.provider()) {
+      case LOCAL -> {
+        Path path = Path.of(parsed.localRoot());
+        Path parent = path.getParent();
+        if (parent == null) {
+          throw new IllegalArgumentException(
+              "file URI must name a file inside a directory (expected e.g. file:///dir/matrix.json): "
+                  + uri);
+        }
+        yield new Document(
+            new ObjectStorageLocation(ObjectStorageProvider.LOCAL, null, null, parent.toString()),
+            path.getFileName().toString());
+      }
+      case S3, GCS -> {
+        String key = parsed.keyPrefix();
+        if (key == null || key.isEmpty()) {
+          throw new IllegalArgumentException(
+              "URI does not include an object key (expected e.g. s3://bucket/matrix.json): " + uri);
+        }
+        int lastSlash = key.lastIndexOf('/');
+        yield new Document(
+            new ObjectStorageLocation(
+                parsed.provider(),
+                parsed.bucket(),
+                lastSlash < 0 ? "" : key.substring(0, lastSlash),
+                null),
+            lastSlash < 0 ? key : key.substring(lastSlash + 1));
+      }
+    };
+  }
+
   @Nonnull
   public static ObjectStorageLocation parse(@Nonnull String uri) {
     String trimmed = uri.trim();
-    if (trimmed.startsWith(S3_SCHEME + "://")) {
+    if (hasScheme(trimmed, S3_SCHEME, "://")) {
       return parseCloudUri(
           ObjectStorageProvider.S3, trimmed.substring((S3_SCHEME + "://").length()));
     }
-    if (trimmed.startsWith(GCS_SCHEME + "://")) {
+    if (hasScheme(trimmed, GCS_SCHEME, "://")) {
       return parseCloudUri(
           ObjectStorageProvider.GCS, trimmed.substring((GCS_SCHEME + "://").length()));
     }
-    if (trimmed.startsWith(FILE_SCHEME + "://") || trimmed.startsWith(FILE_SCHEME + ":")) {
+    if (hasScheme(trimmed, FILE_SCHEME, "://") || hasScheme(trimmed, FILE_SCHEME, ":")) {
       return parseFileUri(trimmed);
     }
     throw new IllegalArgumentException(
         "Unsupported object storage URI scheme (expected s3://, gs://, or file://): " + uri);
+  }
+
+  /**
+   * Whether {@code uri} opens with {@code scheme} followed by {@code separator}, comparing the
+   * scheme case-insensitively.
+   *
+   * <p>URI schemes are case-insensitive per RFC 3986 §3.1, so {@code S3://bucket/key} addresses the
+   * same object as {@code s3://bucket/key}. Nothing after the scheme may be folded, though — bucket
+   * names, S3 keys and GCS object names are all case-sensitive — so this compares only the prefix
+   * in place rather than lowercasing the URI.
+   */
+  private static boolean hasScheme(
+      @Nonnull String uri, @Nonnull String scheme, @Nonnull String separator) {
+    String prefix = scheme + separator;
+    return uri.length() >= prefix.length()
+        && uri.regionMatches(true, 0, prefix, 0, prefix.length());
   }
 
   @Nonnull
@@ -78,8 +146,8 @@ public record ObjectStorageLocation(
       @Nullable String legacyProvider) {
     if (legacyBucketName != null && !legacyBucketName.isBlank()) {
       String trimmedBucket = legacyBucketName.trim();
-      if (trimmedBucket.startsWith(S3_SCHEME + "://")
-          || trimmedBucket.startsWith(GCS_SCHEME + "://")) {
+      if (hasScheme(trimmedBucket, S3_SCHEME, "://")
+          || hasScheme(trimmedBucket, GCS_SCHEME, "://")) {
         return Optional.of(parse(joinCloudUri(trimmedBucket, legacyPath)));
       }
     }
@@ -159,7 +227,7 @@ public record ObjectStorageLocation(
   @Nonnull
   private static String toFileUri(@Nonnull String filesystemPath) {
     String trimmed = filesystemPath.trim();
-    if (trimmed.startsWith(FILE_SCHEME + "://") || trimmed.startsWith(FILE_SCHEME + ":")) {
+    if (hasScheme(trimmed, FILE_SCHEME, "://") || hasScheme(trimmed, FILE_SCHEME, ":")) {
       return trimmed;
     }
     if (!trimmed.startsWith("/")) {

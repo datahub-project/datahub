@@ -9,6 +9,7 @@ from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 # Trivy rows: (artifact_ref, result_target, class/type, vuln). artifact_ref = scanned image ref for scope.
 GroupedRows = dict[str, list[tuple[str, str, str, dict[str, Any]]]]
@@ -221,6 +222,32 @@ def grype_severity_to_trivy_upper(v: dict[str, Any]) -> str:
     return s
 
 
+def grype_pkg_name(art: dict[str, Any]) -> str:
+    """Package name for a Grype artifact, using Trivy's `groupId:artifactId` form for Maven.
+
+    Grype names Java archives by artifactId alone (`netty-codec-http2`) while Trivy uses
+    `io.netty:netty-codec-http2`. Linear issue titles embed this name and dedup is by exact
+    title, so a grype-only detection of a CVE Trivy previously reported would otherwise
+    open a duplicate issue.
+    """
+    name = str(art.get("name") or "").strip()
+    if ":" in name:
+        return name
+    purl = str(art.get("purl") or "").strip()
+    if purl.startswith("pkg:maven/"):
+        path = purl[len("pkg:maven/") :].split("@", 1)[0].split("?", 1)[0]
+        parts = [unquote(p) for p in path.split("/") if p]
+        if len(parts) >= 2:
+            return f"{parts[0]}:{parts[-1]}"
+    meta = art.get("metadata")
+    if isinstance(meta, dict):
+        group = str(meta.get("pomGroupID") or "").strip()
+        artifact = str(meta.get("pomArtifactID") or "").strip() or name
+        if group and artifact:
+            return f"{group}:{artifact}"
+    return name
+
+
 def grype_match_to_trivy_vuln(match: dict[str, Any]) -> dict[str, Any]:
     """Shape a Grype match like a Trivy Vulnerabilities[] entry."""
     v = match.get("vulnerability") or {}
@@ -241,7 +268,7 @@ def grype_match_to_trivy_vuln(match: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {
         "VulnerabilityID": vid,
         "Title": vid,
-        "PkgName": str(art.get("name") or ""),
+        "PkgName": grype_pkg_name(art),
         "InstalledVersion": str(art.get("version") or ""),
         "Severity": sev,
         "PrimaryURL": primary,

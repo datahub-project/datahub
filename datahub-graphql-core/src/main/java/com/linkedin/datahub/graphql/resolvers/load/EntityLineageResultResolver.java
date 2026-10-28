@@ -68,7 +68,8 @@ public class EntityLineageResultResolver
     @Nullable final Long startTimeMillis = input.getStartTimeMillis();
     @Nullable
     final Long endTimeMillis =
-        ResolverUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
+        ResolverUtils.getLineageEndTimeMillis(
+            context.getOperationContext(), input.getStartTimeMillis(), input.getEndTimeMillis());
     final Boolean includeGhostEntities =
         Optional.ofNullable(input.getIncludeGhostEntities()).orElse(false);
 
@@ -96,7 +97,7 @@ public class EntityLineageResultResolver
                     count != null ? count : 100,
                     1,
                     separateSiblings != null ? input.getSeparateSiblings() : false,
-                    input.getIncludeGhostEntities(),
+                    Boolean.TRUE.equals(input.getIncludeGhostEntities()),
                     new HashSet<>());
 
             Set<Urn> restrictedUrns = new HashSet<>();

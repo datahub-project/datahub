@@ -1,16 +1,16 @@
 package io.datahubproject.openapi.v3.controller;
 
+import static com.linkedin.metadata.Constants.DATASET_USAGE_STATISTICS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.PATCH_FIELD;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
-import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -31,6 +31,9 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -63,6 +66,7 @@ import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.RequestInputUtil;
+import io.datahubproject.openapi.util.SearchTemplateFlags;
 import io.datahubproject.openapi.v3.models.AspectItem;
 import io.datahubproject.openapi.v3.models.FacetMetadata;
 import io.datahubproject.openapi.v3.models.Filter;
@@ -149,7 +153,7 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, requestMap.keySet())) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, requestMap.keySet())) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
@@ -201,6 +205,17 @@ public class EntityController
                   "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
           @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
           String pitKeepAlive,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description = "Caller-selected search template URN (urn:li:searchTemplate:<id>).")
+          @RequestParam(value = "searchTemplate", required = false)
+          String searchTemplate,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description =
+                  "When true, the response includes the templates visited while choosing the result.")
+          @RequestParam(value = "includeExplain", required = false)
+          Boolean includeExplain,
       @RequestBody @Nonnull GenericEntityAspectsBodyV3 entityAspectsBody)
       throws URISyntaxException {
 
@@ -222,7 +237,8 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, resolvedEntityNames)) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, resolvedEntityNames)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
@@ -258,15 +274,18 @@ public class EntityController
                 .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
                 .withSearchFlags(
                     flags ->
-                        flags
-                            .setSkipCache(skipCache)
-                            .setSkipAggregates(skipAggregation)
-                            .setIncludeSoftDeleted(includeSoftDelete)
-                            .setSliceOptions(
-                                sliceId != null && sliceMax != null
-                                    ? new SliceOptions().setId(sliceId).setMax(sliceMax)
-                                    : null,
-                                SetMode.IGNORE_NULL)),
+                        SearchTemplateFlags.apply(
+                            flags
+                                .setSkipCache(skipCache)
+                                .setSkipAggregates(skipAggregation)
+                                .setIncludeSoftDeleted(includeSoftDelete)
+                                .setSliceOptions(
+                                    sliceId != null && sliceMax != null
+                                        ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                        : null,
+                                    SetMode.IGNORE_NULL),
+                            searchTemplate,
+                            includeExplain)),
             resolvedEntityNames,
             query,
             Optional.ofNullable(entityAspectsBody.getFilter())
@@ -277,15 +296,52 @@ public class EntityController
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
+    // This endpoint can scroll across multiple entity types at once, unlike
+    // GenericEntitiesController's single-type getEntities — so a result page can mix query and
+    // non-query entities. Query visibility varies per entity (subject-dataset scoped), so those
+    // must be filtered individually rather than folded into the uniform, type-level check the
+    // other entity types still get below.
+    List<Urn> otherUrns =
+        result.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .filter(urn -> !QUERY_ENTITY_NAME.equals(urn.getEntityType()))
+            .collect(Collectors.toList());
+    if (!otherUrns.isEmpty()
+        && !EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, otherUrns)) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
 
+    List<Urn> queryUrns =
+        result.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .filter(urn -> QUERY_ENTITY_NAME.equals(urn.getEntityType()))
+            .collect(Collectors.toList());
+    Set<Urn> viewableQueryUrns =
+        EntityAuthorizationUtils.filterAPIAuthorizedQueryUrns(opContext, queryUrns);
+    SearchEntityArray authorizedEntities =
+        new SearchEntityArray(
+            result.getEntities().stream()
+                .filter(
+                    e ->
+                        !QUERY_ENTITY_NAME.equals(e.getEntity().getEntityType())
+                            || viewableQueryUrns.contains(e.getEntity()))
+                .collect(Collectors.toList()));
+
+    // Known limitations, accepted and documented rather than implemented (would require scrolling
+    // to exhaustion, authorizing per batch, and either recomputing an exact total or reimplementing
+    // facet bucketing in application code — the pattern ListQueriesResolver uses for GraphQL, out
+    // of scope for this REST surface):
+    //  - totalCount below is result.getNumEntities(), the raw, unfiltered candidate count; when
+    //    the page mixes query and non-query entities, authorizedEntities can be a strict subset of
+    //    result.getEntities() (denied queries dropped), so the total can include queries the actor
+    //    can't see and the returned page can be underfilled relative to `count`.
+    //  - result.getMetadata() (facets) is computed by the search backend over the same raw,
+    //    unfiltered candidate set and isn't recomputed against the authorized subset either.
     return ResponseEntity.ok(
         buildScrollResult(
             opContext,
-            result.getEntities(),
+            authorizedEntities,
             result.getMetadata(),
             entityAspectsBody.getAspects(),
             withSystemMetadata,
@@ -333,7 +389,7 @@ public class EntityController
             authorizationChain,
             authentication,
             true);
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext, UPDATE, ImmutableSet.of(versionSetUrn, entityUrn))) {
       throw new UnauthorizedException(
           String.format(
@@ -386,7 +442,7 @@ public class EntityController
             authorizationChain,
             authentication,
             true);
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(
         opContext, UPDATE, ImmutableSet.of(versionSetUrn, entityUrn))) {
       throw new UnauthorizedException(
           String.format(
@@ -432,13 +488,12 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, UPDATE, entityName)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
-    }
-
+    // Per-URN auth after toMCPBatch (existence-aware + domains). Do not gate on type-level
+    // UPDATE: EntitySpec(type, "") has no DOMAIN field, so domain-scoped edit policies cannot
+    // match a type-only check (same rationale as create paths dropping type-level CREATE).
     AspectsBatch batch =
         toMCPBatch(opContext, jsonEntityPatchList, authentication.getActor(), ChangeType.PATCH);
+    assertBatchItemsAuthorized(opContext, authentication, batch.getItems());
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
@@ -496,12 +551,8 @@ public class EntityController
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityTypes)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
-    }
-
     // Build a single batch containing all entities from all types by combining individual batches
+    // (per-URN auth below; no type-level CREATE — domain-scoped policies cannot match empty URN).
     List<BatchItem> allBatchItems = new ArrayList<>();
 
     for (Iterator<String> it = root.fieldNames(); it.hasNext(); ) {
@@ -520,6 +571,7 @@ public class EntityController
             .items(allBatchItems)
             .retrieverContext(opContext.getRetrieverContext())
             .build(opContext);
+    assertBatchItemsAuthorized(opContext, authentication, allBatchItems);
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     // Group results by entity type for response structure
@@ -662,6 +714,10 @@ public class EntityController
         .scrollId(scrollId)
         .facets(facets)
         .totalCount(totalCount)
+        .routeChain(
+            searchResultMetadata != null && searchResultMetadata.hasRouteChain()
+                ? new ArrayList<>(searchResultMetadata.getRouteChain())
+                : null)
         .build();
   }
 
@@ -715,6 +771,28 @@ public class EntityController
                 if (timeseriesAspects.containsKey(u)) {
                   aspectItemMap.putAll(
                       toTimeseriesAspectItemMap(u, timeseriesAspects.get(u), withSystemMetadata));
+                }
+                aspectItemMap =
+                    TimeseriesAuthUtil.omitUnauthorizedTimeseriesAspects(
+                        opContext,
+                        u,
+                        aspectItemMap,
+                        name ->
+                            lookupAspectSpec(u, name).map(AspectSpec::isTimeseries).orElse(false));
+                aspectItemMap =
+                    SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, u, aspectItemMap);
+                aspectItemMap
+                    .keySet()
+                    .removeIf(
+                        aspectName ->
+                            EntityAuthorizationUtils.isQuerySqlAspectRestricted(
+                                opContext, u, aspectName));
+                if (aspectItemMap.containsKey(DATASET_USAGE_STATISTICS_ASPECT_NAME)) {
+                  EntityAuthorizationUtils.stripTopSqlQueriesFromRawAspect(
+                      opContext,
+                      u,
+                      DATASET_USAGE_STATISTICS_ASPECT_NAME,
+                      aspectItemMap.get(DATASET_USAGE_STATISTICS_ASPECT_NAME).getAspect().data());
                 }
 
                 return GenericEntityV3.builder().build(objectMapper, u, aspectItemMap);
@@ -986,11 +1064,24 @@ public class EntityController
         while (aspectItr.hasNext()) {
           Map.Entry<String, JsonNode> aspect = aspectItr.next();
 
-          if ("urn".equals(aspect.getKey())) {
+          if (RequestInputUtil.isEntityDocumentMetadataKey(aspect.getKey())) {
             continue;
           }
 
-          AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null);
+          boolean alternateValidation =
+              opContext.getValidationContext() != null
+                  && opContext.getValidationContext().isAlternateValidation();
+          final AspectSpec aspectSpec;
+          if (alternateValidation) {
+            // ProposedItem.build validates the aspect against the registry and rejects unknown
+            // names, so the spec is only needed for the typed items built below.
+            aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).orElse(null);
+          } else {
+            aspectSpec =
+                RequestInputUtil.requireAspectSpec(
+                    entityRegistry.getEntitySpec(entityUrn.getEntityType()), aspect.getKey());
+          }
+
           SystemMetadata systemMetadata = null;
           if (aspect.getValue().has("systemMetadata")) {
             systemMetadata =
@@ -1029,9 +1120,9 @@ public class EntityController
                   .setSystemMetadata(systemMetadata, SetMode.IGNORE_NULL)
                   .setAspect(genericAspect);
 
-          if (opContext.getValidationContext().isAlternateValidation()) {
+          if (alternateValidation) {
             items.add(ProposedItem.builder().build(mcp, auditStamp, entityRegistry));
-          } else if (aspectSpec != null) {
+          } else {
             if (ChangeType.PATCH == changeType) {
               items.add(
                   PatchItemImpl.builder()

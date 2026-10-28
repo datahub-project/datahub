@@ -1,0 +1,24 @@
+namespace com.linkedin.common
+
+/**
+ * Alternate identifiers an entity is also known by, used to resolve references that point at the
+ * same entity under a different identifier.
+ *
+ * System-owned: derived and written by GMS, not by ingestion clients. Currently holds a single
+ * field, lowercasedUrn.
+ */
+@Aspect = {
+  "name": "aliases"
+}
+record Aliases {
+  /**
+   * System-computed. The entity's own URN with the name lowercased in full, including any platform
+   * instance prefix; the platform and environment are unchanged. Indexed as an exact-match keyword,
+   * so a reference in any casing resolves to the entity's real URN in one batchable lookup.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  lowercasedUrn: optional Urn
+}

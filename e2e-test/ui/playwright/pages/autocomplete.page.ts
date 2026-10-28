@@ -43,7 +43,11 @@ export class AutocompletePage extends BasePage {
     this.logger?.step('navigateToHome');
     await this.suppressOnboardingOverlay();
     await this.navigate('/');
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    await this.waitForPageLoad();
+  }
+
+  async waitForPageLoad(): Promise<void> {
+    await this.page.waitForLoadState('domcontentloaded');
     await this.searchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
   }
 
@@ -51,6 +55,7 @@ export class AutocompletePage extends BasePage {
     this.logger?.step('typeInSearchBar', { query });
     await this.searchInput.click();
     await this.searchInput.type(query);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 

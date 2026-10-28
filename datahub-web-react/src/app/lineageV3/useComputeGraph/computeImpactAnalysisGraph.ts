@@ -10,8 +10,35 @@ import NodeBuilder from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGraph';
 import { limitNodesPerLevel } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesPerLevel';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
+import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { EntityType, LineageDirection } from '@types';
+
+/** Default cap for module-view preview density when filters have not been expanded. */
+export const MODULE_VIEW_MAX_PER_LEVEL = 2;
+
+/**
+ * Module view applies a per-level node cap after pagination. That cap must be at least as large as
+ * the root node's filter limits, otherwise Show More / Show All update the badge but never reveal
+ * nodes. Only the root is considered so default child filter limits (LINEAGE_FILTER_PAGINATION)
+ * do not inflate the compact module preview.
+ */
+export function getModuleViewMaxPerLevel(nodes: NodeContext['nodes'], rootUrn: string): number {
+    let maxPerLevel = MODULE_VIEW_MAX_PER_LEVEL;
+    const root = nodes.get(rootUrn);
+    if (!root) {
+        return maxPerLevel;
+    }
+    const upstreamLimit = root.filters?.[LineageDirection.Upstream]?.limit;
+    const downstreamLimit = root.filters?.[LineageDirection.Downstream]?.limit;
+    if (typeof upstreamLimit === 'number') {
+        maxPerLevel = Math.max(maxPerLevel, upstreamLimit);
+    }
+    if (typeof downstreamLimit === 'number') {
+        maxPerLevel = Math.max(maxPerLevel, downstreamLimit);
+    }
+    return maxPerLevel;
+}
 
 /**
  * Computes an "impact analysis" graph, which shows the upstream and downstream entities of a given entity.
@@ -22,6 +49,7 @@ import { EntityType, LineageDirection } from '@types';
  * @param urn The focused or "home" entity's urn
  * @param type The type of the home entity
  * @param context LineageNodesContext that represents the current state of the graph
+ * @param entityRegistry Resolves urns to entity types, to identify transformations and queries
  * @param ignoreSchemaFieldStatus Whether to ignore schema field status when computing the graph
  * @param prevHideTransformations Previous value of `hideTransformations` to determine if the graph should be reset
  * @param offsets Map of offsets for each direction, used to position nodes in the graph when called to render a subgraph
@@ -39,6 +67,7 @@ export default function computeImpactAnalysisGraph(
     urn: string,
     type: EntityType,
     context: Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType'>,
+    entityRegistry: EntityRegistry,
     ignoreSchemaFieldStatus: boolean,
     prevHideTransformations?: boolean,
     offsets: Map<LineageDirection, [number, number]> = new Map(),
@@ -46,10 +75,11 @@ export default function computeImpactAnalysisGraph(
     isModuleView?: boolean,
     showFilterNodes = true,
 ) {
-    const { adjacencyList, rootType, hideTransformations } = context;
+    const { adjacencyList, rootType, hideTransformations, nodes } = context;
 
     let levelsInfo: LevelsInfo = {};
     let levelsMap = new Map<string, number>();
+    const moduleMaxPerLevel = isModuleView ? getModuleViewMaxPerLevel(nodes, urn) : MODULE_VIEW_MAX_PER_LEVEL;
     // Limit entity nodes per level in module view
     const transformDisplayedNodes = isModuleView
         ? (displayedNodes: LineageNode[]) => {
@@ -58,7 +88,7 @@ export default function computeImpactAnalysisGraph(
                   rootUrn: urn,
                   rootType,
                   adjacencyList,
-                  maxPerLevel: 2,
+                  maxPerLevel: moduleMaxPerLevel,
               });
               levelsInfo = result.levelsInfo;
               levelsMap = result.levelsMap;
@@ -69,6 +99,7 @@ export default function computeImpactAnalysisGraph(
     const { newGraphStore, orderIndices, roots, displayedNodes, parents, lineageFilters } = computeLineageGraph(
         urn,
         context,
+        entityRegistry,
         ignoreSchemaFieldStatus,
         { nodeFilter, transformDisplayedNodes, createFilterNodes: showFilterNodes },
     );

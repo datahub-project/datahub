@@ -13,11 +13,6 @@ export function buildNotionDocumentsIngestionState() {
     document_import_mode: ${CONTEXT_DOCUMENT_IMPORT_MODE}
     hierarchy:
       enabled: true
-
-sink:
-  type: datahub-rest
-  config:
-    server: "\${DATAHUB_GMS_URL}"
 `;
 
     return buildIngestionSourceState({

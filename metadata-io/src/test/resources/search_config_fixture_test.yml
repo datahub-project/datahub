@@ -3,6 +3,7 @@ fieldConfigurations:
   excludeColumns:
     searchFields:
       remove:
+        - columns
         - fieldPaths
         - fieldPaths.*
 

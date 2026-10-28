@@ -8,22 +8,27 @@ import { buildMetricContextParent } from '@app/entityV2/metric/MetricEntity.util
 import MetricPreview from '@app/entityV2/metric/preview/MetricPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import {
+    EntityProfile,
+    LineageTab,
+    PropertiesTab,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarLineageSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { EntityTab } from '@app/entityV2/shared/types';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 
 import { useGetMetricQuery } from '@graphql/metric.generated';
 import { EntityType, Metric, SearchResult } from '@types';
 
-const headerDropdownItems = new Set([EntityMenuItems.SHARE]);
+const headerDropdownItems = new Set([EntityMenuItems.CHANGE_HISTORY, EntityMenuItems.SHARE]);
 
 export class MetricEntity implements Entity<Metric> {
     type: EntityType = EntityType.Metric;
@@ -72,6 +77,9 @@ export class MetricEntity implements Entity<Metric> {
             component: SidebarEntityHeader,
         },
         {
+            component: SidebarLineageSection,
+        },
+        {
             component: SidebarOwnerSection,
         },
         {
@@ -92,13 +100,20 @@ export class MetricEntity implements Entity<Metric> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: SummaryTab,
                 properties: {
                     hideEditDescription: true,
                 },
             },
             {
+                name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
+                component: LineageTab,
+            },
+            {
                 name: i18next.t('entity.types:tab.properties', 'Properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
             },
         ];
@@ -149,6 +164,10 @@ export class MetricEntity implements Entity<Metric> {
         return data?.info?.name || data?.id || data?.urn;
     };
 
+    createdTime = (data: Metric) => {
+        return data?.info?.created?.time;
+    };
+
     getLineageVizConfig = (entity: Metric) => {
         return {
             urn: entity?.urn,
@@ -156,6 +175,7 @@ export class MetricEntity implements Entity<Metric> {
             type: EntityType.Metric,
             platform: entity?.platform,
             deprecation: entity?.deprecation,
+            upstreamSchemaFieldUrns: entity?.metricUpstreams?.fieldUpstreams?.map((edge) => edge.destination.urn),
         };
     };
 

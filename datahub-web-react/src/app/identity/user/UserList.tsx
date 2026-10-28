@@ -1,5 +1,5 @@
-import { UsergroupAddOutlined } from '@ant-design/icons';
-import { Button, Empty, List, Pagination } from 'antd';
+import { Button, EmptyState, Pagination } from '@components';
+import { UserPlus } from '@phosphor-icons/react/dist/csr/UserPlus';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,8 +21,8 @@ import {
 } from '@app/onboarding/config/UsersOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
 import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListUsersQuery } from '@graphql/user.generated';
@@ -34,14 +34,12 @@ const UserContainer = styled.div`
     overflow: auto;
 `;
 
-const UserStyledList = styled(List)`
+const UserStyledList = styled.div`
     display: flex;
     flex-direction: column;
     overflow: auto;
-    &&& {
-        width: 100%;
-        border-color: ${(props) => props.theme.colors.border};
-    }
+    width: 100%;
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const UserPaginationContainer = styled.div`
@@ -124,10 +122,11 @@ export const UserList = () => {
                         <Button
                             id={USERS_INVITE_LINK_ID}
                             disabled={!canManageUserCredentials}
-                            type="text"
+                            variant="text"
+                            icon={{ icon: UserPlus }}
                             onClick={() => setIsViewingInviteToken(true)}
                         >
-                            <UsergroupAddOutlined /> {t('users.inviteButton')}
+                            {t('users.inviteButton')}
                         </Button>
                     </div>
                     <SearchBar
@@ -152,14 +151,11 @@ export const UserList = () => {
                         hideRecommendations
                     />
                 </TabToolbar>
-                <UserStyledList
-                    bordered
-                    locale={{
-                        emptyText: <Empty description={t('users.emptyTitle')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                    }}
-                    dataSource={usersList}
-                    renderItem={(item: any) => (
+                <UserStyledList>
+                    {usersList.length === 0 && <EmptyState title={t('users.emptyTitle')} size="sm" />}
+                    {usersList.map((item: any) => (
                         <UserListItem
+                            key={item.urn}
                             onDelete={() => handleDelete(item.urn as string)}
                             user={item as CorpUser}
                             canManageUserCredentials={canManageUserCredentials}
@@ -171,16 +167,15 @@ export const UserList = () => {
                             setRolesSearchQuery={setRolesSearchQuery}
                             refetch={usersRefetch}
                         />
-                    )}
-                />
+                    ))}
+                </UserStyledList>
                 <UserPaginationContainer>
                     <Pagination
-                        style={{ margin: 40 }}
-                        current={page}
-                        pageSize={pageSize}
+                        currentPage={page}
+                        itemsPerPage={pageSize}
                         total={totalUsers}
                         showLessItems
-                        onChange={onChangePage}
+                        onPageChange={onChangePage}
                         showSizeChanger={false}
                     />
                 </UserPaginationContainer>

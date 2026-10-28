@@ -2,11 +2,11 @@ import { FileUploadFailureType } from '@components/components/Editor/types';
 
 import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
 import { PersonaType } from '@app/homeV2/shared/types';
-import { Direction } from '@app/lineage/types';
+import { Direction } from '@app/lineageV3/types';
 import { FilterMode } from '@app/search/utils/constants';
 
 import {
-    AllowedValue,
+    AllowedValueInput,
     DataHubPageModuleType,
     DataHubViewType,
     EntityType,
@@ -74,11 +74,10 @@ export enum EventType {
     ActivatePolicyEvent,
     ShowSimplifiedHomepageEvent,
     ShowStandardHomepageEvent,
-    ShowV2ThemeEvent,
-    RevertV2ThemeEvent,
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
     IngestionSourceConfigurationImpressionEvent,
@@ -181,6 +180,10 @@ export enum EventType {
     IngestionExitConfigurationEvent,
     CloseCreateSourceEducationModalEvent,
     ImportDocumentsEvent,
+    GoToLogicalParentEvent,
+    GoToPhysicalChildEvent,
+    GoToLogicalParentColumnEvent,
+    GoToPhysicalChildColumnEvent,
 }
 
 /**
@@ -609,14 +612,6 @@ export interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
 }
 
-export interface ShowV2ThemeEvent extends BaseEvent {
-    type: EventType.ShowV2ThemeEvent;
-}
-
-export interface RevertV2ThemeEvent extends BaseEvent {
-    type: EventType.RevertV2ThemeEvent;
-}
-
 export interface HomePageExploreAllClickEvent extends BaseEvent {
     type: EventType.HomePageExploreAllClickEvent;
 }
@@ -646,6 +641,12 @@ export interface MoveDomainEvent extends BaseEvent {
     type: EventType.MoveDomainEvent;
     oldParentDomainUrn?: string;
     parentDomainUrn?: string;
+}
+
+export interface MoveDataProductEvent extends BaseEvent {
+    type: EventType.MoveDataProductEvent;
+    oldParentDataProductUrn?: string;
+    parentDataProductUrn?: string;
 }
 
 // Managed Ingestion Events
@@ -969,7 +970,7 @@ interface StructuredPropertyEvent extends BaseEvent {
     appliesTo: string[];
     qualifiedName?: string;
     allowedAssetTypes?: string[];
-    allowedValues?: AllowedValue[];
+    allowedValues?: AllowedValueInput[];
     cardinality?: PropertyCardinality;
     showInFilters?: boolean;
     isHidden: boolean;
@@ -1072,7 +1073,7 @@ export interface HomePageClickEvent extends BaseEvent {
 export interface SearchBarFilterEvent extends BaseEvent {
     type: EventType.SearchBarFilter;
     field: string; // the filter field
-    values: string[]; // the values being filtered for
+    filterValues: string[]; // the values being filtered for
 }
 
 export interface NavBarExpandCollapseEvent extends BaseEvent {
@@ -1369,6 +1370,30 @@ export interface ImportDocumentsEvent extends BaseEvent {
     failedCount: number;
 }
 
+interface GoToLogicalParentEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
+interface GoToLogicalParentColumnEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentColumnEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildColumnEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildColumnEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1427,13 +1452,12 @@ export type Event =
     | CreateGlossaryEntityEvent
     | CreateDomainEvent
     | MoveDomainEvent
+    | MoveDataProductEvent
     | CreateIngestionSourceEvent
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
     | ShowStandardHomepageEvent
-    | ShowV2ThemeEvent
-    | RevertV2ThemeEvent
     | SsoEvent
     | CreateViewEvent
     | UpdateViewEvent
@@ -1528,4 +1552,8 @@ export type Event =
     | IngestionEnterSyncScheduleEvent
     | IngestionExitConfigurationEvent
     | CloseCreateSourceEducationModalEvent
-    | ImportDocumentsEvent;
+    | ImportDocumentsEvent
+    | GoToLogicalParentEvent
+    | GoToPhysicalChildEvent
+    | GoToLogicalParentColumnEvent
+    | GoToPhysicalChildColumnEvent;

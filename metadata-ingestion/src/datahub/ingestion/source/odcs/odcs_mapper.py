@@ -1,13 +1,28 @@
 import json
+import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple, Type, TypeGuard
+from typing import (
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeGuard,
+    Union,
+)
+from urllib.parse import urlparse
 
-from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
+    ALL_ENV_TYPES,
     datahub_guid,
+    make_assertion_source,
     make_assertion_urn,
     make_data_platform_urn,
+    make_data_product_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
     make_tag_urn,
     make_user_urn,
 )
@@ -17,17 +32,73 @@ from datahub.ingestion.source.odcs.odcs_config import (
     ODCS_PLATFORM,
     SERVER_TYPE_TO_PLATFORM,
     ODCSSourceConfig,
+    SchemaAssertionCompatibility,
     ServerMapping,
 )
+from datahub.ingestion.source.odcs.odcs_constants import (
+    ASSERTION_SCHEMA_COMPLIANCE,
+    LOGICAL_TYPE_MAP,
+    METRIC_DUPLICATE_COUNT,
+    METRIC_DUPLICATE_VALUES,
+    METRIC_INVALID_VALUES,
+    METRIC_MISSING_VALUES,
+    METRIC_NULL_VALUES,
+    METRIC_ROW_COUNT,
+    METRIC_VALID_VALUES,
+    ODCS_ACTOR,
+    OWNER_ROLE_MAP,
+    PLATFORM_GLUE,
+    PLATFORM_NAME_PARTS,
+    PROP_API_VERSION,
+    PROP_ASSERTION,
+    PROP_DATA_PRODUCT,
+    PROP_DOMAIN,
+    PROP_ID,
+    PROP_PHYSICAL_NAME,
+    PROP_QUALITY_RULE_COUNT,
+    PROP_RULE,
+    PROP_RULE_ARGUMENTS,
+    PROP_RULE_BUSINESS_IMPACT,
+    PROP_RULE_DIMENSION,
+    PROP_RULE_ID,
+    PROP_RULE_METRIC,
+    PROP_RULE_NAME,
+    PROP_RULE_SEVERITY,
+    PROP_RULE_TYPE,
+    PROP_RULE_UNIT,
+    PROP_SCHEMA_NAME,
+    PROP_SCOPE,
+    PROP_SOURCE_FILE,
+    PROP_STATUS,
+    PROP_TENANT,
+    PROP_VERSION,
+    RULE_TYPE_CUSTOM,
+    RULE_TYPE_LIBRARY,
+    RULE_TYPE_SQL,
+    RULE_TYPE_TEXT,
+    SCOPE_PROPERTY,
+    SCOPE_SCHEMA,
+    SEMANTIC_TYPE_MEASURE,
+    SERVER_TYPE_ICEBERG,
+    SYNONYM_STATUS_DEPRECATED,
+    UNIT_PERCENT,
+    UNIT_ROWS,
+    VARIABLE_MARKER,
+)
 from datahub.ingestion.source.odcs.odcs_models import (
+    ODCSAuthoritativeDefinition,
+    ODCSContext,
     ODCSContract,
+    ODCSDescription,
+    ODCSEnumValue,
     ODCSProperty,
+    ODCSQualityArguments,
     ODCSQualityRule,
     ODCSSchemaObject,
     ODCSServer,
 )
 from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
+    AiContextClass,
     AssertionInfoClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -35,15 +106,15 @@ from datahub.metadata.schema_classes import (
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
     AuditStampClass,
-    BooleanTypeClass,
-    BytesTypeClass,
     CustomAssertionInfoClass,
-    DataPlatformInfoClass,
+    DataContractPropertiesClass,
+    DataContractStateClass,
+    DataContractStatusClass,
     DataPlatformInstanceClass,
+    DataQualityContractClass,
     DatasetPropertiesClass,
-    DateTypeClass,
+    DeprecationClass,
     EdgeClass,
-    EnumTypeClass,
     FieldAssertionInfoClass,
     FieldAssertionTypeClass,
     FieldMetricAssertionClass,
@@ -55,108 +126,46 @@ from datahub.metadata.schema_classes import (
     InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     LogicalParentClass,
-    MapTypeClass,
+    MetadataChangeProposalClass,
     NullTypeClass,
-    NumberTypeClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    PlatformTypeClass,
-    RecordTypeClass,
     RowCountTotalClass,
-    SchemaAssertionCompatibilityClass,
     SchemaAssertionInfoClass,
+    SchemaContractClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaFieldSpecClass,
     SchemaMetadataClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
-    StringTypeClass,
+    StatusClass,
     TagAssociationClass,
-    TimeTypeClass,
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
 )
+from datahub.metadata.urns import DataProductUrn, DatasetUrn
+from datahub.specific.dataproduct import DataProductPatchBuilder
+from datahub.utilities.str_enum import StrEnum
+from datahub.utilities.urns.error import InvalidUrnError
 
-# ODCS team `role` value -> DataHub OwnershipType. Anything not listed here
-# falls back to TECHNICAL_OWNER.
-_OWNER_ROLE_MAP: Dict[str, str] = {
-    "owner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "dataOwner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "data_owner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "technical_owner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "technicalOwner": OwnershipTypeClass.TECHNICAL_OWNER,
-    "business_owner": OwnershipTypeClass.BUSINESS_OWNER,
-    "businessOwner": OwnershipTypeClass.BUSINESS_OWNER,
-    "steward": OwnershipTypeClass.DATA_STEWARD,
-    "data_steward": OwnershipTypeClass.DATA_STEWARD,
-    "dataSteward": OwnershipTypeClass.DATA_STEWARD,
-}
 
-# ODCS library metric vocabulary, spec-exact. v3.1 names the library key
-# `metric` (with `rule` as a deprecated alias); v3.0.x used `rule`. The names
-# below are the only library rules either spec version defines — anything else
-# falls through to a CustomAssertion so intent is preserved, never guessed.
-_METRIC_NULL_VALUES = "nullValues"  # v3.1, property-level
-_METRIC_MISSING_VALUES = "missingValues"  # v3.1, property-level
-_METRIC_INVALID_VALUES = "invalidValues"  # v3.1, property-level
-_METRIC_DUPLICATE_VALUES = "duplicateValues"  # v3.1, property- or schema-level
-_METRIC_ROW_COUNT = "rowCount"  # v3.0 + v3.1, schema-level
-_METRIC_DUPLICATE_COUNT = "duplicateCount"  # v3.0 name for duplicateValues
-_METRIC_VALID_VALUES = "validValues"  # v3.0 name for invalidValues
+class RefusalKind(StrEnum):
+    UNMAPPABLE = "unmappable"
+    UNRESOLVED_VARIABLE = "unresolved_variable"
+    EXPLICITLY_UNBOUND = "explicitly_unbound"
+    NO_TABLE_NAME = "no_table_name"
+    INVALID_OVERRIDE = "invalid_override"
 
-_UNIT_ROWS = "rows"
-_UNIT_PERCENT = "percent"
 
-# ODCS rule types.
-_RULE_TYPE_LIBRARY = "library"
-_RULE_TYPE_TEXT = "text"
-_RULE_TYPE_SQL = "sql"
-_RULE_TYPE_CUSTOM = "custom"
+@dataclass(frozen=True)
+class BindingRefusal:
+    """Why a schema entry was left without a physical binding."""
 
-# ODCS `logicalType` (and a few common `physicalType` spellings) -> the DataHub
-# SchemaFieldDataType union member. ODCS logical/physical types are free-form
-# strings, so this is a best-effort mapping; unmapped types fall back to
-# NullType and are surfaced via SchemaBuildResult.unmapped_types rather than
-# silently swallowed (a silent NullType hides real type information).
-_LOGICAL_TYPE_MAP: Dict[str, Type] = {
-    "string": StringTypeClass,
-    "text": StringTypeClass,
-    "varchar": StringTypeClass,
-    "char": StringTypeClass,
-    "uuid": StringTypeClass,
-    "integer": NumberTypeClass,
-    "int": NumberTypeClass,
-    "bigint": NumberTypeClass,
-    "smallint": NumberTypeClass,
-    "long": NumberTypeClass,
-    "number": NumberTypeClass,
-    "numeric": NumberTypeClass,
-    "decimal": NumberTypeClass,
-    "double": NumberTypeClass,
-    "float": NumberTypeClass,
-    "boolean": BooleanTypeClass,
-    "bool": BooleanTypeClass,
-    "date": DateTypeClass,
-    "timestamp": TimeTypeClass,
-    "timestamp_tz": TimeTypeClass,
-    "timestamp_ntz": TimeTypeClass,
-    "datetime": TimeTypeClass,
-    "time": TimeTypeClass,
-    "object": RecordTypeClass,
-    "record": RecordTypeClass,
-    "struct": RecordTypeClass,
-    "json": RecordTypeClass,
-    "variant": RecordTypeClass,
-    "array": ArrayTypeClass,
-    "list": ArrayTypeClass,
-    "map": MapTypeClass,
-    "bytes": BytesTypeClass,
-    "binary": BytesTypeClass,
-    "enum": EnumTypeClass,
-}
+    kind: RefusalKind
+    message: str
 
 
 @dataclass
@@ -173,8 +182,25 @@ class PhysicalBinding:
     schema_entry: ODCSSchemaObject
     logical_urn: str
     physical_urn: Optional[str]
-    unmapped_reason: Optional[str] = None
+    refusal: Optional[BindingRefusal] = None
     name_passthrough: bool = False
+    # The table as SQL names it: the URN's dataset name without a platform
+    # instance prefix. None when unbound, or when an override's name may start
+    # with an instance that the contract's server does not confirm.
+    table_name: Optional[str] = None
+
+    @property
+    def unmapped_reason(self) -> Optional[str]:
+        return self.refusal.message if self.refusal else None
+
+    @property
+    def refusal_kind(self) -> Optional[RefusalKind]:
+        return self.refusal.kind if self.refusal else None
+
+    @property
+    def unresolved_variable(self) -> bool:
+        # Reported as a warning, not as an unmappable server.
+        return self.refusal_kind is RefusalKind.UNRESOLVED_VARIABLE
 
 
 @dataclass
@@ -185,58 +211,45 @@ class SchemaBuildResult:
     unmapped_types: List[str] = field(default_factory=list)
 
 
-def _description_to_str(description: object) -> Optional[str]:
-    """ODCS allows description to be a string or an object (e.g. {purpose, usage, limitations})."""
+def _description_to_str(
+    description: Optional[Union[str, ODCSDescription]],
+) -> Optional[str]:
     if description is None:
         return None
     if isinstance(description, str):
         return description.strip() or None
-    if isinstance(description, dict):
-        parts: List[str] = []
-        for key in ("purpose", "usage", "limitations", "summary", "description"):
-            v = description.get(key)
-            if isinstance(v, str) and v.strip():
-                parts.append(f"**{key}**: {v.strip()}")
-        if parts:
-            return "\n\n".join(parts)
-    return None
+    fields: List[Tuple[str, Optional[str]]] = [
+        ("purpose", description.purpose),
+        ("usage", description.usage),
+        ("limitations", description.limitations),
+    ]
+    # Render non-spec string extras (e.g. summary) so producer prose isn't dropped.
+    for key, value in (description.model_extra or {}).items():
+        if isinstance(value, str):
+            fields.append((key, value))
+    parts = [
+        f"**{key}**: {value.strip()}"
+        for key, value in fields
+        if value and value.strip()
+    ]
+    return "\n\n".join(parts) or None
 
 
-# ----------------------------------------------------------------------------
-# Platform registration
-# ----------------------------------------------------------------------------
+def odcs_to_logical_dataset_name(
+    contract: ODCSContract,
+    schema_entry: ODCSSchemaObject,
+    config: ODCSSourceConfig,
+) -> str:
+    """Compose the logical `odcs` dataset name for a `schema[]` entry.
 
-
-def odcs_platform_info_mcp() -> MetadataChangeProposalWrapper:
-    """Emit the `odcs` DataPlatformInfo aspect at ingestion time.
-
-    The platform is also registered at GMS boot via the bootstrap MCP added in
-    PR #17332. This runtime emission is kept deliberately: ingestion is
-    version-decoupled from the server, so a run may target a GMS that predates
-    that entry, and emitting the aspect guarantees the platform's display name
-    and logo exist regardless of server version (canonical pattern:
-    confluence_source.py).
-
-    The fields below must stay identical to the boot-time entry. DataPlatformInfo
-    is a whole-aspect upsert, not a field-level merge, so a divergent run would
-    clobber the registry-provided aspect rather than reinforce it -- e.g.
-    omitting logoUrl here would wipe the logo on servers that already have #17332.
+    Derived from `logical_dataset_name_template`; this is the identifier
+    `dataset_pattern` matches against and the URN's name segment.
     """
-    return MetadataChangeProposalWrapper(
-        entityUrn=make_data_platform_urn(ODCS_PLATFORM),
-        aspect=DataPlatformInfoClass(
-            name=ODCS_PLATFORM,
-            type=PlatformTypeClass.OTHERS,
-            datasetNameDelimiter=".",
-            displayName="Open Data Contract Standard",
-            logoUrl="assets/platforms/odcslogo.png",
-        ),
+    return config.logical_dataset_name_template.format(
+        contract_id=contract.id,
+        schema_name=schema_entry.name,
+        contract_version=contract.version or "",
     )
-
-
-# ----------------------------------------------------------------------------
-# URN + binding resolution
-# ----------------------------------------------------------------------------
 
 
 def odcs_to_logical_dataset_urn(
@@ -249,11 +262,7 @@ def odcs_to_logical_dataset_urn(
     The name is derived from `logical_dataset_name_template`; the platform is
     always `odcs`. This URN is the platform-of-record identity ODCS owns.
     """
-    name = config.logical_dataset_name_template.format(
-        contract_id=contract.id,
-        schema_name=schema_entry.name,
-        contract_version=contract.version or "",
-    )
+    name = odcs_to_logical_dataset_name(contract, schema_entry, config)
     return make_dataset_urn_with_platform_instance(
         platform=ODCS_PLATFORM,
         name=name,
@@ -271,23 +280,6 @@ class ResolvedServer:
     mapping: Optional[ServerMapping]
 
 
-# DataHub platform id -> the ODCSServer fields (in order) that qualify a table
-# name, matching each platform connector's URN naming convention. `schema_` is
-# the pydantic-safe name of the ODCS `schema` server field. Platforms absent
-# here (e.g. oracle, whose ODCS server entry carries only host/port/serviceName)
-# cannot be composed — a dotted physicalName or an explicit override is needed.
-_PLATFORM_NAME_PARTS: Dict[str, Tuple[str, ...]] = {
-    "postgres": ("database", "schema_"),
-    "redshift": ("database", "schema_"),
-    "mssql": ("database", "schema_"),
-    "snowflake": ("database", "schema_"),
-    "trino": ("catalog", "schema_"),
-    "databricks": ("catalog", "schema_"),
-    "bigquery": ("project", "dataset"),
-    "mysql": ("database",),
-}
-
-
 def _override_for_server(
     server_name: str, overrides: List[ServerMapping]
 ) -> Optional[ServerMapping]:
@@ -299,32 +291,105 @@ def _override_for_server(
     return next((m for m in overrides if m.match_any), None)
 
 
+# AWS Glue endpoints, including FIPS and China regions.
+_GLUE_ENDPOINT_HOST = re.compile(r"^glue(-fips)?\.[a-z0-9-]+\.amazonaws\.com(\.cn)?$")
+# A Glue Iceberg REST `warehouse` naming the account's default catalog.
+_AWS_ACCOUNT_ID = re.compile(r"^\d{12}$")
+
+
+def _unresolved_variable(what: str, value: object) -> BindingRefusal:
+    return BindingRefusal(
+        RefusalKind.UNRESOLVED_VARIABLE,
+        f"{what} '{value}' contains an unresolved ODCS variable; resolve it or "
+        "supply a physical_urn_overrides entry",
+    )
+
+
+def _server_type(server: ODCSServer) -> str:
+    return (server.type or "").strip().lower()
+
+
+def _is_iceberg_server(server: ODCSServer) -> bool:
+    return _server_type(server) == SERVER_TYPE_ICEBERG
+
+
+def _url_host(url: str) -> str:
+    # A scheme-less `glue.<region>.amazonaws.com/iceberg` has no parsed host.
+    try:
+        return urlparse(url if "://" in url else f"//{url}").hostname or ""
+    except ValueError:
+        # Malformed (e.g. a stray bracket): an unknown host, not a fatal error.
+        return ""
+
+
+def _server_platform(server: ODCSServer) -> Union[str, BindingRefusal, None]:
+    """The DataHub platform for a server, a refusal, or None if unmapped.
+
+    An `iceberg` server whose REST catalog is AWS Glue's default catalog holds
+    tables the Glue connector catalogs, so it binds to `glue`; other Iceberg
+    catalogs bind to `iceberg`. A refusal means this server's platform cannot be
+    known, and stops the search: binding a later server in its place would link
+    the contract to a table it may not describe.
+    """
+    server_type = _server_type(server)
+    if VARIABLE_MARKER in server_type:
+        return _unresolved_variable(f"server '{server.server}' type", server.type)
+    if server_type != SERVER_TYPE_ICEBERG:
+        return SERVER_TYPE_TO_PLATFORM.get(server_type)
+    catalog_url = server.catalogUrl or ""
+    if VARIABLE_MARKER in catalog_url:
+        return _unresolved_variable(f"server '{server.server}' catalogUrl", catalog_url)
+    if not _GLUE_ENDPOINT_HOST.match(_url_host(catalog_url)):
+        return SERVER_TYPE_TO_PLATFORM.get(server_type)
+    # On a Glue catalog, `warehouse` selects the catalog the table lives in.
+    warehouse = (server.warehouse or "").strip()
+    if VARIABLE_MARKER in warehouse:
+        return _unresolved_variable(f"server '{server.server}' warehouse", warehouse)
+    if warehouse and not _AWS_ACCOUNT_ID.match(warehouse):
+        # e.g. `<account>:s3tablescatalog/<bucket>`: a federated catalog the
+        # Glue connector does not catalog.
+        return BindingRefusal(
+            RefusalKind.UNMAPPABLE,
+            f"server '{server.server}' warehouse '{warehouse}' names a Glue catalog "
+            "other than the account's default, which the Glue connector does not "
+            "catalog; supply a physical_urn_overrides entry",
+        )
+    return PLATFORM_GLUE
+
+
 def _resolve_server(
     contract: ODCSContract, config: ODCSSourceConfig
-) -> Tuple[Optional[ResolvedServer], Optional[str]]:
+) -> Tuple[Optional[ResolvedServer], Optional[BindingRefusal]]:
     """Pick the first contract server that maps to a DataHub platform.
 
     The platform comes from a matching `server_overrides` entry when it sets
-    one, else from the spec-required `servers[].type` via
-    SERVER_TYPE_TO_PLATFORM. Returns `(resolved, None)` on success or
-    `(None, reason)` when no server is mappable.
+    one, else from the spec-required `servers[].type` (see
+    _server_platform). Returns `(resolved, None)` on success or
+    `(None, refusal)` when no server is mappable or a server is refused.
     """
     if not contract.servers:
-        return None, "contract declares no servers[]"
+        return None, BindingRefusal(
+            RefusalKind.UNMAPPABLE, "contract declares no servers[]"
+        )
     unmappable: List[str] = []
     for server in contract.servers:
         mapping = _override_for_server(server.server, config.server_overrides)
-        platform = (
-            mapping.platform if mapping is not None and mapping.platform else None
-        ) or SERVER_TYPE_TO_PLATFORM.get((server.type or "").strip().lower())
+        if mapping is not None and mapping.platform:
+            platform: Optional[str] = mapping.platform
+        else:
+            choice = _server_platform(server)
+            if isinstance(choice, BindingRefusal):
+                return None, choice
+            platform = choice
         if platform:
             return ResolvedServer(
                 server=server, platform=platform, mapping=mapping
             ), None
         unmappable.append(f"{server.server} (type={server.type or 'missing'})")
-    return None, (
+    return None, BindingRefusal(
+        RefusalKind.UNMAPPABLE,
         "no servers[] entry maps to a DataHub platform; "
-        f"unmappable: {', '.join(unmappable)}"
+        f"unmappable: {', '.join(unmappable)}",
     )
 
 
@@ -333,32 +398,54 @@ def _compose_physical_name(
     server: ODCSServer,
     table: str,
     convert_to_lowercase: bool,
-) -> Tuple[Optional[str], Optional[str], bool]:
+) -> Tuple[Optional[str], Optional[BindingRefusal], bool]:
     """Compose the fully-qualified physical dataset name for a platform.
 
     Follows each platform connector's URN naming convention (postgres:
     `database.schema.table`, bigquery: `project.dataset.table`, ...). A `table`
     that already contains a dot is passed through as-is, on the assumption the
     contract author supplied a pre-qualified physicalName. Returns
-    `(name, None, passthrough)` on success or `(None, reason, False)` when the
+    `(name, None, passthrough)` on success or `(None, refusal, False)` when the
     name cannot be composed. Lowercasing applies only to platforms whose
     connectors lowercase by default (see LOWERCASE_BY_DEFAULT_PLATFORMS).
+    Values containing an unresolved `${...}` variable are refused.
     """
+    # ODCS v3.2 (RFC 0050) allows ${VAR} / ${VAR:-default} in any string. This
+    # source does not resolve them; composing one into a URN would bind the
+    # logical dataset to a dataset that does not exist.
+    if VARIABLE_MARKER in table:
+        return None, _unresolved_variable("physicalName", table), False
     lowercase = convert_to_lowercase and platform in LOWERCASE_BY_DEFAULT_PLATFORMS
     if "." in table:
         return table.lower() if lowercase else table, None, True
-    parts_spec = _PLATFORM_NAME_PARTS.get(platform)
+    parts_spec = (
+        PLATFORM_NAME_PARTS[SERVER_TYPE_ICEBERG]
+        if _is_iceberg_server(server)
+        else PLATFORM_NAME_PARTS.get(platform)
+    )
     if parts_spec is None:
         return (
             None,
-            f"platform '{platform}' has no name-composition rule; supply a "
-            "fully-qualified dotted physicalName or a physical_urn_overrides entry",
+            BindingRefusal(
+                RefusalKind.UNMAPPABLE,
+                f"platform '{platform}' has no name-composition rule; supply a "
+                "fully-qualified dotted physicalName or a physical_urn_overrides "
+                "entry",
+            ),
             False,
         )
     values: List[str] = []
     missing: List[str] = []
     for attr in parts_spec:
         value = getattr(server, attr)
+        if value and VARIABLE_MARKER in str(value):
+            return (
+                None,
+                _unresolved_variable(
+                    f"server '{server.server}' {attr.rstrip('_')}", value
+                ),
+                False,
+            )
         if value:
             values.append(str(value))
         else:
@@ -366,12 +453,97 @@ def _compose_physical_name(
     if missing:
         return (
             None,
-            f"server '{server.server}' is missing {'/'.join(missing)} needed to "
-            f"qualify a {platform} table name",
+            BindingRefusal(
+                RefusalKind.UNMAPPABLE,
+                f"server '{server.server}' is missing {'/'.join(missing)} needed to "
+                f"qualify a {platform} table name",
+            ),
             False,
         )
     name = ".".join([*values, table])
     return name.lower() if lowercase else name, None, False
+
+
+def _override_table_name(
+    urn: DatasetUrn,
+    resolved: Optional[ResolvedServer],
+    server_overrides: List[ServerMapping],
+) -> Optional[str]:
+    # An instance prefix cannot be told apart from the table path. Only the
+    # instance of the contract's own server on the same platform is stripped;
+    # a name that may start with any other configured instance is not guessed
+    # at. A mapping pinned to another platform can't prefix this URN.
+    name = urn.name
+    lowered = name.lower()
+    platform = urn.get_data_platform_urn().platform_name
+    if resolved is not None and resolved.mapping is not None:
+        instance = resolved.mapping.platform_instance
+        if instance and resolved.platform == platform:
+            prefix = f"{instance.lower()}."
+            if lowered.startswith(prefix):
+                return name[len(prefix) :]
+    if any(
+        m.platform_instance
+        and m.platform in (None, platform)
+        and lowered.startswith(f"{m.platform_instance.lower()}.")
+        for m in server_overrides
+    ):
+        return None
+    return name
+
+
+def _override_binding(
+    index: int,
+    schema_entry: ODCSSchemaObject,
+    logical_urn: str,
+    override: Optional[str],
+    resolved: Optional[ResolvedServer],
+    server_overrides: List[ServerMapping],
+) -> PhysicalBinding:
+    override_urn = (override or "").strip()
+    if not override_urn:
+        refusal = BindingRefusal(
+            RefusalKind.EXPLICITLY_UNBOUND,
+            "explicitly unbound by physical_urn_overrides",
+        )
+    elif VARIABLE_MARKER in override_urn:
+        refusal = BindingRefusal(
+            RefusalKind.UNRESOLVED_VARIABLE,
+            f"physical_urn_overrides value '{override_urn}' contains an unresolved "
+            "ODCS variable",
+        )
+    else:
+        try:
+            urn: Optional[DatasetUrn] = DatasetUrn.from_string(override_urn)
+        except InvalidUrnError:
+            urn = None
+        if urn is None:
+            refusal = BindingRefusal(
+                RefusalKind.INVALID_OVERRIDE,
+                f"physical_urn_overrides value '{override_urn}' is not a dataset URN",
+            )
+        # GMS only stores the FabricType spelling, so `prod` names no dataset.
+        elif urn.env not in ALL_ENV_TYPES:
+            refusal = BindingRefusal(
+                RefusalKind.INVALID_OVERRIDE,
+                f"physical_urn_overrides value '{override_urn}' has env '{urn.env}', "
+                f"not one of {', '.join(sorted(ALL_ENV_TYPES))}",
+            )
+        else:
+            return PhysicalBinding(
+                index=index,
+                schema_entry=schema_entry,
+                logical_urn=logical_urn,
+                physical_urn=urn.urn(),
+                table_name=_override_table_name(urn, resolved, server_overrides),
+            )
+    return PhysicalBinding(
+        index=index,
+        schema_entry=schema_entry,
+        logical_urn=logical_urn,
+        physical_urn=None,
+        refusal=refusal,
+    )
 
 
 def odcs_to_physical_bindings(
@@ -394,24 +566,20 @@ def odcs_to_physical_bindings(
         return bindings
 
     overrides = config.physical_urn_overrides.get(contract.id)
-    resolved, server_reason = _resolve_server(contract, config)
+    resolved, server_refusal = _resolve_server(contract, config)
 
     for index, schema_entry in enumerate(contract.schema_):
         logical_urn = odcs_to_logical_dataset_urn(contract, schema_entry, config)
 
         if overrides is not None and schema_entry.name in overrides:
-            override_urn = (overrides[schema_entry.name] or "").strip()
             bindings.append(
-                PhysicalBinding(
+                _override_binding(
                     index=index,
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
-                    physical_urn=override_urn or None,
-                    unmapped_reason=(
-                        None
-                        if override_urn
-                        else "explicitly unbound by physical_urn_overrides"
-                    ),
+                    override=overrides[schema_entry.name],
+                    resolved=resolved,
+                    server_overrides=config.server_overrides,
                 )
             )
             continue
@@ -424,7 +592,10 @@ def odcs_to_physical_bindings(
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=None,
-                    unmapped_reason="schema entry has no physicalName or name",
+                    refusal=BindingRefusal(
+                        RefusalKind.NO_TABLE_NAME,
+                        "schema entry has no physicalName or name",
+                    ),
                 )
             )
             continue
@@ -435,12 +606,12 @@ def odcs_to_physical_bindings(
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=None,
-                    unmapped_reason=server_reason,
+                    refusal=server_refusal,
                 )
             )
             continue
 
-        physical_name, compose_reason, passthrough = _compose_physical_name(
+        physical_name, compose_refusal, passthrough = _compose_physical_name(
             platform=resolved.platform,
             server=resolved.server,
             table=table,
@@ -453,7 +624,7 @@ def odcs_to_physical_bindings(
                     schema_entry=schema_entry,
                     logical_urn=logical_urn,
                     physical_urn=None,
-                    unmapped_reason=compose_reason,
+                    refusal=compose_refusal,
                 )
             )
             continue
@@ -475,14 +646,10 @@ def odcs_to_physical_bindings(
                 logical_urn=logical_urn,
                 physical_urn=physical_urn,
                 name_passthrough=passthrough,
+                table_name=physical_name,
             )
         )
     return bindings
-
-
-# ----------------------------------------------------------------------------
-# Shared owner / tag / property helpers
-# ----------------------------------------------------------------------------
 
 
 def _make_tag_associations(
@@ -523,7 +690,7 @@ def _make_owners(
         if not username:
             continue
         role_key = (member.role or "").strip()
-        ownership_type = _OWNER_ROLE_MAP.get(
+        ownership_type = OWNER_ROLE_MAP.get(
             role_key, OwnershipTypeClass.TECHNICAL_OWNER
         )
         if username.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
@@ -543,6 +710,26 @@ def _make_owners(
     return owners
 
 
+def unmapped_owner_roles(contract: ODCSContract) -> List[str]:
+    """Distinct non-empty `team[].role` values that fall back to TECHNICAL_OWNER.
+
+    An empty/absent role legitimately defaults; a *named* role the map does not
+    know (e.g. `producer`, `consumer`, or a typo) is silently coerced, so the
+    source can surface it for telemetry. Mirrors the eligibility rules in
+    `_make_owners` (skip departed members and members with no identifier).
+    """
+    roles: Set[str] = set()
+    for member in contract.team_members:
+        if member.dateOut:
+            continue
+        if not (member.username or member.name):
+            continue
+        role_key = (member.role or "").strip()
+        if role_key and role_key not in OWNER_ROLE_MAP:
+            roles.add(role_key)
+    return sorted(roles)
+
+
 def _walk_properties(
     properties: Optional[List[ODCSProperty]], parent_path: str = ""
 ) -> Iterable[Tuple[str, ODCSProperty]]:
@@ -556,11 +743,6 @@ def _walk_properties(
             yield from _walk_properties(prop.properties, path)
 
 
-# ----------------------------------------------------------------------------
-# Canonical schema metadata (the new piece)
-# ----------------------------------------------------------------------------
-
-
 def _map_field_type(prop: ODCSProperty) -> Tuple[SchemaFieldDataTypeClass, bool]:
     """Map an ODCS property's logical/physical type to a SchemaFieldDataType.
 
@@ -571,7 +753,7 @@ def _map_field_type(prop: ODCSProperty) -> Tuple[SchemaFieldDataTypeClass, bool]
     for candidate in (prop.logicalType, prop.physicalType):
         if not candidate:
             continue
-        type_cls = _LOGICAL_TYPE_MAP.get(candidate.strip().lower())
+        type_cls = LOGICAL_TYPE_MAP.get(candidate.strip().lower())
         if type_cls is not None:
             return SchemaFieldDataTypeClass(type=type_cls()), False
     return SchemaFieldDataTypeClass(type=NullTypeClass()), True
@@ -585,6 +767,60 @@ def _native_data_type(prop: ODCSProperty) -> str:
     schema model and must not be null).
     """
     return prop.physicalType or prop.logicalType or "unknown"
+
+
+def _backtick_fence(text: str, minimum: int) -> str:
+    # Longer than any backtick run in the text, so the text cannot close it.
+    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
+    return "`" * max(minimum, longest + 1)
+
+
+def _field_description(prop: ODCSProperty) -> Optional[str]:
+    """The property description followed by how the column is derived.
+
+    The source rewrites the whole schema aspect every run, so appended sections
+    never accumulate and disappear when the contract drops them.
+    """
+    parts = [_description_to_str(prop.description)]
+    transform_description = _description_to_str(prop.transformDescription)
+    transform_logic = _description_to_str(prop.transformLogic)
+    if transform_description or transform_logic:
+        derivation = "**Derivation:**"
+        if transform_description:
+            derivation += f" {transform_description}"
+        if transform_logic:
+            fence = _backtick_fence(transform_logic, minimum=3)
+            derivation += f"\n\n{fence}sql\n{transform_logic}\n{fence}"
+        parts.append(derivation)
+    if prop.enum:
+        parts.append(
+            "**Allowed values:**\n"
+            + "\n".join(_enum_value_line(entry) for entry in prop.enum)
+        )
+    return "\n\n".join(p for p in parts if p) or None
+
+
+def _one_line(text: Optional[str]) -> Optional[str]:
+    # A newline would end a list item and let the rest render as new items.
+    return " ".join((text or "").split()) or None
+
+
+def _code_span(text: str) -> str:
+    fence = _backtick_fence(text, minimum=1)
+    # A span that starts or ends with a backtick needs a space inside the fence.
+    pad = " " if text.startswith("`") or text.endswith("`") else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
+def _enum_value_line(entry: ODCSEnumValue) -> str:
+    line = f"- {_code_span(entry.value)}"
+    label = _one_line(entry.label)
+    if label and label != entry.value:
+        line += f" ({label})"
+    description = _one_line(entry.description)
+    if description:
+        line += f": {description}"
+    return line
 
 
 def build_schema_metadata(
@@ -612,7 +848,7 @@ def build_schema_metadata(
                 fieldPath=field_path,
                 type=data_type,
                 nativeDataType=_native_data_type(prop),
-                description=_description_to_str(prop.description),
+                description=_field_description(prop),
                 nullable=not bool(prop.required),
                 isPartOfKey=bool(prop.primaryKey),
                 globalTags=GlobalTagsClass(tags=tag_assoc) if tag_assoc else None,
@@ -634,16 +870,55 @@ def build_schema_metadata(
     )
 
 
-# ----------------------------------------------------------------------------
-# Logical dataset aspects
-# ----------------------------------------------------------------------------
-
-
 def _count_quality_rules(schema_entry: ODCSSchemaObject) -> int:
     count = len(schema_entry.quality or [])
     for _, prop in _walk_properties(schema_entry.properties):
         count += len(prop.quality or [])
     return count
+
+
+# Schemes GMS UrlValidator accepts for institutionalMemory links; keep in sync
+# with InstitutionalMemoryLinkUrls.ALLOWED_SCHEMES. ODCS allows relative paths
+# and non-web URLs (e.g. jdbc:), which GMS rejects.
+_LINK_URL_SCHEMES: FrozenSet[str] = frozenset({"http", "https", "ftp", "mailto"})
+# Characters java.net.URI never accepts unescaped, as found in hand-written
+# links (spaces in Confluence titles, Grafana {}, Kibana |). Not full URI
+# validation: other syntax errors are still rejected by GMS.
+_URI_ILLEGAL_CHARS = re.compile(r'[\s\x00-\x1f\x7f-\x9f"<>\\^`{|}]')
+
+
+def _is_storable_link_url(url: str) -> bool:
+    """Whether GMS accepts `url` as an institutionalMemory link."""
+    if _URI_ILLEGAL_CHARS.search(url):
+        return False
+    try:
+        return urlparse(url).scheme in _LINK_URL_SCHEMES
+    except ValueError:
+        return False
+
+
+def _authoritative_definitions(
+    contract: ODCSContract, schema_entries: List[ODCSSchemaObject]
+) -> List[ODCSAuthoritativeDefinition]:
+    defs = list(contract.authoritativeDefinitions or [])
+    for schema_entry in schema_entries:
+        defs.extend(schema_entry.authoritativeDefinitions or [])
+        for _, prop in _walk_properties(schema_entry.properties):
+            defs.extend(prop.authoritativeDefinitions or [])
+    return defs
+
+
+def unstorable_authoritative_definition_urls(contract: ODCSContract) -> List[str]:
+    """Distinct contract/schema/property authoritativeDefinitions URLs that GMS
+    would reject as links (relative paths, other schemes), so the source can
+    report them; `_institutional_memory_mcp` skips them."""
+    return sorted(
+        {
+            d.url
+            for d in _authoritative_definitions(contract, contract.schema_ or [])
+            if d.url and not _is_storable_link_url(d.url)
+        }
+    )
 
 
 def _institutional_memory_mcp(
@@ -655,14 +930,10 @@ def _institutional_memory_mcp(
     ingesting host's filesystem). The source-file basename is carried in
     DatasetProperties.customProperties instead.
     """
-    seen: set = set()
+    seen: Set[str] = set()
     elements: List[InstitutionalMemoryMetadataClass] = []
-    defs = list(contract.authoritativeDefinitions or [])
-    defs.extend(schema_entry.authoritativeDefinitions or [])
-    for _, prop in _walk_properties(schema_entry.properties):
-        defs.extend(prop.authoritativeDefinitions or [])
-    for d in defs:
-        if not d.url or d.url in seen:
+    for d in _authoritative_definitions(contract, [schema_entry]):
+        if not d.url or d.url in seen or not _is_storable_link_url(d.url):
             continue
         seen.add(d.url)
         elements.append(
@@ -674,7 +945,7 @@ def _institutional_memory_mcp(
                 # cause needless write amplification.
                 createStamp=AuditStampClass(
                     time=0,
-                    actor="urn:li:corpuser:datahub",
+                    actor=ODCS_ACTOR,
                 ),
             )
         )
@@ -684,6 +955,109 @@ def _institutional_memory_mcp(
         entityUrn=logical_urn,
         aspect=InstitutionalMemoryClass(elements=elements),
     )
+
+
+def _deprecation(contract: ODCSContract, deprecated: bool) -> DeprecationClass:
+    return DeprecationClass(
+        deprecated=deprecated,
+        note=f"Marked deprecated in ODCS contract {contract.id}" if deprecated else "",
+        actor=ODCS_ACTOR,
+    )
+
+
+def _field_aspect_mcps(
+    contract: ODCSContract, schema_entry: ODCSSchemaObject, logical_urn: str
+) -> List[MetadataChangeProposalWrapper]:
+    """Per-field `deprecation` and `aiContext` aspects (ODCS v3.2).
+
+    An explicit `deprecated` (true or false) is asserted, so reverting the flag
+    in the contract clears the deprecation; an absent key emits nothing.
+    """
+    mcps: List[MetadataChangeProposalWrapper] = []
+    for field_path, prop in _walk_properties(schema_entry.properties):
+        field_urn = make_schema_field_urn(logical_urn, field_path)
+        if prop.deprecated is not None:
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=field_urn,
+                    aspect=_deprecation(contract, prop.deprecated),
+                )
+            )
+        if prop.synonyms is None:
+            continue
+        names = [
+            s if isinstance(s, str) else s.synonym
+            for s in prop.synonyms
+            # RFC 0041: a deprecated synonym is a former name, not a current one.
+            if isinstance(s, str)
+            or (s.status or "").strip().lower() != SYNONYM_STATUS_DEPRECATED
+        ]
+        # A present key is asserted even when empty, so removing every synonym
+        # from the contract clears the earlier ones. The source merges these
+        # synonyms into the field's existing aiContext when it can read it.
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=field_urn,
+                aspect=AiContextClass(synonyms=[name for name in names if name]),
+            )
+        )
+    return mcps
+
+
+def _dataset_description(
+    contract: ODCSContract, schema_entry: ODCSSchemaObject
+) -> Optional[str]:
+    """Table description, then its grain, then the contract description.
+
+    A multi-table contract repeats the contract description on every table:
+    each logical dataset is read on its own, by people and by Ask DataHub.
+    """
+    grain = _description_to_str(schema_entry.dataGranularityDescription)
+    parts = [
+        _description_to_str(schema_entry.description),
+        f"**Grain:** {grain}" if grain else None,
+        _description_to_str(contract.description),
+        _context_section([contract.context, schema_entry.context]),
+    ]
+    return "\n\n".join(p for p in parts if p) or None
+
+
+def _context_section(contexts: List[Optional[ODCSContext]]) -> Optional[str]:
+    """v3.2 `context`, contract level first, as one description section.
+
+    Datasets have no aiContext aspect, so the guidance goes where people and
+    Ask DataHub both read it. `${VAR}` in it is prose and kept verbatim.
+    """
+    instructions: List[str] = []
+    constraints: List[str] = []
+    statements: List[str] = []
+    for context in contexts:
+        if context is None:
+            continue
+        text = _description_to_str(context.instructions)
+        if text:
+            instructions.append(text)
+        for c in context.constraints or []:
+            constraint = _one_line(c.constraint)
+            if constraint:
+                constraints.append(f"- {constraint}")
+        for v in context.verifiedStatements or []:
+            question = _one_line(v.question)
+            if not question:
+                continue
+            statement = f"- Q: {question}"
+            answer = _one_line(v.answer)
+            if answer:
+                statement += f" A: {answer}"
+            statements.append(statement)
+    parts = list(instructions)
+    if constraints:
+        parts.append("**Constraints:**\n" + "\n".join(constraints))
+    if statements:
+        parts.append("**Verified Q&A:**\n" + "\n".join(statements))
+    if not parts:
+        return None
+    return "\n\n".join(["**Guidance for AI and analysts:**", *parts])
 
 
 def odcs_to_logical_dataset_mcps(
@@ -703,32 +1077,25 @@ def odcs_to_logical_dataset_mcps(
     """
     mcps: List[MetadataChangeProposalWrapper] = []
 
-    # Per-table description wins; the contract description is the fallback so a
-    # multi-table contract doesn't smear one description across every table.
-    description = _description_to_str(schema_entry.description) or _description_to_str(
-        contract.description
-    )
+    description = _dataset_description(contract, schema_entry)
     custom_props: Dict[str, str] = {
-        "odcs.id": contract.id,
-        "odcs.schemaName": schema_entry.name,
-        "odcs.qualityRuleCount": str(_count_quality_rules(schema_entry)),
+        PROP_ID: contract.id,
+        PROP_SCHEMA_NAME: schema_entry.name,
+        PROP_QUALITY_RULE_COUNT: str(_count_quality_rules(schema_entry)),
     }
-    if contract.version:
-        custom_props["odcs.version"] = contract.version
-    if contract.apiVersion:
-        custom_props["odcs.apiVersion"] = contract.apiVersion
-    if contract.status:
-        custom_props["odcs.status"] = contract.status
-    if schema_entry.physicalName:
-        custom_props["odcs.physicalName"] = schema_entry.physicalName
-    if source_file:
-        custom_props["odcs.sourceFile"] = source_file
-    if contract.domain:
-        custom_props["odcs.domain"] = contract.domain
-    if contract.dataProduct:
-        custom_props["odcs.dataProduct"] = contract.dataProduct
-    if contract.tenant:
-        custom_props["odcs.tenant"] = contract.tenant
+    # (key, value) pairs emitted only when the value is truthy.
+    for key, value in (
+        (PROP_VERSION, contract.version),
+        (PROP_API_VERSION, contract.apiVersion),
+        (PROP_STATUS, contract.status),
+        (PROP_PHYSICAL_NAME, schema_entry.physicalName),
+        (PROP_SOURCE_FILE, source_file),
+        (PROP_DOMAIN, contract.domain),
+        (PROP_DATA_PRODUCT, contract.dataProduct),
+        (PROP_TENANT, contract.tenant),
+    ):
+        if value:
+            custom_props[key] = value
 
     if contract.name and schema_entry.name:
         display_name: Optional[str] = f"{contract.name} — {schema_entry.name}"
@@ -787,6 +1154,15 @@ def odcs_to_logical_dataset_mcps(
     if inst_mem is not None:
         mcps.append(inst_mem)
 
+    if schema_entry.deprecated is not None:
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=logical_urn,
+                aspect=_deprecation(contract, schema_entry.deprecated),
+            )
+        )
+    mcps.extend(_field_aspect_mcps(contract, schema_entry, logical_urn))
+
     return mcps, schema_result.unmapped_types
 
 
@@ -804,16 +1180,13 @@ def odcs_to_logical_parent_mcp(
     )
 
 
-# ----------------------------------------------------------------------------
-# Assertions — emitted against the LOGICAL dataset
-#
-# ODCS quality rules are the producer's published expectations for the dataset
-# the contract describes, so the Assertion entities target the logical `odcs`
-# dataset (the assertion's `entity` is the logical URN). Propagation of those
-# expectations onto bound physical datasets is handled by a separate DataHub
-# mechanism via the PhysicalInstanceOf relationship — this source never writes
-# assertions against physical URNs.
-# ----------------------------------------------------------------------------
+# Assertions are emitted against the LOGICAL dataset: ODCS quality rules are the
+# producer's published expectations for the dataset the contract describes, so
+# the Assertion entities target the logical `odcs` dataset (the assertion's
+# `entity` is the logical URN). Propagation of those expectations onto bound
+# physical datasets is handled by a separate DataHub mechanism via the
+# PhysicalInstanceOf relationship — this source never writes assertions against
+# physical URNs.
 
 
 @dataclass
@@ -832,19 +1205,21 @@ class _RuleContext:
         return self.rule.name or self.rule.id or f"<unnamed:{self.scope}:{self.index}>"
 
 
-def _num(v: object) -> AssertionStdParameterClass:
+def _num(v: Union[float, int]) -> AssertionStdParameterClass:
     """Normalize a numeric threshold to a stable string form.
 
     Both `5` (int) and `5.0` (float) render as `"5"`; `5.5` renders as `"5.5"`.
     """
     return AssertionStdParameterClass(
-        value=f"{float(v):g}",  # type: ignore[arg-type]
+        value=f"{float(v):g}",
         type=AssertionStdParameterTypeClass.NUMBER,
     )
 
 
-def _is_plain_number(value: object) -> TypeGuard[float]:
-    """True for int/float but NOT bool (bool is an int subclass in Python)."""
+def _is_plain_number(
+    value: Optional[Union[float, int, str, bool]],
+) -> TypeGuard[float]:
+    # bool is an int subclass in Python, so exclude it explicitly.
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
@@ -942,7 +1317,7 @@ def _fail_threshold_from_rule(
     ):
         threshold_type = (
             FieldValuesFailThresholdTypeClass.PERCENTAGE
-            if unit == _UNIT_PERCENT
+            if unit == UNIT_PERCENT
             else FieldValuesFailThresholdTypeClass.COUNT
         )
         return FieldValuesFailThresholdClass(type=threshold_type, value=int(tolerance))
@@ -983,6 +1358,20 @@ def _render_thresholds(rule: ODCSQualityRule) -> List[str]:
     return parts
 
 
+def _arguments_json(arguments: Optional[ODCSQualityArguments]) -> Optional[str]:
+    if arguments is None:
+        return None
+    # by_alias + exclude_none so provenance matches the source document, and
+    # extra="allow" keeps engine-specific keys.
+    payload = arguments.model_dump(by_alias=True, exclude_none=True)
+    if not payload:
+        return None
+    try:
+        return json.dumps(payload, sort_keys=True)
+    except (TypeError, ValueError):
+        return None
+
+
 def _library_rule_logic(rule: ODCSQualityRule) -> Optional[str]:
     """Stable, human-readable rendition of a library rule for custom `logic`.
 
@@ -994,11 +1383,9 @@ def _library_rule_logic(rule: ODCSQualityRule) -> Optional[str]:
     if not metric:
         return None
     parts = [metric]
-    if rule.arguments:
-        try:
-            parts.append(f"arguments={json.dumps(rule.arguments, sort_keys=True)}")
-        except (TypeError, ValueError):
-            pass
+    args_json = _arguments_json(rule.arguments)
+    if args_json is not None:
+        parts.append(f"arguments={args_json}")
     if rule.validValues is not None:
         try:
             parts.append(f"validValues={json.dumps(rule.validValues)}")
@@ -1048,32 +1435,28 @@ def _custom_props_for_rule(ctx: _RuleContext) -> Dict[str, str]:
     """
     rule = ctx.rule
     props: Dict[str, str] = {
-        "odcs.rule": "true",
-        "odcs.scope": ctx.scope,
-        "odcs.id": ctx.contract_id,
+        PROP_RULE: "true",
+        PROP_SCOPE: ctx.scope,
+        PROP_ID: ctx.contract_id,
     }
-    if rule.id:
-        props["odcs.rule.id"] = rule.id
-    if rule.name:
-        props["odcs.rule.name"] = rule.name
-    metric = rule.effective_metric
-    if metric:
-        props["odcs.rule.metric"] = metric
-    if rule.unit:
-        props["odcs.rule.unit"] = rule.unit
-    if rule.arguments:
-        try:
-            props["odcs.rule.arguments"] = json.dumps(rule.arguments, sort_keys=True)
-        except (TypeError, ValueError):
-            pass
-    if rule.dimension:
-        props["odcs.rule.dimension"] = rule.dimension
-    if rule.severity:
-        props["odcs.rule.severity"] = rule.severity
-    if rule.businessImpact:
-        props["odcs.rule.businessImpact"] = rule.businessImpact
-    if rule.type:
-        props["odcs.rule.type"] = rule.type
+    # (key, value) pairs emitted only when the value is truthy.
+    for key, value in (
+        (PROP_RULE_ID, rule.id),
+        (PROP_RULE_NAME, rule.name),
+        (PROP_RULE_METRIC, rule.effective_metric),
+        (PROP_RULE_UNIT, rule.unit),
+        (PROP_RULE_DIMENSION, rule.dimension),
+        (PROP_RULE_SEVERITY, rule.severity),
+        (PROP_RULE_BUSINESS_IMPACT, rule.businessImpact),
+        (PROP_RULE_TYPE, rule.type),
+    ):
+        if value:
+            props[key] = value
+    # arguments stays special-cased: the typed model is serialized via
+    # _arguments_json, which returns None when there is nothing to emit.
+    args_json = _arguments_json(rule.arguments)
+    if args_json is not None:
+        props[PROP_RULE_ARGUMENTS] = args_json
     return props
 
 
@@ -1084,14 +1467,27 @@ def _rule_external_url(rule: ODCSQualityRule) -> Optional[str]:
     return None
 
 
+def _rule_display_description(ctx: _RuleContext) -> str:
+    # An assertion's `description` is what the UI shows as its name (assertion
+    # list, dataset Contract tab, etc.). ODCS rules frequently omit a
+    # description, which would otherwise surface as blank / "No description
+    # found", so synthesise a concise label from whatever the rule carries.
+    explicit = _description_to_str(ctx.rule.description)
+    if explicit:
+        return explicit
+    rule = ctx.rule
+    subject = rule.name or rule.effective_metric or rule.type or "quality rule"
+    return f"{subject} on `{ctx.column}`" if ctx.column else subject
+
+
 def _assertion_info_template(
     ctx: _RuleContext, assertion_type: str
 ) -> AssertionInfoClass:
     """Shared header for an AssertionInfoClass; caller sets the sub-aspect."""
     return AssertionInfoClass(
         type=assertion_type,
-        source=mce_builder.make_assertion_source(),
-        description=_description_to_str(ctx.rule.description),
+        source=make_assertion_source(),
+        description=_rule_display_description(ctx),
         customProperties=_custom_props_for_rule(ctx),
         externalUrl=_rule_external_url(ctx.rule),
     )
@@ -1222,9 +1618,7 @@ def _build_custom_assertion(
     assertion_urn = _stable_assertion_urn(ctx, rule_kind="custom")
     resolved_type = custom_type or ctx.rule.effective_metric or ctx.rule.type or "odcs"
     field_urn = (
-        mce_builder.make_schema_field_urn(ctx.entity_urn, ctx.column)
-        if ctx.column
-        else None
+        make_schema_field_urn(ctx.entity_urn, ctx.column) if ctx.column else None
     )
     info = _assertion_info_template(ctx, AssertionTypeClass.CUSTOM)
     info.customAssertion = CustomAssertionInfoClass(
@@ -1238,7 +1632,7 @@ def _build_custom_assertion(
     )
 
 
-def _iter_schema_rules(
+def iter_schema_rules(
     schema_entry: ODCSSchemaObject,
 ) -> Iterable[Tuple[ODCSQualityRule, Optional[str], str]]:
     """Yield (rule, column, scope) for rules attached to one schema entry.
@@ -1248,10 +1642,10 @@ def _iter_schema_rules(
     field path).
     """
     for rule in schema_entry.quality or []:
-        yield rule, None, "schema"
+        yield rule, None, SCOPE_SCHEMA
     for field_path, prop in _walk_properties(schema_entry.properties):
         for rule in prop.quality or []:
-            yield rule, field_path, "property"
+            yield rule, field_path, SCOPE_PROPERTY
 
 
 @dataclass
@@ -1282,10 +1676,10 @@ def _route_library_rule(
 ) -> Optional[Tuple[str, MetadataChangeProposalWrapper]]:
     rule = ctx.rule
     metric = rule.effective_metric
-    unit = (rule.unit or _UNIT_ROWS).strip().lower()
-    args = rule.arguments or {}
+    unit = (rule.unit or UNIT_ROWS).strip().lower()
+    args = rule.arguments
 
-    if metric == _METRIC_NULL_VALUES:
+    if metric == METRIC_NULL_VALUES:
         if ctx.column is None:
             return _custom_or_skip(ctx, trace)
         if _must_be_zero(rule):
@@ -1305,15 +1699,15 @@ def _route_library_rule(
             return _custom_or_skip(ctx, trace)
         metric_type = (
             FieldMetricTypeClass.NULL_PERCENTAGE
-            if unit == _UNIT_PERCENT
+            if unit == UNIT_PERCENT
             else FieldMetricTypeClass.NULL_COUNT
         )
         return _build_field_metric_assertion(
             ctx, metric=metric_type, operator=op_opt, params=params_opt
         )
 
-    if metric in (_METRIC_DUPLICATE_VALUES, _METRIC_DUPLICATE_COUNT):
-        if args.get("properties"):
+    if metric in (METRIC_DUPLICATE_VALUES, METRIC_DUPLICATE_COUNT):
+        if args is not None and args.properties:
             # Multi-column uniqueness (schema-level duplicateValues) has no
             # native DataHub metric; preserve as custom.
             return _custom_or_skip(ctx, trace)
@@ -1329,9 +1723,11 @@ def _route_library_rule(
         # inverting it into a unique-percentage bound would change semantics.
         return _custom_or_skip(ctx, trace)
 
-    if metric in (_METRIC_INVALID_VALUES, _METRIC_VALID_VALUES):
-        valid_values = args.get("validValues") or rule.validValues
-        pattern = args.get("pattern")
+    if metric in (METRIC_INVALID_VALUES, METRIC_VALID_VALUES):
+        valid_values = (
+            args.validValues if args is not None else None
+        ) or rule.validValues
+        pattern = args.pattern if args is not None else None
         if ctx.column is None or (valid_values and pattern):
             return _custom_or_skip(ctx, trace)
         fail_threshold = _fail_threshold_from_rule(rule, unit)
@@ -1367,14 +1763,14 @@ def _route_library_rule(
             )
         return _custom_or_skip(ctx, trace)
 
-    if metric == _METRIC_MISSING_VALUES:
+    if metric == METRIC_MISSING_VALUES:
         # "value is in an author-defined missing list (possibly including
         # null)" has no native metric; NOT_IN plus null handling would change
         # semantics, so the rule is preserved as custom.
         return _custom_or_skip(ctx, trace)
 
-    if metric == _METRIC_ROW_COUNT:
-        if unit == _UNIT_PERCENT:
+    if metric == METRIC_ROW_COUNT:
+        if unit == UNIT_PERCENT:
             # A relative row count only makes sense against some baseline the
             # contract does not define; preserve as custom.
             return _custom_or_skip(ctx, trace)
@@ -1398,20 +1794,20 @@ def _route_and_build(
     in-place so the source can report aggregate counters.
     """
     rule = ctx.rule
-    rule_type = (rule.type or _RULE_TYPE_LIBRARY).strip().lower()
+    rule_type = (rule.type or RULE_TYPE_LIBRARY).strip().lower()
 
-    if rule_type == _RULE_TYPE_SQL:
+    if rule_type == RULE_TYPE_SQL:
         if rule.query:
             op_opt, params_opt = _operator_and_params_from_threshold(rule)
             if op_opt is not None and params_opt is not None:
                 return _build_sql_assertion(ctx, operator=op_opt, params=params_opt)
         return _custom_or_skip(ctx, trace)
 
-    if rule_type == _RULE_TYPE_CUSTOM:
+    if rule_type == RULE_TYPE_CUSTOM:
         return _custom_or_skip(ctx, trace, custom_type=rule.engine)
 
-    if rule_type == _RULE_TYPE_TEXT:
-        return _custom_or_skip(ctx, trace, custom_type=_RULE_TYPE_TEXT)
+    if rule_type == RULE_TYPE_TEXT:
+        return _custom_or_skip(ctx, trace, custom_type=RULE_TYPE_TEXT)
 
     # library (the default)
     if rule.used_deprecated_rule_key and api_version.startswith("3.1"):
@@ -1419,10 +1815,32 @@ def _route_and_build(
     return _route_library_rule(ctx, trace)
 
 
+# `{{object}}` is an escaped brace pair in some templating tools, not the
+# placeholder, so a doubled brace is left alone.
+_OBJECT_PLACEHOLDER_RE = re.compile(r"(?<![{$])\$?\{object\}(?!\})")
+
+
+def has_object_placeholder(query: str) -> bool:
+    return _OBJECT_PLACEHOLDER_RE.search(query) is not None
+
+
+def has_object_reference(text: str) -> bool:
+    """Whether `{object}` is left in the text other than as an escaped `{{object}}`.
+
+    Catches a mistyped placeholder such as `{object}}` that is not substituted.
+    """
+    return "{object}" in text.replace("{{object}}", "")
+
+
+def substitute_object_placeholder(query: str, table: str) -> str:
+    return _OBJECT_PLACEHOLDER_RE.sub(lambda _: table, query)
+
+
 def odcs_to_assertion_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
     logical_urn: str,
+    bound_table: Optional[str] = None,
 ) -> Tuple[List[str], List[MetadataChangeProposalWrapper], AssertionRoutingTrace]:
     """Emit Assertion entities for every rule on one schema entry.
 
@@ -1436,7 +1854,13 @@ def odcs_to_assertion_mcps(
     trace = AssertionRoutingTrace()
     api_version = (contract.apiVersion or "").lstrip("v")
 
-    for index, (rule, column, scope) in enumerate(_iter_schema_rules(schema_entry)):
+    for index, (rule, column, scope) in enumerate(iter_schema_rules(schema_entry)):
+        if bound_table and rule.query:
+            # Before routing, so the SQL assertion and the custom-assertion
+            # fallback show the same query.
+            rule = rule.model_copy(
+                update={"query": substitute_object_placeholder(rule.query, bound_table)}
+            )
         ctx = _RuleContext(
             rule=rule,
             column=column,
@@ -1456,18 +1880,30 @@ def odcs_to_assertion_mcps(
     return assertion_urns, mcps, trace
 
 
-_SCHEMA_ASSERTION_COMPATIBILITY = {
-    "EXACT_MATCH": SchemaAssertionCompatibilityClass.EXACT_MATCH,
-    "SUPERSET": SchemaAssertionCompatibilityClass.SUPERSET,
-    "SUBSET": SchemaAssertionCompatibilityClass.SUBSET,
-}
+def _without_measures(schema_entry: ODCSSchemaObject) -> ODCSSchemaObject:
+    """The schema entry minus v3.2 `semanticType: measure` properties.
+
+    A measure is an aggregate expression (`transformLogic`), not a column of the
+    physical table, so the schema-compliance assertion must not require it.
+    """
+
+    def keep(props: Optional[List[ODCSProperty]]) -> Optional[List[ODCSProperty]]:
+        if props is None:
+            return None
+        return [
+            p.model_copy(update={"properties": keep(p.properties)})
+            for p in props
+            if (p.semanticType or "").strip().lower() != SEMANTIC_TYPE_MEASURE
+        ]
+
+    return schema_entry.model_copy(update={"properties": keep(schema_entry.properties)})
 
 
 def odcs_to_schema_assertion_mcps(
     contract: ODCSContract,
     schema_entry: ODCSSchemaObject,
     logical_urn: str,
-    compatibility: str,
+    compatibility: SchemaAssertionCompatibility,
 ) -> Tuple[Optional[str], List[MetadataChangeProposalWrapper]]:
     """Emit one DATA_SCHEMA assertion pinning the contract's schema.
 
@@ -1477,7 +1913,7 @@ def odcs_to_schema_assertion_mcps(
     rather than an implied one. Returns (None, []) when the entry declares no
     properties — there is no schema to assert.
     """
-    schema_result = build_schema_metadata(schema_entry)
+    schema_result = build_schema_metadata(_without_measures(schema_entry))
     if schema_result.schema_metadata is None:
         return None, []
     assertion_urn = make_assertion_urn(
@@ -1492,23 +1928,109 @@ def odcs_to_schema_assertion_mcps(
     )
     info = AssertionInfoClass(
         type=AssertionTypeClass.DATA_SCHEMA,
-        source=mce_builder.make_assertion_source(),
+        source=make_assertion_source(),
         description=(
             f"Schema compliance with ODCS contract '{contract.id}' "
             f"schema '{schema_entry.name}'"
         ),
         customProperties={
-            "odcs.id": contract.id,
-            "odcs.scope": "schema",
-            "odcs.assertion": "schema-compliance",
+            PROP_ID: contract.id,
+            PROP_SCOPE: SCOPE_SCHEMA,
+            PROP_ASSERTION: ASSERTION_SCHEMA_COMPLIANCE,
         },
         schemaAssertion=SchemaAssertionInfoClass(
             entity=logical_urn,
             schema=schema_result.schema_metadata,
-            compatibility=_SCHEMA_ASSERTION_COMPATIBILITY[compatibility],
+            compatibility=compatibility.value,
         ),
     )
     return assertion_urn, [
         MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=info),
         assertion_platform_instance_mcp(assertion_urn),
     ]
+
+
+def odcs_data_contract_urn(entity_urn: str) -> str:
+    # Stable per target dataset and identical to the convention the DataContract
+    # SDK uses, so a hand-authored contract and the ODCS-derived one collapse to
+    # the same urn instead of racing as duplicates. Because the urn is keyed on
+    # the entity, the logical and physical contracts are distinct entities.
+    return f"urn:li:dataContract:{datahub_guid({'entity': entity_urn})}"
+
+
+def odcs_to_data_contract_mcps(
+    contract: ODCSContract,
+    entity_urn: str,
+    schema_assertion_urn: Optional[str],
+    data_quality_assertion_urns: List[str],
+) -> Tuple[Optional[str], List[MetadataChangeProposalWrapper]]:
+    """Emit a native DataHub `dataContract` on `entity_urn`.
+
+    Both the logical `odcs` dataset (where the assertions actually live — the
+    self-consistent home) and the bound physical dataset (where consumers browse)
+    use this: the contract just references the schema and data-quality assertion
+    urns, never duplicating assertion entities. State mirrors ODCS `status`
+    (`active` -> ACTIVE, otherwise PENDING). Returns (None, []) when the entry
+    produced no assertions worth pinning a contract to.
+    """
+    schema_contracts = (
+        [SchemaContractClass(assertion=schema_assertion_urn)]
+        if schema_assertion_urn
+        else None
+    )
+    dq_contracts = [
+        DataQualityContractClass(assertion=urn) for urn in data_quality_assertion_urns
+    ]
+    if schema_contracts is None and not dq_contracts:
+        return None, []
+
+    contract_urn = odcs_data_contract_urn(entity_urn)
+    state = (
+        DataContractStateClass.ACTIVE
+        if (contract.status or "").strip().lower() == "active"
+        else DataContractStateClass.PENDING
+    )
+    mcps = list(
+        MetadataChangeProposalWrapper.construct_many(
+            entityUrn=contract_urn,
+            aspects=[
+                DataContractPropertiesClass(
+                    entity=entity_urn,
+                    schema=schema_contracts,
+                    dataQuality=dq_contracts or None,
+                ),
+                StatusClass(removed=False),
+                DataContractStatusClass(state=state),
+            ],
+        )
+    )
+    return contract_urn, mcps
+
+
+def odcs_to_data_product_urn(data_product: str) -> str:
+    """The DataProduct urn a contract's `dataProduct` value names, read as an id.
+
+    Raises `InvalidUrnError` when the value cannot form a urn — e.g. commas and
+    parens are structural in urns, so `Sales, Orders (EU)` only resolves by name.
+    """
+    urn = make_data_product_urn(data_product.strip())
+    DataProductUrn.from_string(urn)
+    return urn
+
+
+def odcs_to_data_product_output_port_mcps(
+    data_product_urn: str, asset_urns: List[str], name: Optional[str] = None
+) -> List[MetadataChangeProposalClass]:
+    """Add `asset_urns` to a DataProduct as output ports, as an additive patch.
+
+    A patch, not a `DataProductProperties` write, because ODCS contributes to a
+    product it does not own and must not clear assets added by hand or another
+    source. `name` is set only for a product this run creates, so it never
+    overwrites a display name curated in DataHub.
+    """
+    patcher = DataProductPatchBuilder(data_product_urn)
+    if name is not None:
+        patcher.set_name(name)
+    for asset_urn in asset_urns:
+        patcher.add_asset(asset_urn, output_port=True)
+    return patcher.build()

@@ -375,11 +375,8 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
   @Override
   @Nonnull
   public ClusterHealthResponse clusterHealth(
-      @Nonnull OperationFingerprint opContext,
-      ClusterHealthRequest healthRequest,
-      RequestOptions options)
-      throws IOException {
-    return delegate.clusterHealth(opContext, healthRequest, options);
+      ClusterHealthRequest healthRequest, RequestOptions options) throws IOException {
+    return delegate.clusterHealth(healthRequest, options);
   }
 
   @Override

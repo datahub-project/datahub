@@ -79,56 +79,6 @@ export const MATILLION_INCLUDE_EXECUTIONS: RecipeField = {
     rules: null,
 };
 
-export const MATILLION_MAX_EXECUTIONS: RecipeField = {
-    name: 'max_executions_per_pipeline',
-    label: 'Max Executions per Pipeline',
-    tooltip: 'Maximum number of historical pipeline executions to ingest per pipeline. Default is 10.',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.max_executions_per_pipeline',
-    placeholder: '10',
-    rules: null,
-};
-
-export const MATILLION_EXTRACT_CONTAINERS: RecipeField = {
-    name: 'extract_projects_to_containers',
-    label: 'Extract Projects as Containers',
-    tooltip: 'Create DataHub containers for Matillion projects and environments for hierarchical organization.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.extract_projects_to_containers',
-    rules: null,
-};
-
-export const MATILLION_PARSE_SQL: RecipeField = {
-    name: 'parse_sql_for_lineage',
-    label: 'Parse SQL for Lineage',
-    tooltip: 'Parse SQL queries to infer additional column-level lineage. Requires a DataHub graph connection.',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.parse_sql_for_lineage',
-    rules: null,
-    section: 'Lineage',
-};
-
-export const MATILLION_LINEAGE_START_DAYS: RecipeField = {
-    name: 'lineage_start_days_ago',
-    label: 'Lineage Start Days Ago',
-    tooltip: 'Extract lineage from OpenLineage events generated in the last N days. Default is 7 days.',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.lineage_start_days_ago',
-    placeholder: '7',
-    rules: null,
-    section: 'Lineage',
-};
-
-export const MATILLION_INCLUDE_STREAMING: RecipeField = {
-    name: 'include_streaming_pipelines',
-    label: 'Include Streaming Pipelines',
-    tooltip: 'Include streaming pipeline metadata (experimental feature).',
-    type: FieldType.BOOLEAN,
-    fieldPath: 'source.config.include_streaming_pipelines',
-    rules: null,
-    section: 'Advanced',
-};
-
 export const MATILLION_INCLUDE_UNPUBLISHED: RecipeField = {
     name: 'include_unpublished_pipelines',
     label: 'Include Unpublished Pipelines',
@@ -276,17 +226,6 @@ export const MATILLION_STREAMING_DENY: FilterRecipeField = {
         setListValuesOnRecipe(recipe, values, matillionStreamingDenyFieldPath),
 };
 
-export const MATILLION_REQUEST_TIMEOUT: RecipeField = {
-    name: 'request_timeout_sec',
-    label: 'Request Timeout (seconds)',
-    tooltip: 'Timeout for API requests in seconds. Default is 30.',
-    type: FieldType.TEXT,
-    fieldPath: 'source.config.api_config.request_timeout_sec',
-    placeholder: '30',
-    rules: null,
-    section: 'Advanced',
-};
-
 export const MATILLION_STATEFUL_INGESTION: RecipeField = {
     name: 'stateful_ingestion.enabled',
     label: 'Enable Stateful Ingestion',
@@ -296,23 +235,3 @@ export const MATILLION_STATEFUL_INGESTION: RecipeField = {
     rules: null,
     section: 'Advanced',
 };
-
-const allFields: RecipeField[] = [
-    MATILLION_CLIENT_ID,
-    MATILLION_CLIENT_SECRET,
-    MATILLION_REGION,
-    MATILLION_ENV,
-    MATILLION_PLATFORM_INSTANCE,
-    MATILLION_INCLUDE_EXECUTIONS,
-    MATILLION_PROJECT_ALLOW,
-    MATILLION_PROJECT_DENY,
-    MATILLION_ENVIRONMENT_ALLOW,
-    MATILLION_ENVIRONMENT_DENY,
-    MATILLION_PIPELINE_ALLOW,
-    MATILLION_PIPELINE_DENY,
-    MATILLION_STREAMING_ALLOW,
-    MATILLION_STREAMING_DENY,
-    MATILLION_STATEFUL_INGESTION,
-];
-
-export default allFields;

@@ -1,9 +1,12 @@
 import logging
+import os
 from datetime import datetime, timezone
-from typing import List, Tuple
+from pathlib import Path
+from typing import List, Optional, Tuple
 from unittest.mock import MagicMock, Mock, call, patch
 
 import boto3
+import moto.s3
 import pytest
 import time_machine
 from boto3.session import Session
@@ -16,7 +19,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_boto_utils import (
     LIST_OBJECTS_PAGE_SIZE,
+    list_folders_path,
     list_objects_recursive,
+    list_objects_recursive_path,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
@@ -398,6 +403,68 @@ def test_ingest_table_records_schema_and_tagging_instrumentation(s3_resource):
     assert source.report.tables_tagged == 1
 
 
+def test_ingest_table_drops_schema_inferred_from_on_extraction_failure(s3_resource):
+    """With inference enabled but get_fields failing (e.g. credentials can list
+    but not read the object), ingest_table emits no SchemaMetadata and must not
+    leave a dangling schema_inferred_from naming a file whose schema was never
+    emitted."""
+    from datahub.metadata.schema_classes import (
+        DatasetPropertiesClass,
+        SchemaMetadataClass,
+    )
+
+    path_spec = PathSpec(
+        include="s3://my-bucket/my-folder/{table}/*.csv",
+        table_name="{table}",
+    )
+
+    bucket = s3_resource.Bucket("my-bucket")
+    bucket.create()
+    bucket.put_object(Key="my-folder/table1/data.csv", Body="a,b\n1,2\n3,4\n")
+
+    source = S3Source.create(
+        config_dict={
+            "path_spec": {
+                "include": path_spec.include,
+                "table_name": path_spec.table_name,
+            },
+            "aws_config": {
+                "aws_access_key_id": "test",
+                "aws_secret_access_key": "test",
+            },
+        },
+        ctx=PipelineContext(run_id="test-s3"),
+    )
+
+    # Simulate a read failure during schema inference while listing still works.
+    get_fields_mock = Mock(side_effect=OSError("cannot read object"))
+    source.get_fields = get_fields_mock  # type: ignore[method-assign]
+
+    full_path = "s3://my-bucket/my-folder/table1/data.csv"
+    table_data = TableData(
+        display_name="table1",
+        is_s3=True,
+        full_path=full_path,
+        timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        table_path=full_path,
+        size_in_bytes=12,
+        number_of_files=1,
+    )
+
+    workunits = list(source.ingest_table(table_data, path_spec))
+    aspects = [
+        wu.metadata.aspect
+        for wu in workunits
+        if hasattr(wu.metadata, "aspect") and wu.metadata.aspect is not None
+    ]
+
+    assert not any(isinstance(a, SchemaMetadataClass) for a in aspects)
+    get_fields_mock.assert_called_once()
+
+    dataset_props = next(a for a in aspects if isinstance(a, DatasetPropertiesClass))
+    assert "schema_inferred_from" not in dataset_props.customProperties
+
+
 def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
     """
     Test S3Source.get_folder_info skips disallowed files and logs a message
@@ -575,8 +642,9 @@ def test_s3_region_in_external_url():
     # Get the external URL
     external_url = source.get_external_url(table_data)
 
-    # Verify that the correct region is used (not default us-east-1)
-    assert "https://eu-west-1.console.aws.amazon.com" in external_url
+    # The console host is region-agnostic; the region is in the query param.
+    assert external_url.startswith("https://s3.console.aws.amazon.com")
+    assert "region=eu-west-1" in external_url
     assert "production-bucket" in external_url
     assert "folder" in external_url
 
@@ -906,3 +974,315 @@ def test_list_objects_recursive_paginates_with_continuation_token(s3_client):
     assert all(obj.bucket_name == "bucket" for obj in results)
     assert all(obj.key.startswith(prefix) for obj in results)
     assert all(obj.size == 1 for obj in results)
+
+
+_LOCAL_SYSTEM_DATA_DIR = (
+    Path(__file__).parents[2] / "integration/s3/test_data/local_system"
+)
+_S3_CALLS_FROZEN_TIME = "2020-04-14 07:00:00"
+
+
+@pytest.fixture
+def seeded_local_system_bucket(s3_resource, s3_client):
+    """Seed the shared local_system tree into a moto bucket with strictly
+    increasing per-object last_modified, so partition min/max selection is
+    deterministic for the call-pattern assertions."""
+    bucket_name = "my-test-bucket"
+    s3_resource.create_bucket(Bucket=bucket_name)
+    bkt = s3_resource.Bucket(bucket_name)
+    current_time_sec = datetime.strptime(
+        _S3_CALLS_FROZEN_TIME, "%Y-%m-%d %H:%M:%S"
+    ).timestamp()
+    for root, dirs, files in os.walk(_LOCAL_SYSTEM_DATA_DIR):
+        dirs.sort()
+        for file in sorted(files):
+            full_path = os.path.join(root, file)
+            rel_path = os.path.relpath(full_path, _LOCAL_SYSTEM_DATA_DIR)
+            bkt.upload_file(full_path, rel_path)
+            key = (
+                moto.s3.models.s3_backends["123456789012"]["global"]
+                .buckets[bucket_name]
+                .keys[rel_path]
+            )
+            current_time_sec += 10
+            key.last_modified = datetime.fromtimestamp(current_time_sec)
+    return bucket_name
+
+
+@pytest.mark.parametrize(
+    "calls_test_tuple",
+    [
+        (
+            "partitions_and_filename_with_prefix",
+            {
+                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year={year}/month={month}/part*.json",
+                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
+            },
+            [
+                call.list_folders_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
+                ),
+                call.list_folders_path(
+                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
+                    startswith="year=",
+                ),
+                call.list_folders_path(
+                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/",
+                    startswith="month=",
+                ),
+                call.list_objects_recursive_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                    startswith="part",
+                ),
+            ],
+        ),
+        (
+            "filter_specific_partition",
+            {
+                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year=2022/month={month}/*.json",
+                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
+            },
+            [
+                call.list_folders_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
+                ),
+                call.list_folders_path(
+                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022",
+                    startswith="month=",
+                ),
+                call.list_objects_recursive_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                    startswith="",
+                ),
+            ],
+        ),
+        (
+            "partition_autodetection",
+            {
+                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/",
+                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
+            },
+            [
+                call.list_folders_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
+                ),
+                call.list_folders_path(
+                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
+                    startswith="",
+                ),
+                call.list_folders_path(
+                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/",
+                    startswith="",
+                ),
+                call.list_folders_path(
+                    s3_uri="s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                    startswith="",
+                ),
+                call.list_objects_recursive_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/",
+                    startswith="",
+                ),
+            ],
+        ),
+        (
+            "partitions_traversal_all",
+            {
+                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year={year}/month={month}/*.json",
+                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
+                "traversal_method": "ALL",
+            },
+            [
+                call.list_folders_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
+                ),
+                call.list_objects_recursive_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
+                    startswith="year=",
+                ),
+            ],
+        ),
+        (
+            "filter_specific_partition_traversal_all",
+            {
+                "include": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/{table}/year=2022/month={month}/part*.json",
+                "tables_filter_pattern": {"allow": ["^pokemon_abilities_json$"]},
+                "traversal_method": "ALL",
+            },
+            [
+                call.list_folders_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/"
+                ),
+                call.list_objects_recursive_path(
+                    "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022",
+                    startswith="month=",
+                ),
+            ],
+        ),
+    ],
+    ids=lambda calls_test_tuple: calls_test_tuple[0],
+)
+def test_data_lake_s3_calls(seeded_local_system_bucket, calls_test_tuple):
+    """Assert the source issues the minimum S3 list/recursive calls per path spec.
+
+    Guards against regressions that would over-scan the bucket (extra list calls)
+    for partitioned/filtered path specs. Runs in-process against moto and mocks the
+    list helpers to record the exact call sequence.
+    """
+    _, path_spec, expected_calls = calls_test_tuple
+
+    ctx = PipelineContext(run_id="test-s3")
+    config = {
+        "path_specs": [path_spec],
+        "aws_config": {
+            "aws_region": "us-east-1",
+            "aws_access_key_id": "testing",
+            "aws_secret_access_key": "testing",
+        },
+    }
+    source = S3Source.create(config, ctx)
+
+    m = Mock()
+    m.list_folders_path.side_effect = list_folders_path
+    m.list_objects_recursive_path.side_effect = list_objects_recursive_path
+
+    with (
+        patch(
+            "datahub.ingestion.source.s3.source.list_folders_path", m.list_folders_path
+        ),
+        patch(
+            "datahub.ingestion.source.s3.source.list_objects_recursive_path",
+            m.list_objects_recursive_path,
+        ),
+    ):
+        for _ in source.get_workunits_internal():
+            pass
+
+    # Check we make the minimum necessary calls, using prefixes where possible to
+    # reduce the number of S3 API queries.
+    calls = []
+    for c in m.mock_calls:
+        if isinstance(c.kwargs, dict):  # type assertion
+            c.kwargs.pop("aws_config", None)
+        if len(c.args) == 3 and isinstance(c.args[2], AwsConnectionConfig):
+            c = getattr(call, c[0])(*(c.args[:2]), **c.kwargs)
+        calls.append(c)
+
+    assert calls == expected_calls
+
+
+@pytest.mark.parametrize(
+    "full_path,enable_compression,default_extension,expected",
+    [
+        # Plain supported extension is kept as-is.
+        pytest.param("s3://b/data.json", True, None, ".json", id="plain_json"),
+        pytest.param("s3://b/data.parquet", True, None, ".parquet", id="plain_parquet"),
+        pytest.param("s3://b/data.jsonl", True, None, ".jsonl", id="plain_jsonl"),
+        # Compression with a supported inner extension is unwrapped.
+        pytest.param("s3://b/data.json.gz", True, None, ".json", id="json_gz"),
+        pytest.param("s3://b/data.parquet.gz", True, None, ".parquet", id="parquet_gz"),
+        pytest.param("s3://b/data.jsonl.gz", True, None, ".jsonl", id="jsonl_gz"),
+        pytest.param("s3://b/data.json.bz2", True, None, ".json", id="json_bz2"),
+        # Uppercase extensions are normalised to lowercase.
+        pytest.param("s3://b/data.JSON", True, None, ".json", id="uppercase_json"),
+        pytest.param(
+            "s3://b/data.PARQUET.GZ", True, None, ".parquet", id="uppercase_parquet_gz"
+        ),
+        # Compression-only files fall through to default_extension.
+        pytest.param(
+            "s3://b/data.gz", True, "json", ".json", id="gz_only_with_default"
+        ),
+        pytest.param("s3://b/data.gz", True, None, "", id="gz_only_no_default"),
+        # File names with dots in the stem must not produce a fake extension.
+        pytest.param(
+            "s3://b/foo.bar.baz-2026-05-27-11-abc.gz",
+            True,
+            "json",
+            ".json",
+            id="dotted_stem_compressed_falls_back_to_default",
+        ),
+        pytest.param(
+            "s3://b/foo.bar.baz-2026-05-27-11-abc",
+            True,
+            "json",
+            ".json",
+            id="dotted_stem_uncompressed_falls_back_to_default",
+        ),
+        # No default_extension and a fake suffix -> empty (no inferrer).
+        pytest.param(
+            "s3://b/foo.bar.baz-abc.gz",
+            True,
+            None,
+            "",
+            id="dotted_stem_compressed_no_default",
+        ),
+        # enable_compression=False keeps the .gz suffix as the apparent extension,
+        # which is not a supported file type, so it falls back to default_extension.
+        pytest.param(
+            "s3://b/data.json.gz",
+            False,
+            "json",
+            ".json",
+            id="compression_disabled_falls_back",
+        ),
+    ],
+)
+def test_resolve_format_extension(
+    full_path: str,
+    enable_compression: bool,
+    default_extension: Optional[str],
+    expected: str,
+) -> None:
+    path_spec = PathSpec(
+        include="s3://b/{table}/*",
+        enable_compression=enable_compression,
+        default_extension=default_extension,
+    )
+    assert path_spec.resolve_format_extension(full_path) == expected
+
+
+@pytest.mark.parametrize(
+    "path,default_extension,file_types,expected",
+    [
+        # Recognised format in file_types -> allowed.
+        pytest.param("s3://b/t/data.json", None, None, True, id="known_format_allowed"),
+        pytest.param(
+            "s3://b/t/data.json.gz", None, None, True, id="known_format_compressed"
+        ),
+        # Recognised format excluded by file_types -> skipped.
+        pytest.param(
+            "s3://b/t/data.json", None, ["csv"], False, id="known_format_not_wanted"
+        ),
+        # Fake extension from a dotted stem: without a default it is skipped, with a
+        # default it is allowed (this is the motivating case for the fix).
+        pytest.param(
+            "s3://b/t/foo.bar.baz-abc.gz",
+            None,
+            None,
+            False,
+            id="dotted_stem_no_default_skipped",
+        ),
+        pytest.param(
+            "s3://b/t/foo.bar.baz-abc.gz",
+            "json",
+            None,
+            True,
+            id="dotted_stem_with_default_allowed",
+        ),
+        # No extension behaves the same as a fake one.
+        pytest.param("s3://b/t/data", None, None, False, id="no_ext_no_default"),
+        pytest.param("s3://b/t/data", "json", None, True, id="no_ext_with_default"),
+    ],
+)
+def test_allowed_resolves_format_extension(
+    path: str,
+    default_extension: Optional[str],
+    file_types: Optional[List[str]],
+    expected: bool,
+) -> None:
+    kwargs: dict = {"include": "s3://b/{table}/*"}
+    if default_extension is not None:
+        kwargs["default_extension"] = default_extension
+    if file_types is not None:
+        kwargs["file_types"] = file_types
+    path_spec = PathSpec(**kwargs)
+    assert path_spec.allowed(path) is expected

@@ -1,15 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
+import { FilterSelect } from '@app/entityV2/shared/FilterSelect';
+import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
 import { AcrylAssertionRecommendedFilters } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionRecommendedFilters';
-import {
-    ASSERTION_DEFAULT_FILTERS,
-    ASSERTION_FILTER_TYPES,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
+import { ASSERTION_DEFAULT_FILTERS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/constant';
 import { useSetFilterFromURLParams } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/hooks';
-import { AssertionListFilter, AssertionTable } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
-import { FilterSelect } from '@src/app/entityV2/shared/FilterSelect';
-import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
+import { AssertionListFilter } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { extractFilterOptionsFromFacets } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
+import { Assertion, FacetMetadata } from '@src/types.generated';
 
 interface FilterItem {
     name: string;
@@ -19,18 +18,20 @@ interface FilterItem {
 }
 
 interface AcrylAssertionListFiltersProps {
-    filterOptions: any;
-    originalFilterOptions: any;
     setSelectedFilters: React.Dispatch<React.SetStateAction<AssertionListFilter>>;
-    filteredAssertions: AssertionTable;
-    selectedFilters: any;
-    handleFilterChange: (filter: any) => void;
+    filteredAssertions: Assertion[];
+    selectedFilters: AssertionListFilter;
+    handleFilterChange: (filter: AssertionListFilter) => void;
+    totalAssertionCount: number;
+    facets?: FacetMetadata[];
 }
 
 const ASSERTION_ENTITY_TYPE = 'assertion';
 
 const SearchFilterContainer = styled.div`
     display: flex;
+    margin-bottom: 8px;
+    margin-top: 8px;
     gap: 12px;
     justify-content: space-between;
 `;
@@ -40,7 +41,6 @@ const FiltersContainer = styled.div`
 `;
 
 const StyledFilterContainer = styled.div`
-    margin-right: 12px;
     button {
         box-shadow: none !important;
         height: 36px !important;
@@ -51,14 +51,14 @@ const StyledFilterContainer = styled.div`
 `;
 
 export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps> = ({
-    filterOptions,
-    originalFilterOptions,
     filteredAssertions,
     handleFilterChange,
     selectedFilters,
     setSelectedFilters,
+    totalAssertionCount,
+    facets,
 }) => {
-    const [appliedRecommendedFilters, setAppliedRecommendedFilters] = useState([]);
+    const filterOptions = extractFilterOptionsFromFacets(filteredAssertions, facets);
 
     const handleSearchTextChange = (searchText: string) => {
         handleFilterChange({
@@ -68,14 +68,13 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     };
 
     const handleFilterOptionChange = (updatedFilters: FilterItem[]) => {
-        /** Set Recommended Filters when there is value in type,status or source if not then set it as empty to clear the filter */
         const selectedRecommendedFilters = updatedFilters.reduce<Record<string, string[]>>(
             (acc, selectedfilter) => {
                 acc[selectedfilter.category] = acc[selectedfilter.category] || [];
                 acc[selectedfilter.category].push(selectedfilter.name);
                 return acc;
             },
-            { type: [], status: [], source: [], column: [] },
+            { type: [], status: [], source: [], column: [], tags: [], owners: [] },
         );
 
         handleFilterChange({
@@ -87,26 +86,23 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
     /**
      * This hook is for setting applied filter when we are getting it from selected Filter state
      */
-    const initialSelectedOptions = useMemo(() => {
-        const { status, type, source, column } =
+    const appliedRecommendedFilters = useMemo(() => {
+        const { status, type, source, column, tags, owners } =
             selectedFilters.filterCriteria || ASSERTION_DEFAULT_FILTERS.filterCriteria;
-        const recommendedFilters = originalFilterOptions?.recommendedFilters || [];
-        // just set recommended filters for status, type & Others as of right now
-        const selectedRecommendedFilters = recommendedFilters.filter(
-            (item) =>
-                status.includes(item.name) ||
-                type.includes(item.name) ||
-                source.includes(item.name) ||
-                column.includes(item.name),
-        );
-        setAppliedRecommendedFilters(selectedRecommendedFilters);
-        return selectedRecommendedFilters?.map((filter) => ({
-            value: filter.name,
-            label: filter.displayName,
-            parentValue: filter.category,
-        }));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedFilters]);
+        const recommendedFilters = filterOptions?.recommendedFilters || [];
+        const selectedNames = new Set<string>([...status, ...type, ...source, ...column, ...tags, ...owners]);
+        return recommendedFilters.filter((item) => selectedNames.has(item.name));
+    }, [filterOptions?.recommendedFilters, selectedFilters.filterCriteria]);
+
+    const initialSelectedOptions = useMemo(
+        () =>
+            appliedRecommendedFilters.map((filter) => ({
+                value: filter.name,
+                label: filter.displayName,
+                parentValue: filter.category,
+            })),
+        [appliedRecommendedFilters],
+    );
 
     // set the filter if there is any url filter object presents
     useSetFilterFromURLParams(selectedFilters, setSelectedFilters);
@@ -118,18 +114,18 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 <InlineListSearch
                     searchText={selectedFilters.filterCriteria?.searchText}
                     debouncedSetFilterText={handleSearchTextChange}
-                    matchResultCount={filteredAssertions.searchMatchesCount || 0}
-                    numRows={filteredAssertions.totalCount || 0}
+                    matchResultCount={filteredAssertions?.length}
+                    numRows={totalAssertionCount}
                     entityTypeName={ASSERTION_ENTITY_TYPE}
+                    options={{ hideMatchCountText: true }}
                 />
 
                 {/* ************Render Filter Component ************************* */}
                 <FiltersContainer>
                     <StyledFilterContainer>
                         <FilterSelect
-                            filterOptions={originalFilterOptions?.filterGroupOptions || []}
+                            filterOptions={filterOptions?.filterGroupOptions || []}
                             onFilterChange={handleFilterOptionChange}
-                            excludedCategories={[ASSERTION_FILTER_TYPES.TAG]}
                             initialSelectedOptions={initialSelectedOptions}
                         />
                     </StyledFilterContainer>

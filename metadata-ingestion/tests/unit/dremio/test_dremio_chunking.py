@@ -177,11 +177,11 @@ class TestDremioChunking:
         queries = list(dremio_api._get_queries_chunked(base_query))
         assert len(queries) == 0
 
-        dremio_api.report.report_warning.assert_called_once()
-        warning_call = dremio_api.report.report_warning.call_args
-        assert "Dremio crash detected" in warning_call[0][0]
-        assert "KeyError: 'rows'" in warning_call[0][0]
-        assert warning_call[1]["context"] == "query_extraction"
+        dremio_api.report.warning.assert_called_once()
+        warning_call = dremio_api.report.warning.call_args
+        assert "Dremio crash detected" in warning_call[1]["message"]
+        assert "KeyError: 'rows'" in warning_call[1]["message"]
+        assert "query_extraction" in warning_call[1]["context"]
 
     def test_get_all_tables_and_columns_uses_global_query(self, dremio_api):
         # get_all_tables_and_columns must use the global query path, not per-container.

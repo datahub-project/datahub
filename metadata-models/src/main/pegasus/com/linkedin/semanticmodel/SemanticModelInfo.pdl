@@ -2,14 +2,14 @@ namespace com.linkedin.semanticmodel
 
 import com.linkedin.common.AuditStamp
 import com.linkedin.common.ExternalReference
-import com.linkedin.metric.AiContext
+import com.linkedin.common.Urn
 
 /**
  * Core information about a SemanticModel entity.
  */
 @Aspect = {
   "name": "semanticModelInfo",
-  "schemaVersion": 3
+  "schemaVersion": 6
 }
 record SemanticModelInfo includes ExternalReference {
 
@@ -21,8 +21,15 @@ record SemanticModelInfo includes ExternalReference {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 
@@ -32,7 +39,15 @@ record SemanticModelInfo includes ExternalReference {
   @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "searchTier": 2
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -44,7 +59,12 @@ record SemanticModelInfo includes ExternalReference {
     "/time": {
       "fieldName": "createdAt",
       "fieldType": "DATETIME",
-      "searchLabel": "createdAt"
+      "v3": {
+        "searchLabel": "sourceCreatedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   created: optional AuditStamp
@@ -57,7 +77,12 @@ record SemanticModelInfo includes ExternalReference {
     "/time": {
       "fieldName": "lastModifiedAt",
       "fieldType": "DATETIME",
-      "searchLabel": "lastModifiedAt"
+      "v3": {
+        "searchLabel": "sourceLastModifiedAt",
+        "mappings": [
+          { "type": "DATETIME" }
+        ]
+      }
     }
   }
   lastModified: optional AuditStamp
@@ -71,15 +96,8 @@ record SemanticModelInfo includes ExternalReference {
    */
   nativeDefinition: optional string
 
-  /**
-   * AI-specific context for improved disambiguation and retrieval.
-   */
-  aiContext: optional AiContext
-
-  /**
-   * The logical datasets that this semantic model exposes.
-   */
-  datasets: array[ModelDataset] = [ ]
+  @deprecated = "Use semanticModelProperties.semanticModel on member datasets. Field retained for backwards-read of already-ingested data; new writes should not populate."
+  datasets: array[Urn] = [ ]
 
   /**
    * Join relationships between the datasets of this semantic model.

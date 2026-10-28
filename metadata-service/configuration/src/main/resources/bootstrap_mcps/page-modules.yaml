@@ -73,6 +73,18 @@
     params: {}
     created: {{&auditStamp}}
     lastModified: {{&auditStamp}}
+- entityUrn: urn:li:dataHubPageModule:sub_data_products
+  entityType: dataHubPageModule
+  aspectName: dataHubPageModuleProperties
+  changeType: UPSERT
+  aspect:
+    name: "Sub-products"
+    type: SUB_DATA_PRODUCTS
+    visibility:
+      scope: GLOBAL
+    params: {}
+    created: {{&auditStamp}}
+    lastModified: {{&auditStamp}}
 - entityUrn: urn:li:dataHubPageModule:related_terms
   entityType: dataHubPageModule
   aspectName: dataHubPageModuleProperties

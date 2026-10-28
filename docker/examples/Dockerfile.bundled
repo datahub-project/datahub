@@ -1,10 +1,15 @@
 # syntax=docker/dockerfile:1
+# check=skip=InvalidDefaultArgInFrom
+# EXECUTOR_IMAGE is required via --build-arg (no useful default for customer registries).
 
 ARG EXECUTOR_IMAGE
 FROM ${EXECUTOR_IMAGE}
 
 USER root
 
+# Optional: omit to keep the base image's BUNDLED_CLI_VERSION (recommended).
+# Only pass --build-arg BUNDLED_CLI_VERSION=... to pin a different CLI.
+# Do not pass an empty build-arg — that clears the inherited value.
 ARG BUNDLED_CLI_VERSION
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 

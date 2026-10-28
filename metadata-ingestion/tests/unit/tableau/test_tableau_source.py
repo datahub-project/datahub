@@ -1,6 +1,16 @@
 import json
 import pathlib
-from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Tuple,
+    cast,
+)
 from unittest import mock
 
 import pytest
@@ -29,6 +39,8 @@ from datahub.ingestion.source.tableau.tableau_common import (
     TableauLineageOverrides,
     TableauUpstreamReference,
     get_filter_pages,
+    get_fully_qualified_table_name,
+    get_overridden_info,
     make_filter,
     make_fine_grained_lineage_class,
     optimize_query_filter,
@@ -43,6 +55,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    OwnershipClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -325,7 +338,8 @@ def test_lineage_overrides():
     )
 
     # Transform presto urn to hive urn
-    # resulting platform instance for hive = mapped platform instance + presto_catalog
+    # Hive is two-tier, so the presto catalog is dropped from the URN to match
+    # what the Hive ingestion source emits.
     assert (
         TableauUpstreamReference(
             "presto_catalog",
@@ -340,7 +354,7 @@ def test_lineage_overrides():
                 platform_override_map={"presto": "hive"},
             ),
         )
-        == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.test-schema.test-table,PROD)"
     )
 
     # transform hive urn to presto urn
@@ -359,6 +373,279 @@ def test_lineage_overrides():
             ),
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
+    )
+
+
+def test_lineage_overrides_presto_to_athena():
+    # Tableau models an Athena connection as `presto` with a `hive` catalog, so the
+    # remap has to produce Athena's two-tier name, not Presto's three-tier one.
+    assert (
+        TableauUpstreamReference(
+            "hive",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={"presto": "athena_instance"},
+            lineage_overrides=TableauLineageOverrides(
+                platform_override_map={"presto": "athena"},
+            ),
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,athena_instance.test-schema.test-table,PROD)"
+    )
+
+
+def test_lineage_overrides_two_tier_to_three_tier_keeps_two_part_name():
+    # The other direction: a two-tier source has no catalog for a three-tier target's
+    # first segment, so the name stays two-part and the catalog comes from
+    # platform_instance. Keeping the database here would repeat the schema.
+    assert (
+        TableauUpstreamReference(
+            "test-schema",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "hive",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={"hive": "my_presto_instance.presto_catalog"},
+            lineage_overrides=TableauLineageOverrides(
+                platform_override_map={"hive": "presto"},
+            ),
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
+    )
+
+
+def test_database_id_to_platform_instance_map_routes_per_id():
+    # Multiple Athena workgroups share a regional hostname, so hostname routing
+    # collapses them; their Tableau database ids stay distinct.
+    id_map = {
+        "id-prod": "athena_prod_instance",
+        "id-dev": "athena_dev_instance",
+        "id-stg": "athena_stg_instance",
+    }
+
+    for db_id, expected_instance in id_map.items():
+        assert (
+            TableauUpstreamReference(
+                "hive",
+                db_id,
+                "test-schema",
+                "test-table",
+                "presto",
+            ).make_dataset_urn(
+                env=DEFAULT_ENV,
+                platform_instance_map=None,
+                lineage_overrides=TableauLineageOverrides(
+                    platform_override_map={"presto": "athena"},
+                ),
+                database_id_to_platform_instance_map=id_map,
+            )
+            == f"urn:li:dataset:(urn:li:dataPlatform:athena,{expected_instance}.test-schema.test-table,PROD)"
+        )
+
+
+def test_database_id_to_platform_instance_map_is_platform_agnostic():
+    # Not Athena-specific: Snowflake accounts behind a shared proxy route the same
+    # way, with no lineage_overrides involved.
+    assert (
+        TableauUpstreamReference(
+            "test-database-name",
+            "snowflake-account-a-id",
+            "test-schema",
+            "test-table",
+            "snowflake",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={},
+            database_id_to_platform_instance_map={
+                "snowflake-account-a-id": "snowflake_account_a",
+                "snowflake-account-b-id": "snowflake_account_b",
+            },
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_account_a.test-database-name.test-schema.test-table,PROD)"
+    )
+
+
+def test_database_id_to_platform_instance_map_falls_back_on_miss():
+    # Unmapped database ids must not inject a platform_instance; routing
+    # falls through to whatever else is configured (or none).
+    assert (
+        TableauUpstreamReference(
+            "test-database-name",
+            "unmapped-id",
+            "test-schema",
+            "test-table",
+            "snowflake",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={},
+            database_id_to_platform_instance_map={"some-other-id": "some_instance"},
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-database-name.test-schema.test-table,PROD)"
+    )
+
+
+def test_database_id_to_platform_instance_map_wins_over_hostname():
+    # When both maps could match, id routing wins because it identifies one
+    # connection unambiguously whereas a hostname can collide across envs.
+    db_id = "id-prod"
+    shared_hostname = "athena.us-east-1.amazonaws.com"
+
+    assert (
+        TableauUpstreamReference(
+            "hive",
+            db_id,
+            "test-schema",
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map=None,
+            lineage_overrides=TableauLineageOverrides(
+                platform_override_map={"presto": "athena"},
+            ),
+            database_hostname_to_platform_instance_map={
+                shared_hostname: "wrong_instance",
+            },
+            database_server_hostname_map={db_id: shared_hostname},
+            database_id_to_platform_instance_map={db_id: "right_instance"},
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,right_instance.test-schema.test-table,PROD)"
+    )
+
+
+def test_overridden_info_drives_target_platform_url_shape():
+    # Guards both URN-building sites: each must pass the overridden `platform` into
+    # get_fully_qualified_table_name(). Passing `original_platform` stamps the target
+    # platform onto the source's name shape, which resolves to nothing.
+    upstream_db, _, platform, original_platform = get_overridden_info(
+        connection_type="presto",
+        upstream_db="hive",
+        upstream_db_id="some-id",
+        platform_instance_map=None,
+        lineage_overrides=TableauLineageOverrides(
+            platform_override_map={"presto": "athena"},
+        ),
+    )
+    assert platform == "athena"
+    assert original_platform == "presto"
+    assert upstream_db is None  # two-tier target drops the database segment
+
+    # With the overridden platform we get Athena's two-tier shape.
+    assert (
+        get_fully_qualified_table_name(
+            platform=platform,
+            upstream_db=upstream_db or "",
+            schema="test-schema",
+            table_name="test-table",
+        )
+        == "test-schema.test-table"
+    )
+
+
+def test_create_database_table_urn_applies_two_tier_override():
+    # The other URN-building site. It shares get_overridden_info() +
+    # get_fully_qualified_table_name() with make_dataset_urn but is reached through
+    # the virtual connection path, so it needs its own guard against reverting to
+    # `original_platform`.
+    config_dict = default_config.copy()
+    config_dict["platform_instance_map"] = {"presto": "athena_instance"}
+    config_dict["lineage_overrides"] = {"platform_override_map": {"presto": "athena"}}
+    config = TableauConfig.model_validate(config_dict)
+
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=PipelineContext(run_id="test", pipeline_name="test"),
+        site=SiteIdContentUrl(site_id="site1", site_content_url="site1"),
+        report=TableauSourceReport(),
+        server=mock.MagicMock(spec=Server),
+        platform="tableau",
+    )
+
+    urn = site_source._create_database_table_urn(
+        {
+            c.NAME: "test-table",
+            c.FULL_NAME: "hive.test-schema.test-table",
+            c.SCHEMA: "test-schema",
+            c.DATABASE: {
+                c.NAME: "hive",
+                c.ID: "test-database-id",
+                c.CONNECTION_TYPE: "presto",
+            },
+        }
+    )
+
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,athena_instance.test-schema.test-table,PROD)"
+    )
+
+
+def test_database_override_map_is_discarded_for_two_tier_target():
+    # database_override_map renames the upstream database, but a two-tier target has
+    # no database segment to put it in, so the rename is dropped rather than leaking
+    # into the schema position.
+    upstream_db, _, platform, _ = get_overridden_info(
+        connection_type="presto",
+        upstream_db="hive",
+        upstream_db_id="some-id",
+        platform_instance_map=None,
+        lineage_overrides=TableauLineageOverrides(
+            platform_override_map={"presto": "athena"},
+            database_override_map={"hive": "renamed_catalog"},
+        ),
+    )
+    assert platform == "athena"
+    assert upstream_db is None
+
+    # Same override against a three-tier target does survive into the name.
+    upstream_db, _, platform, _ = get_overridden_info(
+        connection_type="presto",
+        upstream_db="hive",
+        upstream_db_id="some-id",
+        platform_instance_map=None,
+        lineage_overrides=TableauLineageOverrides(
+            database_override_map={"hive": "renamed_catalog"},
+        ),
+    )
+    assert platform == "presto"
+    assert upstream_db == "renamed_catalog"
+
+
+def test_clickhouse_is_trimmed_to_two_parts_but_keeps_its_database():
+    # clickhouse counts as two-tier for trimming but is deliberately absent from the
+    # set whose database gets stripped: a schemaless upstream must still resolve to
+    # `db.table` rather than a bare table name.
+    upstream_db, _, platform, _ = get_overridden_info(
+        connection_type="clickhouse",
+        upstream_db="test-database",
+        upstream_db_id="some-id",
+        platform_instance_map=None,
+    )
+    assert platform == "clickhouse"
+    assert upstream_db == "test-database"
+
+    assert (
+        get_fully_qualified_table_name(
+            platform="clickhouse",
+            upstream_db="test-database",
+            schema="",
+            table_name="test-table",
+        )
+        == "test-database.test-table"
+    )
+    assert (
+        get_fully_qualified_table_name(
+            platform="clickhouse",
+            upstream_db="test-database",
+            schema="test-schema",
+            table_name="test-table",
+        )
+        == "test-schema.test-table"
     )
 
 
@@ -417,6 +704,30 @@ def test_make_fine_grained_lineage_class_skips_unresolved_downstream_column():
 
     assert len(result) == 1
     assert result[0].downstreams == []
+
+
+def test_make_fine_grained_lineage_class_ignores_out_columns_with_null_name():
+    upstream_table_urn = "urn:li:dataset:(urn:li:dataPlatform:athena,db.table,PROD)"
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,ds-1,PROD)"
+    parsed_result = SqlParsingResult(
+        in_tables=[upstream_table_urn],
+        out_tables=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column="my_col"),
+                upstreams=[ColumnRef(table=upstream_table_urn, column="src_col")],
+            )
+        ],
+    )
+
+    result = make_fine_grained_lineage_class(
+        parsed_result,
+        dataset_urn=dataset_urn,
+        out_columns=[{"name": None}, {"name": "My_Col"}],
+    )
+
+    assert len(result) == 1
+    assert result[0].downstreams == [f"urn:li:schemaField:({dataset_urn},My_Col)"]
 
 
 def test_database_hostname_to_platform_instance_map():
@@ -1421,7 +1732,11 @@ class ProjectSpec(NamedTuple):
     parent_id: Optional[str]
 
 
-def _tsc_project(spec: ProjectSpec) -> mock.MagicMock:
+def _tsc_project(
+    spec: ProjectSpec,
+    owner_username: Optional[str] = None,
+    owner_email: Optional[str] = None,
+) -> mock.MagicMock:
     """Minimal stand-in for a tableauserverclient ProjectItem, as returned by the
     projects Pager."""
     project = mock.MagicMock()
@@ -1429,6 +1744,13 @@ def _tsc_project(spec: ProjectSpec) -> mock.MagicMock:
     project.name = spec.name
     project.parent_id = spec.parent_id
     project.description = None
+    if owner_username is not None or owner_email is not None:
+        owner = mock.MagicMock()
+        owner.name = owner_username
+        owner.email = owner_email
+        project.owner = owner
+    else:
+        project.owner = None
     return project
 
 
@@ -1436,8 +1758,8 @@ def _collect_container_tree(
     source: TableauSiteSource,
     all_project_map: Dict[str, TableauProject],
 ) -> Dict[str, Dict[str, Optional[str]]]:
-    """Run emit_project_containers and return {project_id: {name, parent}} so
-    assertions read in terms of project ids rather than opaque container urns. A
+    """Run emit_project_containers and return {project_id: {name, parent, owner_urn}}
+    so assertions read in terms of project ids rather than opaque container urns. A
     root project's parent resolves to the "site" sentinel (its container nests under
     the site container, which emit_site_container emits separately)."""
     urn_to_id = {
@@ -1448,13 +1770,18 @@ def _collect_container_tree(
     tree: Dict[str, Dict[str, Optional[str]]] = {}
     for wu in source.emit_project_containers(all_project_map):
         project_id = urn_to_id[wu.get_urn()]
-        entry = tree.setdefault(project_id, {"name": None, "parent": None})
+        entry = tree.setdefault(
+            project_id, {"name": None, "parent": None, "owner_urn": None}
+        )
         props = wu.get_aspect_of_type(ContainerPropertiesClass)
         if props is not None:
             entry["name"] = props.name
         parent = wu.get_aspect_of_type(ContainerClass)
         if parent is not None:
             entry["parent"] = urn_to_id.get(parent.container)
+        ownership = wu.get_aspect_of_type(OwnershipClass)
+        if ownership is not None and ownership.owners:
+            entry["owner_urn"] = ownership.owners[0].owner
     return tree
 
 
@@ -1476,14 +1803,21 @@ class TestProjectContainerHierarchy:
         allow: Optional[List[str]] = None,
         deny: Optional[List[str]] = None,
         extract_project_hierarchy: bool = True,
+        ingest_owner: bool = False,
+        owner_by_project_id: Optional[
+            Dict[str, Tuple[Optional[str], Optional[str]]]
+        ] = None,
     ) -> Tuple[TableauSiteSource, Dict[str, Dict[str, Optional[str]]]]:
         """Feed ``projects`` through the real projects Pager and run filtering +
         registry building + container emission.
 
-        Returns (source, tree), where tree is {project_id: {name, parent}} and a
-        root project's parent resolves to the "site" sentinel (its container nests
-        under the site container). Sites are always added as containers here to
+        Returns (source, tree), where tree is {project_id: {name, parent, owner_urn}}
+        and a root project's parent resolves to the "site" sentinel (its container
+        nests under the site container). Sites are always added as containers here to
         mirror a typical deployment.
+
+        Pass ``ingest_owner=True`` and ``owner_by_project_id`` to verify ownership
+        propagation without duplicating setup across tests.
         """
         project_pattern: Dict[str, List[str]] = {}
         if allow is not None:
@@ -1496,6 +1830,7 @@ class TestProjectContainerHierarchy:
             project_pattern=project_pattern or {"allow": [".*"]},
             extract_project_hierarchy=extract_project_hierarchy,
             add_site_container=True,
+            ingest_owner=ingest_owner,
         )
         config = TableauConfig.model_validate(config_dict)
 
@@ -1509,7 +1844,15 @@ class TestProjectContainerHierarchy:
                 server=mock.MagicMock(),
             )
 
-        project_items = [_tsc_project(p) for p in projects]
+        owners = owner_by_project_id or {}
+        project_items = [
+            _tsc_project(
+                p,
+                owner_username=owners.get(p.id, (None, None))[0],
+                owner_email=owners.get(p.id, (None, None))[1],
+            )
+            for p in projects
+        ]
 
         def fake_pager(endpoint: Any, **kwargs: Any) -> Any:
             # Only the projects endpoint has data; the datasource/workbook registries
@@ -1714,6 +2057,26 @@ class TestProjectContainerHierarchy:
         # The dangling parent reference is surfaced to operators, not swallowed.
         assert "Incomplete project hierarchy" in source.report.as_string()
 
+    def test_project_container_owner_ingested_when_ingest_owner_true(self) -> None:
+        """Project containers include an owner when ingest_owner=True and the TSC
+        ProjectItem carries owner info."""
+        _, tree = self._run(
+            [ProjectSpec("p1", "Project_1", None)],
+            ingest_owner=True,
+            owner_by_project_id={"p1": ("alice", "alice@example.com")},
+        )
+        assert tree["p1"]["owner_urn"] == "urn:li:corpuser:alice"
+
+    def test_project_container_no_owner_when_ingest_owner_false(self) -> None:
+        """Project containers have no owner when ingest_owner=False, even if the TSC
+        ProjectItem carries owner info."""
+        _, tree = self._run(
+            [ProjectSpec("p1", "Project_1", None)],
+            ingest_owner=False,
+            owner_by_project_id={"p1": ("alice", "alice@example.com")},
+        )
+        assert tree["p1"]["owner_urn"] is None
+
     def test_dangling_parent_id_raises_actionable_error(self) -> None:
         """emit_project_containers relies on _get_all_project having nulled out any
         parent_id absent from the project map. If a future regression breaks that
@@ -1880,3 +2243,137 @@ class TestNullApiResponseHandling:
         assert result is not None
         assert len(result.fields) == 1
         assert result.fields[0].fieldPath == "my_column"
+
+
+def _report_titles(entries: Iterable[Any]) -> List[Optional[str]]:
+    # _make_site_source() always reports "Insufficient Permissions" because the mocked
+    # server cannot verify the user's role; it is unrelated to what these tests check.
+    return [e.title for e in entries if e.title != "Insufficient Permissions"]
+
+
+def _registry_project(project_id: str, name: str = "default") -> TableauProject:
+    return TableauProject(
+        id=project_id,
+        name=name,
+        description="",
+        parent_id=None,
+        parent_name=None,
+        path=[name],
+    )
+
+
+def test_workbook_project_luid_falls_back_to_rest_lookup() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.tableau_project_registry = {"project-1": _registry_project("project-1")}
+    source.server.workbooks.get_by_id.return_value = mock.MagicMock(
+        project_id="project-1"
+    )
+    workbook = {c.ID: "wb-1", c.NAME: "wb", c.LUID: "wb-luid-1"}
+
+    assert source._get_workbook_project_luid(workbook) == "project-1"
+    # The second call is served from the map; the REST API is only hit once.
+    assert source._get_workbook_project_luid(workbook) == "project-1"
+
+    source.server.workbooks.get_by_id.assert_called_once_with("wb-luid-1")
+    assert source.report.num_workbook_project_lookups == 1
+
+
+def test_workbook_project_luid_lookup_failure_is_not_retried() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.server.workbooks.get_by_id.side_effect = Exception("boom")
+    workbook = {c.ID: "wb-1", c.NAME: "wb", c.LUID: "wb-luid-1"}
+
+    assert source._get_workbook_project_luid(workbook) is None
+    assert source._get_workbook_project_luid(workbook) is None
+
+    source.server.workbooks.get_by_id.assert_called_once_with("wb-luid-1")
+    assert source.report.num_get_workbook_query_failures == 1
+    # The skip is reported once by emit_workbooks; the lookup itself only logs.
+    assert _report_titles(source.report.warnings) == []
+
+
+def test_workbook_project_luid_without_luid_skips_lookup() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+
+    assert source._get_workbook_project_luid({c.ID: "wb-1", c.NAME: "wb"}) is None
+    source.server.workbooks.get_by_id.assert_not_called()
+
+
+def test_emit_workbooks_distinguishes_unresolved_from_unselected_project() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.server.workbooks.get_by_id.return_value = mock.MagicMock(project_id=None)
+    source.tableau_project_registry = {"project-1": _registry_project("project-1")}
+    source.workbook_project_map = {"wb-luid-unselected": "project-other"}
+
+    workbooks = [
+        {
+            c.ID: "wb-unresolved",
+            c.NAME: "Unresolved",
+            c.LUID: "wb-luid-unresolved",
+            c.PROJECT_NAME: "default",
+        },
+        {
+            c.ID: "wb-unselected",
+            c.NAME: "Unselected",
+            c.LUID: "wb-luid-unselected",
+            c.PROJECT_NAME: "default",
+        },
+    ]
+
+    with mock.patch.object(source, "get_connection_objects", return_value=workbooks):
+        work_units = list(source.emit_workbooks())
+
+    assert work_units == []
+    assert _report_titles(source.report.warnings) == [
+        "Unable to Resolve Workbook Project"
+    ]
+    assert _report_titles(source.report.infos) == [
+        "Skipping Workbook in Unselected Project"
+    ]
+
+
+def test_emit_workbooks_resolves_missing_workbook_via_rest_lookup() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.server.workbooks.get_by_id.return_value = mock.MagicMock(
+        project_id="project-1"
+    )
+    source.tableau_project_registry = {"project-1": _registry_project("project-1")}
+    source.workbook_project_map = {}
+
+    workbook = {
+        c.ID: "wb-resolved",
+        c.NAME: "Resolved",
+        c.LUID: "wb-luid-resolved",
+        c.PROJECT_NAME: "default",
+        c.SHEETS: [{c.ID: "sheet-1"}],
+        c.DASHBOARDS: [{c.ID: "dashboard-1"}],
+        c.EMBEDDED_DATA_SOURCES: [{c.ID: "embedded-ds-1"}],
+    }
+
+    with mock.patch.object(source, "get_connection_objects", return_value=[workbook]):
+        work_units = list(source.emit_workbooks())
+
+    source.server.workbooks.get_by_id.assert_called_once_with("wb-luid-resolved")
+
+    aspects = [
+        wu.metadata.aspect
+        for wu in work_units
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.entityUrn == source.gen_workbook_key("wb-resolved").as_urn()
+    ]
+    container_props = [a for a in aspects if isinstance(a, ContainerPropertiesClass)]
+    assert [p.name for p in container_props] == ["Resolved"]
+    parent = [a for a in aspects if isinstance(a, ContainerClass)]
+    assert [p.container for p in parent] == [
+        source.gen_project_key("project-1").as_urn()
+    ]
+
+    assert source.sheet_ids == ["sheet-1"]
+    assert source.dashboard_ids == ["dashboard-1"]
+    assert source.embedded_datasource_ids_being_used == ["embedded-ds-1"]
+    assert _report_titles(source.report.warnings) == []

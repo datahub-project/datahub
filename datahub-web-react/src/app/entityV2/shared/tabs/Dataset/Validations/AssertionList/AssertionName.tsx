@@ -2,6 +2,7 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import AcrylAssertionListStatusDot from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListStatusDot';
 import { DataContractBadge } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/DataContractBadge';
 import { AssertionPlatformAvatar } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionPlatformAvatar';
@@ -68,8 +69,7 @@ export const AssertionName = ({
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();
 
-    const monitorSchedule = null;
-    const name = useBuildAssertionPrimaryLabel(assertion.info, monitorSchedule, {
+    const name = useBuildAssertionPrimaryLabel(assertion.info, {
         showColumnTag: true,
     });
 
@@ -114,7 +114,7 @@ export const AssertionName = ({
                                 link={`${entityRegistry.getEntityUrl(
                                     EntityType.Dataset,
                                     entityData.urn,
-                                )}/Quality/Data Contract`}
+                                )}/${EntityTabPath.QUALITY}/Data Contract`}
                             />
                         )) ||
                             undefined}

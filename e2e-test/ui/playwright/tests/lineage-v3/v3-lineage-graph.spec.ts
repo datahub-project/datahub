@@ -15,6 +15,7 @@ import { TIMEOUTS, gmsUrl, LOAD_STATES } from '../../utils/constants';
 import { seedTimeRangeLineage } from '../../utils/lineage-time-seeder';
 import { readGmsToken } from '../../fixtures/login';
 import { users } from '../../data/users';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'lineage-v3' });
 
@@ -226,13 +227,20 @@ const SEARCH_TERMS = {
 
 // showLineageFilterNodes is omitted so most tests run on the backend default; only the filter test overrides it.
 const BASE_FEATURE_FLAGS = {
-  lineageGraphV3: true,
   themeV2Enabled: true,
   themeV2Default: true,
   showNavBarRedesign: true,
 };
 
 // ── Test Suite ───────────────────────────────────────────────────────────────
+
+// beforeAll's seedAdditionalNodes call (unlike seedTimeRangeLineage, which is
+// now lock-protected in lineage-time-seeder.ts because it's also called from
+// v3-lineage-impact-analysis.spec.ts) is unique to this file and has no such
+// guard. Under workers_per_shard > 1, fullyParallel can still schedule this
+// describe block's own tests across two workers, each running beforeAll
+// concurrently. Force one worker so it stays genuinely single-shot.
+test.describe.configure({ mode: 'default' });
 
 test.describe('lineage v3 — lineage graph', () => {
   let lineagePage: LineageV3Page;
@@ -260,7 +268,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await apiMock.setFeatureFlags(BASE_FEATURE_FLAGS);
   });
 
-  test('can see full history', async () => {
+  test('can see full history', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
     await lineagePage.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await lineagePage.waitForGraphToRender();
@@ -383,7 +391,7 @@ test.describe('lineage v3 — lineage graph', () => {
     expect(await lineagePage.areGraphEdgesVisible()).toBe(true);
   });
 
-  test('can edit upstream lineage', async ({ page }) => {
+  test('can edit upstream lineage', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page }) => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
 
     await lineagePage.openManageLineageMenu(DATASET_URN);
@@ -402,7 +410,7 @@ test.describe('lineage v3 — lineage graph', () => {
     await expect(page.getByRole('button', { name: /Set Upstreams/i })).not.toHaveAttribute('disabled');
   });
 
-  test('displays complete lineage graph with all node types', async () => {
+  test('displays complete lineage graph with all node types', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, NODE1_DATASET_URN);
 
     // Check initial state
@@ -546,6 +554,17 @@ test.describe('lineage v3 — lineage graph', () => {
     await lineagePage.checkEdgeExists(NODE6_DATASET_URN, NODE4_DATASET_URN);
     await lineagePage.checkEdgeExists(NODE4_DATASET_URN, NODE7_DATAJOB_URN);
     await lineagePage.checkEdgeExists(NODE7_DATAJOB_URN, NODE8_DATASET_URN);
+  });
+
+  test('draws manually added edges dashed, and ingested ones solid', async () => {
+    // node5's upstream edge from node1 is seeded with `properties.source = UI`, which is what
+    // marks a lineage edge as manually added; node1 -> node2 is an ordinary ingested edge.
+    await lineagePage.goToLineageGraph(DATASET_ENTITY_TYPE, NODE1_DATASET_URN);
+    await lineagePage.checkEdgeExists(NODE1_DATASET_URN, NODE5_DATASET_MANUAL_URN);
+    await lineagePage.checkEdgeExists(NODE1_DATASET_URN, NODE2_DATASET_URN);
+
+    await lineagePage.checkEdgeIsManual(NODE1_DATASET_URN, NODE5_DATASET_MANUAL_URN, true);
+    await lineagePage.checkEdgeIsManual(NODE1_DATASET_URN, NODE2_DATASET_URN, false);
   });
 
   test('should allow to expand and filter children', async ({ apiMock }) => {

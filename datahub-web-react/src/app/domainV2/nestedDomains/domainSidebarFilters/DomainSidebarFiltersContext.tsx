@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 
 import { DomainOwnerInfo } from '@app/domainV2/nestedDomains/domainSidebarFilters/domainSidebarFilters.utils';
+import {
+    DEFAULT_DOMAIN_SIDEBAR_SORT,
+    DomainSidebarSortValue,
+} from '@app/domainV2/nestedDomains/domainSidebarFilters/domainSidebarSort';
 
 interface DomainSidebarFiltersContextValue {
     /** URNs of owners the user has selected from the multi-select. Empty = no filter. */
@@ -8,12 +12,14 @@ interface DomainSidebarFiltersContextValue {
     setSelectedOwnerUrns: (urns: string[]) => void;
     /**
      * Distinct owners that exist anywhere in the server-side domain index,
-     * sourced from the `owners` facet aggregations on the root scroll query.
-     * Populated by `DomainNavigator` whenever the server returns a new set of
-     * facets; the dropdown reads it directly.
+     * sourced from the `owners` facet aggregations.
+     * Populated by `DomainNavigator`; the dropdown reads it directly.
      */
     availableOwners: DomainOwnerInfo[];
     setAvailableOwners: (owners: DomainOwnerInfo[]) => void;
+    /** Server-side sort for browse / filtered scroll queries. */
+    sortSelection: DomainSidebarSortValue;
+    setSortSelection: (sort: DomainSidebarSortValue) => void;
 }
 
 // Noop defaults (rather than a throw-on-missing-provider hook like
@@ -28,11 +34,14 @@ const DomainSidebarFiltersContext = createContext<DomainSidebarFiltersContextVal
     setSelectedOwnerUrns: () => {},
     availableOwners: [],
     setAvailableOwners: () => {},
+    sortSelection: DEFAULT_DOMAIN_SIDEBAR_SORT,
+    setSortSelection: () => {},
 });
 
 export function DomainSidebarFiltersProvider({ children }: { children: React.ReactNode }) {
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
     const [availableOwners, setAvailableOwners] = useState<DomainOwnerInfo[]>([]);
+    const [sortSelection, setSortSelection] = useState<DomainSidebarSortValue>(DEFAULT_DOMAIN_SIDEBAR_SORT);
 
     const value = useMemo<DomainSidebarFiltersContextValue>(
         () => ({
@@ -40,8 +49,10 @@ export function DomainSidebarFiltersProvider({ children }: { children: React.Rea
             setSelectedOwnerUrns,
             availableOwners,
             setAvailableOwners,
+            sortSelection,
+            setSortSelection,
         }),
-        [selectedOwnerUrns, availableOwners],
+        [selectedOwnerUrns, availableOwners, sortSelection],
     );
 
     return <DomainSidebarFiltersContext.Provider value={value}>{children}</DomainSidebarFiltersContext.Provider>;

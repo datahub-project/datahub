@@ -63,7 +63,7 @@ class Neo4jSourceReport(StatefulIngestionReport):
 @capability(
     SourceCapability.PLATFORM_INSTANCE, "Supported via the `platform_instance` config"
 )
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 class Neo4jSource(StatefulIngestionSourceBase):
     config: Neo4jConfig
     report: Neo4jSourceReport
@@ -135,7 +135,7 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
         except Exception as e:
             log.error(e)
-            self.report.report_failure(
+            self.report.failure(
                 message="Failed to process dataset",
                 context=dataset,
                 exc=e,
@@ -300,11 +300,12 @@ class Neo4jSource(StatefulIngestionSourceBase):
 
             except Exception as e:
                 log.warning(f"Failed to process row {row['key']}: {str(e)}")
-                self.report.report_warning(
+                self.report.warning(
                     title="Error processing Neo4j metadata",
                     message="Some entities will be missed",
                     context=row["key"],
                     exc=e,
+                    log=False,
                 )
                 self.report.obj_failures += 1
 

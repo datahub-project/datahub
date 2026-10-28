@@ -1,0 +1,21 @@
+namespace com.linkedin.metadata.search.features
+
+/**
+ * Pre-computed storage-based features for a Dataset, written by the daily usage-reporting job.
+ * When populated, resolvers use these values instead of issuing live timeseries queries,
+ * eliminating per-result OpenSearch fan-out on search pages.
+ */
+@Aspect = {
+  "name": "storageFeatures"
+}
+record StorageFeatures {
+  /**
+   * Total row count from the most recent dataset profile.
+   */
+  rowCount: optional long
+
+  /**
+   * Total column count from the most recent dataset profile.
+   */
+  columnCount: optional long
+}

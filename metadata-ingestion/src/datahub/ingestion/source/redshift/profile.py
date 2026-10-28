@@ -41,7 +41,7 @@ class RedshiftProfiler(GenericProfiler):
         ],
     ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         if self.config.is_profiling_enabled():
             self.config.options.setdefault(
                 "max_overflow", self.config.profiling.max_workers
@@ -73,10 +73,11 @@ class RedshiftProfiler(GenericProfiler):
                             # Case 2: User DID tell us to profile external tables, but only at the table level.
                             # Currently, we do not support this combination. The user needs to also set
                             # profile_table_level_only to False in order to profile.
-                            self.report.report_warning(
+                            self.report.warning(
                                 title="Skipped profiling for external tables",
                                 message="External tables are not supported for profiling when 'profile_table_level_only' config is set to 'True'. Please set 'profile_table_level_only' to 'False' in order to profile external Redshift tables.",
                                 context=f"External Table: {db}.{schema}.{table.name}",
+                                log=False,
                             )
                             # Continue, since we were unable to retrieve cheap profiling stats from svv_table_info.
                             continue

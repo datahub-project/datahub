@@ -37,8 +37,9 @@ import subprocess
 import threading
 import time
 from datetime import datetime
+from typing import Sequence
 
-from ._shared import read_token_passthrough
+from ._shared import old_image_window, read_token_passthrough
 from .base import Phase, PhaseResult
 from ..constants import REPO_ROOT
 from ..context import BatchDelayCapture, TestContext
@@ -48,6 +49,9 @@ from ..host_mounts import worktree_mount_env
 from ..mysql_client import MySQLClient
 
 log = logging.getLogger(__name__)
+
+# Private DATAHUB_REVISION for this phase's sweep — see _find_migrate_result.
+_MIGRATE_REVISION = "325"
 
 
 _DEFAULT_SEED_COUNT = 200
@@ -70,6 +74,7 @@ class BatchDelaySweepPhase(Phase):
         mysql: MySQLClient,
         datahub: DataHubClient,
         gms_service: str,
+        consumer_services: Sequence[str] = (),
         upgrade_service: str = "system-update-debug",
         seed_count: int = _DEFAULT_SEED_COUNT,
         batch_size: int = _DEFAULT_BATCH_SIZE,
@@ -79,6 +84,7 @@ class BatchDelaySweepPhase(Phase):
         urn_prefix: str = _DEFAULT_URN_PREFIX,
         poll_interval_s: float = _DEFAULT_POLL_INTERVAL_S,
         run_timeout_s: int = _DEFAULT_RUN_TIMEOUT_S,
+        old_image_tag: str = "debug",
         new_image_tag: str = "debug",
         build_images_root: str = "smoke-test/build/zdu-images",
     ) -> None:
@@ -86,6 +92,7 @@ class BatchDelaySweepPhase(Phase):
         self._mysql = mysql
         self._datahub = datahub
         self._gms_service = gms_service
+        self._consumer_services = tuple(consumer_services)
         self._upgrade_service = upgrade_service
         self._seed_count = seed_count
         self._batch_size = batch_size
@@ -95,6 +102,7 @@ class BatchDelaySweepPhase(Phase):
         self._urn_prefix = urn_prefix
         self._poll_interval_s = poll_interval_s
         self._run_timeout_s = run_timeout_s
+        self._old_image_tag = old_image_tag
         self._new_image_tag = new_image_tag
         self._build_images_root = build_images_root
 
@@ -111,37 +119,59 @@ class BatchDelaySweepPhase(Phase):
         # Best-effort cleanup of any stale container.
         self._docker.remove_container(_CONTAINER_NAME)
 
-        try:
-            self._seed_test_aspects_via_rest()
-        except Exception as exc:
-            log.exception("[batch-delay] REST seed failed: %s", exc)
-            return self._fail(
-                started_at, time.monotonic() - t0, f"REST seed failed: {exc}"
-            )
+        # Seed and sweep both run with the write path held on the OLD image.
+        # The window must span the sweep: restoring to NEW hands the fixture to
+        # an armed mutator chain which drains it far faster than this
+        # deliberately-paced sweep can, leaving no inter-batch gaps to measure.
+        # The consumers are passed explicitly because they only live inside the
+        # GMS process on the embedded profiles — on a split topology a GMS-only
+        # swap leaves them armed. See old_image_window.
+        #
+        # Seeding here rather than in a shared earlier phase is also deliberate:
+        # the sweep is global (``streamAspectBatchesForMigration`` takes no URN
+        # filter), so a fixture seeded before kill_switch_sweep would be
+        # consumed by that phase's sweep instead of this one's.
+        with old_image_window(
+            self._docker,
+            gms_service=self._gms_service,
+            consumer_services=self._consumer_services,
+            old_image_tag=self._old_image_tag,
+            new_image_tag=self._new_image_tag,
+            build_images_root=self._build_images_root,
+            log_prefix="[batch-delay]",
+        ):
+            try:
+                self._seed_test_aspects_via_rest()
+            except Exception as exc:
+                log.exception("[batch-delay] REST seed failed: %s", exc)
+                return self._fail(
+                    started_at, time.monotonic() - t0, f"REST seed failed: {exc}"
+                )
 
-        run_start = time.monotonic()
-        try:
-            self._run_sweep_and_poll(cap)
-        except Exception as exc:
-            log.exception("[batch-delay] sweep failed: %s", exc)
+            run_start = time.monotonic()
+            try:
+                self._run_sweep_and_poll(cap)
+            except Exception as exc:
+                log.exception("[batch-delay] sweep failed: %s", exc)
+                cap.total_duration_s = time.monotonic() - run_start
+                return self._fail(
+                    started_at, time.monotonic() - t0, f"sweep failed: {exc}"
+                )
             cap.total_duration_s = time.monotonic() - run_start
-            return self._fail(started_at, time.monotonic() - t0, f"sweep failed: {exc}")
-        cap.total_duration_s = time.monotonic() - run_start
 
-        # Capture final state.
-        cap.final_count_at_target = (
-            self._mysql.count_aspects_at_schema_version_for_urn_prefix(
-                self._urn_prefix, self._aspect, 4
+            # Read final state inside the window, before the restored NEW GMS's
+            # consumers can migrate anything the sweep left behind.
+            cap.final_count_at_target = (
+                self._mysql.count_aspects_at_schema_version_for_urn_prefix(
+                    self._urn_prefix, self._aspect, 4
+                )
             )
-        )
-        try:
-            _, parsed = self._mysql.find_upgrade_result_by_urn_prefix(
-                "migrate-aspects-"
-            )
-            if parsed is not None:
-                cap.final_upgrade_state = parsed.get("state")
-        except Exception as exc:
-            log.warning("[batch-delay] could not read final upgrade state: %s", exc)
+            try:
+                _, parsed = self._find_migrate_result()
+                if parsed is not None:
+                    cap.final_upgrade_state = parsed.get("state")
+            except Exception as exc:
+                log.warning("[batch-delay] could not read final upgrade state: %s", exc)
 
         log.info(
             "[batch-delay] phase done: %d cursor advances, %d/%d at target, "
@@ -221,9 +251,7 @@ class BatchDelaySweepPhase(Phase):
                     proc.wait(timeout=10)
                     raise RuntimeError(f"sweep exceeded {self._run_timeout_s}s timeout")
                 try:
-                    _, parsed = self._mysql.find_upgrade_result_by_urn_prefix(
-                        "migrate-aspects-"
-                    )
+                    _, parsed = self._find_migrate_result()
                 except Exception:
                     parsed = None
                 current_cursor = self._extract_cursor(parsed)
@@ -275,6 +303,14 @@ class BatchDelaySweepPhase(Phase):
             **token_env,
             "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
             "SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED": "true",
+            # Give this sweep its own upgrade id so its state/cursor assertions
+            # describe its own job. MigrateAspects ids are
+            # "migrate-aspects-<gitVersion>-<revision>" and the framework controls
+            # only the revision, so a private one separates this sweep from the
+            # boot-time run (revision 0), the upgrade phases (1) and the other
+            # sweeps. Without it MigrateAspectsStep short-circuits on whichever
+            # sweep finished first and left a SUCCEEDED result.
+            "DATAHUB_REVISION": _MIGRATE_REVISION,
             "ASPECT_MIGRATION_MUTATOR_ENABLED": "true",
             # Loads ZduTestMutatorConfiguration so the test-only mutator beans
             # wire into the chain (independent flag from production gate above).
@@ -288,6 +324,22 @@ class BatchDelaySweepPhase(Phase):
             extra_args=["-u", "SystemUpdateNonBlocking"],
             compose_env=compose_env,
             container_name=_CONTAINER_NAME,
+        )
+
+    def _find_migrate_result(self) -> tuple[str | None, dict | None]:
+        """Locate this phase's own ``migrate-aspects-*`` upgrade result.
+
+        Matched by the private ``DATAHUB_REVISION`` this phase runs its sweep
+        under (325). MigrateAspects derives its upgrade id as
+        ``migrate-aspects-<gitVersion>-<revision>``
+        (``NonBlockingConfigs.java``), and the framework knows only the
+        revision half — so the revision is the suffix we match on. Note
+        ``SYSTEM_UPDATE_MIGRATE_ASPECTS_UPGRADE_VERSION`` is NOT a way to do
+        this: no such property exists in application.yaml, so setting it has no
+        effect at all.
+        """
+        return self._mysql.find_upgrade_result_by_urn_prefix_suffix(
+            "migrate-aspects-", f"-{_MIGRATE_REVISION}"
         )
 
     def _fail(self, started_at: datetime, duration_s: float, error: str) -> PhaseResult:

@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import { Button, Text } from '@components';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -6,7 +7,9 @@ import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useDocumentNavigation } from '@app/document/hooks/useDocumentNavigation';
 import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { useNodeChildrenLoading } from '@app/document/hooks/useNodeChildrenLoading';
+import { useRevealDocumentInTree } from '@app/document/hooks/useRevealDocumentInTree';
 import { useSectionExpansion } from '@app/document/hooks/useSectionExpansion';
+import { DEFAULT_DOCUMENT_SIDEBAR_SORT, DocumentSidebarSortValue } from '@app/document/utils/documentSidebarSort';
 import {
     DocumentTreeFilterSelection,
     NO_FILTER_SELECTION,
@@ -14,13 +17,14 @@ import {
 } from '@app/document/utils/documentTreeFilters';
 import {
     DocumentSourceGroup,
-    formatPlatformLabel,
     partitionRootNodesByLayer,
+    resolveDocumentSourceSection,
 } from '@app/document/utils/documentTreeGrouping';
 import { ChildLoadMoreTrigger } from '@app/homeV2/layout/sidebar/documents/ChildLoadMoreTrigger';
 import { DocumentTreeItem } from '@app/homeV2/layout/sidebar/documents/DocumentTreeItem';
-import { TreeSectionHeader } from '@app/homeV2/layout/sidebar/documents/TreeSectionHeader';
-import Loading from '@app/shared/Loading';
+import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
+import Loading from '@app/sharedV2/Loading';
+import { TreeSectionHeader } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/TreeSectionHeader';
 
 // Section id for the built-in "DataHub" (native docs) group. Platform groups use
 // their platform urn as the id; this sentinel keeps the native group distinct.
@@ -38,10 +42,24 @@ const RootObserver = styled.div`
     margin-top: 1px;
 `;
 
+// Matches SidebarFilteredResults' empty-state layout so the view-aware empty
+// tree reads the same as the search-mode empty state.
+const EmptyStateWrap = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 16px;
+
+    p {
+        text-align: center;
+    }
+`;
+
 interface DocumentTreeProps {
     onCreateChild: (parentUrn: string | null) => void;
     selectedUrn?: string; // For selection mode (e.g., in move dialog)
-    onSelectDocument?: (urn: string) => void; // Callback when document is selected
+    onSelectDocument?: (urn: string, title?: string) => void; // Callback when document is selected
     hideActions?: boolean; // Hide action buttons (e.g., in move dialog)
     hideActionsMenu?: boolean; // Hide move/delete menu actions
     hideCreate?: boolean; // Hide create/add button
@@ -53,6 +71,17 @@ interface DocumentTreeProps {
      */
     filterSelection?: DocumentTreeFilterSelection;
     /**
+     * Sidebar sort selection. Passed to searchDocuments (server-side); remount the
+     * tree with a matching key when this changes so roots reload in the new order.
+     */
+    sortSelection?: DocumentSidebarSortValue;
+    /**
+     * When false, reuse roots already in DocumentTreeContext and only load children
+     * on expand. Use in pickers (move / link popovers) so remounting does not wipe
+     * the shared sidebar tree via initializeTree.
+     */
+    loadRoots?: boolean;
+    /**
      * Enables multi-select mode: each row renders a leading checkbox driven by
      * `checkedUrns`, and clicking a row fires `onSelectDocument` for the parent
      * to toggle the URN in its own set. Per-row actions (menu, create-child) are
@@ -60,6 +89,18 @@ interface DocumentTreeProps {
      */
     multiSelect?: boolean;
     checkedUrns?: Set<string>;
+    /**
+     * Keep the browse list pinned at the top after sort changes (do not
+     * scrollIntoView the open document).
+     */
+    suppressSelectionScroll?: boolean;
+}
+
+function scrollDocumentTreeToTop() {
+    const treeScroll = document.querySelector('[data-testid="hierarchical-browse-tree-scroll"]');
+    if (treeScroll instanceof HTMLElement) {
+        treeScroll.scrollTop = 0;
+    }
 }
 
 export const DocumentTree: React.FC<DocumentTreeProps> = ({
@@ -70,8 +111,11 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     hideActionsMenu = false,
     hideCreate = false,
     filterSelection = NO_FILTER_SELECTION,
+    sortSelection = DEFAULT_DOCUMENT_SIDEBAR_SORT,
+    loadRoots = true,
     multiSelect = false,
     checkedUrns,
+    suppressSelectionScroll = false,
 }) => {
     const { t } = useTranslation('misc');
 
@@ -86,7 +130,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         hasMoreRoots,
         hasMoreChildren,
         rootObserverRef,
-    } = useLoadDocumentTree();
+    } = useLoadDocumentTree(sortSelection, { paginateRoots: loadRoots });
 
     // Per-node expand + lazy child loading, and routing/selection glue.
     const { loadingUrns, loadingChildrenUrns, handleToggleExpand, handleLoadMoreChildren } = useNodeChildrenLoading({
@@ -94,6 +138,29 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         loadMoreChildren,
     });
     const { getCurrentDocumentUrn, handleDocumentClick } = useDocumentNavigation(onSelectDocument);
+    // The document tree query is always View-scoped, so a restrictive View can
+    // filter out every root — surface that instead of rendering a blank sidebar.
+    const { hasSelectedView, clearSelectedView } = useSelectedView();
+
+    // Deep-link / URL navigation: expand + load the ancestor path so the selected
+    // row mounts. Skip in picker/selection mode (move dialog, etc.).
+    // Does not page the root list — sorted roots always start at the top.
+    const isNavigationMode = !onSelectDocument && !multiSelect;
+    useRevealDocumentInTree({
+        loadChildren,
+        loadMoreChildren,
+        hasMoreChildren,
+        rootsLoading: loading,
+        skip: !isNavigationMode,
+    });
+
+    // Sort remount loads async — re-pin to top after page 1 lands (selected-row
+    // scrollIntoView is also suppressed via suppressSelectionScroll).
+    useEffect(() => {
+        if (!suppressSelectionScroll || loading) return undefined;
+        const frame = requestAnimationFrame(() => scrollDocumentTreeToTop());
+        return () => cancelAnimationFrame(frame);
+    }, [suppressSelectionScroll, loading, sortSelection]);
 
     // Section-scoped expand-all / collapse-all (per DataHub + per-platform group).
     const { isSectionExpanded, isSectionExpanding, toggleSectionExpandAll } = useSectionExpansion(loadChildren);
@@ -101,6 +168,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     const collapseAllLabel = t('context.tree.collapseAll');
 
     const rootNodes = getRootNodes();
+    // Order comes from searchDocuments; only apply local filterSelection here.
     const visibleRootNodes = useMemo(
         () => filterDocumentNodes(rootNodes, filterSelection),
         [rootNodes, filterSelection],
@@ -128,6 +196,38 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
         });
     }, []);
 
+    // Keep the section that owns the open document expanded (native vs platform).
+    useEffect(() => {
+        if (!isNavigationMode) return;
+        const currentUrn = getCurrentDocumentUrn();
+        if (!currentUrn) return;
+
+        let cursor: string | null = currentUrn;
+        let rootUrn = currentUrn;
+        while (cursor) {
+            const node = getNode(cursor);
+            if (!node) break;
+            rootUrn = node.urn;
+            cursor = node.parentUrn;
+        }
+
+        const rootNode = getNode(rootUrn);
+        if (!rootNode) return;
+
+        const section = resolveDocumentSourceSection(rootNode);
+        if (section.kind === 'platform') {
+            const { platformUrn } = section;
+            setCollapsedPlatformUrns((prev) => {
+                if (!prev.has(platformUrn)) return prev;
+                const next = new Set(prev);
+                next.delete(platformUrn);
+                return next;
+            });
+        } else {
+            setIsNativeExpanded(true);
+        }
+    }, [isNavigationMode, getCurrentDocumentUrn, getNode, expandedUrns]);
+
     const renderTreeNode = useCallback(
         (urn: string, level: number): React.ReactNode => {
             const node = getNode(urn);
@@ -140,8 +240,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             // Otherwise, keep the single-selection navigation semantics.
             const isSelected = multiSelect ? !!checkedUrns?.has(urn) : currentUrn === urn;
 
-            // Filter loaded children at render time. Done here (rather than mutating tree state)
-            // so toggling filters never refetches or mutates the underlying tree.
+            // Filter loaded children at render time (sort is server-side via searchDocuments).
             const visibleChildren = filterDocumentNodes(node.children || [], filterSelection);
 
             return (
@@ -158,13 +257,14 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                         isExternal={node.isExternal}
                         platform={node.platform}
                         onToggleExpand={() => handleToggleExpand(node.urn)}
-                        onClick={() => handleDocumentClick(node.urn)}
+                        onClick={() => handleDocumentClick(node.urn, node.title)}
                         onCreateChild={onCreateChild}
                         hideActions={hideActions}
                         hideActionsMenu={hideActionsMenu}
                         hideCreate={hideCreate}
                         parentUrn={node.parentUrn}
                         multiSelect={multiSelect}
+                        suppressSelectionScroll={suppressSelectionScroll}
                     />
                     {isExpanded && visibleChildren.length > 0 && (
                         <>
@@ -200,6 +300,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             filterSelection,
             multiSelect,
             checkedUrns,
+            suppressSelectionScroll,
         ],
     );
 
@@ -209,7 +310,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     // DataHub header.
     const renderPlatformGroup = useCallback(
         (group: DocumentSourceGroup) => {
-            const { platform } = group;
+            const { platform, label } = group;
             const isExpanded = !collapsedPlatformUrns.has(platform.urn);
             const allExpanded = isSectionExpanded(group.nodes);
 
@@ -217,7 +318,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                 <React.Fragment key={platform.urn}>
                     <TreeSectionHeader
                         level={0}
-                        label={formatPlatformLabel(platform)}
+                        label={label}
                         isExpanded={isExpanded}
                         onToggle={() => togglePlatformGroup(platform.urn)}
                         testId={`document-tree-platform-${platform.urn}`}
@@ -250,7 +351,25 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     );
 
     if (loading) {
-        return <Loading height={16} />;
+        // marginTop defaults to 25% of the container's *width* (a CSS percentage-margin quirk),
+        // which reads as an oddly low-positioned spinner in a narrow, short popover. Pin it near
+        // the top instead, matching how other compact/inline Loading usages in the app do this.
+        return <Loading height={16} marginTop={0} />;
+    }
+
+    const isTreeEmpty =
+        nativeRootNodes.length === 0 && sourcesByPlatform.length === 0 && !hasMoreRoots && !loadingMoreRoots;
+    if (isTreeEmpty && hasSelectedView) {
+        return (
+            <EmptyStateWrap data-testid="document-tree-view-empty">
+                <Text size="sm" color="gray">
+                    {t('context.viewHidingAllDocuments')}
+                </Text>
+                <Button variant="text" size="sm" onClick={clearSelectedView} data-testid="document-tree-clear-view">
+                    {t('context.clearSelectedView')}
+                </Button>
+            </EmptyStateWrap>
+        );
     }
 
     return (
@@ -277,7 +396,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             )}
             {sourcesByPlatform.map(renderPlatformGroup)}
             {hasMoreRoots && <RootObserver ref={rootObserverRef} />}
-            {loadingMoreRoots && <Loading height={12} />}
+            {loadingMoreRoots && <Loading height={12} marginTop={0} />}
         </TreeContainer>
     );
 };

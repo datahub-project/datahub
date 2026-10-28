@@ -3,12 +3,12 @@ import React, { useContext, useMemo, useState } from 'react';
 import { DEFAULT_STATUS_FILTER, DocumentStatusFilter } from '@app/document/utils/documentTreeFilters';
 
 /**
- * DocumentFiltersContext - Shared filter state for the Documents sidebar.
+ * Shared Status / Author / Source selection for Documents surfaces.
  *
- * The sidebar owns the filter UI (Status select + Author multi-select + Source
- * multi-select). Filter state lives in a context above the sidebar so that
- * future surfaces (e.g. a Documents homepage) can also read/write the same
- * selection without prop-drilling.
+ * ContextSidebar owns the filter chrome; these three live here (vs Type / Domain /
+ * Tag / Term local state) so other surfaces can share the same selection later
+ * without prop-drilling. With corpus-wide search mode, any non-default value here
+ * also switches the sidebar from the browse tree to search results.
  */
 
 export interface DocumentFiltersContextValue {

@@ -126,14 +126,20 @@ def _discover_oauth_server(gms_url: str) -> Dict[str, Any]:
     return metadata
 
 
-def _register_cli_client(registration_endpoint: str, redirect_uri: str) -> str:
+def _register_cli_client(
+    registration_endpoint: str, redirect_uri: str, support: bool = False
+) -> str:
     """RFC 7591 DCR: register a public PKCE client. Returns client_id."""
     try:
         resp = requests.post(
             registration_endpoint,
             json={
                 "client_name": "DataHub CLI",
-                "grant_types": ["authorization_code", "refresh_token"],
+                "grant_types": (
+                    ["authorization_code"]
+                    if support
+                    else ["authorization_code", "refresh_token"]
+                ),
                 "redirect_uris": [redirect_uri],
                 "token_endpoint_auth_method": "none",
                 "scope": "openid datahub:account",
@@ -204,7 +210,12 @@ def _make_callback_handler(
     return _Handler
 
 
-def pkce_login(gms_url: str, timeout_seconds: int = 120) -> OAuthResult:
+def pkce_login(
+    gms_url: str,
+    timeout_seconds: int = 120,
+    support: bool = False,
+    ticket_id: Optional[str] = None,
+) -> OAuthResult:
     """
     Run a PKCE authorization code flow against the DataHub OAuth2 server.
 
@@ -228,6 +239,9 @@ def pkce_login(gms_url: str, timeout_seconds: int = 120) -> OAuthResult:
     Raises:
         click.ClickException: on any failure with a user-friendly message
     """
+    if support and not ticket_id:
+        raise click.ClickException("Support OAuth login requires --ticket-id.")
+
     click.echo("Checking DataHub instance...")
     _check_cloud_instance(gms_url)
     metadata = _discover_oauth_server(gms_url)
@@ -254,7 +268,9 @@ def pkce_login(gms_url: str, timeout_seconds: int = 120) -> OAuthResult:
     redirect_uri = f"http://127.0.0.1:{port}/callback"
 
     click.echo("Registering OAuth2 client...")
-    client_id = _register_cli_client(registration_endpoint, redirect_uri)
+    client_id = _register_cli_client(
+        registration_endpoint, redirect_uri, support=support
+    )
 
     auth_params = {
         "response_type": "code",
@@ -265,6 +281,8 @@ def pkce_login(gms_url: str, timeout_seconds: int = 120) -> OAuthResult:
         "code_challenge_method": "S256",
         "state": state,
     }
+    if support and ticket_id:
+        auth_params.update({"support": "true", "ticket_id": ticket_id})
     auth_url = f"{authorization_endpoint}?{urllib.parse.urlencode(auth_params)}"
 
     server_thread = threading.Thread(

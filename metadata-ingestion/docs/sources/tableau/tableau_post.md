@@ -44,6 +44,37 @@ DataHub will still create **table-level lineage** for these tables, even though 
 
 **Observability**: The ingestion report tracks these tables using the counter `num_upstream_table_processed_without_columns`.
 
+#### Probing a Tableau recipe
+
+`datahub recipe probe` checks a Tableau recipe against the live site before a run. It signs in with the recipe's own credentials, SSL and proxy settings, and returns metadata only.
+
+| Command            | Parameters              | Returns                                                                                                             |
+| ------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `site`             | none                    | The recipe's site, the credential's site role, and whether that role is enough for a complete ingestion             |
+| `sites`            | `limit`                 | Each visible site's name, content URL and state. Needs server administrator rights; otherwise empty, with a warning |
+| `projects`         | `limit`                 | Every project as its full path, joined by `project_path_separator`, including projects the recipe excludes          |
+| `workbooks`        | `project_path`, `limit` | The workbooks directly in one project                                                                               |
+| `database_servers` | `limit`                 | Upstream database servers: id, name, host name and connection type                                                  |
+
+For example, to see which projects exist, whether one is ingested, and what it holds:
+
+```shell
+datahub recipe probe run projects --recipe recipe.yml
+datahub recipe probe filter --recipe recipe.yml --kind Project --name "Sales/EMEA"
+datahub recipe probe run workbooks --recipe recipe.yml --project-path "Sales/EMEA"
+```
+
+`probe filter` gives the verdict ingestion makes. Keep these rules in mind when you read it:
+
+- Projects are addressed and matched by their path, such as `Sales/EMEA`, not by their bare name. `project_path_pattern` is matched against that path.
+- With `extract_project_hierarchy` (the default), a child of a selected project is included unless a deny pattern names it, even if no allow pattern matches it. Exclusion does not pass down: with `allow: ["^Sales/EMEA$"]`, `Sales` is excluded and `Sales/EMEA` is included.
+- An excluded parent project can still appear in DataHub as an empty container, because an included project below it needs it for its browse path. Its workbooks are not ingested.
+- Sites are judged by content URL against the recipe's `site` when `ingest_multiple_sites` is off. With it on, `site_name_pattern` is matched on the site name, and a site whose state is not `Active` is excluded. Pass a saved `probe run sites` output with `probe filter --from-run` so the verdict sees each site's content URL and state. The probe signs in to the recipe's `site` only, so with `ingest_multiple_sites` on, `projects` and `workbooks` list that one site and say so in a warning.
+
+`database_servers` lists the ids and host names that `database_id_to_platform_instance_map` and `database_hostname_to_platform_instance_map` are keyed on. It needs the Metadata API to be enabled.
+
+The probe deliberately has no raw REST or Metadata API passthrough. It never returns custom SQL, Initial SQL, view data, workbook or data source downloads, or users and groups.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
@@ -51,6 +82,10 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - Initial SQL ingestion (`ingest_initial_sql`) supports both published and embedded (workbook) data sources. It is disabled by default because it issues a download request per published data source and per workbook, which can be slow on sites with many data sources or workbooks.
 
 - Tableau metadata API might return incorrect schema name for tables for some databases, leading to incorrect metadata in DataHub. This source attempts to extract correct schema from databaseTable's fully qualified name, wherever possible. Read [Using the databaseTable object in query](https://help.tableau.com/current/api/metadata_api/en-us/docs/meta_api_model.html#schema_attribute) for caveats in using schema attribute.
+
+- `lineage_overrides.platform_override_map` builds the upstream URN in the target platform's shape. Remapping a three-tier platform (e.g. `presto`) to a two-tier one (e.g. `athena`, `hive`, `mysql`, `teradata`) drops the database segment, giving `schema.table`. Remapping in the other direction — two-tier to three-tier — cannot supply the target's catalog, because a two-tier connection has no catalog to give: the URN stays `schema.table`. If the target platform's own ingestion emits three-part names, set `platform_instance_map` so the catalog is prefixed as a platform instance (e.g. `{ hive: "my_presto_instance.presto_catalog" }`).
+
+- `database_id_to_platform_instance_map` and `database_hostname_to_platform_instance_map` are both keyed off the Tableau database `id`. Upstreams discovered by parsing Initial SQL (`ingest_initial_sql`) come from the workbook/data source definition XML, which does not carry that id, so those upstreams fall back to `platform_instance_map`. If a table is reachable through both paths and only the id- or hostname-keyed maps assign it an instance, the two paths will emit different URNs for it; set `platform_instance_map` as well to keep them aligned.
 
 ### Troubleshooting
 

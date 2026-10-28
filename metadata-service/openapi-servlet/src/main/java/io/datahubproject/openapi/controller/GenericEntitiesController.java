@@ -1,7 +1,7 @@
 package io.datahubproject.openapi.controller;
 
+import static com.linkedin.metadata.Constants.QUERY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.TIMESTAMP_MILLIS;
-import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
@@ -10,7 +10,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -23,9 +22,14 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -38,6 +42,7 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
@@ -60,6 +65,7 @@ import io.datahubproject.openapi.models.GenericAspect;
 import io.datahubproject.openapi.models.GenericEntity;
 import io.datahubproject.openapi.models.GenericEntityScrollResult;
 import io.datahubproject.openapi.util.RequestInputUtil;
+import io.datahubproject.openapi.util.SearchTemplateFlags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -71,6 +77,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
@@ -98,6 +105,12 @@ public abstract class GenericEntitiesController<
   @Autowired protected SearchService searchService;
   @Autowired protected EntityService<?> entityService;
   @Autowired protected TimeseriesAspectService timeseriesAspectService;
+
+  // Optional: absent in applications that do not build the hard delete service.
+  @Autowired(required = false)
+  @Nullable
+  protected HardDeleteService hardDeleteService;
+
   @Autowired protected AuthorizerChain authorizationChain;
   @Autowired protected ObjectMapper objectMapper;
 
@@ -227,7 +240,18 @@ public abstract class GenericEntitiesController<
               description =
                   "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
           @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
-          String pitKeepAlive)
+          String pitKeepAlive,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description = "Caller-selected search template URN (urn:li:searchTemplate:<id>).")
+          @RequestParam(value = "searchTemplate", required = false)
+          String searchTemplate,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description =
+                  "When true, the response includes the templates visited while choosing the result.")
+          @RequestParam(value = "includeExplain", required = false)
+          Boolean includeExplain)
       throws URISyntaxException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -244,7 +268,10 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, entityName)) {
+    // Document access can be inherited from each bridge source, which cannot be evaluated at the
+    // entity-type level. The result-level check below authorizes every returned document.
+    if (!EntityAuthorizationUtils.isAPIAuthorizedSearchEntityTypes(
+        opContext, List.of(entityName))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
@@ -271,14 +298,17 @@ public abstract class GenericEntitiesController<
                 .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
                 .withSearchFlags(
                     flags ->
-                        flags
-                            .setSkipCache(skipCache)
-                            .setIncludeSoftDeleted(includeSoftDelete)
-                            .setSliceOptions(
-                                sliceId != null && sliceMax != null
-                                    ? new SliceOptions().setId(sliceId).setMax(sliceMax)
-                                    : null,
-                                SetMode.IGNORE_NULL)),
+                        SearchTemplateFlags.apply(
+                            flags
+                                .setSkipCache(skipCache)
+                                .setIncludeSoftDeleted(includeSoftDelete)
+                                .setSliceOptions(
+                                    sliceId != null && sliceMax != null
+                                        ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                        : null,
+                                    SetMode.IGNORE_NULL),
+                            searchTemplate,
+                            includeExplain)),
             List.of(entitySpec.getName()),
             query,
             null,
@@ -287,25 +317,68 @@ public abstract class GenericEntitiesController<
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
             count);
 
-    if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+    SearchEntityArray authorizedEntities;
+    if (QUERY_ENTITY_NAME.equals(entityName)) {
+      // Query visibility varies per entity (subject-dataset scoped), unlike the uniform,
+      // type-level checks other entity types get below — so a mixed page must keep the queries
+      // the actor IS authorized to see rather than rejecting the whole page over the ones they
+      // aren't.
+      Set<Urn> queryUrns =
+          result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toSet());
+      Set<Urn> viewableQueryUrns =
+          EntityAuthorizationUtils.filterAPIAuthorizedQueryUrns(opContext, queryUrns);
+      authorizedEntities =
+          new SearchEntityArray(
+              result.getEntities().stream()
+                  .filter(e -> viewableQueryUrns.contains(e.getEntity()))
+                  .collect(Collectors.toList()));
+    } else {
+      if (!EntityAuthorizationUtils.isAPIAuthorizedResult(opContext, result)) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
+      }
+      authorizedEntities = result.getEntities();
     }
 
     Set<String> mergedAspects =
         ImmutableSet.<String>builder().addAll(aspects1).addAll(aspects2).build();
 
+    // Known limitation: totalCount is result.getNumEntities(), the search backend's raw,
+    // unfiltered candidate count. For QUERY_ENTITY_NAME, authorizedEntities can be a strict subset
+    // of result.getEntities() (denied queries dropped from this page), so a mixed page is
+    // reported with a total that includes queries the actor can't see, and the page itself can
+    // come back with fewer than `count` entities without that being reflected in the total.
+    // Recomputing an exact, authorized-only total would require scrolling to exhaustion (the
+    // pattern ListQueriesResolver uses for GraphQL) rather than a single page fetch; out of scope
+    // here — accepted and documented rather than implemented.
     return ResponseEntity.ok(
         buildScrollResult(
             opContext,
-            result.getEntities(),
-            null,
+            authorizedEntities,
+            routeChainOnly(result),
             mergedAspects,
             withSystemMetadata,
             result.getScrollId(),
             true,
             result.getNumEntities(),
             false));
+  }
+
+  /**
+   * The per-entity scroll has never returned facets, so only the route chain travels with the
+   * result. Aggregations stay on the cross-entity scroll, which takes a {@code skipAggregates}
+   * parameter.
+   */
+  @Nullable
+  private static SearchResultMetadata routeChainOnly(@Nonnull ScrollResult result) {
+    if (!result.hasMetadata() || result.getMetadata() == null) {
+      return null;
+    }
+    SearchResultMetadata metadata = result.getMetadata();
+    if (!metadata.hasRouteChain() || metadata.getRouteChain() == null) {
+      return null;
+    }
+    return new SearchResultMetadata().setRouteChain(metadata.getRouteChain());
   }
 
   @Tag(name = "Generic Entities")
@@ -335,7 +408,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
@@ -377,7 +450,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
@@ -415,10 +488,12 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, READ, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
+    denyUnauthorizedTimeseriesAspect(opContext, authentication, urn, entityName, aspectName);
+    denyUnauthorizedSensitiveAspect(opContext, authentication, urn, aspectName);
 
     final List<E> resultList;
     if (version == 0) {
@@ -476,10 +551,12 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, EXISTS, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
+    denyUnauthorizedTimeseriesAspect(opContext, authentication, urn, entityName, aspectName);
+    denyUnauthorizedSensitiveAspect(opContext, authentication, urn, aspectName);
 
     return lookupAspectSpec(urn, aspectName)
         .filter(aspectSpec -> exists(opContext, urn, aspectSpec.getName(), includeSoftDelete))
@@ -511,7 +588,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
@@ -528,7 +605,11 @@ public abstract class GenericEntitiesController<
     }
 
     if (aspects == null || aspects.isEmpty() || aspects.contains(entitySpec.getKeyAspectName())) {
-      entityService.deleteUrn(opContext, urn);
+      if (hardDeleteService != null) {
+        hardDeleteService.deleteEntity(opContext, urn);
+      } else {
+        entityService.deleteUrn(opContext, urn);
+      }
     } else {
       aspects.stream()
           .map(aspectName -> lookupAspectSpec(urn, aspectName).get().getName())
@@ -565,12 +646,11 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityName)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
-    }
-
+    // Per-URN auth after toMCPBatch (existence-aware + proposed domains). Do not gate on
+    // type-level CREATE: EntitySpec(type, "") has no DOMAIN field, so domain-scoped create
+    // policies cannot match a type-only check.
     AspectsBatch batch = toMCPBatch(opContext, jsonEntityList, authentication.getActor());
+    assertBatchItemsAuthorized(opContext, authentication, batch.getItems());
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
     if (!async) {
@@ -604,7 +684,7 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
+    if (!EntityAuthorizationUtils.isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))) {
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
@@ -672,11 +752,6 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, CREATE, List.of(urn))) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
-    }
-
     AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
     ChangeMCP upsert =
         toUpsertItem(
@@ -687,6 +762,8 @@ public abstract class GenericEntitiesController<
             createIfNotExists,
             jsonAspect,
             authentication.getActor());
+
+    assertBatchItemsAuthorized(opContext, authentication, List.of(upsert));
 
     List<IngestResult> results =
         entityService.ingestProposal(
@@ -749,11 +826,6 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorizedEntityUrns(opContext, UPDATE, List.of(urn))) {
-      throw new UnauthorizedException(
-          actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
-    }
-
     AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
 
     MetadataChangeProposal mcp =
@@ -763,6 +835,16 @@ public abstract class GenericEntitiesController<
             .setAspectName(aspectSpec.getName())
             .setChangeType(ChangeType.PATCH)
             .setAspect(GenericRecordUtils.serializePatch(patch, objectMapper));
+
+    List<Pair<MetadataChangeProposal, Integer>> denied =
+        EntityAuthorizationUtils.isAPIAuthorizedIngest(opContext, entityRegistry, List.of(mcp))
+            .stream()
+            .filter(p -> p.getSecond() != HttpStatus.SC_OK)
+            .collect(Collectors.toList());
+    if (!denied.isEmpty()) {
+      throw new UnauthorizedException(
+          actor.toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
+    }
 
     IngestResult result =
         entityService.ingestProposal(
@@ -827,6 +909,44 @@ public abstract class GenericEntitiesController<
         entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
   }
 
+  protected boolean isTimeseriesAspect(@Nonnull Urn urn, @Nonnull String aspectName) {
+    return lookupAspectSpec(urn, aspectName).map(AspectSpec::isTimeseries).orElse(false);
+  }
+
+  protected void denyUnauthorizedTimeseriesAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull Authentication authentication,
+      @Nonnull Urn urn,
+      @Nonnull String entityName,
+      @Nonnull String aspectName) {
+    if (isTimeseriesAspect(urn, aspectName)
+        && !TimeseriesAuthUtil.canViewAspect(opContext, urn, entityName, aspectName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to "
+              + READ
+              + " timeseries aspect "
+              + aspectName);
+    }
+  }
+
+  protected void denyUnauthorizedSensitiveAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull Authentication authentication,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName) {
+    String canonicalName =
+        lookupAspectSpec(urn, aspectName).map(AspectSpec::getName).orElse(aspectName);
+    if (!SensitiveAspectAuthUtil.canReadAspect(opContext, urn, canonicalName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to "
+              + READ
+              + " aspect "
+              + canonicalName);
+    }
+  }
+
   protected RecordTemplate toRecordTemplate(
       AspectSpec aspectSpec, EnvelopedAspect envelopedAspect) {
     return RecordUtils.toRecordTemplate(
@@ -856,6 +976,27 @@ public abstract class GenericEntitiesController<
       return Urn.createFromString(urn);
     } catch (URISyntaxException e) {
       throw new InvalidUrnException(urn, "Invalid urn!");
+    }
+  }
+
+  protected static void assertBatchItemsAuthorized(
+      @Nonnull OperationContext opContext,
+      @Nonnull Authentication authentication,
+      @Nonnull Collection<? extends BatchItem> items) {
+    List<Pair<BatchItem, Integer>> denied =
+        EntityAuthorizationUtils.isAPIAuthorizedBatchItems(opContext, items).stream()
+            .filter(p -> p.getSecond() != HttpStatus.SC_OK)
+            .collect(Collectors.toList());
+    if (!denied.isEmpty()) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to write entities. "
+              + denied.stream()
+                  .map(
+                      d ->
+                          String.format(
+                              "HttpStatus: %s Urn: %s", d.getSecond(), d.getFirst().getUrn()))
+                  .collect(Collectors.toList()));
     }
   }
 }

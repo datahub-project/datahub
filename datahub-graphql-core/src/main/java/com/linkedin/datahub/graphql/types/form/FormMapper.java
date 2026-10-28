@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.FormInfo;
 import com.linkedin.datahub.graphql.generated.FormPrompt;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.FormType;
+import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParams;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
@@ -107,6 +108,12 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
   private FormActorAssignment mapFormActors(com.linkedin.form.FormActorAssignment gmsFormActors) {
     FormActorAssignment result = new FormActorAssignment();
     result.setOwners(gmsFormActors.isOwners());
+    if (gmsFormActors.hasOwnershipTypes()) {
+      result.setOwnershipTypes(
+          gmsFormActors.getOwnershipTypes().stream()
+              .map(this::mapOwnershipType)
+              .collect(Collectors.toList()));
+    }
     if (gmsFormActors.hasUsers()) {
       result.setUsers(
           gmsFormActors.getUsers().stream().map(this::mapUser).collect(Collectors.toList()));
@@ -116,6 +123,13 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
           gmsFormActors.getGroups().stream().map(this::mapGroup).collect(Collectors.toList()));
     }
     return result;
+  }
+
+  private OwnershipTypeEntity mapOwnershipType(Urn ownershipTypeUrn) {
+    OwnershipTypeEntity ownershipType = new OwnershipTypeEntity();
+    ownershipType.setUrn(ownershipTypeUrn.toString());
+    ownershipType.setType(EntityType.CUSTOM_OWNERSHIP_TYPE);
+    return ownershipType;
   }
 
   private CorpUser mapUser(Urn userUrn) {

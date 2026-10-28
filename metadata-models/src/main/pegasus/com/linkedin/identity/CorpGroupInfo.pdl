@@ -9,7 +9,8 @@ import com.linkedin.common.AuditStamp
  * Information about a Corp Group ingested from a third party source
  */
 @Aspect = {
-  "name": "corpGroupInfo"
+  "name": "corpGroupInfo",
+  "schemaVersion": 2
 }
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpGroupUrn" ]
 record CorpGroupInfo {
@@ -23,8 +24,15 @@ record CorpGroupInfo {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   displayName: optional string
 
@@ -36,13 +44,8 @@ record CorpGroupInfo {
   /**
    * owners of this group
    * Deprecated! Replaced by Ownership aspect.
+   * Relationship annotation intentionally omitted so OwnedBy edges are owned solely by the ownership aspect.
    */
-  @Relationship = {
-    "/*": {
-      "name": "OwnedBy",
-      "entityTypes": [ "corpuser" ]
-    }
-  }
   @deprecated
   admins: array[CorpuserUrn]
 
@@ -77,7 +80,16 @@ record CorpGroupInfo {
    */
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
-    "searchTier": 2
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -87,14 +99,17 @@ record CorpGroupInfo {
   slack: optional string
 
   /**
-   * Created Audit stamp
+   * When this group was created in DataHub.
+   * Search V3 does not index this time. It is systemMetadata.aspectCreated,
+   * copied to _system.created.time.
    */
-   @Searchable = {
-     "/time": {
+  @deprecated = "Use systemMetadata.aspectCreated instead."
+  @Searchable = {
+    "/time": {
       "fieldName": "createdTime",
       "fieldType": "DATETIME",
-      "searchLabel": "createdAt"
-     }
-   }
-   created: optional AuditStamp
+      "v3": { "enabled": false }
+    }
+  }
+  created: optional AuditStamp
 }

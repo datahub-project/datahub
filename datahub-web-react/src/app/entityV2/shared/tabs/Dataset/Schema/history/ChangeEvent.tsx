@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import DocumentationDiff from '@app/entityV2/shared/tabs/Dataset/Schema/history/DocumentationDiff';
+import { PARAM_DESCRIPTION } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import { getChangeEventString } from '@app/entityV2/shared/tabs/Dataset/Schema/history/changeEventToString';
-import { processDocumentationString } from '@src/app/lineageV2/lineageUtils';
+import { processDocumentationString } from '@src/app/lineageV3/utils/lineageUtils';
 
-import { ChangeEvent } from '@types';
+import { ChangeCategoryType, ChangeEvent } from '@types';
 
 const MAX_DISPLAY_CHARS = 200;
 
@@ -51,17 +53,42 @@ const ToggleLink = styled.span`
 interface ChangeTransactionProps {
     changeEvent: ChangeEvent;
     nameMap?: Map<string, string>;
+    inheritedPreviousDescription?: string;
 }
 
-const ChangeEventComponent: React.FC<ChangeTransactionProps> = ({ changeEvent, nameMap }) => {
+const ChangeEventComponent: React.FC<ChangeTransactionProps> = ({
+    changeEvent,
+    nameMap,
+    inheritedPreviousDescription,
+}) => {
     const { t: tc } = useTranslation('common.actions');
     const [expanded, setExpanded] = useState(false);
+
+    // Documentation events with a description parameter get a diff view.
+    const isDocWithParams =
+        (changeEvent.category as string) === ChangeCategoryType.Documentation &&
+        (changeEvent.parameters || []).some((p) => p.key === PARAM_DESCRIPTION);
+
+    if (isDocWithParams) {
+        return (
+            <ChangeEventContainer data-testid="change-event-row">
+                <ChangeEventCircle />
+                <ChangeEventText>
+                    <DocumentationDiff
+                        changeEvent={changeEvent}
+                        inheritedPreviousDescription={inheritedPreviousDescription}
+                    />
+                </ChangeEventText>
+            </ChangeEventContainer>
+        );
+    }
+
     const fullString = getChangeEventString(changeEvent, nameMap);
     const needsTruncation = (fullString?.length ?? 0) > MAX_DISPLAY_CHARS;
     const displayString = needsTruncation && !expanded ? `${fullString?.slice(0, MAX_DISPLAY_CHARS)}...` : fullString;
 
     return (
-        <ChangeEventContainer>
+        <ChangeEventContainer data-testid="change-event-row">
             <ChangeEventCircle />
             <ChangeEventText>
                 {processDocumentationString(displayString)}

@@ -81,7 +81,7 @@ public class IngestionCliVersionMatrixServiceTest {
   }
 
   /**
-   * Returns a service backed by {@link HttpUrlIngestionCliVersionMatrixSource} pointed at an
+   * Returns a service backed by {@link PollingIngestionCliVersionMatrixSource} pointed at an
    * embedded HTTP server serving {@link #MATRIX_JSON}. Polls briefly so the asynchronous initial
    * fetch has a chance to populate the cache before the assertions run.
    */
@@ -92,8 +92,9 @@ public class IngestionCliVersionMatrixServiceTest {
 
   private IngestionCliVersionMatrixService serviceWithMatrix(
       String matrixJson, String serverVersion, String deploymentId) throws IOException {
-    HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer(matrixJson), 3600);
+    PollingIngestionCliVersionMatrixSource httpSource =
+        new PollingIngestionCliVersionMatrixSource(
+            new HttpMatrixDocumentReader(startMatrixServer(matrixJson)), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, serverVersion, deploymentId);
 
@@ -201,8 +202,9 @@ public class IngestionCliVersionMatrixServiceTest {
   public void testUnreachableUrlReturnsEmpty() {
     // A URL that will always fail — the source should log a warning and the service returns empty
     // (no prior matrix to fall back to).
-    HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource("http://localhost:19999/does-not-exist", 3600);
+    PollingIngestionCliVersionMatrixSource httpSource =
+        new PollingIngestionCliVersionMatrixSource(
+            new HttpMatrixDocumentReader("http://localhost:19999/does-not-exist"), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
@@ -216,8 +218,9 @@ public class IngestionCliVersionMatrixServiceTest {
 
   @Test
   public void testMalformedJsonReturnsEmpty() throws Exception {
-    HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer("not valid json"), 3600);
+    PollingIngestionCliVersionMatrixSource httpSource =
+        new PollingIngestionCliVersionMatrixSource(
+            new HttpMatrixDocumentReader(startMatrixServer("not valid json")), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
@@ -251,8 +254,9 @@ public class IngestionCliVersionMatrixServiceTest {
             + "  }\n"
             + "}";
 
-    HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer(json), 3600);
+    PollingIngestionCliVersionMatrixSource httpSource =
+        new PollingIngestionCliVersionMatrixSource(
+            new HttpMatrixDocumentReader(startMatrixServer(json)), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
@@ -286,8 +290,9 @@ public class IngestionCliVersionMatrixServiceTest {
             + "  }\n"
             + "}";
 
-    HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer(json), 3600);
+    PollingIngestionCliVersionMatrixSource httpSource =
+        new PollingIngestionCliVersionMatrixSource(
+            new HttpMatrixDocumentReader(startMatrixServer(json)), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
@@ -303,7 +308,7 @@ public class IngestionCliVersionMatrixServiceTest {
   }
 
   // -------------------------------------------------------------------------
-  // HttpUrlIngestionCliVersionMatrixSource HTTP-level behavior (auth header, fetch-failure cache
+  // PollingIngestionCliVersionMatrixSource HTTP-level behavior (auth header, fetch-failure cache
   // retention). These tests inspect request headers and response status codes that the simpler
   // serviceWithMatrix() helper does not expose.
   // -------------------------------------------------------------------------
@@ -325,8 +330,9 @@ public class IngestionCliVersionMatrixServiceTest {
     server.start();
     try {
       String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
-      HttpUrlIngestionCliVersionMatrixSource source =
-          new HttpUrlIngestionCliVersionMatrixSource(url, 3600, "token ghp_test_xyz");
+      PollingIngestionCliVersionMatrixSource source =
+          new PollingIngestionCliVersionMatrixSource(
+              new HttpMatrixDocumentReader(url, "token ghp_test_xyz"), 3600);
       waitForFirstFetch(source);
       assertEquals(
           captured.get(),
@@ -355,8 +361,8 @@ public class IngestionCliVersionMatrixServiceTest {
     try {
       String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
       // 2-arg constructor — no authHeader.
-      HttpUrlIngestionCliVersionMatrixSource source =
-          new HttpUrlIngestionCliVersionMatrixSource(url, 3600);
+      PollingIngestionCliVersionMatrixSource source =
+          new PollingIngestionCliVersionMatrixSource(new HttpMatrixDocumentReader(url), 3600);
       waitForFirstFetch(source);
       assertFalse(
           sawAuthHeader.get(),
@@ -389,8 +395,8 @@ public class IngestionCliVersionMatrixServiceTest {
     server.start();
     try {
       String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
-      HttpUrlIngestionCliVersionMatrixSource source =
-          new HttpUrlIngestionCliVersionMatrixSource(url, 3600);
+      PollingIngestionCliVersionMatrixSource source =
+          new PollingIngestionCliVersionMatrixSource(new HttpMatrixDocumentReader(url), 3600);
       waitForFirstFetch(source);
 
       IngestionCliVersionMatrix beforeFailure = source.getMatrix();
@@ -414,7 +420,7 @@ public class IngestionCliVersionMatrixServiceTest {
   }
 
   /** Polls until the source's initial scheduled fetch has populated the cache, or fails fast. */
-  private static void waitForFirstFetch(HttpUrlIngestionCliVersionMatrixSource source)
+  private static void waitForFirstFetch(PollingIngestionCliVersionMatrixSource source)
       throws InterruptedException {
     for (int i = 0; i < 30; i++) {
       if (source.getLastFetchedAtMillis() > 0) {
@@ -443,9 +449,9 @@ public class IngestionCliVersionMatrixServiceTest {
     try {
       String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
       // Explicit empty string — distinct branch from null in
-      // HttpUrlIngestionCliVersionMatrixSource.refresh().
-      HttpUrlIngestionCliVersionMatrixSource source =
-          new HttpUrlIngestionCliVersionMatrixSource(url, 3600, "");
+      // PollingIngestionCliVersionMatrixSource.refresh().
+      PollingIngestionCliVersionMatrixSource source =
+          new PollingIngestionCliVersionMatrixSource(new HttpMatrixDocumentReader(url, ""), 3600);
       waitForFirstFetch(source);
       assertFalse(
           sawAuthHeader.get(),
@@ -505,8 +511,9 @@ public class IngestionCliVersionMatrixServiceTest {
             + "    }\n"
             + "  }\n"
             + "}";
-    HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer(json), 3600);
+    PollingIngestionCliVersionMatrixSource httpSource =
+        new PollingIngestionCliVersionMatrixSource(
+            new HttpMatrixDocumentReader(startMatrixServer(json)), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-unknown");
 
@@ -528,8 +535,9 @@ public class IngestionCliVersionMatrixServiceTest {
   @Test
   public void testRefreshThreadIsNamedAndDaemon() throws Exception {
     // Any HTTP endpoint suffices — we're inspecting the refresh thread, not the fetched data.
-    HttpUrlIngestionCliVersionMatrixSource source =
-        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer(MATRIX_JSON), 3600);
+    PollingIngestionCliVersionMatrixSource source =
+        new PollingIngestionCliVersionMatrixSource(
+            new HttpMatrixDocumentReader(startMatrixServer(MATRIX_JSON)), 3600);
     try {
       waitForFirstFetch(source);
 
@@ -580,8 +588,8 @@ public class IngestionCliVersionMatrixServiceTest {
     try {
       String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
       // 1-second refresh so we can see the cadence without slowing the test suite.
-      HttpUrlIngestionCliVersionMatrixSource source =
-          new HttpUrlIngestionCliVersionMatrixSource(url, 1);
+      PollingIngestionCliVersionMatrixSource source =
+          new PollingIngestionCliVersionMatrixSource(new HttpMatrixDocumentReader(url), 1);
       waitForFirstFetch(source);
 
       source.shutdown();

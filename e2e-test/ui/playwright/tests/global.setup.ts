@@ -13,7 +13,7 @@
 import { test as setup, request } from '@playwright/test';
 import { readGmsToken } from '../fixtures/login';
 import { deleteEntities } from '../utils/cleanup';
-import { gmsUrl } from '../utils/constants';
+import { DATAHUB_GRAPHQL_PATH, gmsUrl } from '../utils/constants';
 import { createScriptLogger } from '../utils/logger';
 import { users } from '../data/users';
 
@@ -49,7 +49,7 @@ setup('global cleanup', async () => {
 
     for (const entityType of ENTITY_TYPES) {
       for (const prefix of CLEANUP_PREFIXES) {
-        const response = await apiContext.post(`${url}/api/v2/graphql`, {
+        const response = await apiContext.post(`${url}${DATAHUB_GRAPHQL_PATH}`, {
           data: {
             query: `query search($input: SearchInput!) { search(input: $input) { total entities { urn } } }`,
             variables: {

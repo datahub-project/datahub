@@ -66,14 +66,18 @@ public final class UsageMetricIncrementResolver {
       return isKnownRequestPhasePair(metric) ? 0 : -1;
     }
 
+    if (!metric.matchesRequestApi(requestContext.getRequestAPI())) {
+      return 0L;
+    }
+
     long usageQuantity = Math.max(1L, requestContext.getUsageQuantity());
     return switch (metric.emitWhen()) {
-      case ALWAYS -> resolveAlwaysIncrement(
-          metric.valueUnit(), operationEntry, requestContext, usageQuantity);
-      case INGESTION_REQUEST -> resolveIngestionRequestIncrement(
-          metric.valueUnit(), operationEntry, requestContext);
-      case COST_PROFILE -> resolveCostProfileIncrement(
-          metric.valueUnit(), operationEntry, usageQuantity);
+      case ALWAYS ->
+          resolveAlwaysIncrement(metric.valueUnit(), operationEntry, requestContext, usageQuantity);
+      case INGESTION_REQUEST ->
+          resolveIngestionRequestIncrement(metric.valueUnit(), operationEntry, requestContext);
+      case COST_PROFILE ->
+          resolveCostProfileIncrement(metric.valueUnit(), operationEntry, usageQuantity);
       case REPORTED -> 0L;
       default -> -1;
     };
@@ -98,13 +102,14 @@ public final class UsageMetricIncrementResolver {
       return Optional.of(BILLED_BYTES_METRIC);
     }
     if (isReportDrivenMetric(metric)) {
-      // Do not share DATAHUB_REQUEST_COUNT with api_calls; export under the registry name.
+      // Do not share DATAHUB_REQUEST_COUNT with request-path counters.
       if (metric.valueUnit() == ValueUnit.COUNT) {
         return Optional.of("datahub.usage." + metric.metricName());
       }
       return Optional.empty();
     }
     return switch (metric.valueUnit()) {
+      // Combined request-path counter (api_calls).
       case COUNT -> Optional.of(MetricUtils.DATAHUB_REQUEST_COUNT);
       case INPUT_BYTES -> Optional.of(INPUT_BYTES_METRIC);
       case OUTPUT_BYTES -> Optional.of(OUTPUT_BYTES_METRIC);
@@ -119,8 +124,8 @@ public final class UsageMetricIncrementResolver {
     return switch (metric.emitWhen()) {
       case ACTIVITY_ALLOWLIST -> activity.activityAllowlist();
       case READER_ACTIVITY_ALLOWLIST -> activity.readerAllowlist();
-      case WRITER_ACTIVITY_ALLOWLIST -> activity.writerAllowlist()
-          && operationEntry.contributesToActiveWriters();
+      case WRITER_ACTIVITY_ALLOWLIST ->
+          activity.writerAllowlist() && operationEntry.contributesToActiveWriters();
       default -> false;
     };
   }
@@ -134,8 +139,8 @@ public final class UsageMetricIncrementResolver {
       return true;
     }
     return switch (metric.emitWhen()) {
-      case ALWAYS -> metric.valueUnit() == ValueUnit.COUNT
-          || metric.valueUnit() == ValueUnit.INPUT_BYTES;
+      case ALWAYS ->
+          metric.valueUnit() == ValueUnit.COUNT || metric.valueUnit() == ValueUnit.INPUT_BYTES;
       case INGESTION_REQUEST -> metric.valueUnit() == ValueUnit.INPUT_BYTES;
       case COST_PROFILE -> metric.valueUnit() == ValueUnit.COST_UNITS;
       case REPORTED -> true;
@@ -150,9 +155,8 @@ public final class UsageMetricIncrementResolver {
       long usageQuantity) {
     return switch (valueUnit) {
       case COUNT -> operationEntry.ingestionEndpoint() ? usageQuantity : 1L;
-      case INPUT_BYTES -> requestContext.getInputBytes() != null
-          ? requestContext.getInputBytes()
-          : 0L;
+      case INPUT_BYTES ->
+          requestContext.getInputBytes() != null ? requestContext.getInputBytes() : 0L;
       case OUTPUT_BYTES -> 0L;
       case COST_UNITS -> -1L;
     };

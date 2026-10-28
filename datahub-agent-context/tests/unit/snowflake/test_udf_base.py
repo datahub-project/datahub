@@ -18,7 +18,7 @@ class TestGeneratePythonUdfCode:
         assert "CREATE OR REPLACE FUNCTION TEST_FUNCTION(param1 STRING)" in result
         assert "RETURNS VARIANT" in result
         assert "LANGUAGE PYTHON" in result
-        assert "RUNTIME_VERSION = '3.10'" in result
+        assert "RUNTIME_VERSION = '3.11'" in result
         assert "HANDLER = 'test_function'" in result
 
     def test_multiple_parameters(self) -> None:
@@ -157,7 +157,7 @@ return x + y"""
         assert result.startswith("CREATE OR REPLACE FUNCTION")
         assert "RETURNS VARIANT" in result
         assert "LANGUAGE PYTHON" in result
-        assert "RUNTIME_VERSION = '3.10'" in result
+        assert "RUNTIME_VERSION = '3.11'" in result
         assert (
             "ARTIFACT_REPOSITORY = snowflake.snowpark.pypi_shared_repository" in result
         )

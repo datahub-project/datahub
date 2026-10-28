@@ -1,11 +1,19 @@
+from enum import auto
 from typing import Dict, List, Optional, Union
 
 from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration._config_enum import ConfigEnum
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.git import GitInfo
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.common.gcs_connection_config import GCSConnectionConfig
+from datahub.ingestion.source.common.http_connection_config import HTTPConnectionConfig
+from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -35,11 +43,15 @@ SERVER_TYPE_TO_PLATFORM: Dict[str, str] = {
     "sqlserver": "mssql",
     "trino": "trino",
     "oracle": "oracle",
+    "glue": "glue",
+    # Remapped to `glue` when the REST catalog is AWS Glue (see
+    # odcs_mapper._platform_for_server).
+    "iceberg": "iceberg",
 }
 
 # Platforms whose DataHub connectors lowercase dataset names by default; the
 # composed physical name follows suit when `lowercase_physical_urns` is on.
-LOWERCASE_BY_DEFAULT_PLATFORMS = frozenset(("snowflake",))
+LOWERCASE_BY_DEFAULT_PLATFORMS = frozenset(("snowflake", "glue"))
 
 
 class ServerMapping(ConfigModel):
@@ -83,7 +95,17 @@ class ServerMapping(ConfigModel):
         return v.upper()
 
 
-_SCHEMA_ASSERTION_COMPATIBILITY_MODES = ("EXACT_MATCH", "SUPERSET", "SUBSET")
+class SchemaAssertionCompatibility(ConfigEnum):
+    """Compatibility mode for the emitted DATA_SCHEMA assertion.
+
+    Member names are the DataHub `SchemaAssertionCompatibilityClass` constants,
+    so this enum is the single source of truth for the valid set; the mapper
+    passes the member value straight onto the assertion aspect.
+    """
+
+    EXACT_MATCH = auto()
+    SUPERSET = auto()
+    SUBSET = auto()
 
 
 class ODCSSourceConfig(
@@ -102,8 +124,33 @@ class ODCSSourceConfig(
     """
 
     path: Union[str, List[str]] = Field(
-        description="Path to an ODCS YAML file, a directory containing ODCS YAML files, "
-        "or a glob pattern. May also be a list of any of the above.",
+        description="Location of ODCS YAML files: a local file, directory, or glob pattern; an "
+        "`s3://` / `gs://` object-store URI (file or glob); or an `http(s)://` URL to a single "
+        "file. May also be a list mixing any of the above. When `git_info` is set, non-URI "
+        "entries are interpreted relative to the repository checkout.",
+    )
+    aws_connection: Optional[AwsConnectionConfig] = Field(
+        default=None,
+        description="AWS connection details for reading ODCS files from `s3://` URIs in `path`. "
+        "Required when any `path` entry is an S3 URI.",
+    )
+    gcs_connection: Optional[GCSConnectionConfig] = Field(
+        default=None,
+        description="GCS connection (HMAC credentials via the S3-compatible API) for reading ODCS "
+        "files from `gs://` URIs in `path`. Required when any `path` entry is a GCS URI. See "
+        "https://cloud.google.com/storage/docs/authentication/hmackeys",
+    )
+    git_info: Optional[GitInfo] = Field(
+        default=None,
+        description="Git repository to shallow-clone and scan for ODCS files, authenticated with "
+        "an SSH deploy key. When set, each non-URI `path` entry is resolved relative to the "
+        "repository checkout (e.g. `path: contracts/` or `path: '**/*.odcs.yaml'`).",
+    )
+    http_connection: Optional[HTTPConnectionConfig] = Field(
+        default=None,
+        description="Authentication and TLS options for reading ODCS files from `http(s)://` URLs "
+        "in `path`. Supports a bearer token or HTTP basic auth, and a `verify_ssl` toggle. "
+        "Omit for public URLs that need no authentication.",
     )
     server_overrides: List[ServerMapping] = Field(
         default_factory=list,
@@ -120,8 +167,10 @@ class ODCSSourceConfig(
     lowercase_physical_urns: bool = Field(
         default=True,
         description="Lowercase composed physical dataset names for platforms whose DataHub "
-        "connectors lowercase URNs by default (currently snowflake). Set False if your "
-        "snowflake ingestion runs with convert_urns_to_lowercase disabled. Logical `odcs` "
+        "connectors lowercase URNs by default (currently snowflake and glue, including iceberg "
+        "servers bound to glue). Set False only if your snowflake ingestion runs with "
+        "convert_urns_to_lowercase disabled and your contracts already use Glue's lowercase "
+        "names, since it applies to both. Logical `odcs` "
         "dataset URNs always preserve the contract's casing.",
     )
     verify_physical_urns_exist: bool = Field(
@@ -169,7 +218,7 @@ class ODCSSourceConfig(
         ),
     )
     odcs_versions: List[str] = Field(
-        default_factory=lambda: ["3.0.0", "3.0.1", "3.0.2", "3.1.0"],
+        default_factory=lambda: ["3.0.0", "3.0.1", "3.0.2", "3.1.0", "3.2.0"],
         description="List of supported ODCS `apiVersion` values. Contracts with `apiVersion` "
         "outside this list are skipped with a warning.",
     )
@@ -185,8 +234,8 @@ class ODCSSourceConfig(
         "contract's declared schema on the logical dataset so schema drift is evaluable as a "
         "contract violation.",
     )
-    schema_assertion_compatibility: str = Field(
-        default="SUPERSET",
+    schema_assertion_compatibility: SchemaAssertionCompatibility = Field(
+        default=SchemaAssertionCompatibility.SUPERSET,
         description="Compatibility mode for the DATA_SCHEMA assertion: `SUPERSET` (an instance "
         "must contain at least the contract's fields; extras allowed), `EXACT_MATCH`, or "
         "`SUBSET`.",
@@ -201,6 +250,19 @@ class ODCSSourceConfig(
         return v or None
 
     @model_validator(mode="after")
+    def object_store_connection_required_for_uris(self) -> "ODCSSourceConfig":
+        raw_paths = self.path if isinstance(self.path, list) else [self.path]
+        if any(is_s3_uri(p) for p in raw_paths) and self.aws_connection is None:
+            raise ValueError(
+                "aws_connection is required because path contains one or more s3:// URIs."
+            )
+        if any(is_gcs_uri(p) for p in raw_paths) and self.gcs_connection is None:
+            raise ValueError(
+                "gcs_connection is required because path contains one or more gs:// URIs."
+            )
+        return self
+
+    @model_validator(mode="after")
     def owner_normalization_knobs_are_exclusive(self) -> "ODCSSourceConfig":
         if self.strip_owner_email_domain and self.owner_email_domain:
             raise ValueError(
@@ -210,16 +272,20 @@ class ODCSSourceConfig(
             )
         return self
 
-    @field_validator("schema_assertion_compatibility")
-    @classmethod
-    def compatibility_must_be_valid(cls, v: str) -> str:
-        upper = v.upper()
-        if upper not in _SCHEMA_ASSERTION_COMPATIBILITY_MODES:
+    @model_validator(mode="after")
+    def physical_data_contract_requires_logical_parent(self) -> "ODCSSourceConfig":
+        # emit_logical_parent is the master switch for writing any aspect onto
+        # physical datasets; without it the physical contract has nowhere to go
+        # and the opt-in would silently do nothing. Fail loud instead.
+        if self.emit_physical_data_contract and not self.emit_logical_parent:
             raise ValueError(
-                "schema_assertion_compatibility must be one of "
-                f"{_SCHEMA_ASSERTION_COMPATIBILITY_MODES}, found {v}"
+                "emit_physical_data_contract requires emit_logical_parent: the "
+                "physical contract is written onto the bound physical dataset, and "
+                "emit_logical_parent is the master switch for writing any aspect "
+                "onto physical datasets. Enable emit_logical_parent or disable "
+                "emit_physical_data_contract."
             )
-        return upper
+        return self
 
     emit_logical_parent: bool = Field(
         default=True,
@@ -227,18 +293,71 @@ class ODCSSourceConfig(
         "its logical ODCS dataset (the `PhysicalInstanceOf` relationship). Disable to keep ODCS "
         "from writing any aspect onto physical datasets.",
     )
+    emit_data_contract: bool = Field(
+        default=True,
+        description="Whether to emit a native DataHub `dataContract` entity for each schema entry, "
+        "on the logical `odcs` dataset. This is the self-consistent home: the assertions target "
+        "the logical dataset, so `contract.entity == assertion.entity` and results resolve "
+        "directly; it renders under the LOGICAL_MODELS_ENABLED flag. The contract references the "
+        "schema and data-quality Assertion URNs (no assertions are duplicated). State mirrors the "
+        "ODCS `status` (`active` -> ACTIVE, otherwise PENDING). Requires at least one of "
+        "`emit_assertions` / `emit_schema_assertion` to have produced an assertion for the entry.",
+    )
+    emit_physical_data_contract: bool = Field(
+        default=False,
+        description="Whether to ALSO emit the native `dataContract` onto the bound physical "
+        "dataset (in addition to the logical one), so it surfaces on the table consumers browse. "
+        "Off by default because the contract URN is keyed on the target entity and matches the "
+        "hand-authored SDK convention exactly: enabling this makes ODCS the owner of that "
+        "dataset's contract and overwrites any hand-authored contract on it. It is always emitted "
+        "non-primary (never stale-removed, so it cannot soft-delete a hand-authored contract) and "
+        "requires `emit_logical_parent` (the master switch for writing onto physical datasets). "
+        "Note: the referenced assertions target the logical dataset, so the contract may render "
+        "with limited detail on the physical table until assertions can target it directly.",
+    )
+    emit_data_product_association: bool = Field(
+        default=False,
+        description="Whether to add the dataset each contract governs to the DataHub Data Product "
+        "named by the contract's `dataProduct` field, as an **output port** — under ODPS a data "
+        "product lists its contracts under `outputPorts`. The physical dataset is used when the "
+        "contract binds to one, otherwise the logical `odcs` dataset. The value is resolved "
+        "against existing products (full URN, then `urn:li:dataProduct:<value>`, then an exact "
+        "match on product name); see `verify_data_product_exists` for what happens when nothing "
+        "matches. The association is an additive patch, so ODCS never clears assets added by hand "
+        "or by another source, and the product itself is never stale-removed by ODCS. Off by "
+        "default: the ODCS field is free text, so a run only produces the right membership once "
+        "those values line up with your products.",
+    )
+    verify_data_product_exists: bool = Field(
+        default=True,
+        description="When a DataHub graph is available (datahub-rest sink), require the Data "
+        "Product named by `dataProduct` to exist before adding the contract's dataset to it; "
+        "values matching no product are reported and skipped instead of creating a stub product. "
+        "With no graph (file sink), the association is emitted without verification. Set False for "
+        "a contract-first workflow where the products do not exist yet: ODCS then creates the "
+        "product at `urn:li:dataProduct:<value>` — the same urn `datahub dataproduct upsert` "
+        "derives from a product id — named after the value.",
+    )
     physical_urn_overrides: Dict[str, Dict[str, str]] = Field(
         default_factory=dict,
         description="Map of ODCS contract `id` to a map of `schema[]` entry NAME to an explicit "
         "physical DataHub Dataset URN, bypassing server-based derivation for those entries. An "
         "empty-string URN deliberately leaves the named entry unbound; schema entries absent "
         "from the map fall back to server-based derivation. Keys that match no schema entry "
-        "produce a warning (typo guard).",
+        "produce a warning (typo guard), and so does a value that is not a dataset URN "
+        "with a known env or that contains `${VAR}`, which leaves the entry unbound.",
     )
     logical_dataset_name_template: str = Field(
         default="{contract_id}.{schema_name}",
         description="Template for the logical `odcs` dataset name (the URN name segment). "
         "Available placeholders: `{contract_id}`, `{schema_name}`, `{contract_version}`.",
+    )
+    dataset_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex allow/deny patterns applied to the logical `odcs` dataset name "
+        "(as composed by `logical_dataset_name_template`, e.g. `{contract_id}.{schema_name}`). "
+        "Schema entries whose logical name does not match are skipped along with their "
+        "assertions and `logicalParent` link. Matched case-insensitively by default.",
     )
     file_extensions: List[str] = Field(
         default_factory=lambda: [".yaml", ".yml", ".odcs.yaml", ".odcs.yml"],

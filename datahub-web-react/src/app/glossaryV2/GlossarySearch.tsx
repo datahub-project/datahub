@@ -1,121 +1,17 @@
-import { Loader, SearchBar } from '@components';
-import React, { useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
-import { useDebounce } from 'react-use';
-import styled from 'styled-components/macro';
 
-import { IconStyleType } from '@app/entityV2/Entity';
-import ClickOutside from '@app/shared/ClickOutside';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import EntityAutocompleteDropdown from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/EntityAutocompleteDropdown';
 
-import { useGetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import { EntityType } from '@types';
 
-const GlossarySearchWrapper = styled.div`
-    position: relative;
-`;
-
-const ResultsWrapper = styled.div`
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 5px;
-    box-shadow: ${(props) => props.theme.colors.shadowMd};
-    padding: 8px;
-    position: absolute;
-    max-height: 210px;
-    overflow: auto;
-    width: calc(100% - 24px);
-    left: 12px;
-    top: 45px;
-    z-index: 1;
-`;
-
-const LoadingWrapper = styled.div`
-    display: flex;
-    justify-content: center;
-    padding: 4px 0;
-    font-size: 16px;
-`;
-
-const SearchResult = styled(Link)`
-    color: ${(props) => props.theme.colors.text};
-    display: inline-block;
-    height: 100%;
-    padding: 6px 8px;
-    width: 100%;
-
-    &:hover {
-        background-color: ${(props) => props.theme.colors.bgSurface};
-        color: ${(props) => props.theme.colors.text};
-    }
-`;
-
-const InputWrapper = styled.div`
-    padding: 12px;
-`;
-
-const IconWrapper = styled.span`
-    margin-right: 8px;
-`;
-
-function GlossarySearch() {
+export default function GlossarySearch() {
     const { t: tc } = useTranslation('common.actions');
-    const [searchInput, setSearchInput] = useState('');
-    const [query, setQuery] = useState('');
-    const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
-    const entityRegistry = useEntityRegistry();
-
-    useDebounce(() => setQuery(searchInput), 200, [searchInput]);
-    const { data, loading } = useGetAutoCompleteMultipleResultsQuery({
-        variables: {
-            input: {
-                types: [EntityType.GlossaryTerm, EntityType.GlossaryNode],
-                query,
-                limit: 50,
-            },
-        },
-        skip: !query,
-    });
-
-    const searchResults = data?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities);
 
     return (
-        <GlossarySearchWrapper>
-            <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
-                <InputWrapper>
-                    <SearchBar
-                        placeholder={tc('search')}
-                        value={searchInput}
-                        onChange={setSearchInput}
-                        onFocus={() => setIsSearchBarFocused(true)}
-                    />
-                </InputWrapper>
-                {isSearchBarFocused && (loading || !!searchResults?.length) && (
-                    <ResultsWrapper>
-                        {loading && (
-                            <LoadingWrapper>
-                                <Loader size="md" />
-                            </LoadingWrapper>
-                        )}
-                        {!loading &&
-                            searchResults?.map((result) => {
-                                return (
-                                    <SearchResult
-                                        to={`${entityRegistry.getEntityUrl(result.type, result.urn)}`}
-                                        onClick={() => setIsSearchBarFocused(false)}
-                                    >
-                                        <IconWrapper>
-                                            {entityRegistry.getIcon(result.type, 12, IconStyleType.ACCENT)}
-                                        </IconWrapper>
-                                        {entityRegistry.getDisplayName(result.type, result)}
-                                    </SearchResult>
-                                );
-                            })}
-                    </ResultsWrapper>
-                )}
-            </ClickOutside>
-        </GlossarySearchWrapper>
+        <EntityAutocompleteDropdown
+            entityTypes={[EntityType.GlossaryTerm, EntityType.GlossaryNode]}
+            placeholder={tc('search')}
+        />
     );
 }
-
-export default GlossarySearch;

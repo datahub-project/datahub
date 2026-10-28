@@ -1,5 +1,4 @@
 # metadata-ingestion/examples/library/query_update_properties.py
-import logging
 import time
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -10,9 +9,6 @@ from datahub.metadata.schema_classes import (
     QueryPropertiesClass,
 )
 from datahub.metadata.urns import CorpUserUrn, QueryUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 query_urn = QueryUrn("my-unique-query-id")
 
@@ -25,8 +21,7 @@ existing_properties = graph.get_aspect(
 )
 
 if not existing_properties:
-    log.error(f"Query {query_urn} does not exist or has no properties")
-    exit(1)
+    raise SystemExit(f"Query {query_urn} does not exist or has no properties")
 
 current_timestamp = int(time.time() * 1000)
 actor_urn = CorpUserUrn("datahub")
@@ -43,4 +38,4 @@ event = MetadataChangeProposalWrapper(
 )
 
 emitter.emit(event)
-log.info(f"Updated properties for query {query_urn}")
+print(f"Updated properties for query {query_urn}")

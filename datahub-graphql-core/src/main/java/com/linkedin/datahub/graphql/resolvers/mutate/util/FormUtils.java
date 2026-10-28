@@ -187,6 +187,13 @@ public class FormUtils {
     if (input.getOwners() != null) {
       result.setOwners(input.getOwners());
     }
+    if (input.getOwnershipTypes() != null) {
+      UrnArray ownershipTypeUrns = new UrnArray();
+      input
+          .getOwnershipTypes()
+          .forEach(ownershipType -> ownershipTypeUrns.add(UrnUtils.getUrn(ownershipType)));
+      result.setOwnershipTypes(ownershipTypeUrns);
+    }
     if (input.getUsers() != null) {
       UrnArray userUrns = new UrnArray();
       input.getUsers().forEach(user -> userUrns.add(UrnUtils.getUrn(user)));

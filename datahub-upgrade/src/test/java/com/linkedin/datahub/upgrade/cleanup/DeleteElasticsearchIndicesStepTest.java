@@ -3,25 +3,42 @@ package com.linkedin.datahub.upgrade.cleanup;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.ComponentClusterConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.upgrade.DataHubUpgradeState;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.StatusLine;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.GetAliasesResponse;
+import org.opensearch.client.Request;
 import org.opensearch.client.ResponseException;
+import org.opensearch.client.indices.GetIndexRequest;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -34,6 +51,8 @@ public class DeleteElasticsearchIndicesStepTest {
   private SearchClientShim searchClient;
 
   @Mock private IndexConvention indexConvention;
+  @Mock private ElasticSearchConfiguration esConfig;
+  @Mock private IndexConfiguration indexConfig;
   @Mock private GetIndexResponse getIndexResponse;
   @Mock private GetAliasesResponse getAliasesResponse;
   @Mock private RawResponse rawResponse;
@@ -49,11 +68,27 @@ public class DeleteElasticsearchIndicesStepTest {
 
     when(esComponents.getSearchClient()).thenReturn(searchClient);
     when(esComponents.getIndexConvention()).thenReturn(indexConvention);
+    when(esComponents.getConfig()).thenReturn(esConfig);
+    when(esConfig.getIndex()).thenReturn(indexConfig);
+    when(indexConfig.getFinalPrefix()).thenReturn("test_");
+
+    OperationContext opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), searchClient);
+    when(mockContext.opContext()).thenReturn(opContext);
 
     // IndexConvention returns DataHub-specific patterns and names
-    when(indexConvention.getAllEntityIndicesPatterns()).thenReturn(List.of("test_*index_v2"));
-    when(indexConvention.getAllTimeseriesAspectIndicesPattern()).thenReturn("test_*aspect_v1");
-    when(indexConvention.getIndexName(anyString())).thenAnswer(inv -> "test_" + inv.getArgument(0));
+    when(indexConvention.getAllEntityIndicesPatterns(any(OperationFingerprint.class)))
+        .thenReturn(List.of("test_*index_v2"));
+    when(indexConvention.getAllTimeseriesAspectIndicesPattern(any(OperationFingerprint.class)))
+        .thenReturn("test_*aspect_v1");
+    when(indexConvention.getAllSemanticEntityIndicesPattern(any(OperationFingerprint.class)))
+        .thenReturn("test_*index_v2_semantic");
+    when(indexConvention.getIndexName(any(OperationFingerprint.class), anyString()))
+        .thenAnswer(inv -> "test_" + inv.getArgument(1));
+    when(indexConvention.getIndexName(
+            any(OperationFingerprint.class), any(SearchComponent.class), anyString()))
+        .thenAnswer(inv -> "test_" + inv.getArgument(2));
 
     // Default: patterns match no indices — simulate the 404 ResponseException the real client
     // throws
@@ -203,6 +238,145 @@ public class DeleteElasticsearchIndicesStepTest {
         new DeleteElasticsearchIndicesStep(esComponents).executable().apply(mockContext);
 
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testDeletesOnEachUniqueClusterClient() throws Exception {
+    SearchClientShim<?> secondary = mock(SearchClientShim.class);
+    when(searchClient.getEngineType())
+        .thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+    when(secondary.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+    doThrow(responseException).when(secondary).getIndex(any(), any(), any());
+    when(secondary.performLowLevelRequest(any(), any())).thenReturn(rawResponse);
+
+    SearchClusterAccess access =
+        component -> component == SearchComponent.USAGE ? secondary : searchClient;
+    OperationContext opContext =
+        TestOperationContexts.withSearchClusterAccess(
+            TestOperationContexts.systemContextNoValidate(), access);
+    when(mockContext.opContext()).thenReturn(opContext);
+
+    UpgradeStepResult result =
+        new DeleteElasticsearchIndicesStep(esComponents).executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(searchClient, atLeastOnce()).performLowLevelRequest(any(), any());
+    verify(secondary, atLeastOnce()).performLowLevelRequest(any(), any());
+    verify(secondary, never()).getIndex(any(), any(), any());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testDeletesPerClusterRolePrefix() throws Exception {
+    SearchClientShim<?> secondary = mock(SearchClientShim.class);
+    when(searchClient.getEngineType())
+        .thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+    when(secondary.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+    doThrow(responseException).when(secondary).getIndex(any(), any(), any());
+    when(secondary.performLowLevelRequest(any(), any())).thenReturn(rawResponse);
+
+    IndexConfiguration overlayIndex = mock(IndexConfiguration.class);
+    when(overlayIndex.getFinalPrefix()).thenReturn("overlay_");
+
+    UpgradeStepResult result =
+        new DeleteElasticsearchIndicesStep(
+                esComponents,
+                registryWithClients(searchClient, secondary, indexConfig, overlayIndex))
+            .executable()
+            .apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    ArgumentCaptor<Request> overlayRequests = ArgumentCaptor.forClass(Request.class);
+    verify(secondary, atLeastOnce()).performLowLevelRequest(any(), overlayRequests.capture());
+    assertTrue(
+        overlayRequests.getAllValues().stream()
+            .anyMatch(request -> request.getEndpoint().contains("overlay_access")));
+    assertTrue(
+        overlayRequests.getAllValues().stream()
+            .noneMatch(request -> request.getEndpoint().contains("test_access")));
+
+    ArgumentCaptor<Request> primaryRequests = ArgumentCaptor.forClass(Request.class);
+    verify(searchClient, atLeastOnce()).performLowLevelRequest(any(), primaryRequests.capture());
+    assertTrue(
+        primaryRequests.getAllValues().stream()
+            .anyMatch(request -> request.getEndpoint().contains("test_access")));
+    assertTrue(
+        primaryRequests.getAllValues().stream()
+            .noneMatch(request -> request.getEndpoint().contains("overlay_access")));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testDeletesSemanticIndexOnSemanticClient() throws Exception {
+    SearchClientShim<?> semantic = mock(SearchClientShim.class);
+    when(searchClient.getEngineType())
+        .thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+    when(semantic.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+    doThrow(responseException).when(semantic).getIndex(any(), any(), any());
+    when(semantic.performLowLevelRequest(any(), any())).thenReturn(rawResponse);
+
+    SearchClusterAccess access =
+        component -> component == SearchComponent.SEMANTIC ? semantic : searchClient;
+    OperationContext opContext =
+        TestOperationContexts.withSearchClusterAccess(
+            TestOperationContexts.systemContextNoValidate(), access);
+    when(mockContext.opContext()).thenReturn(opContext);
+
+    UpgradeStepResult result =
+        new DeleteElasticsearchIndicesStep(esComponents).executable().apply(mockContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    ArgumentCaptor<GetIndexRequest> semanticPatterns =
+        ArgumentCaptor.forClass(GetIndexRequest.class);
+    verify(semantic, atLeastOnce()).getIndex(any(), semanticPatterns.capture(), any());
+    assertTrue(
+        semanticPatterns.getAllValues().stream()
+            .anyMatch(
+                request ->
+                    java.util.Arrays.asList(request.indices())
+                        .contains("test_*index_v2_semantic")));
+    verify(searchClient, never())
+        .getIndex(
+            any(),
+            argThat(
+                request ->
+                    java.util.Arrays.asList(request.indices()).contains("test_*index_v2_semantic")),
+            any());
+  }
+
+  private static SearchClusterRegistry registryWithClients(
+      SearchClientShim<?> primaryClient,
+      SearchClientShim<?> secondaryClient,
+      IndexConfiguration primaryIndex,
+      IndexConfiguration secondaryIndex) {
+    ElasticSearchConfiguration routing = mock(ElasticSearchConfiguration.class);
+    when(routing.getComponentCluster()).thenReturn(ComponentClusterConfiguration.builder().build());
+    Map<String, SearchClusterRegistry.ClusterConnection> connections = new LinkedHashMap<>();
+    connections.put(
+        "primary",
+        new SearchClusterRegistry.ClusterConnection(
+            "primary",
+            elasticSearchConfig(primaryIndex),
+            primaryClient,
+            mock(ESBulkProcessor.class),
+            mock(ESIndexBuilder.class)));
+    connections.put(
+        "secondary",
+        new SearchClusterRegistry.ClusterConnection(
+            "secondary",
+            elasticSearchConfig(secondaryIndex),
+            secondaryClient,
+            mock(ESBulkProcessor.class),
+            mock(ESIndexBuilder.class)));
+    return new SearchClusterRegistry(routing, connections);
+  }
+
+  private static ElasticSearchConfiguration elasticSearchConfig(IndexConfiguration indexConfig) {
+    ElasticSearchConfiguration config = mock(ElasticSearchConfiguration.class);
+    when(config.getIndex()).thenReturn(indexConfig);
+    return config;
   }
 
   private StatusLine createStatusLine(int statusCode, String reasonPhrase) {

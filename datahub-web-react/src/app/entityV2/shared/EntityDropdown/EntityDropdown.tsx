@@ -3,8 +3,10 @@ import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCount
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Envelope } from '@phosphor-icons/react/dist/csr/Envelope';
+import { FlagBanner } from '@phosphor-icons/react/dist/csr/FlagBanner';
 import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { FolderPlus } from '@phosphor-icons/react/dist/csr/FolderPlus';
+import { GitBranch } from '@phosphor-icons/react/dist/csr/GitBranch';
 import { GitCommit } from '@phosphor-icons/react/dist/csr/GitCommit';
 import { Link } from '@phosphor-icons/react/dist/csr/Link';
 import { LinkBreak } from '@phosphor-icons/react/dist/csr/LinkBreak';
@@ -16,7 +18,7 @@ import { Share } from '@phosphor-icons/react/dist/csr/Share';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import qs from 'query-string';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, useHistory } from 'react-router';
 
@@ -26,11 +28,12 @@ import { useUserContext } from '@app/context/useUserContext';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { DrawerType, GenericEntityProperties } from '@app/entity/shared/types';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
+import CreateGlossaryTermVersionModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryTermVersionModal';
 import { DeprecatedMenuIcon } from '@app/entityV2/shared/EntityDropdown/DeprecatedMenuIcon';
 import EditGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/EditGlossaryEntityModal';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
-import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
+import LifecycleStageModal from '@app/entityV2/shared/EntityDropdown/LifecycleStageModal';
+import MoveEntityModal from '@app/entityV2/shared/EntityDropdown/MoveEntityModal';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
 import {
@@ -38,30 +41,32 @@ import {
     useHandleDeprecateDomain,
 } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import {
+    canCreateTermVersion,
     getDeprecationMenuActions,
     isDeleteDisabled,
+    isGlossaryTermVersion,
     isMoveDisabled,
     shouldDisplayChildDeletionWarning,
 } from '@app/entityV2/shared/EntityDropdown/utils';
 import LinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/LinkAssetVersionModal';
 import UnlinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/UnlinkAssetVersionModal';
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
-import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityData';
+import { IncidentDetailDrawer } from '@app/entityV2/shared/lazyIncidentDetailDrawer';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
-import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
-import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';
 import { useAppConfig, useIsNestedDomainsEnabled } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { Deprecation, EntityType } from '@types';
 
 // Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
-const INCIDENTS_TAB_NAME = 'Incidents';
 
 interface Options {
     hideDeleteMessage?: boolean;
@@ -88,6 +93,14 @@ const EntityDropdown = (props: Props) => {
     const { t } = useTranslation('entity.shared.entityDropdown');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
+    const { t: ts } = useTranslation('shared.share');
+
+    // The menu closes as soon as an item is clicked, so a toast is the only confirmation
+    // the user can actually see.
+    const copyToClipboard = useCallback((value: string, confirmation: string) => {
+        navigator.clipboard.writeText(value);
+        toast.success(confirmation);
+    }, []);
 
     const {
         urn,
@@ -107,14 +120,14 @@ const EntityDropdown = (props: Props) => {
     const onEntityProfile = entityProfileUrn === urn;
 
     const me = useUserContext();
-    const entityRegistryV2 = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const versioningEnabled = useAppConfig().config.featureFlags.entityVersioningEnabled;
 
     const [updateDeprecation] = useUpdateDeprecationMutation();
     const { handleDeprecateDomainComplete } = useHandleDeprecateDomain(urn);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
-    const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
+    const { onDeleteEntity, hasBeenDeleted, DeleteConfirmationModal } = useDeleteEntity(
         urn,
         entityType,
         entityData,
@@ -135,6 +148,9 @@ const EntityDropdown = (props: Props) => {
     const [isLinkAssetVersionModalVisible, setIsLinkAssetVersionModalVisible] = useState(false);
     const [isUnlinkAssetVersionModalVisible, setIsUnlinkAssetVersionModalVisible] = useState(false);
     const [isChangeHistoryOpen, setIsChangeHistoryOpen] = useState(false);
+    const [isNewVersionModalVisible, setIsNewVersionModalVisible] = useState(false);
+    const [isLifecycleStageModalVisible, setIsLifecycleStageModalVisible] = useState(false);
+    const canEditLifecycleStage = !!entityData?.privileges?.canEditLifecycleStage;
 
     const handleUpdateDeprecation = async (deprecatedStatus: boolean) => {
         toast.loading(tcf('updating'));
@@ -244,6 +260,17 @@ const EntityDropdown = (props: Props) => {
                     onClick: () => handleUpdateDeprecation(false),
                 });
             }
+        });
+    }
+
+    if (onEntityProfile && menuItems.has(EntityMenuItems.LIFECYCLE_STAGE) && canEditLifecycleStage) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: 'lifecycleStage',
+            title: t('lifecycleStage.change'),
+            icon: FlagBanner,
+            'data-testid': 'entity-menu-lifecycle-stage-button',
+            onClick: () => setIsLifecycleStageModalVisible(true),
         });
     }
 
@@ -358,6 +385,21 @@ const EntityDropdown = (props: Props) => {
         });
     }
 
+    if (
+        onEntityProfile &&
+        menuItems.has(EntityMenuItems.NEW_VERSION) &&
+        canCreateTermVersion(versioningEnabled, entityData)
+    ) {
+        menuItemsList.push({
+            type: 'item' as const,
+            key: 'newVersion',
+            title: t('newVersion.title'),
+            icon: GitBranch,
+            'data-testid': 'entity-menu-new-version-button',
+            onClick: () => setIsNewVersionModalVisible(true),
+        });
+    }
+
     if (onEntityProfile && entityData?.versionProperties && setDrawer) {
         menuItemsList.push({
             type: 'item' as const,
@@ -389,8 +431,8 @@ const EntityDropdown = (props: Props) => {
                 icon: Link,
                 onClick: () => {
                     const { origin } = window.location;
-                    const copyUrl = `${origin}${resolveRuntimePath(entityRegistryV2.getEntityUrl(entityType, urn))}/`;
-                    navigator.clipboard.writeText(copyUrl);
+                    const copyUrl = `${origin}${resolveRuntimePath(entityRegistry.getEntityUrl(entityType, urn))}/`;
+                    copyToClipboard(copyUrl, ts('copyLink.success'));
                 },
             });
         }
@@ -403,14 +445,14 @@ const EntityDropdown = (props: Props) => {
                 title: t('menuItem.copyUrn'),
                 icon: Copy,
                 onClick: () => {
-                    navigator.clipboard.writeText(urn);
+                    copyToClipboard(urn, ts('copyUrn.success'));
                 },
             });
         }
 
         // Copy Name
         if (navigator.clipboard) {
-            const displayName = entityData ? entityRegistryV2.getDisplayName(entityType, entityData) : urn;
+            const displayName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : urn;
             shareChildren.push({
                 type: 'item' as const,
                 key: 'copy-name',
@@ -418,11 +460,7 @@ const EntityDropdown = (props: Props) => {
                 icon: Copy,
                 onClick: () => {
                     const qualifiedName = entityData?.properties?.qualifiedName;
-                    if (qualifiedName) {
-                        navigator.clipboard.writeText(qualifiedName);
-                    } else {
-                        navigator.clipboard.writeText(displayName);
-                    }
+                    copyToClipboard(qualifiedName || displayName, ts('copyName.success'));
                 },
             });
         }
@@ -434,9 +472,9 @@ const EntityDropdown = (props: Props) => {
             title: t('menuItem.email'),
             icon: Envelope,
             onClick: () => {
-                const displayName = entityData ? entityRegistryV2.getDisplayName(entityType, entityData) : urn;
+                const displayName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : urn;
                 const displayType =
-                    getFirstSubType(entityData) || entityRegistryV2.getEntityName(entityType) || entityType;
+                    getFirstSubType(entityData) || entityRegistry.getEntityName(entityType) || entityType;
                 const linkText = window.location.href;
                 const link = qs.stringifyUrl({
                     url: 'mailto:',
@@ -472,7 +510,7 @@ const EntityDropdown = (props: Props) => {
     if (menuItems.has(EntityMenuItems.DELETE)) {
         let deleteTooltip: string | undefined;
         if (shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)) {
-            const entityName = entityRegistryV2.getEntityName(entityType);
+            const entityName = entityRegistry.getEntityName(entityType);
             deleteTooltip = isDomainEntity
                 ? t('delete.cantDeleteSubDomain', { entityName })
                 : t('delete.cantDeleteChild', { entityName });
@@ -480,7 +518,7 @@ const EntityDropdown = (props: Props) => {
         menuItemsList.push({
             type: 'item' as const,
             key: 'delete',
-            title: tc('delete'),
+            title: isGlossaryTermVersion(entityType, entityData) ? t('delete.versionTitle') : tc('delete'),
             icon: Trash,
             danger: true,
             disabled: isDeleteDisabled(entityType, entityData, me.platformPrivileges),
@@ -529,6 +567,24 @@ const EntityDropdown = (props: Props) => {
                     refetchData={refetchForEntity}
                 />
             )}
+            {onEntityProfile && isLifecycleStageModalVisible && canEditLifecycleStage && (
+                <LifecycleStageModal
+                    urn={urn}
+                    entityType={entityType}
+                    currentStage={entityData?.status?.lifecycleStage}
+                    onClose={() => setIsLifecycleStageModalVisible(false)}
+                    onSuccess={() => refetchForEntity?.()}
+                />
+            )}
+            {isNewVersionModalVisible && onEntityProfile && (
+                <CreateGlossaryTermVersionModal
+                    termUrn={urn}
+                    currentName={entityData?.properties?.name ?? entityData?.name ?? ''}
+                    currentDefinition={entityData?.properties?.description}
+                    currentVersionLabel={entityData?.versionProperties?.version?.versionTag}
+                    onClose={() => setIsNewVersionModalVisible(false)}
+                />
+            )}
             {isDeprecationModalVisible && (
                 <UpdateDeprecationModal
                     urns={[urn]}
@@ -557,15 +613,15 @@ const EntityDropdown = (props: Props) => {
                     onCreate={() => setTimeout(() => refetchForEntity?.(), 2000)}
                 />
             )}
-            {isMoveModalVisible && isGlossaryEntity && (
-                <MoveGlossaryEntityModal
+            {isMoveModalVisible && (
+                <MoveEntityModal
+                    entityType={entityType}
                     entityData={entityData}
                     urn={urn}
-                    entityType={entityType}
                     onClose={() => setIsMoveModalVisible(false)}
                 />
             )}
-            {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
+            {DeleteConfirmationModal}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <IncidentDetailDrawer
@@ -583,10 +639,10 @@ const EntityDropdown = (props: Props) => {
                                 `${getEntityPath(
                                     entityType,
                                     urn,
-                                    entityRegistryV2,
+                                    entityRegistry,
                                     false,
                                     isHideSiblingMode,
-                                    INCIDENTS_TAB_NAME,
+                                    EntityTabPath.INCIDENTS,
                                 )}`,
                             );
                         }, 3000);
@@ -619,6 +675,8 @@ const EntityDropdown = (props: Props) => {
                     versionList={[]}
                     hideSemanticVersions
                     entityType={entityType}
+                    versionSetUrn={entityData?.versionProperties?.versionSet?.urn}
+                    currentVersionUrn={entityData?.versionProperties?.versionSet?.urn ? urn : undefined}
                 />
             )}
         </>

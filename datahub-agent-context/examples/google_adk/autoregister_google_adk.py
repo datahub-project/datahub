@@ -106,5 +106,5 @@ register_google_adk_agent(
 
 if __name__ == "__main__":
     print("Agent graph emitted to DataHub (if DATAHUB_GMS_URL is configured).")
-    print(f"  Agent 1 urn: urn:li:aiAgent:order-assistant")
-    print(f"  Agent 2 urn: urn:li:aiAgent:simple-lookup-agent")
+    print("  Agent 1 urn: urn:li:aiAgent:order-assistant")
+    print("  Agent 2 urn: urn:li:aiAgent:simple-lookup-agent")

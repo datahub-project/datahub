@@ -1,11 +1,10 @@
-import { EnterOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
+import { ArrowBendDownLeft } from '@phosphor-icons/react/dist/csr/ArrowBendDownLeft';
+import { Rows } from '@phosphor-icons/react/dist/csr/Rows';
 import { Divider, Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
-
-import RowIcon from '@images/row-icon.svg?react';
 
 const FIELD_PATH_SEPARATOR = '.';
 const MIRROR_X_TRANSFORM = 'scaleX(-1)';
@@ -89,7 +88,7 @@ export default function FieldPath({ displayName, setExpandedDrawerFieldPath }: P
                     }
                 >
                     {idx !== 0 && (
-                        <EnterOutlined
+                        <ArrowBendDownLeft
                             style={{
                                 transform: MIRROR_X_TRANSFORM,
                                 paddingLeft: 6,
@@ -115,7 +114,7 @@ export default function FieldPath({ displayName, setExpandedDrawerFieldPath }: P
                 }}
             >
                 <RowIconContainer className="row-icon">
-                    <RowIcon height={16} width={16} />
+                    <Rows size={16} />
                     <DepthContainer className="depth-container">
                         <DepthNumber className="depth-text">{displayNameTokens.length}</DepthNumber>
                     </DepthContainer>

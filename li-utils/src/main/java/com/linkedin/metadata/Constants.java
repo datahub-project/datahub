@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 /** Static class containing commonly-used constants across DataHub services. */
 public class Constants {
@@ -13,6 +14,8 @@ public class Constants {
   // Use on specific MCP to request an synchronous index update avoid the kafka lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
   public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
+  // MCP header carrying the caller of a queued write; only trusted from system writers.
+  public static final String ATTRIBUTED_ACTOR_HEADER_NAME = "X-DataHub-Attributed-Actor";
 
   public static final String URN_LI_PREFIX = "urn:li:";
 
@@ -135,9 +138,12 @@ public class Constants {
   public static final String METRIC_INFO_ASPECT_NAME = "metricInfo";
   public static final String METRIC_RELATIONSHIPS_ASPECT_NAME = "metricRelationships";
   public static final String METRIC_UPSTREAMS_ASPECT_NAME = "metricUpstreams";
+  public static final String UPSTREAM_METRICS_ASPECT_NAME = "upstreamMetrics";
   public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
   public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
   public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
+  public static final String SEMANTIC_FIELD_ANNOTATION_ASPECT_NAME = "semanticFieldAnnotation";
+  public static final String SEMANTIC_MODEL_PROPERTIES_ASPECT_NAME = "semanticModelProperties";
   // Service (MCP servers, etc.)
   public static final String SERVICE_ENTITY_NAME = "service";
   public static final String SERVICE_KEY_ASPECT_NAME = "serviceKey";
@@ -187,6 +193,10 @@ public class Constants {
   public static final String GLOBAL_TAGS_ASPECT_NAME = "globalTags";
   public static final String GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms";
   public static final String STATUS_ASPECT_NAME = "status";
+  // Lifecycle stage urns. Stages are defined in
+  // metadata-service/configuration/src/main/resources/bootstrap_mcps/lifecycle-stages.yaml.
+  public static final String LIFECYCLE_STAGE_TYPE_URN_PREFIX = "urn:li:lifecycleStageType:";
+  public static final String DRAFT_LIFECYCLE_STAGE_URN = LIFECYCLE_STAGE_TYPE_URN_PREFIX + "DRAFT";
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String OPERATION_ASPECT_NAME = "operation";
@@ -197,8 +207,10 @@ public class Constants {
   public static final String EMBED_ASPECT_NAME = "embed";
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
   public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
+  public static final String AI_CONTEXT_ASPECT_NAME = "aiContext";
   public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
   public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
+  public static final String ALIASES_ASPECT_NAME = "aliases";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -305,12 +317,13 @@ public class Constants {
   public static final String ML_MODEL_EDITABLE_PROPERTIES_ASPECT_NAME = "editableMlModelProperties";
   public static final String INTENDED_USE_ASPECT_NAME = "intendedUse";
   public static final String ML_MODEL_FACTOR_PROMPTS_ASPECT_NAME = "mlModelFactorPrompts";
-  public static final String METRICS_ASPECT_NAME = "metrics";
-  public static final String EVALUATION_DATA_ASPECT_NAME = "evaluationData";
-  public static final String TRAINING_DATA_ASPECT_NAME = "trainingData";
-  public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME = "quantitativeAnalyses";
-  public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME = "ethicalConsiderations";
-  public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME = "caveatsAndRecommendations";
+  public static final String METRICS_ASPECT_NAME = "mlModelMetrics";
+  public static final String EVALUATION_DATA_ASPECT_NAME = "mlModelEvaluationData";
+  public static final String TRAINING_DATA_ASPECT_NAME = "mlModelTrainingData";
+  public static final String QUANTITATIVE_ANALYSES_ASPECT_NAME = "mlModelQuantitativeAnalyses";
+  public static final String ETHICAL_CONSIDERATIONS_ASPECT_NAME = "mlModelEthicalConsiderations";
+  public static final String CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME =
+      "mlModelCaveatsAndRecommendations";
   public static final String SOURCE_CODE_ASPECT_NAME = "sourceCode";
   public static final String COST_ASPECT_NAME = "cost";
 
@@ -332,6 +345,7 @@ public class Constants {
 
   // Role
   public static final String DATAHUB_ROLE_INFO_ASPECT_NAME = "dataHubRoleInfo";
+  public static final String DATAHUB_ROLE_KEY_ASPECT_NAME = "dataHubRoleKey";
 
   // Tag
   public static final String TAG_KEY_ASPECT_NAME = "tagKey";
@@ -377,8 +391,10 @@ public class Constants {
   // Assertion
   public static final String ASSERTION_KEY_ASPECT_NAME = "assertionKey";
   public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
+  public static final String ASSERTION_NOTE_ASPECT_NAME = "assertionNote";
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
+  public static final String ASSERTION_RUN_SUMMARY_ASPECT_NAME = "assertionRunSummary";
   public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
 
   // Tests
@@ -400,6 +416,7 @@ public class Constants {
 
   // DataHub Execution Request
   public static final String EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput";
+  public static final String EXECUTION_REQUEST_KEY_ASPECT_NAME = "dataHubExecutionRequestKey";
   public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
   public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
   public static final String EXECUTION_REQUEST_STATUS_RUNNING = "RUNNING";
@@ -432,6 +449,7 @@ public class Constants {
 
   // Query
   public static final String QUERY_PROPERTIES_ASPECT_NAME = "queryProperties";
+  public static final String QUERY_KEY_ASPECT_NAME = "queryKey";
   public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
 
   // DataProduct
@@ -441,6 +459,7 @@ public class Constants {
 
   // Application
   public static final String APPLICATION_PROPERTIES_ASPECT_NAME = "applicationProperties";
+  public static final String APPLICATION_KEY_ASPECT_NAME = "applicationKey";
   public static final String APPLICATION_MEMBERSHIP_ASPECT_NAME = "applications";
 
   // Ownership Types
@@ -460,9 +479,11 @@ public class Constants {
 
   // Data Type
   public static final String DATA_TYPE_INFO_ASPECT_NAME = "dataTypeInfo";
+  public static final String DATA_TYPE_KEY_ASPECT_NAME = "dataTypeKey";
 
   // Entity Type
   public static final String ENTITY_TYPE_INFO_ASPECT_NAME = "entityTypeInfo";
+  public static final String ENTITY_TYPE_KEY_ASPECT_NAME = "entityTypeKey";
 
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
@@ -476,6 +497,7 @@ public class Constants {
   // Connection
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
   public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";
+  public static final String DATAHUB_CONNECTION_KEY_ASPECT_NAME = "dataHubConnectionKey";
 
   // Data Contracts
   public static final String DATA_CONTRACT_ENTITY_NAME = "dataContract";
@@ -485,9 +507,14 @@ public class Constants {
 
   // Relationships
   public static final String IS_PART_OF_RELATIONSHIP_NAME = "IsPartOf";
+  public static final String APPLICATION_PART_OF_RELATIONSHIP_NAME = "ApplicationPartOf";
+  public static final String IS_CHILD_OF_RELATIONSHIP_NAME = "IsChildOf";
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
   public static final String IS_MEMBER_OF_NATIVE_GROUP_RELATIONSHIP_NAME = "IsMemberOfNativeGroup";
   public static final String IS_MEMBER_OF_ROLE_RELATIONSHIP_NAME = "IsMemberOfRole";
+
+  /** Relationship from a physical asset to its logical model parent (via LogicalParent.parent) */
+  public static final String PHYSICAL_INSTANCE_OF_RELATIONSHIP_NAME = "PhysicalInstanceOf";
 
   public static final String CHANGE_EVENT_PLATFORM_EVENT_NAME = "entityChangeEvent";
 
@@ -528,12 +555,15 @@ public class Constants {
   public static final String DOCUMENT_KEY_ASPECT_NAME = "documentKey";
   public static final String DOCUMENT_INFO_ASPECT_NAME = "documentInfo";
   public static final String DOCUMENT_SETTINGS_ASPECT_NAME = "documentSettings";
+  // Curated embedding-source text. A common aspect so any entity type can register it.
+  public static final String SEMANTIC_TEXT_ASPECT_NAME = "semanticText";
 
   public static final List<String> SKIP_REFERENCE_ASPECT =
       Arrays.asList("ownership", "status", "institutionalMemory");
 
   // Posts
   public static final String POST_INFO_ASPECT_NAME = "postInfo";
+  public static final String POST_KEY_ASPECT_NAME = "postKey";
   public static final String LAST_MODIFIED_FIELD_NAME = "lastModified";
 
   // Telemetry
@@ -544,15 +574,48 @@ public class Constants {
   public static final String DATAHUB_PAGE_TEMPLATE_ENTITY_NAME = "dataHubPageTemplate";
   public static final String DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME =
       "dataHubPageTemplateProperties";
+  public static final String DATAHUB_PAGE_TEMPLATE_KEY_ASPECT_NAME = "dataHubPageTemplateKey";
+
+  // Search query templates
+  public static final String SEARCH_TEMPLATE_ENTITY_NAME = "searchTemplate";
+  public static final String SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME = "searchTemplateProperties";
+  public static final String SEARCH_TEMPLATE_KEY_ASPECT_NAME = "searchTemplateKey";
+  public static final String SEARCH_TEMPLATE_FULLTEXT_URN = "urn:li:searchTemplate:fulltext";
+  public static final String SEARCH_TEMPLATE_LIGHT_URN = "urn:li:searchTemplate:light";
+  public static final String SEARCH_TEMPLATE_LIST_URN = "urn:li:searchTemplate:list";
+  public static final String SEARCH_TEMPLATE_LIST_BY_URN_URN = "urn:li:searchTemplate:listUrn";
+  public static final String SEARCH_TEMPLATE_STRUCTURED_URN = "urn:li:searchTemplate:structured";
+  public static final String SEARCH_TEMPLATE_EXACT_URN = "urn:li:searchTemplate:exact";
+  public static final String SEARCH_TEMPLATE_STRUCTURED_EXACT_URN =
+      "urn:li:searchTemplate:structuredExact";
+  public static final String SEARCH_TEMPLATE_IDENTITY_URN = "urn:li:searchTemplate:identity";
+  public static final String SEARCH_TEMPLATE_SEARCH_URN = "urn:li:searchTemplate:search";
+  public static final String SEARCH_TEMPLATE_AUTOCOMPLETE_URN =
+      "urn:li:searchTemplate:autocomplete";
+  public static final Set<String> SEARCH_TEMPLATE_SYSTEM_IDS =
+      Set.of(
+          "fulltext",
+          "light",
+          "list",
+          "listUrn",
+          "structured",
+          "exact",
+          "structuredExact",
+          "identity",
+          "search",
+          "searchLight",
+          "autocomplete");
 
   // Module
   public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";
   public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
       "dataHubPageModuleProperties";
+  public static final String DATAHUB_PAGE_MODULE_KEY_ASPECT_NAME = "dataHubPageModuleKey";
 
   // File
   public static final String DATAHUB_FILE_ENTITY_NAME = "dataHubFile";
   public static final String DATAHUB_FILE_INFO_ASPECT_NAME = "dataHubFileInfo";
+  public static final String DATAHUB_FILE_KEY_ASPECT_NAME = "dataHubFileKey";
 
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
@@ -605,6 +668,8 @@ public class Constants {
 
   // Index names
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
+  public static final String GRAPH_SERVICE_INDEX = "graph_service_v1";
+  public static final String SYSTEM_METADATA_SERVICE_INDEX = "system_metadata_service_v1";
 
   // Logging MDC
   public static final String MDC_ENTITY_URN = "entityUrn";
@@ -617,6 +682,16 @@ public class Constants {
       "DataHub is currently in read only mode and this write will be dropped.";
 
   public static final String RESTLI_SUCCESS = "success";
+
+  // The emit-mode marker is the same system-metadata key/value convention already
+  // published by the Python REST emitter (EMIT_MODE_MARKER_KEY /
+  // EMIT_MODE_MARKER_SYNC in datahub.emitter.request_helper): a per-MCP marker
+  // that pins a write to synchronous routing regardless of the caller's
+  // configured emit mode. Stamping it server-side (rather than requiring a producer
+  // to set it directly) lets externally-originated sync writes propagate that pin
+  // through MCL -> platform events -> downstream event consumers.
+  public static final String EMIT_MODE_MARKER_KEY = "emitModeMarker";
+  public static final String EMIT_MODE_MARKER_SYNC = "sync";
 
   // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
   // EntityPrivilegesResolver

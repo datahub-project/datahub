@@ -1,0 +1,31 @@
+{
+  "dataflows": {
+    "DF_ENRICH_CUSTOMER": {
+      "contents": {
+        "processes": {
+          "p1": {
+            "component": "com.sap.dataflow.table.consumer",
+            "metadata": {
+              "config": {
+                "dwcEntity": "SRC_CUSTOMER",
+                "hanaConnection": { "connectionID": "$DWC" }
+              }
+            }
+          },
+          "p2": {
+            "component": "com.sap.dataflow.table.producer",
+            "metadata": {
+              "config": {
+                "dwcEntity": "ENRICHED_CUSTOMER",
+                "hanaConnection": { "connectionID": "$DWC" },
+                "attributeMappings": [
+                  { "target": "CUSTOMER_NAME", "expression": "\"NAME\"" }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

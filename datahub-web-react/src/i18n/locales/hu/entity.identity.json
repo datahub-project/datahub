@@ -19,7 +19,7 @@
     "groups.createModal.name.label": "Név",
     "groups.createModal.name.placeholder": "A csoport neve",
     "groups.createModal.name.validationError.empty": "Adjon meg egy csoportnevet.",
-    "groups.createModal.name.validationError.tooLong": "A név legfeljebb 50 karakter lehet.",
+    "groups.createModal.name.validationError.tooLong": "A név legfeljebb 250 karakter lehet.",
     "groups.createModal.title": "Új csoport létrehozása",
     "groups.createOwnerError": "Nem sikerült automatikusan hozzáadni Önt a csoport tulajdonosaként. Kérjük, adja hozzá magát tulajdonosként manuálisan.",
     "groups.createSuccess": "Csoport létrehozva!",
@@ -118,6 +118,7 @@
     "users.columns.name": "Név",
     "users.columns.role": "Szerepkör",
     "users.columns.status": "Állapot",
+    "users.copyUrn": "Urn másolása",
     "users.deleteUser": "Felhasználó törlése",
     "users.emptyTitle": "Nincsenek felhasználók!",
     "users.groups.overflowTitle": "Csoportok",
@@ -146,5 +147,6 @@
     "users.statusFilter.placeholder": "Állapot",
     "users.statusFilter.suspended": "Felfüggesztve",
     "users.statusInactive": "Inaktív",
-    "users.statusNoUrn": "Nincs URN"
+    "users.statusNoUrn": "Nincs URN",
+    "users.urnCopied": "Urn a vágólapra másolva"
 }

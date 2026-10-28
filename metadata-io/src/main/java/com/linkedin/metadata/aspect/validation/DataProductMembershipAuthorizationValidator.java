@@ -11,7 +11,6 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.entity.Aspect;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -19,7 +18,6 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
-import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -86,13 +84,20 @@ public class DataProductMembershipAuthorizationValidator
         extractProposedProductDomainsAspects(batchItems);
     List<AspectValidationException> failures = new ArrayList<>();
 
+    Set<Urn> productsNeedingDomains = new HashSet<>(changedAssetsByProduct.keySet());
+    productsNeedingDomains.addAll(nameChangeProducts);
+    Map<Urn, Map<String, Aspect>> persistedProductDomainsAspects =
+        productsNeedingDomains.isEmpty()
+            ? Map.of()
+            : aspectRetriever.getLatestAspectObjects(
+                operationContext, productsNeedingDomains, Set.of(DOMAINS_ASPECT_NAME));
+
     if (!membershipChanges.isEmpty()) {
       Set<Urn> unauthorizedMembership =
           EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
-              operationContext,
               session,
-              aspectRetriever,
               changedAssetsByProduct,
+              persistedProductDomainsAspects,
               proposedProductDomainsAspects);
 
       for (BatchItem item : membershipChanges) {
@@ -109,10 +114,9 @@ public class DataProductMembershipAuthorizationValidator
     if (!nameChangeProducts.isEmpty()) {
       Set<Urn> unauthorizedRenames =
           EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
-              operationContext,
               session,
-              aspectRetriever,
               nameChangeProducts,
+              persistedProductDomainsAspects,
               proposedProductDomainsAspects);
 
       for (BatchItem item : items) {
@@ -195,16 +199,7 @@ public class DataProductMembershipAuthorizationValidator
       @Nonnull AspectRetriever aspectRetriever,
       @Nullable Aspect currentAspect) {
     DataProductProperties current = toProperties(currentAspect);
-    if (ChangeType.PATCH.equals(item.getChangeType()) && item instanceof ProposedItem) {
-      ProposedItem proposedItem = (ProposedItem) item;
-      PatchItemImpl patchItem =
-          PatchItemImpl.builder()
-              .build(
-                  proposedItem.getMetadataChangeProposal(),
-                  proposedItem.getAuditStamp(),
-                  aspectRetriever.getEntityRegistry());
-      return patchItem.applyPatch(current, aspectRetriever).getAspect(DataProductProperties.class);
-    }
-    return item.getAspect(DataProductProperties.class);
+    return PatchItemImpl.resolveProposedAspect(
+        item, current, aspectRetriever, DataProductProperties.class);
   }
 }

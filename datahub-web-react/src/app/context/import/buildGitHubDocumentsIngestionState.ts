@@ -19,11 +19,6 @@ export function buildGitHubDocumentsIngestionState() {
     show_in_global_context: true
     stateful_ingestion:
       enabled: true
-
-sink:
-  type: datahub-rest
-  config:
-    server: "\${DATAHUB_GMS_URL}"
 `;
 
     return buildIngestionSourceState({

@@ -15,6 +15,7 @@ export const TAGS_FILTER_NAME = 'tags';
 export const GLOSSARY_TERMS_FILTER_NAME = 'glossaryTerms';
 export const CONTAINER_FILTER_NAME = 'container';
 export const DOMAINS_FILTER_NAME = 'domains';
+export const PARENT_DOCUMENT_FILTER_NAME = 'parentDocument';
 export const OWNERS_FILTER_NAME = 'owners';
 export const TYPE_NAMES_FILTER_NAME = 'typeNames';
 export const PLATFORM_FILTER_NAME = 'platform';
@@ -36,8 +37,12 @@ export const IS_HIDDEN_PROPERTY_FILTER_NAME = 'isHidden';
 export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
 export const VALUE_TYPE_FIELD_NAME = 'valueType';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
-export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const OUTPUT_PORTS_FIELD = 'isOutputPort';
+export const COMPLETED_FORMS_FILTER_NAME = 'completedForms';
+export const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
+export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
+export const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
+export const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
 export const SCHEMA_FIELD_ALIASES_FILTER_NAME = 'schemaFieldAliases';
 export const IS_DEPRECATED_FILTER_NAME = 'deprecated';
 
@@ -69,7 +74,6 @@ export const ORDERED_FIELDS = [
     ORIGIN_FILTER_NAME,
     DEGREE_FILTER_NAME,
     HAS_ACTIVE_INCIDENTS_FILTER_NAME,
-    HAS_FAILING_ASSERTIONS_FILTER_NAME,
 ];
 
 export function getFieldToLabel(): Record<string, string> {
@@ -89,39 +93,14 @@ export function getFieldToLabel(): Record<string, string> {
         entityType: i18next.t('search:fieldLabel.entityType'),
         _entityType: i18next.t('search:fieldLabel.entityType'),
         container: i18next.t('search:fieldLabel.container'),
+        parentDocument: i18next.t('search:fieldLabel.parentDocument'),
         typeNames: i18next.t('search:fieldLabel.subType'),
         origin: i18next.t('search:fieldLabel.environment'),
         degree: i18next.t('search:fieldLabel.degree'),
         [BROWSE_PATH_V2_FILTER_NAME]: i18next.t('search:fieldLabel.browse'),
         hasActiveIncidents: i18next.t('search:filters.incidents.title'),
-        hasFailingAssertions: i18next.t('search:fieldLabel.assertions'),
     };
 }
-
-/** @deprecated use getFieldToLabel() instead */
-export const FIELD_TO_LABEL = {
-    owners: 'Owner',
-    tags: 'Tag',
-    domains: 'Domain',
-    platform: 'Platform',
-    fieldTags: 'Column Tag',
-    glossaryTerms: 'Glossary Term',
-    fieldGlossaryTerms: 'Column Glossary Term',
-    fieldPaths: 'Column Name',
-    description: 'Description',
-    fieldDescriptions: 'Column Description',
-    removed: 'Soft Deleted',
-    entity: 'Entity Type',
-    entityType: 'Entity Type',
-    _entityType: 'Entity Type',
-    container: 'Container',
-    typeNames: 'Sub Type',
-    origin: 'Environment',
-    degree: 'Degree',
-    [BROWSE_PATH_V2_FILTER_NAME]: 'Browse',
-    hasActiveIncidents: 'Incidents',
-    hasFailingAssertions: 'Assertions',
-};
 
 export const FIELDS_THAT_USE_CONTAINS_OPERATOR = [
     DESCRIPTION_FILTER_NAME,
@@ -148,7 +127,7 @@ export enum UnionType {
 
 export const UNIT_SEPARATOR = '␟';
 
-export const FilterModes = {
+const FilterModes = {
     BASIC: 'basic',
     ADVANCED: 'advanced',
 } as const;

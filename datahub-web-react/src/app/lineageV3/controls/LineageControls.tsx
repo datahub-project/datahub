@@ -10,16 +10,16 @@ import { useTranslation } from 'react-i18next';
 import { Panel, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
 
-import LineageControlIcon from '@app/lineage/controls/LineageControlIcon';
-import { isLineageFilterActive } from '@app/lineage/controls/lineageControlsUtils';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV3/common';
 import DownloadLineageScreenshotButton from '@app/lineageV3/controls/DownloadLineageScreenshotButton';
+import LineageControlIcon from '@app/lineageV3/controls/LineageControlIcon';
 import LineageSearchFilters from '@app/lineageV3/controls/LineageSearchFilters';
 import LineageTimeRangeControls from '@app/lineageV3/controls/LineageTimeRangeControls';
 import { StyledPanelButton } from '@app/lineageV3/controls/StyledPanelButton';
 import { ControlPanel } from '@app/lineageV3/controls/common';
-import TabFullsizedContext from '@app/shared/TabFullsizedContext';
+import { isLineageFilterActive } from '@app/lineageV3/controls/lineageControlsUtils';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
+import TabFullsizedContext from '@app/sharedV2/TabFullsizedContext';
 
 const StyledPanel = styled(Panel)`
     margin-top: 80px;
@@ -55,17 +55,20 @@ export default function LineageControls() {
         showGhostEntities,
         outputPortsOnly,
         setDisplayVersion,
+        setCollapseColumnsVersion,
     } = useContext(LineageNodesContext);
     const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
     const { isDefault: isLineageTimeUnchanged } = useGetLineageTimeParams();
     const { fitView, setNodes } = useReactFlow();
 
-    // Clear manual drag flags so the recompute re-lays-out every node from scratch, then bump the
-    // display version to trigger that recompute.
+    // Clear manual drag flags so the recompute re-lays-out every node from scratch, collapse
+    // columns so nodes are back at their default size, then bump the display version to trigger
+    // that recompute.
     const onRedraw = useCallback(() => {
         setNodes((nodes) => nodes.map((n) => ({ ...n, data: { ...n.data, dragged: false } })));
+        setCollapseColumnsVersion((version) => version + 1);
         setDisplayVersion(([version, urns]) => [version + 1, urns]);
-    }, [setNodes, setDisplayVersion]);
+    }, [setNodes, setCollapseColumnsVersion, setDisplayVersion]);
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [visiblePanel, setVisiblePanel] = useState<PanelType | null>(null);
@@ -115,6 +118,7 @@ export default function LineageControls() {
                     <StyledDivider />
                     <StyledPanelButton
                         $showText={isExpanded}
+                        data-testid="lineage-filters-button"
                         onClick={() =>
                             visiblePanel === 'filters' ? setVisiblePanel(null) : setVisiblePanel('filters')
                         }

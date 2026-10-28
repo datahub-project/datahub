@@ -1,12 +1,14 @@
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
 from typing import Callable, Dict
 
 import pytest
+import requests_mock
 import time_machine
 import yaml
 from confluent_kafka import Consumer
@@ -26,6 +28,68 @@ from tests.test_helpers.docker_helpers import wait_for_port
 pytestmark = pytest.mark.integration_batch_4
 
 FROZEN_TIME = "2020-04-14 07:00:00"
+
+CATALOG_STUB_URL = "https://psrc-stub.us-east-1.aws.confluent.cloud"
+
+CATALOG_TOPICS = [
+    {
+        "name": "key_value_topic",
+        "qualifiedName": "lkc-stub:key_value_topic",
+        "logical_cluster_id": "lkc-stub",
+        "tags": ["PII", "Tier1"],
+        "business_metadata": [
+            {"name": "owning_team", "value": "payments"},
+            {"name": "retention_days", "value": 30},
+        ],
+    },
+    {
+        "name": "value_topic",
+        "qualifiedName": "lkc-stub:value_topic",
+        "logical_cluster_id": "lkc-stub",
+        "tags": None,
+        "business_metadata": [{"name": "owning_team", "value": "analytics"}],
+    },
+    {
+        "name": "topic_not_on_this_broker",
+        "qualifiedName": "lkc-stub:topic_not_on_this_broker",
+        "logical_cluster_id": "lkc-stub",
+        "tags": ["Deprecated"],
+        "business_metadata": None,
+    },
+]
+
+
+INLINED_PAGINATION_RE = re.compile(r"kafka_topic\(limit: \d+, offset: \d+\)")
+IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+# The live catalog rejects the whole query on a single unknown field, so the stub
+# must too: `logical_cluster_id` is the real name and `clusterId` 400s in production.
+TOPIC_QUERY_KNOWN_FIELDS = frozenset(
+    {
+        "kafka_topic",
+        "limit",
+        "offset",
+        "name",
+        "qualifiedName",
+        "logical_cluster_id",
+        "tags",
+        "business_metadata",
+        "value",
+    }
+)
+
+
+def _pagination_is_inlined(request: requests_mock.request._RequestObjectProxy) -> bool:
+    body = request.json()
+    query = body.get("query", "")
+    unknown = sorted(set(IDENTIFIER_RE.findall(query)) - TOPIC_QUERY_KNOWN_FIELDS)
+    assert not unknown, f"unknown field(s) in TOPIC_CATALOG_QUERY: {unknown}"
+    return "variables" not in body and bool(INLINED_PAGINATION_RE.search(query))
+
+
+def _is_non_inlined_pagination(
+    request: requests_mock.request._RequestObjectProxy,
+) -> bool:
+    return not _pagination_is_inlined(request)
 
 
 @pytest.fixture(scope="module")
@@ -103,6 +167,35 @@ def test_kafka_ingest(
     )
 
 
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_kafka_confluent_catalog_ingest(
+    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
+):
+    config_file = (test_resources_dir / "kafka_catalog_to_file.yml").resolve()
+
+    with requests_mock.Mocker(real_http=True) as catalog_api:
+        catalog_api.post(
+            f"{CATALOG_STUB_URL}/catalog/graphql",
+            additional_matcher=_pagination_is_inlined,
+            json={"data": {"kafka_topic": CATALOG_TOPICS}},
+        )
+        catalog_api.post(
+            f"{CATALOG_STUB_URL}/catalog/graphql",
+            additional_matcher=_is_non_inlined_pagination,
+            exc=AssertionError(
+                "Catalog GraphQL must inline limit/offset; variables maps are rejected"
+            ),
+        )
+        run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_catalog_mces.json",
+        golden_path=test_resources_dir / "kafka_catalog_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
 @pytest.mark.parametrize(
     "config_dict, is_success",
     [
@@ -159,61 +252,43 @@ def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
                 )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_kafka_oauth_callback(
-    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
-):
-    # Run the metadata ingestion pipeline.
+def test_kafka_oauth_callback(mock_kafka_service, test_resources_dir, tmp_path):
     config_file = (test_resources_dir / "kafka_to_file_oauth.yml").resolve()
-
     log_file = tmp_path / "kafka_oauth_message.log"
 
-    file_handler = logging.FileHandler(
-        str(log_file)
-    )  # Add a file handler to later validate a test-case
-    logging.getLogger().addHandler(file_handler)
+    file_handler = logging.FileHandler(str(log_file))
+    file_handler.setLevel(logging.DEBUG)
+    root_logger = logging.getLogger()
+    previous_level = root_logger.level
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(file_handler)
 
-    recipe: dict = {}
-    with open(config_file) as fp:
-        recipe = yaml.safe_load(fp)
+    try:
+        with open(config_file) as fp:
+            recipe = yaml.safe_load(fp)
 
-    # The recipe writes to a relative path; point it at tmp_path so the output
-    # lands in pytest's auto-cleaned dir instead of the repo root.
-    recipe["sink"]["config"]["filename"] = str(tmp_path / "kafka_mces.json")
+        recipe["sink"]["config"]["filename"] = str(tmp_path / "kafka_mces.json")
 
-    pipeline = Pipeline.create(recipe)
+        # confluent-kafka 2.13+ invokes oauth_cb in Consumer/AdminClient
+        # constructors, before the post-construct poll() logs. The test
+        # broker does not advertise OAUTHBEARER, so skip pipeline.run().
+        Pipeline.create(recipe)
 
-    pipeline.run()
-
-    # Initialize flags to track oauth events
-    checks = {
-        "consumer_polling": False,
-        "consumer_oauth_callback": False,
-        "admin_polling": False,
-        "admin_oauth_callback": False,
-    }
-
-    # Read log file and check for oauth events
-    with open(log_file, "r") as file:
-        for line in file:
-            # Check for polling events
-            if "Initiating polling for kafka admin client" in line:
-                checks["admin_polling"] = True
-            elif "Initiating polling for kafka consumer" in line:
-                checks["consumer_polling"] = True
-
-            # Check for oauth callbacks
-            if oauth.MESSAGE in line:
-                if checks["consumer_polling"] and not checks["admin_polling"]:
-                    checks["consumer_oauth_callback"] = True
-                elif checks["consumer_polling"] and checks["admin_polling"]:
-                    checks["admin_oauth_callback"] = True
-
-    # Verify all oauth events occurred
-    assert checks["consumer_polling"], "Consumer polling was not initiated"
-    assert checks["consumer_oauth_callback"], "Consumer oauth callback not found"
-    assert checks["admin_polling"], "Admin polling was not initiated"
-    assert checks["admin_oauth_callback"], "Admin oauth callback not found"
+        log = log_file.read_text()
+        assert "Initiating polling for kafka consumer" in log, (
+            "Consumer polling was not initiated"
+        )
+        assert "Initiating polling for kafka admin client" in log, (
+            "Admin polling was not initiated"
+        )
+        callback_count = log.count(oauth.MESSAGE)
+        assert callback_count >= 2, (
+            f"Expected oauth_cb for consumer and admin clients, found {callback_count}"
+        )
+    finally:
+        root_logger.removeHandler(file_handler)
+        root_logger.setLevel(previous_level)
+        file_handler.close()
 
 
 def test_kafka_source_oauth_cb_signature():
@@ -370,8 +445,16 @@ def test_kafka_infrastructure_debug(mock_kafka_service, test_resources_dir):
                 continue
 
             messages_found += 1
+            key = msg.key()
+            key_repr = (
+                key.decode("utf-8", errors="replace")
+                if isinstance(key, (bytes, bytearray))
+                else key
+            )
+            value = msg.value()
+            value_size = len(value) if value is not None else 0
             print(
-                f"   Message {messages_found}: offset={msg.offset()}, key={msg.key()}, value_size={len(msg.value()) if msg.value() else 0}"
+                f"   Message {messages_found}: offset={msg.offset()}, key={key_repr}, value_size={value_size}"
             )
 
         consumer.close()
@@ -617,7 +700,7 @@ def _get_test_profiling_config():
         include_field_median_value = True
         include_field_stddev_value = True
         include_field_quantiles = True
-        include_field_distinct_count = True  # Default from GEProfilingConfig
+        include_field_distinct_count = True  # Default from ProfilingConfig
         include_field_distinct_value_frequencies = True
         include_field_histogram = True
 

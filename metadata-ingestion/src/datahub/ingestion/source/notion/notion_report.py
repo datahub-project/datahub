@@ -46,8 +46,11 @@ class NotionSourceReport(StaleEntityRemovalSourceReport):
     num_embedding_failures: int = 0
     embedding_failures: LossyList[str] = field(default_factory=LossyList)
     num_documents_limit_reached: bool = False
+    # Documents whose semanticContent was truncated/dropped to fit the size floor
+    num_documents_truncated_oversized: int = 0
+    num_documents_dropped_oversized: int = 0
 
-    # Synced blocks (unsupported in unstructured-ingest v0.7.2)
+    # Synced blocks (empty originals may still omit children in 1.4.28)
     num_synced_blocks_skipped: int = 0
     synced_blocks_skipped: LossyList[str] = field(
         default_factory=LossyList
@@ -87,10 +90,11 @@ class NotionSourceReport(StaleEntityRemovalSourceReport):
         self.num_synced_blocks_skipped += 1
         if page_id not in self.synced_blocks_skipped:
             self.synced_blocks_skipped.append(page_id)
-            self.report_warning(
+            self.warning(
                 title="Synced Block Content Skipped",
                 message="Page contains synced blocks that cannot be fully ingested. "
                 "The page will be ingested but synced block content will be missing. "
                 "This is a known limitation of the current connector version.",
                 context=f"Page ID: {page_id}",
+                log=False,
             )

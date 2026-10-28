@@ -1,3 +1,7 @@
+import logging
+
+import pytest
+
 from datahub.ingestion.source.cube.models import (
     CloudEntitiesResponse,
     CloudEntity,
@@ -36,19 +40,27 @@ def test_report_extracts_referenced_entities_from_json_query() -> None:
     assert report.workbook_id == 7
 
 
-def test_report_handles_missing_or_invalid_json_query() -> None:
+def test_report_handles_missing_or_invalid_json_query(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     assert (
         CubeReport.from_cloud(
             CloudReport.model_validate({"id": 1, "name": "r1"})
         ).referenced_entities
         == []
     )
-    assert (
-        CubeReport.from_cloud(
-            CloudReport.model_validate({"id": 1, "name": "r1", "jsonQuery": "not-json"})
-        ).referenced_entities
-        == []
-    )
+    with caplog.at_level(logging.DEBUG):
+        assert (
+            CubeReport.from_cloud(
+                CloudReport.model_validate(
+                    {"id": 1, "name": "r1", "jsonQuery": "not-json"}
+                )
+            ).referenced_entities
+            == []
+        )
+    # Regression: a malformed jsonQuery used to be swallowed with no trace,
+    # leaving no way to tell why a report's chart has no input lineage.
+    assert any("r1" in record.message for record in caplog.records)
 
 
 def test_workbook_collects_report_ids_from_published_dashboard() -> None:
@@ -112,9 +124,53 @@ def test_from_core_cube_normalizes_members_and_alias() -> None:
     assert entity.measures[0].agg_type == "count"
     # aliasMember becomes a member reference for view -> cube lineage.
     assert entity.measures[0].member_references == ["base_orders.count"]
+    assert entity.referenced_cube_names() == ["base_orders"]
     assert entity.dimensions[0].name == "id"
     assert entity.dimensions[0].is_primary_key is True
     assert entity.segment_names == ["completed"]
+
+
+def test_from_core_cube_captures_bare_sql_column_not_complex_expression() -> None:
+    # A member's `sql:` is often a bare column name that differs from its
+    # JS-identifier name (e.g. "userId" with `sql: user_id`) -- Cube join SQL
+    # references that column, not the member name, so it must be captured
+    # separately. A complex expression isn't a plain column reference and
+    # must not be captured as one.
+    response = CoreMetaResponse.model_validate(
+        {
+            "cubes": [
+                {
+                    "name": "orders",
+                    "measures": [],
+                    "dimensions": [
+                        {
+                            "name": "orders.userId",
+                            "type": "number",
+                            "sql": "user_id",
+                        },
+                        {
+                            "name": "orders.fullName",
+                            "type": "string",
+                            "sql": "`CONCAT(first_name, ' ', last_name)`",
+                        },
+                        {
+                            "name": "orders.status",
+                            "type": "string",
+                            "sql": "status",
+                        },
+                    ],
+                }
+            ]
+        }
+    )
+
+    entity = CubeEntity.from_core_cube(response.cubes[0])
+    by_name = {d.name: d for d in entity.dimensions}
+
+    assert by_name["userId"].sql_column == "user_id"
+    assert by_name["fullName"].sql_column is None
+    # A bare column whose sql happens to equal its name is still captured.
+    assert by_name["status"].sql_column == "status"
 
 
 def test_from_cloud_entity_captures_references() -> None:
@@ -190,7 +246,13 @@ def test_core_cube_captures_structural_metadata_and_visibility() -> None:
                     "type": "cube",
                     "fileName": "cubes/orders.yml",
                     "public": True,
-                    "joins": [{"name": "users", "relationship": "belongsTo"}],
+                    "joins": [
+                        {
+                            "name": "users",
+                            "relationship": "belongsTo",
+                            "sql": "{CUBE}.user_id = {users}.id",
+                        }
+                    ],
                     "hierarchies": [
                         {"name": "geo", "levels": ["orders.country", "orders.city"]}
                     ],
@@ -223,6 +285,7 @@ def test_core_cube_captures_structural_metadata_and_visibility() -> None:
     assert entity.file_name == "cubes/orders.yml"
     assert entity.joins[0].name == "users"
     assert entity.joins[0].relationship == "belongsTo"
+    assert entity.joins[0].sql == "{CUBE}.user_id = {users}.id"
     assert entity.hierarchies[0].levels == ["country", "city"]
     # Flat and nested folders are combined; member names are unqualified.
     assert {f.name for f in entity.folders} == {"Core", "Nested"}

@@ -105,7 +105,7 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
 
     store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
     clock.advance(Duration.ofMinutes(9).plusSeconds(30));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     Assert.assertEquals(sink.batches().size(), 1);
     UsageFlushBatch batch = sink.batches().get(0);
@@ -117,7 +117,7 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
     Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T10:59:30Z"));
 
     clock.advance(Duration.ofSeconds(30));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
     Assert.assertEquals(store.windowStartSnapshot(), Instant.parse("2026-07-10T11:00:00Z"));
   }
 
@@ -130,7 +130,7 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
 
     store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
     clock.advance(Duration.ofMinutes(2));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     UsageFlushBatch batch = sink.batches().get(0);
     Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T10:17:00Z"));
@@ -170,7 +170,7 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
 
     store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
     clock.advance(Duration.ofMinutes(15));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     Assert.assertEquals(sink.batches().size(), 1);
     UsageFlushBatch batch = sink.batches().get(0);
@@ -188,7 +188,7 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
 
     store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
     clock.advance(Duration.ofMinutes(3));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     UsageFlushBatch batch = sink.batches().get(0);
     Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T10:03:00Z"));
@@ -205,7 +205,7 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
 
     store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
     clock.advance(Duration.ofMinutes(20));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     UsageFlushBatch batch = sink.batches().get(0);
     Assert.assertEquals(batch.windowStart(), Instant.parse("2026-07-10T23:50:00Z"));
@@ -222,11 +222,11 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
 
     store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
     clock.advance(Duration.ofMinutes(5));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     store.recordRequest(session(UsageTestFixtures.REGULAR_CORP_USER_URN, "metadata_read", null));
     clock.advance(Duration.ofMinutes(5));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
 
     Assert.assertEquals(sink.batches().size(), 2);
     Assert.assertEquals(sink.batches().get(0).windowStart(), Instant.parse("2026-07-10T10:10:00Z"));
@@ -257,7 +257,7 @@ public class InMemoryUsageAggregationStoreAlignmentTest {
     Instant windowStart = store.windowStartSnapshot();
     Assert.assertEquals(windowStart, clock.instant());
     clock.advance(Duration.ofMinutes(5));
-    store.flush(FlushTrigger.SCHEDULED);
+    store.flush(TestOperationContexts.systemContextNoSearchAuthorization(), FlushTrigger.SCHEDULED);
     UsageFlushBatch batch = sink.batches().get(0);
     Assert.assertEquals(batch.windowStart(), windowStart);
     Assert.assertTrue(batch.windowEnd().isAfter(windowStart));

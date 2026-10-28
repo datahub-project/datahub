@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.s3;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,6 +12,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.SkipException;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.services.sts.StsClient;
 
@@ -47,7 +49,7 @@ final class SetAwsEndpointForStsInitializer
 }
 
 /** Tests StsClient creation when region and endpoint are set (deterministic in CI). */
-@SpringBootTest(classes = {StsClientFactory.class})
+@SpringBootTest(classes = {AwsClientFactory.class, StsClientFactory.class})
 @ContextConfiguration(initializers = SetAwsRegionAndEndpointForStsInitializer.class)
 class StsClientFactoryWithRegionTest extends AbstractTestNGSpringContextTests {
 
@@ -62,7 +64,7 @@ class StsClientFactoryWithRegionTest extends AbstractTestNGSpringContextTests {
 }
 
 /** Tests StsClient creation with custom endpoint (LocalStack/custom endpoint path). */
-@SpringBootTest(classes = {StsClientFactory.class})
+@SpringBootTest(classes = {AwsClientFactory.class, StsClientFactory.class})
 @ContextConfiguration(initializers = SetAwsEndpointForStsInitializer.class)
 class StsClientFactoryWithEndpointTest extends AbstractTestNGSpringContextTests {
 
@@ -87,7 +89,7 @@ final class InvalidEndpointForStsInitializer
 }
 
 /** Tests StsClient is null when factory throws (covers catch block / exception path). */
-@SpringBootTest(classes = {StsClientFactory.class})
+@SpringBootTest(classes = {AwsClientFactory.class, StsClientFactory.class})
 @ContextConfiguration(initializers = InvalidEndpointForStsInitializer.class)
 class StsClientFactoryExceptionTest extends AbstractTestNGSpringContextTests {
 
@@ -103,7 +105,7 @@ class StsClientFactoryExceptionTest extends AbstractTestNGSpringContextTests {
 }
 
 /** Tests StsClient is null when no AWS config is present. */
-@SpringBootTest(classes = {StsClientFactory.class})
+@SpringBootTest(classes = {AwsClientFactory.class, StsClientFactory.class})
 @ContextConfiguration(initializers = ClearAwsPropertiesForStsInitializer.class)
 class StsClientFactoryNoAwsConfigTest extends AbstractTestNGSpringContextTests {
 
@@ -113,13 +115,43 @@ class StsClientFactoryNoAwsConfigTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testStsClientNullWhenNoAwsConfig() {
+    StsClientFactoryAwsEnv.skipIfAwsRegionOrEndpointSetInEnvironment(
+        "Skipping: AWS_REGION or AWS_ENDPOINT_URL set in env; cannot simulate no-config");
+    assertNull(stsClient, "StsClient bean should be null when no AWS region or endpoint is set");
+  }
+}
+
+/** Unit tests that do not load a Spring context. */
+class StsClientFactorySkipWithoutSharedCredentialsTest {
+
+  @AfterMethod
+  public void clearAwsProperties() {
+    System.clearProperty("AWS_REGION");
+    System.clearProperty("aws.region");
+    System.clearProperty("AWS_ENDPOINT_URL");
+  }
+
+  @Test
+  public void skipsWhenRegionSetWithoutSharedCredentialsProvider() {
+    StsClientFactoryAwsEnv.skipIfAwsRegionOrEndpointSetInEnvironment(
+        "Skipping: AWS_REGION or AWS_ENDPOINT_URL set in env; cannot simulate region-only skip");
+    System.setProperty("AWS_REGION", "us-east-1");
+    StsClientFactory factory = new StsClientFactory();
+    assertNull(
+        factory.getInstance(),
+        "StsClient must not be built with the AWS SDK default IRSA credential chain");
+  }
+}
+
+final class StsClientFactoryAwsEnv {
+  private StsClientFactoryAwsEnv() {}
+
+  static void skipIfAwsRegionOrEndpointSetInEnvironment(String reason) {
     String awsRegion = System.getenv("AWS_REGION");
     String awsEndpoint = System.getenv("AWS_ENDPOINT_URL");
     if ((awsRegion != null && !awsRegion.isEmpty())
         || (awsEndpoint != null && !awsEndpoint.isEmpty())) {
-      throw new SkipException(
-          "Skipping: AWS_REGION or AWS_ENDPOINT_URL set in env; cannot simulate no-config");
+      throw new SkipException(reason);
     }
-    assertNull(stsClient, "StsClient bean should be null when no AWS region or endpoint is set");
   }
 }

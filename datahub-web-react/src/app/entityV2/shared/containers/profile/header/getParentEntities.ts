@@ -1,12 +1,14 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 
-import { DataProduct, Entity, EntityType, ParentDocumentsResult } from '@types';
+import { DataProduct, Entity, EntityType, ParentApplicationsResult, ParentDocumentsResult } from '@types';
 
 type GetContextPathInput = Pick<
     GenericEntityProperties,
     'parent' | 'parentContainers' | 'parentDomains' | 'parentNodes' | 'domain'
 > & {
     parentDocuments?: ParentDocumentsResult;
+    parentDataProducts?: DataProduct[] | null;
+    parentApplications?: ParentApplicationsResult | null;
 };
 
 const MAX_PARENT_DEPTH = 10;
@@ -27,8 +29,12 @@ export function getParentEntities(entityData: GetContextPathInput | null, entity
 
     switch (entityType) {
         case EntityType.DataProduct: {
-            const domain = (entityData as DataProduct).domain?.domain;
-            return domain ? [domain, ...(domain.parentDomains?.domains || [])] : [];
+            const dp = entityData as DataProduct;
+            const immediateParent = dp.properties?.parentDataProduct;
+            const dpChain = immediateParent ? [immediateParent] : [];
+            const domain = dp.domain?.domain;
+            const domainChain = domain ? [domain, ...(domain.parentDomains?.domains || [])] : [];
+            return [...dpChain, ...domainChain];
         }
 
         case EntityType.GlossaryTerm:
@@ -40,6 +46,9 @@ export function getParentEntities(entityData: GetContextPathInput | null, entity
 
         case EntityType.Document:
             return entityData.parentDocuments?.documents || [];
+
+        case EntityType.Application:
+            return entityData.parentApplications?.applications || [];
 
         default: {
             // generic fallback

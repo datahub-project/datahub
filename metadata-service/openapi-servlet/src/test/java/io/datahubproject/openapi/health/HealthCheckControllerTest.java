@@ -9,10 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.config.HealthCheckConfiguration;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.GracefulShutdownHandler;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
@@ -45,12 +45,9 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
 
-  // PR6: HealthCheckController now @Autowires systemOperationContext to pass to clusterHealth
-  // (health probe, no per-event identity). Mock it here — the slice test doesn't load the full
-  // bean graph that would normally provide it.
   @MockitoBean
-  @Qualifier("systemOperationContext")
-  private OperationContext systemOperationContext;
+  @Qualifier("searchClusterRegistry")
+  private SearchClusterRegistry searchClusterRegistry;
 
   @MockitoBean
   @Qualifier("bootstrapManager")

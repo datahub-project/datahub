@@ -1,3 +1,4 @@
+import copy
 import datetime
 import json
 import logging
@@ -5,6 +6,7 @@ import re
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
+    Annotated,
     Any,
     Dict,
     Iterable,
@@ -13,12 +15,14 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    Sequence,
     Set,
     Tuple,
 )
 from urllib.parse import urlparse
 
 import botocore.exceptions
+import botocore.session
 import yaml
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
@@ -27,7 +31,7 @@ from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter import mce_builder
@@ -48,6 +52,13 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.emitter.rest_emitter import EmitMode
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
+    ancestors_in,
+    parent_required,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -63,7 +74,23 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
-from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.aws_common import (
+    AwsSourceConfig,
+    make_dynamodb_dataset_name,
+)
+from datahub.ingestion.source.aws.glue_selection import (
+    CATALOG_ID_FACT,
+    DATABASE_CATALOG_ID_FACT,
+    DATABASE_RESOURCE_LINK_FACT,
+    IGNORE_RESOURCE_LINKS,
+    RESOURCE_LINK_FACT,
+    database_verdict,
+    flag_fact,
+    jobs_verdict,
+    table_link_verdict,
+    table_pattern_verdict,
+    table_verdict,
+)
 from datahub.ingestion.source.aws.platform_resource_repository import (
     GluePlatformResourceRepository,
 )
@@ -157,6 +184,37 @@ DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 GLUE_TABLE_TYPE_ICEBERG = "ICEBERG"
+
+# Actor stamped on system-generated tag attribution (matches the DataHub
+# tag-propagation action's actor).
+DATAHUB_SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
+# Marker written to a tag association's ``sourceDetail.origin`` to record that
+# the tag came from Lake Formation ingestion (as opposed to being added in the
+# DataHub UI, which leaves the association without attribution).
+LAKE_FORMATION_TAG_ORIGIN = "lake-formation"
+
+# Structural shape of a Glue catalog ARN authority: arn:{partition}:glue:{region}:{account}. The
+# partition/region agreement is validated separately (check_catalog_arn_keys) against botocore's
+# authoritative partition data, so the shape here only pins the segments and the 12-digit account.
+GLUE_CATALOG_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:glue:([^:\s]+):\d{12}$")
+
+
+@lru_cache(maxsize=None)
+def _aws_partition_for_region(region: str) -> str:
+    """Authoritative ARN partition for an AWS region (aws, aws-us-gov, aws-cn, aws-iso*, ...).
+
+    Delegates to botocore's shipped endpoint data rather than a hand-maintained region-prefix table,
+    so it stays correct as AWS adds partitions. Falls back to the commercial partition for regions
+    botocore doesn't recognize (e.g. a not-yet-published region).
+    """
+    try:
+        return botocore.session.get_session().get_partition_for_region(region)
+    except botocore.exceptions.UnknownRegionError:
+        # Only swallow UnknownRegionError, so a genuine botocore API change surfaces instead of
+        # silently degrading every region to the commercial partition.
+        return "aws"
+
+
 JDBC_PLATFORM_MAP: Dict[str, str] = {
     "postgresql": "postgres",
     "mysql": "mysql",
@@ -181,6 +239,23 @@ GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
 }
 
 JDBC_PREFIX = "jdbc:"
+DYNAMODB_CONNECTION_TYPE = "dynamodb"
+DYNAMODB_PLATFORM = "dynamodb"
+DYNAMODB_INPUT_TABLE_NAME = "dynamodb.input.tableName"
+DYNAMODB_OUTPUT_TABLE_NAME = "dynamodb.output.tableName"
+DYNAMODB_TABLE_ARN = "dynamodb.tableArn"
+DYNAMODB_REGION = "dynamodb.region"
+DYNAMODB_STS_REGION = "dynamodb.sts.region"
+DYNAMODB_STS_ROLE_ARN = "dynamodb.sts.roleArn"
+# arn:{partition}:dynamodb:{region}:{account}:table/{table}
+DYNAMODB_TABLE_ARN_PATTERN = re.compile(
+    r"^arn:aws[a-z-]*:dynamodb:([^:\s]+):(\d{12}):table/([^/\s]+)$"
+)
+# arn:{partition}:iam::{account}:role/{name}
+DYNAMODB_STS_ROLE_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:iam::(\d{12}):role/.+$")
+# Cap STS GetCallerIdentity retries: building a session + client is expensive (~seconds with an
+# SSO profile) and _aws_config() already retries internally, so don't re-attempt once per node for
+# a persistent failure (AccessDenied) or sustained throttling across an unbounded node count.
 
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
@@ -193,6 +268,16 @@ def _sanitize_jdbc_url(jdbc_url: str) -> str:
     if parsed.port:
         safe_netloc = f"{safe_netloc}:{parsed.port}"
     return f"{JDBC_PREFIX}{parsed.scheme}://{safe_netloc}{parsed.path}"
+
+
+def glue_catalog_kwargs(catalog_id: Optional[str]) -> Dict[str, Any]:
+    """The CatalogId argument every Glue catalog listing passes: the recipe's
+    catalog_id, or nothing for the calling account's own catalog.
+
+    One definition, shared with the probe, so `probe run` pages exactly the
+    catalog ingestion pages.
+    """
+    return {"CatalogId": catalog_id} if catalog_id else {}
 
 
 class TargetPlatformConfig(ConfigModel):
@@ -208,6 +293,30 @@ class TargetPlatformConfig(ConfigModel):
     )
 
 
+@dataclass
+class ResolvedTarget:
+    """The platform_instance/env a table's URN is stamped with, after catalog resolution.
+
+    Distinct from the ``TargetPlatformConfig`` *input* type: ``env`` is always resolved here (never
+    ``None``), so call sites don't need to re-apply the source-env fallback.
+    """
+
+    platform_instance: Optional[str]
+    env: str
+
+
+@dataclass
+class OwnerSchemaFetch:
+    """Outcome of one attempt to read a resource link's owning-table schema.
+
+    ``warned`` is True when the attempt already reported its own (exception-bearing) warning, so the
+    caller can avoid adding a redundant generic warning for the same unresolved owner.
+    """
+
+    schema: Optional[SchemaMetadata]
+    warned: bool
+
+
 class GlueSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
@@ -217,6 +326,29 @@ class GlueSourceConfig(
     platform: str = Field(
         default=DEFAULT_PLATFORM,
         description=f"The platform to use for the dataset URNs. Must be one of {VALID_PLATFORMS}.",
+    )
+
+    # Redeclared from AwsSourceConfig only to carry Filters(...): pydantic v2
+    # replaces an inherited field's annotation wholesale, and `probe filter`
+    # and `recipe describe` read which level a pattern filters from it.
+    # AwsSourceConfig is shared with DynamoDB and SageMaker, so the
+    # annotation belongs here rather than there.
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for databases to filter in ingestion.",
+    )
+    table_pattern: Annotated[
+        AllowDenyPattern,
+        Filters(DatasetSubTypes.TABLE),
+        Filters(DatasetSubTypes.VIEW),
+    ] = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "regex patterns for tables and views to filter in ingestion, "
+            "matched against `<database>.<table>`."
+        ),
     )
 
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-owner
@@ -257,7 +389,10 @@ class GlueSourceConfig(
     )
     ignore_resource_links: Optional[bool] = Field(
         default=False,
-        description="If set to True, ignore database resource links.",
+        description="If set to True, ignore Lake Formation resource links, both database-level "
+        "links and table-level links. When False, tables reached through a resource link are "
+        "ingested under the local link name and get an upstream edge to the shared table in the "
+        "owning catalog.",
     )
     use_s3_bucket_tags: Optional[bool] = Field(
         default=False,
@@ -299,7 +434,21 @@ class GlueSourceConfig(
 
     include_column_lineage: bool = Field(
         default=True,
-        description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
+        description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields, and between a Lake Formation resource link's columns and the same-named columns of the shared table it points at.",
+    )
+
+    resolve_resource_link_schema: bool = Field(
+        default=True,
+        description=(
+            "When enabled, populate a Lake Formation resource link's schema so its columns are "
+            "visible on the ingested dataset — a resource link is schemaless in the catalog because "
+            "it is only a pointer to the owning account's table. The owning table's schema is read "
+            "from DataHub first (when that account has already been ingested, so no AWS call is "
+            "made) and otherwise from a cross-account `glue:GetTable` on the target (requires "
+            "`glue:GetTable` permission on the shared table). When neither is available the link is "
+            "left schemaless and its columns remain reachable through its upstream lineage edge. "
+            "Set to False to always keep resource links schemaless."
+        ),
     )
 
     include_view_lineage: bool = Field(
@@ -332,6 +481,147 @@ class GlueSourceConfig(
         ),
     )
 
+    catalog_to_platform_instance: Dict[str, TargetPlatformConfig] = Field(
+        default_factory=dict,
+        description=(
+            "Maps a Glue catalog's ARN authority `arn:{partition}:glue:{region}:{account}` to the "
+            "platform_instance (and optionally env) to stamp on tables owned by that catalog. "
+            "Use this for cross-account catalogs (e.g. ingesting another account via `catalog_id`, "
+            "or Lake Formation shared tables) so each table's URN matches the one the owning "
+            "account's own Glue ingestion produces, instead of the ingestion account's instance. "
+            "Lake Formation resource links (database-level and table-level) are ingested under the "
+            "ingesting catalog's instance and get an upstream edge to the shared table, stamped "
+            "with the instance mapped here for the owning account. "
+            "The key is account + region — account alone is not unique across regions — and matches "
+            "the key used by the Spark/OpenLineage `connections` map. The partition must match the "
+            "region as resolved by boto3 — `aws` for commercial, `aws-us-gov` for GovCloud, "
+            "`aws-cn` for China, and the `aws-iso*` partitions for isolated regions."
+        ),
+    )
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Glue jobs: no pattern filters them (get_all_jobs lists every job).
+        Whether they are emitted at all is extract_transforms, which
+        probe_verdict_override applies."""
+        return {str(FlowContainerSubTypes.GLUE_JOB)}
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Tables and views sit under their database (_gen_table_wu re-checks
+        database_pattern on it); databases and Glue jobs are top-level."""
+        if kind == FlowContainerSubTypes.GLUE_JOB:
+            return ()
+        return ancestors_in(
+            (str(DatasetContainerSubTypes.DATABASE),),
+            kind,
+            {str(DatasetSubTypes.TABLE), str(DatasetSubTypes.VIEW)},
+        )
+
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """table_pattern is matched against f"{database}.{table}"
+        (_gen_table_wu's full_table_name), for views as for tables, so a table
+        needs its database as --parent. Databases and Glue jobs are top-level
+        and matched on the bare name."""
+        if self.probe_ancestor_kinds(kind=ctx.kind) == ():
+            return None
+        if parent_required(ctx):
+            return None
+        return f"{ctx.parent_path[-1]}.{ctx.name}"
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Glue's exclusions that no single pattern states, decided by the
+        same glue_selection functions GlueSource calls.
+
+        - A Glue job is emitted only when extract_transforms is truthy
+          (get_workunits_internal). The field is Optional[bool] and Glue
+          reads `null` as off too, while an Enables marker reads only False
+          as off, so jobs are judged here rather than by marking the field.
+        - A database is dropped when ignore_resource_links hides it, by
+          database_pattern, or -- with catalog_id set -- when its CatalogId
+          names another catalog (get_all_databases).
+        - A table is dropped when its database would be, judged from the
+          database facts `tables` copies onto each table record, because a
+          --parent container is judged by name only; when it is itself a
+          resource link and ignore_resource_links is on
+          (get_tables_from_database); or by the patterns (_gen_table_wu).
+
+        The facts come from `probe run ... --report-to` via `probe filter
+        --from-run`; with bare names a rule that needs one warns and is not
+        applied.
+        """
+        if ctx.kind == FlowContainerSubTypes.GLUE_JOB:
+            by_jobs = jobs_verdict(self)
+            return None if by_jobs.included else by_jobs
+        if ctx.kind == DatasetContainerSubTypes.DATABASE:
+            return self._database_facts_verdict(
+                ctx,
+                name=ctx.target,
+                link_key=RESOURCE_LINK_FACT,
+                catalog_key=CATALOG_ID_FACT,
+            )
+        if ctx.kind in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW):
+            # name=None: a table's database pattern is the --parent check.
+            database_rule = self._database_facts_verdict(
+                ctx,
+                name=None,
+                link_key=DATABASE_RESOURCE_LINK_FACT,
+                catalog_key=DATABASE_CATALOG_ID_FACT,
+            )
+            if not database_rule.included:
+                return database_rule
+            is_link = flag_fact(ctx.attributes.get(RESOURCE_LINK_FACT))
+            if ctx.parent_path:
+                return table_verdict(
+                    self,
+                    database=ctx.parent_path[-1],
+                    table=ctx.name,
+                    is_resource_link=is_link,
+                )
+            if is_link is not None:
+                by_link = table_link_verdict(self, is_resource_link=is_link)
+                if not by_link.included:
+                    return by_link
+        return None
+
+    def _database_facts_verdict(
+        self,
+        ctx: VerdictContext,
+        name: Optional[str],
+        link_key: str,
+        catalog_key: str,
+    ) -> Verdict:
+        """database_verdict on the facts `probe run` stamped on the record,
+        warning for each one the recipe needs and a bare name lacks. The
+        catalog note is skipped once an earlier rule has decided."""
+        is_link = flag_fact(ctx.attributes.get(link_key))
+        if self.ignore_resource_links and is_link is None:
+            ctx.warn(
+                "ignore_resource_links is on, and whether a database is a "
+                "Lake Formation resource link is not known from a bare "
+                "name, so resource links were not excluded; judge the "
+                "output of `probe run databases` or `probe run tables` "
+                "with --from-run"
+            )
+        owner = ctx.attributes.get(catalog_key)
+        verdict = database_verdict(
+            self, name=name, catalog_id=owner, is_resource_link=is_link
+        )
+        if self.catalog_id and owner is None and verdict.included:
+            ctx.warn(
+                "catalog_id is set, and which catalog a database belongs "
+                "to is not known from a bare name, so the catalog check "
+                "was not applied; judge the output of `probe run "
+                "databases` or `probe run tables` with --from-run"
+            )
+        return verdict
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: glue_probe imports this module for the config type.
+        from datahub.ingestion.source.aws.glue_probe import GlueMetadataProbe
+
+        return GlueMetadataProbe
+
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -357,6 +647,30 @@ class GlueSourceConfig(
                 "glue_storage_lineage_direction must be either upstream or downstream"
             )
         return v.lower()
+
+    @field_validator("catalog_to_platform_instance")
+    @classmethod
+    def check_catalog_arn_keys(
+        cls, v: Dict[str, TargetPlatformConfig]
+    ) -> Dict[str, TargetPlatformConfig]:
+        invalid = []
+        for key in v:
+            match = GLUE_CATALOG_ARN_PATTERN.match(key)
+            # Reject a bad shape, or a partition that disagrees with its region — the lookup derives
+            # the partition from the region, so a mismatched key would validate but never match.
+            if not match or not key.startswith(
+                f"arn:{_aws_partition_for_region(match.group(1))}:glue:"
+            ):
+                invalid.append(key)
+        if invalid:
+            raise ValueError(
+                "catalog_to_platform_instance keys must be Glue catalog ARN authorities of the "
+                "form arn:{partition}:glue:{region}:{account} (account + region), where the "
+                "partition matches the region as resolved by boto3 (commercial=aws, "
+                "GovCloud=aws-us-gov, China=aws-cn, isolated regions=aws-iso*); "
+                f"invalid keys: {invalid}"
+            )
+        return v
 
     @field_validator("platform", mode="after")
     @classmethod
@@ -398,6 +712,12 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_dataset_to_dataset_edges_in_job: int = 0
     num_dataset_invalid_delta_schema: int = 0
     num_dataset_valid_delta_schema: int = 0
+    num_resource_link_database_tables: int = 0
+    num_resource_link_missing_target: int = 0
+    num_resource_link_self_referential: int = 0
+    num_resource_link_schema_from_datahub: int = 0
+    num_resource_link_schema_from_glue: int = 0
+    num_resource_link_schema_unresolved: int = 0
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -452,7 +772,7 @@ class GlueViewDefinition:
 
 @platform_name("Glue")
 @config_class(GlueSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
@@ -461,7 +781,9 @@ class GlueViewDefinition:
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
-    SourceCapability.LINEAGE_FINE, "Support via the `emit_storage_lineage` config field"
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default via `include_column_lineage` for Lake Formation resource links; "
+    "storage column lineage also needs `emit_storage_lineage` in the upstream direction",
 )
 @capability(
     SourceCapability.OPERATION_CAPTURE,
@@ -473,6 +795,10 @@ class GlueViewDefinition:
     subtype_modifier=[
         SourceCapabilityModifier.DATABASE,
     ],
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class GlueSource(StatefulIngestionSourceBase):
     """
@@ -512,12 +838,13 @@ class GlueSource(StatefulIngestionSourceBase):
         self.s3_client = config.s3_client
         # Initialize Lake Formation client
         self.lf_client = config.lakeformation_client
-        self.extract_transforms = config.extract_transforms
         self.env = config.env
         self._glue_connection_cache: Dict[str, Optional[Tuple[str, str]]] = {}
         # Tracks which structured property definitions have been emitted this run
         # so each key's definition is only upserted once.
         self._seen_column_param_urns: Set[str] = set()
+        self._aws_account_id: Optional[str] = None
+        self._aws_account_id_loaded: bool = False
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -681,10 +1008,216 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_glue_arn(
         self, account_id: str, database: str, table: Optional[str] = None
     ) -> str:
-        prefix = f"arn:aws:glue:{self.source_config.aws_region}:{account_id}"
+        region = self.source_config.aws_region or ""
+        prefix = f"arn:{_aws_partition_for_region(region)}:glue:{region}:{account_id}"
         if table:
             return f"{prefix}:table/{database}/{table}"
         return f"{prefix}:database/{database}"
+
+    def _resolve_platform_instance(self, catalog_id: Optional[str]) -> ResolvedTarget:
+        """Resolve the platform_instance/env to stamp on a table owned by ``catalog_id``.
+
+        Cross-account tables (a different ``catalog_id``, or Lake Formation shared tables) must be
+        stamped with the *owning* account's instance so their URNs match what that account's own
+        Glue ingestion emits — not the ingestion account's instance. The owning catalog is keyed by
+        its ARN authority ``arn:{partition}:glue:{region}:{account}`` (account + region; account
+        alone is not unique across regions), the same key the Spark/OpenLineage ``connections`` map
+        uses. Falls back to the source's own ``platform_instance``/``env`` when there is no mapping.
+        """
+        instance = self.source_config.platform_instance
+        env = self.env
+        if catalog_id and self.source_config.catalog_to_platform_instance:
+            region = self.source_config.aws_region or ""
+            arn = f"arn:{_aws_partition_for_region(region)}:glue:{region}:{catalog_id}"
+            detail = self.source_config.catalog_to_platform_instance.get(arn)
+            if detail is not None:
+                if detail.platform_instance is not None:
+                    instance = detail.platform_instance
+                if detail.env is not None:
+                    env = detail.env
+        return ResolvedTarget(platform_instance=instance, env=env)
+
+    def _resource_link_owner_urn(self, target: Dict) -> Optional[str]:
+        """URN of the table a resource link points at, stamped with the owning catalog's instance."""
+        catalog_id = target.get("CatalogId")
+        database_name = target.get("DatabaseName")
+        name = target.get("Name")
+        # Without the owning CatalogId the owner's instance can't be resolved (it would silently
+        # fall back to our own) and a cross-account glue:GetTable would fail parameter validation.
+        if not catalog_id or not database_name or not name:
+            return None
+        owner = self._resolve_platform_instance(catalog_id)
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=f"{database_name}.{name}",
+            env=owner.env,
+            platform_instance=owner.platform_instance,
+        )
+
+    def _resource_link_upstream_urn(
+        self, table: Dict, dataset_urn: str
+    ) -> Optional[str]:
+        """Owner URN a Lake Formation resource link gets lineage to, if it can have any.
+
+        Returns None for non-resource-link tables, and reports (with a counter and a warning) a
+        target that is missing identifiers or resolves to the dataset's own URN (no catalog
+        mapping).
+        """
+        target = table.get("TargetTable")
+        if not target:
+            return None
+
+        owner_urn = self._resource_link_owner_urn(target)
+        if owner_urn is None:
+            self.report.num_resource_link_missing_target += 1
+            self.report.warning(
+                title="Resource link missing target identifiers",
+                message="A Lake Formation resource link's TargetTable is missing its catalog ID, "
+                "database or table name, so its cross-account upstream edge could not be built. "
+                "The shared table will be ingested without lineage back to its owner.",
+                context=f"{table.get('DatabaseName')}.{table.get('Name')} -> {target}",
+            )
+            return None
+
+        if owner_urn == dataset_urn:
+            # The owner resolves to the link's own URN, so a self-upstream edge would be
+            # meaningless. A database-level link hits this for every table it exposes; the
+            # warning is grouped by title/message.
+            self.report.num_resource_link_self_referential += 1
+            self.report.warning(
+                title="Resource link owner catalog not mapped",
+                message="A Lake Formation resource link's owning catalog is not in "
+                "catalog_to_platform_instance, or is mapped to the same platform_instance/env as "
+                "the ingesting catalog, so the shared table resolves to the link's own URN and no "
+                "upstream lineage or owner schema is emitted for it. Map the owning account "
+                "(arn:<partition>:glue:<region>:<account_id>) in catalog_to_platform_instance to "
+                "the platform_instance/env its own Glue ingestion uses. If both ingestions use "
+                "the same instance and env, give one of them a distinct platform_instance or "
+                "rename the link.",
+                context=f"{dataset_urn} -> owning catalog {target.get('CatalogId')}",
+            )
+            return None
+
+        return owner_urn
+
+    def _resource_link_schema(
+        self, table: Dict, dataset_urn: str, table_name: str
+    ) -> Optional[SchemaMetadata]:
+        """Resolve the schema to stamp on a Lake Formation resource link.
+
+        Runs only for a link that exposed no schema of its own (no ``StorageDescriptor``) — the usual
+        case for a resource link, which is just a pointer to the owning account's table. When
+        ``resolve_resource_link_schema`` is enabled, populate its schema from the owning table:
+        DataHub first (the owner's already-ingested schema, no AWS call), falling back to a
+        cross-account ``glue:GetTable`` on the target. Returns ``None`` — leaving the link schemaless
+        and reached through its upstream edge — for non-links, when disabled, when the owner resolves
+        to the dataset's own URN, or when neither source can supply the schema.
+        """
+        if not self.source_config.resolve_resource_link_schema:
+            return None
+        target = table.get("TargetTable")
+        if not target:
+            return None
+        owner_urn = self._resource_link_owner_urn(target)
+        if owner_urn is None or owner_urn == dataset_urn:
+            return None
+
+        owner_schema = self._resolve_owner_schema(owner_urn, target, table_name)
+        if owner_schema is None:
+            return None
+
+        # Copy before re-stamping schemaName so we never mutate the object the fetch handed back
+        # (the DataHub graph read in particular returns an aspect we don't own). Deep so an
+        # in-place schema-field transformer (e.g. add_dataset_schema_tags mutating
+        # SchemaField.globalTags) on the link can't reach back into that source object.
+        link_schema = copy.deepcopy(owner_schema)
+        link_schema.schemaName = table_name
+        return link_schema
+
+    def _resolve_owner_schema(
+        self, owner_urn: str, target: Dict, table_name: str
+    ) -> Optional[SchemaMetadata]:
+        """Resolve a shared table's schema: DataHub first, then cross-account Glue.
+
+        Counters and the unresolved warning fire once per call (i.e. per resource link); a shared
+        table linked more than once is resolved independently each time.
+        """
+        datahub = self._resource_link_schema_from_datahub(owner_urn)
+        if datahub.schema is not None:
+            self.report.num_resource_link_schema_from_datahub += 1
+            return datahub.schema
+
+        glue = self._resource_link_schema_from_glue(target, table_name, owner_urn)
+        if glue.schema is not None:
+            self.report.num_resource_link_schema_from_glue += 1
+            return glue.schema
+
+        self.report.num_resource_link_schema_unresolved += 1
+        # A failed DataHub/Glue read already warned (with the underlying exception); only add the
+        # generic summary when neither did, so one unresolved owner produces exactly one report entry.
+        if not (datahub.warned or glue.warned):
+            self.report.warning(
+                title="Resource link schema could not be resolved",
+                message="A Lake Formation resource link's owning table is neither ingested in "
+                "DataHub nor readable via cross-account glue:GetTable, so the link is ingested "
+                "without a schema. Its columns remain reachable through its upstream lineage edge. "
+                "Ingest the owning account, grant glue:GetTable on the shared table, or set "
+                "resolve_resource_link_schema=false to silence this.",
+                context=f"{table_name} -> {owner_urn}",
+            )
+        return None
+
+    def _resource_link_schema_from_datahub(self, owner_urn: str) -> OwnerSchemaFetch:
+        """Read the owning table's already-ingested schema from DataHub."""
+        if self.ctx.graph is None:
+            return OwnerSchemaFetch(schema=None, warned=False)
+        try:
+            # Read the full SchemaMetadata aspect directly rather than via SchemaResolver.
+            # SchemaResolver caches only a lossy column-name -> native-type map (built for SQL
+            # column-lineage matching) that drops nested struct fields, descriptions, and tags,
+            # and it fetches one URN at a time -- so it offers no speedup here, only fidelity loss.
+            return OwnerSchemaFetch(
+                schema=self.ctx.graph.get_schema_metadata(owner_urn), warned=False
+            )
+        except Exception as e:
+            # A GMS/network error must not abort the run — fall back to Glue (or schemaless).
+            self.report.warning(
+                title="Failed to read resource-link owner schema from DataHub",
+                message="Could not fetch the owning table's schema from DataHub; will fall back to "
+                "a cross-account Glue read.",
+                context=owner_urn,
+                exc=e,
+            )
+            return OwnerSchemaFetch(schema=None, warned=True)
+
+    def _resource_link_schema_from_glue(
+        self, target: Dict, table_name: str, owner_urn: str
+    ) -> OwnerSchemaFetch:
+        """Read the owning table's schema via a cross-account ``glue:GetTable`` on the target."""
+        try:
+            response = self.glue_client.get_table(
+                CatalogId=target["CatalogId"],
+                DatabaseName=target["DatabaseName"],
+                Name=target["Name"],
+            )
+        except Exception as e:
+            # Missing glue:GetTable permission on the shared table is expected for many Lake
+            # Formation table-level grants — degrade to schemaless rather than failing the run.
+            self.report.warning(
+                title="Failed to read resource-link owner schema from Glue",
+                message="Could not fetch the owning table via cross-account glue:GetTable; the "
+                "resource link will be ingested without a schema. Grant glue:GetTable on the "
+                "shared table to enable this.",
+                context=f"{target.get('DatabaseName')}.{target.get('Name')}",
+                exc=e,
+            )
+            return OwnerSchemaFetch(schema=None, warned=True)
+        return OwnerSchemaFetch(
+            schema=self._get_schema_metadata(
+                response["Table"], table_name, dataset_urn=owner_urn
+            ),
+            warned=False,
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -716,9 +1249,10 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # catch any other cases where the script path is invalid
         if not script_path.startswith("s3://"):
-            self.report_warning(
-                flow_urn,
-                f"Error parsing DAG for Glue job. The script {script_path} is not a valid S3 path.",
+            self.report.warning(
+                message="Error parsing DAG for Glue job: invalid S3 script path",
+                context=f"{flow_urn}: {script_path}",
+                log=False,
             )
             self.report.num_job_script_location_invalid += 1
 
@@ -742,16 +1276,20 @@ class GlueSource(StatefulIngestionSourceBase):
         try:
             obj = self.s3_client.get_object(Bucket=bucket, Key=key)
         except botocore.exceptions.ClientError as e:
-            self.report_warning(
-                flow_urn,
-                f"Unable to download DAG for Glue job from {script_path}, so job subtasks and lineage will be missing: {e}",
+            self.report.warning(
+                message="Unable to download DAG for Glue job, so job subtasks and lineage will be missing",
+                context=f"{flow_urn}: {script_path}",
+                exc=e,
+                log=False,
             )
             self.report.num_job_script_failed_download += 1
             return None
         except botocore.exceptions.ParamValidationError as e:
-            self.report_warning(
-                flow_urn,
-                f"Invalid S3 path for Glue job script {script_path}: {e}",
+            self.report.warning(
+                message="Invalid S3 path for Glue job script",
+                context=f"{flow_urn}: {script_path}",
+                exc=e,
+                log=False,
             )
             self.report.num_job_script_location_invalid += 1
             return None
@@ -777,9 +1315,11 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # sometimes the Python script can be user-modified and the script is not valid for graph extraction
         except self.glue_client.exceptions.InvalidInputException as e:
-            self.report_warning(
-                flow_urn,
-                f"Error parsing DAG for Glue job. The script {script_path} cannot be processed by Glue (this usually occurs when it has been user-modified): {e}",
+            self.report.warning(
+                message="Error parsing DAG for Glue job: script cannot be processed by Glue (this usually occurs when it has been user-modified)",
+                context=f"{flow_urn}: {script_path}",
+                exc=e,
+                log=False,
             )
             self.report.num_job_script_failed_parsing += 1
 
@@ -821,26 +1361,33 @@ class GlueSource(StatefulIngestionSourceBase):
         Uses dialect-aware parsing via sqlglot_lineage with default schema resolution.
         Returns None on parse failure or when no tables are found.
         """
+        # Apply the target platform's instance/env (if configured) so the parsed upstream URNs match
+        # what that platform's own connector emits — same as _make_dataset_urn_for_platform.
+        target_config = self.source_config.target_platform_configs.get(platform)
         result = create_lineage_sql_parsed_result(
             query=query,
             default_db=database,
             platform=platform,
-            platform_instance=None,
-            env=self.env,
+            platform_instance=(
+                target_config.platform_instance if target_config else None
+            ),
+            env=target_config.env if target_config and target_config.env else self.env,
             default_schema=JDBC_DEFAULT_SCHEMA.get(platform),
             schema_aware=False,
             generate_column_lineage=False,
         )
         if result.debug_info.error:
-            self.report_warning(
-                flow_urn,
-                f"Failed to parse SQL query for node {node_label}: {result.debug_info.error}. Skipping",
+            self.report.warning(
+                message="Failed to parse SQL query for node",
+                context=f"{flow_urn}: {node_label}: {result.debug_info.error}",
+                log=False,
             )
             return None
         if not result.in_tables:
-            self.report_warning(
-                flow_urn,
-                f"No tables found in SQL query for node {node_label}. Skipping",
+            self.report.warning(
+                message="No tables found in SQL query for node",
+                context=f"{flow_urn}: {node_label}",
+                log=False,
             )
             return None
         return result.in_tables
@@ -868,38 +1415,45 @@ class GlueSource(StatefulIngestionSourceBase):
                     "JDBC_CONNECTION_URL"
                 )
                 if not jdbc_url:
-                    self.report_warning(
-                        flow_urn,
-                        f"Glue connection {connection_name!r} has no JDBC_CONNECTION_URL. Skipping",
+                    self.report.warning(
+                        message="Glue connection has no JDBC_CONNECTION_URL",
+                        context=f"{flow_urn}: {connection_name!r}",
+                        log=False,
                     )
                 else:
                     try:
                         result = self._parse_jdbc_url(jdbc_url)
                     except Exception as e:
-                        self.report_warning(
-                            flow_urn,
-                            f"Failed to parse JDBC URL for connection {connection_name!r}: {e}. Skipping",
+                        self.report.warning(
+                            message="Failed to parse JDBC URL for Glue connection",
+                            context=f"{flow_urn}: {connection_name!r}",
+                            exc=e,
+                            log=False,
                         )
                         result = None
             elif conn_type in GLUE_NATIVE_CONNECTION_TYPE_MAP:
                 platform = GLUE_NATIVE_CONNECTION_TYPE_MAP[conn_type]
                 database = props.get("DATABASE")
                 if not database:
-                    self.report_warning(
-                        flow_urn,
-                        f"Glue connection {connection_name!r} has no DATABASE property. Skipping",
+                    self.report.warning(
+                        message="Glue connection has no DATABASE property",
+                        context=f"{flow_urn}: {connection_name!r}",
+                        log=False,
                     )
                 else:
                     result = (platform, database)
             else:
-                self.report_warning(
-                    flow_urn,
-                    f"Unsupported Glue connection type {conn_type!r} for connection {connection_name!r}. Skipping",
+                self.report.warning(
+                    message="Unsupported Glue connection type",
+                    context=f"{flow_urn}: type={conn_type!r}, connection={connection_name!r}",
+                    log=False,
                 )
         except Exception as e:
-            self.report_warning(
-                flow_urn,
-                f"Failed to fetch Glue connection {connection_name!r}: {e}. Skipping",
+            self.report.warning(
+                message="Failed to fetch Glue connection",
+                context=f"{flow_urn}: {connection_name!r}",
+                exc=e,
+                log=False,
             )
             return None
 
@@ -987,8 +1541,10 @@ class GlueSource(StatefulIngestionSourceBase):
                 query, platform, database, flow_urn, node_label
             )
 
-        self.report_warning(
-            flow_urn, f"Missing dbtable or query for node {node_label}. Skipping"
+        self.report.warning(
+            message="Missing dbtable or query for node",
+            context=f"{flow_urn}: {node_label}",
+            log=False,
         )
         return None
 
@@ -1000,17 +1556,21 @@ class GlueSource(StatefulIngestionSourceBase):
         node_label = f"{node['NodeType']}-{node['Id']}"
 
         if not jdbc_url:
-            self.report_warning(
-                flow_urn, f"Missing JDBC URL for node {node_label}. Skipping"
+            self.report.warning(
+                message="Missing JDBC URL for node",
+                context=f"{flow_urn}: {node_label}",
+                log=False,
             )
             return None
 
         try:
             platform, database = self._parse_jdbc_url(jdbc_url)
         except ValueError as e:
-            self.report_warning(
-                flow_urn,
-                f"Failed to parse JDBC URL for node {node_label}: {e}. Skipping",
+            self.report.warning(
+                message="Failed to parse JDBC URL for node",
+                context=f"{flow_urn}: {node_label}",
+                exc=e,
+                log=False,
             )
             return None
 
@@ -1029,10 +1589,159 @@ class GlueSource(StatefulIngestionSourceBase):
                 query, platform, database, flow_urn, node_label
             )
 
-        self.report_warning(
-            flow_urn, f"Missing dbtable or query for node {node_label}. Skipping"
+        self.report.warning(
+            message="Missing dbtable or query for node",
+            context=f"{flow_urn}: {node_label}",
+            log=False,
         )
         return None
+
+    def _get_aws_account_id(self) -> Optional[str]:
+        """Caller account id for DynamoDB URN platform_instance when the DAG node has no ARN."""
+        if self._aws_account_id_loaded:
+            return self._aws_account_id
+        try:
+            account_id = (
+                self.source_config.get_sts_client().get_caller_identity().get("Account")
+            )
+            if not account_id:
+                raise ValueError("GetCallerIdentity returned no Account")
+        except Exception as exc:
+            # Cache the failure too: STS is called once per run, not once per node.
+            self._aws_account_id_loaded = True
+            self.report.warning(
+                title="Could not resolve AWS account id via STS",
+                message=(
+                    "sts:GetCallerIdentity did not return the AWS account id used as the "
+                    "DynamoDB platform_instance. The call needs no IAM permission, so check "
+                    "network access to STS and the credentials. DynamoDB DAG nodes without a "
+                    "table ARN or cross-account role ARN will be skipped (no lineage emitted) "
+                    "rather than emitting a URN with a guessed account."
+                ),
+                exc=exc,
+            )
+            return None
+        self._aws_account_id = account_id
+        self._aws_account_id_loaded = True
+        return self._aws_account_id
+
+    def _process_dynamodb_node(
+        self,
+        node: Dict[str, Any],
+        node_args: Dict[str, Any],
+        flow_urn: str,
+    ) -> Optional[str]:
+        """Resolve a Glue DynamoDB DataSource/DataSink to a DynamoDB dataset URN.
+
+        Matches the DynamoDB source naming convention via ``make_dynamodb_dataset_name``
+        (``{region}.{table}``) with platform_instance defaulting to the AWS account id.
+        Supports both the ETL connector (``dynamodb.input.tableName`` /
+        ``dynamodb.output.tableName``) and the export connector (``dynamodb.tableArn``).
+        """
+        connection_options = node_args.get("connection_options") or {}
+        node_label = f"{node['NodeType']}-{node['Id']}"
+
+        table_name: Optional[str] = None
+        region: Optional[str] = None
+        account_id: Optional[str] = None
+
+        table_arn = connection_options.get(DYNAMODB_TABLE_ARN)
+        if table_arn:
+            match = DYNAMODB_TABLE_ARN_PATTERN.match(str(table_arn).strip())
+            if not match:
+                # The table ARN is the most authoritative signal in the node. If it is present
+                # but unparseable, do NOT fall through to the tableName/region/account fallbacks —
+                # that would emit a URN built from the Glue job's own account and region for a
+                # table that may live in a different account or region, silently never joining.
+                self.report.warning(
+                    title="Failed to parse DynamoDB table ARN for node",
+                    message="Skipping DynamoDB node: its table ARN could not be parsed, so a "
+                    "correct dataset URN cannot be built. No lineage emitted for this node.",
+                    context=f"{flow_urn}: {node_label}: {table_arn}",
+                    log=False,
+                )
+                return None
+            region, account_id, table_name = (
+                match.group(1),
+                match.group(2),
+                match.group(3),
+            )
+
+        if not table_name:
+            table_name = connection_options.get(
+                DYNAMODB_INPUT_TABLE_NAME
+            ) or connection_options.get(DYNAMODB_OUTPUT_TABLE_NAME)
+
+        if not region:
+            region = (
+                connection_options.get(DYNAMODB_REGION)
+                or connection_options.get(DYNAMODB_STS_REGION)
+                or self.source_config.aws_region
+            )
+
+        if not table_name or not region:
+            self.report.warning(
+                title="Missing DynamoDB table name or region for node",
+                message="Skipping DynamoDB node: could not determine the table name or region.",
+                context=f"{flow_urn}: {node_label}",
+                log=False,
+            )
+            return None
+
+        dataset_name = make_dynamodb_dataset_name(region, table_name)
+
+        # A configured target_platform_configs["dynamodb"].platform_instance wins over every
+        # account-id source below, so short-circuit here and reuse the shared URN builder (which
+        # already applies that platform_instance and env). No STS call is made in this path.
+        target_config = self.source_config.target_platform_configs.get(
+            DYNAMODB_PLATFORM
+        )
+        if target_config and target_config.platform_instance:
+            return self._make_dataset_urn_for_platform(DYNAMODB_PLATFORM, dataset_name)
+
+        # Mirror the DynamoDB source: default platform_instance to the AWS account id.
+        # Precedence: tableArn account > cross-account role ARN account > caller STS identity.
+        # catalog_id is not used: Glue only lists the caller's jobs, so a node with neither ARN
+        # reads a table in the caller's account even when the catalog lives elsewhere.
+        if not account_id:
+            role_arn = connection_options.get(DYNAMODB_STS_ROLE_ARN)
+            if role_arn:
+                role_match = DYNAMODB_STS_ROLE_ARN_PATTERN.match(str(role_arn).strip())
+                if not role_match:
+                    # A role ARN means a cross-account read, so the caller's account is wrong.
+                    self.report.warning(
+                        title="Failed to parse DynamoDB cross-account role ARN for node",
+                        message="Skipping DynamoDB node: its dynamodb.sts.roleArn could not be "
+                        "parsed, so the table's account is unknown. No lineage emitted for "
+                        "this node.",
+                        context=f"{flow_urn}: {node_label}: {role_arn}",
+                        log=False,
+                    )
+                    return None
+                account_id = role_match.group(1)
+        platform_instance = account_id or self._get_aws_account_id()
+        if platform_instance is None:
+            # The DynamoDB source always derives platform_instance from the table ARN account,
+            # so a URN without one would never join the real table (it creates a phantom dataset).
+            # Skip the node rather than emit lineage that silently points at nothing.
+            self.report.warning(
+                title="Could not resolve DynamoDB account id for node",
+                message="Skipping DynamoDB node: no table ARN account, cross-account role ARN, "
+                "or STS caller identity was available to use as platform_instance. "
+                "Set target_platform_configs.dynamodb.platform_instance, or check that "
+                "sts:GetCallerIdentity is reachable.",
+                context=f"{flow_urn}: {node_label}",
+                log=False,
+            )
+            return None
+        return make_dataset_urn_with_platform_instance(
+            platform=DYNAMODB_PLATFORM,
+            name=dataset_name,
+            platform_instance=platform_instance,
+            env=(
+                target_config.env if target_config and target_config.env else self.env
+            ),
+        )
 
     def process_dataflow_node(
         self,
@@ -1050,12 +1759,18 @@ class GlueSource(StatefulIngestionSourceBase):
             if "database" in node_args and "table_name" in node_args:
                 full_table_name = f"{node_args['database']}.{node_args['table_name']}"
 
-                # we know that the table will already be covered when ingesting Glue tables
+                # Stamp the owning catalog's instance/env so this URN matches the dataset entity
+                # emitted when ingesting Glue tables. A cross-account job reading via
+                # from_catalog(catalog_id=...) carries that catalog id in the node args; fall back
+                # to the source's own catalog_id, then to no mapping (the source's own instance).
+                resolved = self._resolve_platform_instance(
+                    node_args.get("catalog_id") or self.source_config.catalog_id
+                )
                 node_urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
                     name=full_table_name,
-                    env=self.env,
-                    platform_instance=self.source_config.platform_instance,
+                    env=resolved.env,
+                    platform_instance=resolved.platform_instance,
                 )
 
             # if data object is S3 bucket
@@ -1063,9 +1778,10 @@ class GlueSource(StatefulIngestionSourceBase):
                 s3_uri = self.get_s3_uri(node_args)
 
                 if s3_uri is None:
-                    self.report_warning(
-                        flow_urn,
-                        f"Could not find S3 path for job {node['NodeType']}-{node['Id']} in flow {flow_urn}. Skipping",
+                    self.report.warning(
+                        message="Could not find S3 path for job node",
+                        context=f"{flow_urn}: {node['NodeType']}-{node['Id']}",
+                        log=False,
                     )
                     return None
 
@@ -1089,11 +1805,19 @@ class GlueSource(StatefulIngestionSourceBase):
                 if len(_urns) > 1:
                     dataset_urns = _urns
 
+            # if data object is DynamoDB (ETL connector or export connector)
+            elif node_args.get("connection_type") == DYNAMODB_CONNECTION_TYPE:
+                dynamodb_urn = self._process_dynamodb_node(node, node_args, flow_urn)
+                if not dynamodb_urn:
+                    return None
+                node_urn = dynamodb_urn
+
             else:
                 if self.source_config.ignore_unsupported_connectors:
-                    self.report_warning(
-                        flow_urn,
-                        f"Unrecognized node {node['NodeType']}-{node['Id']} in flow {flow_urn}. Args: {node_args} Skipping",
+                    self.report.warning(
+                        message="Unrecognized node in Glue flow",
+                        context=f"{flow_urn}: {node['NodeType']}-{node['Id']}, args={node_args}",
+                        log=False,
                     )
                     return None
                 else:
@@ -1150,10 +1874,10 @@ class GlueSource(StatefulIngestionSourceBase):
             # Source and Target for some edges is not available
             # in nodes. this may lead to broken edge in lineage.
             if source_node is None or target_node is None:
-                self.report_warning(
-                    flow_urn,
-                    f"Unrecognized source or target node in edge: {edge}. Skipping."
-                    "This may lead to missing lineage",
+                self.report.warning(
+                    message="Unrecognized source or target node in edge, this may lead to missing lineage",
+                    context=f"{flow_urn}: {edge}",
+                    log=False,
                 )
                 continue
 
@@ -1312,24 +2036,24 @@ class GlueSource(StatefulIngestionSourceBase):
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
         paginator = self.glue_client.get_paginator("get_databases")
 
-        if self.source_config.catalog_id:
-            paginator_response = paginator.paginate(
-                CatalogId=self.source_config.catalog_id
+        paginator_response = paginator.paginate(
+            **glue_catalog_kwargs(self.source_config.catalog_id)
+        )
+
+        for database in paginator_response.search("DatabaseList"):
+            verdict = database_verdict(
+                self.source_config,
+                name=database["Name"],
+                catalog_id=database.get("CatalogId"),
+                # bool() keeps the old JMESPath `[?!TargetDatabase]` reading:
+                # a missing, null or empty TargetDatabase is not a link.
+                is_resource_link=bool(database.get("TargetDatabase")),
             )
-        else:
-            paginator_response = paginator.paginate()
-
-        pattern = "DatabaseList"
-        if self.source_config.ignore_resource_links:
-            # exclude resource links by using a JMESPath conditional query against the TargetDatabase struct key
-            pattern += "[?!TargetDatabase]"
-
-        for database in paginator_response.search(pattern):
-            if (not self.source_config.database_pattern.allowed(database["Name"])) or (
-                self.source_config.catalog_id
-                and database.get("CatalogId")
-                and database.get("CatalogId") != self.source_config.catalog_id
-            ):
+            if verdict.excluded_by == IGNORE_RESOURCE_LINKS:
+                # Never reported: the JMESPath filter that used to drop these
+                # kept them out of the report too.
+                continue
+            if not verdict.included:
                 self.report.databases.dropped(database["Name"])
             else:
                 self.report.databases.processed(database["Name"])
@@ -1341,33 +2065,57 @@ class GlueSource(StatefulIngestionSourceBase):
         paginator = self.glue_client.get_paginator("get_tables")
         database_name = database["Name"]
 
-        if self.source_config.catalog_id:
-            paginator_response = paginator.paginate(
-                DatabaseName=database_name, CatalogId=self.source_config.catalog_id
-            )
-        else:
-            paginator_response = paginator.paginate(DatabaseName=database_name)
+        paginator_response = paginator.paginate(
+            DatabaseName=database_name,
+            **glue_catalog_kwargs(self.source_config.catalog_id),
+        )
+
+        # Tables reached through a database-level resource link carry no TargetTable; Glue
+        # returns them with the owning catalog's CatalogId and DatabaseName. Re-key them to
+        # the local link (so the URN, ARN and container use the ingesting catalog) and
+        # synthesize a TargetTable so they get the same owner lineage and schema handling
+        # as table-level links.
+        target_database = (
+            None
+            if self.source_config.ignore_resource_links
+            else database.get("TargetDatabase")
+        )
+        link_catalog_id = database.get("CatalogId") or self.source_config.catalog_id
 
         for table in paginator_response.search("TableList"):
             # Lake Formation can share individual tables across accounts as table-level
             # resource links (table has a TargetTable pointing at the shared table).
             # Database-level filtering in get_all_databases() does not catch these,
             # since they live inside non-resource-link databases.
-            if self.source_config.ignore_resource_links and "TargetTable" in table:
+            if not table_link_verdict(
+                self.source_config, is_resource_link="TargetTable" in table
+            ).included:
                 logger.debug(
                     f"Skipping resource link table {database_name}.{table.get('Name')} "
                     f"(TargetTable: {table.get('TargetTable')})"
                 )
                 continue
 
-            # When ingesting resource-link databases (ignore_resource_links=False),
-            # rewrite DatabaseName to the local alias so downstream URN construction
-            # uses the catalog-local name instead of the target catalog's name.
-            if (
-                not self.source_config.ignore_resource_links
-                and "TargetDatabase" in database
-            ):
+            if target_database:
+                # Capture the owner identity before the table is re-keyed below: the table's own
+                # CatalogId/DatabaseName are the owner's and are the fallback when TargetDatabase
+                # omits them.
+                owner_catalog_id = target_database.get("CatalogId") or table.get(
+                    "CatalogId"
+                )
+                owner_database_name = target_database.get("DatabaseName") or table.get(
+                    "DatabaseName"
+                )
+                if "TargetTable" not in table:
+                    table["TargetTable"] = {
+                        "CatalogId": owner_catalog_id,
+                        "DatabaseName": owner_database_name,
+                        "Name": table["Name"],
+                    }
                 table["DatabaseName"] = database["Name"]
+                if link_catalog_id:
+                    table["CatalogId"] = link_catalog_id
+                self.report.num_resource_link_database_tables += 1
             yield table
 
     def get_all_databases_and_tables(
@@ -1388,16 +2136,22 @@ class GlueSource(StatefulIngestionSourceBase):
         return all_databases, all_tables
 
     def get_lineage_if_enabled(
-        self, mce: MetadataChangeEventClass
-    ) -> Optional[MetadataWorkUnit]:
+        self,
+        mce: MetadataChangeEventClass,
+        resource_link_owner_urn: Optional[str] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit the dataset's single UpstreamLineage aspect, merging storage lineage with the
+        resource-link edge to ``resource_link_owner_urn`` so neither overwrites the other."""
+        dataset_urn = mce.proposedSnapshot.urn
+        schema_metadata: Optional[SchemaMetadataClass] = (
+            mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
+        )
+
+        storage_upstreams: List[UpstreamClass] = []
+        storage_fine_grained: List[FineGrainedLineageClass] = []
         if self.source_config.emit_storage_lineage:
-            # extract dataset properties aspect
             dataset_properties: Optional[DatasetPropertiesClass] = (
                 mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
-            )
-            # extract dataset schema aspect
-            schema_metadata: Optional[SchemaMetadataClass] = (
-                mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
             )
 
             # get urn for underlying table storage
@@ -1407,7 +2161,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 and dataset_properties.customProperties.get("table_type")
                 == GLUE_TABLE_TYPE_ICEBERG
             ):
-                table_storage_urn = mce.proposedSnapshot.urn.replace(
+                table_storage_urn = dataset_urn.replace(
                     "urn:li:dataPlatform:glue", "urn:li:dataPlatform:iceberg"
                 )
             elif (
@@ -1419,52 +2173,70 @@ class GlueSource(StatefulIngestionSourceBase):
                         location, self.source_config.env
                     )
 
-            # generate lineage
             if table_storage_urn:
                 if self.source_config.glue_storage_lineage_direction == "upstream":
-                    if self.ctx.graph:
-                        schema_metadata_for_upstream = (
-                            self.ctx.graph.get_schema_metadata(table_storage_urn)
-                        )
-                    else:
-                        schema_metadata_for_upstream = None
-
-                    fine_grained_lineages = None
+                    schema_metadata_for_upstream = (
+                        self.ctx.graph.get_schema_metadata(table_storage_urn)
+                        if self.ctx.graph
+                        else None
+                    )
                     if self.source_config.include_column_lineage and schema_metadata:
-                        fine_grained_lineages = self.get_fine_grained_lineages(
-                            mce.proposedSnapshot.urn,
+                        storage_fine_grained = self.get_fine_grained_lineages(
+                            dataset_urn,
                             table_storage_urn,
                             schema_metadata,
                             schema_metadata_for_upstream or schema_metadata,
                         )
-                    upstream_lineage = UpstreamLineageClass(
-                        upstreams=[
-                            UpstreamClass(
-                                dataset=table_storage_urn,
-                                type=DatasetLineageTypeClass.COPY,
-                            )
-                        ],
-                        fineGrainedLineages=fine_grained_lineages or None,
-                    )
-                    return MetadataChangeProposalWrapper(
-                        entityUrn=mce.proposedSnapshot.urn,
-                        aspect=upstream_lineage,
-                    ).as_workunit()
+                    storage_upstreams = [
+                        UpstreamClass(
+                            dataset=table_storage_urn,
+                            type=DatasetLineageTypeClass.COPY,
+                        )
+                    ]
                 else:
-                    # Need to mint the s3 dataset with upstream lineage from it to glue
-                    upstream_lineage = UpstreamLineageClass(
-                        upstreams=[
-                            UpstreamClass(
-                                dataset=mce.proposedSnapshot.urn,
-                                type=DatasetLineageTypeClass.COPY,
-                            )
-                        ]
-                    )
-                    return MetadataChangeProposalWrapper(
+                    # Downstream direction: the storage edge lives on the S3 dataset's own URN, so it
+                    # never collides with dataset_urn's aspect — emit it standalone.
+                    yield MetadataChangeProposalWrapper(
                         entityUrn=table_storage_urn,
-                        aspect=upstream_lineage,
+                        aspect=UpstreamLineageClass(
+                            upstreams=[
+                                UpstreamClass(
+                                    dataset=dataset_urn,
+                                    type=DatasetLineageTypeClass.COPY,
+                                )
+                            ]
+                        ),
                     ).as_workunit()
-        return None
+
+        link_upstreams: List[UpstreamClass] = []
+        link_fine_grained: List[FineGrainedLineageClass] = []
+        if resource_link_owner_urn is not None:
+            link_upstreams = [
+                UpstreamClass(
+                    dataset=resource_link_owner_urn, type=DatasetLineageTypeClass.COPY
+                )
+            ]
+            # Glue returns the owner's live table for both kinds of resource link, and a
+            # schemaless link either gets the owner's schema copied in or has none, so any
+            # columns the link has are the owner's columns.
+            if self.source_config.include_column_lineage and schema_metadata:
+                link_fine_grained = self.get_fine_grained_lineages(
+                    dataset_urn,
+                    resource_link_owner_urn,
+                    schema_metadata,
+                    schema_metadata,
+                )
+
+        upstreams = storage_upstreams + link_upstreams
+        if upstreams:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=upstreams,
+                    fineGrainedLineages=(storage_fine_grained + link_fine_grained)
+                    or None,
+                ),
+            ).as_workunit()
 
     def get_fine_grained_lineages(
         self,
@@ -1472,44 +2244,32 @@ class GlueSource(StatefulIngestionSourceBase):
         upstream_urn: str,
         schema_metadata: SchemaMetadata,
         schema_metadata_for_upstream: SchemaMetadata,
-    ) -> Optional[List[FineGrainedLineageClass]]:
-        def simplify_field_path(field_path):
-            return Dataset._simplify_field_path(field_path)
-
-        if schema_metadata and schema_metadata_for_upstream:
-            fine_grained_lineages: List[FineGrainedLineageClass] = []
-            for field in schema_metadata.fields:
-                field_path_v1 = simplify_field_path(field.fieldPath)
-                matching_upstream_field = next(
-                    (
-                        f
-                        for f in schema_metadata_for_upstream.fields
-                        if simplify_field_path(f.fieldPath) == field_path_v1
-                    ),
-                    None,
-                )
-                if matching_upstream_field:
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                mce_builder.make_schema_field_urn(
-                                    dataset_urn, field_path_v1
-                                )
-                            ],
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                mce_builder.make_schema_field_urn(
-                                    upstream_urn,
-                                    simplify_field_path(
-                                        matching_upstream_field.fieldPath
-                                    ),
-                                )
-                            ],
-                        )
+    ) -> List[FineGrainedLineageClass]:
+        upstream_paths = {
+            Dataset._simplify_field_path(f.fieldPath)
+            for f in schema_metadata_for_upstream.fields
+        }
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+        for field in schema_metadata.fields:
+            field_path_v1 = Dataset._simplify_field_path(field.fieldPath)
+            if field_path_v1 in upstream_paths:
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            mce_builder.make_schema_field_urn(
+                                dataset_urn, field_path_v1
+                            )
+                        ],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            mce_builder.make_schema_field_urn(
+                                upstream_urn, field_path_v1
+                            )
+                        ],
                     )
-            return fine_grained_lineages
-        return None
+                )
+        return fine_grained_lineages
 
     def _create_profile_mcp(
         self,
@@ -1705,33 +2465,39 @@ class GlueSource(StatefulIngestionSourceBase):
                         f"Failed to create platform resource for tag {tag}: {e}",
                         exc_info=True,
                     )
-                    self.report.report_warning(
-                        context="Failed to create platform resource",
-                        message=f"Failed to create platform resource for Tag: {tag}",
+                    self.report.warning(
+                        message="Failed to create platform resource for tag",
+                        context=str(tag),
+                        exc=e,
+                        log=False,
                     )
 
     def gen_database_containers(
         self, database: Mapping[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
-        container_tags: Optional[List] = None
+        database_lf_tags: List[LakeFormationTag] = []
         if self.source_config.extract_lakeformation_tags:
             try:
-                tags = self.get_database_lf_tags(
+                for tag in self.get_database_lf_tags(
                     catalog_id=database["CatalogId"], database_name=database["Name"]
-                )
-                container_tags = []
-                for tag in tags:
+                ):
                     try:
-                        container_tags.append(tag.to_datahub_tag_urn().name)
-                        yield from self.gen_platform_resource(tag)
+                        # Validate the tag maps to a well-formed URN before keeping it.
+                        tag.to_datahub_tag_urn()
                     except InvalidUrnError:
                         continue
+                    database_lf_tags.append(tag)
+                    yield from self.gen_platform_resource(tag)
             except Exception:
-                self.report_warning(
-                    reason="Failed to extract Lake Formation tags for database",
-                    key=database["Name"],
+                self.report.warning(
+                    "Failed to extract Lake Formation tags for database",
+                    context=database["Name"],
+                    log=False,
                 )
         domain_urn = self._gen_domain_urn(database["Name"])
+        # GetDatabases returns CatalogId in practice; don't let a database without one abort
+        # the run over its container ARN.
+        catalog_id = database.get("CatalogId") or self.source_config.catalog_id
         database_container_key = self.gen_database_key(database["Name"])
         parameters = database.get("Parameters", {})
         if database.get("LocationUri") is not None:
@@ -1745,12 +2511,25 @@ class GlueSource(StatefulIngestionSourceBase):
             sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_urn=domain_urn,
             description=database.get("Description"),
-            qualified_name=self.get_glue_arn(
-                account_id=database["CatalogId"], database=database["Name"]
+            qualified_name=(
+                self.get_glue_arn(account_id=catalog_id, database=database["Name"])
+                if catalog_id
+                else None
             ),
-            tags=container_tags,
             extra_properties=parameters,
         )
+
+        # Stamp the database container's own Lake Formation tags with attribution
+        # (external/origin), the same as table and column tags, so they can be told
+        # apart from tags added in the DataHub UI. Emitted as a separate GlobalTags
+        # aspect because gen_containers only accepts bare tag-name strings.
+        if database_lf_tags:
+            global_tags = self._build_lf_global_tags(database_lf_tags)
+            if global_tags:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=database_container_key.as_urn(),
+                    aspect=global_tags,
+                ).as_workunit()
 
     def add_table_to_database_container(
         self, dataset_urn: str, db_name: str
@@ -1789,12 +2568,12 @@ class GlueSource(StatefulIngestionSourceBase):
             try:
                 yield from self._gen_table_wu(table=table)
             except KeyError as e:
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to extract workunit for table",
                     context=f"Table: {table_name}",
                     exc=e,
                 )
-        if self.extract_transforms:
+        if jobs_verdict(self.source_config).included:
             yield from self._transform_extraction()
 
         # Flush view lineage parsed from VIRTUAL_VIEW definitions. Deferred to here
@@ -1806,7 +2585,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 for mcp in self.aggregator.gen_metadata():
                     yield mcp.as_workunit()
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to generate view lineage from SQL parsing",
                     context="SqlParsingAggregator.gen_metadata",
                     exc=e,
@@ -1817,17 +2596,20 @@ class GlueSource(StatefulIngestionSourceBase):
         table_name = table["Name"]
         full_table_name = f"{database_name}.{table_name}"
         self.report.report_table_scanned()
-        if not self.source_config.database_pattern.allowed(
-            database_name
-        ) or not self.source_config.table_pattern.allowed(full_table_name):
+        if not table_pattern_verdict(
+            self.source_config, database=database_name, table=table_name
+        ).included:
             self.report.report_table_dropped(full_table_name)
             return
 
+        # Stamp the owning catalog's instance/env (cross-account tables resolve to the owner's
+        # instance, not the ingestion account's) so URNs match the owner's own Glue ingestion.
+        resolved = self._resolve_platform_instance(table.get("CatalogId"))
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=full_table_name,
-            env=self.env,
-            platform_instance=self.source_config.platform_instance,
+            env=resolved.env,
+            platform_instance=resolved.platform_instance,
         )
 
         yield from self._extract_record(dataset_urn, table, full_table_name)
@@ -1889,9 +2671,10 @@ class GlueSource(StatefulIngestionSourceBase):
         """
         view_text = table.get("ViewOriginalText") or table.get("ViewExpandedText")
         if not isinstance(view_text, str) or not view_text:
-            self.report.report_warning(
+            self.report.warning(
                 message="View has no SQL definition",
                 context=f"table={full_table_name}",
+                log=False,
             )
             return None
 
@@ -1901,18 +2684,20 @@ class GlueSource(StatefulIngestionSourceBase):
             try:
                 original_sql = decode_presto_view(view_text).get("originalSql")
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     message="Failed to decode Presto view definition",
                     context=f"table={full_table_name}: {e}",
+                    log=False,
                 )
                 return None
             if isinstance(original_sql, str) and original_sql:
                 return GlueViewDefinition(
                     sql=original_sql, dialect=self._PRESTO_VIEW_DIALECT
                 )
-            self.report.report_warning(
+            self.report.warning(
                 message="Presto view definition missing 'originalSql'",
                 context=f"table={full_table_name}",
+                log=False,
             )
             return None
 
@@ -2037,6 +2822,9 @@ class GlueSource(StatefulIngestionSourceBase):
             column_parent_tags,
             dataset_urn,
         )
+        if schema_metadata is None:
+            # Schemaless so far — try to populate a Lake Formation resource link from its owner.
+            schema_metadata = self._resource_link_schema(table, dataset_urn, table_name)
         if schema_metadata:
             dataset_snapshot.aspects.append(schema_metadata)
             # Register every table/view schema so the aggregator can resolve
@@ -2090,10 +2878,12 @@ class GlueSource(StatefulIngestionSourceBase):
         if self.source_config.extract_column_parameters:
             yield from self._get_column_param_workunits(table, dataset_urn)
 
-        # Add lineage if enabled
-        lineage_wu = self.get_lineage_if_enabled(metadata_record)
-        if lineage_wu:
-            yield lineage_wu
+        yield from self.get_lineage_if_enabled(
+            metadata_record,
+            resource_link_owner_urn=self._resource_link_upstream_urn(
+                table, dataset_urn
+            ),
+        )
 
         # Add profile if enabled
         try:
@@ -2101,7 +2891,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 metadata_record, table["DatabaseName"], table["Name"]
             )
         except KeyError as e:
-            self.report.report_failure(
+            self.report.failure(
                 message="Failed to extract profile for table",
                 context=f"Table: {dataset_urn}",
                 exc=e,
@@ -2344,9 +3134,11 @@ class GlueSource(StatefulIngestionSourceBase):
             )
 
         except Exception as e:
-            self.report_warning(
-                dataset_urn,
-                f"Could not parse schema for {table_name} because of {type(e).__name__}: {e}",
+            self.report.warning(
+                message="Could not parse delta schema for table",
+                context=f"{dataset_urn}: {table_name}",
+                exc=e,
+                log=False,
             )
             self.report.num_dataset_invalid_delta_schema += 1
             return None
@@ -2446,9 +3238,10 @@ class GlueSource(StatefulIngestionSourceBase):
                         aspect=StructuredPropertiesClass(properties=assignments),
                     ).as_workunit()
             except Exception as e:
-                self.report.report_warning(
+                self.report.warning(
                     message="Failed to emit column parameters for column",
                     context=f"dataset={dataset_urn} column={column.get('Name', '?')!r}: {e}",
+                    log=False,
                 )
 
     def _get_s3_tags(self, table: Dict, dataset_urn: str) -> Optional[GlobalTagsClass]:
@@ -2530,25 +3323,50 @@ class GlueSource(StatefulIngestionSourceBase):
                 continue  # Skip invalid tags
         return urns
 
+    def _tag_attribution(
+        self, source_detail: Dict[str, str], source: Optional[str]
+    ) -> Tuple[MetadataAttributionClass, str]:
+        """Build a tag ``MetadataAttribution`` plus the equivalent legacy ``context``.
+
+        ``sourceDetail`` is surfaced in the UI (e.g. the "Propagated" indicator)
+        and ``context`` carries the same information as a JSON string for older
+        readers.
+        """
+        attribution = MetadataAttributionClass(
+            time=get_sys_time(),
+            actor=DATAHUB_SYSTEM_ACTOR,
+            source=source,
+            sourceDetail=source_detail,
+        )
+        return attribution, json.dumps(source_detail)
+
     def _propagated_tag_attribution(
         self, origin: Optional[str]
     ) -> Tuple[MetadataAttributionClass, str]:
-        """Build the attribution + legacy context marking a tag as propagated.
+        """Attribution marking a tag as propagated (inherited from db/table).
 
         Mirrors the DataHub tag-propagation action: ``sourceDetail.propagated``
-        drives the "Propagated" indicator in the UI, and ``context`` carries the
-        same information for older readers.
+        drives the "Propagated" indicator in the UI.
         """
         source_detail: Dict[str, str] = {"propagated": "true"}
         if origin:
             source_detail["origin"] = origin
-        attribution = MetadataAttributionClass(
-            time=get_sys_time(),
-            actor="urn:li:corpuser:__datahub_system",
-            source=origin,
-            sourceDetail=source_detail,
+        return self._tag_attribution(source_detail, source=origin)
+
+    def _direct_tag_attribution(self) -> Tuple[MetadataAttributionClass, str]:
+        """Attribution marking a tag as directly assigned in Lake Formation.
+
+        This records the tag's provenance so a Lake-Formation-ingested tag can be
+        told apart from one added in the DataHub UI (which carries no
+        attribution). ``source`` points at the Glue/Lake Formation platform.
+        """
+        source_detail: Dict[str, str] = {
+            "origin": LAKE_FORMATION_TAG_ORIGIN,
+            "external": "true",
+        }
+        return self._tag_attribution(
+            source_detail, source=make_data_platform_urn(self.platform)
         )
-        return attribution, json.dumps(source_detail)
 
     def _build_lf_global_tags(
         self,
@@ -2556,14 +3374,26 @@ class GlueSource(StatefulIngestionSourceBase):
         propagated_tags: Optional[List[LakeFormationTag]] = None,
         propagated_origin: Optional[str] = None,
     ) -> Optional[GlobalTagsClass]:
-        """Build a GlobalTags aspect, marking propagated tags with attribution.
+        """Build a GlobalTags aspect from Lake Formation tags, with provenance.
 
-        Direct tags take precedence: a propagated tag is skipped if the same tag
-        URN is already assigned directly.
+        Direct tags are stamped with Lake Formation attribution so they can be
+        distinguished from tags added in the DataHub UI. Propagated tags carry
+        propagation attribution instead. Direct tags take precedence: a
+        propagated tag is skipped if the same tag URN is already assigned
+        directly.
         """
         associations: Dict[str, TagAssociationClass] = {}
-        for urn in self._to_tag_urns(direct_tags):
-            associations.setdefault(urn, TagAssociationClass(tag=urn))
+        if direct_tags:
+            direct_attribution, direct_context = self._direct_tag_attribution()
+            for urn in self._to_tag_urns(direct_tags):
+                associations.setdefault(
+                    urn,
+                    TagAssociationClass(
+                        tag=urn,
+                        context=direct_context,
+                        attribution=direct_attribution,
+                    ),
+                )
 
         if propagated_tags:
             attribution, context = self._propagated_tag_attribution(propagated_origin)
@@ -2580,10 +3410,6 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_report(self):
         return self.report
-
-    def report_warning(self, key: str, reason: str) -> None:
-        logger.warning(f"{key}: {reason}")
-        self.report.report_warning(key, reason)
 
 
 def _redact_secret_fields_in_dataflow_script(script: str) -> str:

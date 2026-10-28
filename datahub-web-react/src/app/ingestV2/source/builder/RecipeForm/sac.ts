@@ -150,7 +150,7 @@ export const RESOURCE_NAME_DENY: FilterRecipeField = {
         setListValuesOnRecipe(recipe, values, resourceNameDenyFieldPath),
 };
 
-const folderAllowFieldPath = 'source.config.resource_id_pattern.allow';
+const folderAllowFieldPath = 'source.config.folder_pattern.allow';
 export const FOLDER_ALLOW: FilterRecipeField = {
     name: 'folder_pattern.allow',
     label: 'Folder Allow Patterns',

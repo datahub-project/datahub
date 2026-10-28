@@ -1,11 +1,13 @@
+import warnings
 from datetime import datetime, timedelta
 
 import pytest
 import time_machine
+from pydantic import ValidationError
 
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
-    UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
     UsageDataSource,
@@ -48,7 +50,7 @@ def test_profiling_requires_warehouses_id():
             "include_hive_metastore": False,
             "profiling": {
                 "enabled": True,
-                "method": "ge",
+                "method": "sqlalchemy",
                 "warehouse_id": "my_warehouse_id",
             },
         }
@@ -61,7 +63,7 @@ def test_profiling_requires_warehouses_id():
             "workspace_url": "https://workspace_url",
             "include_hive_metastore": False,
             "include_tags": False,
-            "profiling": {"enabled": False, "method": "ge"},
+            "profiling": {"enabled": False, "method": "sqlalchemy"},
         }
     )
     assert config.profiling.enabled is False
@@ -95,7 +97,7 @@ def test_global_warehouse_id_is_set_from_profiling():
             "token": "token",
             "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
             "profiling": {
-                "method": "ge",
+                "method": "sqlalchemy",
                 "enabled": True,
                 "warehouse_id": "my_warehouse_id",
             },
@@ -116,7 +118,7 @@ def test_set_different_warehouse_id_from_profiling():
                 "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
                 "warehouse_id": "my_global_warehouse_id",
                 "profiling": {
-                    "method": "ge",
+                    "method": "sqlalchemy",
                     "enabled": True,
                     "warehouse_id": "my_warehouse_id",
                 },
@@ -160,7 +162,7 @@ def test_set_profiling_warehouse_id_from_global():
             "workspace_url": "https://XXXXXXXXXXXXXXXXXXXXX",
             "warehouse_id": "my_global_warehouse_id",
             "profiling": {
-                "method": "ge",
+                "method": "sqlalchemy",
                 "enabled": True,
             },
         }
@@ -548,18 +550,45 @@ def test_profiling_prebuilt_instance_passes_through():
     assert config.profiling.method == "sqlalchemy"
 
 
-def test_profiling_explicit_ge_method_preserved():
-    # profiling: {method: ge, ...} → GE variant unchanged
-    config = UnityCatalogSourceConfig.model_validate(
-        {
-            "token": "token",
-            "workspace_url": "https://test.databricks.com",
-            "include_hive_metastore": False,
-            "profiling": {"method": "ge", "enabled": True, "warehouse_id": "wh"},
-        }
-    )
-    assert isinstance(config.profiling, UnityCatalogGEProfilerConfig)
-    assert config.profiling.method == "ge"
+def test_profiling_ge_method_rejected():
+    # The Great Expectations profiler was removed; `method: ge` is no longer a
+    # valid Unity Catalog profiling method.
+    with pytest.raises(ValidationError):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "profiling": {"method": "ge", "enabled": True, "warehouse_id": "wh"},
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "profiling",
+    [
+        {"method": "sqlalchemy", "enabled": True, "warehouse_id": "wh"},
+        {"enabled": True, "warehouse_id": "wh"},  # default → sqlalchemy
+    ],
+)
+def test_profiling_method_no_spurious_removed_warning(profiling):
+    # UnityCatalogSQLAlchemyProfilerConfig inherits ProfilingConfig, which carries
+    # the shared `method`-removed validator for SQL sources. Unity keeps `method` as
+    # a real discriminator, so a no-op override must cancel that validator — otherwise
+    # every Unity profiling config would emit a bogus "method was removed" warning.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "profiling": profiling,
+            }
+        )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+    assert not any("method was removed" in str(w.message) for w in caught)
 
 
 def test_uses_table_level_profiler_helpers():
@@ -574,15 +603,6 @@ def test_uses_table_level_profiler_helpers():
         {**base, "profiling": {"method": "sqlalchemy", "warehouse_id": "wh"}}
     )
     assert cfg.is_sqlalchemy_profiling() is True
-    assert cfg.is_ge_profiling() is False
-    assert cfg.uses_table_level_profiler() is True
-
-    # ge → True
-    cfg = UnityCatalogSourceConfig.model_validate(
-        {**base, "profiling": {"method": "ge", "warehouse_id": "wh"}}
-    )
-    assert cfg.is_sqlalchemy_profiling() is False
-    assert cfg.is_ge_profiling() is True
     assert cfg.uses_table_level_profiler() is True
 
     # analyze → False
@@ -590,7 +610,6 @@ def test_uses_table_level_profiler_helpers():
         {**base, "profiling": {"method": "analyze"}}
     )
     assert cfg.is_sqlalchemy_profiling() is False
-    assert cfg.is_ge_profiling() is False
     assert cfg.uses_table_level_profiler() is False
 
 
@@ -723,3 +742,12 @@ def test_column_usage_stats_warns_when_combined_with_pushdown_skip(monkeypatch):
     assert "include_column_usage_stats" in warnings[0]
     assert "push_down_database_pattern_access_history" in warnings[0]
     assert "skip_sqlglot_when_system_table_lineage_missing" in warnings[0]
+
+
+def test_probe_qualifies_tables_through_its_own_filter_target():
+    # Its own override, not a Qualifier: with no single catalog pinned it
+    # returns None and warns, a degrade a Qualifier field cannot express.
+    assert (
+        UnityCatalogSourceConfig.probe_filter_target
+        is not SQLCommonConfig.probe_filter_target
+    )

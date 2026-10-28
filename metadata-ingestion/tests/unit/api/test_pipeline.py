@@ -402,6 +402,8 @@ class TestPipeline:
         "datahub.cli.config_utils.get_system_auth",
         return_value="Basic user:pass",
     )
+    # System credentials are only sent to the env-configured server.
+    @patch.dict("os.environ", {"DATAHUB_GMS_URL": "http://fake-internal-server:8080"})
     def test_configure_without_sink_use_system_auth(
         self,
         mock_get_system_auth,
@@ -841,7 +843,7 @@ class FakeSource(Source):
 class FakeSourceWithWarnings(FakeSource):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
-        self.source_report.report_warning("test_warning", "warning_text")
+        self.source_report.warning("test_warning", "warning_text", log=False)
 
     def get_report(self) -> SourceReport:
         return self.source_report
@@ -851,7 +853,7 @@ class FakeSourceWithWarnings(FakeSource):
 class FakeSourceWithFailures(FakeSource):
     def __init__(self, ctx: PipelineContext):
         super().__init__(ctx)
-        self.source_report.report_failure("test_failure", "failure_text")
+        self.source_report.failure("test_failure", "failure_text")
 
     def get_report(self) -> SourceReport:
         return self.source_report

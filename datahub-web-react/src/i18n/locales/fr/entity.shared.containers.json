@@ -233,5 +233,11 @@
     "sidebar.viewDefinition.sectionTitle": "Définition",
     "sidebar.viewDefinition.viewFullDefinitionLink": "Afficher la définition complète >",
     "structuredPropertyBadge.descriptionLabel": "Description",
-    "structuredPropertyBadge.valueLabel": "Valeur"
+    "structuredPropertyBadge.valueLabel": "Valeur",
+    "sidebar.logical.andMoreCount": "et {{count}} de plus",
+    "sidebar.logical.childrenInfo": "Implémentations physiques de ce modèle logique. Les modifications des métadonnées de cet Asset se propagent automatiquement à ces éléments enfants.",
+    "sidebar.logical.childrenTitle": "Enfants physiques",
+    "sidebar.logical.parentInfo": "Modèle logique qui définit les métadonnées de cet Asset. Les modifications des métadonnées du parent logique se propagent automatiquement à cet Asset.",
+    "sidebar.logical.parentTitle": "Parent logique",
+    "sidebar.logical.viewAllChildren": "Afficher tous les enfants physiques"
 }

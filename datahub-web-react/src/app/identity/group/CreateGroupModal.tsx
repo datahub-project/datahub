@@ -1,6 +1,6 @@
+import { toast } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { message } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -9,13 +9,16 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
 import { AdvancedButton, AdvancedContent, FormSection } from '@app/identity/group/CreateGroupModal.components';
-import { validateCustomUrnId } from '@app/shared/textUtil';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { validateCustomUrnId } from '@app/sharedV2/textUtil';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Input, Modal, TextArea } from '@src/alchemy-components';
 
 import { useAddGroupMembersMutation, useCreateGroupMutation } from '@graphql/group.generated';
 import { useAddOwnerMutation } from '@graphql/mutations.generated';
 import { CorpGroup, EntityType, OwnerEntityType } from '@types';
+
+// Must match groupName maxLength in li-utils/.../CorpGroupUrn.pdl
+const MAX_GROUP_NAME_LENGTH = 250;
 
 type Props = {
     onClose: () => void;
@@ -43,7 +46,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             setNameError(t('groups.createModal.name.validationError.empty'));
             return false;
         }
-        if (value.length > 50) {
+        if (value.length > MAX_GROUP_NAME_LENGTH) {
             setNameError(t('groups.createModal.name.validationError.tooLong'));
             return false;
         }
@@ -80,10 +83,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     analytics.event({
                         type: EventType.CreateGroupEvent,
                     });
-                    message.success({
-                        content: t('groups.createSuccess'),
-                        duration: 3,
-                    });
+                    toast.success(t('groups.createSuccess'), { duration: 3 });
                     onCreate({
                         urn: data?.createGroup || '',
                         type: EntityType.CorpGroup,
@@ -105,10 +105,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         },
                     }).catch((e) => {
                         console.error(e);
-                        message.error({
-                            content: t('groups.createOwnerError'),
-                            duration: 5,
-                        });
+                        toast.error(t('groups.createOwnerError'), { duration: 5 });
                     });
 
                     const allMemberUrns = [currentUserUrn, ...stagedMemberUrns.filter((u) => u !== currentUserUrn)];
@@ -119,16 +116,13 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         },
                     }).catch((e) => {
                         console.error(e);
-                        message.error({
-                            content: t('groups.addMembersError'),
-                            duration: 5,
-                        });
+                        toast.error(t('groups.addMembersError'), { duration: 5 });
                     });
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('groups.createError', { error: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('groups.createError', { error: e.message || '' }), { duration: 3 });
             })
             .finally(() => {
                 setStagedName('');
@@ -177,7 +171,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         validateName(val);
                     }}
                     error={nameError}
-                    maxLength={50}
+                    maxLength={MAX_GROUP_NAME_LENGTH}
                 />
             </FormSection>
             <FormSection>
@@ -209,6 +203,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     color: 'gray',
                 }}
                 iconPosition="right"
+                data-testid="create-group-advanced-button"
             >
                 {t('groups.createModal.advanced')}
             </AdvancedButton>

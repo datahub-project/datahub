@@ -3,7 +3,6 @@ package com.linkedin.metadata.aspect.validators;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
@@ -17,8 +16,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
-import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
@@ -26,6 +23,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import com.linkedin.test.metadata.aspect.batch.TestPatchMCP;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -122,17 +120,36 @@ public class CorpUserPrivilegedFlagsValidatorTest {
   }
 
   @Test
-  public void testSystemUpdateSourceBypass() {
+  public void testClientAppSourceSystemUpdateDoesNotBypass() {
+    // Spoof regression: client-writable appSource must not elevate privilege.
     CorpUserInfo proposed = corpUserInfo(true, false);
     SystemMetadata systemMetadata = systemMetadataWithSource(SYSTEM_UPDATE_SOURCE);
 
     long violations =
         validate(proposed, null, operationContext(REGULAR_ACTOR_URN), systemMetadata).count();
+    assertEquals(violations, 1);
+  }
+
+  @Test
+  public void testSystemAuthFingerprintBypass() {
+    CorpUserInfo proposed = corpUserInfo(true, false);
+
+    long violations =
+        validate(proposed, null, systemAuthOperationContext(REGULAR_ACTOR_URN), null).count();
     assertEquals(violations, 0);
   }
 
   @Test
-  public void testSystemActorAuditStampBypass() {
+  public void testNullFingerprintDoesNotBypassOrThrow() {
+    CorpUserInfo proposed = corpUserInfo(true, false);
+
+    long violations = validate(proposed, null, null, null).count();
+    assertEquals(violations, 1);
+  }
+
+  @Test
+  public void testSystemActorAuditStampAloneDoesNotBypass() {
+    // Hardcoded SYSTEM_ACTOR on the audit stamp is not a trust signal without isSystemAuth().
     CorpUserInfo proposed = corpUserInfo(true, false);
     AuditStamp auditStamp =
         new AuditStamp()
@@ -141,7 +158,7 @@ public class CorpUserPrivilegedFlagsValidatorTest {
 
     long violations =
         validate(proposed, null, operationContext(REGULAR_ACTOR_URN), null, auditStamp).count();
-    assertEquals(violations, 0);
+    assertEquals(violations, 1);
   }
 
   @Test
@@ -206,30 +223,85 @@ public class CorpUserPrivilegedFlagsValidatorTest {
     corpUserInfoByUrn.put(REGULAR_ACTOR_URN, corpUserInfo(false, false));
     corpUserInfoByUrn.put(TARGET_USER_URN, corpUserInfo(false, false));
 
-    ChangeMCP patchedChange =
-        TestMCP.builder()
-            .changeType(ChangeType.PATCH)
-            .urn(TARGET_USER_URN)
-            .entitySpec(entityRegistry.getEntitySpec(TARGET_USER_URN.getEntityType()))
-            .aspectSpec(
-                entityRegistry
-                    .getEntitySpec(TARGET_USER_URN.getEntityType())
-                    .getAspectSpec(CORP_USER_INFO_ASPECT_NAME))
-            .recordTemplate(corpUserInfo(true, false))
-            .build();
+    long violations =
+        validator
+            .validateProposed(
+                operationContext(REGULAR_ACTOR_URN),
+                Set.of(
+                    TestPatchMCP.of(
+                        TARGET_USER_URN,
+                        CORP_USER_INFO_ASPECT_NAME,
+                        "[{\"op\":\"add\",\"path\":\"/system\",\"value\":true}]")),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(violations, 1);
+  }
 
-    PatchMCP patchItem = mock(PatchMCP.class);
-    when(patchItem.getChangeType()).thenReturn(ChangeType.PATCH);
-    when(patchItem.getAspectName()).thenReturn(CORP_USER_INFO_ASPECT_NAME);
-    when(patchItem.getUrn()).thenReturn(TARGET_USER_URN);
-    when(patchItem.getSystemMetadata()).thenReturn(null);
-    when(patchItem.getAuditStamp()).thenReturn(null);
-    when(patchItem.applyPatch(any(), any())).thenReturn(patchedChange);
+  /**
+   * With alternate MCP validation (the quickstart/docker default) a patch reaches the proposed hook
+   * as a raw proposal item, not a PatchMCP — the escalation must still be detected from the patch's
+   * own add/replace values.
+   */
+  @Test
+  public void testPatchSystemEscalationRejectedViaProposedItemShape() {
+    corpUserInfoByUrn.put(REGULAR_ACTOR_URN, corpUserInfo(false, false));
+    corpUserInfoByUrn.put(TARGET_USER_URN, corpUserInfo(false, false));
+
+    String serialized = "{\"patch\":[{\"op\":\"add\",\"path\":\"/system\",\"value\":true}]}";
 
     long violations =
         validator
             .validateProposed(
-                operationContext(REGULAR_ACTOR_URN), Set.of(patchItem), mockRetrieverContext, null)
+                operationContext(REGULAR_ACTOR_URN),
+                Set.of(
+                    TestPatchMCP.ofProposed(
+                        TARGET_USER_URN, CORP_USER_INFO_ASPECT_NAME, serialized)),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(violations, 1);
+  }
+
+  @Test
+  public void testPatchSystemEscalationViaCopyRejectedForRegularUser() {
+    // copy/move do not appear in addAndReplaceValues; full JsonPatch apply must still catch them.
+    corpUserInfoByUrn.put(REGULAR_ACTOR_URN, corpUserInfo(false, false));
+    corpUserInfoByUrn.put(TARGET_USER_URN, corpUserInfo(false, false));
+
+    String patchOps =
+        "[{\"op\":\"add\",\"path\":\"/active\",\"value\":true},"
+            + "{\"op\":\"copy\",\"from\":\"/active\",\"path\":\"/system\"}]";
+
+    long violations =
+        validator
+            .validateProposed(
+                operationContext(REGULAR_ACTOR_URN),
+                Set.of(TestPatchMCP.of(TARGET_USER_URN, CORP_USER_INFO_ASPECT_NAME, patchOps)),
+                mockRetrieverContext,
+                null)
+            .count();
+    assertEquals(violations, 1);
+  }
+
+  @Test
+  public void testPatchSystemEscalationViaCopyRejectedViaProposedItemShape() {
+    corpUserInfoByUrn.put(REGULAR_ACTOR_URN, corpUserInfo(false, false));
+    corpUserInfoByUrn.put(TARGET_USER_URN, corpUserInfo(false, false));
+
+    String serialized =
+        "{\"patch\":[{\"op\":\"add\",\"path\":\"/active\",\"value\":true},"
+            + "{\"op\":\"copy\",\"from\":\"/active\",\"path\":\"/system\"}]}";
+
+    long violations =
+        validator
+            .validateProposed(
+                operationContext(REGULAR_ACTOR_URN),
+                Set.of(
+                    TestPatchMCP.ofProposed(
+                        TARGET_USER_URN, CORP_USER_INFO_ASPECT_NAME, serialized)),
+                mockRetrieverContext,
+                null)
             .count();
     assertEquals(violations, 1);
   }
@@ -282,6 +354,7 @@ public class CorpUserPrivilegedFlagsValidatorTest {
 
   @Test
   public void testIntrinsicSystemActorAllowedWithoutCorpUserInfo() {
+    // Service principal has no CorpUserInfo; trust comes from isSystemAuth(), not URN equality.
     CorpUserInfo proposed = corpUserInfo(false, true);
     AuditStamp sessionAudit =
         new AuditStamp().setActor(INTRINSIC_SYSTEM_ACTOR_URN).setTime(System.currentTimeMillis());
@@ -290,7 +363,7 @@ public class CorpUserPrivilegedFlagsValidatorTest {
         validate(
                 proposed,
                 null,
-                operationContext(INTRINSIC_SYSTEM_ACTOR_URN, INTRINSIC_SYSTEM_ACTOR_URN),
+                systemAuthOperationContext(INTRINSIC_SYSTEM_ACTOR_URN),
                 null,
                 sessionAudit)
             .count();
@@ -352,10 +425,19 @@ public class CorpUserPrivilegedFlagsValidatorTest {
   }
 
   private static OperationFingerprint operationContext(Urn actorUrn) {
-    return operationContext(actorUrn, actorUrn);
+    return operationContext(actorUrn, actorUrn, false);
+  }
+
+  private static OperationFingerprint systemAuthOperationContext(Urn actorUrn) {
+    return operationContext(actorUrn, actorUrn, true);
   }
 
   private static OperationFingerprint operationContext(Urn effectiveActorUrn, Urn auditActorUrn) {
+    return operationContext(effectiveActorUrn, auditActorUrn, false);
+  }
+
+  private static OperationFingerprint operationContext(
+      Urn effectiveActorUrn, Urn auditActorUrn, boolean systemAuth) {
     AuditStamp auditStamp =
         new AuditStamp().setActor(auditActorUrn).setTime(System.currentTimeMillis());
     return new OperationFingerprint() {
@@ -387,6 +469,11 @@ public class CorpUserPrivilegedFlagsValidatorTest {
       @Override
       public String getEntityContextId() {
         return "test-entity";
+      }
+
+      @Override
+      public boolean isSystemAuth() {
+        return systemAuth;
       }
     };
   }

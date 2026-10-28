@@ -331,6 +331,29 @@ public class RequestContextTest {
   }
 
   @Test
+  public void testCaptureAPIMetricsSkipsLegacyRequestCountWhenSuppressed() {
+    when(mockMetricUtils.isSuppressLegacyRequestCountMicrometer()).thenReturn(true);
+
+    RequestContext.builder()
+        .buildRestli(Constants.SYSTEM_ACTOR, null, "test-request")
+        .metricUtils(mockMetricUtils)
+        .build();
+
+    verify(mockMetricUtils, atLeastOnce())
+        .increment(eq("requestContext_system_unknown_restli"), eq(1.0d));
+    verify(mockMetricUtils, never())
+        .incrementMicrometer(
+            eq(MetricUtils.DATAHUB_REQUEST_COUNT),
+            anyDouble(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString(),
+            anyString());
+  }
+
+  @Test
   public void testCaptureAPIMetricsForDatahubUser() {
     RequestContext.builder()
         .buildRestli("urn:li:corpuser:testuser", null, "test-request")
@@ -532,6 +555,37 @@ public class RequestContextTest {
     // Verify metrics were captured correctly
     verify(mockMetricUtils, atLeastOnce())
         .increment(eq("requestContext_regular_ingestion_graphql"), eq(1.0d));
+  }
+
+  @Test
+  public void testDataHubClientModeWinsOverAppendedPythonRequestsAgent() {
+    // The Python client appends the requests library agent, which YAUAA alone classifies as Robot.
+    for (String mode : List.of("sdk", "cli", "ingestion")) {
+      when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT))
+          .thenReturn(
+              "DataHub-Client/1.0 ("
+                  + mode
+                  + "; datahub/claude-code; 1.3.0) python-requests/2.32.3");
+
+      RequestContext context =
+          RequestContext.builder()
+              .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+              .metricUtils(mockMetricUtils)
+              .build();
+
+      assertEquals(context.getAgentClass().toMetricLabel(), mode);
+      assertEquals(context.getAgentName(), "Datahub/Claude-Code");
+    }
+
+    when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT))
+        .thenReturn("DataHub-Client/1.0 (bot; dh/automation-client; 1.3.0) python-requests/2.32.3");
+    RequestContext bot =
+        RequestContext.builder()
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null)
+            .metricUtils(mockMetricUtils)
+            .build();
+    assertEquals(bot.getAgentClass(), AgentClass.ROBOT);
+    assertEquals(bot.getAgentName(), "DH/Automation-Client");
   }
 
   @Test

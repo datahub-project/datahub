@@ -297,6 +297,53 @@ def test_supports_feature_required_versions(sample_config):
         mock_version_check.assert_called_with(1, 0, 1, 0)
 
 
+def test_supports_feature_semantic_model_entities_versions(sample_config):
+    """SEMANTIC_MODEL_ENTITIES gates cloud on 2.1.0; core has no requirement so
+    it is unsupported (recipe-driven for OSS)."""
+    with patch.object(
+        RestServiceConfig, "is_version_at_least", return_value=True
+    ) as mock_version_check:
+        cloud_config = sample_config.copy()
+        if "datahub" not in cloud_config:
+            cloud_config["datahub"] = {}
+        cloud_config["datahub"]["serverEnv"] = "cloud"
+        config = RestServiceConfig(raw_config=cloud_config)
+        assert config.supports_feature(ServiceFeature.SEMANTIC_MODEL_ENTITIES) is True
+        mock_version_check.assert_called_with(2, 1, 0, 0)
+
+        mock_version_check.reset_mock()
+
+        core_config = sample_config.copy()
+        if "datahub" not in core_config:
+            core_config["datahub"] = {}
+        core_config["datahub"]["serverEnv"] = "core"
+        config = RestServiceConfig(raw_config=core_config)
+        # No "core" requirement -> unsupported, and no version check is made.
+        assert config.supports_feature(ServiceFeature.SEMANTIC_MODEL_ENTITIES) is False
+        mock_version_check.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("server_env", "version", "expected"),
+    [
+        ("core", "v1.7.0", False),
+        ("core", "v1.7.0.1", True),
+        ("cloud", "v0.3.16", False),
+        ("cloud", "v1.0.0-cloud", True),
+    ],
+)
+def test_supports_feature_assertion_note_aspect(
+    server_env: str, version: str, expected: bool
+) -> None:
+    config = RestServiceConfig(
+        raw_config={
+            "datahub": {"serverEnv": server_env},
+            "versions": {"acryldata/datahub": {"version": version}},
+        }
+    )
+    assert config.supports_feature(ServiceFeature.ASSERTION_NOTE_ASPECT) is expected
+
+
 def test_datahub_cloud_feature(sample_config):
     """Test the DATAHUB_CLOUD feature detection."""
     # Test with cloud environment

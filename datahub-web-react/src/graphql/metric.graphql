@@ -21,12 +21,6 @@ fragment metricInfoFields on MetricInfo {
             expression
         }
     }
-    aiContext {
-        synonyms
-        instructions
-        examples
-        customInstructions
-    }
 }
 
 fragment metricRelationshipsFields on MetricRelationships {
@@ -86,6 +80,12 @@ fragment metricFields on Metric {
     }
     info {
         ...metricInfoFields
+    }
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
     }
     semanticModel {
         urn

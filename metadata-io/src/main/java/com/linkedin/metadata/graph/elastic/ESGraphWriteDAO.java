@@ -5,6 +5,7 @@ import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDE
 import static com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils.buildQuery;
 
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -47,7 +48,8 @@ public class ESGraphWriteDAO {
       return;
     }
     final UpdateRequest updateRequest =
-        new UpdateRequest(indexConvention.getIndexName(INDEX_NAME), docId)
+        new UpdateRequest(
+                indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME), docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
@@ -70,7 +72,9 @@ public class ESGraphWriteDAO {
       return;
     }
     final DeleteRequest deleteRequest =
-        new DeleteRequest(indexConvention.getIndexName(INDEX_NAME)).id(docId);
+        new DeleteRequest(
+                indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME))
+            .id(docId);
     // Route by docId — see upsertDocument above.
     bulkProcessor.add(opContext, docId, deleteRequest);
   }
@@ -98,7 +102,10 @@ public class ESGraphWriteDAO {
         buildQuery(opContext, graphQueryConfiguration, graphFilters, lifecycleOwner);
 
     return bulkProcessor
-        .deleteByQuery(opContext, finalQuery, indexConvention.getIndexName(INDEX_NAME))
+        .deleteByQuery(
+            opContext,
+            finalQuery,
+            indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME))
         .orElse(null);
   }
 
@@ -112,7 +119,11 @@ public class ESGraphWriteDAO {
       return null;
     }
     return bulkProcessor
-        .updateByQuery(opContext, script, query, indexConvention.getIndexName(INDEX_NAME))
+        .updateByQuery(
+            opContext,
+            script,
+            query,
+            indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME))
         .orElse(null);
   }
 }
