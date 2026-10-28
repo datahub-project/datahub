@@ -284,6 +284,43 @@ def test_decompressor_error_is_skipped_not_raised(monkeypatch, exc):
     assert report.warnings
 
 
+def test_bzip2_data_error_is_skipped_not_raised(monkeypatch):
+    # bz2 reports a malformed stream as a plain OSError.
+    def boom(self, *args, **kwargs):
+        raise OSError("Invalid data stream")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_BZIP2) as zf:
+        zf.writestr("data.csv", b"a\n1\n")
+    buf.seek(0)
+    monkeypatch.setattr(zipfile.ZipExtFile, "read", boom)
+    report = SourceReport()
+    result = read_first_supported_zip_entry(
+        buf, context="archive.zip", report=report, file_types=SUPPORTED
+    )
+    assert result is None
+    assert report.warnings
+
+
+@pytest.mark.parametrize(
+    "exc", [OSError("connection reset"), TimeoutError("read timed out")]
+)
+def test_storage_error_while_reading_member_is_raised(monkeypatch, exc):
+    # A failed ranged read is a storage error, not a corrupt entry, so it must
+    # reach the caller instead of producing an empty schema.
+    def boom(self, *args, **kwargs):
+        raise exc
+
+    monkeypatch.setattr(zipfile.ZipExtFile, "read", boom)
+    with pytest.raises(type(exc)):
+        read_first_supported_zip_entry(
+            _make_zip({"data.csv": b"a\n1\n"}),
+            context="archive.zip",
+            report=SourceReport(),
+            file_types=SUPPORTED,
+        )
+
+
 def test_directory_entry_with_supported_suffix_is_ignored():
     # A directory named like a data file (data.csv/) must not be selected over
     # the real data entry.

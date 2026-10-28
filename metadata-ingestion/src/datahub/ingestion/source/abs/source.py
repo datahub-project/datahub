@@ -11,7 +11,6 @@ from pathlib import PurePath
 from typing import IO, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
-from azure.core.exceptions import HttpResponseError
 from azure.storage.blob import BlobServiceClient
 from more_itertools import peekable
 from smart_open import open as smart_open
@@ -203,24 +202,17 @@ class ABSSource(StatefulIngestionSourceBase):
         path_spec: PathSpec,
     ) -> Optional[ZipEntry]:
         # smart_open's Azure reader is seekable, so zipfile fetches only the
-        # central directory and the chosen member with ranged downloads.
-        try:
-            with self._smart_open(table_data, blob_service_client) as zip_file:
-                return read_first_supported_zip_entry(
-                    zip_file,
-                    context=table_data.full_path,
-                    report=self.report,
-                    file_types=path_spec.file_types,
-                    max_entry_size=path_spec.max_zip_entry_size,
-                )
-        except HttpResponseError as e:
-            self.report.warning(
-                title="Failed to read zip archive",
-                message="Could not read zip archive from Azure Blob Storage",
+        # central directory and the chosen member with ranged downloads. Storage
+        # errors propagate so ingest_table drops the schema, as it does for other
+        # files.
+        with self._smart_open(table_data, blob_service_client) as zip_file:
+            return read_first_supported_zip_entry(
+                zip_file,
                 context=table_data.full_path,
-                exc=e,
+                report=self.report,
+                file_types=path_spec.file_types,
+                max_entry_size=path_spec.max_zip_entry_size,
             )
-            return None
 
     def _smart_open(
         self,
@@ -398,8 +390,11 @@ class ABSSource(StatefulIngestionSourceBase):
                 )
                 aspects.append(schema_metadata)
             except Exception as e:
-                logger.error(
-                    f"Failed to extract schema from file {table_data.full_path}. The error was:{e}"
+                self.report.warning(
+                    title="Failed to extract schema from file",
+                    message="Schema may be missed for dataset because of failure when extracting schema from file",
+                    context=f"dataset={table_data.display_name}, file={table_data.full_path}",
+                    exc=e,
                 )
                 # Schema was not emitted, so drop the property that names the
                 # source file to avoid a dangling schema_inferred_from.

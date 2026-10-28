@@ -11,7 +11,6 @@ from pathlib import PurePath
 from typing import IO, TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
-from botocore.exceptions import ClientError
 from smart_open import open as smart_open
 
 from datahub.emitter.mce_builder import (
@@ -332,26 +331,16 @@ class S3Source(StatefulIngestionSourceBase):
         path_spec: PathSpec,
     ) -> Optional[ZipEntry]:
         # smart_open's S3 reader is seekable, so zipfile fetches only the central
-        # directory and the chosen member with range requests.
-        try:
-            with self._smart_open(full_path, s3_client) as zip_file:
-                return read_first_supported_zip_entry(
-                    zip_file,
-                    context=full_path,
-                    report=self.report,
-                    file_types=path_spec.file_types,
-                    max_entry_size=path_spec.max_zip_entry_size,
-                )
-        except (ClientError, OSError) as e:
-            # smart_open wraps most S3 errors in OSError; a ranged read can
-            # still raise ClientError directly.
-            self.report.warning(
-                title="Failed to read zip archive",
-                message="Could not read zip archive",
+        # directory and the chosen member with range requests. Storage errors
+        # propagate so ingest_table drops the schema, as it does for other files.
+        with self._smart_open(full_path, s3_client) as zip_file:
+            return read_first_supported_zip_entry(
+                zip_file,
                 context=full_path,
-                exc=e,
+                report=self.report,
+                file_types=path_spec.file_types,
+                max_entry_size=path_spec.max_zip_entry_size,
             )
-            return None
 
     def _smart_open(self, full_path: str, s3_client: Optional["S3Client"]) -> IO[bytes]:
         if s3_client is not None:

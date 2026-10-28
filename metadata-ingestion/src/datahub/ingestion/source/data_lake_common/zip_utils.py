@@ -144,7 +144,14 @@ def read_first_supported_zip_entry(
                 data = member.read(max_entry_size + 1)
         except (zipfile.BadZipFile, EOFError, OSError, zlib.error, lzma.LZMAError) as e:
             # Reading to EOF checks the CRC-32, so tampered or truncated content
-            # fails here too. bzip2 errors surface as OSError.
+            # fails here too. bzip2 reports bad data as a plain OSError; any other
+            # OSError comes from the storage read and must not be mistaken for a
+            # corrupt entry.
+            if isinstance(e, OSError) and (
+                entry.compress_type != zipfile.ZIP_BZIP2
+                or isinstance(e, (ConnectionError, TimeoutError))
+            ):
+                raise
             report.warning(
                 title="Corrupt zip entry",
                 message="Skipping zip entry that failed decompression or CRC "

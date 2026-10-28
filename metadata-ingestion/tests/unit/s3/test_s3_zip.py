@@ -162,22 +162,22 @@ def test_s3_zip_member_is_read_over_range_requests(s3_client: S3Client) -> None:
     assert not source.report.warnings
 
 
-def test_s3_zip_read_failure_is_reported(s3_client: S3Client) -> None:
+def test_s3_zip_read_failure_is_raised(s3_client: S3Client) -> None:
+    # Like any other file, a storage failure must raise so ingest_table drops
+    # the schema rather than emitting one with no fields.
     full_path = f"s3://{BUCKET}/orders/missing.csv.zip"
 
     source = _make_s3_source()
-    fields = source.get_fields(
-        TableData(
-            display_name="orders",
-            is_s3=True,
-            full_path=full_path,
-            timestamp=datetime.now(),
-            table_path=full_path,
-            size_in_bytes=1024,
-            number_of_files=1,
-        ),
-        PathSpec(include=f"s3://{BUCKET}/{{table}}/*.zip"),
-    )
-
-    assert fields == []
-    assert "Failed to read zip archive" in {w.title for w in source.report.warnings}
+    with pytest.raises(OSError):
+        source.get_fields(
+            TableData(
+                display_name="orders",
+                is_s3=True,
+                full_path=full_path,
+                timestamp=datetime.now(),
+                table_path=full_path,
+                size_in_bytes=1024,
+                number_of_files=1,
+            ),
+            PathSpec(include=f"s3://{BUCKET}/{{table}}/*.zip"),
+        )
