@@ -1,10 +1,23 @@
+from typing import Dict, Optional, Type
 from unittest.mock import MagicMock
+
+import pytest
 
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    EditableSchemaFieldInfoClass,
+    EditableSchemaMetadataClass,
     EntityChangeEventClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermsClass,
+    OtherSchemaClass,
     ParametersClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
 )
+from datahub_actions.api.action_graph import AcrylDataHubGraph
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import EntityChangeEvent
 from datahub_actions.pipeline.pipeline_context import PipelineContext
@@ -76,6 +89,7 @@ def test_dataset_level_add_propagates_to_downstream():
 def test_column_level_remove_propagates_to_downstream():
     action, graph = _action([DOWNSTREAM])
     action.act(_event(SCHEMA_FIELD, operation="REMOVE"))
+    graph.dataset_has_term.assert_called_once_with(DATASET, TERM)
     graph.get_downstreams.assert_called_once_with(entity_urn=DATASET)
     graph.remove_terms_from_dataset.assert_called_once()
     assert graph.remove_terms_from_dataset.call_args.args[0] == DOWNSTREAM
@@ -95,6 +109,7 @@ def test_remove_skipped_when_source_still_has_term():
     graph.dataset_has_term.return_value = True
     action.act(_event(SCHEMA_FIELD, operation="REMOVE"))
     graph.remove_terms_from_dataset.assert_not_called()
+    graph.get_downstreams.assert_not_called()
 
 
 def test_non_dataset_field_entity_is_skipped():
@@ -102,3 +117,76 @@ def test_non_dataset_field_entity_is_skipped():
     action.act(_event("urn:li:dashboard:(looker,dashboards.1)"))
     graph.get_downstreams.assert_not_called()
     graph.add_terms_to_dataset.assert_not_called()
+
+
+def _terms(*urns: str) -> GlossaryTermsClass:
+    return GlossaryTermsClass(
+        terms=[GlossaryTermAssociationClass(urn) for urn in urns],
+        auditStamp=AuditStampClass(0, "urn:li:corpuser:datahub"),
+    )
+
+
+def _graph_with_aspects(aspects: Dict[Type, object]) -> AcrylDataHubGraph:
+    base = MagicMock()
+    base.get_aspect.side_effect = lambda urn, aspect_type: aspects.get(aspect_type)
+    return AcrylDataHubGraph(base)
+
+
+def _schema(field_terms: Optional[GlossaryTermsClass]) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="table",
+        platform="urn:li:dataPlatform:glue",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath="first_name",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="string",
+                glossaryTerms=field_terms,
+            )
+        ],
+    )
+
+
+def _editable(field_terms: Optional[GlossaryTermsClass]) -> EditableSchemaMetadataClass:
+    return EditableSchemaMetadataClass(
+        editableSchemaFieldInfo=[
+            EditableSchemaFieldInfoClass(
+                fieldPath="first_name", glossaryTerms=field_terms
+            )
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "aspects",
+    [
+        pytest.param({GlossaryTermsClass: _terms(TERM)}, id="dataset_level"),
+        pytest.param(
+            {EditableSchemaMetadataClass: _editable(_terms(TERM))}, id="editable_field"
+        ),
+        pytest.param({SchemaMetadataClass: _schema(_terms(TERM))}, id="ingested_field"),
+    ],
+)
+def test_dataset_has_term_finds_term(aspects: Dict[Type, object]) -> None:
+    assert _graph_with_aspects(aspects).dataset_has_term(DATASET, TERM)
+
+
+@pytest.mark.parametrize(
+    "aspects",
+    [
+        pytest.param({}, id="no_aspects"),
+        pytest.param(
+            {
+                GlossaryTermsClass: _terms("urn:li:glossaryTerm:Other"),
+                EditableSchemaMetadataClass: _editable(None),
+                SchemaMetadataClass: _schema(_terms("urn:li:glossaryTerm:Other")),
+            },
+            id="only_other_terms",
+        ),
+    ],
+)
+def test_dataset_has_term_when_absent(aspects: Dict[Type, object]) -> None:
+    assert not _graph_with_aspects(aspects).dataset_has_term(DATASET, TERM)
