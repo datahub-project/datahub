@@ -1149,6 +1149,34 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if value
         }
         owner_urn = self.get_owner_urn(volume.owner)
+        tags = None
+        if self.config.include_tags:
+            try:
+                volume_tags = self.unity_catalog_api_proxy.get_volume_tags(
+                    catalog_name
+                ).get(volume.id, [])
+            except Exception as e:
+                volume_tags = []
+                self.report.warning(
+                    title="Failed to fetch volume tags",
+                    message="Volume tags were skipped for this volume.",
+                    context=volume.id,
+                    exc=e,
+                )
+            if volume_tags:
+                attribution = MetadataAttribution(
+                    actor="urn:li:corpuser:datahub", time=int(time.time() * 1000)
+                )
+                tags = GlobalTags(
+                    tags=[
+                        TagAssociation(
+                            tag=tag.to_datahub_tag_urn().urn(),
+                            attribution=attribution,
+                        )
+                        for tag in volume_tags
+                    ]
+                )
+                yield from self.gen_platform_resources(volume_tags)
         for mcp in MetadataChangeProposalWrapper.construct_many(
             entityUrn=dataset_urn,
             aspects=[
@@ -1170,6 +1198,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     ),
                 ),
                 SubTypesClass(typeNames=[DatasetSubTypes.VOLUME]),
+                tags,
                 self._get_domain_aspect(dataset_name=volume.id),
                 (
                     OwnershipClass(

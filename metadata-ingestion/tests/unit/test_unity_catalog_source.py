@@ -4,6 +4,7 @@ from unittest.mock import ANY, MagicMock, patch
 import pytest
 from databricks.sdk.service.catalog import TableType
 
+from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
@@ -3358,6 +3359,50 @@ class TestUnityCatalogVolumes:
             == "urn:li:corpuser:alice@example.com"
         )
         assert list(source.report.volumes.processed_entities) == ["c.s.raw"]
+
+    def test_volume_tags_emitted_as_global_tags(self) -> None:
+        from datahub.metadata.schema_classes import GlobalTagsClass
+
+        source = self._build_source(include_volumes=True, include_tags=True)
+        schema = self._schema()
+        with (
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "volumes",
+                return_value=iter([self._volume(schema, "raw")]),
+            ),
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "get_volume_tags",
+                return_value={"c.s.raw": [UnityCatalogTag(key="pii", value="email")]},
+            ),
+        ):
+            wus = list(source.process_volumes(schema))
+
+        tags = [wu.get_aspect_of_type(GlobalTagsClass) for wu in wus]
+        found = [t for t in tags if t is not None]
+        assert len(found) == 1
+        assert [a.tag for a in found[0].tags] == ["urn:li:tag:pii:email"]
+
+    def test_volume_tag_failure_still_emits_volume(self) -> None:
+        source = self._build_source(include_volumes=True, include_tags=True)
+        schema = self._schema()
+        with (
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "volumes",
+                return_value=iter([self._volume(schema, "raw")]),
+            ),
+            patch.object(
+                source.unity_catalog_api_proxy,
+                "get_volume_tags",
+                side_effect=RuntimeError("PERMISSION_DENIED"),
+            ),
+        ):
+            urns = {wu.get_urn() for wu in source.process_volumes(schema)}
+
+        assert urns == {self.VOLUME_URN}
+        assert len(source.report.warnings) == 1
 
     def test_include_volumes_false_makes_no_api_call(self) -> None:
         source = self._build_source()

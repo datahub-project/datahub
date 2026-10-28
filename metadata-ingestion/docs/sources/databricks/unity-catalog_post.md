@@ -120,7 +120,7 @@ When `emit_siblings` is enabled (the default), the connector emits sibling relat
 
 #### Volumes
 
-When `include_volumes` is enabled, each Unity Catalog volume is ingested as a dataset with the `Volume` subtype, inside its schema container next to that schema's tables. The dataset carries the volume's comment, owner, `volume_type` (`MANAGED` or `EXTERNAL`) and `storage_location`. Use `volume_pattern` to filter volumes by `catalog.schema.volume` name.
+When `include_volumes` is enabled, each Unity Catalog volume is ingested as a dataset with the `Volume` subtype, inside its schema container next to that schema's tables. The dataset carries the volume's comment, owner, tags (when `include_tags` is enabled), `volume_type` (`MANAGED` or `EXTERNAL`) and `storage_location`. Use `volume_pattern` to filter volumes by `catalog.schema.volume` name.
 
 Volume datasets are named after their path (`/Volumes/<catalog>/<schema>/<volume>`), because Unity Catalog allows a table and a volume with the same name in one schema. Tables loaded from files in a volume, for example with `read_files('/Volumes/...')` or `COPY INTO`, get the volume as an upstream when `include_external_lineage` is also enabled (the default). Files and folders inside a volume are not ingested.
 
