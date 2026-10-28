@@ -32,11 +32,20 @@ The Databricks Metadata Sync automation provides comprehensive metadata synchron
 
 - **Automated Tag Propagation**: Seamlessly sync DataHub Tags to Unity Catalog tables, columns, catalogs, and schemas
 - **Description Synchronization**: Automatically propagate DataHub descriptions to Unity Catalog objects as comments
+- **Logical Model Descriptions**: When you sync Descriptions, you can also select **Sync descriptions from logical models**. Descriptions that reach a Databricks table or column from its logical model are then synced as comments too, unless the table or column has its own description edited in DataHub. This is off by default because it replaces the existing comment in Databricks.
 - **Bidirectional Updates**: Maintain consistency by automatically removing Tags and descriptions from Unity Catalog when they are removed in DataHub
 - **Selective Propagation**: Configure specific Tags for propagation, or sync all Tags
 - **Historical Backfill**: Initialize Tags and Descriptions for assets on Databricks with current DataHub Tags & Descriptions.
 
 > **A note about legacy Hive Metastore**: Bi-directional sync for _descriptions_ is supported for Hive Metastore Schemas & Tables, but Tag sync is _not_. This is because Databricks does not support applying of Tags to these assets on Hive Metastore.
+
+:::note Logical model descriptions are not removed
+
+Removing a logical-model description in DataHub does not clear the comment in Databricks. The next Databricks ingestion imports that comment back as the table or column's source description, so clear or replace the comment in Databricks as well.
+
+Clearing a description edited in DataHub does not bring back the logical-model description in Databricks either. Databricks keeps the cleared text until you run Initialize again.
+
+:::
 
 ## Prerequisites
 
@@ -199,6 +208,8 @@ Click **Save and Run** to activate the automation and begin real-time synchroniz
 ### Initializing Existing Assets
 
 For environments with existing DataHub metadata, you can perform a one-time backfill to ensure all current Tags and Descriptions from DataHub are propagated to Unity Catalog. Depending on the number of assets, this might take a while!
+
+If **Sync descriptions from logical models** is selected, Initialize also writes the logical-model description of every Databricks table and column linked to a logical model, replacing its existing comment, unless the table or column has a description edited in DataHub.
 
 #### Initialization Process
 

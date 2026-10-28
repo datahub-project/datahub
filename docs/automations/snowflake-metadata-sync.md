@@ -20,6 +20,7 @@ both columns and tables back to Snowflake. This automation is available in DataH
 - Automatically Add DataHub Glossary Terms to Snowflake Tables and Columns
 - Automatically Add DataHub Tags to Snowflake Tables and Columns
 - Automatically Sync DataHub Descriptions to Snowflake Tables and Columns as Comments
+- Optionally sync the descriptions that Snowflake Tables and Columns get from a logical model (see [Logical model descriptions](#logical-model-descriptions))
 - Automatically Remove DataHub Glossary Terms and Tags from Snowflake Tables and Columns when they are removed in DataHub
 - Support for both Username/Password and Private Key authentication
 
@@ -93,12 +94,35 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
 
    - **Tags & Terms**: You can limit propagation based on specific Tags and Glossary Terms. If none are selected, then ALL Tags or Glossary Terms will be automatically propagated to Snowflake tables and columns.
    - **Descriptions**: Enable description sync to automatically update Snowflake table and column comments with DataHub descriptions.
+   - **Sync descriptions from logical models**: Shown when **Descriptions** is selected. Off by default. See [Logical model descriptions](#logical-model-descriptions).
 
    Finally, click 'Save and Run' to start the automation
 
 <p align="center">
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/automation-form.png"/>
 </p>
+
+## Logical model descriptions
+
+When you sync Descriptions, you can also select **Sync descriptions from logical models**. Descriptions that reach a Snowflake table or column from its logical model are then synced as comments too. This is off by default because it replaces the existing comment in Snowflake.
+
+For each table or column, the automation writes the first of these that holds text:
+
+1. A description edited in DataHub.
+2. The description propagated from the logical model.
+3. The ingested description.
+
+Descriptions that reach a table or column through lineage are not synced.
+
+If the option is selected, Initialize also writes the logical-model description of every Snowflake table and column linked to a logical model, replacing its existing comment, unless the table or column has a description edited in DataHub.
+
+:::note Known gaps
+
+- Removing a logical-model description in DataHub does not clear the comment in Snowflake. The next Snowflake ingestion imports that comment back as the table or column's ingested description, so clear or replace the comment in Snowflake as well.
+- Clearing a description edited in DataHub clears the Snowflake comment; it does not bring back the logical-model description. Run Initialize to write it again.
+- A description that reached a table or column through lineage after a logical-model hop is treated as a logical-model description.
+
+:::
 
 ## Propagating for Existing Assets
 
