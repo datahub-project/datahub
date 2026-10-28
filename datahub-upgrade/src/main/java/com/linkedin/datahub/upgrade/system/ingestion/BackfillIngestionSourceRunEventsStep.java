@@ -154,8 +154,11 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
             List.of(INGESTION_SOURCE_ENTITY_NAME),
             "*",
             // Sources the hook has already recorded a run for are current; backfilling them from
-            // search could replace a newer run with an older one.
-            QueryUtils.newFilter(CriterionUtils.buildNotExistsCriterion(LAST_RUN_FIELD_NAME)),
+            // search could replace a newer run with an older one. A forced reprocess rewrites
+            // every source, to repair events written by an earlier version.
+            reprocessEnabled
+                ? null
+                : QueryUtils.newFilter(CriterionUtils.buildNotExistsCriterion(LAST_RUN_FIELD_NAME)),
             SCROLL_SORT,
             scrollId,
             null,
