@@ -349,7 +349,7 @@ jobs:
           echo "Skipping this run to optimize CI time (Docker images, quickstart, and tests)"
           exit 0
 
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to registry
