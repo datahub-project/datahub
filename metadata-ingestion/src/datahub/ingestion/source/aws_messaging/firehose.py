@@ -18,7 +18,9 @@ class FirehoseLineage:
 
     The delivery job belongs to the kinesis source, so the topic is patched onto
     its inputs, and only when the job is already in DataHub: otherwise the patch
-    would create a job nobody else describes."""
+    would create a job nobody else describes. The kinesis source writes the
+    whole dataJobInputOutput aspect, so its next run drops this edge; that's why
+    the feature is off by default."""
 
     def __init__(
         self,

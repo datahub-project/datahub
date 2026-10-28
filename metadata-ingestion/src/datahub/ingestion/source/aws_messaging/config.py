@@ -237,11 +237,14 @@ class SnsSourceConfig(AwsMessagingConfigBase):
         description="Topic schemas from AWS Glue Schema Registry (off by default).",
     )
     firehose_lineage: bool = Field(
-        default=True,
+        default=False,
         description=(
             "Add topics as inputs of the Firehose delivery jobs subscribed to them. "
             "Only applied when the job already exists in DataHub (from the kinesis "
-            "source), so the run needs a DataHub graph connection."
+            "source), so the run needs a DataHub graph connection. Off by default: "
+            "the kinesis source rewrites the job's inputs on every run, which drops "
+            "this edge until the sns source runs again, so only enable it when the "
+            "sns recipe always runs after the kinesis recipe."
         ),
     )
     kinesis_platform_instance: Optional[str] = Field(

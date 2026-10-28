@@ -36,7 +36,8 @@ source:
       eventbridge_pipes: true
       s3_notifications: false
     # s3_platform_instance: "data-lake"
-    firehose_lineage: true
+    # Off by default: the kinesis source drops this edge on each of its runs.
+    firehose_lineage: false
     # kinesis_platform_instance: "prod-account"
 
     stateful_ingestion:

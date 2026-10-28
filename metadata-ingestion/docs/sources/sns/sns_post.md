@@ -55,7 +55,7 @@ With the `lineage` options on (the default), the connector follows the services 
 - A rule (platform `eventbridge`) is a DataFlow with one `route` DataJob from its event bus, emitted as an `Event Bus` dataset, to its targets. A pipe (platform `eventbridge-pipes`) is a DataFlow with one `pipe` DataJob from source to target. A rule or pipe that targets a function becomes an upstream job of that function.
 - The `sqs` and `sns` sources each add only the edges whose dataset end they own, as patches, so a rule targeting both a queue and a topic gets both outputs once both have run.
 - Some rules and pipes also get field-level lineage; see the table below.
-- The Firehose delivery job belongs to the `kinesis` source, so the topic is added to its inputs only when the job already exists in DataHub. That check needs a DataHub connection (the `datahub-rest` sink provides one). Set `kinesis_platform_instance` if that source's `platform_instance` isn't the account id.
+- Topic-to-Firehose lineage is off by default (`firehose_lineage: false`). The delivery job belongs to the `kinesis` source, which rewrites the job's inputs and outputs on every run, so the topic edge disappears each time `kinesis` runs and comes back when `sns` runs. Turn it on only when the `sns` recipe always runs after the `kinesis` recipe. The edge is only added when the job already exists in DataHub, which needs a DataHub connection (the `datahub-rest` sink provides one). Set `kinesis_platform_instance` if that source's `platform_instance` isn't the account id.
 
 #### S3 event notifications
 
