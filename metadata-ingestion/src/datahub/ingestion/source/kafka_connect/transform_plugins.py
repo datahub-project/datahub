@@ -12,7 +12,6 @@ Key principles:
 """
 
 import logging
-import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
@@ -22,28 +21,30 @@ from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
     parse_comma_separated_list,
 )
+from datahub.utilities.java_runtime import prepare_jvm_settings
 
 logger = logging.getLogger(__name__)
 
-# If no system Java is installed, use jdk4py (pip-installable JVM) as a fallback.
-# This makes the kafka-connect plugin self-contained without requiring a system JDK.
-try:
-    from jdk4py import JAVA_HOME as _JDK4PY_JAVA_HOME
-
-    os.environ.setdefault("JAVA_HOME", str(_JDK4PY_JAVA_HOME))
-except ImportError:
-    pass
-
-# Initialize JVM for Java regex support at module level
+# Initialize JVM for Java regex support at module level. prepare_jvm_settings
+# prefers a system JVM and only falls back to jdk4py (pip-installable JVM) when
+# none is discoverable, so the plugin stays self-contained without a system JDK.
 try:
     import jpype
 
     if not jpype.isJVMStarted():
-        jpype.startJVM(jpype.getDefaultJVMPath())
+        jpype.startJVM(*prepare_jvm_settings())
     from java.util.regex import Pattern as JavaPattern
 
     JAVA_REGEX_AVAILABLE = True
-except (ImportError, RuntimeError) as e:
+except (
+    ImportError,
+    RuntimeError,
+    # startJVM raises jpype's JVMNotFoundException/JVMNotSupportedException when no
+    # usable JVM exists; both subclass ValueError. They cannot be named here: when
+    # the `import jpype` above is what failed, evaluating this tuple would raise
+    # NameError on `jpype` instead of degrading gracefully.
+    ValueError,
+) as e:
     logger.warning(
         f"Java regex not available: {e}. RegexRouter transforms will be skipped."
     )
