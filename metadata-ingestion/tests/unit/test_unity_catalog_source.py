@@ -1,4 +1,4 @@
-from typing import Type, TypeVar
+from typing import List, Tuple, Type, TypeVar
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
@@ -7,6 +7,7 @@ from databricks.sdk.service.catalog import TableType
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy_types import Column, Schema, Table, Volume
 from datahub.ingestion.source.unity.source import UnityCatalogSource
@@ -3261,8 +3262,6 @@ class TestUnityCatalogViewFiltering:
 
 
 class TestUnityCatalogVolumes:
-    VOLUME_URN = "urn:li:dataset:(urn:li:dataPlatform:databricks,/Volumes/c/s/raw,PROD)"
-
     @pytest.fixture(autouse=True)
     def _mock_workspace_client(self):
         with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
@@ -3300,7 +3299,14 @@ class TestUnityCatalogVolumes:
             storage_location="s3://bucket/landing",
             owner="alice@example.com",
             created_at=datetime(2025, 1, 1),
+            created_by="alice@example.com",
             updated_at=datetime(2025, 1, 2),
+            updated_by="bob@example.com",
+            volume_id="vol-123",
+            metastore_id="ms-456",
+            browse_only=False,
+            access_point=None,
+            encryption_algorithm=None,
         )
 
     @staticmethod
@@ -3316,28 +3322,31 @@ class TestUnityCatalogVolumes:
         )
         return UnityCatalogSource.create(config, PipelineContext(run_id="t"))
 
-    def test_volume_emitted_as_dataset_in_schema_container(self) -> None:
-        from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+    def _emit(
+        self, source: UnityCatalogSource, *names: str
+    ) -> Tuple[Schema, List[MetadataWorkUnit]]:
+        schema = self._schema()
+        with patch.object(
+            source.unity_catalog_api_proxy,
+            "volumes",
+            return_value=iter([self._volume(schema, name) for name in names]),
+        ):
+            return schema, list(source.process_volumes(schema))
+
+    def test_volume_emitted_as_container_in_schema_container(self) -> None:
+        from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
         from datahub.metadata.schema_classes import (
             ContainerClass,
-            DatasetPropertiesClass,
+            ContainerPropertiesClass,
             OwnershipClass,
             SubTypesClass,
         )
 
         source = self._build_source(include_volumes=True, include_ownership=True)
-        schema = self._schema()
+        schema, wus = self._emit(source, "raw")
 
-        with patch.object(
-            source.unity_catalog_api_proxy,
-            "volumes",
-            return_value=iter([self._volume(schema, "raw")]),
-        ):
-            wus = list(source.process_volumes(schema))
-
-        # Path-style name, because a table and a volume may share a name
-        # within one schema.
-        assert {wu.get_urn() for wu in wus} == {self.VOLUME_URN}
+        volume_urn = source.gen_volume_key(self._volume(schema, "raw")).as_urn()
+        assert {wu.get_urn() for wu in wus} == {volume_urn}
 
         def aspect(cls: Type[T]) -> T:
             candidates = [wu.get_aspect_of_type(cls) for wu in wus]
@@ -3345,39 +3354,39 @@ class TestUnityCatalogVolumes:
             assert len(found) == 1
             return found[0]
 
-        assert aspect(SubTypesClass).typeNames == [DatasetSubTypes.VOLUME]
+        assert aspect(SubTypesClass).typeNames == [
+            DatasetContainerSubTypes.DATABRICKS_VOLUME
+        ]
         assert (
             aspect(ContainerClass).container == source.gen_schema_key(schema).as_urn()
         )
-        props = aspect(DatasetPropertiesClass)
+        props = aspect(ContainerPropertiesClass)
         assert props.name == "raw"
+        assert props.qualifiedName == "c.s.raw"
         assert props.description == "landing zone"
         assert props.customProperties["volume_type"] == "EXTERNAL"
         assert props.customProperties["storage_location"] == "s3://bucket/landing"
+        assert props.customProperties["volume_id"] == "vol-123"
+        assert props.customProperties["updated_by"] == "bob@example.com"
+        assert props.customProperties["browse_only"] == "False"
+        assert "access_point" not in props.customProperties
+        assert props.created is not None and props.lastModified is not None
         assert (
             aspect(OwnershipClass).owners[0].owner
             == "urn:li:corpuser:alice@example.com"
         )
         assert list(source.report.volumes.processed_entities) == ["c.s.raw"]
 
-    def test_volume_tags_emitted_as_global_tags(self) -> None:
+    def test_volume_tags_emitted(self) -> None:
         from datahub.metadata.schema_classes import GlobalTagsClass
 
         source = self._build_source(include_volumes=True, include_tags=True)
-        schema = self._schema()
-        with (
-            patch.object(
-                source.unity_catalog_api_proxy,
-                "volumes",
-                return_value=iter([self._volume(schema, "raw")]),
-            ),
-            patch.object(
-                source.unity_catalog_api_proxy,
-                "get_volume_tags",
-                return_value={"c.s.raw": [UnityCatalogTag(key="pii", value="email")]},
-            ),
+        with patch.object(
+            source.unity_catalog_api_proxy,
+            "get_volume_tags",
+            return_value={"c.s.raw": [UnityCatalogTag(key="pii", value="email")]},
         ):
-            wus = list(source.process_volumes(schema))
+            _, wus = self._emit(source, "raw")
 
         tags = [wu.get_aspect_of_type(GlobalTagsClass) for wu in wus]
         found = [t for t in tags if t is not None]
@@ -3385,23 +3394,17 @@ class TestUnityCatalogVolumes:
         assert [a.tag for a in found[0].tags] == ["urn:li:tag:pii:email"]
 
     def test_volume_tag_failure_still_emits_volume(self) -> None:
-        source = self._build_source(include_volumes=True, include_tags=True)
-        schema = self._schema()
-        with (
-            patch.object(
-                source.unity_catalog_api_proxy,
-                "volumes",
-                return_value=iter([self._volume(schema, "raw")]),
-            ),
-            patch.object(
-                source.unity_catalog_api_proxy,
-                "get_volume_tags",
-                side_effect=RuntimeError("PERMISSION_DENIED"),
-            ),
-        ):
-            urns = {wu.get_urn() for wu in source.process_volumes(schema)}
+        from datahub.metadata.schema_classes import ContainerPropertiesClass
 
-        assert urns == {self.VOLUME_URN}
+        source = self._build_source(include_volumes=True, include_tags=True)
+        with patch.object(
+            source.unity_catalog_api_proxy,
+            "get_volume_tags",
+            side_effect=RuntimeError("PERMISSION_DENIED"),
+        ):
+            _, wus = self._emit(source, "raw")
+
+        assert any(wu.get_aspect_of_type(ContainerPropertiesClass) for wu in wus)
         assert len(source.report.warnings) == 1
 
     def test_include_volumes_false_makes_no_api_call(self) -> None:
@@ -3414,66 +3417,8 @@ class TestUnityCatalogVolumes:
         source = self._build_source(
             include_volumes=True, volume_pattern={"deny": [r"c\.s\.tmp"]}
         )
-        schema = self._schema()
-        with patch.object(
-            source.unity_catalog_api_proxy,
-            "volumes",
-            return_value=iter(
-                [self._volume(schema, "raw"), self._volume(schema, "tmp")]
-            ),
-        ):
-            urns = {wu.get_urn() for wu in source.process_volumes(schema)}
-        assert urns == {self.VOLUME_URN}
+        schema, wus = self._emit(source, "raw", "tmp")
+        assert {wu.get_urn() for wu in wus} == {
+            source.gen_volume_key(self._volume(schema, "raw")).as_urn()
+        }
         assert list(source.report.volumes.dropped_entities) == ["c.s.tmp"]
-
-    @pytest.mark.parametrize("include_volumes", [True, False])
-    def test_volume_path_upstream_maps_to_volume_dataset(
-        self, include_volumes: bool
-    ) -> None:
-        from datahub.ingestion.source.unity.proxy_types import ExternalTableReference
-
-        source = self._build_source(
-            include_volumes=include_volumes, include_external_lineage=True
-        )
-        table = Table(
-            id="c.s.t",
-            name="t",
-            comment=None,
-            schema=self._schema(),
-            columns=[],
-            storage_location=None,
-            data_source_format=None,
-            table_type=None,
-            owner=None,
-            generation=None,
-            created_at=None,
-            created_by=None,
-            updated_at=None,
-            updated_by=None,
-            table_id=None,
-            view_definition=None,
-            properties={},
-        )
-        # Path format reported by both the lineage REST API and system tables.
-        table.external_upstreams.add(
-            ExternalTableReference(
-                path="/Volumes/c/s/raw/orders/",
-                has_permission=True,
-                name=None,
-                type=None,
-                storage_location=None,
-            )
-        )
-
-        aspect = source._generate_lineage_aspect(
-            source.gen_dataset_urn(table.ref), table
-        )
-
-        if include_volumes:
-            assert aspect is not None
-            assert [u.dataset for u in aspect.upstreams] == [self.VOLUME_URN]
-        else:
-            # Without volume ingestion the edge would point at an entity
-            # that is never ingested, so it stays unsupported.
-            assert aspect is None
-            assert source.report.num_external_upstreams_unsupported == 1

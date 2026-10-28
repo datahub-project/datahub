@@ -683,7 +683,20 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 storage_location=obj.storage_location,
                 owner=obj.owner,
                 created_at=parse_ts_millis(obj.created_at),
+                created_by=obj.created_by,
                 updated_at=parse_ts_millis(obj.updated_at),
+                updated_by=obj.updated_by,
+                volume_id=obj.volume_id,
+                metastore_id=obj.metastore_id,
+                browse_only=obj.browse_only,
+                access_point=obj.access_point,
+                encryption_algorithm=(
+                    obj.encryption_details.sse_encryption_details.algorithm.value
+                    if obj.encryption_details
+                    and obj.encryption_details.sse_encryption_details
+                    and obj.encryption_details.sse_encryption_details.algorithm
+                    else None
+                ),
             )
 
     def ml_model_versions(

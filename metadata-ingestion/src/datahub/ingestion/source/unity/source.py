@@ -48,6 +48,8 @@ from datahub.emitter.mcp_builder import (
     NotebookKey,
     UnitySchemaKey,
     UnitySchemaKeyWithMetastore,
+    UnityVolumeKey,
+    UnityVolumeKeyWithMetastore,
     add_dataset_to_container,
     add_entity_to_container,
     gen_containers,
@@ -226,11 +228,6 @@ def _strip_s3_partition_from_path(path: str) -> str:
     if not cleaned:
         return path
     return f"{scheme}://{'/'.join(cleaned)}"
-
-
-# Unity Catalog volume files are addressed as /Volumes/<catalog>/<schema>/<volume>/...
-# in both the lineage REST API and system.access.table_lineage.
-_VOLUMES_PATH_PREFIX = "/Volumes/"
 
 
 # Known format subkeys per type, from the agent-metadata spec
@@ -1137,98 +1134,53 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_volume_workunits(self, volume: Volume) -> Iterable[MetadataWorkUnit]:
         catalog_name = volume.schema.catalog.name
         schema_name = volume.schema.name
-        dataset_urn = self.gen_volume_urn(catalog_name, schema_name, volume.name)
-        yield from self.add_table_to_dataset_container(dataset_urn, volume.schema)
-
-        custom_properties = {
-            key: value
-            for key, value in {
-                "volume_type": volume.volume_type,
-                "storage_location": volume.storage_location,
-            }.items()
-            if value
-        }
-        owner_urn = self.get_owner_urn(volume.owner)
-        tags = None
+        volume_tags: List[UnityCatalogTag] = []
         if self.config.include_tags:
             try:
                 volume_tags = self.unity_catalog_api_proxy.get_volume_tags(
                     catalog_name
                 ).get(volume.id, [])
             except Exception as e:
-                volume_tags = []
                 self.report.warning(
                     title="Failed to fetch volume tags",
                     message="Volume tags were skipped for this volume.",
                     context=volume.id,
                     exc=e,
                 )
-            if volume_tags:
-                attribution = MetadataAttribution(
-                    actor="urn:li:corpuser:datahub", time=int(time.time() * 1000)
-                )
-                tags = GlobalTags(
-                    tags=[
-                        TagAssociation(
-                            tag=tag.to_datahub_tag_urn().urn(),
-                            attribution=attribution,
-                        )
-                        for tag in volume_tags
-                    ]
-                )
-                yield from self.gen_platform_resources(volume_tags)
-        for mcp in MetadataChangeProposalWrapper.construct_many(
-            entityUrn=dataset_urn,
-            aspects=[
-                DatasetPropertiesClass(
-                    name=volume.name,
-                    qualifiedName=volume.id,
-                    description=volume.comment,
-                    customProperties=custom_properties,
-                    externalUrl=f"{self.external_url_base}/volumes/{catalog_name}/{schema_name}/{volume.name}",
-                    created=(
-                        TimeStampClass(make_ts_millis(volume.created_at))
-                        if volume.created_at
-                        else None
-                    ),
-                    lastModified=(
-                        TimeStampClass(make_ts_millis(volume.updated_at))
-                        if volume.updated_at
-                        else None
-                    ),
-                ),
-                SubTypesClass(typeNames=[DatasetSubTypes.VOLUME]),
-                tags,
-                self._get_domain_aspect(dataset_name=volume.id),
-                (
-                    OwnershipClass(
-                        owners=[
-                            OwnerClass(
-                                owner=owner_urn, type=OwnershipTypeClass.DATAOWNER
-                            )
-                        ]
-                    )
-                    if owner_urn
-                    else None
-                ),
-                self._create_data_platform_instance_aspect(),
-            ],
-        ):
-            yield mcp.as_workunit()
+            yield from self.gen_platform_resources(volume_tags)
 
-    def _volume_urn_from_path(self, path: Optional[str]) -> Optional[str]:
-        # Without volume ingestion the URN would point at an entity that is
-        # never ingested, so volume paths stay unsupported.
-        if (
-            not self.config.include_volumes
-            or not path
-            or not path.startswith(_VOLUMES_PATH_PREFIX)
-        ):
-            return None
-        parts = path[len(_VOLUMES_PATH_PREFIX) :].split("/")
-        if len(parts) < 3 or not all(parts[:3]):
-            return None
-        return self.gen_volume_urn(parts[0], parts[1], parts[2])
+        extra_properties = {
+            key: str(value)
+            for key, value in {
+                "volume_type": volume.volume_type,
+                "storage_location": volume.storage_location,
+                "volume_id": volume.volume_id,
+                "metastore_id": volume.metastore_id,
+                "created_by": volume.created_by,
+                "updated_by": volume.updated_by,
+                "browse_only": volume.browse_only,
+                "access_point": volume.access_point,
+                "encryption_algorithm": volume.encryption_algorithm,
+            }.items()
+            if value is not None
+        }
+        yield from gen_containers(
+            container_key=self.gen_volume_key(volume),
+            name=volume.name,
+            sub_types=[DatasetContainerSubTypes.DATABRICKS_VOLUME],
+            parent_container_key=self.gen_schema_key(volume.schema),
+            extra_properties=extra_properties,
+            domain_urn=self._gen_domain_urn(volume.id),
+            description=volume.comment,
+            owner_urn=self.get_owner_urn(volume.owner),
+            external_url=f"{self.external_url_base}/volumes/{catalog_name}/{schema_name}/{volume.name}",
+            tags=[tag.to_datahub_tag_urn().name for tag in volume_tags] or None,
+            qualified_name=volume.id,
+            created=make_ts_millis(volume.created_at) if volume.created_at else None,
+            last_modified=(
+                make_ts_millis(volume.updated_at) if volume.updated_at else None
+            ),
+        )
 
     def process_ml_model(
         self, ml_model: Model, schema: Schema
@@ -1385,7 +1337,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_external_lineage:
             for external_ref in table.external_upstreams:
-                volume_urn = self._volume_urn_from_path(external_ref.path)
                 if not external_ref.has_permission or not external_ref.path:
                     self.report.num_external_upstreams_lacking_permissions += 1
                     logger.warning(
@@ -1401,12 +1352,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                                 normalized_path, self.config.env
                             ),
                             type=DatasetLineageTypeClass.COPY,
-                        )
-                    )
-                elif volume_urn:
-                    upstreams.append(
-                        UpstreamClass(
-                            dataset=volume_urn, type=DatasetLineageTypeClass.COPY
                         )
                     )
                 else:
@@ -1451,15 +1396,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
 
-    def gen_volume_urn(self, catalog: str, schema: str, volume: str) -> str:
-        # Path-style name: Unity Catalog lets a table and a volume share a name in
-        # the same schema, so `catalog.schema.name` would collide with the table.
-        return make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            platform_instance=self.platform_instance_name,
-            name=f"{_VOLUMES_PATH_PREFIX}{catalog}/{schema}/{volume}",
-            env=self.config.env,
-        )
+    def gen_volume_key(self, volume: Volume) -> ContainerKey:
+        schema_key = self.gen_schema_key(volume.schema)
+        if isinstance(schema_key, UnitySchemaKeyWithMetastore):
+            return UnityVolumeKeyWithMetastore(
+                **schema_key.model_dump(), volume=volume.name
+            )
+        assert isinstance(schema_key, UnitySchemaKey)
+        return UnityVolumeKey(**schema_key.model_dump(), volume=volume.name)
 
     def gen_ml_model_urn(self, name: str) -> str:
         return make_ml_model_group_urn(

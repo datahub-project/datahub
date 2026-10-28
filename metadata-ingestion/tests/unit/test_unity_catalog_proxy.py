@@ -1140,7 +1140,13 @@ class TestUnityCatalogProxy:
         assert result is None
 
     def test_volumes_converts_volume_info(self, mock_proxy):
-        from databricks.sdk.service.catalog import VolumeInfo, VolumeType
+        from databricks.sdk.service.catalog import (
+            EncryptionDetails,
+            SseEncryptionDetails,
+            SseEncryptionDetailsAlgorithm,
+            VolumeInfo,
+            VolumeType,
+        )
 
         from datahub.ingestion.source.unity.proxy_types import (
             Catalog,
@@ -1171,7 +1177,17 @@ class TestUnityCatalogProxy:
                 storage_location="s3://bucket/vol",
                 owner="alice@example.com",
                 created_at=1735689600000,
+                created_by="alice@example.com",
                 updated_at=1735776000000,
+                updated_by="bob@example.com",
+                volume_id="vol-123",
+                metastore_id="ms-456",
+                browse_only=True,
+                encryption_details=EncryptionDetails(
+                    sse_encryption_details=SseEncryptionDetails(
+                        algorithm=SseEncryptionDetailsAlgorithm.AWS_SSE_KMS
+                    )
+                ),
             ),
             VolumeInfo(full_name=None, name=None),
         ]
@@ -1188,6 +1204,10 @@ class TestUnityCatalogProxy:
         assert volume.volume_type == "MANAGED"
         assert volume.storage_location == "s3://bucket/vol"
         assert volume.owner == "alice@example.com"
+        assert volume.updated_by == "bob@example.com"
+        assert volume.volume_id == "vol-123"
+        assert volume.browse_only
+        assert volume.encryption_algorithm == "AWS_SSE_KMS"
         assert volume.created_at == datetime(
             2025, 1, 1, tzinfo=volume.created_at.tzinfo
         )

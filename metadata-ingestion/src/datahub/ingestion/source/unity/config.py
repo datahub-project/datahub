@@ -371,10 +371,9 @@ class UnityCatalogSourceConfig(
 
     include_volumes: bool = pydantic.Field(
         default=False,
-        description="Ingest Unity Catalog volumes, represented as DataHub datasets "
+        description="Ingest Unity Catalog volumes, represented as DataHub containers "
         "with the `Volume` subtype inside their schema container. Only volume-level "
-        "metadata is ingested, not the files inside. When enabled, lineage from "
-        "volume paths (`/Volumes/...`) to tables is also emitted.",
+        "metadata is ingested, not the files or folders inside.",
     )
 
     include_ownership: bool = pydantic.Field(
