@@ -692,10 +692,8 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 if not unique_id:
                     continue
 
-                # A column-level dbt constraint is represented at the model
-                # level with a single-element ``columns`` array. Pass the
-                # list through unchanged — ``_build_constraint_assertions``
-                # fans per-column entries out downstream.
+                # The API returns model-level constraints only; column-level
+                # constraints are not exposed, so they are not ingested here.
                 model_constraints = [
                     parse_dbt_constraint(c) for c in (node.get("constraints") or [])
                 ]
