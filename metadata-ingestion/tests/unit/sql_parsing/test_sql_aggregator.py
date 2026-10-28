@@ -75,6 +75,21 @@ def make_basic_aggregator(store: bool = False) -> SqlParsingAggregator:
     return aggregator
 
 
+def test_delete_is_not_counted_as_column_lineage_failure() -> None:
+    aggregator = make_basic_aggregator()
+
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="delete from foo where a = 1",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    assert aggregator.report.num_observed_queries_failed == 0
+    assert aggregator.report.num_observed_queries_column_failed == 0
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_basic_lineage(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     aggregator = make_basic_aggregator()

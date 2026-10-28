@@ -32520,7 +32520,7 @@
     "duration": "6.166s"
   },
   {
-    "testId": "tests.unit.glue.test_glue_source::test_resource_link_owner_upstreams_handles_malformed_target",
+    "testId": "tests.unit.glue.test_glue_source::test_resource_link_owner_urn_handles_malformed_target",
     "duration": "6.217s"
   },
   {

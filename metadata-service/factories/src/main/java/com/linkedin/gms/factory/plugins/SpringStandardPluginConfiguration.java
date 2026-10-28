@@ -39,6 +39,7 @@ import com.linkedin.metadata.aspect.validation.LogicalParentPlatformValidator;
 import com.linkedin.metadata.aspect.validation.MetricUpstreamsValidator;
 import com.linkedin.metadata.aspect.validation.PolicyFieldTypeValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeGrantAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.RepositoryLineageDestinationValidator;
 import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.aspect.validation.ServiceDefinitionLargeStringValidator;
 import com.linkedin.metadata.aspect.validation.StructuredPropertyPrivilegeConstraintsValidator;
@@ -60,6 +61,7 @@ import com.linkedin.metadata.dataproducts.sideeffects.DataProductAssetsSideEffec
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.domains.sideeffects.DomainReferenceDetachSideEffect;
 import com.linkedin.metadata.entity.AspectSizePayloadValidator;
+import com.linkedin.metadata.entity.versioning.sideeffects.LifecycleVersionSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
@@ -532,6 +534,23 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MCPSideEffect lifecycleVersionSideEffect() {
+    return new LifecycleVersionSideEffect()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(LifecycleVersionSideEffect.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(UPSERT, UPDATE, PATCH, CREATE, CREATE_ENTITY))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(STATUS_ASPECT_NAME)
                             .build()))
                 .build());
   }
@@ -1392,6 +1411,27 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(DATASET_ENTITY_NAME)
                             .aspectName(UPSTREAM_METRICS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator repositoryLineageDestinationValidator() {
+    return new RepositoryLineageDestinationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(RepositoryLineageDestinationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATA_JOB_ENTITY_NAME)
+                            .aspectName(REPOSITORY_LINEAGE_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DATA_FLOW_ENTITY_NAME)
+                            .aspectName(REPOSITORY_LINEAGE_ASPECT_NAME)
                             .build()))
                 .build());
   }
