@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -17,11 +17,15 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 
-class AwsMessagingSourceConfig(
+class AwsMessagingConfigBase(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
 ):
+    """Settings shared by the sqs and sns sources. Use the same env,
+    platform_instance and account_platform_instance_map in both recipes so
+    lineage between queues and topics joins."""
+
     aws_config: AwsConnectionConfig = Field(
         default_factory=AwsConnectionConfig,
         description=(
@@ -30,36 +34,26 @@ class AwsMessagingSourceConfig(
             "credential chain. One recipe covers one region."
         ),
     )
-    include_sqs: bool = Field(default=True, description="Extract SQS queues.")
-    queue_pattern: AllowDenyPattern = Field(
-        default_factory=AllowDenyPattern.allow_all,
-        description="Regex patterns on queue names to include.",
-    )
-    include_sns: bool = Field(default=True, description="Extract SNS topics.")
-    topic_pattern: AllowDenyPattern = Field(
-        default_factory=AllowDenyPattern.allow_all,
-        description="Regex patterns on topic names to include.",
-    )
     extract_tags: bool = Field(
         default=True,
         description=(
             "Extract AWS resource tags as DataHub tags. SNS allows 10 "
-            "ListTagsForResource calls per second, so turn this off for accounts "
-            "with tens of thousands of topics."
+            "ListTagsForResource calls per second, so turn this off on the sns "
+            "source for accounts with tens of thousands of topics."
         ),
     )
-    include_subscription_attributes: bool = Field(
-        default=True,
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default_factory=dict,
         description=(
-            "Call sns:GetSubscriptionAttributes for each subscription to read its "
-            "filter policy and dead-letter queue. One call per subscription."
+            "Domain urn or id to regex patterns on resource names; a matching queue "
+            "or topic is assigned that domain."
         ),
     )
     account_platform_instance_map: Dict[str, str] = Field(
         default_factory=dict,
         description=(
-            "AWS account id to platform_instance, for lineage to queues and topics in "
-            "other accounts whose own recipes set a platform_instance other than the "
+            "AWS account id to platform_instance, for lineage to resources in other "
+            "accounts whose own recipes set a platform_instance other than the "
             "account id. Accounts not listed use their account id."
         ),
     )
@@ -75,3 +69,50 @@ class AwsMessagingSourceConfig(
             endpoint_url=self.aws_config.aws_endpoint_url,
             config=self.aws_config._aws_config(),
         )
+
+
+class SqsSourceConfig(AwsMessagingConfigBase):
+    queue_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns on queue names to include.",
+    )
+
+
+class SnsDataProtectionConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Read each topic's message data protection policy "
+            "(sns:GetDataProtectionPolicy, one call per topic) and tag the topic with "
+            "the data identifiers it covers."
+        ),
+    )
+    tag_prefix: str = Field(
+        default="aws_data_identifier",
+        description="Tags are named `<tag_prefix>:<identifier>`, e.g. `aws_data_identifier:EmailAddress`.",
+    )
+    glossary_term_map: Dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Data identifier name (e.g. `EmailAddress`) to an existing glossary term "
+            "urn or name. Only listed identifiers get a term; none are created."
+        ),
+    )
+
+
+class SnsSourceConfig(AwsMessagingConfigBase):
+    topic_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns on topic names to include.",
+    )
+    include_subscription_attributes: bool = Field(
+        default=True,
+        description=(
+            "Call sns:GetSubscriptionAttributes for each subscription to read its "
+            "dead-letter queue. One call per subscription."
+        ),
+    )
+    data_protection: SnsDataProtectionConfig = Field(
+        default_factory=SnsDataProtectionConfig,
+        description="SNS message data protection policies as tags or glossary terms.",
+    )

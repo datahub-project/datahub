@@ -6,19 +6,19 @@ from datahub.ingestion.source.aws_messaging.constants import (
     LINEAGE_RELATIONSHIP_PROPERTY,
     LineageRelationship,
 )
-from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
+from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamClass
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
 class DatasetLineageCollector:
-    """Gathers dataset-to-dataset edges from every pass and writes them as patches.
+    """Gathers dataset-to-dataset edges and writes them as patches.
 
-    A queue's upstreams come from several passes (its own redrive policy, SNS
-    subscriptions) and possibly from another account's recipe, so a full
+    A queue's upstreams come from both sources (its own redrive policy from sqs,
+    subscriptions from sns) and possibly from other accounts' recipes, so a full
     upstreamLineage write from any one of them would erase the rest."""
 
-    def __init__(self, report: AwsMessagingSourceReport):
+    def __init__(self, report: AwsMessagingReportBase):
         self.report = report
         self._edges: Dict[str, Dict[str, LineageRelationship]] = defaultdict(dict)
 
@@ -41,6 +41,10 @@ class DatasetLineageCollector:
                 )
                 self.report.lineage_edges_emitted += 1
             for mcp in patch.build():
+                # The downstream may be another account's queue; patching it must
+                # not make this source responsible for deleting it later.
                 yield MetadataWorkUnit(
-                    id=f"{downstream}-upstreamLineage-patch", mcp_raw=mcp
+                    id=f"{downstream}-upstreamLineage-patch",
+                    mcp_raw=mcp,
+                    is_primary_source=False,
                 )

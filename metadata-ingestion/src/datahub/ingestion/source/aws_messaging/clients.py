@@ -5,7 +5,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.constants import ALL_ATTRIBUTES
 from datahub.ingestion.source.aws_messaging.models import SnsSubscription
-from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
+from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 
 
 def paginate(
@@ -13,12 +13,12 @@ def paginate(
     client: Any,
     operation: str,
     result_key: str,
-    report: AwsMessagingSourceReport,
+    report: AwsMessagingReportBase,
     api_label: str,
     **kwargs: Any,
 ) -> Iterator[Any]:
     # boto3 paginators raise from inside iteration, so the page count at the time
-    # of the exception tells a denied section apart from a truncated listing.
+    # of the exception tells a denied call apart from a truncated listing.
     pages_fetched = 0
     try:
         for page in client.get_paginator(operation).paginate(**kwargs):
@@ -33,7 +33,7 @@ def paginate(
 def call_or_warn(
     *,
     call: Callable[[], Dict[str, Any]],
-    report: AwsMessagingSourceReport,
+    report: AwsMessagingReportBase,
     api_label: str,
     context: str,
 ) -> Optional[Dict[str, Any]]:
@@ -54,7 +54,7 @@ def tags_to_dict(tags: List[Dict[str, str]]) -> Dict[str, str]:
 
 
 class SqsClient:
-    def __init__(self, client: Any, report: AwsMessagingSourceReport):
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
         self._client = client
         self.report = report
 
@@ -94,8 +94,43 @@ class SqsClient:
         return dict((response or {}).get("Tags") or {})
 
 
+class TaggingClient:
+    """Tags for every resource of one type in a single paginated call, instead
+    of one ListQueueTags or ListTagsForResource call per resource."""
+
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
+        self._client = client
+        self.report = report
+
+    def get_tags_by_arn(
+        self, resource_type: str
+    ) -> Optional[Dict[str, Dict[str, str]]]:
+        """Tags keyed by ARN, or None when the API can't be used, in which case
+        the caller reads tags per resource. Untagged resources are absent."""
+        tags: Dict[str, Dict[str, str]] = {}
+        try:
+            for page in self._client.get_paginator("get_resources").paginate(
+                ResourceTypeFilters=[resource_type]
+            ):
+                for item in page.get("ResourceTagMappingList") or []:
+                    tags[item["ResourceARN"]] = tags_to_dict(item.get("Tags") or [])
+        except (ClientError, BotoCoreError) as e:
+            self.report.tags_read_per_resource = True
+            self.report.warning(
+                title="Tag API unavailable",
+                message=(
+                    "tag:GetResources failed, so tags are read one resource at a time. "
+                    "Grant tag:GetResources to make this a single call."
+                ),
+                context=aws_error_code(e),
+                exc=e,
+            )
+            return None
+        return tags
+
+
 class SnsClient:
-    def __init__(self, client: Any, report: AwsMessagingSourceReport):
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
         self._client = client
         self.report = report
 
@@ -156,3 +191,12 @@ class SnsClient:
             context=f"subscription={arn}",
         )
         return dict((response or {}).get("Attributes") or {})
+
+    def get_data_protection_policy(self, arn: str) -> Optional[str]:
+        response = call_or_warn(
+            call=lambda: self._client.get_data_protection_policy(ResourceArn=arn),
+            report=self.report,
+            api_label="sns:GetDataProtectionPolicy",
+            context=f"topic={arn}",
+        )
+        return (response or {}).get("DataProtectionPolicy") or None

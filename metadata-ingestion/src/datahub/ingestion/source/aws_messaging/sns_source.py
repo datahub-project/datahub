@@ -1,0 +1,256 @@
+from collections import defaultdict
+from typing import Dict, Iterable, Iterator, List, Optional
+
+from datahub.emitter.mce_builder import make_term_urn
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.decorators import (
+    SourceCapability,
+    SupportStatus,
+    capability,
+    config_class,
+    platform_name,
+    support_status,
+)
+from datahub.ingestion.api.source import CapabilityReport, TestConnectionReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws_messaging.arn import parse_arn, parse_redrive_policy
+from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase, probe
+from datahub.ingestion.source.aws_messaging.clients import (
+    SnsClient,
+    SqsClient,
+    TaggingClient,
+)
+from datahub.ingestion.source.aws_messaging.config import SnsSourceConfig
+from datahub.ingestion.source.aws_messaging.constants import (
+    PENDING_CONFIRMATION,
+    QUEUE_URL_PATTERN,
+    SNS_PLATFORM,
+    AwsService,
+    LineageRelationship,
+    SubscriptionAttribute,
+    SubscriptionProtocol,
+)
+from datahub.ingestion.source.aws_messaging.mapper import (
+    data_identifiers,
+    domain_for,
+    tag_patch_workunits,
+    term_patch_workunits,
+    topic_console_url,
+    topic_properties,
+)
+from datahub.ingestion.source.aws_messaging.models import SnsSubscription, SnsTopic
+from datahub.ingestion.source.aws_messaging.report import SnsSourceReport
+from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.sdk import Dataset
+
+
+@platform_name("Amazon SNS", id=SNS_PLATFORM)
+@config_class(SnsSourceConfig)
+@support_status(SupportStatus.ALPHA)
+@capability(SourceCapability.CONTAINERS, "Region containers")
+@capability(
+    SourceCapability.TAGS, "From AWS resource tags, added without removing UI tags"
+)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Topic to subscribed queue and to subscription dead-letter queue",
+)
+@capability(
+    SourceCapability.GLOSSARY_TERMS,
+    "Opt-in, from data protection policy identifiers you map to existing terms",
+)
+@capability(SourceCapability.PLATFORM_INSTANCE, "Defaults to the AWS account id")
+@capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "SNS has no schema", supported=False)
+@capability(SourceCapability.DESCRIPTIONS, "SNS has no description", supported=False)
+class SnsSource(AwsMessagingSourceBase):
+    """Catalogs Amazon SNS topics of one region as datasets on the `sns` platform,
+    with lineage from each topic to the SQS queues subscribed to it."""
+
+    platform = SNS_PLATFORM
+    service = AwsService.SNS
+    config: SnsSourceConfig
+    report: SnsSourceReport
+
+    def __init__(self, config: SnsSourceConfig, ctx: PipelineContext):
+        report = SnsSourceReport()
+        # The client is needed while the base class reads the account id.
+        self.sns = SnsClient(
+            config.make_client(config.aws_config.get_session(), AwsService.SNS), report
+        )
+        super().__init__(config, ctx, report)
+        self.config = config
+        self.report = report
+        self.tagging = TaggingClient(
+            config.make_client(self.session, AwsService.TAGGING), report
+        )
+        self.sqs = SqsClient(config.make_client(self.session, AwsService.SQS), report)
+        # Subscribed queues are owned by the sqs source; this tracks which local
+        # ones exist so an edge never points at a queue that isn't there.
+        self.queues = ResourceResolver(
+            urns=self.urns, region=self.region, service=AwsService.SQS
+        )
+        self.topics: List[SnsTopic] = []
+        self.subscriptions: Dict[str, List[SnsSubscription]] = defaultdict(list)
+
+    @classmethod
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "SnsSource":
+        return cls(SnsSourceConfig.model_validate(config_dict), ctx)
+
+    def first_resource_arn(self) -> Optional[str]:
+        return self.sns.first_topic_arn()
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        for subscription in self.sns.list_subscriptions():
+            self.report.subscriptions_scanned += 1
+            self.subscriptions[subscription.topic_arn].append(subscription)
+        self._load_local_queues()
+        yield from self.with_region_container(self._topic_workunits())
+        for topic in self.topics:
+            self._add_subscription_edges(topic)
+        yield from self.lineage.workunits()
+
+    def _load_local_queues(self) -> None:
+        for url in self.sqs.list_queue_urls():
+            match = QUEUE_URL_PATTERN.search(url)
+            if match:
+                self.queues.known.add(
+                    ResourceResolver.key(
+                        match.group("account"), self.region, match.group("name")
+                    )
+                )
+
+    def list_topics(self) -> Iterator[SnsTopic]:
+        bulk_tags = (
+            self.tagging.get_tags_by_arn(AwsService.SNS.value)
+            if self.config.extract_tags
+            else {}
+        )
+        for topic_arn in self.sns.list_topic_arns():
+            arn = parse_arn(topic_arn)
+            if arn is None:
+                self.report.topics_failed.append(topic_arn)
+                continue
+            if not self.config.topic_pattern.allowed(arn.resource_name):
+                self.report.filtered_topics.append(arn.resource_name)
+                continue
+            attributes = self.sns.get_topic_attributes(topic_arn)
+            if attributes is None:
+                self.report.topics_failed.append(arn.resource_name)
+                continue
+            if bulk_tags is None:
+                tags = self.sns.get_tags(topic_arn)
+            else:
+                tags = bulk_tags.get(topic_arn, {})
+            self.report.topics_scanned += 1
+            yield SnsTopic(arn=arn, attributes=attributes, tags=tags)
+
+    def _topic_workunits(self) -> Iterable[MetadataWorkUnit]:
+        for topic in self.list_topics():
+            self.topics.append(topic)
+            self.resolver.add(topic.arn)
+            urn = self.urns.topic_urn(topic.arn)
+            yield from Dataset(
+                platform=SNS_PLATFORM,
+                name=self.urns.resource_id(topic.arn),
+                display_name=topic.name,
+                env=self.config.env,
+                platform_instance=self.urns.instance_for(topic.arn.account),
+                subtype=DatasetSubTypes.TOPIC.value,
+                parent_container=self.region_key(),
+                external_url=topic_console_url(topic),
+                custom_properties=topic_properties(
+                    topic, self.subscriptions.get(str(topic.arn), [])
+                ),
+                domain=domain_for(topic.name, self.config.domain),
+            ).as_workunits()
+            tags = dict(topic.tags)
+            terms: List[str] = []
+            if self.config.data_protection.enabled:
+                protection = self.config.data_protection
+                for identifier in data_identifiers(
+                    self.sns.get_data_protection_policy(str(topic.arn))
+                ):
+                    tags[f"{protection.tag_prefix}:{identifier}"] = ""
+                    term = protection.glossary_term_map.get(identifier)
+                    if term:
+                        terms.append(
+                            term if term.startswith("urn:li:") else make_term_urn(term)
+                        )
+            yield from tag_patch_workunits(urn, tags)
+            yield from term_patch_workunits(urn, terms)
+
+    def _add_subscription_edges(self, topic: SnsTopic) -> None:
+        topic_urn = self.urns.topic_urn(topic.arn)
+        for subscription in self.subscriptions.get(str(topic.arn), []):
+            # An unconfirmed subscription delivers nothing yet.
+            if subscription.subscription_arn == PENDING_CONFIRMATION:
+                continue
+            if subscription.protocol == SubscriptionProtocol.SQS:
+                self._add_queue_edge(
+                    topic_urn, subscription.endpoint, LineageRelationship.SUBSCRIPTION
+                )
+            if self.config.include_subscription_attributes:
+                attributes = self.sns.get_subscription_attributes(
+                    subscription.subscription_arn
+                )
+                redrive = parse_redrive_policy(
+                    attributes.get(SubscriptionAttribute.REDRIVE_POLICY)
+                )
+                if redrive is not None:
+                    self._add_queue_edge(
+                        topic_urn,
+                        redrive.dead_letter_target_arn,
+                        LineageRelationship.SUBSCRIPTION_DEAD_LETTER,
+                    )
+
+    def _add_queue_edge(
+        self, topic_urn: str, queue_arn: str, relationship: LineageRelationship
+    ) -> None:
+        queue_urn = self.queues.urn(parse_arn(queue_arn))
+        if queue_urn is None:
+            self.report.report_edge_skipped(
+                topic_urn,
+                queue_arn,
+                "queue ARN unparseable or not found in this region",
+            )
+            return
+        self.lineage.add(
+            upstream=topic_urn, downstream=queue_urn, relationship=relationship
+        )
+
+    def get_report(self) -> SnsSourceReport:
+        return self.report
+
+    @staticmethod
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        report = TestConnectionReport()
+        try:
+            config = SnsSourceConfig.model_validate(config_dict)
+            session = config.aws_config.get_session()
+            report.basic_connectivity = probe(
+                config,
+                session,
+                AwsService.SNS,
+                lambda c: c.list_topics(),
+                "sns:ListTopics",
+            )
+            report.capability_report = {
+                SourceCapability.LINEAGE_COARSE: probe(
+                    config,
+                    session,
+                    AwsService.SQS,
+                    lambda c: c.list_queues(MaxResults=1),
+                    "sqs:ListQueues",
+                )
+            }
+        except (
+            Exception
+        ) as e:  # test_connection reports every failure, config errors included
+            report.basic_connectivity = CapabilityReport(
+                capable=False, failure_reason=f"{type(e).__name__}: {e}"
+            )
+        return report

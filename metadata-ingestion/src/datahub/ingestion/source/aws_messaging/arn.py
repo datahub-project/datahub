@@ -37,14 +37,14 @@ def parse_redrive_policy(value: Optional[str]) -> Optional[RedrivePolicy]:
 
 def endpoint_host(url: str) -> Optional[str]:
     # Only the host is kept: query strings and paths can carry tokens.
-    host = urlsplit(url).hostname
-    return host or None
+    return urlsplit(url).hostname or None
 
 
 class UrnBuilder:
-    """The one place an AWS ARN becomes a DataHub URN, so every pass that refers
-    to a queue or topic (including cross-service lineage) produces the same URN
-    the owning extractor emits."""
+    """The one place an AWS ARN becomes a DataHub URN.
+
+    The sqs and sns sources both build every queue and topic URN here, so a
+    lineage edge written by one lands on the dataset the other emits."""
 
     def __init__(
         self,
