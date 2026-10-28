@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import Field
 
@@ -46,6 +46,21 @@ class AwsMessagingSourceConfig(
             "Extract AWS resource tags as DataHub tags. SNS allows 10 "
             "ListTagsForResource calls per second, so turn this off for accounts "
             "with tens of thousands of topics."
+        ),
+    )
+    include_subscription_attributes: bool = Field(
+        default=True,
+        description=(
+            "Call sns:GetSubscriptionAttributes for each subscription to read its "
+            "filter policy and dead-letter queue. One call per subscription."
+        ),
+    )
+    account_platform_instance_map: Dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "AWS account id to platform_instance, for lineage to queues and topics in "
+            "other accounts whose own recipes set a platform_instance other than the "
+            "account id. Accounts not listed use their account id."
         ),
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(

@@ -21,6 +21,14 @@ class AwsMessagingSourceReport(StaleEntityRemovalSourceReport):
     filtered_topics: LossyList[str] = field(default_factory=LossyList)
     queues_failed: LossyList[str] = field(default_factory=LossyList)
     topics_failed: LossyList[str] = field(default_factory=LossyList)
+    subscriptions_scanned: int = 0
+    lineage_edges_emitted: int = 0
+    # "<from> -> <to>: <reason>" for edges left out because one end could not
+    # be resolved to an entity that exists.
+    lineage_edges_skipped: LossyList[str] = field(default_factory=LossyList)
+
+    def report_edge_skipped(self, upstream: str, downstream: str, reason: str) -> None:
+        self.lineage_edges_skipped.append(f"{upstream} -> {downstream}: {reason}")
 
     def report_listing_failure(
         self,

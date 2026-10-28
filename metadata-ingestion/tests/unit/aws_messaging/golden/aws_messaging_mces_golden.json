@@ -572,6 +572,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "subscriber_protocols": "email=1, https=1, sqs=2",
+                "https_endpoint_hosts": "hooks.example.com",
                 "arn": "arn:aws:sns:us-east-1:123456789012:order-events",
                 "display_name": "Orders",
                 "fifo": "false",
@@ -756,6 +758,81 @@
         "json": {
             "removed": false
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "aws-messaging-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
+                    "type": "TRANSFORMED",
+                    "properties": {
+                        "relationship": "subscription"
+                    }
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "aws-messaging-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders-dlq,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sns,123456789012.us-east-1.order-events,PROD)",
+                    "type": "TRANSFORMED",
+                    "properties": {
+                        "relationship": "subscription_dead_letter"
+                    }
+                }
+            },
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+                    "type": "TRANSFORMED",
+                    "properties": {
+                        "relationship": "dead_letter"
+                    }
+                }
+            }
+        ]
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,

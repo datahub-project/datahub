@@ -28,7 +28,9 @@ SQS and SNS have no schema, so datasets carry no schema fields. Queue settings (
       "Action": [
         "sns:ListTopics",
         "sns:GetTopicAttributes",
-        "sns:ListTagsForResource"
+        "sns:ListTagsForResource",
+        "sns:ListSubscriptions",
+        "sns:GetSubscriptionAttributes"
       ],
       "Resource": "*"
     }
@@ -37,6 +39,7 @@ SQS and SNS have no schema, so datasets carry no schema fields. Queue settings (
 ```
 
 - `sqs:ListQueueTags` and `sns:ListTagsForResource` are only called when `extract_tags` is on.
+- `sns:GetSubscriptionAttributes` is only called when `include_subscription_attributes` is on.
 - If a listing call is denied on its first page, that service is skipped with a warning and the other service still runs.
 
 #### Authentication

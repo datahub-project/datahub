@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, List, Optional, Set
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -28,7 +28,9 @@ from datahub.ingestion.source.aws_messaging.constants import (
     AwsService,
     QueueAttribute,
 )
+from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
 from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey
+from datahub.ingestion.source.aws_messaging.models import Arn, SnsTopic, SqsQueue
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
 from datahub.ingestion.source.aws_messaging.sns import SnsExtractor
 from datahub.ingestion.source.aws_messaging.sqs import SqsExtractor
@@ -43,6 +45,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 @support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.CONTAINERS, "Region containers")
 @capability(SourceCapability.TAGS, "From AWS resource tags")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "SNS subscriptions and dead-letter queues",
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Defaults to the AWS account id")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
@@ -89,7 +95,10 @@ class AwsMessagingSource(StatefulIngestionSourceBase, TestableSource):
             env=config.env,
             account_id=account_id,
             platform_instance=config.platform_instance,
+            account_platform_instance_map=config.account_platform_instance_map,
         )
+        self.lineage = DatasetLineageCollector(self.report)
+        self._queue_arns: Set[str] = set()
         self.sqs_extractor = SqsExtractor(
             config=config,
             report=self.report,
@@ -112,19 +121,42 @@ class AwsMessagingSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.include_sqs:
-            container_emitted = False
-            for queue in self.sqs_extractor.list_queues():
-                if not container_emitted:
-                    yield from self._region_container(SQS_PLATFORM)
-                    container_emitted = True
-                yield from self.sqs_extractor.to_workunits(queue)
+            yield from self._sqs_workunits()
         if self.config.include_sns:
-            container_emitted = False
-            for topic in self.sns_extractor.list_topics():
-                if not container_emitted:
-                    yield from self._region_container(SNS_PLATFORM)
-                    container_emitted = True
-                yield from self.sns_extractor.to_workunits(topic)
+            yield from self._sns_workunits()
+        yield from self.lineage.workunits()
+
+    def _sqs_workunits(self) -> Iterable[MetadataWorkUnit]:
+        queues: List[SqsQueue] = []
+        for queue in self.sqs_extractor.list_queues():
+            if not queues:
+                yield from self._region_container(SQS_PLATFORM)
+            queues.append(queue)
+            self._queue_arns.add(str(queue.arn))
+            yield from self.sqs_extractor.to_workunits(queue)
+        # Dead-letter targets are checked once every queue in the region is known.
+        for queue in queues:
+            self.sqs_extractor.add_lineage(queue, self.lineage, self._queue_exists)
+
+    def _sns_workunits(self) -> Iterable[MetadataWorkUnit]:
+        self.sns_extractor.load_subscriptions()
+        topics: List[SnsTopic] = []
+        for topic in self.sns_extractor.list_topics():
+            if not topics:
+                yield from self._region_container(SNS_PLATFORM)
+            topics.append(topic)
+            yield from self.sns_extractor.to_workunits(topic)
+        for topic in topics:
+            self.sns_extractor.add_lineage(topic, self.lineage, self._queue_exists)
+
+    def _queue_exists(self, arn: Arn) -> bool:
+        # A queue in this account and region exists only if this run ingested it.
+        # Queues elsewhere belong to another recipe, and their URN is fully
+        # determined by the ARN.
+        own_account = not self.urns.account_id or arn.account == self.urns.account_id
+        if own_account and arn.region == self.region:
+            return str(arn) in self._queue_arns
+        return True
 
     def _region_key(self, platform: str) -> AwsRegionKey:
         return AwsRegionKey(

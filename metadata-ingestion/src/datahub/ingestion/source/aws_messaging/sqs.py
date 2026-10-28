@@ -1,13 +1,19 @@
-from typing import Iterable, Iterator
+from typing import Callable, Iterable, Iterator
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
+from datahub.ingestion.source.aws_messaging.arn import (
+    UrnBuilder,
+    parse_arn,
+    parse_redrive_policy,
+)
 from datahub.ingestion.source.aws_messaging.clients import SqsClient
 from datahub.ingestion.source.aws_messaging.config import AwsMessagingSourceConfig
 from datahub.ingestion.source.aws_messaging.constants import (
     SQS_PLATFORM,
+    LineageRelationship,
     QueueAttribute,
 )
+from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
 from datahub.ingestion.source.aws_messaging.mapper import (
     AwsRegionKey,
     epoch_seconds,
@@ -15,7 +21,7 @@ from datahub.ingestion.source.aws_messaging.mapper import (
     queue_properties,
     tag_urns,
 )
-from datahub.ingestion.source.aws_messaging.models import SqsQueue
+from datahub.ingestion.source.aws_messaging.models import Arn, SqsQueue
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.sdk import Dataset
@@ -80,3 +86,29 @@ class SqsExtractor:
             tags=tag_urns(queue.tags),
         )
         yield from dataset.as_workunits()
+
+    def add_lineage(
+        self,
+        queue: SqsQueue,
+        lineage: DatasetLineageCollector,
+        queue_exists: Callable[[Arn], bool],
+    ) -> None:
+        redrive = parse_redrive_policy(
+            queue.attributes.get(QueueAttribute.REDRIVE_POLICY)
+        )
+        if redrive is None:
+            return
+        source_urn = self.urns.queue_urn(queue.arn)
+        dlq = parse_arn(redrive.dead_letter_target_arn)
+        if dlq is None or not queue_exists(dlq):
+            self.report.report_edge_skipped(
+                source_urn,
+                redrive.dead_letter_target_arn,
+                "dead-letter queue was not ingested",
+            )
+            return
+        lineage.add(
+            upstream=source_urn,
+            downstream=self.urns.queue_urn(dlq),
+            relationship=LineageRelationship.DEAD_LETTER,
+        )

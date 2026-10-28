@@ -79,3 +79,18 @@ class EncryptionType(StrEnum):
 
 
 TRUE_STRING = "true"
+
+
+class SubscriptionAttribute(StrEnum):
+    FILTER_POLICY = "FilterPolicy"
+    RAW_MESSAGE_DELIVERY = "RawMessageDelivery"
+    REDRIVE_POLICY = "RedrivePolicy"
+
+
+class LineageRelationship(StrEnum):
+    SUBSCRIPTION = "subscription"
+    DEAD_LETTER = "dead_letter"
+    SUBSCRIPTION_DEAD_LETTER = "subscription_dead_letter"
+
+
+LINEAGE_RELATIONSHIP_PROPERTY = "relationship"

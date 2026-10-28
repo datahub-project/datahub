@@ -231,6 +231,12 @@
           "supported": false
         },
         {
+          "capability": "LINEAGE_COARSE",
+          "description": "SNS subscriptions and dead-letter queues",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "TEST_CONNECTION",
           "description": "Enabled by default",
           "subtype_modifier": null,

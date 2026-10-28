@@ -17,6 +17,10 @@ source:
         - ".*"
 
     extract_tags: true
+    include_subscription_attributes: true
+    # Platform instances used by other accounts' recipes, for cross-account lineage.
+    # account_platform_instance_map:
+    #   "210987654321": "shared-services"
 
     stateful_ingestion:
       enabled: true

@@ -44,12 +44,33 @@ def _seed() -> None:
     sqs.create_queue(QueueName="tmp-scratch")
 
     sns = sns_client()
-    sns.create_topic(
+    topic = sns.create_topic(
         Name="order-events",
         Attributes={"DisplayName": "Orders"},
         Tags=[{"Key": "team", "Value": "payments"}],
-    )
+    )["TopicArn"]
     sns.create_topic(Name="alerts")
+    orders_arn = f"arn:aws:sqs:{REGION}:{ACCOUNT}:orders"
+    sns.subscribe(
+        TopicArn=topic,
+        Protocol="sqs",
+        Endpoint=orders_arn,
+        Attributes={
+            "RedrivePolicy": json.dumps({"deadLetterTargetArn": dlq_arn}),
+        },
+    )
+    # Filtered out by queue_pattern, so no edge.
+    sns.subscribe(
+        TopicArn=topic,
+        Protocol="sqs",
+        Endpoint=f"arn:aws:sqs:{REGION}:{ACCOUNT}:tmp-scratch",
+    )
+    sns.subscribe(TopicArn=topic, Protocol="email", Endpoint="someone@example.com")
+    sns.subscribe(
+        TopicArn=topic,
+        Protocol="https",
+        Endpoint="https://hooks.example.com/notify?token=secret",
+    )
 
 
 def _run(config: dict) -> AwsMessagingSource:
@@ -74,6 +95,11 @@ def test_golden(aws: None, pytestconfig: pytest.Config, tmp_path: Path) -> None:
     assert report.account_id == ACCOUNT
     assert (report.queues_scanned, report.topics_scanned) == (3, 2)
     assert list(report.filtered_queues) == ["tmp-scratch"]
+    assert report.lineage_edges_emitted == 3
+    assert any("tmp-scratch" in skipped for skipped in report.lineage_edges_skipped)
+    golden_text = (GOLDEN_DIR / "aws_messaging_mces_golden.json").read_text()
+    assert "someone@example.com" not in golden_text
+    assert "token=secret" not in golden_text
 
 
 def test_platform_instance_defaults_to_account(aws: None) -> None:

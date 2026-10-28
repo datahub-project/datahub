@@ -1,17 +1,26 @@
+from collections import Counter
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 from urllib.parse import quote
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp_builder import ContainerKey
-from datahub.ingestion.source.aws_messaging.arn import parse_redrive_policy
+from datahub.ingestion.source.aws_messaging.arn import (
+    endpoint_host,
+    parse_redrive_policy,
+)
 from datahub.ingestion.source.aws_messaging.constants import (
     TRUE_STRING,
+    WEB_PROTOCOLS,
     EncryptionType,
     QueueAttribute,
     TopicAttribute,
 )
-from datahub.ingestion.source.aws_messaging.models import SnsTopic, SqsQueue
+from datahub.ingestion.source.aws_messaging.models import (
+    SnsSubscription,
+    SnsTopic,
+    SqsQueue,
+)
 
 
 class AwsRegionKey(ContainerKey):
@@ -68,9 +77,33 @@ def queue_properties(queue: SqsQueue) -> Dict[str, str]:
     )
 
 
-def topic_properties(topic: SnsTopic) -> Dict[str, str]:
-    attributes = topic.attributes
+def subscription_properties(
+    subscriptions: Sequence[SnsSubscription],
+) -> Dict[str, str]:
+    # Email and SMS endpoints are personal data and web endpoints can carry
+    # tokens, so only protocol counts and web hosts are kept.
+    counts = Counter(sub.protocol for sub in subscriptions)
+    web_hosts = (
+        endpoint_host(sub.endpoint)
+        for sub in subscriptions
+        if sub.protocol in WEB_PROTOCOLS
+    )
+    hosts = sorted({host for host in web_hosts if host})
     return _non_empty(
+        {
+            "subscriber_protocols": ", ".join(
+                f"{protocol}={count}" for protocol, count in sorted(counts.items())
+            ),
+            "https_endpoint_hosts": ", ".join(hosts),
+        }
+    )
+
+
+def topic_properties(
+    topic: SnsTopic, subscriptions: Sequence[SnsSubscription] = ()
+) -> Dict[str, str]:
+    attributes = topic.attributes
+    return subscription_properties(subscriptions) | _non_empty(
         {
             "arn": str(topic.arn),
             "display_name": attributes.get(TopicAttribute.DISPLAY_NAME),

@@ -4,6 +4,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.constants import ALL_ATTRIBUTES
+from datahub.ingestion.source.aws_messaging.models import SnsSubscription
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingSourceReport
 
 
@@ -129,3 +130,29 @@ class SnsClient:
             context=f"topic={arn}",
         )
         return tags_to_dict((response or {}).get("Tags") or [])
+
+    def list_subscriptions(self) -> Iterator[SnsSubscription]:
+        # One account-wide listing instead of a call per topic; SNS caps both at 30 TPS.
+        for item in paginate(
+            client=self._client,
+            operation="list_subscriptions",
+            result_key="Subscriptions",
+            report=self.report,
+            api_label="sns:ListSubscriptions",
+        ):
+            yield SnsSubscription(
+                subscription_arn=item.get("SubscriptionArn", ""),
+                topic_arn=item.get("TopicArn", ""),
+                protocol=item.get("Protocol", ""),
+                endpoint=item.get("Endpoint", ""),
+                owner=item.get("Owner"),
+            )
+
+    def get_subscription_attributes(self, arn: str) -> Dict[str, str]:
+        response = call_or_warn(
+            call=lambda: self._client.get_subscription_attributes(SubscriptionArn=arn),
+            report=self.report,
+            api_label="sns:GetSubscriptionAttributes",
+            context=f"subscription={arn}",
+        )
+        return dict((response or {}).get("Attributes") or {})
