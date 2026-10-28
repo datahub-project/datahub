@@ -3435,10 +3435,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
         logger.info(f"Creating dbt metadata for {len(nodes)} nodes")
-        yield from self.create_dbt_platform_mces(non_test_nodes, all_nodes_map)
+        yield from self.create_dbt_platform_mcps(non_test_nodes, all_nodes_map)
 
         logger.info(f"Updating {self.config.target_platform} metadata")
-        yield from self.create_target_platform_mces(non_test_nodes)
+        yield from self.create_target_platform_mcps(non_test_nodes)
 
         yield from self.create_test_entity_mcps(test_nodes, all_nodes_map)
 
@@ -4152,7 +4152,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.report.sql_parser_successes += 1
         return sql_result
 
-    def create_dbt_platform_mces(
+    def create_dbt_platform_mcps(
         self,
         dbt_nodes: List[DBTNode],
         all_nodes_map: Dict[str, DBTNode],
@@ -4528,7 +4528,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             self.report.num_queries_emitted += 1
 
-    def create_target_platform_mces(
+    def create_target_platform_mcps(
         self,
         dbt_nodes: List[DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
@@ -5122,7 +5122,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _generate_base_dbt_aspects(
         self,
         node: DBTNode,
-        mce_platform: str,
+        platform: str,
         meta_aspects: Dict[str, Any],
         column_meta_aspects: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> List[Any]:
@@ -5181,7 +5181,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         # add schema metadata aspect
         schema_metadata = self.get_schema_metadata(
-            self.report, node, mce_platform, column_meta_aspects=column_meta_aspects
+            self.report, node, platform, column_meta_aspects=column_meta_aspects
         )
         aspects.append(schema_metadata)
 
