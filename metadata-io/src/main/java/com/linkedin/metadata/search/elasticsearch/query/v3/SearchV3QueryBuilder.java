@@ -402,7 +402,7 @@ public class SearchV3QueryBuilder {
     putPrefixFields(context, queriedFields, exact);
     context.put(
         SearchTemplateContextVariables.ENTITY_NAME_FIELD,
-        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name.keyword"));
+        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name"));
     context.put(
         SearchTemplateContextVariables.DESCRIPTION_FIELD,
         analyzedPath(fieldResolver, "description"));
@@ -411,7 +411,7 @@ public class SearchV3QueryBuilder {
         exactPath(fieldResolver, "platform", SearchFieldResolver.Intent.FILTER, "platform_urn"));
     context.put(
         SearchTemplateContextVariables.COLUMN_NAME_FIELD,
-        exactPath(fieldResolver, "fieldPaths", SearchFieldResolver.Intent.EXACT, "name_1.keyword"));
+        exactPath(fieldResolver, "fieldPaths", SearchFieldResolver.Intent.EXACT, "name_1"));
     String urnExact = exactPath(fieldResolver, "urn", SearchFieldResolver.Intent.EXACT, "urn");
     context.put(SearchTemplateContextVariables.URN_FIELD, urnExact);
     context.put(SearchTemplateContextVariables.URN_EXACT_FIELD, urnExact);
@@ -424,16 +424,13 @@ public class SearchV3QueryBuilder {
         SearchTemplateContextVariables.NORMALIZED_KEYWORD, ESUtils.keywordNormalize(unquoted));
     context.put(
         SearchTemplateContextVariables.NAME_KEYWORD,
-        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name.keyword"));
+        exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name"));
     context.put(SearchTemplateContextVariables.NAME_TEXT, analyzedPath(fieldResolver, "name"));
     context.put(SearchTemplateContextVariables.PREFIX_FIELD, analyzedPath(fieldResolver, "name"));
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_KEYWORD,
         exactPath(
-            fieldResolver,
-            "qualifiedName",
-            SearchFieldResolver.Intent.EXACT,
-            "qualifiedName.keyword"));
+            fieldResolver, "qualifiedName", SearchFieldResolver.Intent.EXACT, "qualifiedName"));
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_TEXT,
         analyzedPath(fieldResolver, "qualifiedName"));
@@ -445,7 +442,7 @@ public class SearchV3QueryBuilder {
         analyzedPath(fieldResolver, "description"));
     context.put(
         SearchTemplateContextVariables.ID_KEYWORD,
-        exactPath(fieldResolver, "id", SearchFieldResolver.Intent.EXACT, "id.keyword"));
+        exactPath(fieldResolver, "id", SearchFieldResolver.Intent.EXACT, "id"));
     context.put(SearchTemplateContextVariables.URN_KEYWORD, urnExact);
     context.put(SearchTemplateContextVariables.ENTITY_TYPES, entityTypeNames(entitySpecs));
     putScoreFunctions(context, entitySpecs);
@@ -768,18 +765,17 @@ public class SearchV3QueryBuilder {
    * each one bounded keyword match, so a deeper name does not add clauses. Patterns treat {@code
    * *}, {@code ?}, and {@code \} as literals. The name whole-identifier clause uses the full-path
    * patterns as a filter: the dataset key is indexed on {@code name}, and a shorter key that merely
-   * contains the same tokens would otherwise outrank the bounded path.
+   * contains the same tokens would otherwise outrank the bounded path. Patterns keep the written
+   * case. A keyword-root wildcard cannot set {@code case_insensitive}: OpenSearch 3 fails that
+   * shard. {@link SearchTemplateJson#parseQuery} drops the flag and adds the lowercase pattern.
    */
   private static void putSpacelessDotted(
       @Nonnull Map<String, Object> context, @Nonnull SearchTemplateQueryShape shape) {
     if (!shape.spacelessDotted) {
       return;
     }
-    String terminal = ESUtils.keywordNormalize(shape.terminalSegment);
-    List<String> qualifiers = new ArrayList<>();
-    for (String qualifier : shape.qualifierSegments) {
-      qualifiers.add(ESUtils.keywordNormalize(qualifier));
-    }
+    String terminal = shape.terminalSegment;
+    List<String> qualifiers = new ArrayList<>(shape.qualifierSegments);
     List<String> segments = new ArrayList<>(qualifiers);
     segments.add(terminal);
     context.put(SearchTemplateContextVariables.SPACELESS_DOTTED, Boolean.TRUE);
@@ -1086,11 +1082,7 @@ public class SearchV3QueryBuilder {
     }
     selected.forEach(
         (property, boost) -> {
-          String termField =
-              StructuredPropertyUtils.usesKeywordSubfield(property.valueType())
-                  ? property.fieldPath() + StructuredPropertySubfields.KEYWORD_SUFFIX
-                  : property.fieldPath();
-          terms.add(QueryBuilders.termQuery(termField, termValue).boost(boost));
+          terms.add(QueryBuilders.termQuery(property.fieldPath(), termValue).boost(boost));
         });
     return terms;
   }

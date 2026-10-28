@@ -12,7 +12,8 @@ record CorpGroupKey {
   */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": true,
+      "lowercase": true
     },
     "fieldType": "WORD_GRAM",
     "queryByDefault": true,
