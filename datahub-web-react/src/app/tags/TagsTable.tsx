@@ -1,6 +1,5 @@
 import { NetworkStatus, useApolloClient } from '@apollo/client';
-import { Modal, Table } from '@components';
-import { message } from 'antd';
+import { Modal, Table, toast } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -97,7 +96,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
             // Find the tag entity from tagsData
             const tagData = tagsData.find((result) => result.entity.urn === tagUrn);
             if (!tagData) {
-                message.error(t('tags.findInfoError'));
+                toast.error(t('tags.findInfoError'));
                 return;
             }
 
@@ -118,11 +117,11 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
             },
         })
             .then(() => {
-                message.success(t('tags.deleteSuccess', { name: tagDisplayName }));
+                toast.success(t('tags.deleteSuccess', { name: tagDisplayName }));
                 refetch(); // Refresh the tag list
             })
             .catch((e: any) => {
-                message.error(t('tags.deleteError', { error: e.message }));
+                toast.error(t('tags.deleteError', { error: e.message }));
             });
 
         setShowDeleteModal(false);
@@ -189,7 +188,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                                 if (canManageTags) {
                                     showDeleteConfirmation(record.entity.urn);
                                 } else {
-                                    message.error(t('tags.noDeletePermissionError'));
+                                    toast.error(t('tags.noDeletePermissionError'));
                                 }
                             }}
                             onDeprecate={() => {

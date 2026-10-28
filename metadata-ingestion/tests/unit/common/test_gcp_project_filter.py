@@ -337,7 +337,7 @@ class TestResolveGcpProjects:
             config, SourceReport(), projects_client=mock_client
         )
 
-        # Empty list should fall through to _search_all_projects
+        # Empty list should fall through to iter_all_projects
         assert isinstance(projects, list)
         assert len(projects) == 0
 

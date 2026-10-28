@@ -98,9 +98,12 @@ from datahub.ingestion.source.sql.mssql.job_models import (
 from datahub.ingestion.source.sql.mssql.query import (
     MSSQL_SYSTEM_DATABASES,
     MSSQLQuery,
+    QueryHistorySource,
+    is_mssql_system_object,
 )
 from datahub.ingestion.source.sql.mssql.query_lineage_extractor import (
     MSSQLLineageExtractor,
+    QueryLogCache,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -128,6 +131,9 @@ from datahub.utilities.file_backed_collections import FileBackedList
 
 if TYPE_CHECKING:
     from datahub.ingestion.agent.sql_passthrough import QueryBudget
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -407,6 +413,40 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         ),
     )
 
+    query_history_source: QueryHistorySource = Field(
+        default=QueryHistorySource.QUERY_STORE,
+        description=(
+            "Where include_query_lineage reads query history from. `query_store` "
+            "(default) uses Query Store, falling back to plan-cache DMVs, and has no "
+            "user attribution. `audit_log` reads a SQL Server Audit / Azure SQL "
+            "Auditing log capturing BATCH_COMPLETED_GROUP, and `extended_events` "
+            "reads an Extended Events event_file capturing sql_batch_completed / "
+            "rpc_completed; both record the login that ran each query, so usage "
+            "statistics include users."
+        ),
+    )
+
+    query_history_path: Optional[str] = Field(
+        default=None,
+        description=(
+            "Location of the audit or Extended Events files for `audit_log` / "
+            "`extended_events`: a file pattern such as `/var/opt/mssql/audit/MyAudit*.sqlaudit` "
+            "or `D:\\XE\\queries*.xel`, or an Azure Blob Storage URL prefix such as "
+            "`https://<account>.blob.core.windows.net/sqldbauditlogs/<server>/`. When "
+            "omitted, the connector looks for a started file audit or running event "
+            "session; Azure SQL Database audits must be configured explicitly."
+        ),
+    )
+
+    email_domain: Optional[str] = Field(
+        default=None,
+        description=(
+            "Appended to SQL Server logins that are not already emails when mapping "
+            "query authors to DataHub users, e.g. `example.com` maps `CORP\\jdoe` to "
+            "`jdoe@example.com`. Only used with `audit_log` / `extended_events`."
+        ),
+    )
+
     max_queries_to_extract: int = Field(
         default=1000,
         description=(
@@ -428,6 +468,17 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         description=(
             "SQL LIKE patterns to exclude from query extraction. "
             "Example: ['%sys.%', '%temp_%'] to exclude system and temp tables."
+        ),
+    )
+
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description=(
+            "Emit a Query entity for every extracted query executed in the "
+            "start_time/end_time window, including read-only queries that produce no "
+            "lineage, with per-query execution counts. Queries appear on each table's Queries tab. Only applies when "
+            "include_query_lineage is enabled. Query Store and DMVs do not record the "
+            "executing user, so queries have no user attribution."
         ),
     )
 
@@ -540,6 +591,39 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         return _validate_string_list_limits(
             value, "query_exclude_patterns", max_count=100, max_item_length=500
         )
+
+    @model_validator(mode="after")
+    def warn_query_usage_statistics_without_query_lineage(self) -> "SQLServerConfig":
+        # Defaults to True, so only warn when the user set it explicitly.
+        if (
+            "include_query_usage_statistics" in self.model_fields_set
+            and self.include_query_usage_statistics
+            and not self.include_query_lineage
+        ):
+            logger.warning(
+                "include_query_usage_statistics has no effect unless include_query_lineage is enabled."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_query_history_source(self) -> "SQLServerConfig":
+        if self.query_history_source == QueryHistorySource.QUERY_STORE:
+            ignored = [
+                name
+                for name in ("query_history_path", "email_domain")
+                if getattr(self, name) is not None
+            ]
+            if ignored:
+                raise ValueError(
+                    f"{', '.join(ignored)} only apply to query_history_source: "
+                    "audit_log or extended_events."
+                )
+        elif not self.include_query_lineage:
+            raise ValueError(
+                f"query_history_source: {self.query_history_source.value} requires "
+                "include_query_lineage: true."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_usage_statistics_dependency(self) -> "SQLServerConfig":
@@ -777,6 +861,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         )
 
 
+def _is_user_object(name: str) -> bool:
+    return not is_mssql_system_object(name)
+
+
 @platform_name("Microsoft SQL Server", id="mssql")
 @config_class(SQLServerConfig)
 @support_status(SupportStatus.GA)
@@ -799,6 +887,14 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         SourceCapabilityModifier.STORED_PROCEDURE,
         SourceCapabilityModifier.VIEW,
     ],
+)
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Optionally enabled via `include_query_lineage` with `include_query_usage_statistics` (per-query) and `include_usage_statistics` (per-table); users are attributed with `query_history_source: audit_log` or `extended_events`",
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class SQLServerSource(SQLAlchemySource):
     """
@@ -882,10 +978,19 @@ class SQLServerSource(SQLAlchemySource):
                 generate_lineage=True,
                 generate_queries=True,
                 generate_usage_statistics=self.config.include_usage_statistics,
-                usage_config=self.config
-                if self.config.include_usage_statistics
-                else None,
+                generate_query_usage_statistics=self.config.include_query_usage_statistics,
+                usage_config=self.config,
                 eager_graph_load=False,
+                is_allowed_table=_is_user_object,
+                # Same predicate the stored-procedure path uses: `#temp` names,
+                # temporary_tables_pattern matches and anything outside the
+                # database/schema/table patterns that wasn't ingested. Those
+                # never become Query subjects, usage or lineage targets. Temp
+                # tables resolve through to real upstreams only within one
+                # session_key: a DMV batch or query-log session, but a single
+                # Query Store statement.
+                # Only called during gen_metadata(), after discovery.
+                is_temp_table=lambda name: not self.is_discovered_table(name),
             )
         return super()._create_aggregator()
 
@@ -987,6 +1092,31 @@ class SQLServerSource(SQLAlchemySource):
             for field in schema_fields:
                 field.fieldPath = field.fieldPath.lower()
         return schema_fields
+
+    def get_profiler_instance(self, inspector: Inspector) -> "SQLAlchemyProfiler":
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
+        # Profiles attach to schemaMetadata by exact fieldPath match. The schema
+        # is lowercased in get_schema_fields when convert_column_urns_to_lowercase
+        # is on, so the profiler must emit the same casing or every column
+        # profile (and any assertion evaluated against it) fails to resolve.
+        field_path_transform: Optional[Callable[[str], str]] = (
+            str.lower if self.config.convert_column_urns_to_lowercase else None
+        )
+
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+            field_path_transform=field_path_transform,
+        )
 
     def get_database_level_workunits(
         self,
@@ -1943,6 +2073,10 @@ class SQLServerSource(SQLAlchemySource):
             "Starting query-based lineage extraction from SQL Server query history"
         )
 
+        query_log_found = False
+        # One read of a server audit / server-scoped event session serves every
+        # database's extractor.
+        query_log_cache: QueryLogCache = {}
         for inspector in self.get_inspectors():
             db_name = self.get_db_name(inspector)
             with inspector.engine.connect() as connection:
@@ -1952,10 +2086,14 @@ class SQLServerSource(SQLAlchemySource):
                     report=self.report,
                     sql_aggregator=self.aggregator,
                     default_schema="dbo",
+                    query_log_cache=query_log_cache,
                 )
 
                 try:
                     lineage_extractor.populate_lineage_from_queries()
+                    query_log_found = (
+                        query_log_found or lineage_extractor.query_log_found
+                    )
                 except Exception as e:
                     logger.error(
                         "Unexpected error during query lineage extraction for database '%s': %s. "
@@ -1973,6 +2111,20 @@ class SQLServerSource(SQLAlchemySource):
                         context=db_name,
                         exc=e,
                     )
+
+        if (
+            self.config.query_history_source != QueryHistorySource.QUERY_STORE
+            and not query_log_found
+        ):
+            self.report.failure(
+                title="No query log available",
+                message=(
+                    f"query_history_source is {self.config.query_history_source.value} "
+                    "but no audit or Extended Events log could be read for any "
+                    "database, so no query history was extracted. See the per-database "
+                    "warnings."
+                ),
+            )
 
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.config.include_query_lineage:

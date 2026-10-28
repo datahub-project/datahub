@@ -1,7 +1,10 @@
 import { FetchStatus, LineageEntity } from '@app/lineageV3/common';
 import orderNodes from '@app/lineageV3/useComputeGraph/orderNodes';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
+
+const entityRegistry = getTestEntityRegistry();
 
 describe('orderNodes', () => {
     const createMockNode = (urn: string, type: EntityType): LineageEntity => ({
@@ -25,11 +28,16 @@ describe('orderNodes', () => {
             [LineageDirection.Upstream]: new Map<string, Set<string>>(),
             [LineageDirection.Downstream]: new Map<string, Set<string>>(),
         };
-        const result = orderNodes('nonexistent', LineageDirection.Downstream, {
-            nodes,
-            adjacencyList,
-            rootType: EntityType.Dataset,
-        });
+        const result = orderNodes(
+            'nonexistent',
+            LineageDirection.Downstream,
+            {
+                nodes,
+                adjacencyList,
+                rootType: EntityType.Dataset,
+            },
+            entityRegistry,
+        );
         expect(result).toEqual([]);
     });
 
@@ -40,11 +48,16 @@ describe('orderNodes', () => {
             [LineageDirection.Upstream]: new Map<string, Set<string>>(),
             [LineageDirection.Downstream]: new Map<string, Set<string>>(),
         };
-        const result = orderNodes('root', LineageDirection.Downstream, {
-            nodes,
-            adjacencyList,
-            rootType: EntityType.Dataset,
-        });
+        const result = orderNodes(
+            'root',
+            LineageDirection.Downstream,
+            {
+                nodes,
+                adjacencyList,
+                rootType: EntityType.Dataset,
+            },
+            entityRegistry,
+        );
         expect(result).toEqual([]);
     });
 
@@ -72,11 +85,16 @@ describe('orderNodes', () => {
             ]),
         };
 
-        const result = orderNodes('root', LineageDirection.Downstream, {
-            nodes,
-            adjacencyList,
-            rootType: EntityType.Dataset,
-        });
+        const result = orderNodes(
+            'root',
+            LineageDirection.Downstream,
+            {
+                nodes,
+                adjacencyList,
+                rootType: EntityType.Dataset,
+            },
+            entityRegistry,
+        );
 
         // Verify BFS order: children before grandchildren
         expect(result.indexOf(child1)).toBeLessThan(result.indexOf(grandchild1));
@@ -99,11 +117,16 @@ describe('orderNodes', () => {
             [LineageDirection.Downstream]: new Map<string, Set<string>>([['root', new Set(['normal', 'transform'])]]),
         };
 
-        const result = orderNodes('root', LineageDirection.Downstream, {
-            nodes,
-            adjacencyList,
-            rootType: EntityType.Dataset,
-        });
+        const result = orderNodes(
+            'root',
+            LineageDirection.Downstream,
+            {
+                nodes,
+                adjacencyList,
+                rootType: EntityType.Dataset,
+            },
+            entityRegistry,
+        );
 
         // Verify transformation is ordered last
         expect(result.indexOf(normalNode)).toBeLessThan(result.indexOf(transformNode));
@@ -129,11 +152,16 @@ describe('orderNodes', () => {
             ]),
         };
 
-        const result = orderNodes('root', LineageDirection.Downstream, {
-            nodes,
-            adjacencyList,
-            rootType: EntityType.Dataset,
-        });
+        const result = orderNodes(
+            'root',
+            LineageDirection.Downstream,
+            {
+                nodes,
+                adjacencyList,
+                rootType: EntityType.Dataset,
+            },
+            entityRegistry,
+        );
 
         // Verify alphabetical order
         expect(result.indexOf(nodeA)).toBeLessThan(result.indexOf(nodeB));
@@ -156,17 +184,27 @@ describe('orderNodes', () => {
             [LineageDirection.Downstream]: new Map<string, Set<string>>([['root', new Set(['downstream'])]]),
         };
 
-        const upstreamResult = orderNodes('root', LineageDirection.Upstream, {
-            nodes,
-            adjacencyList,
-            rootType: EntityType.Dataset,
-        });
+        const upstreamResult = orderNodes(
+            'root',
+            LineageDirection.Upstream,
+            {
+                nodes,
+                adjacencyList,
+                rootType: EntityType.Dataset,
+            },
+            entityRegistry,
+        );
 
-        const downstreamResult = orderNodes('root', LineageDirection.Downstream, {
-            nodes,
-            adjacencyList,
-            rootType: EntityType.Dataset,
-        });
+        const downstreamResult = orderNodes(
+            'root',
+            LineageDirection.Downstream,
+            {
+                nodes,
+                adjacencyList,
+                rootType: EntityType.Dataset,
+            },
+            entityRegistry,
+        );
 
         expect(upstreamResult).toEqual([upstreamNode]);
         expect(downstreamResult).toEqual([downstreamNode]);

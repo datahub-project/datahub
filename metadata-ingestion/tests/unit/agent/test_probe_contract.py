@@ -18,7 +18,7 @@ import difflib
 import inspect
 import re
 from pathlib import Path
-from typing import Annotated, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Annotated, Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 
 import pytest
 from pydantic import Field
@@ -43,8 +43,10 @@ from datahub.ingestion.agent.probe_methods import (
     _provider_class,
     config_class_for,
     probe_method,
+    source_class_for,
 )
 from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.source.sql.sql_config import SQL_FAMILY_HOOKS
 
@@ -157,6 +159,43 @@ def test_the_scan_actually_reached_providers():
     assert len(scanned) >= 25, (
         f"only {len(scanned)} providers scanned; the tripwire is inspecting "
         f"fewer sources than it should; extras not installed: {absent}"
+    )
+
+
+# Sources whose config inherits a probe provider that doesn't work for them yet,
+# so they don't declare Probe. Drop an entry when the source gets a provider of
+# its own and declares the capability.
+_PROBE_CAPABILITY_KNOWN_GAPS: FrozenSet[str] = frozenset()
+
+
+def test_probe_capability_is_declared_exactly_where_a_provider_is():
+    """`@capability(SourceCapability.PROBE)` is written by hand on each source, so
+    this keeps it in step with what `probe run` can build: a source that inherits
+    a provider it shouldn't opts out with `probe_provider_class()` returning None."""
+    _, with_provider, _, _ = _scan()
+    declared: Set[str] = set()
+    for source_type in sorted(source_registry.mapping):
+        try:
+            source_cls = source_class_for(source_type)
+        except Exception:
+            # _scan reports why: a broken source, or an extra not installed.
+            continue
+        get_capabilities = getattr(source_cls, "get_capabilities", None)
+        if get_capabilities is not None and any(
+            setting.capability == SourceCapability.PROBE and setting.supported
+            for setting in get_capabilities()
+        ):
+            declared.add(source_type)
+
+    expected = with_provider - _PROBE_CAPABILITY_KNOWN_GAPS
+    assert declared == expected, (
+        "@capability(SourceCapability.PROBE) and probe_provider_class() disagree. "
+        f"Declared without a provider: {sorted(declared - expected)}; "
+        f"provider without the declaration: {sorted(expected - declared)}"
+    )
+    assert with_provider >= _PROBE_CAPABILITY_KNOWN_GAPS, (
+        "stale _PROBE_CAPABILITY_KNOWN_GAPS entries: "
+        f"{sorted(_PROBE_CAPABILITY_KNOWN_GAPS - with_provider)}"
     )
 
 
@@ -835,11 +874,13 @@ def test_no_config_declares_a_catalog_scope_its_provider_never_reads():
         )
         if declaring is SQLCommonConfig:
             continue
-        checked += 1
         provider_cls = _provider_class(source_type)
-        if provider_cls is None or not issubclass(
-            provider_cls, SqlAlchemyMetadataProbe
-        ):
+        if provider_cls is None:
+            # Opted out of probing (clickhouse-usage): no sql gate runs, so a
+            # scope it inherits is moot.
+            continue
+        checked += 1
+        if not issubclass(provider_cls, SqlAlchemyMetadataProbe):
             unread.append(
                 f"{source_type}: {config_cls.__name__}.probe_catalog_scope is "
                 f"never read by {getattr(provider_cls, '__name__', None)}"

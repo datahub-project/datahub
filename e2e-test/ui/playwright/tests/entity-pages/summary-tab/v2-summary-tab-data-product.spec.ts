@@ -14,6 +14,7 @@ import { test, expect } from '../../../fixtures/base-test';
 import { SummaryTabPage } from '../../../pages/entity/summary-tab/summary-tab.page';
 import { TIMEOUTS, LOAD_STATES } from '../../../utils/constants';
 import { ENTITY_URNS, PROPERTY_KEYS, EXPECTED_VALUES, MODULE_TYPES } from '../../../pages/entity/summary-tab/constants';
+import { DomainTag, TestTag } from '../../../utils/test-tags';
 
 const FEATURE_FLAGS = {
   showNavBarRedesign: true,
@@ -35,7 +36,7 @@ test.describe('Data Product Summary Tab', () => {
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   });
 
-  test('summary tab - properties and modules', async () => {
+  test('summary tab - properties and modules', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
     await summaryTabPage.ensurePropertiesSectionVisible();
 
     await summaryTabPage.expectPropertyExists(PROPERTY_KEYS.CREATED);

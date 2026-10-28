@@ -4,6 +4,29 @@ Use the **Important Capabilities** table above as the source of truth for which 
 features this source emits. The notes below cover ODCS-specific behavior that the table
 does not capture.
 
+#### Descriptions
+
+The source owns the descriptions of the logical `odcs` dataset and its fields and rebuilds
+them from the contract on every run, so re-running never duplicates text and removing a
+field from the contract removes its text. Descriptions edited in DataHub are kept and shown
+instead.
+
+- **Dataset:** the table's `description`, then `**Grain:**` with its
+  `dataGranularityDescription`, then the contract `description` (purpose, usage,
+  limitations). A contract with several tables repeats the contract description on each.
+- **Field:** the property's `description`, then a `**Derivation:**` section with its
+  `transformDescription` and its `transformLogic` as a SQL block, then `**Allowed values:**`
+  from the v3.2 `enum` (each value with its `label` and `description`). Values are shown as
+  text in JSON spelling (`true`, `null`, `1.5`), dates as `2024-01-01`, and a value a single line
+  can't show exactly (empty, extra blanks, a line break) quoted as JSON, e.g. `""`. An entry with no `value` is dropped and reported.
+- **v3.2 `context`:** contract-level and then table-level `context` is appended to the dataset
+  description as a `**Guidance for AI and analysts:**` section: the instructions (or the string
+  form), a `**Constraints:**` list from `constraints` and a `**Verified Q&A:**` list from
+  `verifiedStatements`. Datasets have no AI context aspect, so the description is where people
+  and Ask DataHub read it. `${VAR}` references in it are kept as written. Entry `id`, `tags`,
+  `customProperties` and `authoritativeDefinitions` on context entries and enum values are not
+  recorded.
+
 #### Quality rule mapping
 
 Each entry in a `schema[]` (table-level) or `properties[]` (column-level) `quality[]` array
@@ -33,6 +56,22 @@ severity / businessImpact when present), a `dataPlatformInstance` aspect attribu
 the `odcs` platform, and an `externalUrl` from the rule's `authoritativeDefinitions` when
 provided. Assertion URNs are seeded from the spec's `quality.id` when present, so renames
 and reordering do not churn identities.
+
+When a table binds to a physical dataset, `{object}` and `${object}` in a rule's `query`
+are replaced with the bound table's name, for example `my_catalog.my_schema.orders`, without
+the platform instance. The name is not quoted. A name derived from `servers[]` is lowercased
+when `lowercase_physical_urns` lowercases the URN. A `physical_urn_overrides` URN's dataset
+name is used as written, minus the platform instance of the contract's server when that
+server's `server_overrides` entry sets one on the same platform. If the name may instead start
+with a `server_overrides` instance that the contract's server doesn't account for (any case,
+on the same platform or one left unset), its SQL name is unknown, so the placeholder is kept
+and reported. With `verify_physical_urns_exist`, a table that is
+not found in DataHub is not substituted. A table that is not bound or not found keeps the
+placeholder and gets a warning, unless it was unbound on purpose with an empty
+`physical_urn_overrides` entry. An override value that is not a dataset URN with a known env (`PROD`, not
+`prod`), or that contains `${VAR}`, leaves the table unbound with a warning (a `${VAR}` value is reported, and counted,
+as an unresolved variable). Placeholders in `implementation` are not
+replaced and are reported as unresolved variables. `{{object}}` is left as written.
 
 :::warning Routing is exact; nothing is approximated
 
@@ -68,24 +107,41 @@ on it. Resolution per `schema[]` entry, in priority order:
 
 1. `physical_urn_overrides[<contract id>][<schema entry name>]` — an explicit URN, or an
    empty string to deliberately leave the entry unbound. Entries absent from the map fall
-   back to derivation; keys that match no schema entry warn.
+   back to derivation; keys that match no schema entry warn. A value that is not a dataset
+   URN leaves the entry unbound and is reported as a warning.
 2. The contract's first mappable `servers[]` entry. The platform comes from the
    spec-required `servers[].type` (or a matching `server_overrides` entry), and the table
    name (`physicalName`, falling back to `name`) is qualified with the server's own fields
    per the platform's URN convention:
 
-| Server `type` | DataHub platform | Physical name                                                                              |
-| ------------- | ---------------- | ------------------------------------------------------------------------------------------ |
-| `postgres`    | `postgres`       | `database.schema.table`                                                                    |
-| `redshift`    | `redshift`       | `database.schema.table`                                                                    |
-| `sqlserver`   | `mssql`          | `database.schema.table`                                                                    |
-| `snowflake`   | `snowflake`      | `database.schema.table` (lowercased by default; `lowercase_physical_urns: false` opts out) |
-| `bigquery`    | `bigquery`       | `project.dataset.table`                                                                    |
-| `databricks`  | `databricks`     | `catalog.schema.table`                                                                     |
-| `trino`       | `trino`          | `catalog.schema.table`                                                                     |
-| `mysql`       | `mysql`          | `database.table`                                                                           |
-| `oracle`      | `oracle`         | not composable — supply a dotted `physicalName` or an explicit override                    |
-| anything else | —                | unbound (logical dataset and assertions unaffected)                                        |
+| Server `type` | DataHub platform               | Physical name                                                                              |
+| ------------- | ------------------------------ | ------------------------------------------------------------------------------------------ |
+| `postgres`    | `postgres`                     | `database.schema.table`                                                                    |
+| `redshift`    | `redshift`                     | `database.schema.table`                                                                    |
+| `sqlserver`   | `mssql`                        | `database.schema.table`                                                                    |
+| `snowflake`   | `snowflake`                    | `database.schema.table` (lowercased by default; `lowercase_physical_urns: false` opts out) |
+| `bigquery`    | `bigquery`                     | `project.dataset.table`                                                                    |
+| `databricks`  | `databricks`                   | `catalog.schema.table`                                                                     |
+| `trino`       | `trino`                        | `catalog.schema.table`                                                                     |
+| `mysql`       | `mysql`                        | `database.table`                                                                           |
+| `oracle`      | `oracle`                       | not composable — supply a dotted `physicalName` or an explicit override                    |
+| `glue`        | `glue`                         | `database.table`, lowercased (see note)                                                    |
+| `iceberg`     | `glue` or `iceberg` (see note) | `namespace.table`                                                                          |
+| anything else | —                              | unbound (logical dataset and assertions unaffected)                                        |
+
+Notes on `glue` and `iceberg`:
+
+- Glue stores names in lowercase, so composed `glue` names are lowercased
+  (`lowercase_physical_urns: false` opts out).
+- An `iceberg` server binds to `glue` when its `catalogUrl` is an AWS Glue host
+  (`glue.<region>.amazonaws.com`, including FIPS and China endpoints, with or without
+  `https://`) and `warehouse` is absent
+  or the account ID; the namespace is then the Glue database. A `warehouse` naming another
+  catalog (for example S3 Tables, `<account>:s3tablescatalog/<bucket>`) leaves the entry
+  unbound. Any other `catalogUrl` binds to `iceberg`. A `server_overrides` platform replaces
+  this choice but the name is still `namespace.table`.
+- `glue` server entries were unmappable before v3.2 support. A v3.0/v3.1 contract that lists a
+  `glue` server before another mappable server now binds to the Glue table.
 
 A `physicalName` that already contains a dot is used verbatim (assumed pre-qualified) and
 counted in `report.physical_names_passthrough`. Missing server fields leave the entry
@@ -143,7 +199,7 @@ in place.
 
 ### Limitations
 
-- ODCS v3.0 and v3.1 only. Contracts reporting v2.x in `apiVersion` are skipped with a
+- ODCS v3.0, v3.1 and v3.2 only. Contracts reporting v2.x in `apiVersion` are skipped with a
   warning.
 - **Logical Models are in private beta** and render in the UI only when
   `LOGICAL_MODELS_ENABLED` is enabled (off by default). The logical datasets and their
@@ -152,17 +208,66 @@ in place.
   the column by its dotted property path (`address.city`), matching the logical dataset's
   own `schemaMetadata`. Propagation onto physical datasets whose connectors encode nested
   struct paths differently is subject to the platform propagation mechanism.
-- **Property-level `unique: true` / `required: true` flags are not emitted as
-  assertions** — they map into `schemaMetadata` (nullability, keys) and are enforced via
-  the schema-compliance assertion; express uniqueness checks as `quality[]` rules
-  (`metric: duplicateValues` with `mustBe: 0`) to get a typed field assertion.
+- **Property-level `required` / `primaryKey` map into `schemaMetadata`** (nullability,
+  keys); `unique: true` is not mapped and is not checked by the schema-compliance assertion.
+  Express uniqueness as a `quality[]` rule (`metric: duplicateValues` with `mustBe: 0`) to get
+  a typed field assertion.
+- `authoritativeDefinitions` URLs that DataHub can't store as links (relative paths such as
+  `../docs/orders.md`, schemes other than http, https, ftp and mailto, or URLs containing
+  spaces or characters such as `|`, `{` and `}`) are skipped and reported in one warning per
+  file.
 - File loading is capped at 5 MB by default (`max_input_file_bytes`). Larger YAML files
   are skipped with a warning before parsing.
 - Out of scope: SLA (`slaProperties`), `support`, `price`, v3.1 `relationships` (foreign
   keys), `customProperties` → DataHub `customProperties` (only the `odcs.*` provenance
   subset is emitted), `classification` → `GlossaryTerm` linking, schemaField-level
-  `logicalParent` column links, and ODCS export. Spec-valid-but-unmapped fields are
-  reported once per file via `report.spec_fields_ignored`. These may land in a follow-up.
+  `logicalParent` column links, and ODCS export. Spec-valid fields the source does not map
+  are reported once per file as an info and listed in `report.spec_fields_ignored`. Besides
+  whole sections such as SLA, support and price, these include fields the source reads but
+  does not map: `unique`, `primaryKeyPosition`, `partitioned`, `partitionKeyPosition`,
+  `criticalDataElement` and `encryptedName` on properties, `businessName` on schema
+  objects, `contractCreatedTs`, quality-rule `method` / `schedule` / `scheduler`,
+  team-member `dateIn` / `replacedByUsername`, and server `environment` / `location` /
+  `region`. These may land in a follow-up.
+- **Lossy mappings are reported.** Besides the info above: off-spec values that were
+  dropped, `${VAR}` references in quality `query` text, `{object}` placeholders on a table
+  that is not bound or not found in DataHub, and `physical_urn_overrides` values that are not
+  dataset URNs, are warnings; team roles defaulted to Technical Owner are infos.
+- **ODCS v3.2 coverage is partial.** v3.2 contracts are accepted and validated; only the
+  mappings below are implemented. `logicalType: vector` maps to an array type (dimensions and
+  element type are not recorded); `deprecated: true` on a schema object or property emits a
+  `deprecation` aspect on the logical dataset or field, and an explicit `deprecated: false`
+  clears it (an absent key emits nothing); property
+  `synonyms` map to the field's AI context synonyms (`status: deprecated` entries are skipped;
+  `locale` and `source` are dropped). Properties with `semanticType: measure` are aggregates,
+  not physical columns, so they stay in the logical schema but are left out of the
+  schema-compliance assertion. Column-level `quality[]` rules on a measure still become field
+  assertions on the logical dataset; they cannot be evaluated against a physical table.
+  Deleting the `deprecated` key does not undo an earlier run; set `deprecated: false`
+  instead. The contract owns a field's synonyms: they **replace** synonyms set on that field
+  in DataHub. Only an explicit `synonyms: []` clears them; deleting the key, or a list with no
+  usable entry, leaves earlier synonyms in place. With a DataHub connection the field's other
+  AI context (instructions, examples) is kept, and the field is skipped with a warning if that
+  context cannot be read; without one, the AI context aspect is written as a whole (reported
+  once as an info), and an empty list writes nothing, so clearing synonyms needs a DataHub
+  connection. With `strict_validation: false` (the default), off-spec `deprecated`,
+  `synonyms` or `semanticType` values are dropped and reported as a warning rather than
+  rejecting the contract; with `strict_validation: true` the contract fails JSON Schema
+  validation instead.
+  `context` and `enum` go into descriptions (see [Descriptions](#descriptions)). Accepted but not
+  yet mapped: schema-object `synonyms`, other `semanticType` uses, and the server fields
+  `encoding` and `workgroup`. These may land in a
+  follow-up.
+- **Variables are not resolved.** v3.2 `${VAR}` / `${VAR:-default}` references are kept
+  verbatim. A server `type`, a name-composing server field, an Iceberg `catalogUrl` (or, on a
+  Glue catalog, `warehouse`), or `physicalName` that contains one leaves the physical binding
+  unbound,
+  reported as a warning; use `physical_urn_overrides` to bind it explicitly. A server refused
+  this way stops the search: later servers are not tried, since the contract may not describe
+  them. A `${VAR}` in a quality rule's `query` or `implementation` is copied into its
+  assertion unresolved and reported as a warning, so resolve variables before ingestion (for
+  example with `envsubst` in CI). Unquoted numbers are read as plain decimals only: a value
+  such as `0777` or `12:30` keeps its text instead of becoming YAML 1.1 octal or base-60.
 - **ODPS documents are not read.** `emit_data_product_association` marks the datasets a
   contract governs as output ports of the product the contract names, but the product side
   of the Bitol model is not ingested: no ODPS file is parsed, so port names, port versions,
@@ -172,7 +277,7 @@ in place.
   several output ports" and "several contracts on one port" remain unrepresentable. A
   contract listed under a product's `inputPorts` rather than `outputPorts` cannot be
   distinguished from ODCS alone; it would be marked as an output port too.
-- **Schema validation depends on the bundled JSON Schemas.** The v3.0.2 / v3.1.0 schemas
+- **Schema validation depends on the bundled JSON Schemas.** The v3.0.2 / v3.1.0 / v3.2.0 schemas
   are vendored with the plugin, so `strict_validation` normally works out of the box. If a
   contract declares a supported `apiVersion` for which no validator is available (e.g. a
   packaging regression that dropped a schema file), the contract is parsed **without**

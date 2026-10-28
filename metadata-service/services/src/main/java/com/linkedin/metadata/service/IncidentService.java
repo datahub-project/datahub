@@ -196,8 +196,8 @@ public class IncidentService extends BaseService {
   public void deleteIncident(@Nonnull OperationContext opContext, @Nonnull final Urn incidentUrn)
       throws Exception {
     Objects.requireNonNull(incidentUrn, "incidentUrn must not be null");
-    this.entityClient.deleteEntity(opContext, incidentUrn);
-    this.entityClient.deleteEntityReferences(opContext, incidentUrn);
+    final var references = this.entityClient.deleteEntityThenReferences(opContext, incidentUrn);
+    references.run();
   }
 
   /** Updates an existing incident's status. */

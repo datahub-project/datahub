@@ -46,6 +46,7 @@ type Props = {
     refetch?: () => void;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    numResults?: number;
 };
 
 export default function EmbeddedListSearchHeader({
@@ -63,6 +64,7 @@ export default function EmbeddedListSearchHeader({
     refetch,
     searchBarStyle,
     searchBarInputStyle,
+    numResults,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { t } = useTranslation('entityV1.shared.components');
@@ -104,6 +106,7 @@ export default function EmbeddedListSearchHeader({
                                 filters={filters}
                                 query={query}
                                 setShowSelectMode={setIsSelectMode}
+                                totalResults={numResults}
                             />
                         </SearchMenuContainer>
                     </SearchAndDownloadContainer>
