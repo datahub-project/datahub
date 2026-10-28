@@ -85,7 +85,17 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: [mergeApiComponents, 
           'modelPropertyNaming': "original",
           'modelPackage'       : "io.datahubproject.openapi.generated",
           'apiPackage'         : "io.datahubproject.openapi.v2.generated.controller",
-          'delegatePattern'    : "false"
+          'delegatePattern'    : "false",
+          // Generated example payloads are embedded as single Java string literals and grow
+          // with the entity's aspect surface; wide entities exceed javac's 64KB constant limit.
+          'disableExample'     : "true"
   ]
+  // swagger-codegen logs spec parse errors on a worker thread and exits successfully,
+  // so fail here instead of silently producing no controllers.
+  doLast {
+    if (fileTree(outputDir).include('**/v2/generated/controller/*Api.java').isEmpty()) {
+      throw new GradleException("openApiGenerate produced no controllers from ${inputFile}")
+    }
+  }
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
