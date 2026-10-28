@@ -1,5 +1,6 @@
 """Download, cache, verify, and load data packs into DataHub."""
 
+import base64
 import contextlib
 import hashlib
 import json
@@ -30,7 +31,7 @@ from datahub.cli.datapack.models import DataPackInfo, LoadRecord, TrustTier
 from datahub.cli.datapack.time_shift import time_shift_file
 from datahub.configuration.env_vars import get_skip_config
 from datahub.ingestion.auth.env import build_auth_config_from_env
-from datahub.ingestion.auth.registry import AuthConfig
+from datahub.ingestion.auth.registry import AuthConfig, build_token_provider
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 
@@ -778,6 +779,125 @@ def _resolve_datapack_client_config(
     return resolved
 
 
+_CERTIFICATION_ASPECT = "certification"
+_ACTOR_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.@+-]+$")
+
+
+def actor_urn_from_token(token: Optional[str]) -> Optional[str]:
+    """Corpuser URN of the writer a bearer token authenticates as.
+
+    DataHub access tokens carry ``actorId``. OAuth tokens do not; GMS maps those
+    to a service account from the issuer and the ``sub`` claim, which is the
+    default user id claim. The payload is read without verifying the signature.
+    The server still authenticates the token; this only supplies the writer the
+    certification validator must match.
+    """
+    claims = _token_claims(token)
+    if claims is None:
+        return None
+    actor_id = claims.get("actorId")
+    if actor_id is not None:
+        if isinstance(actor_id, str) and _ACTOR_ID_PATTERN.fullmatch(actor_id):
+            return f"urn:li:corpuser:{actor_id}"
+        return None
+    return _oauth_service_actor(claims)
+
+
+def actor_urn_from_client(client_config: DatahubClientConfig) -> Optional[str]:
+    """Writer URN for the credentials the datapack sink will actually send.
+
+    Env OAuth (``DATAHUB_AUTH_TYPE``) leaves ``token`` empty and stores the
+    provider on ``auth``. The sink authenticates with that provider, so the
+    certification stamps have to name the same actor.
+    """
+    token = client_config.token
+    if not token and client_config.auth is not None:
+        token = build_token_provider(client_config.auth).get_token().token
+    return actor_urn_from_token(token)
+
+
+def _token_claims(token: Optional[str]) -> Optional[dict]:
+    if not token or token.count(".") != 2:
+        return None
+    payload = token.split(".", 2)[1]
+    padding = "=" * (-len(payload) % 4)
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(payload + padding))
+    except (json.JSONDecodeError, ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(claims, dict):
+        return None
+    return claims
+
+
+def _oauth_service_actor(claims: dict) -> Optional[str]:
+    """Match ``ServiceAccountService.buildServiceUserUrn`` for the default claim.
+
+    The issuer is sanitized. The subject is copied unchanged: GMS does not
+    restrict it, and service-account tokens use characters such as ``:`` and
+    ``|``. Filtering those here skips certification stamping for a writer the
+    server will accept.
+    """
+    issuer = claims.get("iss")
+    subject = claims.get("sub")
+    if not isinstance(issuer, str) or not isinstance(subject, str):
+        return None
+    if not issuer or not subject:
+        return None
+    sanitized = re.sub(r"https?://", "", issuer)
+    sanitized = re.sub(r"[^a-zA-Z0-9]", "_", sanitized)
+    return f"urn:li:corpuser:__oauth_{sanitized}_{subject}"
+
+
+def _set_audit_actor(stamp: object, actor_urn: str) -> bool:
+    if not isinstance(stamp, dict) or "actor" not in stamp:
+        return False
+    if stamp.get("actor") == actor_urn:
+        return False
+    stamp["actor"] = actor_urn
+    return True
+
+
+def attribute_certifications(path: pathlib.Path, actor_urn: str) -> pathlib.Path:
+    """Copy a pack file so certification stamps name the authenticated writer.
+
+    The certification validator rejects a grant attributed to anyone else. A shared pack
+    cannot name every possible writer, so the loader fills the stamps at ingest time.
+    Other aspects are left unchanged. The original path is returned when nothing changes.
+    """
+    with open(path) as pack_file:
+        data = json.load(pack_file)
+    if not isinstance(data, list):
+        return path
+
+    changed = False
+    for item in data:
+        if (
+            not isinstance(item, dict)
+            or item.get("aspectName") != _CERTIFICATION_ASPECT
+        ):
+            continue
+        aspect = item.get("aspect")
+        if not isinstance(aspect, dict):
+            continue
+        body = aspect.get("json")
+        if not isinstance(body, dict):
+            continue
+        changed = _set_audit_actor(body.get("lastModified"), actor_urn) or changed
+        current = body.get("current")
+        if isinstance(current, dict):
+            changed = _set_audit_actor(current.get("certified"), actor_urn) or changed
+
+    if not changed:
+        return path
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".json", delete=False, prefix="datapack-certification-"
+    ) as tmp:
+        json.dump(data, tmp)
+        return pathlib.Path(tmp.name)
+
+
 def ingest_datapack_file_entries(
     pack: DataPackInfo,
     file_entries: List[IndexFileEntry],
@@ -821,6 +941,10 @@ def ingest_datapack_file_entries(
                 reference_timestamp=pack.reference_timestamp,
                 target_timestamp=target_ts,
             )
+
+        writer = actor_urn_from_client(client_config)
+        if writer is not None:
+            effective_path = attribute_certifications(effective_path, writer)
 
         _run_pipeline_for_file(
             effective_path,

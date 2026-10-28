@@ -61,6 +61,54 @@ public class SearchTemplateComponentTest {
   }
 
   @Test
+  public void testEmptyPostProcessLeavesOrderUnchanged() {
+    SearchTemplateComponentRegistry empty = SearchTemplateComponentRegistry.empty();
+    expectThrows(
+        SearchTemplateException.class,
+        () -> SearchTemplateComponents.checkWrite(postProcessProperties(null, null), empty));
+
+    SearchTemplateComponentRegistry registry =
+        new SearchTemplateComponentRegistry(List.of(new EmptyPostProcessComponent()));
+    SearchTemplateProperties valid = postProcessProperties("entityTypeDiversity,matchTier", "100");
+    SearchTemplateComponents.checkWrite(valid, registry);
+    SearchTemplateProperties ownRung = postProcessProperties(null, null);
+    ownRung.getComponent().setMode(SearchTemplateComponentMode.OWN_RUNG);
+    expectThrows(
+        SearchTemplateException.class,
+        () -> SearchTemplateComponents.checkWrite(ownRung, registry));
+
+    MergedSearchTemplate template =
+        MergedSearchTemplate.builder()
+            .urn("urn:li:searchTemplate:ranked")
+            .dialect("ELASTICSEARCH")
+            .queryFragments(Map.of())
+            .parameters(Map.of())
+            .chain(List.of("urn:li:searchTemplate:ranked"))
+            .component(valid.getComponent())
+            .build();
+    assertEquals(
+        SearchTemplateCapabilities.rejectionCode(template, false, false, empty), "component");
+    assertEquals(SearchTemplateCapabilities.rejectionCode(template, false, false, registry), null);
+    SearchTemplateCapabilities.requireSupported(template, false, registry);
+
+    SearchResult page = new SearchResult();
+    page.setEntities(
+        new SearchEntityArray(List.of(hit("urn:li:dataset:a"), hit("urn:li:dataset:b"))));
+    SearchTemplateComponentRequest request =
+        SearchTemplateComponentRequest.builder()
+            .query("orders")
+            .from(0)
+            .size(2)
+            .hits(List.of(hit("urn:li:dataset:a"), hit("urn:li:dataset:b")))
+            .config(SearchTemplateComponents.config(valid.getComponent()))
+            .mode(SearchTemplateComponentMode.POST_PROCESS)
+            .build();
+    SearchTemplateComponents.applyPostProcess(registry, template, request, page);
+    assertEquals(page.getEntities().get(0).getEntity().toString(), "urn:li:dataset:a");
+    assertEquals(new EmptyPostProcessComponent().plan(request, request.getConfig()), 0);
+  }
+
+  @Test
   public void testSkipConditions() {
     assertTrue(SearchTemplateComponents.skip(true, 10, null, 0, 50));
     assertTrue(SearchTemplateComponents.skip(false, 0, null, 0, 50));
@@ -144,6 +192,28 @@ public class SearchTemplateComponentTest {
         "",
         SearchTemplateComponents.cacheSuffix(
             new com.linkedin.search.template.SearchTemplateComponent()));
+  }
+
+  private static SearchTemplateProperties postProcessProperties(String twiddlers, String topK) {
+    com.linkedin.search.template.SearchTemplateComponent component =
+        new com.linkedin.search.template.SearchTemplateComponent();
+    component.setName("postProcess");
+    component.setVersion(1);
+    component.setMode(SearchTemplateComponentMode.POST_PROCESS);
+    Map<String, String> config = new java.util.LinkedHashMap<>();
+    config.put("window", "100");
+    config.put("windowSizer", "tokenCurve");
+    if (twiddlers != null) {
+      config.put("twiddlers", twiddlers);
+    }
+    if (topK != null) {
+      config.put("topK", topK);
+    }
+    component.setConfig(new StringMap(config));
+    SearchTemplateProperties properties = new SearchTemplateProperties();
+    properties.setName("ranked");
+    properties.setComponent(component);
+    return properties;
   }
 
   private static SearchTemplateProperties componentProperties(SearchTemplateComponentMode mode) {

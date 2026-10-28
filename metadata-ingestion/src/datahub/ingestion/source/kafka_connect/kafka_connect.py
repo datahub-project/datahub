@@ -73,6 +73,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
+from datahub.utilities.java_runtime import prepare_jvm_settings
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +191,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         self._catalog = self._create_catalog()
 
         if not jpype.isJVMStarted():
-            jpype.startJVM()
+            try:
+                jpype.startJVM(*prepare_jvm_settings())
+            except (RuntimeError, ValueError) as e:
+                # The JVM only powers Java-regex transform evaluation; degrade
+                # like transform_plugins does at import instead of failing the
+                # source. ValueError covers jpype's JVMNotFoundException.
+                logger.warning(
+                    f"Could not start a JVM: {e}. RegexRouter transforms will be skipped."
+                )
 
     def _create_catalog(self) -> Optional[ConnectorCatalog]:
         if not self.config.confluent_catalog.enabled:
