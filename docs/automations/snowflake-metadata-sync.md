@@ -104,23 +104,12 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
 
 ## Logical model descriptions
 
-When you sync Descriptions, you can also select **Sync descriptions from logical models**. Descriptions that reach a Snowflake table or column from its logical model are then synced as comments too. This is off by default because it replaces the existing comment in Snowflake.
+When you sync Descriptions, you can also select **Sync descriptions from logical models** (off by default, since it replaces existing comments). Descriptions that a table or column gets from its logical model are then synced as comments, unless it has a description edited in DataHub, which always wins. Descriptions that arrive through lineage are not synced. Initialize writes the logical-model description of every linked table and column.
 
-For each table or column, the automation writes the first of these that holds text:
+:::note Limitations
 
-1. A description edited in DataHub.
-2. The description propagated from the logical model.
-3. The ingested description.
-
-Descriptions that reach a table or column through lineage are not synced.
-
-If the option is selected, Initialize also writes the logical-model description of every Snowflake table and column linked to a logical model, replacing its existing comment, unless the table or column has a description edited in DataHub.
-
-:::note Known gaps
-
-- Removing a logical-model description in DataHub does not clear the comment in Snowflake. The next Snowflake ingestion imports that comment back as the table or column's ingested description, so clear or replace the comment in Snowflake as well.
-- Clearing a description edited in DataHub clears the Snowflake comment; it does not bring back the logical-model description. Run Initialize to write it again.
-- A description that reached a table or column through lineage after a logical-model hop is treated as a logical-model description.
+- Removing a logical-model description does not clear the comment in Snowflake. Clear it there too, or the next ingestion imports it back.
+- Clearing a description edited in DataHub clears the Snowflake comment instead of restoring the logical-model description. Run Initialize to write it again.
 
 :::
 

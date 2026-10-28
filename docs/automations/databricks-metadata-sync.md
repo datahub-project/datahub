@@ -32,18 +32,21 @@ The Databricks Metadata Sync automation provides comprehensive metadata synchron
 
 - **Automated Tag Propagation**: Seamlessly sync DataHub Tags to Unity Catalog tables, columns, catalogs, and schemas
 - **Description Synchronization**: Automatically propagate DataHub descriptions to Unity Catalog objects as comments
-- **Logical Model Descriptions**: When you sync Descriptions, you can also select **Sync descriptions from logical models**. Descriptions that reach a Databricks table or column from its logical model are then synced as comments too, unless the table or column has its own description edited in DataHub. This is off by default because it replaces the existing comment in Databricks.
+- **Logical Model Descriptions**: Optionally sync the descriptions that tables and columns get from a logical model (see [Logical model descriptions](#logical-model-descriptions))
 - **Bidirectional Updates**: Maintain consistency by automatically removing Tags and descriptions from Unity Catalog when they are removed in DataHub
 - **Selective Propagation**: Configure specific Tags for propagation, or sync all Tags
 - **Historical Backfill**: Initialize Tags and Descriptions for assets on Databricks with current DataHub Tags & Descriptions.
 
 > **A note about legacy Hive Metastore**: Bi-directional sync for _descriptions_ is supported for Hive Metastore Schemas & Tables, but Tag sync is _not_. This is because Databricks does not support applying of Tags to these assets on Hive Metastore.
 
-:::note Logical model descriptions are not removed
+## Logical model descriptions
 
-Removing a logical-model description in DataHub does not clear the comment in Databricks. The next Databricks ingestion imports that comment back as the table or column's source description, so clear or replace the comment in Databricks as well.
+When you sync Descriptions, you can also select **Sync descriptions from logical models** (off by default, since it replaces existing comments). Descriptions that a table or column gets from its logical model are then synced as comments, unless it has a description edited in DataHub, which always wins. Descriptions that arrive through lineage are not synced. Initialize writes the logical-model description of every linked table and column.
 
-Clearing a description edited in DataHub does not bring back the logical-model description in Databricks either. Databricks keeps the cleared text until you run Initialize again.
+:::note Limitations
+
+- Removing a logical-model description does not clear the comment in Databricks. Clear it there too, or the next ingestion imports it back.
+- Clearing a description edited in DataHub leaves the Databricks comment unchanged instead of restoring the logical-model description. Run Initialize to write it again.
 
 :::
 
@@ -161,6 +164,7 @@ Choose between:
 
 - **Tags**: Sync Tags for Tables, Columns, Catalogs, & Schemas (Unity Catalog only)
 - **Descriptions**: Sync descriptions for Tables, Columns, Catalogs & Schemas as comments (Unity Catalog & legacy Hive Metastore)
+  - **Sync descriptions from logical models**: Shown when **Descriptions** is selected. Off by default. See [Logical model descriptions](#logical-model-descriptions).
 
 <p align="center">
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/databricks-metadata-sync/select-action.png" alt="Select Sync Action"/>
@@ -208,8 +212,6 @@ Click **Save and Run** to activate the automation and begin real-time synchroniz
 ### Initializing Existing Assets
 
 For environments with existing DataHub metadata, you can perform a one-time backfill to ensure all current Tags and Descriptions from DataHub are propagated to Unity Catalog. Depending on the number of assets, this might take a while!
-
-If **Sync descriptions from logical models** is selected, Initialize also writes the logical-model description of every Databricks table and column linked to a logical model, replacing its existing comment, unless the table or column has a description edited in DataHub.
 
 #### Initialization Process
 
