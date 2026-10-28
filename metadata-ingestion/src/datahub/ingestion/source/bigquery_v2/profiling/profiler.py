@@ -1,5 +1,4 @@
 import logging
-from dataclasses import replace
 from datetime import datetime
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, cast
 
@@ -20,6 +19,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.metadata.schema_classes import DatasetProfileClass
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
@@ -240,12 +240,29 @@ WHERE
         if len(profile_requests) == 0:
             return
 
-        yield from self.generate_profile_workunits(
+        # A profile's rowCount and sizeInBytes describe the whole dataset. For a
+        # collapsed sharded table that is every shard, although only the latest shard
+        # is profiled, so eligibility and sampling above still use that shard's stats.
+        sharded_totals = {
+            self.dataset_urn_builder(
+                request.pretty_name
+            ): request.table.sharded_table_stats
+            for request in profile_requests
+            if isinstance(request.table, BigqueryTable)
+            and request.table.sharded_table_stats
+        }
+        for wu in self.generate_profile_workunits(
             profile_requests,
             max_workers=self.config.profiling.max_workers,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
-        )
+        ):
+            totals = sharded_totals.get(wu.get_urn())
+            profile = wu.get_aspect_of_type(DatasetProfileClass)
+            if totals and profile:
+                profile.rowCount = totals.rows_count
+                profile.sizeInBytes = totals.size_in_bytes
+            yield wu
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         return BigqueryTableIdentifier(
@@ -266,21 +283,7 @@ WHERE
     def get_profile_request(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> Optional[TableProfilerRequest]:
-        bq_table = cast(BigqueryTable, table)
-        # A collapsed sharded table's rows_count / size_in_bytes cover every shard, but
-        # only the latest shard is profiled. Size limits, sampling and the profile's own
-        # counts must use that shard's stats, or a long shard history would shrink the
-        # sample and push the table over profile_table_size_limit.
-        if (
-            bq_table.physical_rows_count is not None
-            or bq_table.physical_size_in_bytes is not None
-        ):
-            bq_table = replace(
-                bq_table,
-                rows_count=bq_table.physical_rows_count,
-                size_in_bytes=bq_table.physical_size_in_bytes,
-            )
-        profile_request = super().get_profile_request(bq_table, schema_name, db_name)
+        profile_request = super().get_profile_request(table, schema_name, db_name)
 
         if not profile_request:
             return None
@@ -293,6 +296,7 @@ WHERE
         # selection should move down into the SQLAlchemy adapter — it only lives
         # here because the shape had to stay valid for a second profiler engine.
 
+        bq_table = cast(BigqueryTable, table)
         (partition, custom_sql) = self.generate_partition_profiler_query(
             db_name, schema_name, bq_table, self.config.profiling.partition_datetime
         )

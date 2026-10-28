@@ -57,6 +57,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 # the whole call rather than one HTTP attempt of DEFAULT_RETRY's ~600s storm.
 _MV_STATS_TIMEOUT_SEC = 30
 
+# INFORMATION_SCHEMA.PARTITIONS rejects a query that reads more than 1000 tables.
+_PARTITIONS_MAX_TABLES_PER_QUERY = 1000
+
 
 @dataclass
 class ExternalTableOptions:
@@ -255,6 +258,14 @@ class PartitionInfo:
 
 
 @dataclass
+class ShardedTableStats:
+    rows_count: int = 0
+    size_in_bytes: int = 0
+    active_billable_bytes: int = 0
+    long_term_billable_bytes: int = 0
+
+
+@dataclass
 class BigqueryTable(BaseTable):
     expires: Optional[datetime] = None
     clustering_fields: Optional[List[str]] = None
@@ -264,11 +275,6 @@ class BigqueryTable(BaseTable):
     max_shard_id: Optional[str] = None
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
-    # rows_count / size_in_bytes of a collapsed sharded table cover every shard. These
-    # describe the physical table that was queried (its latest shard), which is the
-    # data profiling and classification actually read.
-    physical_rows_count: Optional[int] = None
-    physical_size_in_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
     external: bool = False
     external_source_format: Optional[str] = None
@@ -277,6 +283,9 @@ class BigqueryTable(BaseTable):
     external_max_bad_records: Optional[int] = None
     constraints: List[BigqueryTableConstraint] = field(default_factory=list)
     table_type: Optional[str] = None
+    # Totals across every shard of a collapsed sharded table. The other stats describe
+    # its latest shard, which is the data that profiling and classification read.
+    sharded_table_stats: Optional[ShardedTableStats] = None
 
 
 @dataclass
@@ -560,7 +569,6 @@ class BigQuerySchemaApi:
         report: BigQueryV2Report,
         with_partitions: bool = False,
         use_legacy_table_stats: bool = False,
-        aggregate_sharded_stats: bool = False,
     ) -> Iterator[BigqueryTable]:
         with PerfTimer() as current_timer:
             filter_clause: str = ", ".join(f"'{table}'" for table in tables)
@@ -571,23 +579,6 @@ class BigQuerySchemaApi:
                 query_template = BigqueryQuery.tables_for_dataset_with_legacy_stats
             else:
                 query_template = BigqueryQuery.tables_for_dataset_with_partition_stats
-
-            # Only the latest shard of a sharded table is queried, so its stats cover that
-            # one shard. When the shards collapse into a single entity, sum every shard's
-            # stats back onto it (see build_sharded_stats_clauses). The rollup re-reads the
-            # dataset's PARTITIONS view, so skip it for batches without a shard.
-            has_shard = any(
-                BigqueryTableIdentifier.get_table_and_shard(name)[1] is not None
-                for name in tables
-            )
-            stats_clauses = BigqueryQuery.build_sharded_stats_clauses(
-                project_id=project_id,
-                dataset_name=dataset_name,
-                use_legacy_table_stats=use_legacy_table_stats,
-                aggregate_sharded_stats=(
-                    with_partitions and aggregate_sharded_stats and has_shard
-                ),
-            )
 
             # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
             # and skip the others. Sharded tables are tables with suffix _20220102
@@ -600,7 +591,6 @@ class BigQuerySchemaApi:
                         if filter_clause
                         else ""
                     ),
-                    **stats_clauses,
                 ),
             )
 
@@ -620,6 +610,42 @@ class BigQuerySchemaApi:
                     )
             self.report.num_get_tables_for_dataset_api_requests += 1
             self.report.get_tables_for_dataset_sec += current_timer.elapsed_seconds()
+
+    def get_sharded_table_stats(
+        self,
+        project_id: str,
+        dataset_name: str,
+        shard_families: Dict[str, List[str]],
+    ) -> Dict[str, ShardedTableStats]:
+        """Sum PARTITIONS stats over every shard of each family.
+
+        shard_families maps a family's latest shard to all of its shards, and the result
+        uses the same keys. A family with no shard in PARTITIONS (e.g. external tables)
+        is left out.
+        """
+        family_of = {
+            shard: latest
+            for latest, shards in shard_families.items()
+            for shard in shards
+        }
+        totals: Dict[str, ShardedTableStats] = {}
+        shard_names = sorted(family_of)
+        for start in range(0, len(shard_names), _PARTITIONS_MAX_TABLES_PER_QUERY):
+            chunk = shard_names[start : start + _PARTITIONS_MAX_TABLES_PER_QUERY]
+            query = BigqueryQuery.partition_stats_for_tables.format(
+                project_id=project_id,
+                dataset_name=dataset_name,
+                table_filter=", ".join(f"'{name}'" for name in chunk),
+            )
+            for row in self.get_query_result(query):
+                stats = totals.setdefault(
+                    family_of[row.table_name], ShardedTableStats()
+                )
+                stats.rows_count += row.total_rows or 0
+                stats.size_in_bytes += row.total_logical_bytes or 0
+                stats.active_billable_bytes += row.active_billable_bytes or 0
+                stats.long_term_billable_bytes += row.long_term_billable_bytes or 0
+        return totals
 
     @staticmethod
     def _make_bigquery_table(
@@ -647,8 +673,6 @@ class BigQuerySchemaApi:
             last_altered=parse_ts_millis(table.get("last_altered")),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
-            physical_size_in_bytes=table.get("physical_bytes"),
-            physical_rows_count=table.get("physical_row_count"),
             comment=table.comment,
             ddl=table.ddl,
             expires=expiration,
