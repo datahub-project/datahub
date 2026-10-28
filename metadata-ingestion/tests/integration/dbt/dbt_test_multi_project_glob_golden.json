@@ -434,7 +434,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD)",
@@ -805,7 +805,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD)",
@@ -958,7 +958,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.raw.customers_raw,PROD)",
@@ -998,7 +998,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders,PROD)",
@@ -1046,7 +1046,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.orders_summary,PROD)",
@@ -1138,7 +1138,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.dim_date,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_a.analytics_db.sales.dim_date,PROD)",
@@ -1821,7 +1821,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customers,PROD)",
@@ -2170,7 +2170,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.sales.orders,PROD)",
@@ -2517,7 +2517,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.crm.customers,PROD)",
@@ -2670,7 +2670,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.sales.orders,PROD)",
@@ -2836,7 +2836,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics_db.raw.customers_raw,PROD)",
@@ -2876,7 +2876,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customer_stats,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customer_stats,PROD)",
@@ -2917,7 +2917,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customers,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.customers,PROD)",
@@ -2958,7 +2958,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.order_rollup,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.crm.order_rollup,PROD)",
@@ -3043,7 +3043,7 @@
                 "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.customers.dim_date,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 0,
+                        "time": 1643871600000,
                         "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,project_b.analytics_db.customers.dim_date,PROD)",
