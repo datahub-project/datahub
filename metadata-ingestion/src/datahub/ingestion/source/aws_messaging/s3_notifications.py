@@ -29,6 +29,7 @@ class S3NotificationLineage:
         graph: Optional[DataHubGraph],
         env: str,
         s3_platform_instance: Optional[str],
+        s3_convert_urns_to_lowercase: bool = False,
         report: AwsMessagingReportBase,
     ):
         self.client = client
@@ -36,6 +37,7 @@ class S3NotificationLineage:
         self.graph = graph
         self.env = env
         self.s3_platform_instance = s3_platform_instance
+        self.s3_convert_urns_to_lowercase = s3_convert_urns_to_lowercase
         self.report = report
         self._exists: Dict[str, bool] = {}
 
@@ -44,6 +46,8 @@ class S3NotificationLineage:
         prefix = (notification.prefix or "").strip("/")
         if prefix:
             names.insert(0, f"{notification.bucket}/{prefix}")
+        if self.s3_convert_urns_to_lowercase:
+            names = [name.lower() for name in names]
         return [
             make_dataset_urn_with_platform_instance(
                 platform=S3_PLATFORM,

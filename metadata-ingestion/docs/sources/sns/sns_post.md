@@ -59,7 +59,7 @@ With the `lineage` options on (the default), the connector follows the services 
 
 #### S3 event notifications
 
-`lineage.s3_notifications` (off by default) reads each bucket's notification configuration and adds the bucket as an upstream of the topics it notifies. S3 datasets are named by bucket and path, while a notification only has a key prefix filter, so the connector looks for an existing S3 dataset named `<bucket>/<prefix>`, then `<bucket>`, and adds no edge if neither is in DataHub. Run the `s3` source first and set `s3_platform_instance` to match its `platform_instance`. This makes one `s3:GetBucketNotification` call per bucket in the recipe's region.
+`lineage.s3_notifications` (off by default) reads each bucket's notification configuration and adds the bucket as an upstream of the topics it notifies. S3 datasets are named by bucket and path, while a notification only has a key prefix filter, so the connector looks for an existing S3 dataset named `<bucket>/<prefix>`, then `<bucket>`, and adds no edge if neither is in DataHub. Run the `s3` source first and set `s3_platform_instance` and `s3_convert_urns_to_lowercase` to match its `platform_instance` and `convert_urns_to_lowercase`. This makes one `s3:GetBucketNotification` call per bucket in the recipe's region.
 
 #### Tags and data protection
 

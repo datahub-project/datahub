@@ -126,6 +126,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             graph=self.ctx.graph,
             env=self.base_config.env,
             s3_platform_instance=self.base_config.s3_platform_instance,
+            s3_convert_urns_to_lowercase=self.base_config.s3_convert_urns_to_lowercase,
             report=self.base_report,
         ).collect(self.lineage)
 

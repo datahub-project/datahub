@@ -106,3 +106,45 @@ def test_off_by_default(aws: None) -> None:
     source = _source(SqsSource, [PREFIX_URN, BUCKET_URN])
     assert upstreams(source) == {}
     assert not source.base_report.lineage_edges_skipped
+
+
+def test_lowercase_matches_the_s3_source_setting(aws: None) -> None:
+    url = sqs_client().create_queue(QueueName="uploads")["QueueUrl"]
+    queue_arn = sqs_client().get_queue_attributes(
+        QueueUrl=url, AttributeNames=["QueueArn"]
+    )["Attributes"]["QueueArn"]
+    s3 = boto3.client("s3", region_name=REGION)
+    s3.create_bucket(Bucket="landing")
+    s3.put_bucket_notification_configuration(
+        Bucket="landing",
+        NotificationConfiguration={
+            "QueueConfigurations": [
+                {
+                    "QueueArn": queue_arn,
+                    "Events": ["s3:ObjectCreated:*"],
+                    "Filter": {
+                        "Key": {
+                            "FilterRules": [{"Name": "prefix", "Value": "Incoming/"}]
+                        }
+                    },
+                }
+            ]
+        },
+        SkipDestinationValidation=True,
+    )
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: urn == PREFIX_URN
+    graph.get_schema_metadata.return_value = None
+
+    def source(lowercase: bool) -> AwsMessagingSourceBase:
+        return SqsSource.create(
+            base_config(
+                lineage={"lambda_functions": False, "s3_notifications": True},
+                s3_convert_urns_to_lowercase=lowercase,
+            ),
+            PipelineContext(run_id="s3-test", graph=graph),
+        )
+
+    # The S3 source lowercased `landing/Incoming` to `landing/incoming`.
+    assert upstreams(source(lowercase=True)) == {QUEUE_URN: {PREFIX_URN}}
+    assert upstreams(source(lowercase=False)) == {}
