@@ -195,11 +195,12 @@ def test_firehose_edge_needs_the_job_in_datahub(aws: None) -> None:
     graph.get_schema_metadata.return_value = None
     graph.exists.return_value = True
     ctx = PipelineContext(run_id="lineage", graph=graph)
-    edges = job_edges(list(SnsSource.create(base_config(), ctx).get_workunits()))
+    config = base_config(firehose_lineage=True)
+    edges = job_edges(list(SnsSource.create(config, ctx).get_workunits()))
     assert edges == {job_urn: {"inputDatasetEdges": {TOPIC_URN}}}
 
     graph.exists.return_value = False
-    source = SnsSource.create(base_config(), ctx)
+    source = SnsSource.create(config, ctx)
     assert job_edges(list(source.get_workunits())) == {}
     assert any(
         job_urn in skipped for skipped in source.get_report().lineage_edges_skipped
@@ -208,7 +209,19 @@ def test_firehose_edge_needs_the_job_in_datahub(aws: None) -> None:
 
 def test_firehose_edge_skipped_without_graph(aws: None) -> None:
     subscribe_firehose()
-    assert run(SnsSource) == {}
+    assert run(SnsSource, firehose_lineage=True) == {}
+
+
+def test_firehose_lineage_is_off_by_default(aws: None) -> None:
+    subscribe_firehose()
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_schema_metadata.return_value = None
+    source = SnsSource.create(
+        base_config(), PipelineContext(run_id="lineage", graph=graph)
+    )
+    assert job_edges(list(source.get_workunits())) == {}
+    graph.exists.assert_not_called()
 
 
 def _schema(*paths: str) -> SchemaMetadataClass:
