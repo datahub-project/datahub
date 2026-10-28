@@ -1,0 +1,1307 @@
+[
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,ltv_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelGroupProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "ltv_model",
+            "description": "Blastradar seed group: ltv_model"
+        }
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,reactivation_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelGroupProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "reactivation_model",
+            "description": "Blastradar seed group: reactivation_model"
+        }
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,churn_model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelGroupProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "churn_model",
+            "description": "Blastradar seed group: churn_model"
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(customer_features,days_since_signup)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "customer_since",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.customers,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.customers,PROD),customer_since)"
+            },
+            "description": "days_since_signup (derived from customer_since)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.customers,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(customer_features,lifetime_order_count)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "order_id",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD),order_id)"
+            },
+            "description": "lifetime_order_count (derived from order_id)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(customer_features,avg_order_value)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "order_total",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.orders,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.orders,PROD),order_total)"
+            },
+            "description": "avg_order_value (derived from order_total)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.orders,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(customer_features,is_active_30d)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "as_of_date",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD),as_of_date)"
+            },
+            "description": "is_active_30d (derived from as_of_date)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(customer_features,loyalty_tier)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "customer_class",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.customers,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.customers,PROD),customer_class)"
+            },
+            "description": "loyalty_tier (derived from customer_class)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.customers,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(order_features,order_total_avg)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "order_total",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_details,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_details,PROD),order_total)"
+            },
+            "description": "order_total_avg (derived from order_total)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_details,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(order_features,order_item_count)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "quantity",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD),quantity)"
+            },
+            "description": "order_item_count (derived from quantity)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(order_features,discount_amount)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "unit_price",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD),unit_price)"
+            },
+            "description": "discount_amount (derived from unit_price)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(order_features,is_first_order)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "order_date",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.orders,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.orders,PROD),order_date)"
+            },
+            "description": "is_first_order (derived from order_date)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.orders,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(session_features,session_count_7d)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "order_status",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD),order_status)"
+            },
+            "description": "session_count_7d (derived from order_status)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(session_features,avg_session_duration)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "dispatch_date",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD),dispatch_date)"
+            },
+            "description": "avg_session_duration (derived from dispatch_date)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(session_features,last_session_recency)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "blastradar.source_column": "as_of_date",
+                "blastradar.source_dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)",
+                "blastradar.source_schema_field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD),as_of_date)"
+            },
+            "description": "last_session_recency (derived from as_of_date)",
+            "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,customer_features)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureTableProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Blastradar seed feature table: customer_features",
+            "mlFeatures": [
+                "urn:li:mlFeature:(customer_features,days_since_signup)",
+                "urn:li:mlFeature:(customer_features,lifetime_order_count)",
+                "urn:li:mlFeature:(customer_features,avg_order_value)",
+                "urn:li:mlFeature:(customer_features,is_active_30d)",
+                "urn:li:mlFeature:(customer_features,loyalty_tier)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,order_features)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureTableProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Blastradar seed feature table: order_features",
+            "mlFeatures": [
+                "urn:li:mlFeature:(order_features,order_total_avg)",
+                "urn:li:mlFeature:(order_features,order_item_count)",
+                "urn:li:mlFeature:(order_features,discount_amount)",
+                "urn:li:mlFeature:(order_features,is_first_order)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,session_features)",
+    "changeType": "UPSERT",
+    "aspectName": "mlFeatureTableProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Blastradar seed feature table: session_features",
+            "mlFeatures": [
+                "urn:li:mlFeature:(session_features,session_count_7d)",
+                "urn:li:mlFeature:(session_features,avg_session_duration)",
+                "urn:li:mlFeature:(session_features,last_session_recency)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlModelDeployment",
+    "entityUrn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,churn_model_v3-prod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelDeploymentProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Deployment of churn_model_v3",
+            "createdAt": 1735689600000,
+            "status": "IN_SERVICE"
+        }
+    }
+},
+{
+    "entityType": "mlModelDeployment",
+    "entityUrn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,churn_model_v3-canary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelDeploymentProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Deployment of churn_model_v3",
+            "createdAt": 1735689600000,
+            "status": "IN_SERVICE"
+        }
+    }
+},
+{
+    "entityType": "mlModelDeployment",
+    "entityUrn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,reactivation_model_v1-prod,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelDeploymentProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Deployment of reactivation_model_v1",
+            "createdAt": 1735689600000,
+            "status": "IN_SERVICE"
+        }
+    }
+},
+{
+    "entityType": "mlModelDeployment",
+    "entityUrn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,reactivation_model_v1-canary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelDeploymentProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Deployment of reactivation_model_v1",
+            "createdAt": 1735689600000,
+            "status": "IN_SERVICE"
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a4cc9c0ee8e70b0c88dc26247d2c1c8f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "churn_model_v1-training-run",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1735689600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a4cc9c0ee8e70b0c88dc26247d2c1c8f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a4cc9c0ee8e70b0c88dc26247d2c1c8f",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "MLFLOW_TRAINING_RUN"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a4cc9c0ee8e70b0c88dc26247d2c1c8f",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.customers,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.orders,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a4cc9c0ee8e70b0c88dc26247d2c1c8f",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "churn_model_v1-training-run",
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "5"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "200"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "auc",
+                    "value": "0.78"
+                },
+                {
+                    "name": "recall",
+                    "value": "0.71"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2db4f62d3e25e0c00513cc71d57b2dcc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "churn_model_v2-training-run",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1735689600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2db4f62d3e25e0c00513cc71d57b2dcc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2db4f62d3e25e0c00513cc71d57b2dcc",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "MLFLOW_TRAINING_RUN"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2db4f62d3e25e0c00513cc71d57b2dcc",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.customers,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.orders,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2db4f62d3e25e0c00513cc71d57b2dcc",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "churn_model_v2-training-run",
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "6"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "300"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "auc",
+                    "value": "0.80"
+                },
+                {
+                    "name": "recall",
+                    "value": "0.74"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c1458ab6b232c1994d8b11964e45efa3",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "churn_model_v3-training-run",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1735689600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c1458ab6b232c1994d8b11964e45efa3",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c1458ab6b232c1994d8b11964e45efa3",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "MLFLOW_TRAINING_RUN"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c1458ab6b232c1994d8b11964e45efa3",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.customers,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.orders,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:c1458ab6b232c1994d8b11964e45efa3",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "churn_model_v3-training-run",
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "6"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "400"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "auc",
+                    "value": "0.83"
+                },
+                {
+                    "name": "recall",
+                    "value": "0.77"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8e71853ca336304db1e5105911c2f3f2",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "ltv_model_v1-training-run",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1735689600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8e71853ca336304db1e5105911c2f3f2",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8e71853ca336304db1e5105911c2f3f2",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "MLFLOW_TRAINING_RUN"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8e71853ca336304db1e5105911c2f3f2",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_details,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_history,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.customers,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.order_items,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.order_entry_db.order_entry.orders,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:8e71853ca336304db1e5105911c2f3f2",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "ltv_model_v1-training-run",
+            "hyperParams": [
+                {
+                    "name": "learning_rate",
+                    "value": "0.05"
+                },
+                {
+                    "name": "num_leaves",
+                    "value": "64"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "rmse",
+                    "value": "42.5"
+                },
+                {
+                    "name": "mae",
+                    "value": "31.0"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:d09264c80bdce9aa40e5fdbd68358f0a",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "reactivation_model_v1-training-run",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1735689600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:d09264c80bdce9aa40e5fdbd68358f0a",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "upstreamInstances": []
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:d09264c80bdce9aa40e5fdbd68358f0a",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "MLFLOW_TRAINING_RUN"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:d09264c80bdce9aa40e5fdbd68358f0a",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,b2fd91.ORDER_ENTRY_DB.analytics.order_details,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:d09264c80bdce9aa40e5fdbd68358f0a",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "reactivation_model_v1-training-run",
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "4"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "150"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "auc",
+                    "value": "0.75"
+                },
+                {
+                    "name": "precision",
+                    "value": "0.68"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,churn_model_v1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "trainingJobs": [
+                "urn:li:dataProcessInstance:a4cc9c0ee8e70b0c88dc26247d2c1c8f"
+            ],
+            "name": "churn_model_v1",
+            "description": "Blastradar seed model churn_model_v1",
+            "version": {
+                "versionTag": "1"
+            },
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "5"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "200"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "auc",
+                    "value": "0.78"
+                },
+                {
+                    "name": "recall",
+                    "value": "0.71"
+                }
+            ],
+            "mlFeatures": [
+                "urn:li:mlFeature:(customer_features,days_since_signup)",
+                "urn:li:mlFeature:(customer_features,lifetime_order_count)",
+                "urn:li:mlFeature:(customer_features,avg_order_value)",
+                "urn:li:mlFeature:(customer_features,is_active_30d)",
+                "urn:li:mlFeature:(customer_features,loyalty_tier)",
+                "urn:li:mlFeature:(session_features,session_count_7d)",
+                "urn:li:mlFeature:(session_features,avg_session_duration)",
+                "urn:li:mlFeature:(session_features,last_session_recency)"
+            ],
+            "tags": [],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,churn_model,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,churn_model_v2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "trainingJobs": [
+                "urn:li:dataProcessInstance:2db4f62d3e25e0c00513cc71d57b2dcc"
+            ],
+            "name": "churn_model_v2",
+            "description": "Blastradar seed model churn_model_v2",
+            "version": {
+                "versionTag": "2"
+            },
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "6"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "300"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "auc",
+                    "value": "0.80"
+                },
+                {
+                    "name": "recall",
+                    "value": "0.74"
+                }
+            ],
+            "mlFeatures": [
+                "urn:li:mlFeature:(customer_features,days_since_signup)",
+                "urn:li:mlFeature:(customer_features,lifetime_order_count)",
+                "urn:li:mlFeature:(customer_features,avg_order_value)",
+                "urn:li:mlFeature:(customer_features,is_active_30d)",
+                "urn:li:mlFeature:(customer_features,loyalty_tier)",
+                "urn:li:mlFeature:(session_features,session_count_7d)",
+                "urn:li:mlFeature:(session_features,avg_session_duration)",
+                "urn:li:mlFeature:(session_features,last_session_recency)"
+            ],
+            "tags": [],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,churn_model,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,churn_model_v3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "trainingJobs": [
+                "urn:li:dataProcessInstance:c1458ab6b232c1994d8b11964e45efa3"
+            ],
+            "name": "churn_model_v3",
+            "description": "Blastradar seed model churn_model_v3",
+            "version": {
+                "versionTag": "3"
+            },
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "6"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "400"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "auc",
+                    "value": "0.83"
+                },
+                {
+                    "name": "recall",
+                    "value": "0.77"
+                }
+            ],
+            "mlFeatures": [
+                "urn:li:mlFeature:(customer_features,days_since_signup)",
+                "urn:li:mlFeature:(customer_features,lifetime_order_count)",
+                "urn:li:mlFeature:(customer_features,avg_order_value)",
+                "urn:li:mlFeature:(customer_features,is_active_30d)",
+                "urn:li:mlFeature:(customer_features,loyalty_tier)",
+                "urn:li:mlFeature:(session_features,session_count_7d)",
+                "urn:li:mlFeature:(session_features,avg_session_duration)",
+                "urn:li:mlFeature:(session_features,last_session_recency)"
+            ],
+            "tags": [],
+            "deployments": [
+                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,churn_model_v3-prod,PROD)",
+                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,churn_model_v3-canary,PROD)"
+            ],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,churn_model,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,ltv_model_v1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "trainingJobs": [
+                "urn:li:dataProcessInstance:8e71853ca336304db1e5105911c2f3f2"
+            ],
+            "name": "ltv_model_v1",
+            "description": "Blastradar seed model ltv_model_v1",
+            "version": {
+                "versionTag": "1"
+            },
+            "hyperParams": [
+                {
+                    "name": "learning_rate",
+                    "value": "0.05"
+                },
+                {
+                    "name": "num_leaves",
+                    "value": "64"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "rmse",
+                    "value": "42.5"
+                },
+                {
+                    "name": "mae",
+                    "value": "31.0"
+                }
+            ],
+            "mlFeatures": [
+                "urn:li:mlFeature:(customer_features,days_since_signup)",
+                "urn:li:mlFeature:(customer_features,lifetime_order_count)",
+                "urn:li:mlFeature:(customer_features,avg_order_value)",
+                "urn:li:mlFeature:(customer_features,is_active_30d)",
+                "urn:li:mlFeature:(customer_features,loyalty_tier)",
+                "urn:li:mlFeature:(order_features,order_total_avg)",
+                "urn:li:mlFeature:(order_features,order_item_count)",
+                "urn:li:mlFeature:(order_features,discount_amount)",
+                "urn:li:mlFeature:(order_features,is_first_order)"
+            ],
+            "tags": [],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,ltv_model,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,reactivation_model_v1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "mlModelProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "trainingJobs": [
+                "urn:li:dataProcessInstance:d09264c80bdce9aa40e5fdbd68358f0a"
+            ],
+            "name": "reactivation_model_v1",
+            "description": "Blastradar seed model reactivation_model_v1",
+            "version": {
+                "versionTag": "1"
+            },
+            "hyperParams": [
+                {
+                    "name": "max_depth",
+                    "value": "4"
+                },
+                {
+                    "name": "n_estimators",
+                    "value": "150"
+                }
+            ],
+            "trainingMetrics": [
+                {
+                    "name": "auc",
+                    "value": "0.75"
+                },
+                {
+                    "name": "precision",
+                    "value": "0.68"
+                }
+            ],
+            "mlFeatures": [
+                "urn:li:mlFeature:(customer_features,days_since_signup)",
+                "urn:li:mlFeature:(customer_features,lifetime_order_count)",
+                "urn:li:mlFeature:(customer_features,avg_order_value)",
+                "urn:li:mlFeature:(customer_features,is_active_30d)",
+                "urn:li:mlFeature:(customer_features,loyalty_tier)"
+            ],
+            "tags": [],
+            "deployments": [
+                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,reactivation_model_v1-prod,PROD)",
+                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,reactivation_model_v1-canary,PROD)"
+            ],
+            "groups": [
+                "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,reactivation_model,PROD)"
+            ]
+        }
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Tier1",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "Tier1",
+            "description": "Tier-1 production model \u2014 highest business criticality",
+            "colorHex": "#d93f0b"
+        }
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Tier2",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+        "json": {
+            "name": "Tier2",
+            "description": "Tier-2 production model",
+            "colorHex": "#fbca04"
+        }
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:growth-ml",
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+        "json": {
+            "displayName": "@growth-ml",
+            "admins": [],
+            "members": [],
+            "groups": [],
+            "description": "Blastradar seed owner group @growth-ml"
+        }
+    }
+},
+{
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:ml-platform",
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+        "json": {
+            "displayName": "@ml-platform",
+            "admins": [],
+            "members": [],
+            "groups": [],
+            "description": "Blastradar seed owner group @ml-platform"
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,churn_model_v1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpGroup:ml-platform",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,churn_model_v1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Tier2"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,churn_model_v2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,churn_model_v2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,churn_model_v3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpGroup:ml-platform",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,churn_model_v3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Tier1"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,ltv_model_v1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,ltv_model_v1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,reactivation_model_v1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpGroup:growth-ml",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:mlflow,reactivation_model_v1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+}
+]
