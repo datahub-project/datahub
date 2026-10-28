@@ -9,11 +9,13 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
 from datahub.ingestion.source.aws_messaging.clients import (
+    CloudTrailLakeClient,
     EventBridgeClient,
     LambdaClient,
     PipesClient,
     S3NotificationClient,
 )
+from datahub.ingestion.source.aws_messaging.cloudtrail import ProducerLineage
 from datahub.ingestion.source.aws_messaging.config import (
     AwsMessagingConfigBase,
     GlueSchemaRegistryConfigBase,
@@ -112,6 +114,26 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             lambdas=self.lambdas,
             region_key=self.region_key(EVENTBRIDGE_PLATFORM),
         )
+
+    def producer_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """CloudTrail producers. Runs before `service_lineage_workunits`, which
+        emits the Lambda jobs this adds outputs to."""
+        producers_config = self.base_config.cloudtrail_producers
+        if not producers_config.enabled:
+            return
+        producers = ProducerLineage(
+            config=producers_config,
+            report=self.base_report,
+            client=CloudTrailLakeClient(
+                self.base_config.make_client(self.session, AwsService.CLOUDTRAIL),
+                self.base_report,
+            ),
+            urns=self.urns,
+            resolver=self.resolver,
+            lambdas=self.lambdas,
+        )
+        producers.collect()
+        yield from producers.workunits()
 
     def collect_s3_notifications(self) -> None:
         if not self.base_config.lineage.s3_notifications:

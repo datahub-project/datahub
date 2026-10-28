@@ -26,6 +26,7 @@ class AwsService(StrEnum):
     EVENTS = "events"
     PIPES = "pipes"
     S3 = "s3"
+    CLOUDTRAIL = "cloudtrail"
 
 
 QUEUE_URL_PATTERN = re.compile(r"/(?P<account>\d{12})/(?P<name>[^/?#]+)/?$")
@@ -106,3 +107,22 @@ LINEAGE_RELATIONSHIP_PROPERTY = "relationship"
 GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
 
 S3_PREFIX_FILTER = "prefix"
+
+OBSERVED_PRODUCERS_PROPERTY = "observed_producers"
+
+# CloudTrail Lake column aliases used in the producer query.
+PRODUCER_COLUMN = "producer"
+RESOURCE_COLUMN = "resource"
+
+ASSUMED_ROLE_PATTERN = re.compile(
+    r"^arn:aws[a-z-]*:sts::(?P<account>\d{12}):assumed-role/(?P<role>[^/]+)/(?P<session>.+)$"
+)
+
+
+class QueryStatus(StrEnum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    FINISHED = "FINISHED"
+
+
+QUERY_POLL_SECONDS = 2

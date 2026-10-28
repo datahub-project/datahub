@@ -134,6 +134,7 @@ class SnsSource(AwsMessagingSourceBase):
         for topic in self.topics:
             self._add_subscription_edges(topic)
         self.collect_s3_notifications()
+        yield from self.producer_workunits()
         yield from self.service_lineage_workunits()
         if self.firehose is not None:
             yield from self.firehose.workunits()

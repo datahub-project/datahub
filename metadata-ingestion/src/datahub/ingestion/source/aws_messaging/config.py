@@ -109,6 +109,37 @@ class AwsMessagingLineageConfig(ConfigModel):
     )
 
 
+class CloudTrailProducersConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Find producers from CloudTrail Lake: who called SendMessage or Publish "
+            "on this source's queues or topics. Needs data-event logging for SQS/SNS "
+            "into an event data store. Lake queries are billed per GB scanned."
+        ),
+    )
+    event_data_store: Optional[str] = Field(
+        default=None,
+        description="ARN or id of the CloudTrail Lake event data store to query.",
+    )
+    lookback_days: int = Field(
+        default=7,
+        ge=1,
+        description="How many days of events the producer query covers.",
+    )
+    query_timeout_seconds: int = Field(
+        default=300,
+        ge=10,
+        description="How long to wait for the CloudTrail Lake query before giving up.",
+    )
+
+    @pydantic.model_validator(mode="after")
+    def require_event_data_store(self) -> "CloudTrailProducersConfig":
+        if self.enabled and not self.event_data_store:
+            raise ValueError("cloudtrail_producers.enabled needs event_data_store.")
+        return self
+
+
 class AwsMessagingConfigBase(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
@@ -152,6 +183,10 @@ class AwsMessagingConfigBase(
     s3_platform_instance: Optional[str] = Field(
         default=None,
         description="platform_instance of the S3 source recipe, for S3 notification lineage.",
+    )
+    cloudtrail_producers: CloudTrailProducersConfig = Field(
+        default_factory=CloudTrailProducersConfig,
+        description="Producer lineage from CloudTrail Lake (off by default).",
     )
     lineage: AwsMessagingLineageConfig = Field(
         default_factory=AwsMessagingLineageConfig,

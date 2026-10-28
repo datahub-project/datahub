@@ -42,6 +42,15 @@ class LambdaLineage:
         self.urns = urns
         self.resolver = resolver
         self.functions: Dict[str, LambdaFunctionEdges] = {}
+        self._function_arns: Optional[Dict[str, str]] = None
+
+    def function_arns_by_name(self) -> Dict[str, str]:
+        if self._function_arns is None:
+            self._function_arns = {
+                function["FunctionName"]: function["FunctionArn"]
+                for function in self.client.list_functions()
+            }
+        return self._function_arns
 
     def function(
         self, function_arn: str, context: str
@@ -94,16 +103,12 @@ class LambdaLineage:
             if failure_urn:
                 edges.outputs.add(failure_urn)
         if self.config.lineage.lambda_async_destinations:
-            for function in self.client.list_functions():
-                for destination in self.client.list_async_destinations(
-                    function["FunctionName"]
-                ):
+            for name, function_arn in self.function_arns_by_name().items():
+                for destination in self.client.list_async_destinations(name):
                     urn = self.resolver.urn(parse_arn(destination))
                     if urn is None:
                         continue
-                    edges = self.function(
-                        function["FunctionArn"], "async invoke destination"
-                    )
+                    edges = self.function(function_arn, "async invoke destination")
                     if edges is not None:
                         edges.outputs.add(urn)
 

@@ -47,6 +47,14 @@ With the `lineage` options on (the default), the connector follows the services 
 
 `lineage.s3_notifications` (off by default) reads each bucket's notification configuration and adds the bucket as an upstream of the topics it notifies. S3 datasets are named by bucket and path, while a notification only has a key prefix filter, so the connector looks for an existing S3 dataset named `<bucket>/<prefix>`, then `<bucket>`, and adds no edge if neither is in DataHub. Run the `s3` source first and set `s3_platform_instance` to match its `platform_instance`. This makes one `s3:GetBucketNotification` call per bucket in the recipe's region.
 
+#### Producers from CloudTrail Lake
+
+Code that sends with the AWS SDK leaves no trace in any configuration API, so most topics have no upstream. If you log SQS and SNS data events to a [CloudTrail Lake](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake.html) event data store, set `cloudtrail_producers.enabled` and `cloudtrail_producers.event_data_store`. The connector runs one query per run over the last `lookback_days` of `Publish` and `PublishBatch` events and groups them by caller and topic.
+
+- A caller that is a Lambda function in the recipe's account and region becomes an upstream job of the topic. The match relies on Lambda naming the execution role session after the function. That convention has not yet been checked against a real trail for every runtime and invocation path, so treat these edges as best effort.
+- Any other caller (an ECS task or EC2 role, an IAM user) is listed by role ARN in the topic's `observed_producers` property, not drawn as lineage, because a role is not a DataHub entity.
+- CloudTrail Lake bills queries by data scanned, and data events must be enabled for the topics, which also costs. Both are off by default.
+
 #### Tags and data protection
 
 AWS resource tags become DataHub tags named `Key:Value` (or `Key` for an empty value), the same format as the `kinesis` and `sqs` sources. They are added to the topic rather than replacing its tags, so tags added in the DataHub UI stay; a tag removed in AWS stays in DataHub until removed there. Use the `extract_ownership_from_tags` transformer to turn an `owner` tag into ownership.

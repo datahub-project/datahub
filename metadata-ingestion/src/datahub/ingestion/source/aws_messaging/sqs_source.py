@@ -94,6 +94,7 @@ class SqsSource(AwsMessagingSourceBase):
         for queue in self.queues:
             self._add_dead_letter_edge(queue)
         self.collect_s3_notifications()
+        yield from self.producer_workunits()
         yield from self.service_lineage_workunits()
         yield from self.lineage.workunits()
 

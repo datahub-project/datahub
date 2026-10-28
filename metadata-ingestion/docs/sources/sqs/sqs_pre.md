@@ -59,6 +59,12 @@ SNS topics are ingested by the separate `sns` source. Run both with the same `en
       "Resource": "*"
     },
     {
+      "Sid": "CloudTrailLakeQuery",
+      "Effect": "Allow",
+      "Action": ["cloudtrail:StartQuery", "cloudtrail:GetQueryResults"],
+      "Resource": "*"
+    },
+    {
       "Sid": "TagsRead",
       "Effect": "Allow",
       "Action": ["tag:GetResources"],
@@ -79,3 +85,5 @@ Credentials come from `aws_config` or the standard boto3 chain: environment vari
 `LambdaRead` is used with `lineage.lambda_functions` (`lambda:ListFunctions` and `lambda:ListFunctionEventInvokeConfigs` only with `lineage.lambda_async_destinations` too), and `EventBridgeRead` with `lineage.eventbridge_rules` or `lineage.eventbridge_pipes`. `pipes:DescribePipe` is only called for a pipe that could get column lineage.
 
 `S3NotificationsRead` is used only with `lineage.s3_notifications`. By default only the bucket owner can read a bucket's notification configuration.
+
+`CloudTrailLakeQuery` is used only with `cloudtrail_producers.enabled`.
