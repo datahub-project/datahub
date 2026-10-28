@@ -21,6 +21,7 @@ SCHEMA_FIELD = (
 )
 DOWNSTREAM = "urn:li:dataset:(urn:li:dataPlatform:glue,db.table_downstream,PROD)"
 TERM = "urn:li:glossaryTerm:Sensitive"
+ACTION_URN = "urn:li:dataHubAction:test"
 
 
 def _event(entity_urn: str, operation: str = "ADD") -> EventEnvelope:
@@ -59,6 +60,10 @@ def test_column_level_add_resolves_parent_dataset_for_lineage():
     graph.add_terms_to_dataset.assert_called_once()
     assert graph.add_terms_to_dataset.call_args.args[0] == DOWNSTREAM
     assert graph.add_terms_to_dataset.call_args.args[1] == [TERM]
+    # Attributed to the action, so a later propagated removal can target only it.
+    assert (
+        graph.add_terms_to_dataset.call_args.kwargs["attribution"].source == ACTION_URN
+    )
 
 
 def test_dataset_level_add_propagates_to_downstream():
@@ -75,6 +80,11 @@ def test_column_level_remove_propagates_to_downstream():
     graph.remove_terms_from_dataset.assert_called_once()
     assert graph.remove_terms_from_dataset.call_args.args[0] == DOWNSTREAM
     assert graph.remove_terms_from_dataset.call_args.args[1] == [TERM]
+    # Only the action's own entries are removed; a user-applied entry survives.
+    assert (
+        graph.remove_terms_from_dataset.call_args.kwargs["attribution_source"]
+        == ACTION_URN
+    )
     graph.add_terms_to_dataset.assert_not_called()
 
 

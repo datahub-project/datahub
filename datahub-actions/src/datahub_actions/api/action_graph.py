@@ -329,6 +329,7 @@ query listIngestionSources($input: ListIngestionSourcesInput!, $execution_start:
         dataset_terms: List[str],
         field_terms: Optional[Dict] = None,
         context: Optional[Dict] = None,
+        attribution: Optional[MetadataAttributionClass] = None,
     ) -> None:
         if field_terms is None:
             field_terms = {}
@@ -338,7 +339,9 @@ query listIngestionSources($input: ListIngestionSourcesInput!, $execution_start:
         for term in dataset_terms:
             dataset.add_term(
                 GlossaryTermAssociationClass(
-                    term, context=json.dumps(context) if context else None
+                    term,
+                    context=json.dumps(context) if context else None,
+                    attribution=attribution,
                 )
             )
 
@@ -347,7 +350,9 @@ query listIngestionSources($input: ListIngestionSourcesInput!, $execution_start:
             for term in terms:
                 field_builder.add_term(
                     GlossaryTermAssociationClass(
-                        term, context=json.dumps(context) if context else None
+                        term,
+                        context=json.dumps(context) if context else None,
+                        attribution=attribution,
                     )
                 )
 
@@ -358,11 +363,15 @@ query listIngestionSources($input: ListIngestionSourcesInput!, $execution_start:
         self,
         entity_urn: str,
         dataset_terms: List[str],
+        attribution_source: Optional[str] = None,
     ) -> None:
+        """Remove terms from a dataset. With ``attribution_source`` only the entries
+        written by that source are removed; entries from other sources (e.g. a user)
+        are kept."""
         dataset = DatasetPatchBuilder(urn=entity_urn)
 
         for term in dataset_terms:
-            dataset.remove_term(term)
+            dataset.remove_term(term, attribution_source=attribution_source)
 
         for mcp in dataset.build():
             self.graph.emit(mcp)

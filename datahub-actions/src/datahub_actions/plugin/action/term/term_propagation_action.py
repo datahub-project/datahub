@@ -13,12 +13,16 @@
 # limitations under the License.
 
 import logging
+import time
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.metadata.schema_classes import EntityChangeEventClass as EntityChangeEvent
+from datahub.metadata.schema_classes import (
+    EntityChangeEventClass as EntityChangeEvent,
+    MetadataAttributionClass,
+)
 from datahub.utilities.urns.urn import Urn
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -83,6 +87,9 @@ class TermPropagationAction(Action):
     def __init__(self, config: TermPropagationConfig, ctx: PipelineContext):
         self.config = config
         self.ctx = ctx
+        # Propagated terms are attributed to this action so a propagated removal only
+        # deletes entries this action wrote, never a term a user applied directly.
+        self.action_urn = f"urn:li:dataHubAction:{ctx.pipeline_name}"
         self.term_resolver = GlossaryTermsResolver(graph=self.ctx.graph)
         if self.config.target_terms:
             logger.info(
@@ -244,6 +251,15 @@ class TermPropagationAction(Action):
                             "propagated": True,
                             "origin": term_propagation_directive.entity,
                         },
+                        attribution=MetadataAttributionClass(
+                            time=int(time.time() * 1000),
+                            actor="urn:li:corpuser:__datahub_system",
+                            source=self.action_urn,
+                            sourceDetail={
+                                "propagated": "true",
+                                "origin": term_propagation_directive.entity,
+                            },
+                        ),
                     )
                 else:
                     logger.info(
@@ -252,6 +268,7 @@ class TermPropagationAction(Action):
                     self.ctx.graph.remove_terms_from_dataset(
                         dataset,
                         [term_propagation_directive.term],
+                        attribution_source=self.action_urn,
                     )
 
     def close(self) -> None:

@@ -55,5 +55,7 @@ datahub:
 
 - Term Propagation is currently only supported for downstream datasets. Terms will not propagate to downstream dashboards or charts. Let us know if this is an important feature for you.
 - A term removal is only propagated once the source dataset no longer carries the term on any field or at the dataset level, so removing it from one field while another field still has it leaves downstream datasets untouched.
-- Propagation does not track provenance on downstream datasets: when a removal is propagated it clears the term from every downstream dataset, and an addition adds it, regardless of whether the term was also applied to that dataset directly. A propagated removal can therefore still clear a term that a user set on a downstream dataset independently.
-- The same applies when a downstream dataset has several upstreams: removing the term from one upstream clears it from the downstream even if another upstream still carries it, and the term is not re-propagated until it is applied to an upstream again.
+- Propagated terms are attributed to the action (attribution source `urn:li:dataHubAction:<pipeline name>`). A propagated removal deletes only that attributed entry, so a term a user applied directly to a downstream dataset is kept, and the removal does not travel past that dataset.
+- Like additions, removals follow lineage through every downstream level that holds only the propagated entry.
+- All entries a pipeline propagates share one attribution, so when a downstream dataset has several upstreams, removing the term from one upstream clears the propagated entry even if another upstream still carries the term. It is not re-propagated until the term is applied to an upstream again.
+- Terms propagated by earlier versions of this action carry no attribution and look like user-applied terms, so propagated removals leave them in place. The same holds for entries written under a previous pipeline name.
