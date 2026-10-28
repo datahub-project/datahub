@@ -1,6 +1,15 @@
 *.sh text eol=lf
 *.ts text eol=lf
 *.tsx text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
 gradlew text eol=lf
 metadata-utils/src/test/resources/filterQuery/* text eol=lf
+
+# Batch files are read by cmd.exe and need CRLF. The gradlew.bat files are
+# already stored that way; stating it keeps a future normalisation rule from
+# quietly converting them.
+*.bat text eol=crlf
 
