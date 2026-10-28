@@ -504,6 +504,28 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /**
+   * True when a later write in this batch already advanced the in-memory row past this item's
+   * version. A row rewound below this item's version (by {@link #restoreStoredState}) is not
+   * obsolete: this item must still apply its run metadata.
+   */
+  static boolean isObsoleteWrite(
+      @Nullable SystemAspect latestAspect, @Nonnull ChangeMCP writeItem) {
+    if (latestAspect == null) {
+      return false;
+    }
+    String latestVersion = latestAspect.getSystemMetadata().getVersion();
+    String itemVersion = writeItem.getSystemMetadata().getVersion();
+    if (Objects.equals(latestVersion, itemVersion)) {
+      return false;
+    }
+    try {
+      return Long.parseLong(latestVersion) > Long.parseLong(itemVersion);
+    } catch (NumberFormatException e) {
+      return true;
+    }
+  }
+
+  /**
    * Puts the stored body, audit stamp and version back on the in-memory row. Run metadata from the
    * incoming write (lastObserved, runId, lastRunId) is kept.
    */
@@ -1962,10 +1984,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                             // latest
                                             // aspect
                                             // doesn't match this ChangeMCP
-                                            if (latestAspect != null
-                                                && !Objects.equals(
-                                                    latestAspect.getSystemMetadata().getVersion(),
-                                                    writeItem.getSystemMetadata().getVersion())) {
+                                            if (isObsoleteWrite(latestAspect, writeItem)) {
                                               log.debug(
                                                   "Skipping obsolete write: urn: {} aspect: {} version: {}",
                                                   writeItem.getUrn(),
@@ -4913,10 +4932,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
       // eliminate unneeded writes within a batch if the latest aspect doesn't match this
       // ChangeMCP
-      if (latestAspect != null
-          && !Objects.equals(
-              latestAspect.getSystemMetadata().getVersion(),
-              writeItem.getSystemMetadata().getVersion())) {
+      if (isObsoleteWrite(latestAspect, writeItem)) {
         log.debug(
             "Skipping obsolete write: urn: {} aspect: {} version: {}",
             writeItem.getUrn(),
