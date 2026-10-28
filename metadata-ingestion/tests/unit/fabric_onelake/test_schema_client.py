@@ -80,6 +80,35 @@ class TestSqlAnalyticsEndpointClient:
         assert "TrustServerCertificate=no" in connection_string
         assert f"APP={FABRIC_SQL_APP_NAME};" in connection_string
 
+    def test_get_engine_returns_the_item_engine(
+        self, mock_auth_helper, sql_endpoint_config
+    ):
+        client = SqlAnalyticsEndpointClient(
+            auth_helper=mock_auth_helper,
+            config=sql_endpoint_config,
+            endpoint_url="test-endpoint.datawarehouse.fabric.microsoft.com",
+            item_display_name="TestLakehouse",
+        )
+        with patch.object(client, "_get_engine") as get_engine:
+            engine = client.get_engine("ws-123", "item-456")
+
+        assert engine is get_engine.return_value
+        get_engine.assert_called_once_with(
+            "ws-123", "item-456", "test-endpoint.datawarehouse.fabric.microsoft.com"
+        )
+
+    def test_get_engine_without_endpoint_raises(
+        self, mock_auth_helper, sql_endpoint_config
+    ):
+        client = SqlAnalyticsEndpointClient(
+            auth_helper=mock_auth_helper,
+            config=sql_endpoint_config,
+            endpoint_url="",
+            item_display_name="TestLakehouse",
+        )
+        with pytest.raises(ValueError):
+            client.get_engine("ws-123", "item-456")
+
     def test_get_connection_string_custom_options(
         self, mock_auth_helper, sql_endpoint_config
     ):
