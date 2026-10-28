@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import useExternalLinks from '@app/entityV2/shared/externalUrl/useExternalLinks';
 import usePlatformLinks from '@app/entityV2/shared/externalUrl/usePlatformLinks';
-import { safeUrl } from '@app/shared/urlUtils';
+import { safeUrl } from '@app/sharedV2/urlUtils';
 
 import { Entity } from '@types';
 

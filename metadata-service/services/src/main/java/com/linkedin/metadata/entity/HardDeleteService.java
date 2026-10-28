@@ -34,11 +34,15 @@ import lombok.extern.slf4j.Slf4j;
  * run, in one place. The caller has already authorized each one.
  *
  * <p>Each delete is offered once to the {@link HardDeleteDispatcher}, when there is one, with the
- * aspect versions the entity has when the delete is requested. When the dispatcher takes it,
- * nothing is deleted here and the method returns at once (zero counts). When it declines, or there
- * is none, today's code runs here, unchanged: {@code featureFlags.reliableHardDelete} ({@link
- * ReliableHardDelete#isEnabled()}) picks the delete bounded by the versions or today's unbounded
- * {@code deleteUrn}. An entity that does not exist is not offered; today's code handles it.
+ * aspect versions the entity has when the delete is requested. When the dispatcher takes it (it
+ * hands the delete to another process, or runs it itself), nothing more is deleted here and the
+ * method returns zero counts, except the two Rest.li-only methods: they count before the offer
+ * (only when there is a dispatcher), report those counts, and set {@code queued} only when the
+ * delete was queued rather than already done ({@link HardDeleteDispatcher#offer}). When it
+ * declines, or there is none, today's code runs here, unchanged: {@code
+ * featureFlags.reliableHardDelete} ({@link ReliableHardDelete#isEnabled()}) picks the delete
+ * bounded by the versions or today's unbounded {@code deleteUrn}. An entity that does not exist is
+ * not offered; today's code handles it.
  */
 @Slf4j
 public class HardDeleteService {
@@ -83,7 +87,8 @@ public class HardDeleteService {
   /**
    * Hard-deletes each entity, in order, as {@link #deleteEntity(OperationContext, Urn)} does. The
    * versions of all of them are captured before the first is deleted, so each bound is the state
-   * when the request arrived.
+   * when the request arrived. With more than one urn each delete is offered as one of many ({@link
+   * HardDeleteDispatcher#dispatchOneOfMany}).
    *
    * @return one result per urn, in order
    */
@@ -92,12 +97,14 @@ public class HardDeleteService {
       @Nonnull final OperationContext opContext, @Nonnull final Collection<Urn> urns) {
     final Map<Urn, Optional<DeleteCeiling>> versions = new LinkedHashMap<>();
     urns.forEach(urn -> versions.put(urn, capture(opContext, urn)));
+    final boolean oneOfMany = urns.size() > 1;
     return urns.stream()
         .map(
             urn -> {
               final Optional<DeleteCeiling> entityVersions = versions.get(urn);
               if (entityVersions.isPresent()
-                  && offered(opContext, HardDeleteRequest.entity(urn, entityVersions.get()))) {
+                  && offered(
+                      opContext, HardDeleteRequest.entity(urn, entityVersions.get()), oneOfMany)) {
                 return nothingDeletedHere();
               }
               return deleteHere(opContext, urn, entityVersions);
@@ -139,8 +146,10 @@ public class HardDeleteService {
    *
    * @param timeseriesContext the context the timeseries values are deleted under when the delete
    *     stays in this process, as the Rest.li action deletes them today
-   * @return the rows and timeseries documents deleted, both 0 when the delete was taken elsewhere;
-   *     the urn is left for the caller to set
+   * @return the rows and timeseries documents deleted. When a dispatcher takes the delete, the
+   *     counts are what existed just before it was offered ({@code -1} where a count failed), and
+   *     {@code queued} is true only when it was queued rather than already done; the urn is left
+   *     for the caller to set
    */
   @Nonnull
   public DeleteEntityResponse deleteEntityAndTimeseries(
@@ -151,12 +160,29 @@ public class HardDeleteService {
       @Nullable final Long startTimeMillis,
       @Nullable final Long endTimeMillis) {
     final Optional<DeleteCeiling> versions = capture(opContext, urn);
-    if (versions.isPresent()
-        && offered(
-            opContext,
-            HardDeleteRequest.entityAndTimeseries(
-                urn, versions.get(), timeseriesAspects, startTimeMillis, endTimeMillis))) {
-      return new DeleteEntityResponse().setRows(0L).setTimeseriesRows(0L);
+    if (versions.isPresent() && dispatcher != null) {
+      // Counted before the offer: a delete the dispatcher runs itself is gone once it returns.
+      final long rows =
+          countOrUnknown(() -> entityService.countUrnRows(opContext, urn), "rows", urn);
+      final long timeseriesRows =
+          countOrUnknown(
+              () ->
+                  countTimeseries(
+                      timeseriesContext, urn, timeseriesAspects, startTimeMillis, endTimeMillis),
+              "timeseries rows",
+              urn);
+      final HardDeleteDispatcher.Outcome outcome =
+          dispatcher
+              .offer(
+                  opContext,
+                  HardDeleteRequest.entityAndTimeseries(
+                      urn, versions.get(), timeseriesAspects, startTimeMillis, endTimeMillis))
+              .outcome();
+      if (outcome != HardDeleteDispatcher.Outcome.DECLINED) {
+        final DeleteEntityResponse taken =
+            new DeleteEntityResponse().setRows(rows).setTimeseriesRows(timeseriesRows);
+        return outcome == HardDeleteDispatcher.Outcome.QUEUED ? taken.setQueued(true) : taken;
+      }
     }
 
     final DeleteEntityResponse response = new DeleteEntityResponse();
@@ -175,18 +201,32 @@ public class HardDeleteService {
   }
 
   /**
-   * Deletes the references other entities hold to the entity, as today's cleanup does, offered
-   * once.
-   *
-   * @return what the cleanup did; empty when it was taken elsewhere
+   * Deletes the references other entities hold to the entity, as today's cleanup does. When a
+   * dispatcher takes the cleanup, the response is the dry run's count of what was there just before
+   * it was offered ({@code total} -1 when the dry run failed), and {@code queued} is true only when
+   * it was queued rather than already done.
    */
   @Nonnull
   public DeleteReferencesResponse deleteReferences(
       @Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
-    if (offered(opContext, HardDeleteRequest.references(urn))) {
-      return new DeleteReferencesResponse().setTotal(0).setRelatedAspects(new RelatedAspectArray());
+    if (dispatcher == null) {
+      return deleteEntityService.deleteReferencesTo(opContext, urn, false);
     }
-    return deleteEntityService.deleteReferencesTo(opContext, urn, false);
+    // Counted before the offer: a cleanup the dispatcher runs itself is gone once it returns.
+    final DeleteReferencesResponse counted = countReferences(opContext, urn);
+    final HardDeleteDispatcher.Offer offer =
+        dispatcher.offer(opContext, HardDeleteRequest.references(urn));
+    if (offer.outcome() == HardDeleteDispatcher.Outcome.DECLINED) {
+      return deleteEntityService.deleteReferencesTo(opContext, urn, false);
+    }
+    // The dry run reads the graph only. After an entity delete dropped the edges, the referrers it
+    // kept are only in its list, which the dispatcher counted while routing.
+    if (offer.references() != null && offer.references() > counted.getTotal()) {
+      counted.setTotal(offer.references());
+    }
+    return offer.outcome() == HardDeleteDispatcher.Outcome.QUEUED
+        ? counted.setQueued(true)
+        : counted;
   }
 
   /**
@@ -209,20 +249,7 @@ public class HardDeleteService {
 
     long totalNumberOfDocsDeleted = 0;
 
-    // Construct the filter.
-    List<Criterion> criteria = new ArrayList<>();
-    criteria.add(CriterionUtils.buildCriterion("urn", Condition.EQUAL, urn.toString()));
-    if (startTimeMillis != null) {
-      criteria.add(
-          CriterionUtils.buildCriterion(
-              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, startTimeMillis.toString()));
-    }
-    if (endTimeMillis != null) {
-      criteria.add(
-          CriterionUtils.buildCriterion(
-              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, endTimeMillis.toString()));
-    }
-    final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
+    final Filter filter = timeseriesFilter(urn, startTimeMillis, endTimeMillis);
 
     // Delete all the timeseries aspects by the filter.
     final String entityType = urn.getEntityType();
@@ -241,6 +268,79 @@ public class HardDeleteService {
           result.getNumDocsDeleted());
     }
     return totalNumberOfDocsDeleted;
+  }
+
+  /** The documents {@link #deleteTimeseriesAspects} deletes, matched by the same filter. */
+  private long countTimeseries(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final List<String> aspects,
+      @Nullable final Long startTimeMillis,
+      @Nullable final Long endTimeMillis) {
+    if (aspects.isEmpty()) {
+      return 0L;
+    }
+    final Filter filter = timeseriesFilter(urn, startTimeMillis, endTimeMillis);
+    long total = 0;
+    for (final String aspect : aspects) {
+      total +=
+          timeseriesAspectService.countByFilter(opContext, urn.getEntityType(), aspect, filter);
+    }
+    return total;
+  }
+
+  /**
+   * The dry run of the references cleanup, taken before the cleanup is offered. A dry run that
+   * fails is {@code -1}, not a failed request: the count is only reported.
+   */
+  @Nonnull
+  private DeleteReferencesResponse countReferences(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
+    try {
+      return deleteEntityService.deleteReferencesTo(opContext, urn, true);
+    } catch (RuntimeException e) {
+      log.warn(
+          "Could not count the references to {} before offering its cleanup; reporting -1", urn, e);
+      return new DeleteReferencesResponse()
+          .setTotal(-1)
+          .setRelatedAspects(new RelatedAspectArray());
+    }
+  }
+
+  /** The count, or -1 when it fails or the store cannot count: the count is only reported. */
+  private static long countOrUnknown(
+      @Nonnull final Supplier<Number> count, @Nonnull final String what, @Nonnull final Urn urn) {
+    try {
+      return count.get().longValue();
+    } catch (RuntimeException e) {
+      log.warn("Could not count {} for {} for a queued delete; reporting -1", what, urn, e);
+      return -1L;
+    }
+  }
+
+  /**
+   * The timeseries values of {@code urn} between {@code startTimeMillis} and {@code endTimeMillis}
+   * (null ends are open), as {@link #deleteTimeseriesAspects} deletes them; a caller counts with
+   * the same filter.
+   */
+  @Nonnull
+  public static Filter timeseriesFilter(
+      @Nonnull final Urn urn,
+      @Nullable final Long startTimeMillis,
+      @Nullable final Long endTimeMillis) {
+    final List<Criterion> criteria = new ArrayList<>();
+    criteria.add(CriterionUtils.buildCriterion("urn", Condition.EQUAL, urn.toString()));
+    if (startTimeMillis != null) {
+      criteria.add(
+          CriterionUtils.buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, startTimeMillis.toString()));
+    }
+    if (endTimeMillis != null) {
+      criteria.add(
+          CriterionUtils.buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, endTimeMillis.toString()));
+    }
+    return QueryUtils.getFilterFromCriteria(criteria);
   }
 
   /**
@@ -269,6 +369,16 @@ public class HardDeleteService {
   private boolean offered(
       @Nonnull final OperationContext opContext, @Nonnull final HardDeleteRequest request) {
     return dispatcher != null && dispatcher.dispatch(opContext, request);
+  }
+
+  private boolean offered(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final HardDeleteRequest request,
+      final boolean oneOfMany) {
+    if (!oneOfMany) {
+      return offered(opContext, request);
+    }
+    return dispatcher != null && dispatcher.dispatchOneOfMany(opContext, request);
   }
 
   /** What {@code deleteUrn} returns when it deleted nothing. */

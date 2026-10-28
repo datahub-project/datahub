@@ -5,7 +5,7 @@ import { assertionMatchesTypeFilter } from '@app/entityV2/shared/tabs/Dataset/Va
 import { Assertion, AssertionType } from '@types';
 
 describe('assertionMatchesTypeFilter', () => {
-    const structuredCustom = {
+    const greatExpectationsAssertion = {
         urn: 'urn:li:assertion:1',
         info: {
             type: AssertionType.Custom,
@@ -16,19 +16,21 @@ describe('assertionMatchesTypeFilter', () => {
         },
     } as Assertion;
 
-    it('matches provider subtype when that subtype is selected', () => {
-        expect(assertionMatchesTypeFilter(structuredCustom, ['GREAT_EXPECTATIONS' as AssertionType])).toBe(true);
+    it('matches Custom for an externally reported assertion', () => {
+        expect(assertionMatchesTypeFilter(greatExpectationsAssertion, [AssertionType.Custom])).toBe(true);
     });
 
-    it('matches Custom filter even when getAssertionType resolves to a provider subtype', () => {
-        expect(assertionMatchesTypeFilter(structuredCustom, [AssertionType.Custom])).toBe(true);
+    it('does not match on the reported custom type', () => {
+        expect(assertionMatchesTypeFilter(greatExpectationsAssertion, ['GREAT_EXPECTATIONS' as AssertionType])).toBe(
+            false,
+        );
     });
 
     it('does not match unrelated types', () => {
-        expect(assertionMatchesTypeFilter(structuredCustom, [AssertionType.Volume])).toBe(false);
+        expect(assertionMatchesTypeFilter(greatExpectationsAssertion, [AssertionType.Volume])).toBe(false);
     });
 
     it('matches everything when no types are selected', () => {
-        expect(assertionMatchesTypeFilter(structuredCustom, [])).toBe(true);
+        expect(assertionMatchesTypeFilter(greatExpectationsAssertion, [])).toBe(true);
     });
 });

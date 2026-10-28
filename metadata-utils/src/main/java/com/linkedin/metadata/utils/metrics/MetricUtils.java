@@ -85,9 +85,15 @@ public class MetricUtils {
   @Builder.Default
   private final Map<String, Counter> micrometerCounterCache = new ConcurrentHashMap<>();
 
-  private static final Map<String, Timer> micrometerTimerCache = new ConcurrentHashMap<>();
-  private static final Map<String, DistributionSummary> micrometerDistributionCache =
+  // A Timer and DistributionSummary also belong to one MeterRegistry. Instance scope matches the
+  // counter cache so a later MetricUtils does not record into an earlier registry.
+  @Builder.Default
+  private final Map<String, Timer> micrometerTimerCache = new ConcurrentHashMap<>();
+
+  @Builder.Default
+  private final Map<String, DistributionSummary> micrometerDistributionCache =
       new ConcurrentHashMap<>();
+
   // For state-based gauges (like throttled state)
   private static final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
 

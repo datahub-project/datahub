@@ -35,7 +35,12 @@ from urllib3 import HTTPResponse
 
 from datahub._version import nice_version_name
 from datahub.cli import config_utils
-from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, get_or_else
+from datahub.cli.cli_utils import (
+    ensure_has_system_metadata,
+    fixup_gms_url,
+    get_or_else,
+    is_same_gms_origin,
+)
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigModel,
@@ -121,6 +126,11 @@ _429_RETRY_MULTIPLIER = get_rest_emitter_429_retry_multiplier()
 _DATAHUB_EMITTER_TRACE = get_emitter_trace()
 
 _DEFAULT_CLIENT_MODE: ClientMode = ClientMode.SDK
+
+# Servers already warned about not receiving system credentials. The rest sink builds one
+# emitter per worker thread, so without this the same warning repeats per thread. It is
+# process-wide and never cleared; a test asserting the warning must clear it first.
+_SYSTEM_AUTH_SKIPPED_SERVERS: set[str] = set()
 
 TRACE_PENDING_STATUS = "PENDING"
 TRACE_INITIAL_BACKOFF = 1.0  # Start with 1 second
@@ -568,9 +578,26 @@ class DataHubRestEmitter(Closeable, Emitter):
             # in as part of this constructor.
             # It works because everything goes through here. The DatahubGraph inherits from the
             # rest emitter, and the rest sink uses the rest emitter under the hood.
+            #
+            # The system credentials belong to the env-configured GMS, so they are only sent
+            # there. A server that comes from a recipe or other config and points anywhere else
+            # gets no credentials, the same rule the rest sink applies to env OAuth.
             system_auth = config_utils.get_system_auth()
             if system_auth is not None:
-                headers["Authorization"] = system_auth
+                env_url = config_utils.get_url_from_env()
+                if env_url is not None and is_same_gms_origin(
+                    env_url, self._gms_server
+                ):
+                    headers["Authorization"] = system_auth
+                elif self._gms_server not in _SYSTEM_AUTH_SKIPPED_SERVERS:
+                    _SYSTEM_AUTH_SKIPPED_SERVERS.add(self._gms_server)
+                    logger.warning(
+                        "Not sending DATAHUB_SYSTEM_CLIENT_ID/DATAHUB_SYSTEM_CLIENT_SECRET "
+                        "credentials to %s: it does not match the env-configured server %s. "
+                        "Set DATAHUB_GMS_URL to this server, or configure a token for it.",
+                        self._gms_server,
+                        env_url,
+                    )
 
         timeout: float | tuple[float, float]
         if connect_timeout_sec is not None or read_timeout_sec is not None:

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTheme } from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { PlatformIcon } from '@app/search/filters/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

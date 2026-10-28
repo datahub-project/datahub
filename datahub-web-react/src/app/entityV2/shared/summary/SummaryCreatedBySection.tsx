@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, OwnerType } from '@types';
 
@@ -37,7 +37,7 @@ interface Props {
 
 export default function SummaryCreatedBySection({ owner }: Props) {
     const { t } = useTranslation('entity.shared.profile');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const ownerName = owner && entityRegistry.getDisplayName(owner.type, owner);
     const ownerPictureLink =
