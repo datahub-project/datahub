@@ -266,4 +266,55 @@ public class AspectResourceTest {
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
   }
+
+  private MetadataChangeProposal datasetPropertiesProposal(String name, ChangeType changeType) {
+    return new MetadataChangeProposal()
+        .setEntityType(DATASET_ENTITY_NAME)
+        .setEntityUrn(new DatasetUrn(new DataPlatformUrn("platform"), name, FabricType.PROD))
+        .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+        .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties().setName(name)))
+        .setChangeType(changeType);
+  }
+
+  private void authenticateAsUser() {
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+  }
+
+  @Test
+  public void testRequestWithNothingIngestableIsRejected() throws URISyntaxException {
+    aspectResource.setSystemOperationContext(opContext);
+    reset(producer, aspectDao);
+    authenticateAsUser();
+    // DELETE is not a change type a proposal can be ingested with, so nothing would be written.
+    MetadataChangeProposal unsupported = datasetPropertiesProposal("name", ChangeType.DELETE);
+
+    try {
+      aspectResource.ingestProposal(unsupported, "true");
+      fail("Expected a 400 when no proposal in the request can be ingested");
+    } catch (RestLiServiceException e) {
+      assertEquals(e.getStatus(), HttpStatus.S_400_BAD_REQUEST);
+    }
+    verifyNoInteractions(producer, aspectDao);
+  }
+
+  @Test
+  public void testInvalidProposalInBatchDoesNotFailTheOthers() throws URISyntaxException {
+    aspectResource.setSystemOperationContext(opContext);
+    reset(producer, aspectDao);
+    authenticateAsUser();
+    MetadataChangeProposal valid = datasetPropertiesProposal("valid", ChangeType.UPSERT);
+
+    aspectResource.ingestProposalBatch(
+        new MetadataChangeProposal[] {
+          valid, datasetPropertiesProposal("unsupported", ChangeType.DELETE)
+        },
+        "true");
+
+    verify(producer)
+        .produceMetadataChangeProposal(
+            any(OperationContext.class), eq(valid.getEntityUrn()), any(MCPItem.class));
+    verifyNoMoreInteractions(producer);
+  }
 }

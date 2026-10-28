@@ -28,7 +28,6 @@ import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -318,11 +317,21 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtils.toTask(opContext, () -> {
       log.debug("Proposals: {}", metadataChangeProposals);
       try {
-        final AspectsBatch batch = AspectsBatchImpl.builder()
+        final AspectsBatchImpl batch = AspectsBatchImpl.builder()
                 .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                     opContext.getValidationContext().isAlternateValidation(),
                     opContext.isSystemAuth())
                 .build(opContext);
+
+        // An invalid proposal is skipped so it doesn't fail the rest of a batch, but a request
+        // left with nothing to write must not report success.
+        if (batch.getMCPItems().isEmpty() && !batch.getRejectedProposals().isEmpty()) {
+          throw new IllegalArgumentException(
+              "No proposal in the request could be ingested: "
+                  + batch.getRejectedProposals().stream()
+                      .map(rejected -> rejected.getSecond().getMessage())
+                      .collect(Collectors.joining("; ")));
+        }
 
         batch.getMCPItems().forEach(item ->
             log.debug(
