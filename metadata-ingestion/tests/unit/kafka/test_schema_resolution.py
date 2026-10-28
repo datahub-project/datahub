@@ -1,4 +1,5 @@
 import json
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,6 +9,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 )
 
 from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
+from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.schema_resolution import KafkaSchemaResolver
 
 
@@ -300,3 +302,104 @@ class TestKafkaSchemaResolver:
     def test_extract_record_name_from_message_too_short(self, schema_resolver):
         result = schema_resolver._extract_record_name_from_message(b"123")
         assert result.record_name is None
+
+
+def _resolver(
+    client: MagicMock,
+    known_subjects: List[str],
+    report: Optional[KafkaSourceReport] = None,
+    topic_subject_map: Optional[Dict[str, str]] = None,
+) -> KafkaSchemaResolver:
+    config = MagicMock()
+    config.schema_resolution = SchemaResolutionFallback(enabled=False)
+    config.topic_subject_map = topic_subject_map or {}
+    return KafkaSchemaResolver(
+        source_config=config,
+        schema_registry_client=client,
+        known_subjects=known_subjects,
+        max_workers=1,
+        report=report,
+    )
+
+
+def _registered(subject: str) -> RegisteredSchema:
+    return RegisteredSchema(
+        schema_id=1,
+        guid=None,
+        schema=Schema('{"type": "record", "name": "R"}', "AVRO"),
+        subject=subject,
+        version=1,
+    )
+
+
+def test_subject_map_is_used_when_topic_name_subject_is_missing():
+    client = MagicMock()
+    client.get_latest_version.return_value = _registered("com.example.Order-value")
+    resolver = _resolver(
+        client,
+        ["com.example.Order-value"],
+        topic_subject_map={"orders-value": "com.example.Order-value"},
+    )
+
+    results = resolver.resolve_schemas_batch(["orders", "unmapped"])
+
+    assert results["orders"].is_resolved
+    assert results["orders"].resolution_method == "topic_subject_map"
+    # No inference configured: the unmapped topic is still present, just unresolved.
+    assert not results["unmapped"].is_resolved
+    assert results["unmapped"].resolution_method == "none"
+
+
+def test_unreachable_registry_is_reported_but_missing_subject_is_not():
+    report = KafkaSourceReport()
+    client = MagicMock()
+    client.get_latest_version.side_effect = [
+        OSError("connection refused"),
+        KeyError("gone"),
+    ]
+    resolver = _resolver(client, ["a-value", "b-value"], report=report)
+
+    results = resolver.resolve_schemas_batch(["a", "b"])
+
+    assert not results["a"].is_resolved
+    assert not results["b"].is_resolved
+    # A missing subject is routine while probing; an unreachable registry is not.
+    assert report.schema_registry_connectivity_failures == 1
+
+
+def test_record_name_strategies_are_skipped_for_key_schemas():
+    client = MagicMock()
+    resolver = _resolver(client, [])
+    resolver.schema_inference = MagicMock()
+    resolver.schema_inference.sample_topic_messages.return_value = [
+        None,
+        b"\x00\x00\x00\x00\x01payload",
+    ]
+
+    result = resolver._try_record_name_strategies("orders", is_key_schema=True)
+
+    assert result.resolution_method == "no_record_names_found"
+    client.get_schema.assert_not_called()
+
+
+def test_sampling_failure_during_record_name_extraction_is_tolerated():
+    client = MagicMock()
+    resolver = _resolver(client, [])
+    resolver.schema_inference = MagicMock()
+    resolver.schema_inference.sample_topic_messages.side_effect = OSError("down")
+
+    result = resolver._try_record_name_strategies("orders", is_key_schema=False)
+
+    assert result.resolution_method == "no_record_names_found"
+
+
+def test_unreachable_registry_during_schema_id_lookup_is_reported():
+    report = KafkaSourceReport()
+    client = MagicMock()
+    client.get_schema.side_effect = OSError("registry down")
+    resolver = _resolver(client, [], report=report)
+
+    result = resolver._extract_record_name_from_message(b"\x00\x00\x00\x00\x07payload")
+
+    assert result.record_name is None
+    assert report.schema_registry_connectivity_failures == 1

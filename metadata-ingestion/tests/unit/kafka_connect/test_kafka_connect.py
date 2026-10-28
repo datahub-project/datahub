@@ -1076,6 +1076,23 @@ class TestMongoSourceConnector:
         assert lineages[0].source_dataset == "my-new-database.users"
         assert lineages[1].source_dataset == "-leading-hyphen._leading-underscore"
 
+    def test_mongo_source_without_runtime_topics_has_no_lineage(self) -> None:
+        manifest = ConnectorManifest(
+            name="mongo-source-connector",
+            type="source",
+            config={
+                "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+                "topic.prefix": "prod.mongo.avro",
+            },
+            tasks=[],
+            topic_names=[],
+        )
+        connector = MongoSourceConnector(
+            manifest, create_mock_kafka_connect_config(), KafkaConnectSourceReport()
+        )
+
+        assert connector.extract_lineages() == []
+
     def test_mongo_source_fine_grained_lineage(self) -> None:
         """Test MongoDB connector produces column-level lineage when schema resolver is available."""
         config = KafkaConnectSourceConfig(

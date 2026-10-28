@@ -697,3 +697,61 @@ def test_platform_instance_none_is_valid() -> None:
         }
     )
     assert config.platform_instance is None
+
+
+def test_deny_lists_must_be_non_empty_when_present() -> None:
+    base = {
+        "url": "https://test.atlassian.net/wiki",
+        "username": "test@example.com",
+        "api_token": "test-token-123",
+    }
+    with pytest.raises(ValidationError, match="spaces.deny"):
+        ConfluenceSourceConfig.model_validate({**base, "spaces": {"deny": []}})
+    with pytest.raises(ValidationError, match="pages.deny"):
+        ConfluenceSourceConfig.model_validate({**base, "pages": {"deny": []}})
+
+
+def test_whitespace_only_page_identifier_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="empty"):
+        ConfluenceSourceConfig.model_validate(
+            {
+                "url": "https://test.atlassian.net/wiki",
+                "username": "test@example.com",
+                "api_token": "test-token-123",
+                "pages": {"allow": ["   "]},
+            }
+        )
+
+
+def test_auth_method_must_match_cloud_flag() -> None:
+    """A PAT on a Cloud config (or Cloud creds on Data Center) is the most common
+    misconfiguration; it must fail loudly rather than silently pick one."""
+    with pytest.raises(ValidationError, match="cloud: true"):
+        ConfluenceSourceConfig.model_validate(
+            {
+                "url": "https://test.atlassian.net/wiki",
+                "personal_access_token": "pat",
+                "cloud": True,
+            }
+        )
+    with pytest.raises(ValidationError, match="cloud: false"):
+        ConfluenceSourceConfig.model_validate(
+            {
+                "url": "https://confluence.company.com",
+                "username": "user",
+                "api_token": "token",
+                "cloud": False,
+            }
+        )
+
+
+def test_parent_document_urn_becomes_hierarchy_root() -> None:
+    config = ConfluenceSourceConfig.model_validate(
+        {
+            "url": "https://test.atlassian.net/wiki",
+            "username": "test@example.com",
+            "api_token": "test-token-123",
+            "parent_document_urn": "urn:li:document:root",
+        }
+    )
+    assert config.hierarchy.folder_mapping.root_parent == "urn:li:document:root"

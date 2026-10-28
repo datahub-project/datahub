@@ -5,6 +5,9 @@ This module tests the SnowflakeSourceConnector class which handles
 lineage extraction for Confluent Cloud Snowflake Source connectors.
 """
 
+from typing import Dict, List, Optional
+from unittest.mock import Mock
+
 import pytest
 
 from datahub.ingestion.source.kafka_connect.common import (
@@ -651,3 +654,159 @@ def test_snowflake_source_parser_extracts_transforms(config, report):
         == "org.apache.kafka.connect.transforms.TimestampConverter"
     )
     assert timestamp_transform["field"] == "updated_at"
+
+
+def _snowflake(
+    config: KafkaConnectSourceConfig,
+    report: KafkaConnectSourceReport,
+    extra: Dict[str, str],
+    topic_names: Optional[List[str]] = None,
+) -> SnowflakeSourceConnector:
+    manifest = ConnectorManifest(
+        name="snowflake-source",
+        type="source",
+        config={
+            "connector.class": SNOWFLAKE_SOURCE_CLOUD,
+            "snowflake.database.name": "ANALYTICS",
+            "topic.prefix": "snowflake_",
+            **extra,
+        },
+        tasks=[],
+        topic_names=topic_names or [],
+    )
+    return SnowflakeSourceConnector(manifest, config, report)
+
+
+def _datahub_resolver(urns: Optional[List[str]]) -> Mock:
+    resolver = Mock()
+    resolver.env = "PROD"
+    resolver.platform_instance = None
+    if urns is None:
+        resolver.graph = None
+    else:
+        resolver.graph = Mock()
+        resolver.graph.get_urns_by_filter.return_value = iter(urns)
+    return resolver
+
+
+_USERS_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.users,PROD)"
+)
+_ORDERS_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.orders,PROD)"
+)
+
+
+def test_snowflake_source_expanded_patterns_are_reused_for_lineage(
+    config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
+) -> None:
+    connector = _snowflake(config, report, {"table.include.list": "ANALYTICS.PUBLIC.*"})
+    connector.schema_resolver = _datahub_resolver([_USERS_URN, _ORDERS_URN])
+
+    topics = connector.get_topics_from_config()
+    # A second DataHub query would see an exhausted iterator and find nothing,
+    # so lineage must come from the tables expanded above.
+    lineages = connector.extract_lineages()
+
+    assert topics == [
+        "snowflake_analytics.public.users",
+        "snowflake_analytics.public.orders",
+    ]
+    assert [lineage.source_dataset for lineage in lineages] == [
+        "analytics.public.users",
+        "analytics.public.orders",
+    ]
+
+
+def test_snowflake_source_patterns_without_resolver_derive_no_topics(
+    config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
+) -> None:
+    connector = _snowflake(config, report, {"table.include.list": "ANALYTICS.PUBLIC.*"})
+
+    assert connector.get_topics_from_config() == []
+    assert connector.extract_lineages() == []
+    assert len(report.warnings) == 1
+
+
+def test_snowflake_source_transforms_rename_derived_topics(
+    config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
+) -> None:
+    connector = _snowflake(
+        config,
+        report,
+        {
+            "table.include.list": "ANALYTICS.PUBLIC.USERS",
+            "transforms": "route,custom",
+            "transforms.custom.type": "com.example.smt.Custom",
+            "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.route.regex": "snowflake_analytics\\.public\\.(.*)",
+            "transforms.route.replacement": "sf_$1",
+        },
+    )
+
+    assert connector.get_topics_from_config() == ["sf_users"]
+    lineages = connector.extract_lineages()
+    assert [
+        (lineage.source_dataset, lineage.target_dataset) for lineage in lineages
+    ] == [("analytics.public.users", "sf_users")]
+
+
+def test_snowflake_source_lineage_without_prefix_uses_table_name_as_topic(
+    config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
+) -> None:
+    connector = _snowflake(
+        config,
+        report,
+        {"table.include.list": "ANALYTICS.PUBLIC.USERS", "topic.prefix": ""},
+        topic_names=["analytics.public.users"],
+    )
+
+    assert [lineage.target_dataset for lineage in connector.extract_lineages()] == [
+        "analytics.public.users"
+    ]
+
+
+def test_snowflake_source_without_table_list_has_no_lineage(
+    config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
+) -> None:
+    connector = _snowflake(config, report, {}, topic_names=["snowflake_x"])
+
+    assert connector.extract_lineages() == []
+
+
+def test_snowflake_source_pattern_query_ignores_foreign_and_malformed_urns(
+    config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
+) -> None:
+    connector = _snowflake(config, report, {"table.include.list": "ANALYTICS.PUBLIC.*"})
+    connector.schema_resolver = _datahub_resolver(
+        [
+            _USERS_URN,
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics.public.orders,PROD)",
+            "not-a-urn",
+        ]
+    )
+
+    assert [lineage.source_dataset for lineage in connector.extract_lineages()] == [
+        "analytics.public.users"
+    ]
+
+
+def test_snowflake_source_resolver_without_graph_cannot_expand(
+    config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
+) -> None:
+    connector = _snowflake(config, report, {"table.include.list": "ANALYTICS.PUBLIC.*"})
+    connector.schema_resolver = _datahub_resolver(None)
+
+    assert connector.extract_lineages() == []
+
+
+def test_snowflake_source_datahub_connection_failure_is_reported(
+    config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
+) -> None:
+    connector = _snowflake(config, report, {"table.include.list": "ANALYTICS.PUBLIC.*"})
+    resolver = _datahub_resolver([])
+    resolver.graph.get_urns_by_filter.side_effect = ConnectionError("unreachable")
+    connector.schema_resolver = resolver
+
+    assert connector.extract_lineages() == []
+    assert len(report.failures) == 1

@@ -3,7 +3,7 @@ error accounting, and the per-endpoint response parsing the connectors rely on."
 
 import base64
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -197,3 +197,22 @@ def test_job_instances_extract_failure_message_and_skip_malformed() -> None:
     assert [job.id for job in jobs] == ["j1", "j2"]
     assert failures == ["boom", None]
     assert len(client.report.api_parse_failures) == 1
+
+
+def test_context_manager_closes_the_session() -> None:
+    client = _client()
+    with patch.object(client._session, "close") as close:
+        with client as entered:
+            assert entered is client
+    close.assert_called_once_with()
+
+
+def test_auth_failure_surfaces_before_any_request_is_sent() -> None:
+    client = _client()
+    cast(
+        MagicMock, client.auth_helper
+    ).get_authorization_header.side_effect = RuntimeError("no token")
+    with patch.object(client._session, "request") as request:
+        with pytest.raises(RuntimeError):
+            list(client.list_workspaces())
+    request.assert_not_called()

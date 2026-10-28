@@ -888,3 +888,56 @@ def test_external_tables_are_only_profiled_when_enabled() -> None:
         "test_project.test_dataset.plain",
         "test_project.test_dataset.ext",
     ]
+
+
+# ---------------------------------------------------------------------------
+# Identifier validation: one rejected shape per rule, per identifier type
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "identifier_type,identifier",
+    [
+        ("project", "Bad Project"),  # uppercase / space
+        ("project", "abc"),  # too short
+        ("project", "my--project"),  # consecutive hyphens
+        ("table", "t;drop"),  # disallowed character
+        ("table", "t" * 1025),  # too long
+        ("table", "my--table"),  # consecutive hyphens
+        ("dataset", "my-dataset"),  # hyphens only allowed in tables
+        ("dataset", "d" * 1025),  # too long
+        ("dataset", "__reserved"),  # reserved prefix
+        ("general", ""),  # empty
+        ("general", "tab\x01le"),  # non-printable
+        ("general", "INFORMATION_SCHEMA.bad view"),  # malformed view name
+    ],
+)
+def test_validate_bigquery_identifier_rejects_each_rule_violation(
+    identifier_type: str, identifier: str
+) -> None:
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier(identifier, identifier_type)
+
+
+def test_validate_bigquery_identifier_accepts_well_formed_per_type() -> None:
+    assert (
+        validate_bigquery_identifier("my-project-123", "project") == "`my-project-123`"
+    )
+    assert validate_bigquery_identifier("events-2024", "table") == "`events-2024`"
+    assert validate_bigquery_identifier("select", "dataset") == "`select`"
+
+
+def test_validators_reject_empty_input_without_raising() -> None:
+    assert validate_column_name("", "fallback filter") is False
+    assert validate_sql_structure("") is False
+    assert validate_filter_expression("") is False
+
+
+def test_sql_structure_must_start_with_select_or_with() -> None:
+    with pytest.raises(ValueError):
+        validate_sql_structure("EXPLAIN SELECT 1")
+
+
+def test_filter_without_comparison_operator_is_rejected() -> None:
+    assert validate_filter_expression("`dt`") is False
+    assert validate_and_filter_expressions(["`dt`", "`region`"], "fallback") == []

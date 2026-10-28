@@ -422,3 +422,37 @@ def test_collect_folder_nodes_skips_malformed_pages() -> None:
 def test_collect_folder_nodes_non_list_input() -> None:
     """A non-list input is handled gracefully rather than raising."""
     assert ConfluenceHierarchyExtractor.collect_folder_nodes(None) == {}  # type: ignore[arg-type]
+
+
+def test_extract_parent_id_tolerates_malformed_immediate_parent() -> None:
+    """The API can hand back ancestors without an id (or not even dicts); those
+    must read as 'root page' rather than crash the crawl."""
+    assert (
+        ConfluenceHierarchyExtractor.extract_parent_id(
+            {"id": "1", "ancestors": [{"title": "no id here"}]}
+        )
+        is None
+    )
+    assert (
+        ConfluenceHierarchyExtractor.extract_parent_id(
+            {"id": "1", "ancestors": ["not-a-dict"]}
+        )
+        is None
+    )
+
+
+def test_collect_folder_nodes_skips_non_dict_ancestors() -> None:
+    pages = [
+        {
+            "id": "1",
+            "ancestors": [
+                "junk",
+                {"id": "300", "title": "Folder", "type": "folder"},
+            ],
+        }
+    ]
+
+    folders = ConfluenceHierarchyExtractor.collect_folder_nodes(pages)
+
+    assert set(folders.keys()) == {"300"}
+    assert folders["300"].parent_id is None

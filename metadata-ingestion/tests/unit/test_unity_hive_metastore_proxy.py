@@ -2,7 +2,6 @@ from typing import Any, Dict, List, Sequence, Tuple
 from unittest.mock import MagicMock, patch
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Row
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
@@ -10,7 +9,7 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastorePro
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 
-def _sa_rows(values: List[Tuple[Any, Any, Any]]) -> Sequence[Row[Any]]:
+def _sa_rows(values: List[Tuple[Any, Any, Any]]) -> Sequence[Any]:
     # Real SA 2.0 Rows (not tuples or databricks Rows), as _execute_sql returns.
     engine = sa.create_engine("sqlite://")
     with engine.connect() as conn:
@@ -25,7 +24,7 @@ def _sa_rows(values: List[Tuple[Any, Any, Any]]) -> Sequence[Row[Any]]:
         return conn.execute(sa.text("SELECT * FROM describe_out")).fetchall()
 
 
-def _proxy(rows: Sequence[Row[Any]], report: MagicMock) -> HiveMetastoreProxy:
+def _proxy(rows: Sequence[Any], report: MagicMock) -> HiveMetastoreProxy:
     proxy = HiveMetastoreProxy.__new__(HiveMetastoreProxy)
     proxy.report = report
     proxy._describe_extended = lambda schema, table: rows  # type: ignore[method-assign,assignment]

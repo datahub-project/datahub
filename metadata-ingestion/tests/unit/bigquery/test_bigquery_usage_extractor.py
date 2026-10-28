@@ -420,3 +420,56 @@ def test_redundant_run_handling(skip: bool) -> None:
 
     assert logging_client.list_entries.called is not skip
     assert handler.update_state.called is not skip
+
+
+class TestExportedAuditMetadata:
+    def test_exported_rows_are_fetched_from_the_configured_datasets(self) -> None:
+        config = BigQueryV2Config(
+            start_time=START,
+            end_time=END,
+            max_query_duration=timedelta(hours=1),
+            use_exported_bigquery_audit_metadata=True,
+            bigquery_audit_metadata_datasets=["audit_project.audit_dataset"],
+        )
+        extractor = make_extractor(config)
+        bq_client = MagicMock()
+        bq_client.query.return_value = [
+            exported_row(v2_job_metadata(destination="dest", referenced_tables=["src"]))
+        ]
+
+        with patch.object(
+            BigQueryV2Config, "get_bigquery_client", return_value=bq_client
+        ):
+            events = list(extractor._get_usage_events([PROJECT]))
+
+        assert len(events) == 1 and events[0].query_event is not None
+        query_sql = bq_client.query.call_args.args[0]
+        assert "audit_project.audit_dataset" in query_sql
+        # With exported metadata the project list is irrelevant: counts are keyed on "*".
+        assert extractor.report.num_usage_total_log_entries["*"] == 1
+
+
+def test_query_text_hash_collisions_are_kept_apart() -> None:
+    config = make_config()
+    extractor = make_extractor(config)
+    collision_hash = "deadbeef"
+
+    with BigQueryUsageState(config) as state:
+        state.queries[collision_hash] = "a different query with the same hash"
+        with patch("datahub.ingestion.source.bigquery_v2.usage.hashlib.md5") as md5:
+            md5.return_value.hexdigest.return_value = collision_hash
+            stored = extractor._store_usage_event(
+                AuditEvent(query_event=query_event(query="SELECT 1")),
+                state,
+                {table_ref("dest"), table_ref("src")},
+            )
+
+        assert stored
+        assert extractor.report.num_usage_query_hash_collisions == 1
+        key = next(iter(state.query_events.values())).query
+        assert key != collision_hash
+        assert extractor.uuid_to_query[key] == "SELECT 1"
+
+
+def test_empty_query_on_view_has_no_tables() -> None:
+    assert make_extractor().get_tables_from_query("", default_project=PROJECT) == []

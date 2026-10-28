@@ -39,11 +39,15 @@ class _FakeEngine:
         size_in_bytes: Optional[int] = None,
         row_count: Optional[int] = None,
         describe_error: Optional[Exception] = None,
+        count_error: Optional[Exception] = None,
+        no_result_rows: bool = False,
     ) -> None:
         self.executed: List[str] = []
         self._size = size_in_bytes
         self._rows = row_count
         self._describe_error = describe_error
+        self._count_error = count_error
+        self._no_result_rows = no_result_rows
         self.engine = MagicMock()
         conn = self.engine.connect.return_value.__enter__.return_value
         conn.dialect.identifier_preparer.quote = lambda name: f"`{name}`"
@@ -58,7 +62,11 @@ class _FakeEngine:
                 raise self._describe_error
             result.fetchone.return_value = _Row(sizeInBytes=self._size)
         else:
+            if self._count_error:
+                raise self._count_error
             result.fetchone.return_value = _Row(numRows=self._rows)
+        if self._no_result_rows:
+            result.fetchone.return_value = None
         return result
 
 
@@ -203,6 +211,40 @@ def test_size_lookup_failure_is_reported_and_profiling_continues() -> None:
     assert request is not None
     assert request.table.size_in_bytes is None
     assert len(profiler.report.warnings) == 1
+
+
+@pytest.mark.usefixtures("fake_workspace_client")
+def test_row_count_failure_is_reported_and_table_level_profile_still_requested() -> (
+    None
+):
+    profiler = _profiler(profile_table_level_only=True)
+    engine = _FakeEngine(size_in_bytes=10, count_error=RuntimeError("count denied"))
+
+    request = profiler.get_unity_profile_request(
+        UnityCatalogSQLGenericTable(_table()), engine.engine
+    )
+
+    assert request is not None
+    assert request.profile_table_level_only
+    assert request.table.rows_count is None
+    assert profiler.report.num_profile_missing_row_count == 1
+    assert len(profiler.report.warnings) == 1
+
+
+@pytest.mark.usefixtures("fake_workspace_client")
+def test_empty_describe_and_count_results_leave_size_and_rows_unknown() -> None:
+    profiler = _profiler(profile_table_level_only=True)
+    engine = _FakeEngine(no_result_rows=True)
+
+    request = profiler.get_unity_profile_request(
+        UnityCatalogSQLGenericTable(_table()), engine.engine
+    )
+
+    assert request is not None
+    assert request.table.size_in_bytes is None
+    assert request.table.rows_count is None
+    assert profiler.report.num_profile_missing_size_in_bytes == 1
+    assert profiler.report.num_profile_missing_row_count == 1
 
 
 @pytest.mark.usefixtures("fake_workspace_client")

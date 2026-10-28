@@ -1,10 +1,13 @@
-from typing import List
+from typing import List, Optional
 from unittest.mock import Mock, patch
 
 import pytest
 
 from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
-from datahub.ingestion.source.kafka.kafka_constants import OffsetResetStrategy
+from datahub.ingestion.source.kafka.kafka_constants import (
+    OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS,
+    OffsetResetStrategy,
+)
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_inference import (
     KafkaSchemaInference,
@@ -12,6 +15,7 @@ from datahub.ingestion.source.kafka.kafka_schema_inference import (
 from datahub.ingestion.source.kafka.kafka_utils import flatten_json
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
     BooleanTypeClass,
     NumberTypeClass,
     StringTypeClass,
@@ -334,3 +338,120 @@ class TestKafkaSchemaInference:
         assert result["array"] == [1, 2, 3]
         assert isinstance(result["nested.field2"], int)
         assert isinstance(result["nested.field3"], bool)
+
+
+class RecordingConsumer(ScriptedConsumer):
+    """ScriptedConsumer that also records poll timeouts and can fail subscribe()."""
+
+    def __init__(
+        self, messages: List[object], subscribe_error: Optional[Exception] = None
+    ) -> None:
+        super().__init__(messages)
+        self.poll_timeouts: List[float] = []
+        self._subscribe_error = subscribe_error
+
+    def subscribe(self, topics: List[str]) -> None:
+        if self._subscribe_error is not None:
+            raise self._subscribe_error
+
+    def poll(self, timeout: float) -> object:
+        self.poll_timeouts.append(timeout)
+        return super().poll(timeout)
+
+
+def _valid_message(payload: bytes) -> Mock:
+    msg = Mock()
+    msg.error.return_value = None
+    msg.value.return_value = payload
+    return msg
+
+
+def test_parallel_inference_isolates_topic_failures(fallback_config):
+    report = KafkaSourceReport()
+    inference = KafkaSchemaInference(
+        bootstrap_servers="localhost:9092",
+        consumer_config={"group.id": "test"},
+        fallback_config=fallback_config,
+        max_workers=2,
+        report=report,
+    )
+    inferred = Mock(spec=SchemaField)
+
+    def infer(topic: str) -> List[SchemaField]:
+        if topic == "bad":
+            raise OSError("broker down")
+        return [inferred]
+
+    with patch.object(inference, "_infer_schema_from_messages", side_effect=infer):
+        result = inference.infer_schemas_batch(["good", "bad", "also-good"])
+
+    assert result == {"good": [inferred], "bad": [], "also-good": [inferred]}
+    assert report.schema_inference_sampling_failures == 1
+
+
+def test_oauth_callback_config_polls_before_sampling(fallback_config):
+    # The OAuth callback only runs on poll(), so a sampling consumer built with
+    # oauth_cb must poll once before subscribing or the fetch fails auth.
+    inference = KafkaSchemaInference(
+        bootstrap_servers="localhost:9092",
+        consumer_config={"oauth_cb": "tests.integration.kafka.oauth:create_token"},
+        fallback_config=fallback_config,
+        max_workers=1,
+    )
+    scripted = RecordingConsumer([None, _valid_message(b'{"a": 1}')])
+
+    with patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted):
+        result = inference._sample_messages_with_strategy(
+            "test-topic", OffsetResetStrategy.EARLIEST
+        )
+
+    assert scripted.poll_timeouts[0] == OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS
+    assert result == [{"a": 1}]
+
+
+def test_tombstone_messages_are_skipped(schema_inference):
+    tombstone = _valid_message(b"")
+    tombstone.value.return_value = None
+    scripted = RecordingConsumer([tombstone, _valid_message(b'{"a": 1}')])
+
+    with patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted):
+        result = schema_inference._sample_messages_with_strategy(
+            "test-topic", OffsetResetStrategy.EARLIEST
+        )
+
+    assert result == [{"a": 1}]
+
+
+def test_subscribe_failure_is_reported_and_consumer_closed(fallback_config):
+    report = KafkaSourceReport()
+    inference = KafkaSchemaInference(
+        bootstrap_servers="localhost:9092",
+        consumer_config={"group.id": "test"},
+        fallback_config=fallback_config,
+        max_workers=1,
+        report=report,
+    )
+    scripted = RecordingConsumer([], subscribe_error=RuntimeError("unauthorized"))
+
+    with patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted):
+        result = inference._sample_messages_with_strategy(
+            "test-topic", OffsetResetStrategy.EARLIEST
+        )
+
+    assert result == []
+    assert report.schema_inference_sampling_failures == 1
+    assert scripted.closed
+
+
+def test_inferred_fields_capture_arrays_and_nullability(schema_inference):
+    fields = schema_inference._extract_fields_from_samples(
+        "test-topic",
+        [{"tags": ["a"], "note": None}, {"tags": [], "note": "x"}],
+    )
+
+    by_path = {f.fieldPath: f for f in fields}
+    assert isinstance(by_path["tags"].type.type, ArrayTypeClass)
+    assert by_path["tags"].nativeDataType == "array"
+    assert not by_path["tags"].nullable
+    assert isinstance(by_path["note"].type.type, StringTypeClass)
+    assert by_path["note"].nullable

@@ -24,6 +24,8 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
     LineageEdge,
+    LineageEdgeColumnMapping,
+    _merge_lineage_edge_columns,
 )
 from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -499,3 +501,103 @@ class TestCatalogLineageApi:
             for call in google_clients["lineage"].search_links.call_args_list
         }
         assert f"bigquery:{PROJECT}.{DATASET}.ext" not in looked_up
+
+
+class TestExternalTableLineage:
+    """GCS lineage derived from an external table's DDL."""
+
+    def _extractor(self, **config: Any) -> BigqueryLineageExtractor:
+        return make_extractor(
+            BigQueryV2Config(
+                include_table_lineage=True,
+                include_column_lineage_with_gcs=False,
+                **config,
+            )
+        )
+
+    def _urn(self) -> str:
+        return f"urn:li:dataset:(urn:li:dataPlatform:bigquery,{PROJECT}.{DATASET}.ext,PROD)"
+
+    def test_gcs_uris_in_ddl_become_upstreams(self) -> None:
+        extractor = self._extractor()
+        ddl = 'CREATE EXTERNAL TABLE ext OPTIONS(format="PARQUET", uris=["gs://bucket/path/a/*.parquet", "s3://ignored/x"])'
+
+        wus = list(extractor.gen_lineage_workunits_for_external_table(self._urn(), ddl))
+
+        assert len(wus) == 1
+        aspect = wus[0].metadata.aspect  # type: ignore[union-attr]
+        assert isinstance(aspect, UpstreamLineageClass)
+        assert [u.dataset for u in aspect.upstreams] == [
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket/path/a,PROD)"
+        ]
+
+    @pytest.mark.parametrize(
+        "ddl",
+        [
+            None,
+            "CREATE EXTERNAL TABLE ext OPTIONS(format='CSV')",
+            "CREATE EXTERNAL TABLE ext OPTIONS(uris=[not json])",
+        ],
+    )
+    def test_unusable_ddl_yields_no_lineage(self, ddl: Optional[str]) -> None:
+        extractor = self._extractor()
+
+        assert (
+            list(extractor.gen_lineage_workunits_for_external_table(self._urn(), ddl))
+            == []
+        )
+        assert extractor.report.num_skipped_external_table_lineage == (
+            0 if ddl is None else 1
+        )
+
+    def test_strip_urls_keeps_only_the_directory_of_a_file_path(self) -> None:
+        extractor = self._extractor(gcs_lineage_config={"strip_urls": True})
+        assert (
+            extractor._get_gcs_path("gs://bucket/dir/file.parquet") == "gs://bucket/dir"
+        )
+
+        extractor = self._extractor(gcs_lineage_config={"strip_urls": False})
+        assert (
+            extractor._get_gcs_path("gs://bucket/dir/file.parquet")
+            == "gs://bucket/dir/file.parquet"
+        )
+
+
+def test_lineage_edges_for_the_same_table_merge_their_column_mappings() -> None:
+    a = LineageEdge(
+        table=table_ref("src"),
+        column_mapping=frozenset(
+            {LineageEdgeColumnMapping(out_column="x", in_columns=frozenset({"a"}))}
+        ),
+        auditStamp=START,
+    )
+    b = LineageEdge(
+        table=table_ref("src"),
+        column_mapping=frozenset(
+            {
+                LineageEdgeColumnMapping(out_column="x", in_columns=frozenset({"b"})),
+                LineageEdgeColumnMapping(out_column="y", in_columns=frozenset({"c"})),
+            }
+        ),
+        auditStamp=START,
+    )
+
+    merged = _merge_lineage_edge_columns(a, b)
+
+    assert {m.out_column: m.in_columns for m in merged.column_mapping} == {
+        "x": frozenset({"a", "b"}),
+        "y": frozenset({"c"}),
+    }
+    assert _merge_lineage_edge_columns(None, b) is b
+
+
+def test_run_status_is_forwarded_to_redundant_run_handler() -> None:
+    handler = MagicMock()
+    handler.suggest_run_time_window.return_value = (START, END)
+    extractor = make_extractor(BigQueryV2Config(), redundant_run_skip_handler=handler)
+
+    extractor.report_status("lineage-ingestion", False)
+
+    handler.report_current_run_status.assert_called_once_with(
+        "lineage-ingestion", False
+    )

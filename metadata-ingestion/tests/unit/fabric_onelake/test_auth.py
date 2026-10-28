@@ -4,7 +4,11 @@ Tests token acquisition and caching logic.
 """
 
 import time
+from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from datahub.ingestion.source.azure.azure_auth import (
     AzureAuthenticationMethod,
@@ -119,3 +123,58 @@ class TestFabricAuthHelper:
             header = helper.get_authorization_header()
             assert header == "Bearer test-token-123"
             assert header.startswith("Bearer ")
+
+
+def _helper() -> FabricAuthHelper:
+    return FabricAuthHelper(
+        AzureCredentialConfig(
+            authentication_method=AzureAuthenticationMethod.SERVICE_PRINCIPAL,
+            client_id="test-client",
+            client_secret="test-secret",
+            tenant_id="test-tenant",
+        )
+    )
+
+
+def test_datetime_expiry_is_honoured_for_cache_validity() -> None:
+    """Some credential types report expires_on as a datetime rather than a
+    Unix timestamp; both must drive the same refresh decision."""
+    helper = _helper()
+    credential = MagicMock()
+    credential.get_token.return_value = SimpleNamespace(
+        token="t1", expires_on=datetime.fromtimestamp(2000.0, tz=timezone.utc)
+    )
+    with (
+        patch.object(helper, "get_credential", return_value=credential),
+        patch("time.time", return_value=1000.0),
+    ):
+        assert helper.get_bearer_token() == "t1"
+        assert helper.get_bearer_token() == "t1"
+    credential.get_token.assert_called_once()
+
+
+def test_token_without_expiry_is_reused_within_the_default_hour() -> None:
+    helper = _helper()
+    credential = MagicMock()
+    credential.get_token.return_value = SimpleNamespace(token="t1")
+    with (
+        patch.object(helper, "get_credential", return_value=credential),
+        patch("time.time", return_value=1000.0),
+    ):
+        helper.get_bearer_token()
+        helper.get_bearer_token()
+    credential.get_token.assert_called_once()
+
+
+def test_token_acquisition_failure_propagates_and_caches_nothing() -> None:
+    helper = _helper()
+    credential = MagicMock()
+    credential.get_token.side_effect = RuntimeError("AADSTS700016")
+    with patch.object(helper, "get_credential", return_value=credential):
+        with pytest.raises(RuntimeError):
+            helper.get_bearer_token()
+        credential.get_token.side_effect = None
+        credential.get_token.return_value = SimpleNamespace(
+            token="t2", expires_on=10**10
+        )
+        assert helper.get_bearer_token() == "t2"

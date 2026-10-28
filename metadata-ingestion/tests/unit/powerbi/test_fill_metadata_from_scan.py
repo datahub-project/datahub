@@ -1930,3 +1930,27 @@ def test_fill_dashboards_wires_tile_dataset_via_registry_and_report_via_workspac
     info_titles = [i.title for i in api.reporter.infos]
     assert "Missing Dataset Lineage For Tile" in info_titles
     assert "Missing Report Lineage For Tile" in info_titles
+
+
+def test_get_workunits_internal_phase2_failure_skips_only_that_workspace():
+    """A per-workspace detail fetch failure must be reported and must not
+    stop the remaining workspaces from being emitted."""
+    workspaces = [_make_workspace("WS-0"), _make_workspace("WS-1")]
+    source = _make_source(workspaces_to_return=workspaces, excluded_ids=set())
+    source.powerbi_client.fill_regular_metadata_detail = mock.MagicMock(  # type: ignore[method-assign]
+        side_effect=[RuntimeError("pages endpoint down"), None]
+    )
+
+    list(source.get_workunits_internal())
+
+    emitted = [
+        call.args[0].id
+        for call in cast(mock.MagicMock, source.get_workspace_workunit).call_args_list
+    ]
+    assert emitted == ["WS-1"]
+    failed = [
+        w
+        for w in source.reporter.warnings
+        if w.title == "Failed to Fetch Workspace Metadata"
+    ]
+    assert len(failed) == 1 and any("WS-0" in c for c in failed[0].context)

@@ -6,6 +6,7 @@ any HTTP: the mapper is driven from hand-built data classes.
 """
 
 from typing import Any, Dict, Iterable, List, Optional
+from unittest import mock
 
 import pytest
 
@@ -26,6 +27,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     AppReport,
     Column,
     Dashboard,
+    Measure,
     MeasureProfile,
     Page,
     PowerBIDataset,
@@ -50,6 +52,7 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     OwnershipClass,
     SubTypesClass,
+    UpstreamLineageClass,
     ViewPropertiesClass,
 )
 
@@ -502,3 +505,250 @@ def test_stale_entity_removal_runs_per_workspace_under_modified_since() -> None:
         AutoStaleEntityRemovalProcessor
     ]
     assert source.get_workunit_processors() == []
+
+
+# --- lineage and schema -----------------------------------------------------
+
+_MSSQL_M_QUERY = (
+    'let\n Source = Sql.Database("sql-host", "library"),\n'
+    ' tbl = Source{[Schema="dbo",Item="book_issue"]}[Data]\nin\n tbl'
+)
+
+
+def test_extract_lineage_emits_upstream_and_column_lineage_for_mquery_tables() -> None:
+    config = _config(extract_column_level_lineage=True)
+    workspace = _workspace()
+    mapper = _mapper(config, workspace)
+    dataset = _dataset(expression=_MSSQL_M_QUERY)
+    ds_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,model.orders,PROD)"
+
+    mcps = mapper.extract_lineage(dataset.tables[0], ds_urn, workspace)
+
+    lineage = _aspects(mcps, UpstreamLineageClass)
+    assert len(lineage) == 1
+    assert [u.dataset for u in lineage[0].upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,library.dbo.book_issue,PROD)"
+    ]
+    assert lineage[0].fineGrainedLineages is not None
+    assert [f.downstreams for f in lineage[0].fineGrainedLineages] == [
+        [f"urn:li:schemaField:({ds_urn},amount)"]
+    ]
+
+
+def test_extract_lineage_skips_platforms_outside_dataset_type_mapping() -> None:
+    config = _config(
+        dataset_type_mapping={"PostgreSQL": "postgres"},
+        extract_column_level_lineage=False,
+    )
+    workspace = _workspace()
+    mapper = _mapper(config, workspace)
+    dataset = _dataset(expression=_MSSQL_M_QUERY)
+
+    assert (
+        mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace) == []
+    )
+
+
+def test_fine_grained_lineage_is_omitted_when_column_lineage_is_disabled() -> None:
+    config = _config(extract_column_level_lineage=False)
+    workspace = _workspace()
+    mapper = _mapper(config, workspace)
+    dataset = _dataset(expression=_MSSQL_M_QUERY)
+
+    mcps = mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace)
+    assert _aspects(mcps, UpstreamLineageClass)[0].fineGrainedLineages is None
+
+
+def test_schema_fields_carry_column_and_measure_descriptions() -> None:
+    mapper = _mapper(_config(), _workspace())
+    table = Table(
+        name="Orders",
+        full_name="Model.Orders",
+        columns=[
+            Column(
+                name="amount",
+                dataType="Int64",
+                isHidden=False,
+                datahubDataType=NumberTypeClass(),
+                description="Order total",
+            )
+        ],
+        measures=[
+            Measure(
+                name="total",
+                expression="SUM(Orders[amount])",
+                isHidden=False,
+                description="Sum of totals",
+            )
+        ],
+    )
+    fields = {
+        f.fieldPath: f.description for f in mapper.to_datahub_schema(table).fields
+    }
+    assert fields == {
+        "amount": "Order total",
+        "total": "SUM(Orders[amount]) Sum of totals",
+    }
+
+
+# --- ownership ---------------------------------------------------------------
+
+
+def test_owner_criteria_keeps_only_users_with_a_matching_access_right() -> None:
+    config = _config(
+        extract_ownership=True,
+        ownership={"create_corp_user": False, "owner_criteria": ["Owner"]},
+    )
+    workspace = _workspace()
+    mapper = _mapper(config, workspace)
+    owner = _user("owner")
+    viewer = User(
+        id="viewer",
+        displayName="Vic",
+        emailAddress="vic@example.com",
+        graphId="g-2",
+        principalType="User",
+        dashboardUserAccessRight="Read",
+    )
+    group = User(
+        id="grp",
+        displayName="Group",
+        emailAddress=None,
+        graphId="g-3",
+        principalType="Group",
+        dashboardUserAccessRight="Owner",
+    )
+
+    wus = mapper.to_datahub_work_units(
+        _dashboard([], users=[owner, viewer, group]), workspace
+    )
+    owners = _wu_aspects(wus, OwnershipClass)
+    assert [o.owner for o in owners[0].owners] == ["urn:li:corpuser:alice@example.com"]
+
+
+def test_report_owners_are_emitted_and_users_are_secondary_work_units() -> None:
+    config = _config(
+        extract_ownership=True,
+        ownership={"create_corp_user": True, "remove_email_suffix": True},
+    )
+    workspace = _workspace()
+    mapper = _mapper(config, workspace)
+    report = _report(_dataset())
+    report.users = [_user()]
+
+    wus = list(mapper.report_to_datahub_work_units(report, workspace))
+
+    owners = _wu_aspects(wus, OwnershipClass)
+    assert [o.owner for o in owners[0].owners] == ["urn:li:corpuser:alice"]
+    user_wus = [wu for wu in wus if wu.get_urn() == "urn:li:corpuser:alice"]
+    assert user_wus and not any(wu.is_primary_source for wu in user_wus)
+    # A report without pages produces no chart children.
+    assert _wu_aspects(wus, ChartInfoClass) == []
+
+
+# --- containers and profiling -----------------------------------------------
+
+
+def test_no_container_is_attached_when_containers_are_disabled() -> None:
+    config = _config(extract_workspaces_to_containers=False)
+    workspace = _workspace()
+    mapper = _mapper(config, workspace)
+    mcps = mapper.to_datahub_dataset(_dataset(), workspace)
+    assert _aspects(mcps, ContainerClass) == []
+
+
+def test_profile_is_skipped_for_tables_outside_the_profile_pattern() -> None:
+    config = _config(
+        profiling={"enabled": True},
+        profile_pattern={"deny": ["Sales\\.Model\\.Orders"]},
+    )
+    workspace = _workspace()
+    mapper = _mapper(config, workspace)
+    dataset = _dataset()
+    mcps: List[MetadataChangeProposalWrapper] = []
+    mapper.extract_profile(mcps, workspace, dataset, dataset.tables[0], "urn:x")
+    assert mcps == []
+
+
+def test_tile_without_a_resolved_dataset_still_becomes_a_chart() -> None:
+    workspace = _workspace()
+    mapper = _mapper(_config(), workspace)
+    tile = Tile(
+        id="t-1",
+        title="Tile",
+        embedUrl=None,
+        dataset_id="ds-missing",
+        report_id=None,
+        createdFrom=Tile.CreatedFrom.VISUALIZATION,
+        dataset=None,
+        report=None,
+    )
+    wus = mapper.to_datahub_work_units(_dashboard([tile]), workspace)
+    charts = _wu_aspects(wus, ChartInfoClass)
+    assert len(charts) == 1
+    assert charts[0].inputs == []
+
+
+# --- source-level emission --------------------------------------------------
+
+
+def test_workspace_work_units_cover_container_dashboards_and_reports() -> None:
+    workspace = _workspace()
+    config = _config(extract_workspaces_to_containers=True)
+    source = _source(config, workspace)
+    dataset = _dataset()
+    workspace.datasets = {dataset.id: dataset}
+    workspace.dashboards = {"d-1": _dashboard([])}
+    workspace.reports = {"r-1": _report(dataset)}
+
+    wus = list(source.get_workspace_workunit(workspace))
+
+    urns = {wu.get_urn() for wu in wus}
+    assert source.mapper.make_container_urn_for_workspace(workspace) in urns
+    assert "urn:li:dashboard:(powerbi,dashboards.d-1)" in urns
+    assert "urn:li:dashboard:(powerbi,reports.r-1)" in urns
+    assert source.reporter.dashboards_scanned == 1
+    # Stale-entity removal stays global when no modified_since window is set.
+    assert source.get_excluded_workunit_processors() == []
+
+
+class _FailingMsal:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("tenant not found")
+
+
+class _StubMsal:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    def acquire_token_for_client(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        return {"access_token": "token", "expires_in": 3600}
+
+
+def test_test_connection_reports_authentication_outcome() -> None:
+    with mock.patch("msal.ConfidentialClientApplication", _StubMsal):
+        ok = PowerBiDashboardSource.test_connection(dict(_BASE))
+    assert ok.basic_connectivity is not None and ok.basic_connectivity.capable
+
+    with mock.patch("msal.ConfidentialClientApplication", _FailingMsal):
+        failed = PowerBiDashboardSource.test_connection(dict(_BASE))
+    assert failed.basic_connectivity is not None
+    assert not failed.basic_connectivity.capable
+    assert "tenant not found" in str(failed.basic_connectivity.failure_reason)
+
+
+def test_source_exits_when_the_powerbi_api_cannot_be_reached() -> None:
+    with mock.patch("msal.ConfidentialClientApplication", _FailingMsal):
+        with pytest.raises(SystemExit):
+            PowerBiDashboardSource.create(dict(_BASE), PipelineContext(run_id="t"))
+
+
+def test_created_source_validates_mapping_and_closes_cleanly() -> None:
+    with mock.patch("msal.ConfidentialClientApplication", _StubMsal):
+        source = PowerBiDashboardSource.create(
+            {**_BASE, "dataset_type_mapping": {"Sql": "mssql"}},
+            PipelineContext(run_id="t"),
+        )
+        source.validate_dataset_type_mapping()
+        assert source.get_workunit_processors()
+        source.close()

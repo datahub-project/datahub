@@ -880,3 +880,38 @@ def test_confluent_cloud_connectors_go_through_the_shim() -> None:
             ],
         )
     ]
+
+
+def test_a_connector_ingestion_cannot_parse_is_reported_as_not_emitted() -> None:
+    with requests_mock.Mocker() as m:
+        m.get(f"{CONNECT}/connectors", json=["odd"])
+        m.get(f"{CONNECT}/connectors/odd", json={"name": "odd", "config": {}})
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            assert probe.connector("odd") == {"name": "odd", "emitted": False}
+            assert probe.connector_topics("odd") == []
+            assert probe.connector_lineage("odd") == []
+
+
+def test_connector_topics_is_empty_when_the_runtime_api_is_switched_off() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(
+            _recipe(use_connect_topics_api=False)
+        ) as probe:
+            assert probe.connector_topics("orders-sink") == []
+        assert not any("/topics" in r.url for r in m.request_history)
+
+
+def test_connector_lineage_honours_its_row_limit() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            assert len(probe.connector_lineage("orders-sink", limit=1)) == 1
+
+
+def test_a_connector_listing_that_is_not_a_list_is_a_read_failure() -> None:
+    with requests_mock.Mocker() as m:
+        m.get(f"{CONNECT}/connectors", json={"error": "unexpected"})
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            with pytest.raises(ProbeReadFailed):
+                probe.connectors()

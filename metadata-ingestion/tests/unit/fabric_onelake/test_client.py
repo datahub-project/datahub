@@ -158,3 +158,22 @@ def test_warehouse_tables_non_404_errors_are_raised() -> None:
         list(client.list_warehouse_tables("ws", "wh", on_degraded=seen.append))
 
     assert seen == []
+
+
+def test_workspaces_are_read_across_continuation_pages() -> None:
+    client = _client()
+    pages = [
+        _response(
+            200,
+            {
+                "value": [{"id": "w1", "displayName": "sales"}],
+                "continuationToken": "p2",
+            },
+        ),
+        _response(200, {"value": [{"id": "w2", "displayName": "hr"}]}),
+    ]
+    with patch.object(client._session, "request", side_effect=pages) as request:
+        workspaces = list(client.list_workspaces())
+
+    assert [(w.id, w.name) for w in workspaces] == [("w1", "sales"), ("w2", "hr")]
+    assert request.call_args_list[1].kwargs["params"] == {"continuationToken": "p2"}

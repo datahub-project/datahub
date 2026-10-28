@@ -1770,3 +1770,80 @@ class TestJobLabelsAsQueryProperties:
         assert query.custom_properties == expected_labels
         assert query.timestamp == datetime(2024, 1, 1, expected_ts, tzinfo=timezone.utc)
         assert query.extra_info == {"job_id": f"job_{expected_ts}"}
+
+
+class TestTableClassification:
+    """is_temp_table / is_allowed_table decide which parsed references the
+    aggregator keeps, using the set of tables discovered during schema extraction."""
+
+    def _extractor(
+        self, discovered: Optional[Set[str]] = None
+    ) -> BigQueryQueriesExtractor:
+        return BigQueryQueriesExtractor(
+            connection=MagicMock(),
+            schema_api=MagicMock(),
+            config=BigQueryQueriesExtractorConfig(temp_table_dataset_prefix="_"),
+            structured_report=MagicMock(),
+            filters=BigQueryFilter(
+                BigQueryFilterConfig(dataset_pattern={"deny": [".*denied.*"]}),
+                MagicMock(),
+            ),
+            identifiers=BigQueryIdentifierBuilder(
+                BigQueryIdentifierConfig(), MagicMock()
+            ),
+            discovered_tables=discovered,
+        )
+
+    def test_temp_dataset_prefix_marks_table_as_temporary(self) -> None:
+        extractor = self._extractor()
+        assert extractor.is_temp_table("my-project._scratch.t")
+        assert not extractor.is_temp_table("my-project.sales.t")
+
+    def test_undiscovered_but_allowed_table_is_inferred_temporary(self) -> None:
+        extractor = self._extractor(
+            discovered={"projects/my-project/datasets/sales/tables/known"}
+        )
+
+        assert extractor.is_temp_table("my-project.sales.unknown")
+        assert "my-project.sales.unknown" in extractor.report.inferred_temp_tables
+        assert not extractor.is_temp_table("my-project.sales.known")
+        # Denied by pattern: not an inferred temp table, just filtered.
+        assert not extractor.is_temp_table("my-project.denied.unknown")
+
+    def test_allowed_table_requires_discovery_and_pattern_match(self) -> None:
+        extractor = self._extractor(
+            discovered={"projects/my-project/datasets/sales/tables/known"}
+        )
+
+        assert extractor.is_allowed_table("my-project.sales.known")
+        assert not extractor.is_allowed_table("my-project.sales.unknown")
+        assert not extractor.is_allowed_table("my-project.denied.known")
+
+    def test_unparseable_names_are_neither_temporary_nor_allowed(self) -> None:
+        extractor = self._extractor()
+        assert not extractor.is_temp_table("not-a-table-name")
+        assert not extractor.is_allowed_table("not-a-table-name")
+
+
+def test_unparseable_query_log_rows_are_reported_and_skipped() -> None:
+    report = MagicMock()
+    extractor = BigQueryQueriesExtractor(
+        connection=MagicMock(),
+        schema_api=MagicMock(),
+        config=BigQueryQueriesExtractorConfig(),
+        structured_report=report,
+        filters=BigQueryFilter(BigQueryFilterConfig(), MagicMock()),
+        identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), MagicMock()),
+    )
+    good = _job("select * from `my_dataset`.`a`")
+    extractor.connection.query.return_value = [good, object(), good]  # type: ignore[attr-defined]
+    extractor.start_time, extractor.end_time = extractor._get_time_window()
+
+    entries = list(
+        extractor.fetch_region_query_log(
+            BigqueryProject(id="my-project", name="my-project"), "region-us"
+        )
+    )
+
+    assert len(entries) == 2
+    report.warning.assert_called_once()

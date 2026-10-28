@@ -287,3 +287,86 @@ def test_avro_decode_failure_is_skipped_and_reported(kafka_source):
 
     assert result is None
     assert kafka_source.report.profiling_avro_decode_failures == 1
+
+
+# What the source builds for a topic whose fields were inferred from messages.
+SCHEMALESS_METADATA = SchemaMetadataClass(
+    schemaName=TOPIC,
+    platform="urn:li:dataPlatform:kafka",
+    version=0,
+    hash="",
+    platformSchema=KafkaSchemaClass(documentSchema=""),
+    fields=[],
+)
+
+
+def test_random_offset_reads_whole_range_when_smaller_than_sample():
+    assert _random_offset(10, 15, 100) == (10, 5)
+
+
+def test_stratified_reads_small_partition_sequentially(kafka_source):
+    partition = confluent_kafka.TopicPartition(TOPIC, 0)
+    fake = FakeConsumer()
+
+    kafka_source._get_stratified_samples(
+        [partition], {0: (0, 5)}, 100, [], TOPIC, None, consumer=fake
+    )
+
+    # Fewer messages than requested: read from low in one batch, no seeking.
+    assert fake.assigned_offsets == [0]
+    assert fake.seek_offsets == []
+
+
+def test_stratified_skips_empty_partition(kafka_source):
+    partition = confluent_kafka.TopicPartition(TOPIC, 0)
+    fake = FakeConsumer()
+
+    kafka_source._get_stratified_samples(
+        [partition], {0: (7, 7)}, 10, [], TOPIC, None, consumer=fake
+    )
+
+    assert fake.assigned_offsets == []
+    assert fake.seek_offsets == []
+
+
+class MessageConsumer:
+    """poll() yields a fixed number of JSON messages, then None."""
+
+    def __init__(self, count: int) -> None:
+        self._remaining = count
+
+    def assign(self, partitions: List[confluent_kafka.TopicPartition]) -> None:
+        pass
+
+    def seek(self, partition: confluent_kafka.TopicPartition) -> None:
+        pass
+
+    def poll(self, timeout: float) -> Optional[MagicMock]:
+        if self._remaining == 0:
+            return None
+        self._remaining -= 1
+        msg = MagicMock()
+        msg.error.return_value = None
+        msg.key.return_value = None
+        msg.value.return_value = b'{"a": 1}'
+        msg.offset.return_value = self._remaining
+        msg.timestamp.return_value = (0, 1_700_000_000_000)
+        return msg
+
+
+def test_stratified_collects_polled_messages(kafka_source):
+    partitions, watermarks = _single_partition()
+    samples: List[Dict] = []
+
+    kafka_source._get_stratified_samples(
+        partitions,
+        watermarks,
+        20,
+        samples,
+        TOPIC,
+        SCHEMALESS_METADATA,
+        consumer=MessageConsumer(3),
+    )
+
+    assert len(samples) == 3
+    assert samples[0]["a"] == "1"

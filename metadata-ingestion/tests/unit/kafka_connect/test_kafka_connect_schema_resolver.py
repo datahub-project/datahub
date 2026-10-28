@@ -2,6 +2,7 @@
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple
+from unittest.mock import MagicMock
 
 from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
@@ -1361,6 +1362,73 @@ class TestSinkFineGrainedLineage:
         assert "id" in downstream_fields
         assert "customer_id" in downstream_fields
         assert "amount" in downstream_fields
+
+    def test_dropped_and_unmatched_kafka_fields_produce_no_edges(self) -> None:
+        """A field removed by ReplaceField, or absent from the target table,
+        contributes no column edge; the remaining fields still do."""
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost/testdb",
+                "topics": "orders",
+                "transforms": "drop",
+                "transforms.drop.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+                "transforms.drop.exclude": "internal_note",
+            },
+            tasks=[],
+        )
+        connector = JdbcSinkConnector(
+            manifest, self._config(), KafkaConnectSourceReport(), platform="postgres"
+        )
+        connector.schema_resolver = self._resolver(  # type: ignore[assignment]
+            platform="postgres",
+            db_schemas={"testdb.public.orders": {"id": "INTEGER"}},
+            kafka_schemas={
+                self._KAFKA_ORDERS_URN: ["id", "internal_note", "legacy_flag"]
+            },
+        )
+
+        result = connector._extract_sink_fine_grained_lineage(
+            "orders", "testdb.public.orders", "postgres"
+        )
+
+        assert result is not None
+        assert [
+            (entry.downstreams or [""])[0].split(",")[-1].rstrip(")")
+            for entry in result
+        ] == ["id"]
+
+    def test_datahub_failure_keeps_table_lineage_and_warns(self) -> None:
+        """A DataHub error while fetching the topic schema must not drop the
+        asset-level lineage."""
+        manifest = ConnectorManifest(
+            name="jdbc-sink",
+            type="sink",
+            config={
+                "connection.url": "jdbc:postgresql://localhost/testdb",
+                "topics": "orders",
+            },
+            tasks=[],
+            topic_names=["orders"],
+        )
+        report = KafkaConnectSourceReport()
+        connector = JdbcSinkConnector(
+            manifest, self._config(), report, platform="postgres"
+        )
+        resolver = self._resolver(platform="postgres")
+        failing_graph = MagicMock()
+        failing_graph.get_aspect.side_effect = RuntimeError("datahub unavailable")
+        resolver.graph = failing_graph  # type: ignore[assignment]
+        connector.schema_resolver = resolver  # type: ignore[assignment]
+
+        lineages = connector.extract_lineages()
+
+        assert [lineage.target_dataset for lineage in lineages] == [
+            "testdb.public.orders"
+        ]
+        assert lineages[0].fine_grained_lineages is None
+        assert len(report.warnings) == 1
 
     def test_case_insensitive_snowflake_columns(self) -> None:
         """Kafka lowercase fields match Snowflake uppercase DB columns case-insensitively."""

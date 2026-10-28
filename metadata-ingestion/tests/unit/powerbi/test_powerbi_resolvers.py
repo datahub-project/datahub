@@ -22,8 +22,10 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     Dashboard,
     Measure,
+    MeasureProfile,
     PowerBIDataset,
     Report,
+    ReportDatasource,
     ReportType,
     Table,
     Tile,
@@ -33,6 +35,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
     DataResolverBase,
     RegularAPIResolver,
+    is_permission_error,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import (
     PowerBiAPI,
@@ -687,3 +690,270 @@ def test_get_workspaces_returns_empty_when_listing_fails(msal_stub: _MsalStub) -
         api._get_resolver(), "get_groups", side_effect=_http_error(403)
     ):
         assert api.get_workspaces() == []
+
+
+# --- endorsements, apps and scan plumbing -----------------------------------
+
+
+def test_endorsements_from_the_scan_become_dashboard_and_report_tags(
+    msal_stub: _MsalStub,
+) -> None:
+    api = _api(extract_endorsements_to_tags=True)
+    workspace = _workspace()
+    workspace.scan_result = {
+        Constant.DASHBOARDS: [
+            {
+                Constant.ID: "d-1",
+                Constant.DISPLAY_NAME: "Dash",
+                Constant.ENDORSEMENT_DETAIL: {Constant.ENDORSEMENT: "Certified"},
+            },
+            {Constant.ID: "d-2", Constant.DISPLAY_NAME: "Plain"},
+        ],
+        Constant.REPORTS: [
+            {
+                Constant.ID: "r-1",
+                Constant.NAME: "Report",
+                Constant.REPORT_TYPE: "PowerBIReport",
+                Constant.ENDORSEMENT_DETAIL: {Constant.ENDORSEMENT: "Promoted"},
+            },
+            {Constant.NAME: "no id", Constant.ENDORSEMENT_DETAIL: {}},
+        ],
+    }
+    resolver = api._get_resolver()
+    with mock.patch.object(resolver, "get_pages_by_report", return_value=[]):
+        api.fill_regular_metadata_detail(workspace=workspace)
+
+    assert workspace.dashboards["d-1"].tags == ["Certified"]
+    assert workspace.dashboards["d-2"].tags == []
+    assert workspace.reports["r-1"].tags == ["Promoted"]
+
+
+def test_paginated_report_without_dataset_resolves_its_datasources(
+    msal_stub: _MsalStub,
+) -> None:
+    api = _api()
+    workspace = _workspace()
+    workspace.scan_result = {
+        Constant.REPORTS: [
+            {
+                Constant.ID: "r-1",
+                Constant.NAME: "RDL",
+                Constant.REPORT_TYPE: "PaginatedReport",
+            }
+        ]
+    }
+    resolver = api._get_resolver()
+    datasource = ReportDatasource(
+        datasource_type="Sql", server="sql-host", database="sales"
+    )
+    with (
+        mock.patch.object(resolver, "get_pages_by_report", return_value=[]),
+        mock.patch.object(
+            resolver, "get_report_datasources", return_value=[datasource]
+        ) as get_datasources,
+    ):
+        api.fill_regular_metadata_detail(workspace=workspace)
+
+    get_datasources.assert_called_once()
+    assert workspace.reports["r-1"].datasources == [datasource]
+
+
+def test_admin_apis_only_routes_through_the_admin_resolver(
+    msal_stub: _MsalStub,
+) -> None:
+    assert isinstance(_api(admin_apis_only=True)._get_resolver(), AdminAPIResolver)
+    assert isinstance(_api()._get_resolver(), RegularAPIResolver)
+
+
+def test_modified_workspaces_are_empty_without_a_window_or_on_timeout(
+    msal_stub: _MsalStub,
+) -> None:
+    assert _api().get_modified_workspaces() == []
+
+    api = _api(modified_since="2024-01-01T00:00:00.0000000Z")
+    with mock.patch.object(
+        _admin(api),
+        "get_modified_workspaces",
+        side_effect=requests.exceptions.Timeout(),
+    ):
+        assert api.get_modified_workspaces() == []
+    assert any(w.title == "Metadata API Timeout" for w in api.reporter.warnings)
+
+
+def test_scan_result_is_returned_once_the_scan_completes(
+    msal_stub: _MsalStub,
+) -> None:
+    api = _api()
+    scan = {"workspaces": [{"id": "ws-1"}]}
+    with (
+        mock.patch.object(_admin(api), "create_scan_job", return_value="scan-1"),
+        mock.patch.object(_admin(api), "wait_for_scan_to_complete", return_value=True),
+        mock.patch.object(_admin(api), "get_scan_result", return_value=scan),
+    ):
+        assert api._get_scan_result(["ws-1"]) == scan
+
+
+def test_sql_analytics_endpoints_resolve_to_lakehouse_relations() -> None:
+    artifacts = PowerBiAPI._parse_fabric_artifacts(
+        {
+            Constant.ID: "ws-1",
+            Constant.PARSING_KEY_LAKEHOUSE: [
+                {Constant.ID: "lh-1", Constant.NAME: "LH"}
+            ],
+            Constant.PARSING_KEY_SQL_ANALYTICS_ENDPOINT: [
+                {
+                    Constant.ID: "ep-1",
+                    Constant.NAME: "LH endpoint",
+                    Constant.RELATIONS: [
+                        {Constant.DEPENDENT_ON_ARTIFACT_ID: "lh-1"},
+                        {Constant.DEPENDENT_ON_ARTIFACT_ID: "not-in-workspace"},
+                        {},
+                    ],
+                }
+            ],
+        }
+    )
+    assert artifacts["ep-1"].physical_item_ids == ["lh-1"]
+    assert artifacts["lh-1"].relation_dependent_ids is None
+
+
+def test_workspace_datasets_are_empty_when_the_scan_lists_none(
+    msal_stub: _MsalStub,
+) -> None:
+    workspace = _workspace()
+    workspace.scan_result = {Constant.ID: "ws-1", Constant.NAME: "Sales"}
+    assert _api()._get_workspace_datasets(workspace) == {}
+
+
+def test_app_lookup_scans_the_admin_apps_listing(
+    msal_stub: _MsalStub, requests_mock: rm.Mocker
+) -> None:
+    requests_mock.get(
+        f"{_ORG}/admin/apps",
+        [
+            {"json": {"value": [{"id": "app-1", "name": "Sales App"}]}},
+            {"json": {"value": []}},
+        ],
+    )
+    api = _api()
+    app = api.get_app("app-1")
+    assert app is not None and app.name == "Sales App"
+
+    requests_mock.get(
+        f"{_ORG}/admin/apps",
+        [{"json": {"value": [{"id": "other"}]}}, {"json": {"value": []}}],
+    )
+    assert api.get_app("app-1") is None
+
+
+def test_app_id_is_taken_from_app_dashboards_when_no_report_is_shared(
+    msal_stub: _MsalStub,
+) -> None:
+    api = _api()
+    workspace = _workspace()
+    scan = {
+        Constant.DASHBOARDS: [
+            {
+                Constant.ID: "d-1-app",
+                Constant.DISPLAY_NAME: "[App] Dash",
+                "appId": "app-9",
+            }
+        ]
+    }
+    with mock.patch.object(api, "get_app", return_value=None) as get_app:
+        api._populate_app_details(workspace=workspace, workspace_metadata=scan)
+
+    get_app.assert_called_once_with(app_id="app-9")
+    assert workspace.app is None
+    assert any(i.title == "App Not Found" for i in api.reporter.infos)
+
+
+# --- resolver endpoints -----------------------------------------------------
+
+
+def test_regular_resolver_lists_dashboards_and_pages_through_groups(
+    msal_stub: _MsalStub, requests_mock: rm.Mocker
+) -> None:
+    requests_mock.get(
+        f"{_ORG}/groups/ws-1/dashboards",
+        json={"value": [{"id": "d-1", "displayName": "Dash"}, {"displayName": "x"}]},
+    )
+    requests_mock.get(
+        f"{_ORG}/groups",
+        [
+            {"json": {"value": [{"id": "ws-1", "name": "Sales"}]}},
+            {"json": {"value": []}},
+        ],
+    )
+    resolver = _resolver()
+    dashboards = resolver.get_dashboards(_workspace())
+    assert [d.id for d in dashboards] == ["d-1"]
+    assert dashboards[0].webUrl == "https://app.powerbi.com/groups/ws-1/dashboards/d-1"
+    assert resolver.get_groups({"$filter": "type eq 'Workspace'"}) == [
+        {"id": "ws-1", "name": "Sales"}
+    ]
+    assert resolver.get_users("ws-1", "dashboards", "d-1") == []
+
+
+def test_admin_resolver_lists_dashboards_and_users(
+    msal_stub: _MsalStub, requests_mock: rm.Mocker
+) -> None:
+    requests_mock.get(
+        f"{_ORG}/admin/groups/ws-1/dashboards",
+        json={"value": [{"id": "d-1", "displayName": "Dash"}]},
+    )
+    requests_mock.get(
+        f"{_ORG}/admin/dashboards/d-1/users",
+        json={
+            "value": [
+                {
+                    "identifier": "alice@example.com",
+                    "displayName": "Alice",
+                    "graphId": "g-1",
+                    "principalType": "User",
+                    "dashboardUserAccessRight": "Owner",
+                },
+                {"identifier": "", "displayName": "broken"},
+            ]
+        },
+    )
+    resolver = _resolver(AdminAPIResolver)
+    assert [d.id for d in resolver.get_dashboards(_workspace())] == ["d-1"]
+    users = resolver.get_users("ws-1", "dashboards", "d-1")
+    assert [(u.id, u.dashboardUserAccessRight) for u in users] == [
+        ("alice@example.com", "Owner")
+    ]
+
+
+def test_admin_resolver_has_no_datasources_parameters_or_profiling(
+    msal_stub: _MsalStub,
+) -> None:
+    resolver = _resolver(AdminAPIResolver)
+    dataset = _dataset()
+    table = Table(name="Sales", full_name="Model.Sales", columns=[_column("a")])
+    assert resolver.get_report_datasources(_workspace(), "r-1") == []
+    assert resolver.get_dataset_parameters("ws-1", "ds-1") == {}
+    resolver.profile_dataset(dataset, table, "Sales", AllowDenyPattern.allow_all())
+    assert table.row_count is None
+
+
+def test_profile_dataset_tolerates_malformed_dax_responses(
+    msal_stub: _MsalStub, requests_mock: rm.Mocker
+) -> None:
+    requests_mock.post(
+        f"{_ORG}/groups/ws-1/datasets/ds-1/executeQueries", json={"results": []}
+    )
+    dataset = _dataset()
+    table = _profiled_table(dataset)
+
+    _resolver().profile_dataset(dataset, table, "Sales", AllowDenyPattern.allow_all())
+
+    assert table.row_count == 0
+    assert table.columns is not None
+    assert table.columns[0].measure_profile == MeasureProfile()
+
+
+def test_is_permission_error_only_for_http_401_and_403() -> None:
+    assert is_permission_error(_http_error(403))
+    assert not is_permission_error(_http_error(500))
+    assert not is_permission_error(ValueError("not http"))

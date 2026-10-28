@@ -3,6 +3,8 @@ from unittest import mock
 
 import looker_sdk.rtl.requests_transport as looker_requests_transport
 import pytest
+from looker_sdk.error import SDKError
+from looker_sdk.sdk.api40.models import Look, User, WriteQuery
 from requests.adapters import HTTPAdapter
 
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
@@ -128,3 +130,90 @@ def test_transport_options_headers_defaults_to_empty():
     transport = opts.get_transport_options()
     assert transport["timeout"] == 300
     assert transport["headers"] == {}
+
+
+def _api(client: mock.MagicMock) -> LookerAPI:
+    with mock.patch("looker_sdk.init40", return_value=client):
+        return LookerAPI(config=_make_config())
+
+
+class TestSdkErrorHandling:
+    """SDK failures on lookups are swallowed so one bad object does not abort a run."""
+
+    def test_user_lookup_failures_return_none(self) -> None:
+        client = mock.MagicMock()
+        client.user.side_effect = [
+            SDKError("<title>Looker Not Found (404)</title>"),
+            SDKError("forbidden"),
+            User(id="3", email="three@example.com"),
+        ]
+        api = _api(client)
+        assert api.get_user("1", user_fields="id,email") is None
+        assert api.get_user("2", user_fields="id,email") is None
+        found = api.get_user("3", user_fields="id,email")
+        assert found is not None and found.email == "three@example.com"
+        # Results are cached per user id.
+        assert api.get_user("3", user_fields="id,email") is found
+        assert client.user.call_count == 3
+        assert api.compute_stats()["client_stats"].user_calls == 3
+
+    def test_all_users_failure_returns_empty_list(self) -> None:
+        client = mock.MagicMock()
+        client.all_users.side_effect = SDKError("forbidden")
+        assert _api(client).all_users(user_fields="id") == []
+
+    def test_folder_ancestors_failures_return_empty_list(self) -> None:
+        client = mock.MagicMock()
+        client.folder_ancestors.side_effect = [
+            SDKError("<title>Looker Not Found (404)</title>"),
+            SDKError("forbidden"),
+        ]
+        api = _api(client)
+        assert api.folder_ancestors("missing") == []
+        assert api.folder_ancestors("denied") == []
+        # Default fields are requested when none are given.
+        assert client.folder_ancestors.call_args.args[1] == "id,name,parent_id"
+
+
+class TestQueryCalls:
+    def test_execute_query_decodes_json_rows(self) -> None:
+        client = mock.MagicMock()
+        client.run_inline_query.return_value = '[{"a": 1}]'
+        api = _api(client)
+        query = WriteQuery(model="m", view="v", fields=["v.a"])
+        assert api.execute_query(query) == [{"a": 1}]
+        assert client.run_inline_query.call_args.kwargs["result_format"] == "json"
+
+    def test_generate_sql_query_requests_sql_with_cache_flag(self) -> None:
+        client = mock.MagicMock()
+        client.run_inline_query.return_value = "SELECT 1"
+        api = _api(client)
+        query = WriteQuery(model="m", view="v", fields=["v.a"])
+        assert api.generate_sql_query(query, use_cache=True) == "SELECT 1"
+        kwargs = client.run_inline_query.call_args.kwargs
+        assert kwargs["result_format"] == "sql"
+        assert kwargs["cache"] is True
+        assert api.compute_stats()["client_stats"].generate_sql_query_calls == 1
+
+    def test_all_looks_includes_soft_deleted_when_asked(self) -> None:
+        client = mock.MagicMock()
+        client.all_looks.return_value = [Look(id="1")]
+        client.search_looks.return_value = [Look(id="2", deleted=True)]
+        api = _api(client)
+        assert [
+            look.id for look in api.all_looks(fields=["id"], soft_deleted=False)
+        ] == ["1"]
+        assert [
+            look.id for look in api.all_looks(fields=["id"], soft_deleted=True)
+        ] == ["1", "2"]
+        assert client.search_looks.call_args.kwargs["deleted"] is True
+
+    def test_list_fields_are_joined_for_the_sdk(self) -> None:
+        client = mock.MagicMock()
+        api = _api(client)
+        api.lookml_model("sales", fields=["project_name", "explores"])
+        assert client.lookml_model.call_args.args == ("sales", "project_name,explores")
+        api.get_query("q1", fields=["id", "view"])
+        assert client.query.call_args.kwargs["fields"] == "id,view"
+        api.lookml_model_explore("sales", "orders")
+        assert client.lookml_model_explore.call_args.kwargs["fields"] is None

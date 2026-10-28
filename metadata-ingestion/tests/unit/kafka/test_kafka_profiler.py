@@ -1,4 +1,5 @@
-from typing import Any, Dict, List, Union, cast
+import json
+from typing import Any, Dict, List, Optional, Set, Union, cast
 from unittest.mock import patch
 
 import pytest
@@ -9,6 +10,11 @@ from datahub.ingestion.source.kafka.kafka_profiler import (
     clean_field_path,
     is_overflow_value,
 )
+from datahub.ingestion.source.kafka.kafka_profiler_utils import (
+    calculate_standard_deviation,
+    filter_numeric_values,
+)
+from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -110,6 +116,8 @@ def test_clean_field_path():
     assert "name" in cleaned
 
     assert clean_field_path("id[key=True]") == "id"
+    # Nothing but path tokens: fall back to the raw path instead of an empty name.
+    assert clean_field_path("[type=record]") == "[type=record]"
 
 
 def test_is_overflow_value():
@@ -223,6 +231,7 @@ def test_sample_values(mock_random_sample, profiler):
     assert samples[0] == "value1"
     assert samples[1] == "value3"
     assert samples[2] == "value5"
+    assert profiler._get_sample_values([], max_samples=3) == []
 
 
 def test_profile_topic_static_method(sample_data, schema_metadata):
@@ -307,3 +316,186 @@ def test_expensive_profiling_limits():
 
     assert len(processed_fields) > 0
     assert len(processed_fields[-1].sample_values) == 0
+
+
+KEY_SCHEMA = json.dumps(
+    {"type": "record", "name": "OrderKey", "fields": [{"name": "id", "type": "long"}]}
+)
+# Field paths exactly as the registry emits them: key fields carry [key=True].
+KEY_ID = "[version=2.0].[key=True].[type=OrderKey].[type=long].id"
+VALUE_ID = "[version=2.0].[type=Order].[type=long].id"
+VALUE_NAME = "[version=2.0].[type=Order].[type=string].name"
+
+
+def _registry_schema(key_schema: Optional[str] = KEY_SCHEMA) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="orders",
+        platform="urn:li:dataPlatform:kafka",
+        version=0,
+        hash="",
+        platformSchema=KafkaSchemaClass(documentSchema="{}", keySchema=key_schema),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=KEY_ID,
+                type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                nativeDataType="long",
+            ),
+            SchemaFieldClass(
+                fieldPath=VALUE_ID,
+                type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                nativeDataType="long",
+            ),
+            SchemaFieldClass(
+                fieldPath=VALUE_NAME,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="string",
+            ),
+        ],
+    )
+
+
+def _paths(profile: DatasetProfileClass) -> Set[str]:
+    return {f.fieldPath for f in profile.fieldProfiles or []}
+
+
+def test_sampled_fields_map_onto_registry_field_paths():
+    # Samples look like what the source's sampler produces: Kafka metadata plus
+    # "key."-prefixed key fields. Key and value both have an "id" field, which
+    # must land on their own schema paths rather than being merged.
+    samples: List[Dict[str, Any]] = [
+        {
+            "offset": i,
+            "timestamp": "2024-01-01T00:00:00",
+            "key.id": i,
+            "id": 100 + i,
+            "name": f"n{i}",
+        }
+        for i in range(3)
+    ]
+
+    profile = KafkaProfiler(ProfilerConfig()).generate_dataset_profile(
+        samples, _registry_schema()
+    )
+
+    assert _paths(profile) == {KEY_ID, VALUE_ID, VALUE_NAME}
+    by_path = {f.fieldPath: f for f in profile.fieldProfiles or []}
+    assert by_path[KEY_ID].max == "2.0"
+    assert by_path[VALUE_ID].min == "100.0"
+
+
+def test_scalar_key_maps_onto_the_single_key_field():
+    samples: List[Dict[str, Any]] = [
+        {"offset": 0, "timestamp": "2024-01-01T00:00:00", "key": 7, "name": "x"}
+    ]
+
+    profile = KafkaProfiler(ProfilerConfig()).generate_dataset_profile(
+        samples, _registry_schema()
+    )
+
+    assert _paths(profile) == {KEY_ID, VALUE_NAME}
+
+
+def test_key_fields_without_schema_keep_their_prefix():
+    samples: List[Dict[str, Any]] = [
+        {"offset": 0, "timestamp": "t", "key.id": 1, "name": "x"},
+        {"offset": 1, "timestamp": "t", "key": "k", "name": "y"},
+    ]
+
+    profile = KafkaProfiler(ProfilerConfig()).generate_dataset_profile(samples, None)
+
+    # Kafka metadata is never profiled as a field; keys keep a visible prefix.
+    assert _paths(profile) == {"key.id", "key", "name"}
+
+
+def test_unparseable_key_schema_does_not_abort_profiling():
+    profile = KafkaProfiler(ProfilerConfig()).generate_dataset_profile(
+        [{"id": 1, "name": "a"}], _registry_schema(key_schema="{not avro")
+    )
+
+    assert _paths(profile) == {VALUE_ID, VALUE_NAME}
+
+
+def test_profile_topic_reports_samples_it_could_not_process():
+    report = KafkaSourceReport()
+    samples = cast(List[Dict[str, Any]], [{"a": 1}, "not a dict"])
+
+    profile = KafkaProfiler.profile_topic(
+        "orders", samples, None, ProfilerConfig(), report=report
+    )
+
+    assert profile is not None
+    assert _paths(profile) == {"a"}
+    assert report.profiling_samples_skipped == 1
+    assert report.warnings
+
+
+def test_profile_topic_turns_recursion_error_into_runtime_error():
+    with (
+        patch.object(
+            KafkaProfiler, "_calculate_field_stats", side_effect=RecursionError("deep")
+        ),
+        pytest.raises(RuntimeError),
+    ):
+        KafkaProfiler.profile_topic("orders", [{"a": 1}], None, ProfilerConfig())
+
+
+def test_numeric_schema_field_tolerates_string_encoded_values():
+    # JSON producers often quote numbers; a numeric schema field must still get
+    # stats from the parseable values and ignore the junk.
+    schema = SchemaMetadataClass(
+        schemaName="orders",
+        platform="urn:li:dataPlatform:kafka",
+        version=0,
+        hash="",
+        platformSchema=KafkaSchemaClass(documentSchema="{}"),
+        fields=[
+            SchemaFieldClass(
+                fieldPath="amount",
+                type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                nativeDataType="double",
+            ),
+            SchemaFieldClass(
+                fieldPath="count",
+                type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                nativeDataType="long",
+            ),
+        ],
+    )
+    samples: List[Dict[str, Any]] = [
+        {"amount": "1.5", "count": "x"},
+        {"amount": "abc", "count": "y"},
+        {"amount": "NaN", "count": "z"},
+        {"amount": "4.5", "count": "w"},
+    ]
+
+    profile = KafkaProfiler(
+        ProfilerConfig(include_field_histogram=True)
+    ).generate_dataset_profile(samples, schema)
+
+    by_path = {f.fieldPath: f for f in profile.fieldProfiles or []}
+    assert by_path["amount"].min == "1.5"
+    assert by_path["amount"].max == "4.5"
+    assert by_path["amount"].histogram is not None
+    # Nothing numeric at all: no stats rather than a crash or bogus zeros.
+    assert by_path["count"].min is None
+    assert by_path["count"].histogram is None
+
+
+def test_quantiles_are_reported_when_enabled():
+    samples: List[Dict[str, Any]] = [{"n": i} for i in range(1, 9)]
+
+    profile = KafkaProfiler(
+        ProfilerConfig(include_field_quantiles=True)
+    ).generate_dataset_profile(samples)
+
+    [n] = profile.fieldProfiles or []
+    assert [(q.quantile, q.value) for q in n.quantiles or []] == [
+        ("0.25", "3.0"),
+        ("0.5", "5.0"),
+        ("0.75", "7.0"),
+    ]
+
+
+def test_numeric_helpers_ignore_non_numeric_inputs():
+    assert filter_numeric_values([None, "x", "2", 3]) == [2.0, 3.0]
+    assert calculate_standard_deviation([1.0]) is None

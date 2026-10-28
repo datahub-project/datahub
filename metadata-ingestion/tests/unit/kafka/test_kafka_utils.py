@@ -2,8 +2,12 @@ import base64
 from typing import Dict
 from unittest.mock import Mock
 
+from datahub.ingestion.source.kafka.kafka_constants import (
+    MAX_SAMPLE_VALUE_STR_LENGTH,
+)
 from datahub.ingestion.source.kafka.kafka_utils import (
     decode_kafka_message_value,
+    flatten_json,
     process_kafka_message_for_sampling,
 )
 
@@ -177,3 +181,17 @@ class TestProcessKafkaMessageForSampling:
         result = process_kafka_message_for_sampling(value)
         expected = {"text_value": '{"malformed": json}'}
         assert result == expected
+
+
+class TestFlattenJson:
+    def test_long_values_are_truncated_for_profiling(self):
+        flattened = flatten_json({"blob": "x" * (MAX_SAMPLE_VALUE_STR_LENGTH + 50)})
+
+        assert len(flattened["blob"]) == MAX_SAMPLE_VALUE_STR_LENGTH + 3
+        assert flattened["blob"].endswith("...")
+
+    def test_top_level_list_is_indexed(self):
+        assert flatten_json([1, {"a": 2}]) == {"[0]": "1", "[1].item.a": "2"}
+
+    def test_list_is_kept_intact_for_schema_inference(self):
+        assert flatten_json([1, 2], stringify_values=False) == {"item": [1, 2]}

@@ -3,11 +3,15 @@ from typing import Any, Dict
 
 import pytest
 
+from datahub.ingestion.source.looker.looker_dataclasses import LookerConstant
 from datahub.ingestion.source.looker.looker_liquid_tag import create_template
 from datahub.ingestion.source.looker.looker_template_language import (
     DropDerivedViewPatternTransformer,
     IncompleteSqlTransformer,
+    LiquidVariableTransformer,
+    LookmlConstantTransformer,
     LookMlIfCommentTransformer,
+    TransformedLookMlView,
     process_lookml_template_language,
     resolve_liquid_variable,
 )
@@ -281,3 +285,72 @@ class TestProcessLookmlTemplateLanguage:
         )
 
         assert lkml == {"explores": [{"name": "orders"}]}
+
+
+class TestSpecialLiquidVariables:
+    def test_in_query_and_is_selected_default_to_true(self) -> None:
+        # Looker's _in_query / _is_selected / _is_filtered flags are not known
+        # at parse time, so they resolve to true and keep the branch visible.
+        sql = (
+            "SELECT {% if orders.amount._in_query %}amount{% else %}0{% endif %}, "
+            "{% if orders._is_selected %}id{% endif %}, "
+            "{% if orders.status._is_filtered %}status{% endif %} FROM t"
+        )
+        resolved = resolve_liquid_variable(
+            text=sql,
+            view_name="orders",
+            liquid_variable={"orders": {"region": "emea"}},
+            report=LookMLSourceReport(),
+        )
+        assert resolved == "SELECT amount, id, status FROM t"
+
+    def test_existing_values_are_not_overwritten(self) -> None:
+        resolved = resolve_liquid_variable(
+            text="{% if orders.amount._in_query %}yes{% else %}no{% endif %}",
+            view_name="orders",
+            liquid_variable={"orders": {"amount": {"_in_query": False}}},
+            report=LookMLSourceReport(),
+        )
+        assert resolved == "no"
+
+
+class TestLookmlConstantTransformer:
+    def test_constant_resolution_order_and_warnings(
+        self, prod_config: LookMLSourceConfig
+    ) -> None:
+        prod_config.lookml_constants = {"from_config": "cfg"}
+        prod_config.liquid_variables = {"misplaced": "liquid"}
+        reporter = LookMLSourceReport()
+        transformer = LookmlConstantTransformer(
+            source_config=prod_config,
+            reporter=reporter,
+            manifest_constants={
+                "from_manifest": LookerConstant("from_manifest", "man")
+            },
+        )
+        text = "@{from_config}.@{from_manifest}.@{misplaced}.@{missing}"
+        assert (
+            transformer.resolve_lookml_constant(text, view_name="v")
+            == "cfg.man.@{misplaced}.@{missing}"
+        )
+        assert [w.title for w in reporter.warnings] == [
+            "Misplaced lookml constant",
+            "LookML constant not found",
+        ]
+
+
+class TestTransformedLookMlView:
+    def test_view_without_transformable_attributes_is_returned_as_is(
+        self, prod_config: LookMLSourceConfig
+    ) -> None:
+        transformed = TransformedLookMlView(
+            transformers=[
+                LiquidVariableTransformer(
+                    source_config=prod_config, reporter=LookMLSourceReport()
+                )
+            ],
+            view_dict={"name": "orders", "dimensions": []},
+        )
+        assert transformed.view() == {"name": "orders", "dimensions": []}
+        # The result is computed once and reused.
+        assert transformed.view() is transformed.view()

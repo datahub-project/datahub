@@ -650,3 +650,29 @@ def test_flatten_preserves_excluded_fields():
     assert result.get("id") == "id"
     assert result.get("user.name") == "user_name"
     assert result.get("secret") is None
+
+
+@pytest.mark.parametrize(
+    "transform_type",
+    [
+        "org.apache.kafka.connect.transforms.ExtractField$Value",
+        "org.apache.kafka.connect.transforms.HoistField$Value",
+    ],
+)
+def test_struct_transforms_without_a_field_leave_columns_unchanged(
+    transform_type: str,
+    config: KafkaConnectSourceConfig,
+    report: KafkaConnectSourceReport,
+) -> None:
+    manifest = ConnectorManifest(
+        name="test-connector",
+        type="source",
+        config={"transforms": "t", "transforms.t.type": transform_type},
+        tasks=[],
+    )
+    connector = BaseConnector(manifest, config, report)
+
+    assert connector._apply_field_transforms(["id", "name"]) == {
+        "id": "id",
+        "name": "name",
+    }

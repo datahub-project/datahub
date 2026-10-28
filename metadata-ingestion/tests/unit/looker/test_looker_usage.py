@@ -1,18 +1,27 @@
+import datetime
 from typing import Optional
 from unittest import mock
+
+from looker_sdk.sdk.api40.models import Dashboard, DashboardElement, LookWithQuery
 
 from datahub.ingestion.source.looker import looker_usage
 from datahub.ingestion.source.looker.looker_common import (
     LookerCommonConfig,
     LookerDashboardSourceReport,
+    LookerUser,
 )
 from datahub.ingestion.source.looker.looker_query_model import (
     HistoryViewField,
     LookerModel,
+    LookViewField,
     QueryViewField,
     UserViewField,
 )
-from datahub.metadata.schema_classes import DatasetUsageStatisticsClass
+from datahub.metadata.schema_classes import (
+    ChartUsageStatisticsClass,
+    DashboardUsageStatisticsClass,
+    DatasetUsageStatisticsClass,
+)
 
 
 def _stat_config(
@@ -319,3 +328,132 @@ def test_explore_stat_generator_reports_non_ingested_explore_as_skipped():
     assert any("sales.explore.orders" in urn for urn in emitted_urns)
     assert not any("sales.explore.returns" in urn for urn in emitted_urns)
     assert "sales::returns" in report.explores_skipped_for_usage
+
+
+def test_dashboard_stats_are_post_filtered_when_too_many_dashboards():
+    # With more than 100 dashboards the id filter is not sent to Looker (the
+    # filter string would be too long); rows are filtered locally instead.
+    dashboards = [
+        looker_usage.LookerDashboardForUsage(
+            id=str(i), view_count=1, favorite_count=0, last_viewed_at=None
+        )
+        for i in range(101)
+    ]
+    entity_rows = [
+        {
+            HistoryViewField.HISTORY_DASHBOARD_ID: dashboard_id,
+            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+            HistoryViewField.HISTORY_DASHBOARD_USER: 1,
+            HistoryViewField.HISTORY_DASHBOARD_RUN_COUNT: 2,
+        }
+        for dashboard_id in ("7", "not-ingested")
+    ]
+    mock_api = mock.MagicMock()
+    mock_api.execute_query.side_effect = [entity_rows, []]
+
+    generator = looker_usage.create_dashboard_stat_generator(
+        config=_stat_config(api=mock_api),
+        report=LookerDashboardSourceReport(),
+        urn_builder=lambda name: f"urn:li:dashboard:(looker,{name})",
+        looker_dashboards=dashboards,
+    )
+    mcps = list(generator.generate_usage_stat_mcps())
+
+    assert generator.post_filter
+    sent_query = mock_api.execute_query.call_args_list[0].kwargs["write_query"]
+    assert (sent_query.filters or {}).get(
+        HistoryViewField.HISTORY_DASHBOARD_ID
+    ) != ",".join(d.id for d in dashboards if d.id)
+    daily = [
+        mcp
+        for mcp in mcps
+        if isinstance(mcp.aspect, DashboardUsageStatisticsClass)
+        and mcp.aspect.eventGranularity is not None
+    ]
+    assert [mcp.entityUrn for mcp in daily] == [
+        "urn:li:dashboard:(looker,dashboards.7)"
+    ]
+
+
+def test_user_rows_for_unknown_entities_or_days_are_skipped():
+    entity_rows = [
+        {
+            LookViewField.LOOK_ID: 1,
+            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+            HistoryViewField.HISTORY_COUNT: 3,
+        }
+    ]
+    user_rows = [
+        # Look that was never registered with the generator.
+        {
+            LookViewField.LOOK_ID: 99,
+            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+            UserViewField.USER_ID: 1,
+            HistoryViewField.HISTORY_COUNT: 1,
+        },
+        # Known look, but a day with no entity-level row.
+        {
+            LookViewField.LOOK_ID: 1,
+            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-06",
+            UserViewField.USER_ID: 1,
+            HistoryViewField.HISTORY_COUNT: 1,
+        },
+        # Known look and day, but an unresolvable user.
+        {
+            LookViewField.LOOK_ID: 1,
+            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+            UserViewField.USER_ID: 2,
+            HistoryViewField.HISTORY_COUNT: 1,
+        },
+        # Known look and day, user without an email.
+        {
+            LookViewField.LOOK_ID: 1,
+            HistoryViewField.HISTORY_CREATED_DATE: "2022-07-05",
+            UserViewField.USER_ID: 3,
+            HistoryViewField.HISTORY_COUNT: 1,
+        },
+    ]
+    mock_api = mock.MagicMock()
+    mock_api.execute_query.side_effect = [entity_rows, user_rows]
+    mock_registry = mock.MagicMock()
+    users = {
+        1: LookerUser("1", "one@example.com", None, None, None),
+        2: None,
+        3: LookerUser("3", None, None, None, None),
+    }
+    mock_registry.get_by_id.side_effect = lambda user_id: users[user_id]
+
+    generator = looker_usage.create_chart_stat_generator(
+        config=_stat_config(api=mock_api, user_registry=mock_registry),
+        report=LookerDashboardSourceReport(),
+        urn_builder=lambda name: f"urn:li:chart:(looker,{name})",
+        looker_looks=[looker_usage.LookerChartForUsage(id="1", view_count=0)],
+    )
+    mcps = list(generator.generate_usage_stat_mcps())
+
+    daily = [
+        mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, ChartUsageStatisticsClass)
+        and mcp.aspect.eventGranularity is not None
+    ]
+    assert len(daily) == 1
+    assert daily[0].viewsCount == 3
+    assert daily[0].userCounts == []
+
+
+def test_usage_models_built_from_api_dashboard():
+    dashboard = Dashboard(
+        id="d",
+        view_count=5,
+        favorite_count=1,
+        last_viewed_at=datetime.datetime(2022, 7, 1, tzinfo=datetime.timezone.utc),
+        dashboard_elements=[
+            DashboardElement(id="e1", look=LookWithQuery(id="l1", view_count=2)),
+            DashboardElement(id="e2"),
+        ],
+    )
+    usage = looker_usage.LookerDashboardForUsage.from_dashboard(dashboard)
+    assert usage.id == "d"
+    assert usage.last_viewed_at == 1656633600000
+    assert [(look.id, look.view_count) for look in usage.looks] == [("l1", 2)]

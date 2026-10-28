@@ -6,6 +6,7 @@ from datahub.ingestion.source.kafka.kafka_config import (
     ProfilerConfig,
     SchemaResolutionFallback,
 )
+from datahub.ingestion.source.kafka.kafka_probe import KafkaMetadataProbe
 from datahub.ingestion.source_config.operation_config import OperationConfig
 
 
@@ -117,3 +118,8 @@ class TestConfigurationValidationEdgeCases:
         )
         assert config.batch_size == 10000
         assert config.max_sample_time_seconds == 3600
+
+
+def test_probe_provider_is_the_kafka_metadata_probe():
+    # `datahub recipe probe` discovers the probe through the config class.
+    assert KafkaSourceConfig.probe_provider_class() is KafkaMetadataProbe

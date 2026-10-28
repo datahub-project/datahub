@@ -1,3 +1,5 @@
+import pytest
+
 from datahub.ingestion.agent.introspect import declares_qualifier
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 
@@ -19,3 +21,22 @@ def test_probe_qualifies_tables_through_the_database_field():
     assert declares_qualifier(
         RedshiftConfig(host_port="localhost:5439", database="test")
     )
+
+
+def test_connect_args_are_promoted_to_extra_client_options():
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="test",
+        options={"connect_args": {"ssl": False}},
+    )
+    assert config.extra_client_options == {"ssl": False}
+
+
+def test_connect_args_and_extra_client_options_cannot_both_be_set():
+    with pytest.raises(ValueError):
+        RedshiftConfig(
+            host_port="localhost:5439",
+            database="test",
+            options={"connect_args": {"ssl": False}},
+            extra_client_options={"ssl": True},
+        )

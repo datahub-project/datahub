@@ -156,6 +156,45 @@ def test_hive_metastore_tables_yields_views_then_tables_with_parsed_details() ->
     assert "Comment" not in orders.properties
 
 
+def test_detailed_info_sub_sections_are_flattened_into_properties() -> None:
+    # DESCRIBE EXTENDED nests e.g. "Storage Properties" / "Table Properties" as a
+    # heading row followed by rows whose col_name is blank.
+    describe = _describe(
+        [
+            ("id", "int", None),
+            ("", "", ""),
+            ("# Detailed Table Information", "", ""),
+            ("Type", "MANAGED", ""),
+            ("Storage Properties", None, None),
+            ("", "path", "s3://my-bucket/orders"),
+            ("", "compression", "snappy"),
+            ("", None, None),
+            ("# Partition Information", None, None),
+            ("Owner", "root", ""),
+        ]
+    )
+    proxy, _ = _proxy(
+        {
+            SHOW_VIEWS: _rows(
+                ["namespace", "viewName", "isTemporary", "isMaterialized"], []
+            ),
+            SHOW_TABLES: _rows(
+                ["database", "tableName", "isTemporary"], [("sales", "orders", "false")]
+            ),
+            DESCRIBE_ORDERS: describe,
+        }
+    )
+
+    (orders,) = list(proxy.hive_metastore_tables(SCHEMA))
+
+    assert orders.table_type == HiveTableType.HIVE_MANAGED_TABLE
+    assert orders.properties == {
+        "Storage Properties path": "s3://my-bucket/orders",
+        "Storage Properties compression": "snappy",
+        "Owner": "root",
+    }
+
+
 def test_listing_failures_are_reported_and_yield_no_tables() -> None:
     proxy, _ = _proxy(
         {
