@@ -4969,6 +4969,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Queue to dead-letter queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "SQS has no description",
           "subtype_modifier": null,

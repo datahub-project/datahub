@@ -1,4 +1,6 @@
-from typing import Dict, Iterable, List, Optional, Set
+import json
+import re
+from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
@@ -20,7 +22,7 @@ from datahub.ingestion.source.aws_messaging.jobs import job_urn, shared_job_work
 from datahub.ingestion.source.aws_messaging.lambda_lineage import LambdaLineage
 from datahub.ingestion.source.aws_messaging.lineage import (
     SchemaLookup,
-    identity_field_lineage,
+    mapped_field_lineage,
 )
 from datahub.ingestion.source.aws_messaging.mapper import (
     AwsRegionKey,
@@ -31,6 +33,7 @@ from datahub.ingestion.source.aws_messaging.models import (
     Arn,
     EventBridgePipe,
     EventBridgeRule,
+    RuleTarget,
 )
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
@@ -46,6 +49,49 @@ MESSAGING_PLATFORMS: Dict[str, str] = {
     AwsService.SQS.value: SQS_PLATFORM,
     AwsService.SNS.value: SNS_PLATFORM,
 }
+
+
+SIMPLE_JSON_PATH = re.compile(r"^\$(?:\.[A-Za-z0-9_-]+)*$")
+# A template placeholder Pipes fills from the decoded SQS message body.
+BODY_PLACEHOLDER = re.compile(r"^<\$\.body((?:\.[A-Za-z0-9_-]+)+)>$")
+UNQUOTED_PLACEHOLDER = re.compile(r'(?<!")(<\$[^<>"]*>)(?!")')
+
+
+def event_path_prefix(input_path: Optional[str]) -> Optional[str]:
+    """`$.detail` -> `detail`, no InputPath -> "", anything with brackets,
+    wildcards or filters -> None."""
+    if not input_path or input_path == "$":
+        return ""
+    if not SIMPLE_JSON_PATH.match(input_path):
+        return None
+    return input_path[2:]
+
+
+def template_field_map(template: str) -> Optional[Dict[str, str]]:
+    """Target field path -> message field path, when every value in a JSON
+    template is exactly one `<$.body.x>` placeholder. None for anything else:
+    literals, concatenation, arrays, or placeholders outside the body."""
+    # Pipes allows unquoted placeholders for objects and numbers.
+    try:
+        document = json.loads(UNQUOTED_PLACEHOLDER.sub(r'"\1"', template))
+    except ValueError:
+        return None
+    if not isinstance(document, dict):
+        return None
+    mapping: Dict[str, str] = {}
+    pending = [("", document)]
+    while pending:
+        prefix, node = pending.pop()
+        for key, value in node.items():
+            path = f"{prefix}{key}"
+            if isinstance(value, dict):
+                pending.append((f"{path}.", value))
+                continue
+            match = BODY_PLACEHOLDER.match(value) if isinstance(value, str) else None
+            if match is None:
+                return None
+            mapping[path] = match.group(1)[1:]
+    return mapping or None
 
 
 class EventBridgeLineage:
@@ -103,17 +149,17 @@ class EventBridgeLineage:
             if bus is None:
                 continue
             for rule in self.events.list_rules(bus.resource_name):
-                targets = set(
-                    self.events.list_target_arns(rule["Name"], bus.resource_name)
+                targets = list(
+                    self.events.list_targets(rule["Name"], bus.resource_name)
                 )
-                if not any(self.resolver.urn(parse_arn(t)) for t in targets):
+                if not any(self.resolver.urn(parse_arn(t.arn)) for t in targets):
                     continue
                 yield EventBridgeRule(
                     bus_arn=bus,
                     name=rule["Name"],
                     state=rule.get("State"),
                     event_pattern=rule.get("EventPattern"),
-                    target_arns=targets,
+                    targets=targets,
                 )
 
     def rule_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -141,11 +187,16 @@ class EventBridgeLineage:
                 EVENTBRIDGE_PLATFORM, flow_id, EVENTBRIDGE_RULE_JOB_ID, bus
             )
             outputs: List[str] = []
-            for target in sorted(rule.target_arns):
-                urn = self.resolver.urn(parse_arn(target))
+            fine_grained: List[FineGrainedLineageClass] = []
+            for target in sorted(rule.targets, key=lambda t: t.arn):
+                urn = self.resolver.urn(parse_arn(target.arn))
                 if urn:
                     outputs.append(urn)
-                self._link_lambda(target, rule_job)
+                    if self.config.column_lineage:
+                        fine_grained.extend(
+                            self._rule_column_lineage(bus_urn, target, urn)
+                        )
+                self._link_lambda(target.arn, rule_job)
             flow = DataFlow(
                 platform=EVENTBRIDGE_PLATFORM,
                 name=flow_id,
@@ -169,8 +220,57 @@ class EventBridgeLineage:
             )
             self.report.eventbridge_rules_emitted += 1
             yield from shared_job_workunits(
-                flow=flow, job=job, inputs=[bus_urn], outputs=outputs
+                flow=flow,
+                job=job,
+                inputs=[bus_urn],
+                outputs=outputs,
+                fine_grained=fine_grained,
             )
+
+    def _rule_column_lineage(
+        self, bus_urn: str, target: RuleTarget, target_urn: str
+    ) -> List[FineGrainedLineageClass]:
+        """The target gets the whole event, or the subtree at InputPath, unless the
+        rule replaces it with a constant or an input transformer. The upstream
+        schema is the event bus dataset's schema in DataHub."""
+        if target.reshaped:
+            self._skip("rule target uses an input transformer or constant input")
+            return []
+        prefix = event_path_prefix(target.input_path)
+        if prefix is None:
+            self._skip("rule target InputPath is not a simple path")
+            return []
+        return self._mapped(
+            bus_urn,
+            target_urn,
+            lambda path: f"{prefix}.{path}" if prefix else path,
+        )
+
+    def _skip(self, reason: str) -> None:
+        self.report.column_lineage_skipped[reason] += 1
+
+    def _mapped(
+        self,
+        upstream_urn: str,
+        downstream_urn: str,
+        upstream_path_for: Callable[[str], Optional[str]],
+    ) -> List[FineGrainedLineageClass]:
+        upstream_schema = self.schemas.get(upstream_urn)
+        downstream_schema = self.schemas.get(downstream_urn)
+        if upstream_schema is None or downstream_schema is None:
+            self._skip("schema missing on one side")
+            return []
+        lineages = mapped_field_lineage(
+            upstream_urn=upstream_urn,
+            upstream_schema=upstream_schema,
+            downstream_urn=downstream_urn,
+            downstream_schema=downstream_schema,
+            upstream_path_for=upstream_path_for,
+        )
+        if not lineages:
+            self._skip("no fields in common")
+        self.report.column_lineage_edges_emitted += len(lineages)
+        return lineages
 
     def pipe_workunits(self) -> Iterable[MetadataWorkUnit]:
         for pipe in self.pipes.list_pipes():
@@ -224,34 +324,37 @@ class EventBridgeLineage:
     def _pipe_column_lineage(
         self, pipe: EventBridgePipe, target_urn: str
     ) -> Optional[List[FineGrainedLineageClass]]:
+        """Pipes deliver the SQS record (message id, attributes, body, ...), not the
+        message, unless an input template picks fields out of `$.body`. Only a
+        template whose every value is a single `<$.body.path>` placeholder maps
+        fields; see the implicit body parsing section of
+        https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-pipes-input-transformation.html
+        """
+        if not self.config.column_lineage:
+            return None
         source_arn = parse_arn(pipe.source)
-        platform = MESSAGING_PLATFORMS.get(source_arn.service) if source_arn else None
-        if source_arn is None or platform is None:
-            self.report.column_lineage_skipped[
-                "pipe source is not a queue or topic"
-            ] += 1
+        if source_arn is None or source_arn.service != AwsService.SQS:
+            self._skip("pipe source is not a queue")
             return None
         if pipe.enrichment:
-            self.report.column_lineage_skipped["pipe has an enrichment step"] += 1
+            self._skip("pipe has an enrichment step")
             return None
-        source_urn = self.urns.dataset_urn(platform, source_arn)
-        source_schema = self.schemas.get(source_urn)
-        target_schema = self.schemas.get(target_urn)
-        if source_schema is None or target_schema is None:
-            self.report.column_lineage_skipped["schema missing on one side"] += 1
+        source_urn = self.urns.queue_urn(source_arn)
+        if self.schemas.get(source_urn) is None or self.schemas.get(target_urn) is None:
+            self._skip("schema missing on one side")
             return None
-        templated = self.pipes.has_input_template(pipe.name)
-        if templated is not False:
-            self.report.column_lineage_skipped["pipe has an input template"] += 1
+        template = self.pipes.input_template(pipe.name)
+        if template is None:
             return None
-        lineages = identity_field_lineage(
-            upstream_urn=source_urn,
-            upstream_schema=source_schema,
-            downstream_urn=target_urn,
-            downstream_schema=target_schema,
+        if not template:
+            self._skip("pipe without an input template delivers the SQS record")
+            return None
+        mapping = template_field_map(template)
+        if mapping is None:
+            self._skip("pipe input template is not a plain field mapping")
+            return None
+        lowered = {key.lower(): value for key, value in mapping.items()}
+        return (
+            self._mapped(source_urn, target_urn, lambda path: lowered.get(path.lower()))
+            or None
         )
-        if not lineages:
-            self.report.column_lineage_skipped["no fields in common"] += 1
-            return None
-        self.report.column_lineage_edges_emitted += len(lineages)
-        return lineages

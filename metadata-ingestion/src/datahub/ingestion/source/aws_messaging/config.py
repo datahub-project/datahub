@@ -153,6 +153,15 @@ class AwsMessagingConfigBase(
         default=None,
         description="platform_instance of the S3 source recipe, for S3 notification lineage.",
     )
+    column_lineage: bool = Field(
+        default=True,
+        description=(
+            "Add field-level lineage on hops that deliver the message unchanged or "
+            "with a simple field mapping, for fields present in both schemas. See the "
+            "docs for which hops qualify. Schemas come from Glue Schema Registry in "
+            "this run or from DataHub."
+        ),
+    )
     lineage: AwsMessagingLineageConfig = Field(
         default_factory=AwsMessagingLineageConfig,
         description="Lineage through Lambda and EventBridge.",
@@ -219,15 +228,6 @@ class SnsSourceConfig(AwsMessagingConfigBase):
     glue_schema_registry: TopicGlueSchemaRegistryConfig = Field(
         default_factory=TopicGlueSchemaRegistryConfig,
         description="Topic schemas from AWS Glue Schema Registry (off by default).",
-    )
-    column_lineage: bool = Field(
-        default=True,
-        description=(
-            "Add field-level lineage from a topic to a queue subscribed with raw "
-            "message delivery, for fields present in both schemas. Needs "
-            "include_subscription_attributes and schemas on both sides (from Glue "
-            "Schema Registry in this run, or already in DataHub)."
-        ),
     )
     firehose_lineage: bool = Field(
         default=True,

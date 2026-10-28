@@ -36,6 +36,7 @@ ORDER_SCHEMA = {
     ],
 }
 QUEUE_URN = f"urn:li:dataset:(urn:li:dataPlatform:sqs,{ACCOUNT}.{REGION}.orders,PROD)"
+DLQ_URN = f"urn:li:dataset:(urn:li:dataPlatform:sqs,{ACCOUNT}.{REGION}.orders-dlq,PROD)"
 TOPIC_URN = (
     f"urn:li:dataset:(urn:li:dataPlatform:sns,{ACCOUNT}.{REGION}.order-events,PROD)"
 )
@@ -174,3 +175,55 @@ def test_enveloped_delivery_gets_table_lineage_only(aws: None) -> None:
     source = _subscribe(raw=False)
     assert fine_grained(list(source.get_workunits())) == []
     assert source.get_report().column_lineage_skipped == {"not raw message delivery": 1}
+
+
+def _dead_letter_source(column_lineage: bool = True) -> SqsSource:
+    dlq_url = sqs_client().create_queue(QueueName="orders-dlq")["QueueUrl"]
+    dlq_arn = sqs_client().get_queue_attributes(
+        QueueUrl=dlq_url, AttributeNames=["QueueArn"]
+    )["Attributes"]["QueueArn"]
+    sqs_client().create_queue(
+        QueueName="orders",
+        Attributes={
+            "RedrivePolicy": json.dumps(
+                {"deadLetterTargetArn": dlq_arn, "maxReceiveCount": "3"}
+            )
+        },
+    )
+    register_schema("order-v1")
+    graph = MagicMock()
+    graph.get_schema_metadata.side_effect = lambda urn: (
+        _queue_schema_in_datahub() if urn == DLQ_URN else None
+    )
+    return SqsSource.create(
+        base_config(
+            column_lineage=column_lineage,
+            glue_schema_registry={
+                "enabled": True,
+                "queue_schema_map": {"orders": "order-v1"},
+            },
+        ),
+        PipelineContext(run_id="schemas-test", graph=graph),
+    )
+
+
+def test_dead_letter_queue_gets_identity_field_lineage(aws: None) -> None:
+    source = _dead_letter_source()
+    lineage = fine_grained(list(source.get_workunits()))
+    assert len(lineage) == 2
+    assert all(f"({DLQ_URN}," in op["path"] for op in lineage)
+    assert source.get_report().column_lineage_edges_emitted == 2
+
+
+def test_dead_letter_column_lineage_can_be_turned_off(aws: None) -> None:
+    source = _dead_letter_source(column_lineage=False)
+    assert fine_grained(list(source.get_workunits())) == []
+
+
+def test_dead_letter_without_dlq_schema_is_counted(aws: None) -> None:
+    source = _dead_letter_source()
+    source.schemas.graph = None
+    assert fine_grained(list(source.get_workunits())) == []
+    assert source.get_report().column_lineage_skipped == {
+        "schema missing on one side": 1
+    }

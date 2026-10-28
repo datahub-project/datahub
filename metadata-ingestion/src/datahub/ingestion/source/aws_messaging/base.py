@@ -27,6 +27,7 @@ from datahub.ingestion.source.aws_messaging.lambda_lineage import LambdaLineage
 from datahub.ingestion.source.aws_messaging.lineage import (
     DatasetLineageCollector,
     SchemaLookup,
+    identity_field_lineage,
 )
 from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey, secondary
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
@@ -146,6 +147,27 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         # Lambda jobs go last: rules and pipes add themselves as upstream jobs.
         if self.lambdas is not None:
             yield from self.lambdas.workunits()
+
+    def add_identity_column_lineage(
+        self, upstream_urn: str, downstream_urn: str
+    ) -> None:
+        """Field lineage for a hop that delivers the message unchanged, for fields
+        in both schemas. Without a schema on both sides the edge stays table-level."""
+        upstream_schema = self.schemas.get(upstream_urn)
+        downstream_schema = self.schemas.get(downstream_urn)
+        if upstream_schema is None or downstream_schema is None:
+            self.base_report.column_lineage_skipped["schema missing on one side"] += 1
+            return
+        lineages = identity_field_lineage(
+            upstream_urn=upstream_urn,
+            upstream_schema=upstream_schema,
+            downstream_urn=downstream_urn,
+            downstream_schema=downstream_schema,
+        )
+        if not lineages:
+            self.base_report.column_lineage_skipped["no fields in common"] += 1
+            return
+        self.lineage.add_fine_grained(downstream_urn, lineages)
 
     def schema_registry(
         self, config: GlueSchemaRegistryConfigBase
