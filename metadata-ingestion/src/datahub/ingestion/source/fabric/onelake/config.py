@@ -297,7 +297,9 @@ class FabricOneLakeSourceConfig(
             "Table and column profiling, run through the SQL Analytics Endpoint "
             "with the Microsoft ODBC Driver for SQL Server. Uses the same "
             "profiler and options as the `mssql-odbc` source. Disabled by default. "
-            "Requires `sql_endpoint.enabled=True`."
+            "Requires `sql_endpoint.enabled=True`. `profile_table_row_limit`, "
+            "`profile_table_size_limit` and `profile_if_updated_since_days` are "
+            "not enforced; use `profile_pattern` to exclude large tables."
         ),
     )
 

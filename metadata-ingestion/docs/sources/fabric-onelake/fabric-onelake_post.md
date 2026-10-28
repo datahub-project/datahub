@@ -350,6 +350,8 @@ When `profiling.enabled` is `true`, the connector profiles each ingested table t
 
 `profile_pattern` filters tables as `schema.table` and columns as `schema.table.column`, the same way `mssql-odbc` does. Column metrics (`include_field_null_count`, `include_field_distinct_count`, min/max/mean/median/stddev, quantiles, histograms, distinct value frequencies, and sample values), `profile_table_level_only`, `query_combiner_enabled`, and `max_workers` all apply. Set `turn_off_expensive_profiling_metrics` to skip quantiles, histograms, frequencies, and sample values.
 
+`profile_table_row_limit`, `profile_table_size_limit`, and `profile_if_updated_since_days` are not enforced: every ingested table that `profile_pattern` allows is profiled, whatever its size or last update. The `mssql-odbc` source does not enforce them either. Use `profile_pattern` to keep large tables out of profiling.
+
 `profiling.enabled` requires `sql_endpoint.enabled=true`.
 
 #### Probe support
