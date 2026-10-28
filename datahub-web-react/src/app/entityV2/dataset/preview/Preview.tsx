@@ -20,7 +20,6 @@ import {
     Domain,
     EntityPath,
     EntityType,
-    FabricType,
     GlobalTags,
     GlossaryTerms,
     Health,
@@ -34,7 +33,6 @@ export const Preview = ({
     urn,
     data,
     name,
-    origin,
     description,
     platformName,
     platformLogo,
@@ -69,7 +67,6 @@ export const Preview = ({
     urn: string;
     data: GenericEntityProperties | null;
     name: string;
-    origin: FabricType;
     description?: string | null;
     platformName?: string;
     platformLogo?: string | null;
@@ -123,7 +120,6 @@ export const Preview = ({
                 !platformLogo && data?.platform?.properties?.logical ? <LogicalPlatformDefaultIcon /> : undefined
             }
             platformInstanceId={platformInstanceId}
-            qualifier={origin}
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}

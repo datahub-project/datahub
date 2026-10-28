@@ -43,13 +43,21 @@
         printf '%s' "$input" | "$ORACLE_HOME/bin/orapki" "$@"
     }
     orapki 2 wallet create -wallet "$WALLET" -auto_login
+    # Without the -addext_* flags orapki writes an X.509 v1 cert with no
+    # extensions. Python 3.13 verifies with VERIFY_X509_STRICT by default and
+    # rejects that as "invalid CA certificate". The client trusts this cert as
+    # its own CA, so it needs CA basic constraints, keyCertSign and an SKI.
     orapki 1 wallet add \
         -wallet "$WALLET" \
         -dn "CN=localhost" \
         -keysize 2048 \
         -self_signed \
         -validity 3650 \
-        -sign_alg sha256
+        -sign_alg sha256 \
+        -addext_basic_cons CA \
+        -addext_ku digitalSignature,keyEncipherment,keyCertSign \
+        -addext_ski \
+        -addext_san DNS:localhost
     # wallet add does not refresh cwallet.sso. Recreate the auto-login file
     # so the listener can open the wallet without the password. An existing
     # wallet asks for its password once.

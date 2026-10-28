@@ -19,7 +19,7 @@ import { FilterRecipeField, RecipeField, setFieldValueOnRecipe } from '@app/inge
 import { RECIPE_FIELDS, RecipeSections } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { jsonToYaml } from '@app/ingestV2/source/utils';
-import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
+import { RequiredFieldForm } from '@app/sharedV2/form/RequiredFieldForm';
 
 import { useListSecretsQuery } from '@graphql/ingestion.generated';
 import { IngestionSource } from '@types';

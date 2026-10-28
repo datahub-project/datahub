@@ -32,6 +32,8 @@ smoke-test-python:
   - "smoke-test/pyproject.toml"
   - "smoke-test/requirements.txt"
   - "smoke-test/build.gradle"
+vitals-node:
+  - added|modified: "e2e-test/perf/vitals/**"
 datahub-web-react:
   - added|modified: "datahub-web-react/**"
   # yarnGenerate declares these as inputs (see datahub-web-react/build.gradle):
@@ -56,6 +58,7 @@ prefect-plugin:
   - added|modified: "metadata-ingestion-modules/prefect-plugin/**"
 playwright-e2e:
   - added|modified: "e2e-test/ui/playwright/**"
+  - added|modified: ".github/scripts/check_playwright_p0.py"
 docs-website:
   - added|modified: "docs-website/generateDocsDir.ts"
   - added|modified: "docs-website/sidebars.js"

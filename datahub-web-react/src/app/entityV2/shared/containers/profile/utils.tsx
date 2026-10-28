@@ -37,7 +37,7 @@ import {
     ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
     ENTITY_SIDEBAR_V2_PROPERTIES_ID,
 } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 import { EntityType } from '@types';
 
@@ -60,8 +60,8 @@ export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
     if (match && match[1]) {
         const selectedTabPath = match[1];
-        const routedTab = tabs.find((tab) => tab.name === selectedTabPath);
-        return routedTab;
+        // Match by path only: tab names are translated and may change, so they never identify a tab.
+        return tabs.find((tab) => tab.path === selectedTabPath);
     }
     // No match found!
     return undefined;

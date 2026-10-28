@@ -1,5 +1,21 @@
-// Test the bucket merging functionality through the public combineEntityData API
-import { combineEntityData } from '@app/entity/shared/siblingUtils';
+import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+
+// Wraps the primary entity and its sibling in the shape entity queries return, so the merge runs
+// through the public combineEntityDataWithSiblings API.
+function combineWithSibling(primaryEntity: object, siblingEntity: object) {
+    const combined = combineEntityDataWithSiblings({
+        dataset: {
+            urn: 'urn:li:dataset:primary',
+            siblings: { isPrimary: true },
+            siblingsSearch: {
+                count: 1,
+                searchResults: [{ entity: { urn: 'urn:li:dataset:sibling', ...siblingEntity } }],
+            },
+            ...primaryEntity,
+        },
+    });
+    return combined.dataset as any;
+}
 
 describe('Usage Stats Bucket Merging', () => {
     it('should merge usage stats buckets from different time windows', () => {
@@ -48,7 +64,7 @@ describe('Usage Stats Bucket Merging', () => {
             },
         };
 
-        const result = combineEntityData(primaryEntity, siblingEntity, true) as any;
+        const result = combineWithSibling(primaryEntity, siblingEntity);
 
         expect(result.usageStats.buckets).toEqual([
             {
@@ -110,7 +126,7 @@ describe('Usage Stats Bucket Merging', () => {
             },
         };
 
-        const result = combineEntityData(primaryEntity, siblingEntity, true) as any;
+        const result = combineWithSibling(primaryEntity, siblingEntity);
 
         expect(result.usageStats.buckets).toEqual([
             {
@@ -162,7 +178,7 @@ describe('Usage Stats Bucket Merging', () => {
             },
         };
 
-        const result = combineEntityData(primaryEntity, siblingEntity, true) as any;
+        const result = combineWithSibling(primaryEntity, siblingEntity);
 
         expect(result.usageStats.buckets).toEqual([
             {

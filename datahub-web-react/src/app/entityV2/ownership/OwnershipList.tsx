@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 
 import { OwnershipBuilderModal } from '@app/entityV2/ownership/OwnershipBuilderModal';
 import { OwnershipTable } from '@app/entityV2/ownership/table/OwnershipTable';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { OwnershipTypeEntity } from '@types';
