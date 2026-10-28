@@ -67,7 +67,7 @@ public class SemanticSearchResolver implements DataFetcher<CompletableFuture<Sea
   @Override
   @WithSpan
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
     final SearchInput input = bindArgument(environment.getArgument("input"), SearchInput.class);
     final String entityName = EntityTypeMapper.getName(input.getType());
     // The query text only feeds the embedding provider (kNN); it never reaches a query_string

@@ -22,8 +22,11 @@ from typing import Any, Dict, List, Optional
 from datahub.configuration.common import OperationalError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    EditableSchemaMetadataClass,
     GlossaryTermAssociationClass,
+    GlossaryTermsClass,
     MetadataAttributionClass,
+    SchemaMetadataClass,
     TagAssociationClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
@@ -326,6 +329,7 @@ query listIngestionSources($input: ListIngestionSourcesInput!, $execution_start:
         dataset_terms: List[str],
         field_terms: Optional[Dict] = None,
         context: Optional[Dict] = None,
+        attribution: Optional[MetadataAttributionClass] = None,
     ) -> None:
         if field_terms is None:
             field_terms = {}
@@ -335,7 +339,9 @@ query listIngestionSources($input: ListIngestionSourcesInput!, $execution_start:
         for term in dataset_terms:
             dataset.add_term(
                 GlossaryTermAssociationClass(
-                    term, context=json.dumps(context) if context else None
+                    term,
+                    context=json.dumps(context) if context else None,
+                    attribution=attribution,
                 )
             )
 
@@ -344,12 +350,61 @@ query listIngestionSources($input: ListIngestionSourcesInput!, $execution_start:
             for term in terms:
                 field_builder.add_term(
                     GlossaryTermAssociationClass(
-                        term, context=json.dumps(context) if context else None
+                        term,
+                        context=json.dumps(context) if context else None,
+                        attribution=attribution,
                     )
                 )
 
         for mcp in dataset.build():
             self.graph.emit(mcp)
+
+    def remove_terms_from_dataset(
+        self,
+        entity_urn: str,
+        dataset_terms: List[str],
+        attribution_source: Optional[str] = None,
+    ) -> None:
+        """Remove terms from a dataset. With ``attribution_source`` only the entries
+        written by that source are removed; entries from other sources (e.g. a user)
+        are kept."""
+        dataset = DatasetPatchBuilder(urn=entity_urn)
+
+        for term in dataset_terms:
+            dataset.remove_term(term, attribution_source=attribution_source)
+
+        for mcp in dataset.build():
+            self.graph.emit(mcp)
+
+    def dataset_has_term(self, dataset_urn: str, term_urn: str) -> bool:
+        """Whether the dataset still carries the term anywhere -- at the dataset
+        level or on any field (editable or ingested schema metadata).
+
+        Used before propagating a term removal downstream: a removal from one field
+        must not clear downstream datasets while another field (or the dataset
+        itself) still carries the term.
+        """
+        dataset_terms = self.graph.get_aspect(dataset_urn, GlossaryTermsClass)
+        if dataset_terms and any(t.urn == term_urn for t in dataset_terms.terms):
+            return True
+
+        editable = self.graph.get_aspect(dataset_urn, EditableSchemaMetadataClass)
+        if editable:
+            for field in editable.editableSchemaFieldInfo:
+                if field.glossaryTerms and any(
+                    t.urn == term_urn for t in field.glossaryTerms.terms
+                ):
+                    return True
+
+        schema = self.graph.get_aspect(dataset_urn, SchemaMetadataClass)
+        if schema:
+            for schema_field in schema.fields:
+                if schema_field.glossaryTerms and any(
+                    t.urn == term_urn for t in schema_field.glossaryTerms.terms
+                ):
+                    return True
+
+        return False
 
     def get_corpuser_info(self, urn: str) -> Any:
         return self.get_untyped_aspect(

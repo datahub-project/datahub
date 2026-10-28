@@ -1,8 +1,17 @@
 ---
-description: "Release notes and breaking change history for upgrading DataHub between versions, including required migration steps."
+title: Breaking Changes by Version
+description: "Breaking changes, deprecations and required migration steps for each DataHub release."
 ---
 
-# Updating DataHub
+# Breaking Changes by Version
+
+:::tip Looking for how to upgrade?
+
+See [Upgrading DataHub](upgrading-datahub.md) for the steps, including taking a backup first.
+This page is the per-version reference you consult along the way: read every version between
+the one you are on and the one you are moving to, not just the target.
+
+:::
 
 <!--
 
@@ -38,7 +47,14 @@ description: "Release notes and breaking change history for upgrading DataHub be
 
 This file documents any backwards-incompatible changes in DataHub and assists people when migrating to a new version.
 
-## Next
+## Unreleased
+
+:::info
+
+Nothing in this section has shipped yet. If you are upgrading to a released version, start at
+that version's heading below.
+
+:::
 
 Draft release notes for the upcoming version. Add entries here as breaking changes, deprecations, and notable fixes land on `master`; promote this section to a versioned heading (for example `## v1.8.1` or `## v1.9.0`) at release cut.
 
@@ -206,6 +222,8 @@ Requirements:
 - **(Frontend / `/admin`)** `GET /admin` and `GET /health` on the Play port (9002) are deprecated as health checks. They still return `200 GOOD` (or `503` during graceful shutdown) so existing monitors keep working, but they run on the Play connection table and can time out while the process is up. Use `GET /health/live` and `GET /health/ready` on `MANAGEMENT_SERVER_PORT` (default 4319). **Action:** point Kubernetes liveness and readiness, Docker healthchecks, and any other prober at those management paths. Do not add new checks against `/admin`. The route will be removed in a later release after charts and monitors have moved.
 
 ### Other Notable Changes
+
+- [#19521](https://github.com/datahub-project/datahub/pull/19521) **(Actions / Glossary term propagation)** The OSS `term_propagation` action now propagates glossary terms applied at the **column** level to downstream datasets. Previously a column-level application resolved lineage against the field's `schemaField` URN, matched no dataset-level lineage, and silently propagated nothing (no log line, empty `failed_events.log`). **Term removals now propagate as well**: removing a propagated term from the source removes it from downstream datasets, whereas before removals were a no-op and downstream terms accumulated and went stale. The action is now shipped in the actions image as a **default-off** pipeline, enabled with `DATAHUB_ACTIONS_TERM_PROPAGATION_ENABLED=true`; deployments that do not enable it are unaffected. **Action:** none by default. If you already run `term_propagation`, expect column-level applications and removals to now take effect on downstream datasets. A removal is only propagated once the source no longer carries the term on any field or at the dataset level. Propagated terms are now attributed to the action, and a propagated removal deletes only that attributed entry: a term a user applied directly to a downstream dataset is kept. Terms propagated by earlier versions carry no attribution, so they are treated as user-applied and are not removed.
 
 - [#20638](https://github.com/datahub-project/datahub/pull/20638) **(Ingestion / Glue)** Tables shared through a Lake Formation resource link (database-level or table-level) now also get column-level lineage to the shared table in the owning account: each column links to the same-named column of the owner's table. This is on by default through `include_column_lineage` and is additive: dataset URNs and the existing table-level lineage edges are unchanged. A link only gets column lineage when it has a schema. **Action:** none required. To turn it off, set `include_column_lineage: false`; note that this also turns off column-level lineage to the table's storage location.
 
