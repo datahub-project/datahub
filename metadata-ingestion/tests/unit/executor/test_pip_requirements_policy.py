@@ -147,9 +147,10 @@ class TestAllowlist:
         with pytest.raises(ValueError, match=r"\$\{SPEC\}"):
             validate_extra_pip_requirements(["${SPEC}"], ["other-package"])
 
-    def test_invalid_json_is_an_error(self) -> None:
+    @pytest.mark.parametrize("value", ["[not json", "[1, 2]"])
+    def test_malformed_json_form_is_an_error(self, value: str) -> None:
         with pytest.raises(ValueError, match="JSON"):
-            parse_allowlist("[not json")
+            parse_allowlist(value)
 
 
 async def _fake_uv(
