@@ -147,6 +147,10 @@ public class ESUtils {
   private static final Set<String> SIBLING_FIELDS =
       Set.of(SIBLINGS, HAS_SIBLINGS, SIBLINGS_PRIMARY);
 
+  /** Presence checks select even when negated, so they never keep sibling hiding on. */
+  private static final Set<Condition> SIBLING_PRESENCE_CONDITIONS =
+      Set.of(Condition.IS_NULL, Condition.EXISTS);
+
   private static final String ENTITY_SUB_TYPE_FILTER_FIELD =
       INDEX_VIRTUAL_FIELD + AGGREGATION_SEPARATOR_CHAR + "typeNames";
 
@@ -1803,11 +1807,13 @@ public class ESUtils {
    * return nothing. Sub-types differ between members too (dbt "Model" vs "Table"). A negated
    * criterion ("tag is not deprecated") only removes documents, so it keeps hiding on. It can still
    * drop a group: when it excludes the primary but not another member, that member is hidden too. A
-   * negated IS_NULL means "has a value" and counts as selecting. Filters from a view are merged
-   * into the request filter and follow the same rule. A filter on a siblings field (the sibling
-   * list on an entity page, the "has siblings" facet) is a question about the group itself and is
-   * likewise left alone. Because the hiding clause also applies to aggregations, the "has siblings"
-   * facet counts only primary members, while selecting it lists every member.
+   * negated presence check counts as selecting: a negated IS_NULL means "has a value" and a negated
+   * EXISTS means "does not exist", and siblings often differ on which fields they have. Filters
+   * from a view are merged into the request filter and follow the same rule. A filter on a siblings
+   * field (the sibling list on an entity page, the "has siblings" facet) is a question about the
+   * group itself and is likewise left alone. Because the hiding clause also applies to
+   * aggregations, the "has siblings" facet counts only primary members, while selecting it lists
+   * every member.
    *
    * <p>Only documents that carry {@code siblingsPrimary=false} are hidden, so documents indexed
    * before the field existed stay visible. Each document carries only its own flag, so two cases
@@ -1876,8 +1882,10 @@ public class ESUtils {
       return true;
     }
     // A negated criterion only removes documents, so it cannot make a hidden member the only
-    // match. A negated IS_NULL is the exception: it means "has a value" and selects.
-    if (criterion.isNegated() && criterion.getCondition() != Condition.IS_NULL) {
+    // match. Negated presence checks are the exception: a negated IS_NULL means "has a value"
+    // and a negated EXISTS means "does not exist". Both select, and siblings often differ on
+    // presence (a dbt model has a description, its warehouse table does not).
+    if (criterion.isNegated() && !SIBLING_PRESENCE_CONDITIONS.contains(criterion.getCondition())) {
       return true;
     }
     if (ENTITY_SUB_TYPE_FILTER_FIELD.equals(field)) {

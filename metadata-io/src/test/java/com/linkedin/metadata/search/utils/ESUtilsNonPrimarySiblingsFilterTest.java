@@ -152,6 +152,23 @@ public class ESUtilsNonPrimarySiblingsFilterTest {
     assertTrue(apply(true, filter).mustNot().isEmpty());
   }
 
+  /** "Does not exist" (a negated EXISTS) selects documents lacking the field. */
+  @Test
+  public void testNegatedExistsTurnsHidingOff() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                new Criterion()
+                                    .setField("description")
+                                    .setCondition(Condition.EXISTS)
+                                    .setNegated(true)))));
+    assertTrue(apply(true, filter).mustNot().isEmpty());
+  }
+
   @Test
   public void testNegatedSiblingFieldIsExempt() {
     Filter filter = filterOn("hasSiblings", "true");

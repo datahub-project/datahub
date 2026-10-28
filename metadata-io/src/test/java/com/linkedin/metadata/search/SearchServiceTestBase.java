@@ -475,8 +475,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     Urn dbtUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD)");
     Urn tableUrn =
         Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD)");
-    indexSiblingDocument(dbtUrn, "dbt", true);
-    indexSiblingDocument(tableUrn, "snowflake", false);
+    indexSiblingDocument(dbtUrn, "dbt", true, "Orders model");
+    indexSiblingDocument(tableUrn, "snowflake", false, null);
     syncAfterWrite(getBulkProcessor());
 
     SearchService hidingSearchService =
@@ -542,6 +542,20 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     assertEquals(withExclusions.getNumEntities().intValue(), 1);
     assertEquals(withExclusions.getEntities().get(0).getEntity(), dbtUrn);
 
+    // "Does not exist" selects the member lacking the field: here only the hidden table.
+    Filter lacksNote =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion("siblingNote", Condition.EXISTS, true))))));
+    SearchResult withoutNote = searchSiblings(hidingSearchService, lacksNote);
+    assertEquals(withoutNote.getNumEntities().intValue(), 1);
+    assertEquals(withoutNote.getEntities().get(0).getEntity(), tableUrn);
+
     Filter platformFilter =
         new Filter()
             .setOr(
@@ -560,8 +574,11 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     clearCache();
   }
 
-  private void indexSiblingDocument(Urn urn, String platform, boolean primary) {
+  private void indexSiblingDocument(Urn urn, String platform, boolean primary, String siblingNote) {
     ObjectNode document = JsonNodeFactory.instance.objectNode();
+    if (siblingNote != null) {
+      document.set("siblingNote", JsonNodeFactory.instance.textNode(siblingNote));
+    }
     document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
     document.set("keyPart1", JsonNodeFactory.instance.textNode("orders"));
     document.set("platform", JsonNodeFactory.instance.textNode(platform));
