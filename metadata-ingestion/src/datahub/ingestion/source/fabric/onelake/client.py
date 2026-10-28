@@ -228,6 +228,9 @@ class OneLakeClient(BaseFabricClient):
                 logger.error(f"Failed to get authorization header: {e}")
                 raise
 
+            # These requests go to the OneLake host, not through _request, so
+            # count them here. Callers count the failures.
+            self.report.report_request()
             response = self._session.get(
                 url, headers=headers, params=request_params, timeout=self.timeout
             )

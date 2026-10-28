@@ -146,6 +146,7 @@ def test_unity_catalog_listing_follows_next_page_token() -> None:
     assert all("max_results" in p for p in requests_seen)
     assert headers_seen == [f"Bearer token-{i}" for i in range(6)]
     assert harness.auth_helper.get_authorization_header.call_count == 6
+    assert harness.report.report_request.call_count == 6
     assert all(
         call.kwargs["scope"] == ONELAKE_STORAGE_SCOPE
         for call in harness.auth_helper.get_authorization_header.call_args_list
