@@ -10,6 +10,8 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
+import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
 import com.datahub.context.OperationFingerprint;
@@ -128,9 +130,15 @@ public class ESUtils {
   public static final String SIBLINGS_PRIMARY = "siblingsPrimary";
   private static final String DATASET_URN_PREFIX = "urn:li:" + DATASET_ENTITY_NAME + ":";
 
-  /** A filter on any of these is a question about the sibling group itself; it is not narrowed. */
-  private static final Set<String> SIBLING_FILTER_FIELDS =
-      Set.of(SIBLINGS, HAS_SIBLINGS, SIBLINGS_PRIMARY);
+  /**
+   * Filter fields that every member of a sibling group matches alike, so non-primary siblings can
+   * still be hidden. Any other filter field turns hiding off.
+   */
+  private static final Set<String> SIBLING_HIDING_NEUTRAL_FIELDS =
+      Set.of(INDEX_VIRTUAL_FIELD, "entity", REMOVED);
+
+  private static final String ENTITY_SUB_TYPE_FILTER_FIELD =
+      INDEX_VIRTUAL_FIELD + AGGREGATION_SEPARATOR_CHAR + "typeNames";
 
   public static final String ALIAS_FIELD_TYPE = "alias";
   public static final String TYPE = "type";
@@ -1775,34 +1783,39 @@ public class ESUtils {
 
   /**
    * Hides non-primary members of dataset sibling groups so a group surfaces as one result. A no-op
-   * unless {@link SearchConfiguration#isHideNonPrimarySiblings()} is on. A caller whose filter
-   * already references a siblings field (the sibling list on an entity page, the "has siblings"
-   * facet) is asking about the group itself and is left alone. Only documents that carry {@code
-   * siblingsPrimary=false} are hidden, so documents indexed before the field existed stay visible.
-   * Each document carries only its own flag, so a group in which no member is marked primary cannot
-   * be told apart from the non-primary member of a normal group: every member of such a group is
-   * hidden. Groups must have exactly one primary member for this to be safe.
+   * unless {@link SearchConfiguration#isHideNonPrimarySiblings()} is on.
+   *
+   * <p>Hiding only applies to unfiltered searches: a filter that names nothing but entity types
+   * (without a sub-type) or the soft-delete flag. Any other filter turns it off, because the
+   * sibling that matches the filter may be the hidden one. For example, {@code platform=snowflake}
+   * matches only the Snowflake table, while its dbt primary is a different platform, so hiding the
+   * table would return nothing. Sub-types differ between members too (dbt "Model" vs "Table").
+   * Filters from a default view are merged into the request filter, so a view also turns hiding
+   * off. A filter on a siblings field (the sibling list on an entity page, the "has siblings"
+   * facet) is a question about the group itself and is likewise left alone.
+   *
+   * <p>Only documents that carry {@code siblingsPrimary=false} are hidden, so documents indexed
+   * before the field existed stay visible. Each document carries only its own flag, so two cases
+   * hide a whole group:
+   *
+   * <ul>
+   *   <li>No member of the group is marked primary.
+   *   <li>The primary member is soft-deleted or hard-deleted. Its siblings keep {@code
+   *       siblingsPrimary=false}, so they are hidden while the primary no longer appears either.
+   * </ul>
+   *
+   * Groups must have exactly one live primary member for this to be safe.
    */
   @Nonnull
   public static BoolQueryBuilder filterNonPrimarySiblings(
-      @Nullable Filter filter,
-      @Nonnull BoolQueryBuilder filterQuery,
-      @Nullable SearchConfiguration searchConfiguration) {
+      @Nullable final Filter filter,
+      @Nonnull final BoolQueryBuilder filterQuery,
+      @Nullable final SearchConfiguration searchConfiguration) {
     if (searchConfiguration == null || !searchConfiguration.isHideNonPrimarySiblings()) {
       return filterQuery;
     }
-    if (filter != null && filter.getOr() != null) {
-      for (ConjunctiveCriterion or : filter.getOr()) {
-        for (Criterion criterion : or.getAnd()) {
-          String field = criterion.getField();
-          if (field.endsWith(KEYWORD_SUFFIX)) {
-            field = field.substring(0, field.length() - KEYWORD_SUFFIX.length());
-          }
-          if (SIBLING_FILTER_FIELDS.contains(field)) {
-            return filterQuery;
-          }
-        }
-      }
+    if (filter != null && !allCriteriaAreNeutral(filter)) {
+      return filterQuery;
     }
     filterQuery.mustNot(
         QueryBuilders.boolQuery()
@@ -1810,6 +1823,48 @@ public class ESUtils {
             .filter(QueryBuilders.termQuery(HAS_SIBLINGS, true))
             .filter(QueryBuilders.termQuery(SIBLINGS_PRIMARY, false)));
     return filterQuery;
+  }
+
+  private static boolean allCriteriaAreNeutral(@Nonnull final Filter filter) {
+    if (filter.getOr() != null) {
+      for (ConjunctiveCriterion or : filter.getOr()) {
+        for (Criterion criterion : or.getAnd()) {
+          if (!isNeutralForSiblingHiding(criterion)) {
+            return false;
+          }
+        }
+      }
+    }
+    if (filter.getCriteria() != null) {
+      for (Criterion criterion : filter.getCriteria()) {
+        if (!isNeutralForSiblingHiding(criterion)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * True when a criterion selects every member of a sibling group alike, so hiding the non-primary
+   * members cannot drop the only match.
+   */
+  private static boolean isNeutralForSiblingHiding(@Nonnull final Criterion criterion) {
+    String field = criterion.getField();
+    if (field.endsWith(KEYWORD_SUFFIX)) {
+      field = field.substring(0, field.length() - KEYWORD_SUFFIX.length());
+    }
+    if (SIBLING_HIDING_NEUTRAL_FIELDS.contains(field)) {
+      return true;
+    }
+    if (ENTITY_SUB_TYPE_FILTER_FIELD.equals(field)) {
+      // The composite facet carries "dataset" or "dataset<sep>Table"; only the bare entity type is
+      // shared by all members.
+      return criterion.getValues() == null
+          || criterion.getValues().stream()
+              .noneMatch(value -> value.contains(AGGREGATION_SEPARATOR_CHAR));
+    }
+    return false;
   }
 
   /**

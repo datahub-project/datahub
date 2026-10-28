@@ -1,7 +1,6 @@
 package com.linkedin.metadata.search.utils;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.template.StringArray;
@@ -44,15 +43,53 @@ public class ESUtilsNonPrimarySiblingsFilterTest {
   }
 
   @Test
-  public void testUnrelatedFilterStillHides() {
-    BoolQueryBuilder query = apply(true, filterOn("platform"));
-    assertFalse(query.mustNot().isEmpty(), query.toString());
+  public void testEntityTypeAndSoftDeleteFiltersStillHide() {
+    for (Filter filter :
+        new Filter[] {
+          filterOn("_entityType", "DATASET"),
+          filterOn("entity", "DATASET"),
+          filterOn("removed", "false"),
+          filterOn("_entityType\u241EtypeNames", "DATASET"),
+          legacyFilterOn("_entityType", "DATASET")
+        }) {
+      BoolQueryBuilder query = apply(true, filter);
+      assertEquals(query.mustNot().size(), 1, filter + ": " + query);
+    }
+  }
+
+  /** The sibling matching such a filter may be the non-primary one, so nothing is hidden. */
+  @Test
+  public void testOtherFiltersTurnHidingOff() {
+    for (Filter filter :
+        new Filter[] {
+          filterOn("platform", "urn:li:dataPlatform:snowflake"),
+          filterOn("typeNames", "Table"),
+          filterOn("_entityType\u241EtypeNames", "DATASET\u241ETable"),
+          legacyFilterOn("platform.keyword", "urn:li:dataPlatform:snowflake")
+        }) {
+      BoolQueryBuilder query = apply(true, filter);
+      assertTrue(query.mustNot().isEmpty(), filter + ": " + query);
+    }
+  }
+
+  @Test
+  public void testOneNonNeutralCriterionAmongNeutralOnesTurnsHidingOff() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                criterion("_entityType", "DATASET"),
+                                criterion("platform", "urn:li:dataPlatform:snowflake")))));
+    assertTrue(apply(true, filter).mustNot().isEmpty());
   }
 
   @Test
   public void testFilterOnSiblingFieldsIsExempt() {
     for (String field : new String[] {"siblings", "hasSiblings", "siblingsPrimary.keyword"}) {
-      BoolQueryBuilder query = apply(true, filterOn(field));
+      BoolQueryBuilder query = apply(true, filterOn(field, "x"));
       assertTrue(query.mustNot().isEmpty(), field + ": " + query);
     }
   }
@@ -62,15 +99,21 @@ public class ESUtilsNonPrimarySiblingsFilterTest {
     return ESUtils.filterNonPrimarySiblings(filter, QueryBuilders.boolQuery(), config);
   }
 
-  private static Filter filterOn(String field) {
-    Criterion criterion =
-        new Criterion()
-            .setField(field)
-            .setCondition(Condition.EQUAL)
-            .setValues(new StringArray("x"));
+  private static Criterion criterion(String field, String value) {
+    return new Criterion()
+        .setField(field)
+        .setCondition(Condition.EQUAL)
+        .setValues(new StringArray(value));
+  }
+
+  private static Filter filterOn(String field, String value) {
     return new Filter()
         .setOr(
             new ConjunctiveCriterionArray(
-                new ConjunctiveCriterion().setAnd(new CriterionArray(criterion))));
+                new ConjunctiveCriterion().setAnd(new CriterionArray(criterion(field, value)))));
+  }
+
+  private static Filter legacyFilterOn(String field, String value) {
+    return new Filter().setCriteria(new CriterionArray(criterion(field, value)));
   }
 }

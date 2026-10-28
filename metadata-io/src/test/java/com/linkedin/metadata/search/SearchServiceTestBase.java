@@ -466,6 +466,78 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     clearCache();
   }
 
+  /**
+   * With non-primary siblings hidden, an unfiltered search shows only the primary of a dbt +
+   * Snowflake pair, while a platform filter that only the Snowflake table matches still returns it.
+   */
+  @Test
+  public void testHideNonPrimarySiblingsOnlyWithoutFilters() throws Exception {
+    Urn dbtUrn = Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:dbt,db.orders,PROD)");
+    Urn tableUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.orders,PROD)");
+    indexSiblingDocument(dbtUrn, "dbt", true);
+    indexSiblingDocument(tableUrn, "snowflake", false);
+    syncAfterWrite(getBulkProcessor());
+
+    SearchService hidingSearchService =
+        new SearchService(
+            new EntityDocCountCache(
+                operationContext.getEntityRegistry(),
+                elasticSearchService,
+                new EntityDocCountCacheConfiguration()),
+            new CachingEntitySearchService(
+                new ConcurrentMapCacheManager(),
+                buildEntitySearchService(
+                    getSearchConfiguration().toBuilder().hideNonPrimarySiblings(true).build()),
+                100,
+                false),
+            new SimpleRanker(),
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResult unfiltered = searchSiblings(hidingSearchService, null);
+    assertEquals(unfiltered.getNumEntities().intValue(), 1);
+    assertEquals(unfiltered.getEntities().get(0).getEntity(), dbtUrn);
+
+    Filter platformFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    buildCriterion("platform", Condition.EQUAL, "snowflake"))))));
+    SearchResult filtered = searchSiblings(hidingSearchService, platformFilter);
+    assertEquals(filtered.getNumEntities().intValue(), 1);
+    assertEquals(filtered.getEntities().get(0).getEntity(), tableUrn);
+
+    // The default service leaves hiding off, so both members appear.
+    assertEquals(searchSiblings(searchService, null).getNumEntities().intValue(), 2);
+    clearCache();
+  }
+
+  private void indexSiblingDocument(Urn urn, String platform, boolean primary) {
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+    document.set("keyPart1", JsonNodeFactory.instance.textNode("orders"));
+    document.set("platform", JsonNodeFactory.instance.textNode(platform));
+    document.set("hasSiblings", JsonNodeFactory.instance.booleanNode(true));
+    document.set("siblingsPrimary", JsonNodeFactory.instance.booleanNode(primary));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
+  }
+
+  private SearchResult searchSiblings(SearchService service, Filter filter) {
+    return service.searchAcrossEntities(
+        operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
+        ImmutableList.of(ENTITY_NAME),
+        "orders",
+        filter,
+        null,
+        0,
+        10);
+  }
+
   @Test
   public void testAdvancedSearchSoftDelete() throws Exception {
     final Criterion filterCriterion = buildCriterion("platform", Condition.EQUAL, "hive");
