@@ -41,6 +41,8 @@ class FabricOneLakeSourceReport(SQLSourceReport):
     warehouses_scanned: int = 0
     schemas_scanned: int = 0
     shortcuts_found: int = 0
+    # Shortcut origins with no lineage because this run did not ingest them.
+    shortcut_upstreams_not_ingested: LossyList[str] = field(default_factory=LossyList)
 
     # Filtered entities
     filtered_workspaces: LossyList[str] = field(default_factory=LossyList)

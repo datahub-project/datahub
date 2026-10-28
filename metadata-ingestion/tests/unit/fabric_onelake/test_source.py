@@ -1,6 +1,7 @@
 """Unit tests for Fabric OneLake source key hierarchy."""
 
-from typing import Callable, Dict, Iterator, List, Optional
+import pathlib
+from typing import Callable, Dict, Iterator, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -202,17 +203,10 @@ def test_failed_table_listing_warns_without_failing_the_run() -> None:
 
 
 def _checkpoint_handler(
-    urns: list[str],
-) -> tuple[MagicMock, GenericCheckpointState]:
+    urns: List[str],
+) -> Tuple[StaleEntityRemovalHandler, GenericCheckpointState]:
     state_provider = MagicMock()
     state_provider.is_stateful_ingestion_configured.return_value = True
-    state_provider._usecase_handlers = {}
-
-    def register(handler: StaleEntityRemovalHandler) -> None:
-        state_provider._usecase_handlers[handler.job_id] = handler
-
-    state_provider.register_stateful_ingestion_usecase_handler.side_effect = register
-
     config = MagicMock()
     config.stateful_ingestion.remove_stale_metadata = True
     config.stateful_ingestion.ignore_new_state = False
@@ -227,7 +221,7 @@ def _checkpoint_handler(
     last_checkpoint.state = GenericCheckpointState(urns=urns)
     state_provider.get_last_checkpoint.return_value = last_checkpoint
 
-    StaleEntityRemovalHandler(
+    handler = StaleEntityRemovalHandler(
         state_provider=state_provider,
         report=MagicMock(),
         config=config,
@@ -236,7 +230,7 @@ def _checkpoint_handler(
         run_id="run",
         platform=PLATFORM,
     )
-    return state_provider, current_state
+    return handler, current_state
 
 
 def test_failed_listing_keeps_only_that_items_previous_urns() -> None:
@@ -249,18 +243,15 @@ def test_failed_listing_keeps_only_that_items_previous_urns() -> None:
     other_platform = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,ws-1.lh-1.dbo.orders,PROD)"
     )
-    state_provider, current_state = _checkpoint_handler(
+    handler, current_state = _checkpoint_handler(
         [kept, other_item, other_platform, "urn:li:container:already-there"]
     )
 
     src = MagicMock()
-    src.state_provider = state_provider
+    src._stale_handler = handler
     src.config.platform_instance = None
     src.config.extract_schemas = True
     src.config.env = "PROD"
-    src._stale_entity_removal_handler = lambda: (
-        FabricOneLakeSource._stale_entity_removal_handler(src)
-    )
     src._make_schema_key = lambda workspace_id, item_id, item_type, schema_name: (
         FabricOneLakeSource._make_schema_key(
             src, workspace_id, item_id, item_type, schema_name
@@ -403,3 +394,24 @@ def test_profile_item_engine_failure_warns_and_skips() -> None:
 
     assert list(source._profile_item("ws-1", "wh-1", schema_client, [_TARGET])) == []
     assert [w.title for w in source.report.warnings] == ["Profiling Skipped"]
+
+
+def test_workunit_processors_keep_the_stale_removal_handler(
+    tmp_path: pathlib.Path,
+) -> None:
+    source = FabricOneLakeSource.create(
+        {
+            "stateful_ingestion": {
+                "enabled": True,
+                "state_provider": {
+                    "type": "file",
+                    "config": {"filename": str(tmp_path / "state.json")},
+                },
+            }
+        },
+        PipelineContext(run_id="run", pipeline_name="fabric"),
+    )
+
+    source.get_workunit_processors()
+
+    assert isinstance(source._stale_handler, StaleEntityRemovalHandler)

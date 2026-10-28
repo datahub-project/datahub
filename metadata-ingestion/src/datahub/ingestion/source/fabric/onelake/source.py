@@ -45,6 +45,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -101,6 +102,9 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -262,6 +266,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             is_allowed_table=self._is_usage_table_allowed,
         )
         self._ingested_dataset_names: Set[str] = set()
+        # Set by get_workunit_processors when stale entity removal is enabled.
+        self._stale_handler: Optional[StaleEntityRemovalHandler] = None
         # dataset name (lowered) -> (name used in the URN, schema field paths)
         self._ingested_columns: Dict[str, Tuple[str, List[str]]] = {}
         # Shortcut datasets whose origin may be ingested later in the run.
@@ -350,6 +356,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         try:
             # List all workspaces
             workspaces = list(self.client.list_workspaces())
+            # Shortcut origins name workspaces by GUID. Most are in this
+            # listing, so seed the cache instead of fetching each one.
+            for workspace in workspaces:
+                self._workspace_display_names[workspace.id] = workspace.name
 
             for workspace in workspaces:
                 self.report.report_api_call()
@@ -433,6 +443,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         if self.config.extract_lakehouses:
             try:
                 for lakehouse in self.client.list_lakehouses(workspace.id):
+                    self._item_display_names[(workspace.id, lakehouse.id)] = (
+                        lakehouse.name
+                    )
                     # Filter lakehouses
                     if not self.config.lakehouse_pattern.allowed(lakehouse.name):
                         self.report.report_lakehouse_filtered(lakehouse.name)
@@ -456,6 +469,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         if self.config.extract_warehouses:
             try:
                 for warehouse in self.client.list_warehouses(workspace.id):
+                    self._item_display_names[(workspace.id, warehouse.id)] = (
+                        warehouse.name
+                    )
                     # Filter warehouses
                     if not self.config.warehouse_pattern.allowed(warehouse.name):
                         self.report.report_warehouse_filtered(warehouse.name)
@@ -819,12 +835,15 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 workspace.id, item_id, item_type
             )
 
-    def _stale_entity_removal_handler(self) -> Optional[StaleEntityRemovalHandler]:
-        handlers = getattr(self.state_provider, "_usecase_handlers", {})
-        for handler in handlers.values():
-            if isinstance(handler, StaleEntityRemovalHandler):
-                return handler
-        return None
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        processors = super().get_workunit_processors()
+        # Keep the stale removal handler the framework creates, so a failed
+        # table listing can carry that item's previous URNs forward.
+        for process in processors:
+            owner = getattr(process, "__self__", None)
+            if isinstance(owner, AutoStaleEntityRemovalProcessor):
+                self._stale_handler = owner.handler
+        return processors
 
     def _preserve_item_urns_from_last_checkpoint(
         self,
@@ -837,7 +856,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         Stale entity removal then still soft-deletes other items. A source
         failure would have skipped removal for the whole run.
         """
-        handler = self._stale_entity_removal_handler()
+        handler = self._stale_handler
         if handler is None or not handler.is_checkpointing_enabled():
             return
         last_checkpoint = handler.state_provider.get_last_checkpoint(
@@ -960,11 +979,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         tags = None
         custom_properties = None
-        upstreams = None
         if shortcut is not None:
             tags = [make_tag_urn(SHORTCUT_TAG)]
             custom_properties = self._shortcut_properties(shortcut)
-            upstreams = self._shortcut_upstream(shortcut)
             self.report.shortcuts_found += 1
 
         dataset = Dataset(
@@ -979,14 +996,16 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             subtype=DatasetSubTypes.TABLE,
             tags=tags,
             custom_properties=custom_properties,
-            upstreams=upstreams,
         )
 
         upstream_name = (
-            self._shortcut_upstream_dataset_name(shortcut) if shortcut else None
+            self._shortcut_upstream_dataset_name(shortcut)
+            if shortcut is not None and self.config.shortcuts.include_lineage
+            else None
         )
-        if upstreams is not None and upstream_name is not None:
+        if upstream_name is not None:
             # Hold the dataset until the origin table may have been ingested.
+            # Lineage is set then, and only if it was.
             self._deferred_shortcut_datasets.append(
                 (dataset, field_paths, upstream_name)
             )
@@ -1001,13 +1020,21 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         Returns None when shortcut detection is disabled, so callers can tell
         that apart from a lakehouse that was checked and has no table shortcuts
-        (an empty dict). A listing failure also returns an empty dict: tables
+        (an empty dict). A listing or parsing failure also returns an empty dict: tables
         are ingested without shortcut tags.
         """
         if not self.config.shortcuts.enabled:
             return None
+        # Parsing is inside the try too: a malformed payload must not escape
+        # and skip the lakehouse, which would let stale removal soft-delete
+        # its tables.
+        shortcuts: Dict[Tuple[str, str], LakehouseTableShortcut] = {}
         try:
-            payloads = list(self.client.list_shortcuts(workspace_id, lakehouse_id))
+            for payload in self.client.list_shortcuts(workspace_id, lakehouse_id):
+                parsed = parse_table_shortcut(payload)
+                if parsed is None:
+                    continue
+                shortcuts[parsed.lookup_key()] = parsed
         except Exception as e:
             self.report.warning(
                 title="Failed to List Shortcuts",
@@ -1021,12 +1048,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             )
             return {}
 
-        shortcuts: dict[tuple[str, str], LakehouseTableShortcut] = {}
-        for payload in payloads:
-            parsed = parse_table_shortcut(payload)
-            if parsed is None:
-                continue
-            shortcuts[parsed.lookup_key()] = parsed
         logger.info(
             f"Found {len(shortcuts)} table shortcut(s) in lakehouse {lakehouse_id}"
         )
@@ -1087,16 +1108,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             self._norm(shortcut.upstream_table_name),
         )
 
-    def _shortcut_upstream(
-        self, shortcut: LakehouseTableShortcut
-    ) -> Optional[UpstreamLineageClass]:
-        if not self.config.shortcuts.include_lineage:
-            return None
-        dataset_name = self._shortcut_upstream_dataset_name(shortcut)
-        if dataset_name is None:
-            return None
-        return self._copy_lineage(dataset_name, column_pairs=None)
-
     def _copy_lineage(
         self,
         upstream_dataset_name: str,
@@ -1132,8 +1143,11 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     def _emit_deferred_shortcut_datasets(self) -> Iterable[Dataset]:
         """Yield shortcut datasets once their origin table may have been ingested.
 
-        Column lineage is added only when this run ingested the origin and both
-        tables have schema. Table-level lineage is kept either way.
+        Lineage is added only when this run ingested the origin, matching the
+        SQL aggregator's rule of linking only datasets this run ingested. An
+        origin in a filtered or inaccessible workspace, or one ingested by
+        another recipe, would otherwise be a dangling upstream. Column lineage
+        also needs both tables to have schema.
         """
         column_lineage_count = 0
         for (
@@ -1154,6 +1168,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 )
                 if pairs:
                     column_lineage_count += 1
+            else:
+                self.report.shortcut_upstreams_not_ingested.append(upstream_name)
             yield dataset
         if column_lineage_count:
             logger.info(

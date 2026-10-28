@@ -81,7 +81,8 @@ def parse_table_shortcut(raw: dict) -> Optional[LakehouseTableShortcut]:
     if local is None:
         return None
     schema_name, table_name = local
-    origin = _parse_origin(raw.get("target") or {})
+    target = raw.get("target")
+    origin = _parse_origin(target) if isinstance(target, dict) else _Origin("", "")
     return LakehouseTableShortcut(
         schema_name=schema_name,
         table_name=table_name,
@@ -197,4 +198,7 @@ def _onelake_target_table(path: str) -> Optional[tuple[str, str]]:
         return None
     if len(rest) == 1:
         return FABRIC_SQL_DEFAULT_SCHEMA, rest[0]
-    return rest[-2], rest[-1]
+    # Like _local_table, at most one schema folder: `Tables/a/b/c` is not a table.
+    if len(rest) > 2:
+        return None
+    return rest[0], rest[1]

@@ -1,8 +1,10 @@
 """Lakehouse shortcut parsing, origin properties, and upstream lineage."""
 
+from typing import Iterator, List, Optional
 from unittest.mock import MagicMock
 
 from datahub.emitter.mce_builder import make_tag_urn
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.fabric.common.models import FabricWorkspace
 from datahub.ingestion.source.fabric.onelake.models import FabricColumn, FabricTable
 from datahub.ingestion.source.fabric.onelake.shortcuts import (
@@ -148,81 +150,21 @@ def test_dataverse_origin_is_table_name() -> None:
     assert shortcut.upstream_item_id is None
 
 
-def test_shortcut_upstream_uses_copy_lineage() -> None:
-    src = MagicMock()
-    src.config.shortcuts.include_lineage = True
-    src.config.platform_instance = None
-    src.config.env = "PROD"
-    src._norm.side_effect = lambda name: name.lower()
-    src._shortcut_upstream_dataset_name.side_effect = lambda shortcut: (
-        FabricOneLakeSource._shortcut_upstream_dataset_name(src, shortcut)
+def _source(include_lineage: bool = True) -> FabricOneLakeSource:
+    src = FabricOneLakeSource.create(
+        {"shortcuts": {"include_lineage": include_lineage}},
+        PipelineContext(run_id="shortcuts"),
     )
-    src._copy_lineage.side_effect = (
-        lambda upstream_dataset_name, column_pairs, downstream_urn=None: (
-            FabricOneLakeSource._copy_lineage(
-                src,
-                upstream_dataset_name,
-                column_pairs,
-                downstream_urn=downstream_urn,
-            )
-        )
-    )
-
-    shortcut = parse_table_shortcut(
-        {
-            **ONELAKE_SHORTCUT,
-            "target": {
-                "type": "OneLake",
-                "oneLake": {
-                    "workspaceId": "ws-1",
-                    "itemId": "lh-2",
-                    "path": "Tables/Sales/Orders",
-                },
-            },
-        }
-    )
-    assert shortcut is not None
-    lineage = FabricOneLakeSource._shortcut_upstream(src, shortcut)
-    assert lineage is not None
-    assert len(lineage.upstreams) == 1
-    assert lineage.upstreams[0].type == DatasetLineageTypeClass.COPY
-    assert lineage.upstreams[0].dataset == (
-        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-1.lh-2.sales.orders,PROD)"
-    )
-
-
-def _lineage_source() -> MagicMock:
-    src = MagicMock()
-    src.config.platform_instance = None
-    src.config.env = "PROD"
-    src.config.shortcuts.include_lineage = True
-    src._norm.side_effect = lambda name: name
-    src._register_ingested_dataset.return_value = None
-    src._ingested_columns = {}
-    src._deferred_shortcut_datasets = []
-    src._shortcut_properties.side_effect = lambda shortcut: (
-        FabricOneLakeSource._shortcut_properties(src, shortcut)
-    )
-    src._shortcut_upstream_dataset_name.side_effect = lambda shortcut: (
-        FabricOneLakeSource._shortcut_upstream_dataset_name(src, shortcut)
-    )
-    src._shortcut_upstream.side_effect = lambda shortcut: (
-        FabricOneLakeSource._shortcut_upstream(src, shortcut)
-    )
-    src._copy_lineage.side_effect = (
-        lambda upstream_dataset_name, column_pairs, downstream_urn=None: (
-            FabricOneLakeSource._copy_lineage(
-                src,
-                upstream_dataset_name,
-                column_pairs,
-                downstream_urn=downstream_urn,
-            )
-        )
-    )
-    src._resolve_workspace_display_name.return_value = "Sales Workspace"
-    src._resolve_item_display_name.return_value = "Sales Lakehouse"
-    src.report.shortcuts_found = 0
+    client = MagicMock()
+    client.get_workspace_display_name.return_value = "Sales Workspace"
+    client.get_item_display_name.return_value = "Sales Lakehouse"
+    src.client = client
     return src
+
+
+def _client(src: FabricOneLakeSource) -> MagicMock:
+    assert isinstance(src.client, MagicMock)
+    return src.client
 
 
 def _column(name: str) -> FabricColumn:
@@ -230,17 +172,16 @@ def _column(name: str) -> FabricColumn:
 
 
 def _table_dataset(
-    src: MagicMock,
+    src: FabricOneLakeSource,
     *,
     item_id: str,
     schema_name: str,
     table_name: str,
-    columns: list[FabricColumn],
-    shortcut: LakehouseTableShortcut | None = None,
+    columns: List[FabricColumn],
+    shortcut: Optional[LakehouseTableShortcut] = None,
 ) -> list:
     return list(
-        FabricOneLakeSource._create_table_dataset(
-            src,
+        src._create_table_dataset(
             FabricWorkspace(id="ws-1", name="workspace"),
             item_id,
             schema_name,
@@ -262,11 +203,15 @@ def _table_dataset(
     )
 
 
-def test_shortcut_table_has_tag_origin_properties_and_lineage() -> None:
-    src = _lineage_source()
-
+def _onelake_shortcut() -> LakehouseTableShortcut:
     shortcut = parse_table_shortcut(ONELAKE_SHORTCUT)
     assert shortcut is not None
+    return shortcut
+
+
+def test_shortcut_table_has_tag_and_origin_properties() -> None:
+    src = _source()
+
     # Lineage shortcuts are held until the origin table may have been ingested.
     assert (
         _table_dataset(
@@ -275,12 +220,11 @@ def test_shortcut_table_has_tag_origin_properties_and_lineage() -> None:
             schema_name="dbo",
             table_name="customers",
             columns=[],
-            shortcut=shortcut,
+            shortcut=_onelake_shortcut(),
         )
         == []
     )
-    assert len(src._deferred_shortcut_datasets) == 1
-    dataset = src._deferred_shortcut_datasets[0][0]
+    [dataset] = list(src._emit_deferred_shortcut_datasets())
     assert str(dataset.platform) == f"urn:li:dataPlatform:{PLATFORM}"
     assert dataset.display_name == "customers"
     assert dataset.tags is not None
@@ -293,33 +237,23 @@ def test_shortcut_table_has_tag_origin_properties_and_lineage() -> None:
         "shortcut_origin_item_id": "lh-2",
         "shortcut_origin_item_name": "Sales Lakehouse",
     }
-    assert dataset.upstreams is not None
-    assert dataset.upstreams.upstreams[0].type == DatasetLineageTypeClass.COPY
     assert src.report.shortcuts_found == 1
 
 
 def test_origin_names_are_resolved_once_per_workspace_and_item() -> None:
-    src = MagicMock()
-    src._workspace_display_names = {}
-    src._item_display_names = {}
-    src.client.get_workspace_display_name.return_value = "Sales Workspace"
-    src.client.get_item_display_name.return_value = None
+    src = _source()
+    _client(src).get_item_display_name.return_value = None
 
     for _ in range(3):
-        assert (
-            FabricOneLakeSource._resolve_workspace_display_name(src, "ws-1")
-            == "Sales Workspace"
-        )
-        assert (
-            FabricOneLakeSource._resolve_item_display_name(src, "ws-1", "lh-2") is None
-        )
+        assert src._resolve_workspace_display_name("ws-1") == "Sales Workspace"
+        assert src._resolve_item_display_name("ws-1", "lh-2") is None
 
-    src.client.get_workspace_display_name.assert_called_once_with("ws-1")
-    src.client.get_item_display_name.assert_called_once_with("ws-1", "lh-2")
+    _client(src).get_workspace_display_name.assert_called_once_with("ws-1")
+    _client(src).get_item_display_name.assert_called_once_with("ws-1", "lh-2")
 
 
 def test_external_shortcut_properties_omit_workspace_and_item() -> None:
-    src = MagicMock()
+    src = _source()
     shortcut = parse_table_shortcut(
         {
             "path": "Tables/dbo",
@@ -334,11 +268,11 @@ def test_external_shortcut_properties_omit_workspace_and_item() -> None:
         }
     )
     assert shortcut is not None
-    assert FabricOneLakeSource._shortcut_properties(src, shortcut) == {
+    assert src._shortcut_properties(shortcut) == {
         "shortcut_origin_name": "events",
         "shortcut_origin_path": "https://account.dfs.core.windows.net/container/raw/events",
     }
-    src._resolve_workspace_display_name.assert_not_called()
+    _client(src).get_workspace_display_name.assert_not_called()
 
 
 def test_matching_column_pairs_is_case_insensitive() -> None:
@@ -348,8 +282,8 @@ def test_matching_column_pairs_is_case_insensitive() -> None:
     ) == [("orderid", "OrderId"), ("amount", "Amount")]
 
 
-def test_shortcut_column_lineage_when_origin_was_ingested() -> None:
-    src = _lineage_source()
+def test_copy_lineage_with_columns_when_origin_was_ingested() -> None:
+    src = _source()
     origin = _table_dataset(
         src,
         item_id="lh-2",
@@ -358,60 +292,101 @@ def test_shortcut_column_lineage_when_origin_was_ingested() -> None:
         columns=[_column("OrderId"), _column("Amount")],
     )
     assert len(origin) == 1
-
-    shortcut = parse_table_shortcut(ONELAKE_SHORTCUT)
-    assert shortcut is not None
-    assert (
-        _table_dataset(
-            src,
-            item_id="lh-1",
-            schema_name="dbo",
-            table_name="customers",
-            columns=[_column("orderid"), _column("amount"), _column("note")],
-            shortcut=shortcut,
-        )
-        == []
+    _table_dataset(
+        src,
+        item_id="lh-1",
+        schema_name="dbo",
+        table_name="customers",
+        columns=[_column("orderid"), _column("amount"), _column("note")],
+        shortcut=_onelake_shortcut(),
     )
 
-    emitted = list(FabricOneLakeSource._emit_deferred_shortcut_datasets(src))
-    assert len(emitted) == 1
-    lineage = emitted[0].upstreams
+    [dataset] = list(src._emit_deferred_shortcut_datasets())
+
+    lineage = dataset.upstreams
     assert lineage is not None
+    assert lineage.upstreams[0].type == DatasetLineageTypeClass.COPY
     assert lineage.upstreams[0].dataset == (
         "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-1.lh-2.sales.orders,PROD)"
     )
     assert lineage.fineGrainedLineages is not None
-    assert len(lineage.fineGrainedLineages) == 2
     downstreams = set()
     for field in lineage.fineGrainedLineages:
         assert field.downstreams
         downstreams.add(field.downstreams[0].rsplit(",", 1)[-1].rstrip(")"))
     assert downstreams == {"orderid", "amount"}
+    assert src.report.shortcut_upstreams_not_ingested == []
 
 
-def test_shortcut_column_lineage_skipped_when_origin_not_ingested() -> None:
-    src = _lineage_source()
-    shortcut = parse_table_shortcut(ONELAKE_SHORTCUT)
-    assert shortcut is not None
+def test_no_lineage_when_origin_was_not_ingested() -> None:
+    src = _source()
     _table_dataset(
         src,
         item_id="lh-1",
         schema_name="dbo",
         table_name="customers",
         columns=[_column("orderid")],
-        shortcut=shortcut,
+        shortcut=_onelake_shortcut(),
     )
-    emitted = list(FabricOneLakeSource._emit_deferred_shortcut_datasets(src))
-    assert len(emitted) == 1
-    lineage = emitted[0].upstreams
-    assert lineage is not None
-    assert lineage.fineGrainedLineages is None
-    assert lineage.upstreams[0].type == DatasetLineageTypeClass.COPY
+
+    [dataset] = list(src._emit_deferred_shortcut_datasets())
+
+    assert dataset.upstreams is None
+    assert list(src.report.shortcut_upstreams_not_ingested) == [
+        "ws-1.lh-2.sales.orders"
+    ]
 
 
-def test_shortcut_upstream_skipped_when_lineage_disabled() -> None:
-    src = MagicMock()
-    src.config.shortcuts.include_lineage = False
-    shortcut = parse_table_shortcut(ONELAKE_SHORTCUT)
+def test_no_lineage_when_lineage_disabled() -> None:
+    src = _source(include_lineage=False)
+
+    [dataset] = _table_dataset(
+        src,
+        item_id="lh-1",
+        schema_name="dbo",
+        table_name="customers",
+        columns=[],
+        shortcut=_onelake_shortcut(),
+    )
+
+    assert dataset.upstreams is None
+    assert dataset.tags is not None
+
+
+def test_target_deeper_than_schema_and_table_has_no_upstream() -> None:
+    shortcut = parse_table_shortcut(
+        {
+            **ONELAKE_SHORTCUT,
+            "target": {
+                "type": "OneLake",
+                "oneLake": {
+                    "workspaceId": "ws-1",
+                    "itemId": "lh-2",
+                    "path": "Tables/a/b/c",
+                },
+            },
+        }
+    )
     assert shortcut is not None
-    assert FabricOneLakeSource._shortcut_upstream(src, shortcut) is None
+    assert shortcut.upstream_table_name is None
+    assert shortcut.origin_path == "Tables/a/b/c"
+
+
+def test_non_object_target_is_parsed_without_origin() -> None:
+    shortcut = parse_table_shortcut({**ONELAKE_SHORTCUT, "target": "OneLake"})
+    assert shortcut is not None
+    assert shortcut.origin_name == ""
+    assert shortcut.upstream_table_name is None
+
+
+def test_shortcut_parse_failure_warns_instead_of_raising() -> None:
+    src = _source()
+
+    def list_shortcuts(workspace_id: str, lakehouse_id: str) -> Iterator[object]:
+        yield ONELAKE_SHORTCUT
+        yield None  # not a mapping, so parsing it raises
+
+    _client(src).list_shortcuts.side_effect = list_shortcuts
+
+    assert src._load_lakehouse_shortcuts("ws-1", "lh-1") == {}
+    assert [w.title for w in src.report.warnings] == ["Failed to List Shortcuts"]

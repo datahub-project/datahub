@@ -359,7 +359,7 @@ Shortcut detection is enabled by default (`shortcuts.enabled`). Each lakehouse i
 
 Display names are resolved once per workspace and item. If the caller cannot read the target workspace or item, the `_name` properties are omitted and the GUIDs remain.
 
-`shortcuts.include_lineage` (off by default) also emits an upstream dataset when the shortcut target is another OneLake table (`Tables/<schema>/<table>` or `Tables/<table>`). When that origin table is ingested in the same run and both tables have schema, each shortcut column is linked to the origin column of the same name. Shortcuts to ADLS, S3, and other external locations keep the tag and origin properties and do not get a dataset upstream. The caller needs `OneLake.Read.All` or `OneLake.ReadWrite.All`.
+`shortcuts.include_lineage` (off by default) also emits an upstream dataset when the shortcut target is another OneLake table (`Tables/<schema>/<table>` or `Tables/<table>`) and that origin table is ingested in the same run. When both tables have schema, each shortcut column is linked to the origin column of the same name. An origin that the run does not ingest (for example in a workspace excluded by `workspace_pattern`, one the identity cannot read, or one ingested by another recipe) gets no lineage, and is listed under `shortcut_upstreams_not_ingested` in the report. To get lineage to tables in another workspace, include both workspaces in the same recipe. Shortcuts to ADLS, S3, and other external locations keep the tag and origin properties and do not get a dataset upstream. The caller needs `OneLake.Read.All` or `OneLake.ReadWrite.All`.
 
 #### Profiling
 
@@ -434,7 +434,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - **Usage Statistics Requires SQL Endpoint**: Usage extraction reads `queryinsights.exec_requests_history` over the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `usage.include_usage_statistics=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, usage for that item is skipped without failing the run.
 - **Profiling Requires SQL Endpoint**: Table and column profiling queries the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `profiling.enabled=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, profiling for that item is skipped.
 - **Profiling Covers Tables Only**: Views are registered for usage tracking but are not profiled — only Delta/warehouse tables are.
-- **Shortcuts Are Lakehouse Tables**: Shortcut detection lists `Tables` shortcuts on lakehouses. File shortcuts and warehouse items are not tagged. If the shortcuts API fails for a lakehouse, that lakehouse is ingested without shortcut tags.
+- **Shortcuts Are Lakehouse Tables**: Shortcut detection lists `Tables` shortcuts on lakehouses. File shortcuts and warehouse items are not tagged. Schema shortcuts (a whole schema shortcut into a schemas-enabled lakehouse) are not supported: the tables under them are not tagged, and the shortcut itself can be mistaken for a `dbo` table of the same name. If the shortcuts API fails for a lakehouse, that lakehouse is ingested without shortcut tags.
 
 ### Troubleshooting
 
