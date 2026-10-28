@@ -797,16 +797,19 @@ def test_remap_column_lineage_empty_inputs():
 # ---------------------------------------------------------------------------
 
 
-def _build_odbc_lineage() -> OdbcLineage:
+def _build_odbc_lineage(
+    *, platform_detail: Optional[PlatformDetail] = None, **config_overrides: object
+) -> OdbcLineage:
     """OdbcLineage with a column-less table (so create_table_column_lineage is a
-    no-op) and a resolver that returns a plain PlatformDetail (no instance)."""
+    no-op) and a resolver that returns the given PlatformDetail (a plain, no-instance
+    PlatformDetail by default)."""
     table = Table(columns=None, measures=[], expression="", name="t", full_name="ds.t")
     resolver = MagicMock(spec=AbstractDataPlatformInstanceResolver)
-    resolver.get_platform_instance.return_value = PlatformDetail()
+    resolver.get_platform_instance.return_value = platform_detail or PlatformDetail()
     return OdbcLineage(
         ctx=MagicMock(spec=PipelineContext),
         table=table,
-        config=_build_config(),
+        config=_build_config(**config_overrides),
         reporter=PowerBiDashboardSourceReport(),
         platform_instance_resolver=resolver,
     )
@@ -843,7 +846,9 @@ def test_odbc_two_tier_platform_drops_pseudo_catalog():
         powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
     )
 
-    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="dsn", dsn=""
+    )
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
@@ -869,7 +874,9 @@ def test_odbc_three_tier_platform_keeps_database():
         datahub_data_platform_name="bigquery",
     )
 
-    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "bigquery", pair, server_name="dsn", dsn=""
+    )
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,myproject.mydataset.mytable,PROD)"
@@ -878,9 +885,10 @@ def test_odbc_three_tier_platform_keeps_database():
 
 def test_odbc_two_tier_platform_with_no_schema():
     """A two-tier platform navigated as Database (pseudo-catalog) + Table with no
-    Schema level must NOT fall through to ``database.table`` — that pseudo-catalog
-    (e.g. "HIVE") is not a real schema and would yield a dangling URN. The lineage
-    must be skipped with a warning instead."""
+    Schema level, and no dsn_to_database_schema mapping to supply one, must NOT fall
+    through to ``database.table`` — that pseudo-catalog (e.g. "HIVE") is not a real
+    schema and would yield a dangling URN. The lineage must be skipped with a
+    warning instead."""
     instance = _build_odbc_lineage()
     detail = DataAccessFunctionDetail(
         arg_list={},
@@ -895,13 +903,605 @@ def test_odbc_two_tier_platform_with_no_schema():
         powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
     )
 
-    result = instance.expression_lineage(detail, "hive", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="dsn", dsn=""
+    )
 
     assert result.upstreams == []
     assert any(
         w.title == "Cannot build two-tier ODBC table name"
         for w in instance.reporter.warnings
     )
+
+
+def test_odbc_two_tier_platform_database_node_backfills_schema_from_dsn():
+    """Two-tier nav that surfaces the Kind=Database pseudo-catalog ("HIVE") but no
+    Schema must still backfill the schema from dsn_to_database_schema (the database
+    tier being populated must not strand the schema backfill), yielding
+    ``schema.table`` with the pseudo-catalog dropped."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"hive_dsn": "hive_catalog.product_analytics"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "HIVE"),
+            ("Table", "vg_a1_user_profile"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="dsn", dsn="hive_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
+    ]
+
+
+def test_odbc_hive_one_part_dsn_value_doubles_as_schema():
+    """Hive has no separate schema tier, so a one-part dsn_to_database_schema
+    value (a database) doubles as the schema. Table-only navigation must build
+    schema.table from it — matching HiveSource's two-part URNs."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"hive_dsn": "product_analytics"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Table", "vg_a1_user_profile"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="dsn", dsn="hive_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,product_analytics.vg_a1_user_profile,PROD)"
+    ]
+
+
+def test_odbc_three_tier_platform_rejects_two_part_after_one_segment_backfill():
+    """Regression for incomplete three-tier guard: Snowflake (and peers) need
+    database.schema.table. Table-only navigation + a one-part dsn mapping fills
+    only the database tier — must warn, not emit a truncated database.table URN.
+    """
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"snow_dsn": "ANALYTICS"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Table", "ORDERS")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Snowflake",
+        datahub_data_platform_name="snowflake",
+    )
+
+    result = instance.expression_lineage(
+        detail, "snowflake", pair, server_name="dsn", dsn="snow_dsn"
+    )
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Can not determine qualified table name"
+        for w in instance.reporter.warnings
+    )
+
+
+def test_odbc_three_tier_database_table_backfills_schema_from_dsn_mapping():
+    """Three-tier nav that supplies Database + Table but omits Schema must backfill
+    the missing schema from dsn_to_database_schema (the nav-supplied database wins
+    over the mapping's first segment), yielding database.schema.table rather than
+    warning and dropping lineage.
+    """
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"snow_dsn": "ANALYTICS.PUBLIC"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ANALYTICS"),
+            ("Table", "ORDERS"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Snowflake",
+        datahub_data_platform_name="snowflake",
+    )
+
+    result = instance.expression_lineage(
+        detail, "snowflake", pair, server_name="dsn", dsn="snow_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.orders,PROD)"
+    ]
+
+
+def test_odbc_two_part_mysql_allows_database_table_fallback():
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "employees"),
+            ("Table", "employees"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="MySQL", datahub_data_platform_name="mysql"
+    )
+
+    result = instance.expression_lineage(
+        detail, "mysql", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.employees,PROD)"
+    ]
+
+
+def test_odbc_two_part_mysql_schema_nav_plus_dsn_mapping_stays_two_part():
+    """Regression: a two-part platform must never emit database.schema.table. When
+    MySQL navigation exposes Schema + Table (no Database) and a one-part
+    dsn_to_database_schema supplies the database, the schema tier must be dropped
+    so the URN stays database.table and can match MySQL's two-part entities."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"mysql_dsn": "employees"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "sales"),
+            ("Table", "orders"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="MySQL", datahub_data_platform_name="mysql"
+    )
+
+    result = instance.expression_lineage(
+        detail, "mysql", pair, server_name="dsn", dsn="mysql_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.orders,PROD)"
+    ]
+
+
+def test_odbc_two_part_teradata_allows_database_table_fallback():
+    """TeradataSource is TwoTierSQLAlchemySource — database.table is the correct
+    URN. The three-tier denylist must not drop this lineage (regression against
+    the allowlist inversion that only kept MySQL/Athena).
+    """
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "finance"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Teradata",
+        datahub_data_platform_name="teradata",
+    )
+
+    result = instance.expression_lineage(
+        detail, "teradata", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,finance.accounts,PROD)"
+    ]
+
+
+def test_odbc_two_part_full_nav_drops_schema_and_warns():
+    """A two-part platform whose navigation exposes Database + Schema + Table
+    must emit database.table (schema dropped, matching its two-part entities).
+    Pre-PR this shape emitted database.schema.table; keep the corrected two-part
+    URN but surface a warning so the dropped nav Schema is never silent."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "finance"),
+            ("Schema", "reporting"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Teradata",
+        datahub_data_platform_name="teradata",
+    )
+
+    result = instance.expression_lineage(
+        detail, "teradata", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:teradata,finance.accounts,PROD)"
+    ]
+    assert any(
+        (w.title or "") == "Dropped ODBC navigation schema level"
+        for w in instance.reporter.warnings
+    )
+
+
+def test_odbc_oracle_schema_table_emits_two_part_urn():
+    """Oracle ODBC commonly exposes Schema+Table with no Database. Match
+    OracleLineage / default Oracle connector: schema.table, not skip."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ]
+
+
+def test_odbc_oracle_dsn_backfill_does_not_force_three_part_urn():
+    """dsn_to_database_schema must not prepend a database onto Oracle
+    Schema+Table navigation — that would emit database.schema.table and
+    mismatch the default Oracle connector's two-part URNs."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"oracle_dsn": "ORCL"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn="oracle_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ]
+    assert "orcl" not in result.upstreams[0].urn
+
+
+def test_odbc_oracle_one_part_dsn_value_is_not_promoted_to_schema():
+    """Unlike Hive, a one-part dsn_to_database_schema value (a database) must NOT
+    be used as the Oracle schema — Oracle has real schemas and a dedicated
+    database-tier knob (default_database). With no navigation schema, Oracle must
+    warn and skip rather than emit database-as-schema. Any Kind=Database node is
+    likewise not a schema and is dropped."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"oracle_dsn": "ORCL"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ORCLPDB"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn="oracle_dsn"
+    )
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Cannot build two-tier ODBC table name"
+        for w in instance.reporter.warnings
+    )
+
+
+def test_odbc_oracle_nav_database_dropped_for_two_part_urn():
+    """Even when Kind=Database is present, default Oracle URNs are schema.table
+    (add_database_name_to_urn defaults to false). Drop the database tier."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ORCL"),
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="dsn", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+    ]
+
+
+def test_odbc_oracle_default_database_emits_three_part_urn():
+    """When the user opts in via server_to_platform_instance default_database
+    (matching an Oracle ingestion running add_database_name_to_urn=true), Oracle
+    ODBC navigation must emit database.schema.table so the URN connects to the
+    3-part Oracle entities — mirroring OracleLineage's effective_db behavior."""
+    instance = _build_odbc_lineage(
+        platform_detail=OraclePlatformDetail(default_database="ORCL")
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="oracle_server", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,orcl.hr.employees,PROD)"
+    ]
+
+
+def test_odbc_oracle_nav_database_wins_over_default_database():
+    """When both a navigation Database and default_database are present, the
+    navigation-supplied database wins (default_database is only the fallback for
+    bare TNS aliases). Mirrors OracleLineage's effective_db precedence and the
+    'navigation always wins' contract."""
+    instance = _build_odbc_lineage(
+        platform_detail=OraclePlatformDetail(default_database="MYDB")
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "ORCLPDB"),
+            ("Schema", "HR"),
+            ("Table", "EMPLOYEES"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Oracle", datahub_data_platform_name="oracle"
+    )
+
+    result = instance.expression_lineage(
+        detail, "oracle", pair, server_name="oracle_server", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,orclpdb.hr.employees,PROD)"
+    ]
+
+
+def test_odbc_hive_ignores_oracle_default_database():
+    """The server resolver keys only on the server name, so a Hive server that
+    happens to map to an OraclePlatformDetail must NOT gain a database tier —
+    Hive stays two-tier schema.table. _resolve_oracle_default_database is gated
+    on the Oracle platform to guarantee this."""
+    instance = _build_odbc_lineage(
+        platform_detail=OraclePlatformDetail(default_database="ORCL")
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "analytics"),
+            ("Table", "events"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Hive", datahub_data_platform_name="hive"
+    )
+
+    result = instance.expression_lineage(
+        detail, "hive", pair, server_name="hive_server", dsn=""
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.events,PROD)"
+    ]
+
+
+def test_odbc_athena_expression_lineage_strips_catalog_after_backfill():
+    """Athena expression_lineage must strip catalog from three-part names
+    (same as query_lineage) so URNs match the standalone Athena connector.
+    """
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"athena_dsn": "awsdatacatalog.mydb"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Table", "accounts")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
+
+
+def test_odbc_athena_nav_catalog_without_schema_warns_and_skips():
+    """Athena's Kind=Database node is only the strippable catalog; with no schema
+    (Athena's real database) and no dsn_to_database_schema mapping to supply one,
+    the connector must not emit catalog.table — that leading catalog would
+    masquerade as the database and point at the wrong dataset. Warn and skip."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "awsdatacatalog"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert result.upstreams == []
+    assert any(
+        w.title == "Can not determine qualified table name"
+        for w in instance.reporter.warnings
+    )
+
+
+def test_odbc_athena_nav_catalog_one_part_dsn_backfills_database():
+    """When Athena navigation exposes a Kind=Database catalog + Table but no
+    schema, a one-part dsn_to_database_schema value supplies the missing database
+    (schema slot). The nav catalog is stripped, so the URN is database.table —
+    matching the SQL path, which also builds database.table from a one-part DSN."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"athena_dsn": "mydb"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Database", "awsdatacatalog"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
+
+
+def test_odbc_athena_nav_schema_table_without_catalog_emits_database_table():
+    """Athena navigation exposing Schema + Table but no catalog already carries
+    Athena's real database in the schema slot, so a valid database.table URN must
+    be emitted rather than dropped."""
+    instance = _build_odbc_lineage()
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(
+            ("Schema", "mydb"),
+            ("Table", "accounts"),
+        ),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
+
+
+def test_odbc_athena_table_only_one_part_dsn_emits_database_table():
+    """Table-only Athena navigation with a one-part dsn_to_database_schema value
+    supplies the database (no navigation catalog is present), so a valid 2-part
+    database.table URN must still be emitted — not skipped. Backfilling only the
+    catalog is pointless for Athena (it is stripped), so a one-part mapping is the
+    user's database."""
+    instance = _build_odbc_lineage(
+        dsn_to_database_schema={"athena_dsn": "mydb"},
+    )
+    detail = DataAccessFunctionDetail(
+        arg_list={},
+        data_access_function_name="Odbc.DataSource",
+        identifier_accessor=_nav_accessor(("Table", "accounts")),
+        node_map={},
+    )
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Amazon Athena",
+        datahub_data_platform_name="athena",
+    )
+
+    result = instance.expression_lineage(
+        detail, "athena", pair, server_name="dsn", dsn="athena_dsn"
+    )
+
+    assert [u.urn for u in result.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:athena,mydb.accounts,PROD)"
+    ]
 
 
 def test_remap_column_lineage_multi_table_shared_column_name():
@@ -998,7 +1598,9 @@ def test_odbc_view_leaf_resolves_like_table():
         datahub_data_platform_name="bigquery",
     )
 
-    result = instance.expression_lineage(detail, "bigquery", pair, server_name="dsn")
+    result = instance.expression_lineage(
+        detail, "bigquery", pair, server_name="dsn", dsn=""
+    )
 
     assert [u.urn for u in result.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_view,PROD)"
