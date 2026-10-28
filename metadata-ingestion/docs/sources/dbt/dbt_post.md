@@ -761,6 +761,8 @@ Will create a Dashboard entity in DataHub with:
 
 [dbt model contracts](https://docs.getdbt.com/docs/collaborate/govern/model-contracts) (introduced in dbt 1.5) let you declare schema guarantees on your models — column names, data types, and constraints like `not_null`, `unique`, `primary_key`, `foreign_key`, and `check`. DataHub can ingest these contracts and represent them as [Data Contracts](docs/generated/metamodel/entities/dataContract.md), so the same guarantees are visible in your catalog alongside your datasets.
 
+**Where the contract appears.** The Data Contract is attached to the dbt dataset, never to its warehouse sibling. On a page that combines a dbt model with its warehouse table, the Contract tab is disabled. To see the contract, open the dbt asset on its own, for example from the **Composed Of** section in the page's sidebar.
+
 ##### Enabling Contract Ingestion
 
 For **dbt Core**, set `ingest_contracts: true` in your recipe:
@@ -820,7 +822,7 @@ If the dataset already has a contract that is not dbt's, dbt does not change its
 
 Finding existing contracts needs a DataHub graph connection. With a sink that has none (for example the file sink, or a Kafka sink without `datahub_api`), no Data Contract is written: contract assertions are still emitted and the report carries a warning. With stateful stale removal enabled, the run instead stops at startup with a configuration error, since unwritten contracts would otherwise be soft-deleted. Configure `datahub_api`, or set `replace_existing_contracts_with_dbt: true`, to write contracts. Without a graph, `replace_existing_contracts_with_dbt` writes to the URN derived from the dataset, so a dataset that already has a contract at another URN (for example one created in the UI) ends up with two contracts. Existing contracts are looked up with one request per contracted model, one after another, which adds noticeable time on very large projects. If existing contracts cannot be read, the whole ingestion run is marked as failed (so stateful ingestion does not soft-delete earlier contracts), contract assertions are still emitted, and no Data Contract is written or removed.
 
-With stateful ingestion, dbt's contracts are soft-deleted like other stale dbt entities when a model stops enforcing its contract or `ingest_contracts` is turned off. Contracts that are not dbt's are not soft-deleted, unless `replace_existing_contracts_with_dbt` is set: dbt then owns the contract it writes, including stale removal. A contract dbt wrote and a user later took over (by removing dbt's schema assertion) is still in the previous checkpoint, so it can be soft-deleted if the model then stops enforcing its contract or `ingest_contracts` is turned off. As for other dbt nodes, if a model's contract fails to emit (reported as a warning), stale removal may soft-delete that model's earlier contract and assertions.
+With stateful ingestion, dbt's contracts are soft-deleted like other stale dbt entities when a model stops enforcing its contract or `ingest_contracts` is turned off. Contracts that are not dbt's are not soft-deleted, unless `replace_existing_contracts_with_dbt` is set: dbt then owns the contract it writes, including stale removal. A contract dbt wrote and a user later took over (by removing dbt's schema assertion) is left untouched by the next run that still ingests the model's contract, and that run drops it from the checkpoint, so later runs never soft-delete it. If the model stops enforcing its contract, or `ingest_contracts` is turned off, before such a run, the contract is still in the previous checkpoint and is soft-deleted. As for other dbt nodes, if a model's contract fails to emit (reported as a warning), stale removal may soft-delete that model's earlier contract and assertions.
 
 Unsupported or unknown constraint types are recorded on the ingestion report (`contract_constraints_skipped_unsupported`) and skipped rather than raised, so one unusual constraint in one model doesn't fail ingestion for the rest of the project.
 
@@ -914,7 +916,7 @@ dbt's [constraint support matrix](https://docs.getdbt.com/reference/resource-pro
 
 The table is a snapshot of dbt's published matrix. Prefer `warn_unenforced` / `warn_unsupported` on the assertion custom properties (copied from the manifest when present) as the source of truth for a given project.
 
-Contracts are always written to the dbt dataset, regardless of `dbt_is_primary_sibling`. A contract created on the warehouse sibling is not seen, so a dataset can end up with one contract on each sibling. On a page that combines dbt and warehouse siblings, the Contract tab is disabled; view the dbt asset separately to see its contract.
+Contracts are always written to the dbt dataset, regardless of `dbt_is_primary_sibling`. A contract created on the warehouse sibling is not seen, so a dataset can end up with one contract on each sibling. See [Where the contract appears](#ingesting-dbt-contracts-as-datahub-data-contracts) for viewing it.
 
 ##### Limitations on dbt Cloud
 

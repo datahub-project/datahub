@@ -1259,10 +1259,15 @@ class _RelationResolver:
     or compiled to the referenced relation (``"db"."schema"."customers"``,
     after ``dbt run``/``build``). Test kwargs keep the raw form. Both are
     resolved to the referenced node's relation so aliases and quoting match.
-    A ref that cannot be resolved to exactly one node resolves to None.
+    A ref that cannot be resolved to exactly one node resolves to None,
+    except that an unqualified ref prefers the root project's model, as dbt
+    does when a package defines a model with the same name.
     """
 
-    def __init__(self, nodes: Iterable["DBTNode"]) -> None:
+    def __init__(
+        self, nodes: Iterable["DBTNode"], root_package: Optional[str] = None
+    ) -> None:
+        self._root_package = root_package.lower() if root_package else None
         # (package, name) -> version -> relation; version is "" if unversioned.
         self._refs: Dict[Tuple[str, str], Dict[str, _RelationKey]] = {}
         self._by_source: Dict[Tuple[str, str], _RelationKey] = {}
@@ -1299,7 +1304,7 @@ class _RelationResolver:
     def _resolve_ref(
         self, package: Optional[str], name: str, version: Optional[str]
     ) -> Optional[_RelationKey]:
-        candidates: List[_RelationKey] = []
+        candidates: List[Tuple[str, _RelationKey]] = []
         for (ref_package, ref_name), versions in self._refs.items():
             if ref_name != name or (package is not None and ref_package != package):
                 continue
@@ -1307,12 +1312,15 @@ class _RelationResolver:
             wanted = version or self._latest.get((ref_package, ref_name))
             if wanted is not None:
                 if wanted in versions:
-                    candidates.append(versions[wanted])
+                    candidates.append((ref_package, versions[wanted]))
             else:
-                candidates.extend(versions.values())
+                candidates.extend((ref_package, key) for key in versions.values())
+        if len(candidates) == 1:
+            return candidates[0][1]
+        root = [key for pkg, key in candidates if pkg == self._root_package]
         # A versioned model without a known latest version, or a name shared
-        # across packages, is unresolved.
-        return candidates[0] if len(candidates) == 1 else None
+        # across packages none of which is the root project, is unresolved.
+        return root[0] if len(root) == 1 else None
 
     def resolve(
         self, value: Optional[str]
@@ -6478,7 +6486,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if self.config.entities_enabled.can_emit_test_definitions
             else {}
         )
-        resolver = _RelationResolver(all_nodes_map.values())
+        resolver = _RelationResolver(
+            all_nodes_map.values(),
+            root_package=self._current_project.project_name
+            if self._current_project
+            else None,
+        )
         # One test can be read by several contracted models; the test URN
         # depends on its filtered upstreams, so compute them once per test.
         test_upstreams: Dict[str, Dict[str, str]] = {}

@@ -931,6 +931,24 @@ def test_unresolvable_foreign_key_target_is_not_matched_by_name() -> None:
     assert resolver.resolve("ref('missing')")[0] is None
 
 
+def test_unqualified_ref_prefers_root_project_over_package() -> None:
+    root = _make_model(name="customers")
+    shadow = _make_model(name="customers", alias="pkg_customers")
+    shadow.dbt_name = "model.other_pkg.customers"
+    assert _RelationResolver([root, shadow]).resolve("ref('customers')")[0] is None
+    resolver = _RelationResolver([root, shadow], root_package="test_pkg")
+    assert resolver.resolve("ref('customers')")[0] == (
+        "test_db",
+        "test_schema",
+        "customers",
+    )
+    assert resolver.resolve("ref('other_pkg', 'customers')")[0] == (
+        "test_db",
+        "test_schema",
+        "pkg_customers",
+    )
+
+
 def test_versioned_ref_resolves_to_its_version() -> None:
     versions = []
     for version in ("1", "2"):
@@ -1934,6 +1952,30 @@ def test_fetch_discovery_contract_data_paginates() -> None:
     assert result["model.a"].model_constraints[0].columns == ["id"]
     assert result["model.a"].contract_columns[0].data_type == "INT"
     assert mock_send.call_args_list[1].kwargs["variables"]["after"] == "c1"
+
+
+def test_recorded_discovery_response_constraints_are_supported() -> None:
+    # A real Discovery API response for the contract query, with names
+    # replaced: the constraint type strings are kept exactly as returned.
+    recorded = json.loads(
+        (
+            Path(__file__).parent / "artifacts" / "dbt_cloud_discovery_contracts.json"
+        ).read_text()
+    )
+    with mock.patch.object(
+        DBTCloudSource, "_send_graphql_query", return_value=recorded
+    ):
+        result = DBTCloudSource._fetch_discovery_contract_data(
+            metadata_endpoint="https://metadata.test.getdbt.com/graphql",
+            token="test-token",
+            environment_id=42,
+        )
+    orders = result["model.my_project.orders"]
+    assert [c.type for c in orders.model_constraints] == ["unique", "foreign_key"]
+    source = _cloud_source()
+    node = _make_model(model_constraints=orders.model_constraints)
+    assert len(source._create_constraint_assertions(node, _ENTITY_URN)) == 2
+    assert not source.report.contract_constraints_skipped_unsupported
 
 
 def test_fetch_discovery_contract_data_missing_end_cursor_raises() -> None:
