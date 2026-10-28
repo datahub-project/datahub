@@ -3085,3 +3085,85 @@ def test_validate_masks_inline_secrets_when_a_reference_cannot_resolve(
     assert res.exit_code == 0, res.output
     assert _INLINE_SECRET not in res.output
     assert all("***" in error for error in json.loads(res.stdout)["errors"])
+
+
+def test_probe_methods_by_source_type_matches_the_recipe_form(tmp_path):
+    # The same payload as `probe methods --recipe`, so an agent can use either.
+    by_recipe = CliRunner().invoke(
+        recipe, ["probe", "methods", "--recipe", _recipe_file(tmp_path)]
+    )
+    by_type = CliRunner().invoke(recipe, ["probe-methods", "postgres"])
+    assert by_recipe.exit_code == 0, by_recipe.output
+    assert by_type.exit_code == 0, by_type.output
+    assert json.loads(by_type.output) == json.loads(by_recipe.output)
+
+
+def test_probe_methods_by_source_type_reads_no_recipe_and_no_secret(monkeypatch):
+    # The point of the command: a read-only caller hands over a source type,
+    # never a recipe or its secrets, and nothing is resolved or masked.
+    def refuse(*args, **kwargs):
+        raise AssertionError("probe-methods must not touch a recipe or secrets")
+
+    monkeypatch.setattr(rc, "_load_recipe", refuse)
+    monkeypatch.setattr(rc, "_resolve_for_probe", refuse)
+    monkeypatch.setattr(rc, "_register_for_masking", refuse)
+    res = CliRunner().invoke(recipe, ["probe-methods", "postgres"])
+    assert res.exit_code == 0, res.output
+    commands = {m["command"] for m in json.loads(res.output)["methods"]}
+    assert "tables" in commands
+
+
+def test_probe_methods_by_source_type_lists_nothing_without_a_provider(monkeypatch):
+    from datahub.ingestion.agent import probe_methods
+
+    monkeypatch.setattr(probe_methods, "_provider_class", lambda _st: None)
+    res = CliRunner().invoke(recipe, ["probe-methods", "postgres"])
+    assert res.exit_code == 0, res.output
+    assert json.loads(res.output) == {"source_type": "postgres", "methods": []}
+
+
+def test_probe_methods_of_an_unknown_source_type_is_a_bad_argument():
+    res = CliRunner().invoke(recipe, ["probe-methods", "definitely-not-a-real-source"])
+    assert res.exit_code == rc.EXIT_USER, res.output
+    # The CLI's own JSON error, not click's "No such command" (also exit 2).
+    assert '"error"' in res.output
+
+
+def test_probe_methods_by_source_type_still_answers_with_probing_disabled(monkeypatch):
+    # It opens nothing, so the deployment switch that refuses `probe run`
+    # leaves it working, as it leaves `probe methods`.
+    monkeypatch.setenv("DATAHUB_PROBE_DISABLED", "true")
+    res = CliRunner().invoke(recipe, ["probe-methods", "postgres"])
+    assert res.exit_code == 0, res.output
+    assert json.loads(res.output)["methods"]
+
+
+@pytest.mark.parametrize("separator", [":", "."])
+def test_probe_methods_by_source_type_never_imports_a_path(
+    monkeypatch, tmp_path, separator
+):
+    # The registry loads a type containing "." or ":" as an import path. A
+    # caller that may only name a source must not be able to import modules.
+    (tmp_path / "probe_import_canary.py").write_text("IMPORTED = True\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.delitem(sys.modules, "probe_import_canary", raising=False)
+    res = CliRunner().invoke(
+        recipe, ["probe-methods", f"probe_import_canary{separator}Source"]
+    )
+    assert res.exit_code == rc.EXIT_USER, res.output
+    assert '"error"' in res.output
+    assert "probe_import_canary" not in sys.modules
+
+
+def test_probe_methods_by_source_type_pings_only_a_real_source_type(monkeypatch):
+    pings: List[Tuple[str, str]] = []
+    monkeypatch.setattr(
+        rc,
+        "_ping_probe",
+        lambda command, source_type, **_: pings.append((command, source_type)),
+    )
+    CliRunner().invoke(recipe, ["probe-methods", "definitely-not-a-real-source"])
+    assert pings == []
+    res = CliRunner().invoke(recipe, ["probe-methods", "postgres"])
+    assert res.exit_code == 0, res.output
+    assert pings == [("methods", "postgres")]

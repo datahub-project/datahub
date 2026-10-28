@@ -21,7 +21,7 @@ the connector each record's scalar fields as `ctx.attributes` (for a source that
 Each record must be a name string or a mapping with a string `name` key; any other record makes the
 listing unjudgeable (exit 2), so a listing method returning records names each one `name`.
 `probe methods` lists the commands, connection-free: a method's parameters are its CLI flags and its
-docstring is its help text. `recipe describe`, `recipe scaffold` and `recipe validate` need no
+docstring is its help text. `recipe probe-methods <source_type>` lists the same without a recipe. `recipe describe`, `recipe scaffold` and `recipe validate` need no
 connection either.
 
 Every command prints JSON, and the exit code says who has to act: **2** the caller's input is wrong,
@@ -37,7 +37,7 @@ differs from those defaults: a `get_identifier` the probe cannot call without in
 (`probe_filter_target`), a catalog beyond `information_schema` (`probe_catalog_scope`), engine setup
 ingestion does that `create_engine()` does not (`probe_engine_settings`), system schemas it drops
 whatever the pattern says (`default_schemas`), and the rest of the
-[SQL-family hooks](#sql-family-hooks). Check with `datahub recipe probe methods --recipe r.yml`, and
+[SQL-family hooks](#sql-family-hooks). Check with `datahub recipe probe-methods <source_type>`, which needs no recipe, and
 check the verdicts against ingestion with a parity test.
 
 Anything else needs one config hook and one provider class:
