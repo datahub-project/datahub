@@ -55,7 +55,9 @@ public final class SearchTemplateJson {
    * A wildcard that sets {@code case_insensitive} is rewritten before the engine sees it. Search V3
    * keyword roots keep the stored casing and have no {@code .keyword} subfield. On OpenSearch 3 a
    * case-insensitive wildcard builds a case-folding automaton that can be null and fails the shard.
-   * The written pattern stays, and the lowercase pattern is added beside it when they differ. Term
+   * The written pattern stays, and the lowercase pattern is added beside it when they differ. An
+   * array clause gets that copy as the next element. An object-valued clause, such as {@code
+   * function_score.query} or a single {@code bool.filter}, is wrapped in {@code bool.should}. Term
    * queries keep {@code case_insensitive}.
    */
   @Nonnull
@@ -70,14 +72,7 @@ public final class SearchTemplateJson {
       if (relaxWildcard(object, extras)) {
         changed = true;
         if (!extras.isEmpty()) {
-          ObjectNode bool = SearchTemplateMappers.JSON.createObjectNode();
-          ArrayNode should = bool.putArray("should");
-          should.add(object);
-          extras.forEach(should::add);
-          bool.put("minimum_should_match", 1);
-          ObjectNode wrapped = SearchTemplateMappers.JSON.createObjectNode();
-          wrapped.set("bool", bool);
-          root = wrapped;
+          root = boolShould(object, extras);
         }
       }
     }
@@ -94,9 +89,24 @@ public final class SearchTemplateJson {
   private static boolean foldWildcards(@Nonnull JsonNode node) {
     if (node instanceof ObjectNode object) {
       boolean changed = false;
-      var fields = object.fields();
-      while (fields.hasNext()) {
-        changed |= foldWildcards(fields.next().getValue());
+      List<String> names = new ArrayList<>();
+      object.fieldNames().forEachRemaining(names::add);
+      for (String name : names) {
+        JsonNode child = object.get(name);
+        if (child instanceof ObjectNode childObject) {
+          List<ObjectNode> extras = new ArrayList<>();
+          if (relaxWildcard(childObject, extras)) {
+            changed = true;
+            if (!extras.isEmpty()) {
+              object.remove(name);
+              object.set(name, boolShould(childObject, extras));
+            }
+          } else {
+            changed |= foldWildcards(childObject);
+          }
+        } else {
+          changed |= foldWildcards(child);
+        }
       }
       return changed;
     }
@@ -126,8 +136,21 @@ public final class SearchTemplateJson {
 
   /**
    * Drops {@code case_insensitive} from a one-field wildcard. When the lowercase pattern differs,
-   * the caller inserts that copy next to the written pattern.
+   * the caller adds that copy next to the written pattern.
    */
+  @Nonnull
+  private static ObjectNode boolShould(
+      @Nonnull ObjectNode clause, @Nonnull List<ObjectNode> extras) {
+    ObjectNode bool = SearchTemplateMappers.JSON.createObjectNode();
+    ArrayNode should = bool.putArray("should");
+    should.add(clause);
+    extras.forEach(should::add);
+    bool.put("minimum_should_match", 1);
+    ObjectNode wrapped = SearchTemplateMappers.JSON.createObjectNode();
+    wrapped.set("bool", bool);
+    return wrapped;
+  }
+
   private static boolean relaxWildcard(
       @Nonnull JsonNode element, @Nonnull List<ObjectNode> extras) {
     if (!(element instanceof ObjectNode object)) {
