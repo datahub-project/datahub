@@ -1621,6 +1621,7 @@ module.exports = {
         "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
+        "docs/how/upgrading-datahub",
         "docs/deploy/rendered-manifest-upgrade",
       ],
     },
@@ -1751,7 +1752,7 @@ module.exports = {
       ],
     },
     {
-      "Release History": ["releases", "docs/how/updating-datahub"],
+      "Release History": ["releases", "docs/how/breaking-changes"],
     },
     {
       type: "doc",
