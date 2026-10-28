@@ -2,6 +2,9 @@ pytest>=8.4.2
 pytest-dependency>=0.6.0
 pytest-rerunfailures==16.1
 psutil
+# preshed 3.0.14 breaks spaCy tokenizer deserialization used by document ingestion.
+# Match metadata-ingestion/constraints.txt until the upstream regression is fixed.
+preshed==3.0.13
 tenacity
 -e ../metadata-ingestion[datahub-rest,datahub-kafka,datahub-pg-queue,mysql,postgres,datahub-documents]
 pydantic>2
