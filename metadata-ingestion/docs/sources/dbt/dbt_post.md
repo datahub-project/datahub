@@ -914,7 +914,7 @@ dbt's [constraint support matrix](https://docs.getdbt.com/reference/resource-pro
 
 The table is a snapshot of dbt's published matrix. Prefer `warn_unenforced` / `warn_unsupported` on the assertion custom properties (copied from the manifest when present) as the source of truth for a given project.
 
-Contracts are always written to the dbt dataset, regardless of `dbt_is_primary_sibling`. A contract created on the warehouse sibling is not seen, so a dataset can end up with one contract on each sibling. With `dbt_is_primary_sibling: false`, the UI opens the warehouse (primary) dataset, whose Contract tab does not show the dbt contract.
+Contracts are always written to the dbt dataset, regardless of `dbt_is_primary_sibling`. A contract created on the warehouse sibling is not seen, so a dataset can end up with one contract on each sibling. On a page that combines dbt and warehouse siblings, the Contract tab is disabled; view the dbt asset separately to see its contract.
 
 ##### Limitations on dbt Cloud
 
