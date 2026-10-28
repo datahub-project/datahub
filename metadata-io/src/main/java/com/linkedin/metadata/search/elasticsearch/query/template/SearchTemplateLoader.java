@@ -763,13 +763,13 @@ public class SearchTemplateLoader {
         overlay.getTemplate(),
         !overlayInline && base.hasTemplate(),
         base.getTemplate());
-    if (overlay.hasSignals()) {
-      if (overlay.getSignals() != null && !overlay.getSignals().isEmpty()) {
-        merged.setSignals(new RankingSignalArray(overlay.getSignals()));
-      }
+    // A non-empty list replaces signals and discards patches. An empty list drops signals only.
+    if (overlaySignals) {
+      merged.setSignals(new RankingSignalArray(overlay.getSignals()));
       addSatisfiedRemoves.clear();
     } else {
-      if (!overlayReference
+      if (!overlay.hasSignals()
+          && !overlayReference
           && base.hasSignals()
           && base.getSignals() != null
           && !base.getSignals().isEmpty()) {

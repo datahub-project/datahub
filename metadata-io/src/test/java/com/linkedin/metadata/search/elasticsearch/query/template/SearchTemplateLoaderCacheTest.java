@@ -395,6 +395,36 @@ public class SearchTemplateLoaderCacheTest {
   }
 
   @Test
+  public void testAnEmptySignalListKeepsInheritedReferencePatches() {
+    String library = "urn:li:searchTemplate:library";
+    SearchTemplateDocuments.Document libraryDocument = ranked(library, 1.5, 1L);
+    RankingSignal kept = new RankingSignal();
+    kept.setName("viewCount");
+    kept.setKind(RankingSignalKind.FIELD_NUMBER);
+    kept.setField("viewCount");
+    kept.setNormalization(new RankingNormalization().setType(RankingNormalizationType.NONE));
+    kept.setBoost(2.0);
+    libraryDocument.properties().getRanking().getSignals().add(kept);
+    indexed.put(library, libraryDocument);
+    primary.put(library, libraryDocument);
+    SearchTemplateDocuments.Document parent = reference(PARENT, library, 1L);
+    parent.properties().getRanking().setRemove(new StringArray("queryCountPercentileLast30Days"));
+    indexed.put(PARENT, parent);
+    primary.put(PARENT, parent);
+    SearchTemplateProperties childProperties = properties(CHILD, null);
+    childProperties.setParent(UrnUtils.getUrn(PARENT));
+    childProperties.setRanking(new SearchTemplateRanking().setSignals(new RankingSignalArray()));
+    SearchTemplateDocuments.Document child =
+        new SearchTemplateDocuments.Document(childProperties, 1L);
+    indexed.put(CHILD, child);
+    primary.put(CHILD, child);
+
+    MergedSearchTemplate loaded = loader.load(opContext, CHILD);
+    assertEquals(loaded.getRanking().getSignals().size(), 1);
+    assertEquals(loaded.getRanking().getSignals().get(0).getName(), "viewCount");
+  }
+
+  @Test
   public void testAnEmptyFormulaDropsTheFormulaAndKeepsSignals() {
     SearchTemplateDocuments.Document parent = ranked(PARENT, 1.5, 1L);
     parent.properties().getRanking().setFormula("usage");
