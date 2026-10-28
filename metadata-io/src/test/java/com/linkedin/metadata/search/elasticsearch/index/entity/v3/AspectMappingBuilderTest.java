@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -91,19 +92,30 @@ public class AspectMappingBuilderTest {
   }
 
   @Test
-  public void testCreateAspectMappingsSkipsStructuredProperties() {
-    // Test that structuredProperties aspect is skipped
+  @SuppressWarnings("unchecked")
+  public void testStructuredPropertiesKeepsParsedUrnNamesOnly() {
     when(mockEntitySpec.getAspectSpecs())
         .thenReturn(Collections.singletonList(mockStructuredPropertiesAspect));
     when(mockStructuredPropertiesAspect.getName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
     when(mockStructuredPropertiesAspect.getSearchableFieldSpecs())
         .thenReturn(Collections.singletonList(mockFieldSpec1));
+    when(mockAnnotation1.getFieldType()).thenReturn(FieldType.URN);
+    when(mockAnnotation1.getSearchLabel()).thenReturn(Optional.empty());
+    when(mockAnnotation1.getEntityFieldName()).thenReturn(Optional.empty());
 
     Map<String, Object> result =
         AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null);
 
-    assertNotNull(result);
-    assertFalse(result.containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME));
+    assertTrue(result.containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME));
+    Map<String, Object> fields =
+        (Map<String, Object>)
+            ((Map<String, Object>) result.get(STRUCTURED_PROPERTIES_ASPECT_NAME)).get(PROPERTIES);
+    assertTrue(fields.containsKey("testField__urn_name"), fields.toString());
+    assertEquals(
+        ((Map<String, Object>) fields.get("testField__urn_name")).get("normalizer"),
+        "keyword_normalizer");
+    assertFalse(fields.containsKey("testField"), fields.toString());
+    assertFalse(fields.containsKey("urnName"), fields.toString());
   }
 
   @Test
@@ -153,23 +165,26 @@ public class AspectMappingBuilderTest {
             AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null).get("testAspect");
     Map<String, Object> fields = (Map<String, Object>) aspect.get(PROPERTIES);
 
-    // Full-text search reads the root fields, so the aspect copies are not analyzed a second time
-    Map<String, Object> unanalyzedString =
+    // A root-projected field keeps an unindexed aspect copy. copy_to still reaches the label.
+    Map<String, Object> unindexed = Map.of(TYPE, "keyword", "index", false, "doc_values", false);
+    for (String stringField : List.of("description", "name", "browsePathV2")) {
+      assertEquals(fields.get(stringField), unindexed, stringField);
+    }
+    assertEquals(
+        fields.get("platform"),
         Map.of(
             TYPE,
             "keyword",
-            "normalizer",
-            "keyword_normalizer",
-            "ignore_above",
-            8191,
-            "fields",
-            Map.of("keyword", Map.of(TYPE, "keyword", "ignore_above", 8191)));
-    for (String stringField : List.of("description", "name", "browsePathV2")) {
-      assertEquals(fields.get(stringField), unanalyzedString, stringField);
-    }
-    assertEquals(fields.get("platform"), Map.of(TYPE, "keyword", "ignore_above", 255));
-    assertEquals(fields.get("lastModified"), Map.of(TYPE, "date"));
-    assertEquals(fields.get("removed"), Map.of(TYPE, "boolean"));
+            "index",
+            false,
+            "doc_values",
+            false,
+            "copy_to",
+            List.of("platform_urn")));
+    assertEquals(
+        fields.get("lastModified"), Map.of(TYPE, "date", "index", false, "doc_values", false));
+    assertEquals(
+        fields.get("removed"), Map.of(TYPE, "boolean", "index", false, "doc_values", false));
   }
 
   private static SearchableFieldSpec mockField(String fieldName, FieldType fieldType) {

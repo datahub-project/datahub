@@ -149,6 +149,7 @@ def test_unity_catalog_listing_follows_next_page_token() -> None:
     assert all("max_results" in p for p in requests_seen)
     assert headers_seen == [f"Bearer token-{i}" for i in range(6)]
     assert harness.auth_helper.get_authorization_header.call_count == 6
+    assert harness.report.report_request.call_count == 6
     assert all(
         call.kwargs["scope"] == ONELAKE_STORAGE_SCOPE
         for call in harness.auth_helper.get_authorization_header.call_args_list
@@ -171,7 +172,7 @@ def test_unity_catalog_listing_stops_on_repeated_page_token() -> None:
     assert harness.session.get.call_count == 2
 
 
-def test_list_warehouse_tables_404_is_not_an_empty_catalog() -> None:
+def test_list_warehouse_tables_404_yields_no_tables() -> None:
     harness = _client()
     response = MagicMock()
     response.status_code = 404
@@ -181,8 +182,8 @@ def test_list_warehouse_tables_404_is_not_an_empty_catalog() -> None:
     schema_resp.raise_for_status.side_effect = error
     harness.session.get.return_value = schema_resp
 
-    with pytest.raises(IncompleteCatalogListing):
-        list(harness.client.list_warehouse_tables("ws-1", "wh-1"))
+    # No catalog is a lasting state of the warehouse, not a failed listing.
+    assert list(harness.client.list_warehouse_tables("ws-1", "wh-1")) == []
     harness.report.report_error.assert_not_called()
 
 

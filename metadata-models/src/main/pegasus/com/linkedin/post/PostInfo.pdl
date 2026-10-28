@@ -7,13 +7,18 @@ import com.linkedin.common.AuditStamp
  * Information about a DataHub Post.
  */
 @Aspect = {
-  "name": "postInfo"
+  "name": "postInfo",
+  "schemaVersion": 2
 }
 record PostInfo {
   /**
    * Type of the Post.
    */
-  @Searchable = { }
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   type: PostType
 
   /**
@@ -67,6 +72,10 @@ record PostInfo {
     "name": "PostTarget",
     "entityTypes": [ "dataset", "schemaField", "chart", "container", "dashboard", "dataFlow", "dataJob", "dataProduct", "glossaryTerm", "glossaryNode", "mlModel", "mlFeature", "notebook", "mlFeatureTable", "mlPrimaryKey", "mlModelGroup", "domain", "dataProduct" ]
   }
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   target: optional Urn
 }

@@ -28,7 +28,7 @@ import {
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { AddIncidentModal } from '@app/entity/shared/tabs/Incident/components/AddIncidentModal';
-import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

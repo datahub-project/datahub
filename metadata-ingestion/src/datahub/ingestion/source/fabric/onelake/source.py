@@ -11,7 +11,17 @@ This connector extracts metadata from Microsoft Fabric OneLake including:
 
 import logging
 from collections import defaultdict
-from typing import TYPE_CHECKING, Iterable, Literal, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 from typing_extensions import assert_never
 
@@ -51,8 +61,9 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
 from datahub.ingestion.source.fabric.common.utils import build_workspace_container
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
-from datahub.ingestion.source.fabric.onelake.constants import (
-    FABRIC_SQL_DEFAULT_SCHEMA,
+from datahub.ingestion.source.fabric.onelake.filter_names import (
+    effective_schema_name,
+    qualified_filter_name,
 )
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
@@ -195,6 +206,10 @@ class WarehouseSchemaKey(WarehouseKey):
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `usage.include_usage_statistics` and `usage.include_operational_stats`",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class FabricOneLakeSource(StatefulIngestionSourceBase):
     """Extracts metadata from Microsoft Fabric OneLake."""
 
@@ -246,16 +261,16 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             # are not created as assets.
             is_allowed_table=self._is_usage_table_allowed,
         )
-        self._ingested_dataset_names: set[str] = set()
+        self._ingested_dataset_names: Set[str] = set()
         # dataset name (lowered) -> (name used in the URN, schema field paths)
-        self._ingested_columns: dict[str, tuple[str, list[str]]] = {}
+        self._ingested_columns: Dict[str, Tuple[str, List[str]]] = {}
         # Shortcut datasets whose origin may be ingested later in the run.
         # Emitted after every workspace so column lineage can see that origin.
-        self._deferred_shortcut_datasets: list[tuple[Dataset, list[str], str]] = []
+        self._deferred_shortcut_datasets: List[Tuple[Dataset, List[str], str]] = []
         # Shortcut targets only carry GUIDs; display names are resolved once
         # per workspace/item and reused across all shortcuts in the run.
-        self._workspace_display_names: dict[str, Optional[str]] = {}
-        self._item_display_names: dict[tuple[str, str], Optional[str]] = {}
+        self._workspace_display_names: Dict[str, Optional[str]] = {}
+        self._item_display_names: Dict[Tuple[str, str], Optional[str]] = {}
         self.report.sql_aggregator = self.aggregator.report
 
         # Stateful skip-handler for the usage time window. None when stateful
@@ -494,7 +509,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Track emitted schema containers to avoid duplicates
         emitted_schemas: set[str] = set()
 
-        profile_targets: list[FabricProfileTarget] = []
+        profile_targets: List[FabricProfileTarget] = []
         shortcuts = self._load_lakehouse_shortcuts(workspace.id, lakehouse.id)
         # Process tables
         yield from self._process_item_tables(
@@ -562,7 +577,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Track emitted schema containers to avoid duplicates
         emitted_schemas: set[str] = set()
 
-        profile_targets: list[FabricProfileTarget] = []
+        profile_targets: List[FabricProfileTarget] = []
         # Process tables
         yield from self._process_item_tables(
             workspace,
@@ -631,7 +646,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         workspace_id: str,
         item_id: str,
         schema_client: Optional["SchemaExtractionClient"],
-        profile_targets: list[FabricProfileTarget],
+        profile_targets: List[FabricProfileTarget],
     ) -> Iterable[MetadataWorkUnit]:
         """Profile ingested tables on this item's SQL Analytics Endpoint."""
         if not self.config.is_profiling_enabled() or not profile_targets:
@@ -677,8 +692,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_display_name: str,
         schema_map: dict[tuple[str, str], list[FabricColumn]],
         emitted_schemas: set[str],
-        profile_targets: list[FabricProfileTarget],
-        shortcuts: Optional[dict[tuple[str, str], LakehouseTableShortcut]] = None,
+        profile_targets: List[FabricProfileTarget],
+        shortcuts: Optional[Dict[Tuple[str, str], LakehouseTableShortcut]] = None,
     ) -> Iterable[Union[Container, Dataset]]:
         """Process tables in a lakehouse or warehouse."""
         try:
@@ -686,17 +701,29 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             if item_type == "Lakehouse":
                 tables = list(self.client.list_lakehouse_tables(workspace.id, item_id))
             else:
-                tables = list(self.client.list_warehouse_tables(workspace.id, item_id))
+                tables = list(
+                    self.client.list_warehouse_tables(
+                        workspace.id,
+                        item_id,
+                        # info(), not warning(): a warehouse without a
+                        # catalog (e.g. a staging warehouse) stays that way, so
+                        # a warning would repeat on every run.
+                        on_degraded=lambda reason: self.report.info(
+                            title="Warehouse Tables Unavailable",
+                            message=(
+                                "The warehouse has no OneLake table catalog, so no "
+                                "tables were ingested for it."
+                            ),
+                            context=f"warehouse={item_display_name}, {reason}",
+                        ),
+                    )
+                )
 
             # Group tables by schema
             tables_by_schema: dict[str, list[FabricTable]] = defaultdict(list)
 
             for table in tables:
-                normalized_schema = (
-                    table.schema_name
-                    if table.schema_name
-                    else FABRIC_SQL_DEFAULT_SCHEMA
-                )
+                normalized_schema = effective_schema_name(table.schema_name)
 
                 # Filter schemas
                 if not self.config.schema_pattern.allowed(normalized_schema):
@@ -704,7 +731,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                     continue
 
                 # Filter tables
-                table_full_name = f"{normalized_schema}.{table.name}"
+                table_full_name = qualified_filter_name(normalized_schema, table.name)
 
                 if not self.config.table_pattern.allowed(table_full_name):
                     self.report.report_table_filtered(table_full_name)
@@ -1302,16 +1329,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         views_by_schema: dict[str, list[FabricView]] = defaultdict(list)
         for view in views:
-            normalized_schema = (
-                view.schema_name if view.schema_name else FABRIC_SQL_DEFAULT_SCHEMA
-            )
+            normalized_schema = effective_schema_name(view.schema_name)
 
             # Filter schemas
             if not self.config.schema_pattern.allowed(normalized_schema):
                 self.report.report_schema_filtered(normalized_schema)
                 continue
 
-            view_full_name = f"{normalized_schema}.{view.name}"
+            view_full_name = qualified_filter_name(normalized_schema, view.name)
             if not self.config.view_pattern.allowed(view_full_name):
                 self.report.report_view_filtered(view_full_name)
                 continue

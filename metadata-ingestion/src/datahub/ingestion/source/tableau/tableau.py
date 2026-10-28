@@ -66,6 +66,7 @@ from datahub.emitter.mcp_builder import (
     add_entity_to_container,
     gen_containers,
 )
+from datahub.emitter.transform_operation import cap_transform_operation
 from datahub.ingestion.agent.verdicts import (
     ClassifyContext,
     Verdict,
@@ -2583,7 +2584,7 @@ class TableauSiteSource:
 
         return fine_grained_lineages
 
-    def get_transform_operation(self, field: dict) -> str:
+    def get_transform_operation(self, field: dict) -> Optional[str]:
         field_type = field[c.TYPE_NAME]
         if field_type in (
             c.DATA_SOURCE_FIELD,
@@ -2597,7 +2598,8 @@ class TableauSiteSource:
         else:
             op = field_type  # BinField, CombinedField, etc
 
-        return op
+        # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
+        return cap_transform_operation(op)
 
     def emit_custom_sql_datasources(self) -> Iterable[MetadataWorkUnit]:
         custom_sql_filter = {c.ID_WITH_IN: self.custom_sql_ids_being_used}

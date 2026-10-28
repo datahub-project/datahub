@@ -109,6 +109,26 @@ public class AggregationQueryBuilder {
         .collect(Collectors.toList());
   }
 
+  /** {@code _entityType} and the {@code _entityType} + {@code typeNames} aggregation. */
+  public List<AggregationBuilder> getEntityTypeAggregations(@Nonnull OperationContext opContext) {
+    List<AggregationBuilder> aggregations = new ArrayList<>();
+    aggregations.add(facetToAggregationBuilder(opContext, INDEX_VIRTUAL_FIELD));
+    aggregations.add(
+        facetToAggregationBuilder(
+            opContext,
+            String.format("%s%s%s", INDEX_VIRTUAL_FIELD, AGGREGATION_SEPARATOR_CHAR, "typeNames")));
+    return aggregations;
+  }
+
+  /** Caller facets only. Invalid names are dropped, matching {@link #getAggregations}. */
+  public List<AggregationBuilder> getCallerAggregations(
+      @Nonnull OperationContext opContext, @Nonnull List<String> facets) {
+    return facets.stream()
+        .filter(this::isValidAggregate)
+        .map(facet -> facetToAggregationBuilder(opContext, facet))
+        .collect(Collectors.toList());
+  }
+
   private Set<String> getDefaultFacetFields(final List<SearchableAnnotation> annotations) {
     Set<String> facets =
         annotations.stream()

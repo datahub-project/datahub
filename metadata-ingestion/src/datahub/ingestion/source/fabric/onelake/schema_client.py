@@ -27,7 +27,10 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
-from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
+from datahub.ingestion.source.fabric.onelake.constants import (
+    FABRIC_SQL_APP_NAME,
+    FABRIC_SYSTEM_SCHEMAS,
+)
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
     FabricQueryInsightsRow,
@@ -270,54 +273,70 @@ class SqlAnalyticsEndpointClient:
             SQL Analytics Endpoint URL if available, None otherwise
         """
         try:
-            endpoint_path = (
-                f"workspaces/{workspace_id}/lakehouses/{item_id}"
-                if item_type == "Lakehouse"
-                else f"workspaces/{workspace_id}/warehouses/{item_id}"
+            return cls.fetch_sql_analytics_endpoint_url(
+                base_client, workspace_id, item_id, item_type
             )
-            response = base_client.get(endpoint_path)
-            data = response.json()
-
-            properties = data.get("properties", {})
-            sql_endpoint_props = properties.get("sqlEndpointProperties")
-
-            if isinstance(sql_endpoint_props, dict):
-                provisioning_status = sql_endpoint_props.get("provisioningStatus")
-                conn_str = sql_endpoint_props.get("connectionString")
-                if provisioning_status == "Success" and conn_str:
-                    return conn_str.strip()
-                else:
-                    logger.warning(
-                        f"SQL Analytics Endpoint for {item_type} {item_id} has "
-                        f"provisioningStatus='{provisioning_status}' (expected 'Success'). "
-                        f"Skipping schema extraction for this item."
-                    )
-
-            # Warehouse API may expose connectionString at properties level
-            # (e.g. staging warehouses: properties=['connectionInfo', 'connectionString', ...])
-            conn_str = properties.get("connectionString")
-            if conn_str and isinstance(conn_str, str):
-                url = _extract_endpoint_host_from_connection_string(conn_str)
-                if url:
-                    return url
-            connection_info = properties.get("connectionInfo")
-            if isinstance(connection_info, dict):
-                conn_str = connection_info.get("connectionString")
-                if conn_str and isinstance(conn_str, str):
-                    url = _extract_endpoint_host_from_connection_string(conn_str)
-                    if url:
-                        return url
-
-            logger.warning(
-                f"No SQL Analytics Endpoint URL found for {item_type} {item_id}. "
-                f"Response structure: properties={list(properties.keys())[:10]}"
-            )
-            return None
         except Exception as e:
             logger.warning(
                 f"Failed to get SQL Analytics Endpoint URL for {item_type} {item_id}: {e}"
             )
             return None
+
+    @classmethod
+    def fetch_sql_analytics_endpoint_url(
+        cls,
+        base_client: "BaseFabricClient",
+        workspace_id: str,
+        item_id: str,
+        item_type: Literal["Lakehouse", "Warehouse"],
+    ) -> Optional[str]:
+        """get_sql_analytics_endpoint_url without its catch-all: a failed read
+        of the item raises, so None means only that the item has no endpoint.
+        The probe needs that distinction; ingestion skips the item either way.
+        """
+        endpoint_path = (
+            f"workspaces/{workspace_id}/lakehouses/{item_id}"
+            if item_type == "Lakehouse"
+            else f"workspaces/{workspace_id}/warehouses/{item_id}"
+        )
+        response = base_client.get(endpoint_path)
+        data = response.json()
+
+        properties = data.get("properties", {})
+        sql_endpoint_props = properties.get("sqlEndpointProperties")
+
+        if isinstance(sql_endpoint_props, dict):
+            provisioning_status = sql_endpoint_props.get("provisioningStatus")
+            conn_str = sql_endpoint_props.get("connectionString")
+            if provisioning_status == "Success" and conn_str:
+                return conn_str.strip()
+            else:
+                logger.warning(
+                    f"SQL Analytics Endpoint for {item_type} {item_id} has "
+                    f"provisioningStatus='{provisioning_status}' (expected 'Success'). "
+                    f"Skipping schema extraction for this item."
+                )
+
+        # Warehouse API may expose connectionString at properties level
+        # (e.g. staging warehouses: properties=['connectionInfo', 'connectionString', ...])
+        conn_str = properties.get("connectionString")
+        if conn_str and isinstance(conn_str, str):
+            url = _extract_endpoint_host_from_connection_string(conn_str)
+            if url:
+                return url
+        connection_info = properties.get("connectionInfo")
+        if isinstance(connection_info, dict):
+            conn_str = connection_info.get("connectionString")
+            if conn_str and isinstance(conn_str, str):
+                url = _extract_endpoint_host_from_connection_string(conn_str)
+                if url:
+                    return url
+
+        logger.warning(
+            f"No SQL Analytics Endpoint URL found for {item_type} {item_id}. "
+            f"Response structure: properties={list(properties.keys())[:10]}"
+        )
+        return None
 
     def get_table_columns(
         self,
@@ -562,6 +581,7 @@ class SqlAnalyticsEndpointClient:
                 start_time,
                 statement_type,
                 login_name,
+                program_name,
                 row_count,
                 status,
                 command
@@ -596,6 +616,7 @@ class SqlAnalyticsEndpointClient:
                             start_time=row_mapping["start_time"],
                             statement_type=row_mapping["statement_type"],
                             login_name=row_mapping["login_name"],
+                            program_name=row_mapping["program_name"],
                             row_count=row_mapping["row_count"],
                             status=row_mapping["status"],
                             command=row_mapping["command"],
@@ -670,17 +691,6 @@ class SqlAnalyticsEndpointClient:
             f"server={endpoint_url}, connection_string={connection_string}"
         )
 
-        # Get token before creating engine (needed for attrs_before)
-        # SQL Analytics Endpoint requires database scope for Azure AD authentication
-        token = self.auth_helper.get_bearer_token(scope=SQL_ANALYTICS_ENDPOINT_SCOPE)
-
-        # Convert token to bytes format required by pyodbc
-        # Token needs to be encoded as UTF-16-LE and packed with length prefix
-        token_bytes = token.encode("utf-16-le")
-        token_struct = struct.pack(
-            f"<I{len(token_bytes)}s", len(token_bytes), token_bytes
-        )
-
         # Create a custom connection creator that passes attrs_before to pyodbc
         # SQLAlchemy doesn't support attrs_before directly, so the code uses a custom
         # connection creator that passes the token to pyodbc before the connection is
@@ -695,6 +705,19 @@ class SqlAnalyticsEndpointClient:
             using the attrs_before parameter with SQL_COPT_SS_ACCESS_TOKEN (1256).
             This enables passwordless authentication with the Fabric SQL Analytics Endpoint.
             """
+            # Fetched per connection, not once per engine: the pool recycles
+            # connections hourly and a long profiling run outlives the token.
+            # get_bearer_token caches it and refreshes it shortly before expiry.
+            # SQL Analytics Endpoint requires database scope for Azure AD authentication
+            token = self.auth_helper.get_bearer_token(
+                scope=SQL_ANALYTICS_ENDPOINT_SCOPE
+            )
+
+            # Token needs to be encoded as UTF-16-LE and packed with length prefix
+            token_bytes = token.encode("utf-16-le")
+            token_struct = struct.pack(
+                f"<I{len(token_bytes)}s", len(token_bytes), token_bytes
+            )
             return pyodbc_module.connect(
                 connection_string,
                 timeout=self.config.query_timeout,
@@ -744,6 +767,7 @@ class SqlAnalyticsEndpointClient:
             f"Database={self.item_display_name};",
             f"Encrypt={self.config.encrypt};",
             f"TrustServerCertificate={self.config.trust_server_certificate};",
+            f"APP={FABRIC_SQL_APP_NAME};",
         ]
         return "".join(parts)
 

@@ -36,7 +36,7 @@ import {
     StatusSection,
 } from '@app/entityV2/shared/profileChunks';
 import { isOutputPort } from '@app/entityV2/shared/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { GetDataFlowQuery, useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
 import { DataFlow, EntityType, SearchResult } from '@types';
@@ -48,6 +48,7 @@ const DataFlowJobsTab = lazyProfileComponent('DataFlowJobsTab', () =>
 );
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,

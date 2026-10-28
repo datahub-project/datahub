@@ -3,7 +3,7 @@
 import json
 import pathlib
 from functools import partial
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,6 +11,8 @@ from pydantic import ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import StructuredLogEntry
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.object_store_files import FileSizeExceededError
 from datahub.ingestion.source.odcs import odcs_source
 from datahub.ingestion.source.odcs.odcs_config import ODCSSourceConfig
@@ -23,6 +25,7 @@ from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
 from datahub.metadata.schema_classes import (
+    AiContextClass,
     AssertionInfoClass,
     DataContractPropertiesClass,
     DataContractStateClass,
@@ -30,8 +33,10 @@ from datahub.metadata.schema_classes import (
     DataProductPropertiesClass,
     DatasetPropertiesClass,
     EdgeClass,
+    InstitutionalMemoryClass,
     LogicalParentClass,
     OwnershipClass,
+    SchemaMetadataClass,
     StatusClass,
 )
 
@@ -544,6 +549,39 @@ def test_data_contract_logical_only_without_binding(tmp_path: pathlib.Path) -> N
     assert len(props) == 1
     assert "urn:li:dataPlatform:odcs" in props[0].entity
     assert src.report.data_contracts_emitted == 1
+
+
+def test_unstorable_authoritative_definition_urls_skipped_and_warned(
+    tmp_path: pathlib.Path,
+) -> None:
+    body = _VALID_CONTRACT_BODY + (
+        "authoritativeDefinitions:\n"
+        "  - url: ../docs/orders.md\n"
+        "    type: implementation\n"
+        "  - url: jdbc:postgresql://db.example/orders\n"
+        "    type: implementation\n"
+        "  - url: https://example.com/def\n"
+        "    type: businessDefinition\n"
+    )
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+
+    memory = _aspects_of(workunits, InstitutionalMemoryClass)
+    assert [e.url for e in memory[0].elements] == ["https://example.com/def"]
+    assert _aspects_of(workunits, DataContractPropertiesClass)
+    warnings = [
+        w
+        for w in src.report.warnings
+        if "authoritativeDefinitions" in str(getattr(w, "title", ""))
+    ]
+    assert len(warnings) == 1
+    # Entries merge by title and message, so count contexts to catch a
+    # regression to one warning per URL.
+    assert len(warnings[0].context) == 1
+    assert "../docs/orders.md" in str(warnings[0].context)
+    assert "jdbc:postgresql://db.example/orders" in str(warnings[0].context)
 
 
 def test_data_contract_skipped_when_no_assertions(tmp_path: pathlib.Path) -> None:
@@ -1381,6 +1419,63 @@ def test_no_prior_link_no_conflict(tmp_path: pathlib.Path) -> None:
     assert not _link_conflict_warnings(src)
 
 
+def test_link_conflict_check_failure_is_reported(tmp_path: pathlib.Path) -> None:
+    """A failed read of the existing link still emits the link and reports
+    that conflict detection was skipped."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.side_effect = RuntimeError("gms hiccup")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+    assert _aspects_of(workunits, LogicalParentClass)
+    assert src.report.physical_urns_link_check_failed == 1
+    assert src.report.physical_urns_link_conflicts == 0
+    assert any(
+        "existing logicalParent" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
+def test_link_conflict_check_failure_reported_once_per_urn(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Two contracts bound to the same physical URN read its link once."""
+    (tmp_path / "a.odcs.yaml").write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    (tmp_path / "b.odcs.yaml").write_text(
+        _VALID_CONTRACT_BODY.replace("id: test-contract-1", "id: test-contract-2"),
+        encoding="utf-8",
+    )
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.side_effect = RuntimeError("gms hiccup")
+    src = _make_source(tmp_path, graph=graph)
+    list(src.get_workunits_internal())
+    assert src.report.physical_urns_link_check_failed == 1
+    assert graph.get_aspect.call_count == 1
+
+
+def test_link_conflict_check_skipped_after_verify_failure(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A URN whose existence check already failed is not read again, so it
+    gets one warning, not two."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    graph = MagicMock()
+    graph.exists.side_effect = RuntimeError("gms hiccup")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+    assert _aspects_of(workunits, LogicalParentClass)
+    graph.get_aspect.assert_not_called()
+    assert src.report.physical_urns_link_check_failed == 1
+    assert not any(
+        "existing logicalParent" in str(getattr(w, "title", ""))
+        for w in src.report.warnings
+    )
+
+
 def test_verification_without_graph_links(tmp_path: pathlib.Path) -> None:
     """File-sink runs have no graph: verification degrades to emitting."""
     contract_file = tmp_path / "c.odcs.yaml"
@@ -1632,6 +1727,66 @@ def test_unsupported_api_version_is_skipped(tmp_path: pathlib.Path) -> None:
     )
 
 
+def test_v32_api_version_is_accepted_and_validated(tmp_path: pathlib.Path) -> None:
+    src = _make_source(tmp_path, strict_validation=True)
+    raw_dict: Dict[str, Any] = {
+        "apiVersion": "v3.2.0",
+        "kind": "DataContract",
+        "id": "x",
+        "version": "1.0.0",
+        "status": "active",
+        "context": "Use for hourly reporting only.",
+        "schema": [
+            {
+                "name": "t",
+                "deprecated": True,
+                "properties": [
+                    {
+                        "name": "col_a",
+                        "logicalType": "vector",
+                        "logicalTypeOptions": {"dimensions": 3},
+                        "synonyms": [{"synonym": "alias_a"}],
+                    }
+                ],
+            }
+        ],
+    }
+    assert src._validate(raw_dict, str(tmp_path / "v32.yaml"))
+    assert src.report.validation_errors == 0
+    assert "3.2.0" in src._validators
+
+
+def test_field_aspects_are_not_stale_removal_candidates(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Field-level deprecation/aiContext must not put schemaField URNs in the
+    stateful checkpoint: dropping a flag later would otherwise soft-delete the
+    field entity. The logical dataset itself stays primary-source."""
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(
+        "apiVersion: v3.2.0\nkind: DataContract\nid: x\nversion: 1.0.0\n"
+        "status: active\nschema:\n  - name: t\n    properties:\n"
+        "      - name: col_a\n        deprecated: true\n"
+        "        synonyms:\n          - synonym: alias_a\n",
+        encoding="utf-8",
+    )
+    src = _make_source(tmp_path, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+    field_wus = [
+        wu
+        for wu in workunits
+        if (_mcp(wu).entityUrn or "").startswith("urn:li:schemaField:")
+    ]
+    assert len(field_wus) == 2
+    assert not any(wu.is_primary_source for wu in field_wus)
+    props_wus = [
+        wu
+        for wu in workunits
+        if isinstance(getattr(wu.metadata, "aspect", None), DatasetPropertiesClass)
+    ]
+    assert props_wus and all(wu.is_primary_source for wu in props_wus)
+
+
 def test_contract_missing_required_id_is_skipped(tmp_path: pathlib.Path) -> None:
     """A document that passes lenient schema validation but cannot be coerced
     into the model (missing required `id`) is skipped, not crashed."""
@@ -1858,3 +2013,636 @@ def test_git_info_clones_and_walks_checkout(
     assert src.report.git_checkout == str(checkout)
     assert src.report.contracts_parsed == 1
     assert _aspects_of(workunits, DatasetPropertiesClass)
+
+
+_VARIABLE_SERVER_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: var-server
+version: 1.0.0
+status: active
+servers:
+  - server: prod
+    type: ${PLATFORM}
+schema:
+  - name: t
+"""
+
+
+def test_unresolved_variable_binding_is_a_warning(tmp_path: pathlib.Path) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VARIABLE_SERVER_BODY, encoding="utf-8")
+    src = _make_source(tmp_path, path=str(contract_file))
+    list(src.get_workunits_internal())
+    assert src.report.unresolved_variable_bindings == 1
+    assert src.report.unmappable_servers == 0
+    assert any("variable" in str(w.title) for w in src.report.warnings)
+
+
+_SYNONYM_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: syn
+version: 1.0.0
+status: active
+schema:
+  - name: t
+    properties:
+      - name: col_a
+        synonyms:
+          - synonym: fresh
+"""
+
+
+def _ai_context_aspects(workunits: List[Any]) -> List[AiContextClass]:
+    return [
+        a
+        for a in (getattr(wu.metadata, "aspect", None) for wu in workunits)
+        if isinstance(a, AiContextClass)
+    ]
+
+
+def test_ai_context_synonyms_merge_into_existing_aspect(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.side_effect = lambda urn, cls: (
+        AiContextClass(instructions="keep me", synonyms=["stale"])
+        if cls is AiContextClass
+        else None
+    )
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_SYNONYM_BODY, encoding="utf-8")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    (ai,) = _ai_context_aspects(list(src.get_workunits_internal()))
+    assert ai.instructions == "keep me"
+    assert ai.synonyms == ["fresh"]
+
+
+def test_ai_context_skipped_when_existing_aspect_cannot_be_read(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = MagicMock()
+    graph.exists.return_value = True
+
+    def get_aspect(urn: str, cls: Any) -> Any:
+        if cls is AiContextClass:
+            raise RuntimeError("GMS down")
+        return None
+
+    graph.get_aspect.side_effect = get_aspect
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_SYNONYM_BODY, encoding="utf-8")
+    src = _make_source(tmp_path, graph=graph, path=str(contract_file))
+    workunits = list(src.get_workunits_internal())
+    # Never overwrite user-entered AI context blindly.
+    assert not _ai_context_aspects(workunits)
+    assert src.report.ai_context_merge_skipped == 1
+    assert any("AI context" in str(w.title) for w in src.report.warnings)
+
+
+def _synonym_source(
+    tmp_path: pathlib.Path, body: str, graph: Optional[Any] = None
+) -> ODCSSource:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(body, encoding="utf-8")
+    return _make_source(tmp_path, graph=graph, path=str(contract_file))
+
+
+def _graph_without_ai_context() -> MagicMock:
+    graph = MagicMock()
+    graph.exists.return_value = True
+    graph.get_aspect.return_value = None
+    return graph
+
+
+def test_ai_context_written_when_field_has_none_yet(tmp_path: pathlib.Path) -> None:
+    # The normal first run under a REST sink.
+    src = _synonym_source(tmp_path, _SYNONYM_BODY, _graph_without_ai_context())
+    (ai,) = _ai_context_aspects(list(src.get_workunits_internal()))
+    assert ai.synonyms == ["fresh"]
+
+
+def test_empty_synonyms_skip_fields_without_ai_context(tmp_path: pathlib.Path) -> None:
+    body = _SYNONYM_BODY.replace(
+        "        synonyms:\n          - synonym: fresh\n", "        synonyms: []\n"
+    )
+    assert "synonyms: []" in body
+    src = _synonym_source(tmp_path, body, _graph_without_ai_context())
+    assert not _ai_context_aspects(list(src.get_workunits_internal()))
+
+
+def test_ai_context_without_graph_is_reported_once(tmp_path: pathlib.Path) -> None:
+    body = (
+        _SYNONYM_BODY
+        + "      - name: col_b\n        synonyms:\n          - synonym: other\n"
+    )
+    src = _synonym_source(tmp_path, body)
+    assert len(_ai_context_aspects(list(src.get_workunits_internal()))) == 2
+    notes = [i for i in src.report.infos if "AI context" in str(i.title)]
+    assert len(notes) == 1
+    assert "c.odcs.yaml" in str(notes[0].context)
+
+
+def test_empty_synonyms_without_graph_write_nothing(tmp_path: pathlib.Path) -> None:
+    # Loaded later, an empty aspect would erase the field's instructions.
+    body = _SYNONYM_BODY.replace(
+        "        synonyms:\n          - synonym: fresh\n", "        synonyms: []\n"
+    )
+    src = _synonym_source(tmp_path, body)
+    assert not _ai_context_aspects(list(src.get_workunits_internal()))
+
+
+_LOSSY_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: lossy
+version: 1.0.0
+status: active
+description:
+  purpose: Contract-level purpose.
+team:
+  - username: alice@example.com
+    role: data steward
+schema:
+  - name: t
+    description: Table description.
+    deprecated: "true"
+    dataGranularityDescription:
+      x: 1
+    quality:
+      - type: sql
+        query: SELECT COUNT(*) FROM t WHERE ts > ${CUTOFF}
+        mustBeLessThan: 10
+    properties:
+      - name: col_a
+        criticalDataElement: true
+        classification: confidential
+        semanticType: 5
+        transformLogic: [a, b]
+"""
+
+
+def _messages(entries: Any) -> str:
+    return " ".join(f"{e.title} {e.message} {e.context}" for e in entries)
+
+
+def test_lossy_fields_are_reported(tmp_path: pathlib.Path) -> None:
+    src = _synonym_source(tmp_path, _LOSSY_BODY)
+    list(src.get_workunits_internal())
+    ignored = " ".join(src.report.spec_fields_ignored)
+    # Read by the model but not mapped.
+    assert "<root>.schema[*].properties[*].criticalDataElement" in ignored
+    assert "<root>.schema[*].properties[*].classification" in ignored
+    warnings = _messages(src.report.warnings)
+    # Off-spec values dropped by the model.
+    assert "schema[0].deprecated" in warnings
+    assert "properties[0].semanticType" in warnings
+    assert "schema[0].dataGranularityDescription" in warnings
+    assert "properties[0].transformLogic" in warnings
+    infos = _messages(src.report.infos)
+    # Unresolved variable copied into a SQL assertion.
+    assert "${CUTOFF}" in warnings
+    # Owner role defaulted.
+    assert "data steward" in infos
+
+
+_SPEC_VALID_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: valid
+version: 1.0.0
+status: active
+schema:
+  - name: t
+    synonyms:
+      - synonym: orders
+    quality:
+      - type: sql
+        query: SELECT COUNT(*) FROM t
+        mustBeLessThan: 10
+    properties:
+      - name: col_a
+        unique: false
+      - name: col_b
+        unique: false
+"""
+
+
+def test_spec_valid_contract_raises_no_lossy_warnings(tmp_path: pathlib.Path) -> None:
+    src = _synonym_source(tmp_path, _SPEC_VALID_BODY)
+    list(src.get_workunits_internal())
+    assert not src.report.warnings
+    # One entry per field name, not per column.
+    assert (
+        src.report.spec_fields_ignored.count("<root>.schema[*].properties[*].unique")
+        == 1
+    )
+
+
+def test_variable_in_custom_rule_implementation_warns(tmp_path: pathlib.Path) -> None:
+    body = _SPEC_VALID_BODY.replace(
+        "      - type: sql\n        query: SELECT COUNT(*) FROM t\n        mustBeLessThan: 10\n",
+        "      - type: custom\n        engine: soda\n        implementation: row_count(${TABLE}) > 0\n",
+    )
+    src = _synonym_source(tmp_path, body)
+    list(src.get_workunits_internal())
+    assert "${TABLE}" in _messages(src.report.warnings)
+
+
+_YAML_11_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: yaml11
+version: 1.0.0
+status: active
+servers:
+  - server: pg
+    type: postgres
+    database: 0777
+    schema: 12:30
+schema:
+  - name: t
+"""
+
+
+def test_unquoted_leading_zero_and_sexagesimal_values_keep_their_text(
+    tmp_path: pathlib.Path,
+) -> None:
+    # YAML 1.1 would read 0777 as octal 511 and 12:30 as 750, binding the
+    # contract to a table that does not exist.
+    src = _synonym_source(tmp_path, _YAML_11_BODY)
+    linked = [
+        wu.metadata.entityUrn
+        for wu in src.get_workunits_internal()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, LogicalParentClass)
+    ]
+    assert linked == ["urn:li:dataset:(urn:li:dataPlatform:postgres,0777.12:30.t,PROD)"]
+
+
+def test_explicitly_unbound_entry_is_not_an_unmappable_server(
+    tmp_path: pathlib.Path,
+) -> None:
+    contract_file = tmp_path / "c.odcs.yaml"
+    contract_file.write_text(_VALID_CONTRACT_BODY, encoding="utf-8")
+    src = _make_source(
+        tmp_path,
+        path=str(contract_file),
+        physical_urn_overrides={"test-contract-1": {"t": ""}},
+    )
+    list(src.get_workunits_internal())
+    assert src.report.unmappable_servers == 0
+
+
+_OBJECT_RULE = """\
+    quality:
+      - type: sql
+        query: SELECT count(*) FROM ${object} WHERE id IS NULL
+        mustBe: 0
+"""
+
+
+def test_object_placeholder_bound_is_replaced_without_warnings(
+    tmp_path: pathlib.Path,
+) -> None:
+    body = _VALID_CONTRACT_BODY.replace(
+        "    physicalName: t\n", "    physicalName: t\n" + _OBJECT_RULE
+    )
+    _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(tmp_path)
+    workunits = list(src.get_workunits_internal())
+    statements = [
+        a.sqlAssertion.statement
+        for a in _aspects_of(workunits, AssertionInfoClass)
+        if a.sqlAssertion is not None
+    ]
+    assert statements == ["SELECT count(*) FROM appdb.public.t WHERE id IS NULL"]
+    assert "unresolved variable" not in _messages(src.report.warnings)
+    assert "placeholder" not in _messages(src.report.warnings)
+
+
+def _object_rule_source(
+    tmp_path: pathlib.Path, rule: str = _OBJECT_RULE, **config: Any
+) -> Tuple[ODCSSource, List[MetadataWorkUnit]]:
+    body = _VALID_CONTRACT_BODY.replace(
+        "  - name: t\n    physicalName: t\n",
+        "  - name: orders_entry\n    physicalName: t\n" + rule,
+    )
+    _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(tmp_path, **config)
+    return src, list(src.get_workunits_internal())
+
+
+def _sql_statements(workunits: List[MetadataWorkUnit]) -> List[str]:
+    return [
+        a.sqlAssertion.statement
+        for a in _aspects_of(workunits, AssertionInfoClass)
+        if a.sqlAssertion is not None
+    ]
+
+
+def _placeholder_warnings(src: ODCSSource) -> List[StructuredLogEntry]:
+    return [w for w in src.report.warnings if w.title and "placeholder" in w.title]
+
+
+@pytest.mark.parametrize("placeholder", ["${object}", "{object}"])
+def test_object_placeholder_unbound_warns(
+    tmp_path: pathlib.Path, placeholder: str
+) -> None:
+    src, _ = _object_rule_source(
+        tmp_path,
+        rule=_OBJECT_RULE.replace("${object}", placeholder),
+        server_overrides=[{"server": "prod-postgres", "platform": "kafka"}],
+    )
+    warnings = _placeholder_warnings(src)
+    assert len(warnings) == 1
+    context = str(warnings[0].context)
+    assert "orders_entry" in context
+    assert "kafka" in context
+    assert "not found" not in context
+
+
+def test_invalid_overrides_group_under_one_warning(tmp_path: pathlib.Path) -> None:
+    body = _VALID_CONTRACT_BODY.replace(
+        "schema:\n", "schema:\n  - name: extra\n    physicalName: extra\n"
+    )
+    _write(tmp_path / "c.odcs.yaml", body)
+    src = _make_source(
+        tmp_path,
+        physical_urn_overrides={
+            "test-contract-1": {"t": "bad.one", "extra": "bad.two"}
+        },
+    )
+    list(src.get_workunits_internal())
+    (invalid,) = [
+        w
+        for w in src.report.warnings
+        if w.title == "ODCS physical_urn_overrides entry is not a usable dataset URN"
+    ]
+    assert any("bad.one" in c for c in invalid.context)
+    assert any("bad.two" in c for c in invalid.context)
+    assert src.report.invalid_physical_urn_overrides == 2
+
+
+def test_object_placeholder_explicit_unbind_is_not_warned(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path, physical_urn_overrides={"test-contract-1": {"orders_entry": ""}}
+    )
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    assert not _placeholder_warnings(src)
+
+
+@pytest.mark.parametrize(
+    "override", ["urn:li:datset:typo", "appdb.public.t", "urn:li:chart:(looker,x)"]
+)
+def test_invalid_override_is_reported_and_left_unbound(
+    tmp_path: pathlib.Path, override: str
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path, physical_urn_overrides={"test-contract-1": {"orders_entry": override}}
+    )
+    assert not src.report.failures
+    assert not _aspects_of(workunits, LogicalParentClass)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    invalid = [
+        w
+        for w in src.report.warnings
+        if w.title == "ODCS physical_urn_overrides entry is not a usable dataset URN"
+    ]
+    assert len(invalid) == 1
+    assert any(override in c for c in invalid[0].context)
+    assert src.report.invalid_physical_urn_overrides == 1
+
+
+def test_object_placeholder_uses_table_without_platform_instance(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path,
+        server_overrides=[{"server": "prod-postgres", "platform_instance": "inst1"}],
+    )
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM appdb.public.t WHERE id IS NULL"
+    ]
+
+
+def test_object_placeholder_kept_when_override_may_carry_an_instance(
+    tmp_path: pathlib.Path,
+) -> None:
+    src, workunits = _object_rule_source(
+        tmp_path,
+        server_overrides=[{"server": "other", "platform_instance": "inst1"}],
+        physical_urn_overrides={
+            "test-contract-1": {
+                "orders_entry": "urn:li:dataset:(urn:li:dataPlatform:postgres,inst1.appdb.public.t,PROD)"
+            }
+        },
+    )
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    assert "platform instance" in _messages(_placeholder_warnings(src))
+
+
+def test_mistyped_object_placeholder_is_reported(tmp_path: pathlib.Path) -> None:
+    rule = _OBJECT_RULE.replace("${object}", "{object}}")
+    src, workunits = _object_rule_source(tmp_path, rule=rule)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM {object}} WHERE id IS NULL"
+    ]
+    assert "unresolved variable" in _messages(src.report.warnings)
+
+
+def test_object_placeholder_kept_when_bound_table_not_found(
+    tmp_path: pathlib.Path,
+) -> None:
+    graph = MagicMock()
+    graph.exists.return_value = False
+    src, workunits = _object_rule_source(tmp_path, graph=graph)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM ${object} WHERE id IS NULL"
+    ]
+    assert "not found" in _messages(_placeholder_warnings(src))
+    # Checked once, for the assertions and the logicalParent link together.
+    assert src.report.physical_urns_unverified == 1
+
+
+def test_object_placeholder_beside_other_variables(tmp_path: pathlib.Path) -> None:
+    rule = _OBJECT_RULE.replace(
+        "WHERE id IS NULL", "WHERE ts > ${CUTOFF} AND k = ${object_id}"
+    )
+    src, workunits = _object_rule_source(tmp_path, rule=rule)
+    assert _sql_statements(workunits) == [
+        "SELECT count(*) FROM appdb.public.t WHERE ts > ${CUTOFF} AND k = ${object_id}"
+    ]
+    assert "unresolved variable" in _messages(src.report.warnings)
+
+
+@pytest.mark.parametrize("placeholder", ["${object}", "{object}"])
+def test_object_placeholder_in_implementation_still_warns(
+    tmp_path: pathlib.Path, placeholder: str
+) -> None:
+    rule = f"""\
+    quality:
+      - type: custom
+        engine: soda
+        implementation: SELECT 1 FROM {placeholder}
+"""
+    src, workunits = _object_rule_source(tmp_path, rule=rule)
+    assert "unresolved variable" in _messages(src.report.warnings)
+    # Only queries are substituted; implementation is kept as written.
+    assert [
+        a.customAssertion.logic
+        for a in _aspects_of(workunits, AssertionInfoClass)
+        if a.customAssertion is not None
+    ] == [f"SELECT 1 FROM {placeholder}"]
+
+
+def test_unquoted_timestamp_does_not_reject_the_contract(
+    tmp_path: pathlib.Path,
+) -> None:
+    # YAML would load it as a datetime, which the str-typed field rejects.
+    body = _SPEC_VALID_BODY.replace(
+        "status: active\n", "status: active\ncontractCreatedTs: 2024-01-01T10:00:00Z\n"
+    )
+    src = _synonym_source(tmp_path, body)
+    workunits = list(src.get_workunits_internal())
+    assert not src.report.failures
+    assert _aspects_of(workunits, DatasetPropertiesClass)
+
+
+def test_off_spec_contract_context_is_reported(tmp_path: pathlib.Path) -> None:
+    body = _SPEC_VALID_BODY.replace("status: active\n", "status: active\ncontext: 5\n")
+    src = _synonym_source(tmp_path, body)
+    list(src.get_workunits_internal())
+    assert "<root>.context" in _messages(src.report.warnings)
+
+
+_OFF_SPEC_NESTED_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: nested
+version: 1.0.0
+status: active
+context:
+  instructions: 5
+  constraints: ["bare", {constraint: 5}, {constraint: Keep it.}]
+  verifiedStatements: [{question: q, answer: 7}, "bad"]
+schema:
+  - name: t
+    context: 5
+    properties:
+      - name: s
+        enum: [{value: a, label: 5, description: [x]}, {label: only}, {value: c, label: 7}]
+        synonyms: [{synonym: alias, status: 5}]
+"""
+
+
+def test_off_spec_values_inside_context_and_enum_are_reported(
+    tmp_path: pathlib.Path,
+) -> None:
+    src = _synonym_source(tmp_path, _OFF_SPEC_NESTED_BODY)
+    workunits = list(src.get_workunits_internal())
+    assert not src.report.failures
+    assert _aspects_of(workunits, DatasetPropertiesClass)
+    warnings = _messages(src.report.warnings)
+    for dropped in (
+        "<root>.context.instructions",
+        "<root>.context.constraints (2 of 3 entries)",
+        "<root>.context.verifiedStatements (1 of 2 entries)",
+        "<root>.context.verifiedStatements[0].answer",
+        "<root>.schema[0].context",
+        "<root>.schema[0].properties[0].enum (1 of 3 entries)",
+        "<root>.schema[0].properties[0].enum[0].label",
+        "<root>.schema[0].properties[0].enum[0].description",
+        # Entries are checked by position in the contract, after a dropped one.
+        "<root>.schema[0].properties[0].enum[2].label",
+        "<root>.schema[0].properties[0].synonyms[0].status",
+    ):
+        assert dropped in warnings
+
+
+_SPEC_VALID_EDGES_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: edges
+version: 1.0.0
+status: active
+context:
+  constraints: []
+  verifiedStatements: []
+schema:
+  - name: t
+    properties:
+      - name: s
+        enum: [{value: null, label: Unknown}, {value: ""}, {value: 2024-01-01}]
+"""
+
+
+def test_spec_valid_edge_values_are_not_reported_as_dropped(
+    tmp_path: pathlib.Path,
+) -> None:
+    src = _synonym_source(tmp_path, _SPEC_VALID_EDGES_BODY)
+    workunits = list(src.get_workunits_internal())
+    titles = [w.title for w in src.report.warnings]
+    assert "ODCS values dropped as off-spec" not in titles
+    assert not any("JSON Schema" in (title or "") for title in titles)
+    (schema,) = _aspects_of(workunits, SchemaMetadataClass)
+    assert schema.fields[0].description == (
+        '**Allowed values:**\n- `null` (Unknown)\n- `""`\n- `2024-01-01`'
+    )
+
+
+def test_map_form_child_list_is_not_walked_as_fields(tmp_path: pathlib.Path) -> None:
+    body = _SPEC_VALID_EDGES_BODY.replace(
+        'enum: [{value: null, label: Unknown}, {value: ""}, {value: 2024-01-01}]',
+        "enum: {a: A}",
+    )
+    src = _synonym_source(tmp_path, body)
+    list(src.get_workunits_internal())
+    titles = [w.title for w in src.report.warnings]
+    assert "ODCS values dropped as off-spec" in titles
+    assert "Unknown ODCS field" not in titles
+
+
+_NESTED_KEYS_BODY = """\
+apiVersion: v3.2.0
+kind: DataContract
+id: nested-keys
+version: 1.0.0
+status: active
+context:
+  instruction: typo
+  constraints: [{constraint: Keep it., id: c1, tags: [a], customProperties: []}]
+  verifiedStatements: [{question: q, id: v1, anwser: typo, authoritativeDefinitions: []}]
+schema:
+  - name: t
+    properties:
+      - name: s
+        enum: [{value: a, lable: typo, id: e1}]
+"""
+
+
+def test_unknown_keys_inside_context_and_enum_warn(tmp_path: pathlib.Path) -> None:
+    src = _synonym_source(tmp_path, _NESTED_KEYS_BODY)
+    list(src.get_workunits_internal())
+    unknown = _messages(
+        w for w in src.report.warnings if w.title == "Unknown ODCS field"
+    )
+    assert "<root>.context.instruction " in unknown
+    assert "<root>.context.verifiedStatements[0].anwser " in unknown
+    assert "<root>.schema[0].properties[0].enum[0].lable " in unknown
+    # Spec keys the source does not map are infos, not unknown fields.
+    assert src.report.unknown_fields_count == 3
+    ignored = " ".join(src.report.spec_fields_ignored)
+    assert "<root>.context.constraints[*].id" in ignored
+    assert "<root>.context.verifiedStatements[*].id" in ignored
+    assert "<root>.schema[*].properties[*].enum[*].id" in ignored

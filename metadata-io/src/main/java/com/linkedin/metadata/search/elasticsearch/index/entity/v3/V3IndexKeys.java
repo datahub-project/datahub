@@ -42,11 +42,25 @@ public final class V3IndexKeys {
     return GROUPED_SPECS.computeIfAbsent(entityRegistry, V3IndexKeys::buildGroupedSpecs);
   }
 
+  /**
+   * The entity types whose documents live in the V3 index for {@code indexKey}. Matching ignores
+   * case: the index convention lower-cases keys when it forms index names, so a key read back from
+   * an index name (for example {@code schemafield} from {@code schemafieldindex_v3}) must still
+   * find a group declared as {@code schemaField}.
+   */
   @Nonnull
   public static Collection<EntitySpec> entitySpecsForKey(
       @Nonnull EntityRegistry entityRegistry, @Nonnull String indexKey) {
-    List<EntitySpec> specs = groupEntitySpecs(entityRegistry).get(indexKey);
-    return specs == null ? List.of() : specs;
+    Map<String, List<EntitySpec>> grouped = groupEntitySpecs(entityRegistry);
+    List<EntitySpec> specs = grouped.get(indexKey);
+    if (specs != null) {
+      return specs;
+    }
+    return grouped.entrySet().stream()
+        .filter(entry -> entry.getKey().equalsIgnoreCase(indexKey))
+        .map(Map.Entry::getValue)
+        .findFirst()
+        .orElse(List.of());
   }
 
   @Nonnull

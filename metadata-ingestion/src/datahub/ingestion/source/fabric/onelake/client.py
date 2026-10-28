@@ -1,7 +1,7 @@
 """REST API client for Microsoft Fabric OneLake."""
 
 import logging
-from typing import Callable, Iterator, Optional, TypeVar
+from typing import Callable, Dict, Iterator, Optional, Set, TypeVar
 
 import requests
 
@@ -33,6 +33,11 @@ class IncompleteCatalogListing(Exception):
 
 # OneLake Delta Table APIs base URL
 ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
+
+# The HTTP errors this module logs carry their status and operation, not the
+# response body: an error body can echo request details. BaseFabricClient.get
+# still logs the body on the same path (a shared fix is pending), so the probe
+# silences that logger.
 
 # Page size requested from the Unity Catalog list endpoints (`max_results`).
 # The service may return fewer and caps large values; paging continues until
@@ -193,14 +198,17 @@ class OneLakeClient(BaseFabricClient):
     def _paginate_unity_catalog(
         self,
         url: str,
-        params: dict[str, str],
+        params: Dict[str, str],
         items_key: str,
         description: str,
-    ) -> Iterator[dict]:
+    ) -> Iterator[Dict]:
         """Yield every item from a paginated OneLake Unity Catalog list endpoint.
 
         The list endpoints return at most one page per call and carry the next
         page in `next_page_token`. The token is sent back as `page_token`.
+        Names are unique within one listing, so an item whose name was already
+        yielded is skipped: a server that ignores `page_token` and returns the
+        same page again would otherwise emit every table twice.
         Reference: https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
 
         Args:
@@ -216,7 +224,8 @@ class OneLakeClient(BaseFabricClient):
         request_params["max_results"] = str(ONELAKE_CATALOG_PAGE_SIZE)
         page = 1
         total = 0
-        seen_tokens: set[str] = set()
+        seen_tokens: Set[str] = set()
+        seen_names: Set[str] = set()
         while True:
             # A large catalog can outlive the token from the first page.
             try:
@@ -229,6 +238,9 @@ class OneLakeClient(BaseFabricClient):
                 logger.error(f"Failed to get authorization header: {e}")
                 raise
 
+            # These requests go to the OneLake host, not through _request, so
+            # count them here. Callers count the failures.
+            self.report.report_request()
             response = self._session.get(
                 url, headers=headers, params=request_params, timeout=self.timeout
             )
@@ -236,9 +248,18 @@ class OneLakeClient(BaseFabricClient):
             data = response.json()
 
             items = data.get(items_key, []) or []
-            total += len(items)
             logger.debug(f"Page {page}: got {len(items)} item(s) for {description}")
-            yield from items
+            for item in items:
+                name = item.get("name")
+                if name in seen_names:
+                    logger.debug(
+                        f"Skipping repeated {name} while listing {description}"
+                    )
+                    continue
+                if name:
+                    seen_names.add(name)
+                total += 1
+                yield item
 
             next_token = data.get("next_page_token")
             if not next_token:
@@ -261,7 +282,7 @@ class OneLakeClient(BaseFabricClient):
         workspace_id: str,
         item_id: str,
         item_label: str = "lakehouse",
-        missing_ok: bool = False,
+        on_missing: Optional[Callable[[str], None]] = None,
     ) -> Iterator[str]:
         """List schemas in a lakehouse or warehouse using OneLake Delta Table APIs.
 
@@ -271,8 +292,8 @@ class OneLakeClient(BaseFabricClient):
             workspace_id: Workspace GUID
             item_id: Lakehouse or Warehouse GUID
             item_label: Used in log messages
-            missing_ok: When True, a 404 raises IncompleteCatalogListing instead of
-                looking like a catalog that simply has no schemas
+            on_missing: When set, a 404 (no OneLake catalog for the item)
+                yields nothing and this is told why, instead of failing
 
         Yields:
             Schema names
@@ -300,14 +321,17 @@ class OneLakeClient(BaseFabricClient):
                 self.report.report_error()
                 logger.error(f"Failed to list schemas for {item_label} {item_id}: {e}")
                 raise
-            if missing_ok and e.response.status_code == 404:
-                raise IncompleteCatalogListing(
-                    f"{item_label.capitalize()} {item_id} has no OneLake schema catalog "
-                    "(404). Tables will not be listed for this item."
-                ) from e
+            if on_missing is not None and e.response.status_code == 404:
+                # Status and operation only: the response body can echo
+                # request details.
+                on_missing(
+                    f"{item_label} {item_id} has no OneLake schema catalog "
+                    f"(HTTP 404), so no tables are listed for it"
+                )
+                return
             self.report.report_error()
             logger.error(
-                f"HTTP error {e.response.status_code} listing schemas for {item_label} {item_id}: {e.response.text}"
+                f"HTTP error {e.response.status_code} listing schemas for {item_label} {item_id}"
             )
             raise
         except Exception as e:
@@ -370,7 +394,7 @@ class OneLakeClient(BaseFabricClient):
                 raise
             self.report.report_error()
             logger.error(
-                f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for {item_label} {item_id}: {e.response.text}"
+                f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for {item_label} {item_id}"
             )
             raise
         except Exception as e:
@@ -381,7 +405,11 @@ class OneLakeClient(BaseFabricClient):
             raise
 
     def list_lakehouse_tables(
-        self, workspace_id: str, lakehouse_id: str
+        self,
+        workspace_id: str,
+        lakehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
     ) -> Iterator[FabricTable]:
         """List all tables in a lakehouse.
 
@@ -396,6 +424,8 @@ class OneLakeClient(BaseFabricClient):
         Args:
             workspace_id: Workspace GUID
             lakehouse_id: Lakehouse GUID
+            on_degraded: Told when a refused listing is returned as empty, so
+                a caller that must not mistake that for "no tables" can say so.
 
         Yields:
             FabricTable objects
@@ -418,13 +448,32 @@ class OneLakeClient(BaseFabricClient):
                         workspace_id, lakehouse_id, schema_name
                     )
             except requests.exceptions.HTTPError as e:
-                # 401/403 is not an empty lakehouse. Returning nothing would
-                # soft-delete every table previously ingested for this item.
+                # 401/403 is not an empty lakehouse. During ingestion,
+                # returning nothing would soft-delete every table previously
+                # ingested for this item, so raise instead. The probe passes
+                # on_degraded and reports the refusal itself.
                 if e.response is not None and e.response.status_code in (401, 403):
+                    logger.warning(
+                        f"OneLake Delta Table APIs require additional permissions or different authentication. "
+                        f"Unable to list tables for schemas-enabled lakehouse {lakehouse_id} "
+                        f"(HTTP {e.response.status_code}). "
+                        f"Please ensure your identity has 'Lakehouse.Read.All' or 'Lakehouse.ReadWrite.All' permissions."
+                    )
+                    if on_degraded is not None:
+                        # Status and operation only: the response body can
+                        # echo request details.
+                        on_degraded(
+                            f"OneLake table API returned HTTP "
+                            f"{e.response.status_code} for schemas-enabled lakehouse "
+                            f"{lakehouse_id}, so its table list may be partial or "
+                            f"empty. The identity needs Lakehouse.Read.All (or "
+                            f"ReadWrite.All)."
+                        )
+                        return
                     raise IncompleteCatalogListing(
                         f"OneLake Delta Table APIs denied listing tables for "
                         f"schemas-enabled lakehouse {lakehouse_id} "
-                        f"({e.response.status_code})."
+                        f"(HTTP {e.response.status_code})."
                     ) from e
                 else:
                     logger.error(
@@ -503,7 +552,7 @@ class OneLakeClient(BaseFabricClient):
                 else:
                     self.report.report_error()
                     logger.error(
-                        f"HTTP error {e.response.status_code} listing tables for lakehouse {lakehouse_id}: {e.response.text}"
+                        f"HTTP error {e.response.status_code} listing tables for lakehouse {lakehouse_id}"
                     )
                     raise
             except Exception as e:
@@ -564,7 +613,11 @@ class OneLakeClient(BaseFabricClient):
         return data.get("displayName") or None
 
     def list_warehouse_tables(
-        self, workspace_id: str, warehouse_id: str
+        self,
+        workspace_id: str,
+        warehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
     ) -> Iterator[FabricTable]:
         """List all tables in a warehouse via the OneLake Delta Table APIs.
 
@@ -575,27 +628,35 @@ class OneLakeClient(BaseFabricClient):
 
         System schemas (`sys`, `INFORMATION_SCHEMA`, `queryinsights`) are
         skipped. A 404 means the item has no OneLake catalog (for example a
-        staging warehouse) and raises IncompleteCatalogListing. The caller
-        keeps tables from the previous run instead of treating the warehouse
-        as empty.
+        staging warehouse): it is logged and the warehouse yields no tables.
 
         Reference: https://learn.microsoft.com/en-us/fabric/onelake/table-apis/delta-table-apis-overview
 
         Args:
             workspace_id: Workspace GUID
             warehouse_id: Warehouse GUID
+            on_degraded: Told when a 404 is returned as empty, so a caller
+                that must not mistake that for "no tables" can say so.
 
         Yields:
             FabricTable objects
         """
         logger.info(f"Listing tables for warehouse {warehouse_id}")
         system_schemas = {name.lower() for name in FABRIC_SYSTEM_SCHEMAS}
+
+        # Ingestion passes no on_degraded and still gets an empty result for a
+        # warehouse without a catalog; the probe passes one so it can say so.
+        def warehouse_missing(message: str) -> None:
+            logger.warning(f"{message[0].upper()}{message[1:]}.")
+            if on_degraded is not None:
+                on_degraded(message)
+
         try:
             for schema_name in self._list_schemas_via_onelake_api(
                 workspace_id,
                 warehouse_id,
                 item_label="warehouse",
-                missing_ok=True,
+                on_missing=warehouse_missing,
             ):
                 if schema_name.lower() in system_schemas:
                     logger.debug(
@@ -609,5 +670,7 @@ class OneLakeClient(BaseFabricClient):
                     item_label="warehouse",
                 )
         except Exception as e:
-            logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
+            logger.error(
+                f"Failed to list tables for warehouse {warehouse_id} ({type(e).__name__})"
+            )
             raise

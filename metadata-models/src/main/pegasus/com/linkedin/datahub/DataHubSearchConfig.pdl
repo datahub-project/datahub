@@ -104,9 +104,17 @@ record DataHubSearchConfig {
     * Shared search fields this property's values are copied into, on Search V3.
     * Each entry names a shared field (entityName, qualifiedName, description,
     * columns, other) or a root field that feeds one (name, description).
-    * The property's own field is unchanged, and the stored name is unchanged.
-    * Unset copies nowhere. A number or date property ignores this list.
+    * For a URN property this copies the parsed name. The complete URN is
+    * copyUrnTo. The property's own field is unchanged, and the stored name is
+    * unchanged. Unset copies nowhere. A number or date property ignores this list.
     **/
     copyTo: optional array[string]
+
+    /**
+    * Shared search fields the complete URN is copied into, on Search V3.
+    * Same names as copyTo. Ignored unless the value type is URN. A destination
+    * listed here and in copyTo receives both the complete URN and the parsed name.
+    **/
+    copyUrnTo: optional array[string]
 
 }

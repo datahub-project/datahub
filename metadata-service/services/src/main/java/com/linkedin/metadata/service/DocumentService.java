@@ -450,14 +450,17 @@ public class DocumentService {
     mcps.add(
         buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, existingInfo, indexMode));
 
-    // semanticText is a standalone aspect. Only write it when the caller opts in so ordinary
-    // document body/title mutations leave an existing curated embedding source untouched.
-    if (semanticText != null) {
+    // semanticText is what the embedding pipeline indexes instead of the body, so it has to
+    // follow the body. A caller that wants its own value passes one on every write that changes
+    // the body; anything else is replaced by the new body. Keeping a value across a write the
+    // caller did not ask about would make it depend on whether the body happened to change.
+    final String resolvedSemanticText = semanticText != null ? semanticText : text;
+    if (resolvedSemanticText != null) {
       mcps.add(
           buildProposal(
               documentUrn,
               Constants.SEMANTIC_TEXT_ASPECT_NAME,
-              new SemanticText().setText(semanticText),
+              new SemanticText().setText(resolvedSemanticText),
               indexMode));
     }
 
@@ -1182,7 +1185,8 @@ public class DocumentService {
    *
    * @param facets optional facet fields to aggregate; null/empty keeps the default single-entity
    *     search path
-   * @param searchFlags optional flags (e.g. maxAggValues); fulltext is always enabled
+   * @param searchFlags optional flags; fulltext is always enabled. A caller template and explain
+   *     flag are kept so template selection can authorize and resolve them.
    */
   @Nonnull
   public SearchResult searchDocuments(
@@ -1217,6 +1221,12 @@ public class DocumentService {
                 }
                 if (searchFlags.hasSkipHighlighting()) {
                   flags.setSkipHighlighting(searchFlags.isSkipHighlighting());
+                }
+                if (searchFlags.hasSearchTemplate()) {
+                  flags.setSearchTemplate(searchFlags.getSearchTemplate());
+                }
+                if (searchFlags.hasIncludeExplain()) {
+                  flags.setIncludeExplain(searchFlags.isIncludeExplain());
                 }
               }
               flags.setFulltext(true);

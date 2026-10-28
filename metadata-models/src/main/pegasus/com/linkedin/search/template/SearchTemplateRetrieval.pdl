@@ -1,0 +1,58 @@
+namespace com.linkedin.search.template
+
+/**
+ * How candidates are retrieved before ranking. An explicitly present empty value drops an
+ * inherited retrieval section. Unset mode is keyword. Vector mode and a bridge are stored as
+ * data and executed only by a deployment that advertises them.
+ */
+record SearchTemplateRetrieval {
+  /**
+   * {@code keyword} or {@code vector}.
+   */
+  mode: optional string
+
+  /**
+   * Embedding model name for vector retrieval.
+   */
+  model: optional string
+
+  /**
+   * Vector field.
+   */
+  field: optional string
+
+  /**
+   * Cap on vector candidates.
+   */
+  candidateCap: optional int
+
+  /**
+   * How the vector total is counted.
+   */
+  total: optional string
+
+  /**
+   * How vector facets are produced.
+   */
+  facets: optional string
+
+  /**
+   * How a vector page is chosen.
+   */
+  page: optional string
+
+  /**
+   * How authorization is applied to vector candidates.
+   */
+  authorization: optional string
+
+  /**
+   * What to do when vector retrieval fails.
+   */
+  onFailure: optional string
+
+  /**
+   * Optional second retrieval leg.
+   */
+  bridge: optional SearchTemplateRetrievalBridge
+}

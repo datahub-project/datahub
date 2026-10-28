@@ -1,0 +1,29 @@
+namespace com.linkedin.search.template
+
+/**
+ * Structured-property clauses added beside the rendered query. Java resolves which
+ * properties are indexed, their field paths, and their value types. The template
+ * chooses which clauses run and their operator and weight. An explicitly present
+ * empty value drops an inherited section. A child replaces only the clauses it sets.
+ * An unset clause keeps the parent clause.
+ */
+record StructuredPropertyQuery {
+  /**
+   * Analyzed {@code .text} and {@code .stemmed} matching. Unset does not run this
+   * clause unless a parent set it.
+   */
+  analyzedValue: optional StructuredPropertyClause
+
+  /**
+   * Exact keyword or whole-term matching. Unset does not run this clause unless a
+   * parent set it.
+   */
+  exactValue: optional StructuredPropertyClause
+
+  /**
+   * Name-and-value span matching for string and rich-text properties. Unset does
+   * not run this clause unless a parent set it. A running clause requires a
+   * positive weight.
+   */
+  nameAndValue: optional StructuredPropertyClause
+}
