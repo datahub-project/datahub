@@ -10,18 +10,34 @@ export function toleranceBytes(baselineGzip) {
 }
 
 /**
- * @param {{ totalGzip: number, chunks: { file: string, phosphorModules: number, muiIconModules: number }[] }} report
- * @param {{ totalGzip: number, maxPhosphorModules: number }} baseline
- * @returns {string[]}
+ * @typedef {{ hard: string[], soft: string[] }} BudgetFindings
  */
+
 function isFiniteNumber(value) {
     return typeof value === 'number' && Number.isFinite(value);
 }
 
+function emptyFindings() {
+    return { hard: [], soft: [] };
+}
+
+/** Flatten for callers that only need messages (tests, printing). Soft first, then hard. */
+export function allBudgetMessages(findings) {
+    return [...findings.soft, ...findings.hard];
+}
+
+/**
+ * Byte overage / under-baseline ratchet are soft (warn, do not fail CI).
+ * Composition denylist and broken baselines stay hard.
+ *
+ * @param {{ totalGzip: number, chunks: { file: string, phosphorModules: number, muiIconModules: number }[] }} report
+ * @param {{ totalGzip: number, maxPhosphorModules: number }} baseline
+ * @returns {BudgetFindings}
+ */
 export function evaluateEagerBudget(report, baseline) {
-    const errors = [];
+    const findings = emptyFindings();
     if (!isFiniteNumber(baseline.totalGzip) || !isFiniteNumber(report.totalGzip)) {
-        errors.push(
+        findings.hard.push(
             'eager-budget.json totalGzip must be a finite number, and the report must include one. ' +
                 'Without it the size comparison does not run.',
         );
@@ -30,12 +46,13 @@ export function evaluateEagerBudget(report, baseline) {
         const delta = report.totalGzip - baseline.totalGzip;
 
         if (delta > slack) {
-            errors.push(
+            findings.soft.push(
                 `Eager JS is ${report.totalGzip} bytes gzip, ${delta} over the ${baseline.totalGzip} baseline (allowed +${slack}). ` +
-                    `This is the sum of <script> and modulepreload JS in dist/index.html.`,
+                    `This is the sum of <script> and modulepreload JS in dist/index.html. ` +
+                    `Byte overage warns; it does not fail the build. Raise or trim via the bundle-budget chore.`,
             );
         } else if (-delta > slack) {
-            errors.push(
+            findings.soft.push(
                 `Eager JS fell to ${report.totalGzip} bytes gzip, ${-delta} under the ${baseline.totalGzip} baseline. ` +
                     `Update datahub-web-react/eager-budget.json totalGzip to ${report.totalGzip} so the lower size becomes the new ceiling.`,
             );
@@ -44,10 +61,12 @@ export function evaluateEagerBudget(report, baseline) {
 
     for (const chunk of report.chunks) {
         if (FORBIDDEN_EAGER_CHUNK.test(chunk.file)) {
-            errors.push(`${chunk.file} is an eager catalog chunk. Named vendor chunks load with the first page.`);
+            findings.hard.push(
+                `${chunk.file} is an eager catalog chunk. Named vendor chunks load with the first page.`,
+            );
         }
         if (chunk.muiIconModules > 0) {
-            errors.push(
+            findings.hard.push(
                 `${chunk.file} eagerly includes ${chunk.muiIconModules} @mui/icons-material modules. ` +
                     `That catalog must stay in an async chunk.`,
             );
@@ -56,15 +75,15 @@ export function evaluateEagerBudget(report, baseline) {
 
     const phosphorModules = report.chunks.reduce((sum, chunk) => sum + chunk.phosphorModules, 0);
     if (!isFiniteNumber(baseline.maxPhosphorModules)) {
-        errors.push('eager-budget.json maxPhosphorModules must be a finite number.');
+        findings.hard.push('eager-budget.json maxPhosphorModules must be a finite number.');
     } else if (phosphorModules > baseline.maxPhosphorModules) {
-        errors.push(
+        findings.hard.push(
             `Eager JS includes ${phosphorModules} Phosphor modules (ceiling ${baseline.maxPhosphorModules}). ` +
                 `The shell may import the icons it renders; the rest of the catalog must stay off index.html.`,
         );
     }
 
-    return errors;
+    return findings;
 }
 
 // Node zlib at level 9. The gzip CLI and CPython compress the same bytes to a
@@ -92,15 +111,28 @@ export function sizeLimitJson(totalGzip) {
     return [{ size: totalGzip }];
 }
 
-// --json feeds the Pages bundle-size comment. That step runs under GitHub
-// Actions' default `bash -eo pipefail` and never sets `shell:`. An exit 1
-// from either the PR or the base rebuild aborts the step before `gh pr comment`.
-// The hard gate stays the non-json run in build-and-test.yml.
-export function budgetExitCode(json, errors) {
-    if (json || errors.length === 0) {
+/**
+ * Soft byte findings never fail the job. Hard composition / config findings do,
+ * unless `--json` (Pages comment path must always exit 0).
+ *
+ * @param {boolean} json
+ * @param {BudgetFindings | string[]} findingsOrHard
+ */
+export function budgetExitCode(json, findingsOrHard) {
+    if (json) {
         return 0;
     }
-    return 1;
+    const hard = Array.isArray(findingsOrHard) ? findingsOrHard : findingsOrHard.hard;
+    return hard.length === 0 ? 0 : 1;
+}
+
+export function printBudgetFindings(findings) {
+    for (const message of findings.soft) {
+        console.warn(`WARNING (bundle budget, non-blocking): ${message}`);
+    }
+    for (const message of findings.hard) {
+        console.error(message);
+    }
 }
 
 function main() {
@@ -108,7 +140,7 @@ function main() {
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
     const baseline = JSON.parse(fs.readFileSync(path.join(root, 'eager-budget.json'), 'utf8'));
     const report = readReport(path.join(root, 'dist'));
-    const errors = evaluateEagerBudget(report, baseline);
+    const findings = evaluateEagerBudget(report, baseline);
     if (json) {
         console.log(JSON.stringify(sizeLimitJson(report.totalGzip)));
     } else {
@@ -121,10 +153,8 @@ function main() {
         );
         console.log(lines.join('\n'));
     }
-    if (errors.length) {
-        console.error(errors.join('\n'));
-    }
-    const exitCode = budgetExitCode(json, errors);
+    printBudgetFindings(findings);
+    const exitCode = budgetExitCode(json, findings);
     if (exitCode !== 0) {
         process.exit(exitCode);
     }

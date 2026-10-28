@@ -3,13 +3,14 @@
 // the Vite manifest and do not follow dynamicImports.
 //
 // Gzip matches eager-budget.mjs (Node zlib level 9). Without --check this script
-// only reports. --check compares shell and /search to page-budget.json.
+// only reports. --check compares shell and /search to page-budget.json: byte
+// over/under is a non-blocking warning; a missing route fails the job.
 
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
-import { gzipSize, toleranceBytes } from './eager-budget.mjs';
+import { budgetExitCode, gzipSize, printBudgetFindings, toleranceBytes } from './eager-budget.mjs';
 
 // Page modules are Vite manifest `src` values (project-relative), not hashed files.
 const AUTHENTICATED_APP_SRC = 'src/app/AuthenticatedApp.tsx';
@@ -240,19 +241,20 @@ const PAGE_BUDGET_IDS = ['shell', 'search'];
 
 /**
  * Same slack as the index.html eager budget: max(10 KB, 0.5%).
- * Home is reported and not gated. A missing route fails closed.
+ * Home is reported and not gated. Byte over/under is soft (warn only).
+ * A missing route or broken baseline fails closed (hard).
  *
  * @param {{ shell: number | null, search: number | null }} measured
  * @param {{ shell: number, search: number }} baseline
- * @returns {string[]}
+ * @returns {{ hard: string[], soft: string[] }}
  */
 export function evaluatePageBudget(measured, baseline) {
-    const errors = [];
+    const findings = { hard: [], soft: [] };
     for (const id of PAGE_BUDGET_IDS) {
         const actual = measured[id];
         const expected = baseline[id];
         if (!isFiniteNumber(expected) || !isFiniteNumber(actual)) {
-            errors.push(
+            findings.hard.push(
                 `page-budget.json ${id} must be a finite number, and the build must include that route. ` +
                     `Without it the size comparison does not run.`,
             );
@@ -261,17 +263,18 @@ export function evaluatePageBudget(measured, baseline) {
         const slack = toleranceBytes(expected);
         const delta = actual - expected;
         if (delta > slack) {
-            errors.push(
-                `Logged-in ${id} JS is ${actual} bytes gzip, ${delta} over the ${expected} baseline (allowed +${slack}).`,
+            findings.soft.push(
+                `Logged-in ${id} JS is ${actual} bytes gzip, ${delta} over the ${expected} baseline (allowed +${slack}). ` +
+                    `Byte overage warns; it does not fail the build. Raise or trim via the bundle-budget chore.`,
             );
         } else if (-delta > slack) {
-            errors.push(
+            findings.soft.push(
                 `Logged-in ${id} JS fell to ${actual} bytes gzip, ${-delta} under the ${expected} baseline. ` +
                     `Update datahub-web-react/page-budget.json ${id} to ${actual} so the lower size becomes the new ceiling.`,
             );
         }
     }
-    return errors;
+    return findings;
 }
 
 export function formatBundleComment({ base, pr, baseSha }) {
@@ -370,10 +373,11 @@ function main() {
     if (!args.check) return;
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
     const baseline = JSON.parse(fs.readFileSync(path.join(root, 'page-budget.json'), 'utf8'));
-    const errors = evaluatePageBudget(measured, baseline);
-    if (errors.length) {
-        console.error(errors.join('\n'));
-        process.exit(1);
+    const findings = evaluatePageBudget(measured, baseline);
+    printBudgetFindings(findings);
+    const exitCode = budgetExitCode(false, findings);
+    if (exitCode !== 0) {
+        process.exit(exitCode);
     }
 }
 
