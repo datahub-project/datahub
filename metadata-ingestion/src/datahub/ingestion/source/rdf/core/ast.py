@@ -45,6 +45,9 @@ class DataHubGraph:
         # Entity fields (explicit for the 2-3 types we support)
         self.glossary_terms: List[Any] = []
         self.relationships: List[Any] = []
+        self.native_relationships: List[Any] = []
+        self.structured_property_definitions: List[Any] = []
+        self.structured_property_assignments: List[Any] = []
         self.domains: List[Any] = []
 
         # Special fields
@@ -60,5 +63,12 @@ class DataHubGraph:
         return {
             "glossary_terms": len(self.glossary_terms),
             "relationships": len(self.relationships),
+            "native_relationships": len(self.native_relationships),
+            "structured_property_definitions": len(
+                self.structured_property_definitions
+            ),
+            "structured_property_assignments": len(
+                self.structured_property_assignments
+            ),
             "domains": len(self.domains),
         }

@@ -890,3 +890,118 @@ def test_sparql_filter_multiple_namespaces(
     assert isinstance(pipeline.source, RDFSource)
     # Should have filtered to both module1 and module2 terms
     # The exact count depends on the golden file, but we verify via golden file check
+
+
+@pytest.fixture
+def minimal_ontology_gated_ttl():
+    return str(_resources_dir / "minimal_ontology_gated.ttl")
+
+
+def _load_output_aspects(output_path: pathlib.Path) -> list[tuple[str, str]]:
+    import json
+
+    records = json.loads(output_path.read_text())
+    return [(item["entityUrn"], item["aspectName"]) for item in records]
+
+
+@pytest.mark.integration
+def test_ontology_gated_scenario_b_default_ontology(
+    minimal_ontology_gated_ttl, tmp_path, mock_datahub_graph_instance
+):
+    """With default TBox, SKOS predicates align to native glossaryRelatedTerms."""
+    output_path = tmp_path / "minimal_with_ontology.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "rdf-test-ontology-b",
+            "source": {
+                "type": "rdf",
+                "config": {
+                    "source": minimal_ontology_gated_ttl,
+                    "format": "turtle",
+                    "environment": "PROD",
+                    "ontology": "default",
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": str(output_path)}},
+        }
+    )
+    pipeline.ctx.graph = mock_datahub_graph_instance
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    aspects = _load_output_aspects(output_path)
+    aspect_names = {name for _, name in aspects}
+    assert "glossaryRelatedTerms" in aspect_names
+    assert "structuredProperties" in aspect_names
+    assert "propertyDefinition" in aspect_names
+
+    import json
+
+    related_fields = {}
+    for item in json.loads(output_path.read_text()):
+        if item.get("aspectName") != "glossaryRelatedTerms":
+            continue
+        related_fields.update(item["aspect"]["json"])
+
+    assert related_fields.get("isRelatedTerms")
+    assert related_fields.get("relatedTerms")
+
+    property_defs = [
+        item
+        for item in json.loads(output_path.read_text())
+        if item.get("aspectName") == "propertyDefinition"
+    ]
+    qualified_names = {
+        item["aspect"]["json"]["qualifiedName"] for item in property_defs
+    }
+    assert qualified_names == {
+        "io.datahub.rdf.predicate.example.org.glossary.dependsOn",
+    }
+
+
+@pytest.mark.integration
+def test_ontology_gated_scenario_a_no_ontology(
+    minimal_ontology_gated_ttl, tmp_path, mock_datahub_graph_instance
+):
+    """Without TBox, all relationship triples become structured properties."""
+    import json
+
+    output_path = tmp_path / "minimal_no_ontology.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "rdf-test-ontology-a",
+            "source": {
+                "type": "rdf",
+                "config": {
+                    "source": minimal_ontology_gated_ttl,
+                    "format": "turtle",
+                    "environment": "PROD",
+                    "ontology": None,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": str(output_path)}},
+        }
+    )
+    pipeline.ctx.graph = mock_datahub_graph_instance
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    records = json.loads(output_path.read_text())
+    aspect_names = {item["aspectName"] for item in records}
+    assert "glossaryRelatedTerms" not in aspect_names
+    assert "structuredProperties" in aspect_names
+    assert "propertyDefinition" in aspect_names
+
+    property_defs = [
+        item for item in records if item.get("aspectName") == "propertyDefinition"
+    ]
+    qualified_names = {
+        item["aspect"]["json"]["qualifiedName"] for item in property_defs
+    }
+    assert qualified_names == {
+        "io.datahub.rdf.predicate.example.org.glossary.dependsOn",
+        "io.datahub.rdf.predicate.w3.org.2004.02.skos.core.broader",
+        "io.datahub.rdf.predicate.w3.org.2004.02.skos.core.related",
+    }

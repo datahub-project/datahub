@@ -1,0 +1,18 @@
+@prefix ex:   <http://example.org/glossary/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+ex:CustomerData a skos:Concept ;
+    skos:prefLabel "Customer Data" ;
+    skos:definition "All data about a customer" .
+
+ex:AccountID a skos:Concept ;
+    skos:prefLabel "Account Identifier" ;
+    skos:definition "Unique ID for an account" .
+
+ex:CustomerName a skos:Concept ;
+    skos:prefLabel "Customer Name" ;
+    skos:definition "Name of the customer" .
+
+ex:AccountID skos:broader ex:CustomerData .
+ex:AccountID skos:related ex:CustomerName .
+ex:AccountID ex:dependsOn ex:CustomerName .
