@@ -11,10 +11,9 @@ from typing import Callable, Optional, Sequence
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.pattern_utils import is_schema_allowed
-from datahub.ingestion.agent.declarations import declared_qualifier, qualifier_field
+from datahub.ingestion.agent.declarations import declared_qualifier
 from datahub.ingestion.agent.pattern_path import pattern_at
 from datahub.ingestion.agent.verdicts import (
-    ProbeInternalError,
     Verdict,
     VerdictContext,
     require_container,
@@ -55,50 +54,20 @@ _NO_CONTAINER_WARNING = (
 
 
 def qualified_table_target(
-    container: Optional[str],
-    schema: str,
-    entity: str,
-    warn: Callable[[str], None],
-    *,
-    config: Optional[ConfigModel] = None,
-    kind: str = "",
-    pattern_field: Optional[str] = None,
-    pin_field: Optional[str] = None,
+    container: Optional[str], schema: str, entity: str, warn: Callable[[str], None]
 ) -> Optional[str]:
     """`container.schema.entity`: what a source whose tables live under a
     database or project matches table_pattern and view_pattern against.
 
-    Without a container an invented one would judge another database's object,
-    so there is no target to build. A caller that passes `config` and
-    `pattern_field` gets require_container's rule instead: refuse rather than
-    let the shim judge `schema.entity` against a pattern written for three
-    parts. Omitting them keeps the warn-and-degrade this has always done, so
-    an out-of-tree caller is unaffected; both in-tree callers opt in.
+    None after warning when the container is unknown, leaving the shim to
+    judge `schema.entity`: an invented container would judge another
+    database's object. Returning None is also what opts the kind into the
+    container rule -- `sql_probe` applies it to a declared target of None,
+    with the field it resolved for the kind, which this hook is not told.
     """
     if container:
         return f"{container}.{schema}.{entity}"
-    if config is None or pattern_field is None:
-        # Not opted in. Refused rather than half-applied: a caller that passed
-        # one and forgot the other would silently get the old wrong verdict.
-        if config is not None or pattern_field is not None:
-            raise ProbeInternalError(
-                "qualified_table_target needs both `config` and "
-                "`pattern_field` to judge whether a missing container matters; "
-                "pass both or neither"
-            )
-        warn(_NO_CONTAINER_WARNING)
-        return None
-    # None after its own warning when the pattern filters nothing, so the two
-    # levels say the same thing about the same situation; otherwise a refusal.
-    require_container(
-        container,
-        config=config,
-        kind=kind,
-        pattern_field=pattern_field,
-        shape="<container>.<schema>.<entity>",
-        pin_field=pin_field,
-        warn=warn,
-    )
+    warn(_NO_CONTAINER_WARNING)
     return None
 
 
@@ -122,8 +91,8 @@ def _qualified_schema_verdict(
         kind=ctx.kind,
         pattern_field=ctx.pattern_field,
         shape="<container>.<schema>",
-        pin_field=qualifier_field(config),
         warn=ctx.warn,
+        note=ctx.note_container,
     )
     if container is None:
         return None

@@ -38,6 +38,7 @@ from datahub.ingestion.agent.probe_methods import (
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
     ClassifyContext,
+    ContainerNeed,
     ProbeArgumentError,
     ProbeInternalError,
     Verdict,
@@ -428,6 +429,11 @@ def _judge_name(
     config = judged.config
     pattern_field = resolution.pattern_field
     prefix = ".".join(parent_path)
+    # Filled while the target is built; read after the verdict, because a
+    # kind switch, a connector's override or an excluded --parent can each
+    # decide a name in every container -- and then "this cannot be judged
+    # without the container" is simply false.
+    needed: List[ContainerNeed] = []
     ctx = ClassifyContext(
         config=config,
         name=name,
@@ -436,6 +442,7 @@ def _judge_name(
         parent_path=tuple(parent_path),
         warn=warn,
         kind=kind,
+        note_container=needed.append,
     )
     structural = _switch_verdict(config, kind)
     by_rule = resolution.filtering is Filtering.BY_RULE
@@ -453,6 +460,7 @@ def _judge_name(
             structural=structural,
             attributes=dict(attributes),
             warn=warn,
+            note_container=needed.append,
         ),
     )
     if by_rule and override is None and structural is None:
@@ -461,15 +469,17 @@ def _judge_name(
             f"{pattern_field}, but its probe_verdict_override gave no verdict "
             f"for '{name}'"
         )
-    verdict = (
-        override
-        or structural
-        or (
-            # No pattern field means an allow-all pattern, which excludes nothing.
-            Verdict.include()
-            if pattern_field is None or judged.pattern.allowed(target)
-            else Verdict.exclude(pattern_field)
-        )
+    decided = override or structural
+    if decided is None and needed:
+        # Nothing but the container-dependent pattern is left to decide, and
+        # it would be matched against a name missing the container. That is
+        # the verdict ingestion does not make, so none is given.
+        raise needed[0].refusal()
+    verdict = decided or (
+        # No pattern field means an allow-all pattern, which excludes nothing.
+        Verdict.include()
+        if pattern_field is None or judged.pattern.allowed(target)
+        else Verdict.exclude(pattern_field)
     )
     return FilterVerdict(
         name=name,
@@ -528,11 +538,8 @@ def check_filters(
         try_deny,
         warn,
     )
-    results = [
-        _judge_name(judged, resolution, kind, name, parent_path, name_attrs, warn)
-        for name, name_attrs in zip(names, per_name, strict=True)
-    ]
-
+    # Judged first: nothing inside an excluded container is ingested, whatever
+    # container the names inside it would otherwise need to be judged on.
     # Not for a kind nothing resolves: the warning above already says so.
     parent_excluded_by = (
         None
@@ -541,6 +548,25 @@ def check_filters(
             source_type, config_dict, judged.config, kind, parent_path, warn
         )
     )
+    results = []
+    for name, name_attrs in zip(names, per_name, strict=True):
+        try:
+            results.append(
+                _judge_name(
+                    judged, resolution, kind, name, parent_path, name_attrs, warn
+                )
+            )
+        except ProbeArgumentError:
+            if parent_excluded_by is None:
+                raise
+            results.append(
+                FilterVerdict(
+                    name=name,
+                    target=name,
+                    included=False,
+                    excluded_by=parent_excluded_by,
+                )
+            )
     if parent_excluded_by is not None:
         for result in results:
             result.included = False

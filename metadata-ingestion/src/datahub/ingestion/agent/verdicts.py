@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -73,6 +74,11 @@ class ClassifyContext:
     # Report a degraded judgement (a less precise target). Deduplicated by
     # message, so a connector-wide reason is reported once.
     warn: Callable[[str], None]
+    # Record that this target was built without the container ingestion
+    # matches on. Asked after the verdict, never raised here: see
+    # ContainerNeed. Defaulted, so a connector or test building a context by
+    # hand needs no change.
+    note_container: Callable[["ContainerNeed"], None] = lambda _need: None
     # The kind being judged, canonicalised by check_filters.
     kind: str = ""
 
@@ -153,22 +159,91 @@ def _listing_command_for(config: object, kind: str) -> Optional[str]:
     return listing_command_for_kind(config, provider_cls, str(ancestors[0]))
 
 
-# Allow entries that admit every name, so a pattern built only from these
-# filters nothing whatever it is matched against. AllowDenyPattern.is_allow_all
-# recognises the literal `.*` alone, and reports False for "unknown" rather
-# than "restricted" -- which would refuse `^.*$`, a recipe that filters
-# nothing, for want of a container that could not change its verdict.
+# An entry of the form `^?.*<literal>$`, where the literal carries no dot or
+# regex syntax, matches `<container>.<name>` exactly when it matches `<name>`:
+# the suffix cannot reach back across the dot. So the question is not whether a
+# pattern filters -- a deny list filters and is still blind to the container --
+# but whether the container could change what it says.
+_CONTAINER_BLIND = re.compile(r"\^?\.\*[A-Za-z0-9_\-]*\$")
+
+# Allow entries that admit every name, so the container cannot change them.
 _MATCHES_ANYTHING = frozenset({".*", "^.*", ".*$", "^.*$", ".+", "^.+", ".+$", "^.+$"})
 
 
-def filters_nothing(pattern: Optional[AllowDenyPattern]) -> bool:
-    """Whether `pattern` admits every name, so no container can change the
-    verdict it gives -- only the target reported beside it."""
+def container_blind(pattern: Optional[AllowDenyPattern]) -> bool:
+    """Whether the missing container could change what `pattern` says.
+
+    False keeps the verdict unasked; True lets it stand on the bare name.
+    Testing "filters nothing" instead refused recipes whose verdict no
+    container could alter -- every Snowflake recipe, because
+    `validate_legacy_schema_pattern` always appends a `.*INFORMATION_SCHEMA$`
+    deny, and a `dataset_pattern` denying `.*_staging$` for the same reason.
+    """
     if pattern is None:
         return True
-    if pattern.is_allow_all():
-        return True
-    return not pattern.deny and any(a in _MATCHES_ANYTHING for a in pattern.allow)
+    allow_blind = any(a in _MATCHES_ANYTHING for a in pattern.allow) or all(
+        _CONTAINER_BLIND.fullmatch(a) for a in pattern.allow
+    )
+    return allow_blind and all(_CONTAINER_BLIND.fullmatch(d) for d in pattern.deny)
+
+
+@dataclass(frozen=True)
+class ContainerNeed:
+    """A target built without the container ingestion matches on.
+
+    Recorded while the target is built, and asked about after the verdict.
+    By then the kind switch, the connector's own override and the --parent
+    container have each had their say, and any of them can decide a name in
+    every container -- which is what makes "this cannot be judged without the
+    container" false. Raising where the target is built asks too early to
+    know that.
+    """
+
+    config: object
+    kind: str
+    pattern_field: Optional[str]
+    shape: str
+
+    def refusal(self) -> "ProbeArgumentError":
+        """The refusal to raise when nothing else decided the name."""
+        from datahub.ingestion.agent.declarations import qualifier_field
+
+        wanted, listing = _hint_container(self.config, self.kind)
+        # Named even with no listing to point at: a caller who passed
+        # `--parent PUBLIC` and is told to "pass --parent" cannot tell that
+        # what is missing is the database ABOVE it. Not called "outermost":
+        # a chain can have containers the source leaves out of it on purpose
+        # (Unity's metastore), so this promises only the level, not the slot.
+        # Not "outermost": a source can leave a level out of its chain on
+        # purpose (Unity's metastore), so this promises the level, not the slot.
+        naming = (
+            f"the {wanted} as a --parent, before any already named"
+            if wanted
+            else "--parent"
+        )
+        remedies = []
+        if listing:
+            remedies.append(
+                f"run `probe run {listing}` to list them, then pass {naming}"
+            )
+        else:
+            remedies.append(f"pass {naming}")
+        pin = qualifier_field(self.config)
+        if pin:
+            # Second, and qualified: pinning does not just answer the
+            # question, it narrows what the recipe ingests.
+            remedies.append(
+                f"or narrow the recipe to one by pinning `{pin}`, which "
+                f"changes what it reads"
+            )
+        return ProbeArgumentError(
+            f"this source matches `{self.pattern_field}` against the "
+            f"qualified '{self.shape}', and nothing here says which container "
+            f"to use. Judging the bare name against that pattern would report "
+            f"a verdict ingestion does not make, so none is given: "
+            + ", ".join(remedies)
+            + "."
+        )
 
 
 def require_container(
@@ -178,57 +253,32 @@ def require_container(
     kind: str,
     pattern_field: Optional[str],
     shape: str,
-    pin_field: Optional[str],
     warn: Callable[[str], None],
+    note: Callable[["ContainerNeed"], None],
 ) -> Optional[str]:
-    """`container`, or None after warning, or a refusal.
+    """`container`, or None -- after warning when the container cannot change
+    the verdict, or after recording what a refusal would say when it can.
 
-    A source that matches a qualified identifier cannot be judged without the
-    container: matching the bare name against a pattern written (or rewritten)
-    for `shape` answers a question ingestion never asks, and the answer is
-    usually "excluded" about something every run ingests. That verdict is the
-    one failure `probe filter` exists to prevent, so it is not given.
-
-    An allow-all pattern is the exception and answers normally: it includes
-    everything whatever string it is matched against, so the missing container
-    cannot change the verdict -- only the `target` reported alongside it. Said
-    rather than assumed, because a reader comparing `target` with what
-    ingestion logs would otherwise see a difference nothing explains.
-
-    The deciding field is named rather than the pattern passed, so a caller
-    cannot name one field while another decides. `pin_field` is passed in
-    because declarations imports this module and the dependency cannot be
-    inverted.
+    Never raises. The decision belongs after the verdict, so this records and
+    check_filters asks; see ContainerNeed.
     """
     if container:
         return container
     pattern = pattern_at(config, pattern_field) if pattern_field else None
-    if filters_nothing(pattern):
-        where = f"nothing at `{pattern_field}`" if pattern_field else "nothing"
+    if container_blind(pattern):
+        where = f"`{pattern_field}`" if pattern_field else "nothing here"
         warn(
-            f"no container was given, so `target` below shows the bare name "
-            f"rather than the '{shape}' this source matches; the verdict is "
-            f"unaffected, as {where} filters these"
+            f"no container was given, so `target` below is not qualified with "
+            f"the container this source matches on ('{shape}'); the verdict "
+            f"stands because {where} cannot match one differently"
         )
         return None
-    wanted, listing = _hint_container(config, kind)
-    naming = f"the {wanted} as the outermost --parent" if wanted else "--parent"
-    remedies = []
-    if listing:
-        remedies.append(f"run `probe run {listing}` to list them, then pass {naming}")
-    else:
-        # Named even with no listing to point at: a caller who passed
-        # `--parent PUBLIC` and is told to "pass --parent" cannot tell that
-        # what is missing is the database ABOVE it.
-        remedies.append(f"pass {naming}")
-    if pin_field:
-        remedies.append(f"or pin a single value in `{pin_field}`")
-    raise ProbeArgumentError(
-        f"this source matches `{pattern_field}` against the qualified '{shape}', "
-        f"and nothing here says which container to use. Judging the bare name "
-        f"against that pattern would report a verdict ingestion does not make, "
-        f"so none is given: " + ", ".join(remedies) + "."
+    note(
+        ContainerNeed(
+            config=config, kind=kind, pattern_field=pattern_field, shape=shape
+        )
     )
+    return None
 
 
 @dataclass(frozen=True)
@@ -251,6 +301,8 @@ class VerdictContext:
     # Empty for bare names: an override needing one degrades with a warning.
     attributes: Mapping[str, str]
     warn: Callable[[str], None]
+    # As ClassifyContext.note_container.
+    note_container: Callable[["ContainerNeed"], None] = lambda _need: None
 
 
 def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> Verdict:

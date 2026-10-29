@@ -1004,8 +1004,7 @@ class SnowflakeV2Config(
             qualified_table_target,
         )
 
-        # No pattern named here: this hook is not told whether a Table or a
-        # View is being judged, and a guess judged Views against table_pattern.
-        # sql_probe applies the rule instead, with the field it resolved for
-        # the kind actually in hand.
+        # Returning None when there is no database is what opts this kind into
+        # the container rule: sql_probe applies it with the field it resolved,
+        # which this hook is not told.
         return qualified_table_target(database, schema, entity, warn)

@@ -227,7 +227,7 @@ def test_an_allow_all_pattern_answers_without_a_container() -> None:
     )
     assert _rows(result) == [("analytics", "analytics", True, None)]
     assert len(result.warnings) == 1
-    assert "bare name" in result.warnings[0]
+    assert "not qualified with the container" in result.warnings[0]
 
 
 def test_a_pattern_that_filters_nothing_is_not_refused_for_being_spelled_oddly() -> (

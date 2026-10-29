@@ -14,7 +14,7 @@ from typing import Optional, Protocol, Sequence, Type, cast
 from sqlalchemy.engine import make_url
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.ingestion.agent.declarations import declares_qualifier, qualifier_field
+from datahub.ingestion.agent.declarations import declares_qualifier
 from datahub.ingestion.agent.sql_passthrough import CatalogRows
 from datahub.ingestion.agent.verdicts import (
     ClassifyContext,
@@ -237,35 +237,47 @@ def _declared_target(
 ) -> Optional[str]:
     """The target the connector declares, or None to leave it to the
     get_identifier shim: an overridden probe_filter_target's answer, else a
-    Qualifier field's `container.schema.entity`, else None."""
+    Qualifier field's `container.schema.entity`, else None.
+
+    A connector that tried to qualify the name and returned None is where the
+    container rule is applied -- once, here, with the field the framework
+    resolved for this kind. The hook is not told the kind, so a connector
+    choosing the field itself judged Views against `table_pattern`.
+    """
+    answer = _hook_target(ctx, database, schema)
+    # Only when the connector TRIED to qualify and could not. A source that
+    # neither overrides the hook nor declares a Qualifier returns None to mean
+    # "no opinion" -- the shim then builds a perfectly good identifier, and
+    # refusing there would refuse every plain Postgres table.
+    tried = _overrides_filter_target(ctx.config) or declares_qualifier(ctx.config)
+    if answer is None and tried:
+        require_container(
+            qualifying_container(ctx.config, [database] if database else []),
+            config=ctx.config,
+            kind=ctx.kind,
+            pattern_field=ctx.pattern_field,
+            shape="<container>.<schema>.<entity>",
+            # Silenced: a hook answering None already reported its own degrade
+            # in its own words, and the Qualifier path warns through this call.
+            warn=(lambda _m: None)
+            if _overrides_filter_target(ctx.config)
+            else ctx.warn,
+            note=ctx.note_container,
+        )
+    return answer
+
+
+def _hook_target(
+    ctx: ClassifyContext, database: Optional[str], schema: str
+) -> Optional[str]:
+    """What the connector itself builds, before the container rule."""
     if _overrides_filter_target(ctx.config):
-        # getattr: test doubles may be a bare SimpleNamespace. An override
-        # answering None reported its own degrade, so no Qualifier is tried.
+        # getattr: test doubles may be a bare SimpleNamespace.
         hook = getattr(ctx.config, "probe_filter_target", None)
         if not callable(hook):
             return None
         answer = hook(schema=schema, entity=ctx.name, warn=ctx.warn, database=database)
-        if answer is None:
-            # The override could not qualify it. The rule is applied here, not
-            # inside the hook: the hook is not told which kind it is judging,
-            # so a connector guessing the field judged a View against
-            # table_pattern -- the very inversion this exists to prevent.
-            # ctx.pattern_field is the field the framework resolved for this
-            # kind, so Table and View each get the one that decides them.
-            require_container(
-                qualifying_container(ctx.config, [database] if database else []),
-                config=ctx.config,
-                kind=ctx.kind,
-                pattern_field=ctx.pattern_field,
-                shape="<container>.<schema>.<entity>",
-                pin_field=qualifier_field(ctx.config),
-                # Silenced: an override answering None has already reported its
-                # own degrade in its own words. Only the refusal is wanted
-                # here, and a second message for one condition reads as two.
-                warn=lambda _message: None,
-            )
-            return None
-        if isinstance(answer, str):
+        if answer is None or isinstance(answer, str):
             return answer
         # Not a string: unusable, as an empty one is, which _complete_target
         # refuses with a warning rather than letting the shim overrule a
@@ -273,22 +285,8 @@ def _declared_target(
         return ""
     if not declares_qualifier(ctx.config):
         return None
-    # Resolved as at the Schema level, so an authoritative Qualifier beats
-    # --parent at both levels. An empty --parent names no database.
     container = qualifying_container(ctx.config, [database] if database else [])
-    # The deciding field goes with it: without a container, judging
-    # `schema.entity` against a pattern written for `container.schema.entity`
-    # reports an exclusion ingestion does not make.
-    return qualified_table_target(
-        container,
-        schema,
-        ctx.name,
-        ctx.warn,
-        config=ctx.config,
-        kind=ctx.kind,
-        pattern_field=ctx.pattern_field,
-        pin_field=qualifier_field(ctx.config),
-    )
+    return qualified_table_target(container, schema, ctx.name, ctx.warn)
 
 
 def _overrides_filter_target(config: object) -> bool:
