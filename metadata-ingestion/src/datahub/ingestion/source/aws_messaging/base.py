@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, FrozenSet, Iterable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -9,7 +9,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
 from datahub.ingestion.source.aws_messaging.config import AwsMessagingConfigBase
-from datahub.ingestion.source.aws_messaging.constants import AwsService
+from datahub.ingestion.source.aws_messaging.constants import (
+    AwsService,
+    LineageRelationship,
+)
 from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
 from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
@@ -25,6 +28,9 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
 
     platform: str
     service: AwsService
+    # Lineage relationships only this source writes. Stale edges of these types
+    # are retracted; edges written by the companion source are left alone.
+    owned_relationships: FrozenSet[LineageRelationship]
 
     def __init__(
         self,
@@ -45,6 +51,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             )
         self.region: str = config.aws_config.aws_region
         report.region = self.region
+        self.create_clients()
 
         account_id = self._resolve_account_id()
         report.account_id = account_id
@@ -59,7 +66,16 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         self.resolver = ResourceResolver(
             urns=self.urns, region=self.region, service=self.service
         )
-        self.lineage = DatasetLineageCollector(report)
+        self.lineage = DatasetLineageCollector(
+            report=report,
+            graph=ctx.graph if config.remove_stale_lineage else None,
+            relationships=self.owned_relationships,
+        )
+
+    def create_clients(self) -> None:
+        """Builds the AWS clients from self.session, once the region is known and
+        before the account id is read through them."""
+        raise NotImplementedError
 
     def first_resource_arn(self) -> Optional[str]:
         """One ARN of this service, used only to read the account id."""
@@ -72,11 +88,21 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         try:
             arn = parse_arn(self.first_resource_arn())
         except (ClientError, BotoCoreError) as e:
+            if not self.base_config.platform_instance:
+                # The account id becomes the platform_instance, so carrying on
+                # without it would move every resource to a URN with no account
+                # and duplicate the catalog. The listing needs the same permission,
+                # so a failure here is transient or a broken setup, not a valid one.
+                raise RuntimeError(
+                    "Could not read a resource ARN to find the AWS account id "
+                    f"({aws_error_code(e)}). Re-run, or set platform_instance so URNs "
+                    "don't depend on it."
+                ) from e
             self.base_report.warning(
                 title="Account id not resolved",
                 message=(
-                    "Could not read a resource ARN to find the AWS account id. URNs "
-                    "will not include it; set platform_instance to tell accounts apart."
+                    "Could not read a resource ARN to find the AWS account id; "
+                    "the configured platform_instance is used."
                 ),
                 context=aws_error_code(e),
                 exc=e,
