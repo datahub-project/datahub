@@ -662,6 +662,11 @@ public class CDCProcessorTest {
         mock(com.linkedin.metadata.models.EntitySpec.class);
     when(schemaField.getAspectSpec("status"))
         .thenReturn(mock(com.linkedin.metadata.models.AspectSpec.class));
+    com.linkedin.metadata.models.AspectSpec schemaFieldKey =
+        mock(com.linkedin.metadata.models.AspectSpec.class);
+    when(schemaFieldKey.getPegasusSchema())
+        .thenReturn(new com.linkedin.metadata.key.SchemaFieldKey().schema());
+    when(schemaField.getKeyAspectSpec()).thenReturn(schemaFieldKey);
     when(mockEntityRegistry.findEntitySpec(any())).thenReturn(java.util.Optional.empty());
     when(mockEntityRegistry.findEntitySpec("schemaField"))
         .thenReturn(java.util.Optional.of(schemaField));

@@ -473,6 +473,48 @@ public class AspectsBatchImplTest {
   }
 
   @Test
+  public void nestedTypeNoNewerVersionRegisteredIsRejectedToo() {
+    // Only a newer version's types count as its data on reads, but a write is rejected for any
+    // unknown nested type, as for an unknown outer type: a typo is a 400, not dropped as success.
+    UnknownDataHandlings.use(TolerantHandling.of(true, true, "entityFromNewerBuild"::equals));
+    MetadataChangeProposal known =
+        upsert(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            STATUS_ASPECT_NAME);
+    MetadataChangeProposal typoParent =
+        upsert(UrnUtils.getUrn("urn:li:schemaField:(urn:li:datsaet:x,col)"), STATUS_ASPECT_NAME);
+
+    assertThrows(
+        ValidationException.class,
+        () ->
+            AspectsBatchImpl.builder()
+                .mcps(
+                    ImmutableList.of(known, typoParent),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    retrieverContext));
+  }
+
+  @Test
+  public void urnShapedTextInAStringKeyFieldIsNotANestedType() {
+    // datasetKey.name is a string: a name that looks like a urn of an unknown type is just text.
+    MetadataChangeProposal urnShapedName =
+        upsert(
+            UrnUtils.getUrn(
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,urn:li:entityFromNewerBuild:x,PROD)"),
+            STATUS_ASPECT_NAME);
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                ImmutableList.of(urnShapedName),
+                AuditStampUtils.createDefaultAuditStamp(),
+                retrieverContext)
+            .build(null);
+
+    assertEquals(batch.getItems().size(), 1);
+  }
+
+  @Test
   public void strictHandlingSkipsNestedUnknownEntityTypeAsBefore() {
     UnknownDataHandlings.use(StrictHandling.INSTANCE);
     MetadataChangeProposal known =

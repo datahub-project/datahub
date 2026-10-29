@@ -97,7 +97,7 @@ public final class TolerantHandling implements UnknownDataHandling {
     if (!unknownEntityAspectTolerance || isUnregistered(registry, entityTypeOf(urn))) {
       return StrictHandling.INSTANCE.admitUrn(site, registry, metricUtils, urn, aspectName);
     }
-    return site.admitUrn(registry, metricUtils, urn, aspectName);
+    return site.admitUrn(registry, metricUtils, urn, aspectName, nextVersionEntityType);
   }
 
   @Override
@@ -114,7 +114,8 @@ public final class TolerantHandling implements UnknownDataHandling {
       return StrictHandling.INSTANCE.admitEvent(
           site, registry, metricUtils, urn, entityType, aspectName);
     }
-    return site.admitEvent(registry, metricUtils, urn, entityType, aspectName);
+    return site.admitEvent(
+        registry, metricUtils, urn, entityType, aspectName, nextVersionEntityType);
   }
 
   @Override
@@ -144,7 +145,8 @@ public final class TolerantHandling implements UnknownDataHandling {
     }
     // Same rule as admitUrn, which also skips a row whose urn key nests an unknown entity type.
     try {
-      return RegistryKnowledge.referencesUnknownEntityType(registry, Urn.createFromString(urn));
+      return RegistryKnowledge.referencesUnknownEntityType(
+          registry, Urn.createFromString(urn), nextVersionEntityType);
     } catch (URISyntaxException | IllegalArgumentException e) {
       return false;
     }
@@ -156,7 +158,7 @@ public final class TolerantHandling implements UnknownDataHandling {
     if (!unknownEntityAspectTolerance || isUnregistered(registry, urn.getEntityType())) {
       return StrictHandling.INSTANCE.referencesUnknownEntityType(registry, urn);
     }
-    return RegistryKnowledge.referencesUnknownEntityType(registry, urn);
+    return RegistryKnowledge.referencesUnknownEntityType(registry, urn, nextVersionEntityType);
   }
 
   @Override
