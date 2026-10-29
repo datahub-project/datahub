@@ -276,6 +276,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
             .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
             .setShowHasSiblingsFilter(_featureFlags.isShowHasSiblingsFilter())
+            .setShowIngestionSourceLastRunControls(
+                _featureFlags.isShowIngestionSourceLastRunControls())
             .setShowSearchBarAutocompleteRedesign(
                 _featureFlags.isShowSearchBarAutocompleteRedesign())
             .setShowManageTags(_featureFlags.isShowManageTags())

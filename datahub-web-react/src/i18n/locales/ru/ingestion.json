@@ -122,6 +122,8 @@
     "source.createError": "Не удалось создать источник данных!",
     "source.createErrorInterpolated": "Не удалось создать источник данных!: \n {{error}}",
     "source.createSuccess": "Источник данных успешно создан!",
+    "source.emptyLastRunFilterSubtitle": "Источники, запускавшиеся до обновления, могут появиться через несколько минут, пока индексируется их последний запуск.",
+    "source.emptyLastRunFilterTitle": "Нет источников с таким статусом последнего запуска",
     "source.emptySearchSubtitle": "Попробуйте другой поисковый запрос длиной не менее 3 символов...",
     "source.emptySearchTitle": "Результатов поиска нет!",
     "source.emptyTitle": "{{sourceType}} пока нет!",

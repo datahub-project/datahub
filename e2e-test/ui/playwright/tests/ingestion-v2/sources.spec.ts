@@ -11,6 +11,13 @@ const EXECUTE_SOURCE_URN = 'urn:li:dataHubIngestionSource:playwright-execute-sou
 const SEARCH_SOURCE_ONE = 'playwright search source one';
 const SEARCH_SOURCE_TWO = 'playwright search source two';
 const FILTER_SOURCE = 'playwright filter source';
+const LAST_RUN_SEARCH = 'playwright last run';
+const LAST_RUN_OLDER_SOURCE = 'playwright last run older';
+const LAST_RUN_NEWER_SOURCE = 'playwright last run newer';
+const LAST_RUN_SOURCE_URNS = [
+  'urn:li:dataHubIngestionSource:playwright-last-run-older',
+  'urn:li:dataHubIngestionSource:playwright-last-run-newer',
+];
 
 test.use({ featureName: 'ingestion-v2' });
 
@@ -129,5 +136,29 @@ test.describe('ingestion sources', () => {
 
     // The pre-seeded UI source should still be visible
     await expect(ingestionPage.sourcesTab.getSourceCell(FILTER_SOURCE)).toBeVisible();
+  });
+
+  test('sort ingestion sources by last run', async () => {
+    await ingestionPage.sourcesTab.waitForLastRunsIndexed(LAST_RUN_SOURCE_URNS);
+    await ingestionPage.goto();
+    await ingestionPage.sourcesTab.fillSearch(LAST_RUN_SEARCH);
+
+    await ingestionPage.sourcesTab.sortByLastRun();
+    await ingestionPage.sourcesTab.expectSourceOrder([LAST_RUN_OLDER_SOURCE, LAST_RUN_NEWER_SOURCE]);
+
+    await ingestionPage.sourcesTab.sortByLastRun();
+    await ingestionPage.sourcesTab.expectSourceOrder([LAST_RUN_NEWER_SOURCE, LAST_RUN_OLDER_SOURCE]);
+  });
+
+  test('filter ingestion sources by last run status', async () => {
+    await ingestionPage.sourcesTab.waitForLastRunsIndexed(LAST_RUN_SOURCE_URNS);
+    await ingestionPage.goto();
+    await ingestionPage.sourcesTab.fillSearch(LAST_RUN_SEARCH);
+    await ingestionPage.sourcesTab.expectSourceVisible(LAST_RUN_OLDER_SOURCE);
+
+    await ingestionPage.sourcesTab.selectResultStatusFilter('FAILURE');
+
+    await ingestionPage.sourcesTab.expectSourceVisible(LAST_RUN_NEWER_SOURCE);
+    await ingestionPage.sourcesTab.expectSourceNotVisible(LAST_RUN_OLDER_SOURCE);
   });
 });

@@ -16,6 +16,7 @@ import {
     getEntitiesIngestedByTypeOrSubtype,
     getIngestionContents,
     getIngestionSourceMutationInput,
+    getLastRunControls,
     getNewIngestionSourcePlaceholder,
     getOtherIngestionContents,
     getSortInput,
@@ -1785,5 +1786,28 @@ describe('getIngestionSourceMutationInput', () => {
         const result = getIngestionSourceMutationInput(data);
 
         expect(result.config.extraArgs).toEqual([{ key: 'key1', value: 'value1' }]);
+    });
+});
+
+describe('getLastRunControls', () => {
+    const lastRunSort = { field: 'lastRunRequestedAtMillis', sortOrder: SortOrder.Descending };
+    const nameSort = { field: 'name', sortOrder: SortOrder.Ascending };
+
+    test('keeps the last-run sort and status filter when enabled', () => {
+        expect(getLastRunControls(true, lastRunSort, 'FAILURE')).toEqual({
+            sort: lastRunSort,
+            lastRunStatus: 'FAILURE',
+        });
+    });
+
+    test('drops the last-run sort and status filter when disabled', () => {
+        expect(getLastRunControls(false, lastRunSort, 'FAILURE')).toEqual({
+            sort: undefined,
+            lastRunStatus: undefined,
+        });
+    });
+
+    test('keeps other sorts when disabled', () => {
+        expect(getLastRunControls(false, nameSort, undefined)).toEqual({ sort: nameSort, lastRunStatus: undefined });
     });
 });

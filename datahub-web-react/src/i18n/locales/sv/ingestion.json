@@ -123,6 +123,8 @@
     "source.createError": "Det gick inte att skapa ingestion-källan!",
     "source.createErrorInterpolated": "Det gick inte att skapa ingestion-källan!: \n {{error}}",
     "source.createSuccess": "Ingestion-källan skapades!",
+    "source.emptyLastRunFilterSubtitle": "Källor som kördes före en uppgradering kan ta några minuter att visas medan deras senaste körning indexeras.",
+    "source.emptyLastRunFilterTitle": "Inga källor med denna status för senaste körning",
     "source.emptySearchSubtitle": "Prova en annan sökfråga med minst 3 tecken...",
     "source.emptySearchTitle": "Inga sökresultat!",
     "source.emptyTitle": "Inga {{sourceType}} än!",

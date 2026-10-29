@@ -123,6 +123,8 @@
     "source.createError": "Sisäänlukulähteen luominen epäonnistui!",
     "source.createErrorInterpolated": "Sisäänlukulähteen luominen epäonnistui!: \n {{error}}",
     "source.createSuccess": "Sisäänlukulähde luotu onnistuneesti!",
+    "source.emptyLastRunFilterSubtitle": "Ennen päivitystä ajetut lähteet voivat näkyä vasta muutaman minuutin kuluttua, kun niiden viimeisin ajo on indeksoitu.",
+    "source.emptyLastRunFilterTitle": "Ei lähteitä, joiden viimeisimmällä ajolla on tämä tila",
     "source.emptySearchSubtitle": "Kokeile toista hakua, jossa on vähintään 3 merkkiä...",
     "source.emptySearchTitle": "Ei hakutuloksia!",
     "source.emptyTitle": "Ei vielä {{sourceType}}!",

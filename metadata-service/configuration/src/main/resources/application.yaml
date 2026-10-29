@@ -2078,6 +2078,8 @@ featureFlags:
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
   entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
   showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
+  # Sort and filter ingestion sources by their latest run. The fields come from the run event hook, so this follows it unless set.
+  showIngestionSourceLastRunControls: ${SHOW_INGESTION_SOURCE_LAST_RUN_CONTROLS:${ENABLE_INGESTION_SOURCE_RUN_EVENTS_HOOK:true}}
   showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:true} # If turned on, show the redesigned search bar's autocomplete
   showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
   showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms

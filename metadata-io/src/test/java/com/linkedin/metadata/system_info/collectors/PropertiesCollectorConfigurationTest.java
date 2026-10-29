@@ -608,6 +608,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showAutoCompleteResults",
           "featureFlags.showBrowseV2",
           "featureFlags.showHasSiblingsFilter",
+          "featureFlags.showIngestionSourceLastRunControls",
           "featureFlags.showHomePageRedesign",
           "featureFlags.showHomepageUserRole",
           "featureFlags.showIngestionPageRedesign",
