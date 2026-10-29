@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.exception;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.graph.LineageTimeoutException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
@@ -19,11 +21,12 @@ import lombok.extern.slf4j.Slf4j;
 public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionHandler {
 
   private static final String DEFAULT_ERROR_MESSAGE = "An unknown error occurred.";
+  private static final String ERROR_SOURCE_VALIDATION = "VALIDATION";
 
   /**
-   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → {@link
-   * ValidationException} → {@link IllegalArgumentException} → {@link
-   * DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
+   * Priority (first match wins via cause walk): {@link DataHubGraphQLException} → metadata-io's
+   * {@code ValidationException} → {@link ValidationException} → {@link IllegalArgumentException} →
+   * {@link DatabaseTransactionConflictException} → {@link LineageTimeoutException} → {@link
    * IllegalStateException} → {@link ActorAccessException} → {@link RuntimeException} → fallback.
    * Conflict must stay above {@code RuntimeException} because {@code
    * DatabaseTransactionConflictException} extends {@code RetryLimitReached} (a RuntimeException).
@@ -49,15 +52,51 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
           sourceLocation);
     }
 
+    // Before the graphql-layer ValidationException branch: that branch would surface this
+    // exception's logs/REST message when it is a cause.
+    com.linkedin.metadata.entity.validation.ValidationException metadataValidationException =
+        findFirstThrowableCauseOfClass(
+            exception, com.linkedin.metadata.entity.validation.ValidationException.class);
+    if (metadataValidationException != null) {
+      log.error(
+          "Failed to execute: {}",
+          metadataValidationException.getValidationExceptionCollection(),
+          metadataValidationException);
+      // getMessage() may be the collection dump (payload and actor); only validator text goes out.
+      ValidationExceptionCollection collection =
+          metadataValidationException.getValidationExceptionCollection();
+      String userFacingMessage =
+          collection != null
+              ? collection.getCollectiveMessage()
+              : metadataValidationException.getMessage();
+      boolean hasValidatorMessage = userFacingMessage != null && !userFacingMessage.isEmpty();
+      String message = hasValidatorMessage ? userFacingMessage : DEFAULT_ERROR_MESSAGE;
+      // Authorization failures are 403 without the marker, as in the OpenAPI handler.
+      if (collection != null
+          && collection.getSubTypes().contains(ValidationSubType.AUTHORIZATION)) {
+        return completedResult(message, DataHubGraphQLErrorCode.UNAUTHORIZED, path, sourceLocation);
+      }
+      return completedResult(
+          message,
+          DataHubGraphQLErrorCode.BAD_REQUEST,
+          path,
+          sourceLocation,
+          hasValidatorMessage ? ERROR_SOURCE_VALIDATION : null);
+    }
+
     ValidationException validationException =
         findFirstThrowableCauseOfClass(exception, ValidationException.class);
     if (validationException != null) {
       log.error("Failed to execute", validationException);
+      // VALIDATION messages are shown verbatim: only the text the caller wrote, never causes.
+      String message = validationException.getMessage();
+      boolean hasMessage = message != null && !message.isEmpty();
       return completedResult(
-          extractErrorMessage(validationException),
+          hasMessage ? message : DEFAULT_ERROR_MESSAGE,
           DataHubGraphQLErrorCode.BAD_REQUEST,
           path,
-          sourceLocation);
+          sourceLocation,
+          hasMessage ? ERROR_SOURCE_VALIDATION : null);
     }
 
     IllegalArgumentException illException =
@@ -150,7 +189,17 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       DataHubGraphQLErrorCode errorCode,
       ResultPath path,
       SourceLocation sourceLocation) {
-    DataHubGraphQLError error = new DataHubGraphQLError(message, path, sourceLocation, errorCode);
+    return completedResult(message, errorCode, path, sourceLocation, null);
+  }
+
+  private CompletableFuture<DataFetcherExceptionHandlerResult> completedResult(
+      String message,
+      DataHubGraphQLErrorCode errorCode,
+      ResultPath path,
+      SourceLocation sourceLocation,
+      String errorSource) {
+    DataHubGraphQLError error =
+        new DataHubGraphQLError(message, path, sourceLocation, errorCode, errorSource);
     return CompletableFuture.completedFuture(
         DataFetcherExceptionHandlerResult.newResult().error(error).build());
   }

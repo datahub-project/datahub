@@ -91,6 +91,13 @@ export const handleBatchError = (urns, e, defaultMessage) => {
             duration: 3,
         };
     }
+    if (getGraphqlErrorCode(e) === 400) {
+        // Other 400 messages may carry server internals, so only VALIDATION ones are shown verbatim.
+        const firstError = e.graphQLErrors?.[0];
+        if (firstError?.extensions?.errorSource === 'VALIDATION' && firstError?.message) {
+            return { content: firstError.message, duration: 3 };
+        }
+    }
     return defaultMessage;
 };
 
