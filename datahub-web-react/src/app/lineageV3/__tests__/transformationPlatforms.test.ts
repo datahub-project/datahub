@@ -22,7 +22,7 @@ function dataset(platformUrn: string | undefined, typeNames?: string[] | null, w
 }
 
 function flags(overrides: Partial<FeatureFlagsConfig> = {}): FeatureFlagsConfig {
-    return { hideDbtSourceInLineage: false, hideSqlmeshSourceInLineage: false, ...overrides } as FeatureFlagsConfig;
+    return { hideDbtSourceInLineage: false, ...overrides } as FeatureFlagsConfig;
 }
 
 describe('TRANSFORMATION_PLATFORM_URNS', () => {
@@ -78,19 +78,13 @@ describe('isSourceSubtype', () => {
 });
 
 describe('isSourceMergedIntoSibling', () => {
-    it.each([
-        ['dbt', DBT_URN, 'hideDbtSourceInLineage'],
-        ['SQLMesh', SQLMESH_URN, 'hideSqlmeshSourceInLineage'],
-    ] as const)('merges a %s source only when its flag is on', (_, platformUrn, flag) => {
-        const source = dataset(platformUrn, ['Source']);
-        expect(isSourceMergedIntoSibling(source, flags({ [flag]: true }))).toBe(true);
-        expect(isSourceMergedIntoSibling(source, flags({ [flag]: false }))).toBe(false);
+    it('merges a dbt source only when hideDbtSourceInLineage is on', () => {
+        const source = dataset(DBT_URN, ['Source']);
+        expect(isSourceMergedIntoSibling(source, flags({ hideDbtSourceInLineage: true }))).toBe(true);
+        expect(isSourceMergedIntoSibling(source, flags({ hideDbtSourceInLineage: false }))).toBe(false);
     });
 
-    it("does not merge a source when only the other tool's flag is on", () => {
-        expect(
-            isSourceMergedIntoSibling(dataset(DBT_URN, ['Source']), flags({ hideSqlmeshSourceInLineage: true })),
-        ).toBe(false);
+    it('never merges a SQLMesh source, which has no flag', () => {
         expect(
             isSourceMergedIntoSibling(dataset(SQLMESH_URN, ['Source']), flags({ hideDbtSourceInLineage: true })),
         ).toBe(false);
@@ -98,14 +92,11 @@ describe('isSourceMergedIntoSibling', () => {
 
     it('merges when Source is one of several subtypes', () => {
         expect(
-            isSourceMergedIntoSibling(
-                dataset(SQLMESH_URN, ['Table', 'Source']),
-                flags({ hideSqlmeshSourceInLineage: true }),
-            ),
+            isSourceMergedIntoSibling(dataset(DBT_URN, ['Table', 'Source']), flags({ hideDbtSourceInLineage: true })),
         ).toBe(true);
     });
 
-    const allOn = flags({ hideDbtSourceInLineage: true, hideSqlmeshSourceInLineage: true });
+    const allOn = flags({ hideDbtSourceInLineage: true });
 
     it('does not merge a missing dataset', () => {
         expect(isSourceMergedIntoSibling(undefined, allOn)).toBe(false);

@@ -279,7 +279,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                       _featureFlags.isShowManageStructuredProperties())
                   .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
                   .setHideDbtSourceInLineage(_featureFlags.isHideDbtSourceInLineage())
-                  .setHideSqlmeshSourceInLineage(_featureFlags.isHideSqlmeshSourceInLineage())
                   .setSchemaFieldLineageIgnoreStatus(
                       _featureFlags.isSchemaFieldLineageIgnoreStatus())
                   .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
@@ -290,8 +289,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                       _featureFlags.isShowSearchBarAutocompleteRedesign())
                   .setShowManageTags(_featureFlags.isShowManageTags())
                   .setShowIntroducePage(_featureFlags.isShowIntroducePage())
-                  // Deprecated in app.graphql; always true.
                   .setShowIngestionPageRedesign(true)
+                  // Deprecated in app.graphql; always true.
                   .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
                   .setShowLineageFilterNodes(_featureFlags.isShowLineageFilterNodes())
                   .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
@@ -306,8 +305,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                   .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
                   .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
                   .setDocumentExplicitSaveEnabled(_featureFlags.isDocumentExplicitSaveEnabled())
-                  // Deprecated in app.graphql; always true.
                   .setIngestionOnboardingRedesignV1(true)
+                  // Deprecated in app.graphql; always true.
                   .setHideLineageInSearchCards(_featureFlags.isHideLineageInSearchCards())
                   .setDataProductLineageEnabled(_featureFlags.isDataProductLineageEnabled())
                   .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
