@@ -5,6 +5,7 @@ The full-table profile is what latestFullTableProfile reads; column stats for a
 partitioned BigQuery table otherwise exist only on the partition profile.
 """
 
+from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import pytest
@@ -13,6 +14,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryTable,
+    ShardedTableStats,
+)
 from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.profiling.common import ProfilerRequest
 from datahub.ingestion.source.sql.sql_generic import BaseTable
@@ -126,8 +131,10 @@ def test_partition_field_profiles_are_copied_onto_the_full_table_profile() -> No
     partition_profile, full_table_profile = _profiles(workunits)
     assert partition_profile.partitionSpec == _partition()
     assert full_table_profile.partitionSpec == PartitionSpecClass(
-        type=PartitionTypeClass.FULL_TABLE, partition="FULL_TABLE_SNAPSHOT"
+        type=PartitionTypeClass.FULL_TABLE,
+        partition="FULL_TABLE_SNAPSHOT (from partition 20261010)",
     )
+    assert full_table_profile.timestampMillis == partition_profile.timestampMillis
     assert full_table_profile.fieldProfiles == _field_profiles()
     # Table totals from source metadata, not the partition scan's row count.
     assert full_table_profile.rowCount == 50
@@ -135,7 +142,7 @@ def test_partition_field_profiles_are_copied_onto_the_full_table_profile() -> No
     assert full_table_profile.sizeInBytes == 100
     # Both profiles are emitted for the same dataset under different workunit ids.
     assert workunits[0].get_urn() == workunits[1].get_urn()
-    assert workunits[0].id != workunits[1].id
+    assert workunits[1].id == f"{workunits[0].id}-full-table"
     assert report.num_full_table_profiles_copied_from_partition == 1
     assert not report.full_table_profile_copy_skipped
 
@@ -143,6 +150,76 @@ def test_partition_field_profiles_are_copied_onto_the_full_table_profile() -> No
     assert partition_profile.fieldProfiles is not None
     partition_profile.fieldProfiles[0].uniqueCount = 99
     assert full_table_profile.fieldProfiles[0].uniqueCount == 3
+
+
+def test_copy_is_unaffected_by_in_place_edits_to_the_yielded_partition_profile() -> (
+    None
+):
+    profiler = _StubProfiler(
+        DatasetProfileClass(
+            timestampMillis=1_000,
+            partitionSpec=_partition(),
+            fieldProfiles=_field_profiles(),
+        ),
+        copy_fields=True,
+    )
+    request = TableProfilerRequest(
+        pretty_name="test-project.ds.events",
+        batch_kwargs={},
+        table=BaseTable(
+            name="events",
+            comment=None,
+            created=None,
+            last_altered=None,
+            size_in_bytes=None,
+            rows_count=None,
+        ),
+    )
+    profiles: List[DatasetProfileClass] = []
+    for workunit in profiler.generate_profile_workunits([request], max_workers=1):
+        profile = workunit.get_aspect_of_type(DatasetProfileClass)
+        assert profile is not None
+        if not profiles:
+            # Mimics a transformer stripping column stats from the partition profile.
+            profile.fieldProfiles = None
+        profiles.append(profile)
+
+    partition_profile, full_table_profile = profiles
+    assert partition_profile.fieldProfiles is None
+    assert full_table_profile.fieldProfiles == _field_profiles()
+
+
+def test_sharded_table_copy_reports_totals_across_shards() -> None:
+    profiler = _StubProfiler(
+        DatasetProfileClass(
+            timestampMillis=1_000,
+            rowCount=4,
+            partitionSpec=_partition("20261010"),
+            fieldProfiles=_field_profiles(),
+        ),
+        copy_fields=True,
+    )
+    table = BigqueryTable(
+        name="events_20261010",
+        comment=None,
+        rows_count=4,
+        size_in_bytes=10,
+        last_altered=datetime.now(timezone.utc),
+        created=datetime.now(timezone.utc),
+        max_shard_id="20261010",
+        sharded_table_stats=ShardedTableStats(rows_count=40, size_in_bytes=100),
+    )
+
+    workunits = list(profiler.get_workunits("test-project", {"ds": [table]}))
+
+    partition_profile, full_table_profile = _profiles(workunits)
+    assert partition_profile.partitionSpec == _partition("20261010")
+    assert full_table_profile.partitionSpec == PartitionSpecClass(
+        type=PartitionTypeClass.FULL_TABLE,
+        partition="FULL_TABLE_SNAPSHOT (from partition 20261010)",
+    )
+    assert full_table_profile.fieldProfiles == _field_profiles()
+    assert (full_table_profile.rowCount, full_table_profile.sizeInBytes) == (40, 100)
 
 
 def test_each_copy_belongs_to_its_own_table() -> None:

@@ -20,6 +20,9 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    SAMPLED_PARTITION_SUFFIX,
+)
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.schema_classes import (
     DatasetProfileClass,
@@ -36,14 +39,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _FULL_TABLE_SNAPSHOT_PARTITION = "FULL_TABLE_SNAPSHOT"
-# The SQLAlchemy profiler marks a sampled partition by appending this to its id
-# and keeps the PARTITION type, e.g. "20261010 SAMPLE".
-_SAMPLED_PARTITION_SUFFIX = " SAMPLE"
-
-# Timeseries workunit ids are urn + aspect + timestampMillis and do not include
-# the partition. A distinct timestamp keeps the copy's id apart from the
-# partition profile's.
-_FULL_TABLE_PROFILE_TIMESTAMP_OFFSET_MS = 1
 
 _COPY_SKIPPED_NO_FIELD_PROFILES = "partition profile has no column stats"
 _COPY_SKIPPED_SAMPLED_PARTITION = "partition was sampled"
@@ -51,8 +46,8 @@ _COPY_SKIPPED_SAMPLED_PARTITION = "partition was sampled"
 
 def _is_partition_profile(profile: DatasetProfileClass) -> bool:
     # Full-table and query-scoped (sample, limit/offset) profiles use other types.
-    spec = profile.partitionSpec
-    return spec is not None and spec.type == PartitionTypeClass.PARTITION
+    assert profile.partitionSpec is not None
+    return profile.partitionSpec.type == PartitionTypeClass.PARTITION
 
 
 def _partition_copy_skip_reason(profile: DatasetProfileClass) -> Optional[str]:
@@ -61,7 +56,7 @@ def _partition_copy_skip_reason(profile: DatasetProfileClass) -> Optional[str]:
         return _COPY_SKIPPED_NO_FIELD_PROFILES
     assert profile.partitionSpec is not None
     # A full-table label would hide that these stats come from a sample.
-    if profile.partitionSpec.partition.endswith(_SAMPLED_PARTITION_SUFFIX):
+    if profile.partitionSpec.partition.endswith(SAMPLED_PARTITION_SUFFIX):
         return _COPY_SKIPPED_SAMPLED_PARTITION
     return None
 
@@ -74,11 +69,13 @@ def _full_table_profile_from_partition(
     Column stats still describe the profiled partition. rowCount, columnCount,
     and size are already the table totals on the partition profile.
     """
+    assert profile.partitionSpec is not None
     full_table = copy.deepcopy(profile)
-    full_table.timestampMillis += _FULL_TABLE_PROFILE_TIMESTAMP_OFFSET_MS
+    # The UI selects the full-table profile by this prefix, so the suffix keeps
+    # it selected while recording which partition the column stats describe.
     full_table.partitionSpec = PartitionSpecClass(
         type=PartitionTypeClass.FULL_TABLE,
-        partition=_FULL_TABLE_SNAPSHOT_PARTITION,
+        partition=f"{_FULL_TABLE_SNAPSHOT_PARTITION} (from partition {profile.partitionSpec.partition})",
     )
     return full_table
 
@@ -280,19 +277,29 @@ WHERE
             return
 
         for workunit in workunits:
-            yield workunit
             profile = workunit.get_aspect_of_type(DatasetProfileClass)
             if profile is None or not _is_partition_profile(profile):
+                yield workunit
                 continue
             urn = workunit.get_urn()
             skip_reason = _partition_copy_skip_reason(profile)
             if skip_reason is not None:
                 self.report.full_table_profile_copy_skipped[urn] = skip_reason
+                yield workunit
                 continue
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=_full_table_profile_from_partition(profile),
-            ).as_workunit()
+            # Copy before yielding so transformers that edit the partition
+            # profile in place do not change the copy.
+            full_table_profile = _full_table_profile_from_partition(profile)
+            yield workunit
+            # Timeseries workunit ids do not include the partition, so the copy
+            # needs its own id. GMS keys the document on urn, timestamp and
+            # partitionSpec, so both profiles are kept.
+            yield MetadataWorkUnit(
+                id=f"{workunit.id}-full-table",
+                mcp=MetadataChangeProposalWrapper(
+                    entityUrn=urn, aspect=full_table_profile
+                ),
+            )
             self.report.num_full_table_profiles_copied_from_partition += 1
 
     def get_workunits(
