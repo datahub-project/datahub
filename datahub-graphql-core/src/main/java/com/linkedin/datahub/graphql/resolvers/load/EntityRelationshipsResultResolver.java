@@ -291,7 +291,8 @@ public class EntityRelationshipsResultResolver
     } else if (DATAHUB_ROLE_ENTITY_NAME.equals(seedType)
         && direction == RelationshipDirection.INCOMING
         && relationshipTypes.equals(ROLE_MEMBERSHIP_RELATIONSHIP_TYPES)) {
-      return CORP_USER_ENTITY_NAME.equals(neighborType) || CORP_GROUP_ENTITY_NAME.equals(neighborType);
+      return CORP_USER_ENTITY_NAME.equals(neighborType)
+          || CORP_GROUP_ENTITY_NAME.equals(neighborType);
     }
     return true;
   }
@@ -480,8 +481,10 @@ public class EntityRelationshipsResultResolver
         if (needsDedup) {
           relationships = dedupByNeighborUrn(relationships);
         }
-        // Raw edge total when available (keeps hover/search counts cheap); subtract inverted or invalid
-        // orientation edges filtered from the fetched page, and fall back to deduped size if no hit.
+        // Raw edge total when available (keeps hover/search counts cheap); subtract inverted or
+        // invalid
+        // orientation edges filtered from the fetched page, and fall back to deduped size if no
+        // hit.
         total =
             result instanceof MembershipNeighborResult.Hit hit
                 ? Math.max(0, hit.total() - invalidNeighborCount)

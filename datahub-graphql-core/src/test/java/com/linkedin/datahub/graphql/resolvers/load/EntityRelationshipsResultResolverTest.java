@@ -1036,8 +1036,8 @@ public class EntityRelationshipsResultResolverTest {
 
   /**
    * When membership edges are stored in both orientations (issue #20735), an INCOMING query on a
-   * corpGroup may encounter edges where the neighbor URN is the group itself or another group.
-   * The resolver must filter out these invalid orientation edges and return only valid user members.
+   * corpGroup may encounter edges where the neighbor URN is the group itself or another group. The
+   * resolver must filter out these invalid orientation edges and return only valid user members.
    */
   @Test
   public void testCorpGroupIncomingMembersFiltersInvertedOrientationEdges()
