@@ -394,6 +394,7 @@ class S3NotificationClient:
             result_key="Buckets",
             report=self.report,
             api_label="s3:ListAllMyBuckets",
+            optional=True,
             **kwargs,
         ):
             bucket_region = bucket.get("BucketRegion")
