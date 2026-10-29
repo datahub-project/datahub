@@ -1,9 +1,12 @@
 import contextlib
 import contextvars
+import logging
 import signal
 import threading
 import time
 from typing import Iterator, Optional
+
+logger = logging.getLogger(__name__)
 
 # The deadline is an int from time.perf_counter_ns().
 _cooperation_deadline = contextvars.ContextVar[int]("cooperation_deadline")
@@ -11,6 +14,9 @@ _cooperation_deadline = contextvars.ContextVar[int]("cooperation_deadline")
 
 class CooperativeTimeoutError(TimeoutError):
     """An exception raised when a cooperative timeout is exceeded."""
+
+
+_warned_interrupt_unavailable = False
 
 
 def cooperate() -> None:
@@ -79,20 +85,37 @@ def interrupt_on_cooperative_deadline() -> Iterator[None]:
     ``optimizer.optimize`` does not, so a query can sit there past the budget.
     ``SIGALRM`` interrupts that call. It is delivered to the main thread only, and
     it does not exist on Windows, so anywhere else this is a no-op and the
-    cooperative checks remain the only limit.
+    cooperative checks remain the only limit. Sources that parse SQL in worker
+    threads (e.g. Dremio, Mode, Superset) are in that mode; a warning is logged
+    once per process so it shows up in the run logs. The same applies when a
+    SIGALRM handler was installed outside Python, since it could not be restored.
 
     A host may already have an alarm armed, for example Airflow's task
     ``execution_timeout``. That alarm is never delayed: if it is due before the
     cooperative deadline it is left alone and this is a no-op, and otherwise it
     is re-armed on exit with only the time it had left.
     """
+    global _warned_interrupt_unavailable
+
     deadline = _cooperation_deadline.get(None)
+    if deadline is None:
+        yield
+        return
+
     if (
-        deadline is None
-        or threading.current_thread() is not threading.main_thread()
+        threading.current_thread() is not threading.main_thread()
         or not hasattr(signal, "setitimer")
         or not hasattr(signal, "SIGALRM")
+        # A handler installed from C cannot be put back from Python.
+        or signal.getsignal(signal.SIGALRM) is None
     ):
+        if not _warned_interrupt_unavailable:
+            _warned_interrupt_unavailable = True
+            logger.warning(
+                "SQL parsing timeouts cannot interrupt sqlglot's optimizer here "
+                "(worker thread, no SIGALRM, or a non-Python SIGALRM handler); "
+                "a pathological query may run past the configured timeout."
+            )
         yield
         return
 
@@ -116,18 +139,22 @@ def interrupt_on_cooperative_deadline() -> Iterator[None]:
         signal.setitimer(signal.ITIMER_REAL, remaining)
         yield
     finally:
-        # Ignore first so a signal already queued is discarded instead of
-        # running our handler during cleanup and skipping the restore.
-        signal.signal(signal.SIGALRM, signal.SIG_IGN)
-        signal.setitimer(signal.ITIMER_REAL, 0)
-        signal.signal(signal.SIGALRM, previous)
-        if previous_delay > 0:
-            # Subtract the time spent here, or every call would push the host's
-            # alarm back and it might never fire. setitimer(0) would disarm it,
-            # so a delay that is already due is armed as soon as possible.
-            elapsed = time.perf_counter() - armed_at
-            signal.setitimer(
-                signal.ITIMER_REAL,
-                max(previous_delay - elapsed, 1e-6),
-                previous_interval,
-            )
+        try:
+            # Ignore first so a signal already queued is discarded instead of
+            # running our handler during cleanup.
+            signal.signal(signal.SIGALRM, signal.SIG_IGN)
+            signal.setitimer(signal.ITIMER_REAL, 0)
+        finally:
+            # The alarm can still trip just before SIG_IGN is installed; the
+            # restore must run even then or our handler stays installed.
+            signal.signal(signal.SIGALRM, previous)
+            if previous_delay > 0:
+                # Subtract the time spent here, or every call would push the host's
+                # alarm back and it might never fire. setitimer(0) would disarm it,
+                # so a delay that is already due is armed as soon as possible.
+                elapsed = time.perf_counter() - armed_at
+                signal.setitimer(
+                    signal.ITIMER_REAL,
+                    max(previous_delay - elapsed, 1e-6),
+                    previous_interval,
+                )

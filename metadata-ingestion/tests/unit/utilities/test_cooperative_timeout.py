@@ -1,9 +1,12 @@
+import logging
 import signal
 import threading
 import time
+from typing import List
 
 import pytest
 
+from datahub.utilities import cooperative_timeout as cooperative_timeout_module
 from datahub.utilities.cooperative_timeout import (
     CooperativeTimeoutError,
     cooperate,
@@ -124,6 +127,51 @@ def test_interrupt_without_deadline_does_not_fire():
     with interrupt_on_cooperative_deadline():
         time.sleep(0.05)
     assert time.perf_counter() - started < 1
+
+
+def test_interrupt_unavailable_in_worker_thread_warns_once(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        cooperative_timeout_module, "_warned_interrupt_unavailable", False
+    )
+    errors: List[BaseException] = []
+
+    def _run() -> None:
+        try:
+            for _ in range(2):
+                with cooperative_timeout(5), interrupt_on_cooperative_deadline():
+                    pass
+        except BaseException as e:
+            errors.append(e)
+
+    with caplog.at_level(logging.WARNING, logger=cooperative_timeout_module.__name__):
+        worker = threading.Thread(target=_run)
+        worker.start()
+        worker.join()
+
+    assert not errors
+    assert len(caplog.records) == 1
+
+
+def test_interrupt_leaves_a_non_python_handler_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if (
+        not hasattr(signal, "setitimer")
+        or threading.current_thread() is not threading.main_thread()
+    ):
+        pytest.skip("ITIMER_REAL is only available on the main thread")
+
+    # getsignal returns None for a handler installed from C, which
+    # signal.signal cannot restore.
+    monkeypatch.setattr(signal, "getsignal", lambda signum: None)
+    previous_handler = signal.signal(signal.SIGALRM, signal.SIG_DFL)
+    try:
+        with cooperative_timeout(5), interrupt_on_cooperative_deadline():
+            assert signal.getitimer(signal.ITIMER_REAL)[0] == 0
+    finally:
+        signal.signal(signal.SIGALRM, previous_handler)
 
 
 def test_cooperative_timeout_with_timeout():
