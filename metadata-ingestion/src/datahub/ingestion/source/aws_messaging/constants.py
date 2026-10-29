@@ -48,10 +48,6 @@ class SubscriptionProtocol(StrEnum):
 
 WEB_PROTOCOLS = frozenset({SubscriptionProtocol.HTTP, SubscriptionProtocol.HTTPS})
 
-# ListSubscriptions reports an unconfirmed subscription with this literal in
-# place of a subscription ARN.
-PENDING_CONFIRMATION = "PendingConfirmation"
-
 ALL_ATTRIBUTES = "All"
 TRUE_STRING = "true"
 

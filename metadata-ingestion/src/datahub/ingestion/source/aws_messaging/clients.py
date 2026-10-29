@@ -20,6 +20,7 @@ def paginate(
     result_key: str,
     report: AwsMessagingReportBase,
     api_label: str,
+    optional: bool = False,
     **kwargs: Any,
 ) -> Iterator[Any]:
     # boto3 paginators raise from inside iteration, so the page count at the time
@@ -31,7 +32,7 @@ def paginate(
             yield from page.get(result_key) or []
     except (ClientError, BotoCoreError) as e:
         report.report_listing_failure(
-            pages_fetched=pages_fetched, exc=e, api_label=api_label
+            pages_fetched=pages_fetched, exc=e, api_label=api_label, optional=optional
         )
 
 
@@ -63,7 +64,7 @@ class SqsClient:
         self._client = client
         self.report = report
 
-    def list_queue_urls(self) -> Iterator[str]:
+    def list_queue_urls(self, optional: bool = False) -> Iterator[str]:
         # ListQueues only returns a NextToken when MaxResults is set.
         yield from paginate(
             client=self._client,
@@ -71,6 +72,7 @@ class SqsClient:
             result_key="QueueUrls",
             report=self.report,
             api_label="sqs:ListQueues",
+            optional=optional,
             PaginationConfig={"PageSize": 1000},
         )
 
@@ -181,6 +183,8 @@ class SnsClient:
             result_key="Subscriptions",
             report=self.report,
             api_label="sns:ListSubscriptionsByTopic",
+            # Subscriptions only add properties and lineage, not datasets.
+            optional=True,
             TopicArn=topic_arn,
         ):
             yield SnsSubscription(

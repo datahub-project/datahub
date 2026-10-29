@@ -7,6 +7,7 @@ import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.aws_messaging import schema_registry
 from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
@@ -256,3 +257,18 @@ def test_naming_convention_miss_is_not_a_warning(aws: None) -> None:
     report = source.get_report()
     assert list(report.schema_naming_convention_misses) == ["orders"]
     assert not report.schema_resolution_failures
+
+
+def test_schema_that_parses_to_no_fields_is_not_attached(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # protobuf_util returns [] when compilation fails instead of raising.
+    monkeypatch.setattr(schema_registry, "parse_glue_schema_fields", lambda *args: [])
+    source = _queue_with_registry(queue_schema_map={"orders": "order-v1"})
+    register_schema("order-v1")
+    assert schemas(list(source.get_workunits())) == {}
+    report = source.get_report()
+    assert [entry.split(":")[0] for entry in report.schema_resolution_failures] == [
+        "orders"
+    ]
+    assert report.warnings
