@@ -750,7 +750,7 @@ GMS enforces a caller guard on `SecretService` decryption. The default is **secu
 
 `ENFORCE` prevents humans and user PATs from fetching secret values via GraphQL, but **does not** block an **embedded executor** from resolving UI secrets. To avoid UI secrets entirely, do not create them and use local backends above.
 
-See [Environment Variables](../../deploy/environment-vars.md) and [Updating DataHub](../../how/updating-datahub.md) for migration details.
+See [Environment Variables](../../deploy/environment-vars.md) and [Breaking Changes](../../how/breaking-changes.md) for migration details.
 
 ## Advanced: Performance Settings and Task Weight-Based Queuing
 

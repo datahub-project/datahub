@@ -31,6 +31,8 @@ final class PluginTestConfiguration {
     templates.setMaxRoutes(32);
     templates.setMaxRoutePatternLength(256);
     templates.setMaxRouteHops(5);
+    templates.setMaxRankingSignals(32);
+    templates.setMaxRankingWindow(1000);
     SearchV3Configuration v3 = new SearchV3Configuration().setTemplates(templates);
     Mockito.when(search.getV3()).thenReturn(v3);
     Mockito.when(elastic.getSearch()).thenReturn(search);

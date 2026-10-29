@@ -83,7 +83,7 @@ public class ResyncDataProductAssetsStepTest {
   @Test
   public void testIdAndUrnLike() {
     ResyncDataProductAssetsStep step = newStep(false);
-    assertEquals(step.id(), "data-product-assets-from-properties-v1");
+    assertEquals(step.id(), "data-product-assets-from-properties-v2");
     assertEquals(step.getUrnLike(), "urn:li:dataProduct:%");
   }
 

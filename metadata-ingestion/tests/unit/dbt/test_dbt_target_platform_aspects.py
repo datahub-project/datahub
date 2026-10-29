@@ -183,7 +183,7 @@ def create_semantic_model_node(name: str = "my_metrics") -> DBTNode:
 def target_platform_workunit_aspects(source: DBTCoreSource, node: DBTNode) -> List:
     return [
         wu.metadata.aspect
-        for wu in source.create_target_platform_mces([node])
+        for wu in source.create_target_platform_mcps([node])
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         and wu.metadata.aspect is not None
     ]
@@ -192,7 +192,7 @@ def target_platform_workunit_aspects(source: DBTCoreSource, node: DBTNode) -> Li
 def aspects_by_urn(source: DBTCoreSource, nodes: List[DBTNode]) -> Dict[str, List]:
     """Emitted aspects grouped by entity urn, for runs spanning several nodes."""
     grouped: Dict[str, List] = {}
-    for wu in source.create_target_platform_mces(nodes):
+    for wu in source.create_target_platform_mcps(nodes):
         mcp = wu.metadata
         if not isinstance(mcp, MetadataChangeProposalWrapper) or mcp.aspect is None:
             continue
@@ -208,7 +208,7 @@ def urn_for(node: DBTNode) -> str:
 def dataset_properties_patch_ops(source: DBTCoreSource, node: DBTNode) -> List[Dict]:
     """The raw JSON patch ops proposed against datasetProperties."""
     ops: List[Dict] = []
-    for wu in source.create_target_platform_mces([node]):
+    for wu in source.create_target_platform_mcps([node]):
         mcp = wu.metadata
         if not isinstance(mcp, MetadataChangeProposalClass):
             continue
@@ -426,7 +426,7 @@ def test_target_platform_aspects_are_prefetched_in_one_batch() -> None:
         }
     )
     source = create_dbt_source(graph=graph)
-    list(source.create_target_platform_mces([node, other_node]))
+    list(source.create_target_platform_mcps([node, other_node]))
 
     # Both datasets' own browsePathsV2/container/datasetProperties come from
     # one batched call...
@@ -622,7 +622,7 @@ def test_inherited_stub_still_gets_a_display_name() -> None:
         graph=make_graph(containers={urn_for(ingested): SCHEMA_CONTAINER_URN}),
     )
     ops: List[Dict] = []
-    for wu in source.create_target_platform_mces([ingested, stub]):
+    for wu in source.create_target_platform_mcps([ingested, stub]):
         mcp = wu.metadata
         if not isinstance(mcp, MetadataChangeProposalClass):
             continue
@@ -762,7 +762,7 @@ def test_placed_stub_can_still_gain_a_display_name_later() -> None:
         ),
     )
     ops: List[Dict] = []
-    for wu in source.create_target_platform_mces([ingested, stub]):
+    for wu in source.create_target_platform_mcps([ingested, stub]):
         mcp = wu.metadata
         if not isinstance(mcp, MetadataChangeProposalClass):
             continue
@@ -846,7 +846,7 @@ def test_semantic_model_emits_no_target_platform_entity() -> None:
     source = create_dbt_source()
 
     assert (
-        list(source.create_target_platform_mces([create_semantic_model_node()])) == []
+        list(source.create_target_platform_mcps([create_semantic_model_node()])) == []
     )
 
 

@@ -44,12 +44,14 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.opensearch.common.settings.Settings;
 import org.testng.annotations.BeforeMethod;
@@ -165,8 +167,9 @@ public class MultiEntityMappingsBuilderTest {
   @Test
   public void testGetIndexMappingsRejectsContributorFieldThatShadowsProjectedRootField()
       throws IOException {
-    V3MappingContributor contributor =
-        () -> Collections.singletonMap("testField", FieldTypeMapper.getMappingsForKeyword());
+    Map<String, Object> different = new HashMap<>(FieldTypeMapper.getMappingsForKeyword());
+    different.put("eager_global_ordinals", true);
+    V3MappingContributor contributor = () -> Collections.singletonMap("testField", different);
     mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, null, 512, List.of(contributor));
 
     expectThrows(
@@ -187,13 +190,32 @@ public class MultiEntityMappingsBuilderTest {
             .getIndexMappings(registryContext);
 
     assertFalse(mappings.isEmpty());
+    List<String> indexCounts = new ArrayList<>();
+    List<String> overLimit = new ArrayList<>();
     for (IndexMapping mapping : mappings) {
       int fields = countMappedFields(mapping.getMappings());
-      assertTrue(fields < 5000, mapping.getIndexName() + " maps " + fields + " fields");
+      String count = mapping.getIndexName() + " maps " + fields + " fields";
+      indexCounts.add(count);
+      if (fields >= 5000) {
+        overLimit.add(count);
+      }
       // Search tiers are gone: no _search.tier_N field, template or copy_to target
       assertFalse(
           mapping.getMappings().toString().contains("tier_"),
           mapping.getIndexName() + " still maps a search tier");
+      assertNoKeywordMultiField(mapping.getMappings(), mapping.getIndexName());
+    }
+    // Every index currently receives this same registry-wide mapping.
+    String report =
+        String.join("\n", indexCounts)
+            + "\n\n"
+            + registryFieldReport(
+                registryContext.getEntityRegistry(), mappings.iterator().next().getMappings());
+    java.nio.file.Path reportPath = java.nio.file.Path.of("build/v3-field-limit-report.txt");
+    java.nio.file.Files.createDirectories(reportPath.getParent());
+    java.nio.file.Files.writeString(reportPath, report);
+    if (!overLimit.isEmpty()) {
+      fail(report);
     }
   }
 
@@ -282,7 +304,15 @@ public class MultiEntityMappingsBuilderTest {
           assertTrue(aspectFields.containsKey(fieldName), where + fieldName);
           annotation
               .getHasValuesFieldName()
-              .ifPresent(name -> assertTrue(aspectFields.containsKey(name), where + name));
+              .ifPresent(
+                  name -> {
+                    if (annotation.resolvedForV3().indexedFieldName().isPresent()) {
+                      assertTrue(aspectFields.containsKey(name), where + name);
+                    } else {
+                      assertFalse(aspectFields.containsKey(name), where + name);
+                      assertFalse(root.containsKey(name), entitySpec.getName() + " root " + name);
+                    }
+                  });
           annotation
               .getNumValuesFieldName()
               .ifPresent(name -> assertTrue(aspectFields.containsKey(name), where + name));
@@ -299,6 +329,13 @@ public class MultiEntityMappingsBuilderTest {
                           assertTrue(
                               root.containsKey(label),
                               entitySpec.getName() + " " + fieldName + " -> " + label));
+            } else if (V3SearchFields.dedicatedParsedNameRoot(fieldName, searchable)) {
+              assertFalse(
+                  root.containsKey(fieldName),
+                  entitySpec.getName() + " omits the dedicated parsed name " + fieldName);
+              assertTrue(
+                  root.containsKey(fieldName + "_urn"),
+                  entitySpec.getName() + " keeps the full URN " + fieldName);
             } else {
               assertTrue(root.containsKey(fieldName), entitySpec.getName() + " root " + fieldName);
             }
@@ -401,6 +438,15 @@ public class MultiEntityMappingsBuilderTest {
               && annotation.isQueryByDefault()
               && V3SearchFields.isStringFieldType(annotation.getFieldType())) {
             String fieldName = annotation.getFieldName();
+            if (V3SearchFields.dedicatedParsedNameRoot(fieldName, searchable)) {
+              assertFalse(
+                  properties.containsKey(fieldName),
+                  entitySpec.getName() + " omits the dedicated parsed name " + fieldName);
+              assertNotNull(
+                  properties.get(V3SearchFields.fullUrnField(fieldName)),
+                  entitySpec.getName() + " keeps the full URN " + fieldName);
+              continue;
+            }
             if (V3SearchFields.omitsSourceRoot(fieldName, searchable)) {
               assertFalse(
                   properties.containsKey(fieldName),
@@ -598,9 +644,6 @@ public class MultiEntityMappingsBuilderTest {
             "hasDomain",
             "hasTags",
             "hasGlossaryTerms",
-            "hasActiveIncidents",
-            "hasRowCount",
-            "hasColumnCount",
             "deprecated")) {
       assertEquals(
           ((Map<String, Object>) datasetProperties.get(field)).get("type"), "boolean", field);
@@ -663,9 +706,12 @@ public class MultiEntityMappingsBuilderTest {
         assertEquals(properties, sharedProperties);
       }
     }
-    assertEquals(
-        ((Map<String, Object>) datasetProperties.get("name")).get("normalizer"),
-        "keyword_normalizer");
+    assertFalse(
+        ((Map<String, Object>) datasetProperties.get("name")).containsKey("normalizer"),
+        datasetProperties.get("name").toString());
+    assertFalse(
+        ((Map<?, ?>) ((Map<String, Object>) datasetProperties.get("name")).get("fields"))
+            .containsKey("keyword"));
     Map<String, Object> businessAttributeRef =
         (Map<String, Object>)
             propertiesByIndex.get("schemafieldindex_v3").get("businessAttributeRef");
@@ -738,7 +784,7 @@ public class MultiEntityMappingsBuilderTest {
     assertFalse(aspectName.containsKey("copy_to"), aspectName.toString());
     assertFalse(aspectName.containsKey("fields"), aspectName.toString());
     Map<String, Object> rootName = (Map<String, Object>) datasetProperties.get("name");
-    assertEquals(rootName.get("normalizer"), "keyword_normalizer");
+    assertFalse(rootName.containsKey("normalizer"), rootName.toString());
     assertTrue(hasTextSubfield(rootName), rootName.toString());
     Map<String, Object> aspectPlatform =
         getAspectFieldMapping(datasetProperties, "datasetKey", "platform");
@@ -755,6 +801,15 @@ public class MultiEntityMappingsBuilderTest {
     assertNotEquals(aspectPlatformName.get("index"), false);
     assertFalse(hasTextSubfield(aspectPlatformName), aspectPlatformName.toString());
     assertFalse(aspectPlatformName.containsKey("ignore_above"), aspectPlatformName.toString());
+    assertFalse(datasetProperties.containsKey("verifiedForms"), datasetProperties.toString());
+    assertEquals(
+        ((Map<String, Object>) datasetProperties.get("verifiedForms_urn")).get("type"), "keyword");
+    assertNull(getAspectFieldMapping(datasetProperties, "forms", "verifiedForms__urn_name"));
+    assertNull(getAspectFieldMapping(datasetProperties, "datasetProfile", "hasSizeInBytes"));
+    assertFalse(datasetProperties.containsKey("hasSizeInBytes"));
+    assertFalse(datasetProperties.containsKey("hasRowCount"));
+    assertFalse(datasetProperties.containsKey("hasColumnCount"));
+    assertFalse(datasetProperties.containsKey("hasActiveIncidents"));
     Map<String, Object> aspectTagName =
         getAspectFieldMapping(datasetProperties, "globalTags", "tags__urn_name");
     assertEquals(aspectTagName.get("copy_to"), List.of("tags"));
@@ -781,10 +836,8 @@ public class MultiEntityMappingsBuilderTest {
                 .get("schemaFieldKey");
     Map<String, Object> schemaFieldKeyFields =
         (Map<String, Object>) schemaFieldKey.get("properties");
-    Map<String, Object> parentName =
-        (Map<String, Object>) schemaFieldKeyFields.get("parent__urn_name");
-    assertEquals(parentName.get("normalizer"), "keyword_normalizer");
-    assertEquals(parentName.get("copy_to"), List.of("parent"), parentName.toString());
+    assertFalse(
+        schemaFieldKeyFields.containsKey("parent__urn_name"), schemaFieldKeyFields.toString());
     assertFalse(schemaFieldKeyFields.containsKey("urnName"), schemaFieldKeyFields.toString());
     Map<String, Object> schemaFieldParent =
         getAspectFieldMapping(
@@ -795,10 +848,11 @@ public class MultiEntityMappingsBuilderTest {
 
   /**
    * Deliberate V3 change: full-text search reads the shared root fields, so a string root field V2
-   * analyzes is a normalized keyword on V3, whose .keyword subfield keeps the stored casing for
-   * filters, facets and sorts, and no root field outside browse path v2 is analyzed. Browse path v1
-   * is not indexed. Root fields V2 does not analyze are mapped as on V2, apart from the fields
-   * listed with their reason.
+   * analyzes is a raw keyword on V3. Filters, facets and sorts read that root, and no root field
+   * outside browse path v2 is analyzed. Browse path v1 is not indexed. A dedicated parsed name is
+   * not a root; the complete URN stays on {@code _urn}. A V2 keyword that carried {@code .keyword}
+   * is the same raw root. Root fields V2 does not analyze are mapped as on V2, apart from the
+   * fields listed with their reason.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -885,11 +939,24 @@ public class MultiEntityMappingsBuilderTest {
                   return;
                 }
                 // A field Search V3 turns off, such as a stamp replaced by systemMetadata, has no
-                // root field.
+                // root field. A dedicated parsed name is the same: exact match stays on _urn.
+                boolean dedicatedParsedName =
+                    V3SearchFields.dedicatedParsedNameRoot(field, indexGroup);
                 if (v3Field == null
                     && (!v3SearchableFieldNames(registryContext, v2Mapping.getIndexName())
                             .contains(field)
-                        || V3SearchFields.omitsSourceRoot(field, indexGroup))) {
+                        || V3SearchFields.omitsSourceRoot(field, indexGroup)
+                        || dedicatedParsedName)) {
+                  if (dedicatedParsedName
+                      && !expectedDifferences.containsKey(field)
+                      && !V3SearchFields.omitsSourceRoot(field, indexGroup)
+                      && !isFullUrnSibling(v3Properties.get(V3SearchFields.fullUrnField(field)))) {
+                    differences.add(
+                        v3Index
+                            + "."
+                            + field
+                            + " omits the dedicated parsed name but has no full URN sibling");
+                  }
                   return;
                 }
                 if (isSharedSearchField(v3Field)) {
@@ -899,12 +966,14 @@ public class MultiEntityMappingsBuilderTest {
                 boolean expected =
                     expectedDifferences.containsKey(field)
                         || (isAnalyzedStringRoot(v2Field)
-                            ? isKeywordStringRoot(v3Field)
+                            ? isRawKeywordRoot(v3Field)
                                 || isExactUrnRoot(v3Field)
                                 || isUnindexedStringRoot(v3Field)
                                 || isParsedUrnKeyword(v3Field)
                             : sorted(withoutIgnoreAbove(v2Field))
-                                .equals(sorted(withoutIgnoreAbove(v3Field))));
+                                    .equals(sorted(withoutIgnoreAbove(v3Field)))
+                                || (isV2KeywordWithKeywordSubfield(v2Field)
+                                    && isRawKeywordRoot(v3Field)));
                 if (!expected) {
                   differences.add(v3Index + "." + field + ": V2 " + v2Field + ", V3 " + v3Field);
                 }
@@ -963,18 +1032,42 @@ public class MultiEntityMappingsBuilderTest {
             || subfields.containsKey("ngram"));
   }
 
-  /** A normalized keyword whose only subfield is the .keyword that keeps the stored casing. */
-  @SuppressWarnings("unchecked")
-  private static boolean isKeywordStringRoot(Object v3Field) {
-    if (!(v3Field instanceof Map)) {
+  /** A raw keyword root: stored casing, no normalizer, no {@code .keyword} multi-field. */
+  private static boolean isRawKeywordRoot(Object v3Field) {
+    if (!(v3Field instanceof Map<?, ?> mapping) || !"keyword".equals(mapping.get("type"))) {
       return false;
     }
-    Map<String, Object> mapping = (Map<String, Object>) v3Field;
-    return "keyword".equals(mapping.get("type"))
-        && "keyword_normalizer".equals(mapping.get("normalizer"))
+    if (mapping.containsKey("normalizer") || mapping.containsKey("analyzer")) {
+      return false;
+    }
+    if (!(mapping.get("fields") instanceof Map<?, ?> fields)) {
+      return true;
+    }
+    return fields.isEmpty();
+  }
+
+  /** A V2 keyword whose exact value lived on {@code .keyword}. */
+  private static boolean isV2KeywordWithKeywordSubfield(Object v2Field) {
+    return v2Field instanceof Map<?, ?> mapping
+        && "keyword".equals(mapping.get("type"))
         && mapping.get("fields") instanceof Map<?, ?> fields
-        && fields.keySet().equals(Set.of("keyword"))
-        && "keyword".equals(((Map<String, Object>) fields.get("keyword")).get("type"));
+        && fields.containsKey("keyword");
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void assertNoKeywordMultiField(Object node, String path) {
+    if (node instanceof Map<?, ?> map) {
+      Object fields = map.get("fields");
+      if (fields instanceof Map<?, ?> subfields && subfields.containsKey("keyword")) {
+        fail(path + " still maps fields.keyword");
+      }
+      map.forEach((key, value) -> assertNoKeywordMultiField(value, path + "." + key));
+    } else if (node instanceof Iterable<?> children) {
+      int index = 0;
+      for (Object child : children) {
+        assertNoKeywordMultiField(child, path + "[" + index++ + "]");
+      }
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -1010,6 +1103,14 @@ public class MultiEntityMappingsBuilderTest {
         && !mapping.containsKey("fields")
         && !mapping.containsKey("normalizer")
         && !mapping.containsKey("analyzer");
+  }
+
+  /** Complete URN sibling of a dedicated parsed name: keyword plus a lowercase keyword. */
+  private static boolean isFullUrnSibling(Object v3Field) {
+    return v3Field instanceof Map<?, ?> mapping
+        && "keyword".equals(mapping.get("type"))
+        && mapping.get("fields") instanceof Map<?, ?> fields
+        && fields.containsKey("lowercase");
   }
 
   /** Browse paths are text with a token count, which legacy browse reads for path depth. */
@@ -1484,8 +1585,8 @@ public class MultiEntityMappingsBuilderTest {
 
   /**
    * Deliberate V3 change: a root field that is a keyword for one entity and a word-gram name for
-   * another is a normalized keyword like every string root, with no word-gram or ngram subfields;
-   * the name is searched in name, which its label still copies it into.
+   * another is a raw keyword like every string root, with no word-gram or ngram subfields; the name
+   * is searched in name, which its label still copies it into.
    */
   @Test
   @SuppressWarnings("unchecked")
@@ -1525,8 +1626,9 @@ public class MultiEntityMappingsBuilderTest {
     Map<String, Object> aspectTitle = getAspectFieldMapping(properties, "chartInfo", "title");
 
     assertEquals(rootTitle.get("type"), "keyword");
-    assertEquals(rootTitle.get("normalizer"), "keyword_normalizer");
-    assertEquals(((Map<String, Object>) rootTitle.get("fields")).keySet(), Set.of("keyword"));
+    assertFalse(rootTitle.containsKey("normalizer"), rootTitle.toString());
+    assertFalse(rootTitle.containsKey("fields"), rootTitle.toString());
+    assertNotNull(rootTitle.get("ignore_above"));
     // A search label leaves the aspect copy stored and unindexed. Full text reads the label.
     assertEquals(aspectTitle.get("type"), "keyword");
     assertEquals(aspectTitle.get("index"), false);
@@ -1627,12 +1729,12 @@ public class MultiEntityMappingsBuilderTest {
     Map<String, Object> optedInFields =
         (Map<String, Object>) ((Map<String, Object>) rootProperties.get("optedIn")).get("fields");
     assertTrue(
-        optedInFields.keySet().containsAll(Set.of("keyword", "text", "stemmed")),
-        optedInFields.toString());
-    Map<String, Object> plainFields =
-        (Map<String, Object>)
-            ((Map<String, Object>) rootProperties.get("plainLabel")).get("fields");
-    assertEquals(plainFields.keySet(), Set.of("keyword"), plainFields.toString());
+        optedInFields.keySet().containsAll(Set.of("text", "stemmed")), optedInFields.toString());
+    assertFalse(optedInFields.containsKey("keyword"), optedInFields.toString());
+    Map<String, Object> plainLabel = (Map<String, Object>) rootProperties.get("plainLabel");
+    assertEquals(plainLabel.get("type"), "keyword");
+    assertFalse(plainLabel.containsKey("normalizer"), plainLabel.toString());
+    assertFalse(plainLabel.containsKey("fields"), plainLabel.toString());
   }
 
   @Test
@@ -1689,6 +1791,10 @@ public class MultiEntityMappingsBuilderTest {
     EntitySpec entitySpec = createMockEntitySpec("entity1", "description", FieldType.TEXT);
     SearchableFieldSpec fieldSpec =
         entitySpec.getAspectSpecs().get(0).getSearchableFieldSpecs().get(0);
+    when(fieldSpec.getSearchableAnnotation().getSearchLabel())
+        .thenReturn(Optional.of("description"));
+    when(fieldSpec.getSearchableAnnotation().indexedFieldName())
+        .thenReturn(Optional.of("description"));
     when(fieldSpec.getSearchableAnnotation().getHasValuesFieldName())
         .thenReturn(Optional.of("hasDescription"));
     when(fieldSpec.getSearchableAnnotation().indexedHasValuesFieldName())
@@ -1765,6 +1871,7 @@ public class MultiEntityMappingsBuilderTest {
     Map<String, Object> rootProperties = null;
     Map<String, Object> dataProductName = null;
     Map<String, Object> dataProductBoolean = null;
+    Map<String, Object> dataProductProperties = null;
     for (IndexMapping mapping :
         new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
             .getIndexMappings(registryContext)) {
@@ -1791,6 +1898,7 @@ public class MultiEntityMappingsBuilderTest {
         Map<String, Object> fields = (Map<String, Object>) dataProduct.get("properties");
         dataProductName = (Map<String, Object>) fields.get("parentDataProduct__urn_name");
         dataProductBoolean = (Map<String, Object>) fields.get("hasParentDataProduct");
+        dataProductProperties = properties;
       }
     }
 
@@ -1812,18 +1920,22 @@ public class MultiEntityMappingsBuilderTest {
     assertTrue(resolver.falseIsMissing("hasParentNode"));
     assertTrue(resolver.contains("hasParentDomain"));
     assertNotNull(dataProductName);
+    assertEquals(dataProductName.get("copy_to"), List.of("other"), dataProductName.toString());
+    assertNotNull(dataProductProperties);
+    assertFalse(
+        dataProductProperties.containsKey("parentDataProduct"), dataProductProperties.toString());
     assertEquals(
-        dataProductName.get("copy_to"),
-        List.of("parentDataProduct", "other"),
-        dataProductName.toString());
-    assertNotNull(dataProductBoolean);
-    assertEquals(dataProductBoolean.get("type"), "boolean");
-    assertFalse(dataProductBoolean.containsKey("copy_to"), dataProductBoolean.toString());
+        ((Map<String, Object>) dataProductProperties.get("parentDataProduct_urn")).get("type"),
+        "keyword");
+    assertNull(dataProductBoolean);
+    assertFalse(dataProductProperties.containsKey("hasParentDataProduct"));
     assertEquals(
         resolver.exactPath("parentDataProduct", SearchFieldResolver.Intent.EXACT),
-        "parentDataProduct");
+        "parentDataProduct_urn");
+    assertEquals(resolver.hasValuesFieldName("parentDataProduct"), Optional.empty());
     assertEquals(
-        resolver.hasValuesFieldName("parentDataProduct"), Optional.of("hasParentDataProduct"));
+        resolver.unlabeledHasValuesSource("hasParentDataProduct"),
+        Optional.of("parentDataProduct"));
   }
 
   @Test
@@ -2223,6 +2335,180 @@ public class MultiEntityMappingsBuilderTest {
     return !"alias".equals(node.get("type"));
   }
 
+  /**
+   * Fields in the current registry-wide mapping. An aspect declared by one entity is that entity's
+   * cost. An aspect declared by several entities is listed once with those entities. {@code index:
+   * false} copies still count toward the field cap.
+   */
+  private static String registryFieldReport(EntityRegistry registry, Map<String, Object> mappings) {
+    List<MappedField> fields = mappedFields(mappings);
+    Map<String, List<String>> entitiesByAspect = entitiesBySearchableAspect(registry);
+    Map<String, List<MappedField>> uniqueByEntity = new TreeMap<>();
+    Map<String, List<MappedField>> sharedByAspect = new TreeMap<>();
+    List<MappedField> rootFields = new ArrayList<>();
+    List<MappedField> unattributed = new ArrayList<>();
+
+    for (MappedField field : fields) {
+      String aspect = aspectName(field.path);
+      if (aspect == null) {
+        rootFields.add(field);
+        continue;
+      }
+      List<String> entities = entitiesByAspect.get(aspect);
+      if (entities == null || entities.isEmpty()) {
+        unattributed.add(field);
+      } else if (entities.size() == 1) {
+        uniqueByEntity.computeIfAbsent(entities.get(0), name -> new ArrayList<>()).add(field);
+      } else {
+        sharedByAspect.computeIfAbsent(aspect, name -> new ArrayList<>()).add(field);
+      }
+    }
+
+    StringBuilder report = new StringBuilder();
+    report
+        .append("registry-wide mapping has ")
+        .append(fields.size())
+        .append(" fields (limit 5000). Unindexed copies still count.\n");
+    appendEntityFields(report, uniqueByEntity);
+    appendSharedAspects(report, sharedByAspect, entitiesByAspect);
+    appendEntitiesWithoutUniqueFields(report, entitiesByAspect, uniqueByEntity);
+    rootFields.sort(Comparator.comparing(field -> field.path));
+    appendFieldList(report, "root and system fields", rootFields);
+    appendFieldList(report, "aspect fields with no searchable entity", unattributed);
+    return report.toString();
+  }
+
+  private static void appendEntityFields(
+      StringBuilder report, Map<String, List<MappedField>> uniqueByEntity) {
+    report.append("\nentities by fields only they declare\n");
+    uniqueByEntity.entrySet().stream()
+        .sorted(
+            Comparator.<Map.Entry<String, List<MappedField>>>comparingInt(
+                    entry -> entry.getValue().size())
+                .reversed())
+        .forEach(entry -> appendFieldList(report, entry.getKey(), entry.getValue()));
+  }
+
+  private static void appendSharedAspects(
+      StringBuilder report,
+      Map<String, List<MappedField>> sharedByAspect,
+      Map<String, List<String>> entitiesByAspect) {
+    report.append("\nshared aspects\n");
+    sharedByAspect.entrySet().stream()
+        .sorted(
+            Comparator.<Map.Entry<String, List<MappedField>>>comparingInt(
+                    entry -> entry.getValue().size())
+                .reversed())
+        .forEach(
+            entry -> {
+              String heading =
+                  entry.getKey()
+                      + " ["
+                      + String.join(", ", entitiesByAspect.get(entry.getKey()))
+                      + "]";
+              appendFieldList(report, heading, entry.getValue());
+            });
+  }
+
+  private static void appendEntitiesWithoutUniqueFields(
+      StringBuilder report,
+      Map<String, List<String>> entitiesByAspect,
+      Map<String, List<MappedField>> uniqueByEntity) {
+    Map<String, List<String>> aspectsByEntity = new TreeMap<>();
+    entitiesByAspect.forEach(
+        (aspect, entities) -> {
+          for (String entity : entities) {
+            aspectsByEntity.computeIfAbsent(entity, name -> new ArrayList<>()).add(aspect);
+          }
+        });
+    List<String> sharedOnly =
+        aspectsByEntity.entrySet().stream()
+            .filter(entry -> !uniqueByEntity.containsKey(entry.getKey()))
+            .map(entry -> entry.getKey() + " [" + String.join(", ", entry.getValue()) + "]")
+            .toList();
+    if (sharedOnly.isEmpty()) {
+      return;
+    }
+    report.append("\nentities with only shared aspects\n");
+    for (String entity : sharedOnly) {
+      report.append("  ").append(entity).append('\n');
+    }
+  }
+
+  private static void appendFieldList(
+      StringBuilder report, String heading, List<MappedField> fields) {
+    if (fields.isEmpty()) {
+      return;
+    }
+    report.append('\n').append(heading).append(" (").append(fields.size()).append(")\n");
+    for (MappedField field : fields) {
+      report.append("  ").append(field.path);
+      if (!field.indexed) {
+        report.append(" [not indexed]");
+      }
+      report.append('\n');
+    }
+  }
+
+  private static Map<String, List<String>> entitiesBySearchableAspect(EntityRegistry registry) {
+    Map<String, List<String>> byAspect = new TreeMap<>();
+    for (EntitySpec entity : registry.getEntitySpecs().values()) {
+      for (AspectSpec aspect : entity.getAspectSpecs()) {
+        if (aspect.getSearchableFieldSpecs().isEmpty()
+            && aspect.getSearchableRefFieldSpecs().isEmpty()) {
+          continue;
+        }
+        byAspect.computeIfAbsent(aspect.getName(), name -> new ArrayList<>()).add(entity.getName());
+      }
+    }
+    byAspect.values().forEach(Collections::sort);
+    return byAspect;
+  }
+
+  private static String aspectName(String path) {
+    final String prefix = "_aspects.";
+    if (!path.startsWith(prefix)) {
+      return null;
+    }
+    String rest = path.substring(prefix.length());
+    int dot = rest.indexOf('.');
+    return dot < 0 ? rest : rest.substring(0, dot);
+  }
+
+  private static List<MappedField> mappedFields(Map<String, Object> mapping) {
+    List<MappedField> fields = new ArrayList<>();
+    collectMappedFields(mapping, "", fields);
+    return fields;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void collectMappedFields(
+      Map<String, Object> node, String prefix, List<MappedField> fields) {
+    for (String container : List.of("properties", "fields")) {
+      Object children = node.get(container);
+      if (!(children instanceof Map)) {
+        continue;
+      }
+      for (Map.Entry<String, Object> entry : ((Map<String, Object>) children).entrySet()) {
+        String path = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+        Map<String, Object> child =
+            entry.getValue() instanceof Map ? (Map<String, Object>) entry.getValue() : Map.of();
+        fields.add(new MappedField(path, !Boolean.FALSE.equals(child.get("index"))));
+        collectMappedFields(child, path, fields);
+      }
+    }
+  }
+
+  private static final class MappedField {
+    private final String path;
+    private final boolean indexed;
+
+    private MappedField(String path, boolean indexed) {
+      this.path = path;
+      this.indexed = indexed;
+    }
+  }
+
   /** Counts fields as index.mapping.total_fields.limit does: objects, leaves and multi-fields. */
   @SuppressWarnings("unchecked")
   private static int countMappedFields(Map<String, Object> mapping) {
@@ -2545,12 +2831,43 @@ public class MultiEntityMappingsBuilderTest {
             MultiEntityMappingsBuilder.getMappingsForField(fieldSpec, "ownership", false)
                 .get("owners");
 
-    // Facets aggregate the .keyword subfield, which keeps the stored casing, not the normalized
-    // root
+    // Facets aggregate the keyword root, which keeps the stored casing
     assertEquals(owners.get("type"), "keyword");
-    assertFalse(owners.containsKey("eager_global_ordinals"));
-    Map<String, Object> keyword =
-        (Map<String, Object>) ((Map<String, Object>) owners.get("fields")).get("keyword");
-    assertEquals(keyword.get("eager_global_ordinals"), true);
+    assertEquals(owners.get("eager_global_ordinals"), true);
+    assertFalse(owners.containsKey("fields"), owners.toString());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testLowercaseSubfieldIsOptInOnKeywordRoots() {
+    Map<String, Object> mapping = new HashMap<>(FieldTypeMapper.getMappingsForKeyword());
+    MultiEntityMappingsBuilder.applyLowercaseSubfield(
+        mapping, "platform", List.of(keywordSpec(false)));
+    assertFalse(mapping.containsKey("fields"), mapping.toString());
+
+    MultiEntityMappingsBuilder.applyLowercaseSubfield(mapping, "name", List.of(keywordSpec(true)));
+    Map<String, Object> lowercase =
+        (Map<String, Object>) ((Map<String, Object>) mapping.get("fields")).get("lowercase");
+    assertEquals(lowercase.get("type"), "keyword");
+    assertEquals(lowercase.get("normalizer"), "keyword_normalizer");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            MultiEntityMappingsBuilder.applyLowercaseSubfield(
+                new HashMap<>(FieldTypeMapper.getMappingsForKeyword()),
+                "name",
+                List.of(keywordSpec(true), keywordSpec(false))));
+  }
+
+  private static SearchableFieldSpec keywordSpec(boolean lowercase) {
+    SearchableAnnotation annotation = mock(SearchableAnnotation.class);
+    when(annotation.getFieldType()).thenReturn(FieldType.KEYWORD);
+    when(annotation.isV3Searchable()).thenReturn(true);
+    when(annotation.resolvedForV3()).thenReturn(annotation);
+    when(annotation.isV3Lowercase()).thenReturn(lowercase);
+    SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
+    when(fieldSpec.getSearchableAnnotation()).thenReturn(annotation);
+    return fieldSpec;
   }
 }

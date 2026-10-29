@@ -4866,7 +4866,7 @@ def test_dbt_meta_mapping_add_structured_property_model_level():
 
     aspects = source._generate_base_dbt_aspects(
         node,
-        mce_platform="dbt",
+        platform="dbt",
         meta_aspects=meta_aspects,
     )
 
@@ -4910,7 +4910,7 @@ def test_dbt_meta_mapping_add_structured_property_disabled_when_meta_mapping_off
     )
     aspects = source._generate_base_dbt_aspects(
         node,
-        mce_platform="dbt",
+        platform="dbt",
         meta_aspects={
             Constants.ADD_STRUCTURED_PROPERTY_OPERATION: pre_computed_sp_aspect,
         },
@@ -5128,7 +5128,7 @@ def test_dbt_column_meta_processed_once_per_column_across_schema_and_sp():
     ):
         source._generate_base_dbt_aspects(
             node,
-            mce_platform="dbt",
+            platform="dbt",
             meta_aspects={},
             column_meta_aspects=column_meta_aspects,
         )

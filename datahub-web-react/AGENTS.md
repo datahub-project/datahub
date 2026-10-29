@@ -49,6 +49,25 @@ yarn test src/path/to/file.test.tsx --run
 files. Focus on errors in files you touched — optional prop calls (`prop?.(arg)`) and
 import aliases are common culprits.
 
+## Bundle size budgets
+
+CI measures gzip of eager `index.html` JS (`scripts/eager-budget.mjs`, baseline
+`eager-budget.json`) and logged-in shell / search closures (`scripts/page-bundle-size.mjs`,
+baseline `page-budget.json`).
+
+| Finding                                                                                                          | CI                                                      |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Growth past slack (`max(10 KB, 0.5%)`) and under 10% of baseline                                                 | Soft: Actions `::warning::` annotation; job stays green |
+| Growth past 10% of baseline                                                                                      | Hard fail                                               |
+| Shrink past slack                                                                                                | Soft warn to ratchet the committed baseline down        |
+| Forbidden eager vendor chunk, eager `@mui/icons-material`, Phosphor over ceiling, missing baseline / gated route | Hard fail                                               |
+
+**Do not** bump the JSON baselines in every feature PR that soft-warns. Catalog owns a
+recurring **bundle-budget chore** (biweekly/monthly): measure `master`, report the delta,
+then either trim/optimize, ratchet down, or raise the baseline with an explicit
+acknowledgment in that chore PR. Soft warnings on feature PRs are a signal for the next
+chore, not a merge blocker.
+
 ## File Structure
 
 - Top-level folders: `app` (application components, one folder per top-level nav page;
