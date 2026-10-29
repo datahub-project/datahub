@@ -1224,6 +1224,9 @@ public class ESIndexBuilder {
             sourceIndex,
             destIndex);
 
+        // Look up the task before counting: once it reports COMPLETED, every write is
+        // acknowledged, so the (refreshed) count read afterwards is final.
+        final ReindexTaskLookup taskLookup = lookupReindexTask(opContext, activeTaskId);
         Pair<Long, Long> latestCounts =
             getDocumentCounts(opContext, expectedCountSupplier, destIndex);
         long currentTime = System.currentTimeMillis();
@@ -1240,7 +1243,6 @@ public class ESIndexBuilder {
                 currentTime - pollStartTimeMillis,
                 latestCounts.getFirst() - latestCounts.getSecond());
 
-        final ReindexTaskLookup taskLookup = lookupReindexTask(opContext, activeTaskId);
         final long expectedCount = documentCounts.getFirst();
         final long destCount = documentCounts.getSecond();
 
