@@ -359,3 +359,38 @@ def test_code_lineage_failure_keeps_plan_lineage_and_warns() -> None:
     )
     assert products.to_urn("PROD", None) in (io.inputDatasets or [])
     assert [w.title for w in report.warnings] == ["Notebook Code Lineage Failed"]
+
+
+def test_reconcile_matches_names_case_insensitively() -> None:
+    dim_user = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="dim_user", schema="gold"
+    )
+    orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
+    products = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="products", schema="silver"
+    )
+    execution = {dim_user: {orders, products}}
+    code = {
+        CodeTable(table="Dim_User", schema="Gold"): {
+            CodeTable(table="Orders", schema="Silver")
+        }
+    }
+
+    # Identity normaliser, as when convert_urns_to_lowercase is off.
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name)
+
+    assert reconciled[dim_user] == {orders}
+
+
+def test_write_is_not_its_own_source_when_casing_differs() -> None:
+    lineage = extract_notebook_code_lineage(
+        """
+users = spark.read.format("delta").load("Tables/gold/dim_user")
+orders = spark.read.format("delta").load("Tables/silver/orders")
+merged = users.union(orders)
+merged.write.format("delta").save("Tables/Gold/Dim_User")
+"""
+    )
+    assert lineage is not None
+    sources = lineage[CodeTable(table="Dim_User", schema="Gold")]
+    assert {(s.schema, s.table) for s in sources} == {("silver", "orders")}

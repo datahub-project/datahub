@@ -110,13 +110,17 @@ def _resolve(
     pool: Iterable[SparkTableRef],
     normalize: Callable[[str], str],
 ) -> List[SparkTableRef]:
-    table_hits = [ref for ref in pool if normalize(ref.table) == normalize(code.table)]
+    def key(name: str) -> str:
+        # Spark SQL identifiers are case-insensitive, so `Gold.Dim_User` in the
+        # code is the plan's `gold.dim_user` whatever the URN casing setting.
+        return normalize(name).lower()
+
+    table_hits = [ref for ref in pool if key(ref.table) == key(code.table)]
     if code.schema is not None:
         schema_hits = [
             ref
             for ref in table_hits
-            if ref.schema is not None
-            and normalize(ref.schema) == normalize(code.schema)
+            if ref.schema is not None and key(ref.schema) == key(code.schema)
         ]
         if schema_hits:
             table_hits = schema_hits
@@ -263,11 +267,12 @@ def _read_table(call: ast.Call, env: Dict[str, str]) -> Optional[CodeTable]:
 
 
 def _same_table(left: CodeTable, right: CodeTable) -> bool:
-    if left.table != right.table:
+    # Case-insensitive, like Spark SQL identifiers.
+    if left.table.lower() != right.table.lower():
         return False
     if left.schema is None or right.schema is None:
         return True
-    return left.schema == right.schema
+    return left.schema.lower() == right.schema.lower()
 
 
 def _rooted_in_frame(expr: ast.AST, frames: Dict[str, Set[CodeTable]]) -> bool:
