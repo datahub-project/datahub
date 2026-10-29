@@ -82,6 +82,18 @@ class MessagingSchemaRegistry:
                 f"{name}: unsupported format ({data_format})"
             )
             return None
+        if not fields:
+            # The protobuf converter returns no fields when compilation fails or
+            # the schema is cyclic; an empty schema would read as "no columns".
+            self.report.schema_resolution_failures.append(
+                f"{name}: no fields parsed ({data_format})"
+            )
+            self.report.warning(
+                title="Glue schema has no usable fields",
+                message="The schema parsed to no fields, so none is attached.",
+                context=f"{name}: schema={schema_name} format={data_format}",
+            )
+            return None
         self.report.schemas_attached += 1
         return SchemaMetadataClass(
             schemaName=name,
