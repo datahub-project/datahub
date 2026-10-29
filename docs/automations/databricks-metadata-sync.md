@@ -32,6 +32,7 @@ The Databricks Metadata Sync automation provides comprehensive metadata synchron
 
 - **Automated Tag Propagation**: Seamlessly sync DataHub Tags to Unity Catalog tables, columns, catalogs, and schemas
 - **Description Synchronization**: Automatically propagate DataHub descriptions to Unity Catalog objects as comments
+- **Logical Model Descriptions**: Optionally sync the descriptions that tables and columns get from a logical model (see [Logical model descriptions](#logical-model-descriptions))
 - **Bidirectional Updates**: Maintain consistency by automatically removing Tags and descriptions from Unity Catalog when they are removed in DataHub
 - **Selective Propagation**: Configure specific Tags for propagation, or sync all Tags
 - **Historical Backfill**: Initialize Tags and Descriptions for assets on Databricks with current DataHub Tags & Descriptions.
@@ -152,6 +153,7 @@ Choose between:
 
 - **Tags**: Sync Tags for Tables, Columns, Catalogs, & Schemas (Unity Catalog only)
 - **Descriptions**: Sync descriptions for Tables, Columns, Catalogs & Schemas as comments (Unity Catalog & legacy Hive Metastore)
+  - **Sync descriptions from logical models**: Shown when **Descriptions** is selected. Off by default. See [Logical model descriptions](#logical-model-descriptions).
 
 <p align="center">
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/databricks-metadata-sync/select-action.png" alt="Select Sync Action"/>
@@ -230,6 +232,17 @@ Confirm successful metadata syncing by examining Unity Catalog objects:
 1. **Access Databricks UI**: Navigate to your Databricks workspace
 2. **Browse Catalog**: Open the Unity Catalog explorer
 3. **Inspect Objects**: Select tables or columns to view applied tags and comments
+
+## Logical model descriptions
+
+When you sync Descriptions, you can also select **Sync descriptions from logical models** (off by default, since it replaces existing comments). Descriptions that a table or column gets from its logical model are then synced as comments, unless it has a description edited in DataHub, which always wins. Descriptions that arrive through lineage are not synced. Initialize writes the logical-model description of every linked table and column.
+
+:::note Limitations
+
+- Removing a logical-model description does not clear the comment in Databricks. Clear it there too, or the next ingestion imports it back.
+- Clearing a description edited in DataHub leaves the Databricks comment unchanged instead of restoring the logical-model description. Run Initialize to write it again.
+
+:::
 
 ## Troubleshooting
 

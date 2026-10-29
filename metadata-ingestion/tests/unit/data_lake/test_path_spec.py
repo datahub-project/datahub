@@ -702,6 +702,33 @@ def test_validate_path_spec_compression_extension() -> None:
     assert path_spec.enable_compression is True
 
 
+@pytest.mark.parametrize(
+    "path, enable_compression, allowed, extension",
+    [
+        ("s3://bucket/orders/data.csv.zip", True, True, ".csv"),
+        ("s3://bucket/orders/data.csv.zip", False, False, ""),
+        ("s3://bucket/orders/data.htm.zip", True, False, ""),
+        # Like a bare .gz, a bare archive needs default_extension.
+        ("s3://bucket/orders/archive.zip", True, False, ""),
+    ],
+)
+def test_zip_archive_selection(
+    path: str, enable_compression: bool, allowed: bool, extension: str
+) -> None:
+    path_spec = PathSpec(
+        include="s3://bucket/{table}/*.zip", enable_compression=enable_compression
+    )
+    assert path_spec.allowed(path) is allowed
+    assert path_spec.resolve_format_extension(path) == extension
+
+
+def test_max_zip_entry_size_rejects_non_positive() -> None:
+    # A non-positive cap would silently skip every zip entry, so it must be
+    # rejected at config load rather than failing quietly at ingestion time.
+    with pytest.raises(ValidationError):
+        PathSpec(include="s3://bucket/{table}/*.csv.zip", max_zip_entry_size=0)
+
+
 # Tests for partition extraction
 def test_get_partition_from_path_no_table() -> None:
     """Test get_partition_from_path when include doesn't contain {table}."""

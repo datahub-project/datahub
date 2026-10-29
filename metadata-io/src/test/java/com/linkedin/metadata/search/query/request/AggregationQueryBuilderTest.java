@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASP
 import static com.linkedin.metadata.utils.SearchUtil.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -46,7 +47,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.filter.Filters;
+import org.opensearch.search.aggregations.bucket.filter.ParsedFilters;
 import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -1645,6 +1650,27 @@ public class AggregationQueryBuilderTest {
     } catch (Exception e) {
       Assert.fail("Failed to test warning log: " + e.getMessage());
     }
+  }
+
+  @Test
+  public void testExtractAggregationsFromResponseReadsFilters() {
+    Filters.Bucket present = mock(Filters.Bucket.class);
+    doReturn("true").when(present).getKeyAsString();
+    doReturn(3L).when(present).getDocCount();
+    Filters.Bucket absent = mock(Filters.Bucket.class);
+    doReturn("false").when(absent).getKeyAsString();
+    doReturn(0L).when(absent).getDocCount();
+
+    ParsedFilters parsedFilters = mock(ParsedFilters.class);
+    doReturn(List.of(present, absent)).when(parsedFilters).getBuckets();
+    Aggregations aggregations = mock(Aggregations.class);
+    when(aggregations.get("hasActiveIncidents")).thenReturn(parsedFilters);
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getAggregations()).thenReturn(aggregations);
+
+    Assert.assertEquals(
+        AggregationQueryBuilder.extractAggregationsFromResponse(response, "hasActiveIncidents"),
+        Map.of("true", 3L));
   }
 
   private AspectRetriever getMockAspectRetriever(Urn propertyUrn) {

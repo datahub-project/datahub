@@ -139,6 +139,8 @@ An explicit empty string drops that section, including an inherited `knn`, `rank
 
 `fields` merges by key. A child's `add`, `remove`, and `override` combine with the parent's, and the child's `override` wins when both name the same field. When the parent set `replace`, those child keys apply to that set. A child's `replace` replaces the queried set and discards the parent's `add`, `remove`, and `override`.
 
+`ranking.signals` replaces the inherited signal list. `ranking.add` and `ranking.remove` patch that list by signal name, including a list loaded through `ranking.template`. A new name is appended. The same name replaces that signal and keeps its place. A non-empty `signals` list discards parent patches and leaves `preset` unset. An empty `signals` list or an empty `formula` drops that field and keeps the rest of the ranking. An empty `template` drops the reference and the `add` and `remove` patches that sat beside it. A `ranking.template` URN replaces inherited inline ranking fields. Inline ranking fields replace an inherited `ranking.template`.
+
 `queryFragments` merges by hole name. Every level that sets a non-empty key adds a fragment, joined root-first with commas. An unset key adds nothing. An empty string drops inherited fragments for that key. See [Query holes](#query-holes).
 
 `routes` replaces the whole list. Unset keeps the parent's list. An explicit empty list drops it, which is how a route target stays on the body it was routed to. A non-empty child list replaces the parent's order. There is no per-route merge. A default target is separate from the list. Unset keeps the parent's target. Setting one replaces it. Clearing it leaves a miss on this template.
@@ -650,7 +652,7 @@ A property joins a `dis_max` when the author fills `extraDisMaxQueries`, or when
 
 ### Ranking
 
-V2.5 order is decided after the query returns. An engine `rescore` block cannot carry that formula. Script scoring stays forbidden, so the formula cannot move into `functionScore` either. `ranking` names a preset the service implements, plus parameters. It does not carry an expression or a script.
+V2.5 order is decided after the query returns. An engine `rescore` block cannot carry that formula. Script scoring stays forbidden, so the formula cannot move into `functionScore` either. `ranking` names a preset, plus parameters. A stored `formula` is kept and is not evaluated.
 
 ```yaml
 ranking:
@@ -661,13 +663,17 @@ ranking:
     matchTierBand: 10
 ```
 
-| Preset              | What the service does                                                                              |
-| ------------------- | -------------------------------------------------------------------------------------------------- |
-| `none`              | Leaves the query order.                                                                            |
-| `usage`             | The exp4j product over the indexed signals (usage, entity type, tags, rank features, deprecation). |
-| `usageAndMatchTier` | `usage`, then match-tier bands, then entity-type diversity.                                        |
+| Preset              | What the service does          |
+| ------------------- | ------------------------------ |
+| `none`              | Leaves the query order.        |
+| `usage`             | Not executed. Selection fails. |
+| `usageAndMatchTier` | Not executed. Selection fails. |
 
-`windowSizer` is the same kind of closed set. `fixed` uses `window`. `tokenCurve` is the current U-curve: one token and six-plus tokens use a smaller window, three and four tokens use the full window, and a deep path caps at 100. Search V3 implements `none` and `fixed`. `usage`, `usageAndMatchTier`, and `tokenCurve` are future OSS use. A template that names a preset or window sizer the process does not implement fails the capability check.
+`windowSizer` is the same kind of closed set. `fixed` uses `window`. This release implements `none` and `fixed`. `usage` and `usageAndMatchTier` fail selection. `tokenCurve` fails selection unless the resolved ranking stores a non-empty signal list. That list does not change the window.
+
+A ranking may store `signals`, an optional `formula`, or `ranking.template`. A reference and inline fields on the same ranking are rejected. `add` and `remove` patch the inherited list by signal name and may sit beside the reference. A non-empty `signals` list replaces the inherited list and cannot be combined with those patches. Signals or `ranking.template` require `rankingSignals`. A formula requires `rankingFormula`. Elasticsearch `rescore` is not combined with either. This release merges the stored section and does not score it.
+
+A `postProcess` component at version 1 is a registered component. OSS registers an empty implementation when no other implementation uses that name and version. The empty implementation accepts the stored config, does not interpret it, and does not reorder hits.
 
 `fields.override` changes the engine score the ranking step reads. It applies only to a field that remains in the queried set. `ranking` and `rescore` do not carry a field-weight list, and they do not copy the query weights into one. A saved ranking is a child whose section is `fields.override`, as [Field weights](#field-weights) specifies. `ranking` still only reorders the fetched window.
 
@@ -675,7 +681,7 @@ The author writes the boost and the `dis_max` in the body. Inside the weighted f
 
 Those clauses run in the composed keyword query, before `functionScore`, engine `rescore`, `ranking`, and `knn`. Downstream scoring crosses them only when the selected template applies `functionScore`, `rescore`, `ranking`, or `knn`.
 
-`rescore`, `ranking`, and `knn` then reorder inside their windows. Inside a window another clause can move ahead. Past those windows the served order is the query score. Scroll runs the composed keyword query and drops all three. `usageAndMatchTier` applies usage and entity-type diversity inside its window, on top of the query score. A quoted query requires the phrase. See [Selection](#selection).
+`rescore`, `ranking`, and `knn` then reorder inside their windows. Inside a window another clause can move ahead. Past those windows the served order is the query score. Scroll runs the composed keyword query and drops all three. A quoted query requires the phrase. See [Selection](#selection).
 
 The name-and-value group sits in that query, before `functionScore`. It is its own `dis_max`. It is not a ranking preset. See [Name and value](#name-and-value).
 
@@ -926,7 +932,7 @@ Search V2 and Search V2.5 keep their current structured-property full-text behav
 
 `toElasticsearchFieldName` returns the suffix only. The caller adds the `structuredProperties.` prefix for every definition. An unversioned definition is the qualified name with each `.` replaced by `_`, so `certification.status` becomes `structuredProperties.certification_status`. A versioned definition is `structuredProperties._versioned.<name>.<version>.<type>`. That versioned path is the resolver's output. A caller passes a definition URN, or the logical name `structuredProperties.<qualified name>`. Passing the versioned path in as a logical name is rejected, because lookup would read it as a qualified name.
 
-The template names the form. A structured-property reference resolves to the indexed field. The keyword form is that field, with `.keyword` only for string and rich text. The analyzed form is the same field plus the `.text` multi-field. The builder substitutes those paths into the body. It does not emit a clause because a mode was set. `.keyword` and `.text` are rejected on a date, a number, or a URN. When two qualified names sanitize to one field and the mappings are identical, the collision resolver keeps the lexicographically smallest URN. When the mappings differ, it omits the field. A template that names an omitted field is rejected at write time.
+The template names the form. A structured-property reference resolves to the indexed field. The keyword form is that field. A template may still write `.keyword` after a string or rich-text reference; rendering drops it, because Search V3 does not map that subfield. The analyzed form is the same field plus the `.text` multi-field. The builder substitutes those paths into the body. It does not emit a clause because a mode was set. `.keyword` and `.text` are rejected on a date, a number, or a URN. When two qualified names sanitize to one field and the mappings are identical, the collision resolver keeps the lexicographically smallest URN. When the mappings differ, it omits the field. A template that names an omitted field is rejected at write time.
 
 Inline text injects the URN as a Mustache constant. The tag body is the whole URN. The form is text after the tag, from a closed set: `.keyword` or `.text`.
 
@@ -935,7 +941,7 @@ Inline text injects the URN as a Mustache constant. The tag body is the whole UR
 {{urn:li:structuredProperty:certification.status}}.text
 ```
 
-`query`, `clauses`, `functionScore`, `rescore`, `aggregations`, `sort`, and `highlightFields` use that constant. Rendering replaces the tag with the indexed field and leaves the suffix in place.
+`query`, `clauses`, `functionScore`, `rescore`, `aggregations`, `sort`, and `highlightFields` use that constant. Rendering replaces the tag with the indexed field. A `.text` suffix stays. A `.keyword` suffix is dropped, because the property field is the keyword.
 
 `fields` add, remove, override, and replace name the definition URN on `fieldName`. The form is named in the body, not on the entry. The resolved field is the merge key, so a `remove` and an `override` of the same definition name the same field. Removing it drops the weighted-list entry, the whole-value term, and a rendered clause that targeted only that field, for either form. A `boosts` entry may name `keyword` or `text` as `subfield` when that boost needs one form. A reference that does not resolve to a definition is rejected at write time. Rendering resolves the URN again from the current definition, then the body is parsed.
 
@@ -949,7 +955,7 @@ A read that only needs those projected fields would build the aspect from the hi
 
 ### Analyzers and hybrid documents
 
-Analyzed text stays on the shared text fields. A structured property stays on its per-definition field. Search V3 indexes one analyzed text form beside the keyword form for string and rich text, using the shared `word_delimited` and `query_word_delimited` analyzers on `.text`. The template names `.keyword` or `.text`. A property in the queried set gets a whole-value term at its field weight and, for string and rich text, an entry in the weighted field list. A property name is not copied onto the asset. Search V2 does not index the analyzed form. See [Structured properties](#structured-properties). Ordinary aspect fields stay keywords, numbers, dates, and booleans. Word-gram fields, ngram fields, and the per-field analyzer chain do not come forward.
+Analyzed text stays on the shared text fields. A structured property stays on its per-definition field. Search V3 indexes one analyzed text form beside the keyword form for string and rich text, using the shared `word_delimited` and `query_word_delimited` analyzers on `.text`. The template names the keyword field or `.text`. A written `.keyword` suffix names that same keyword field. A property in the queried set gets a whole-value term at its field weight and, for string and rich text, an entry in the weighted field list. A property name is not copied onto the asset. Search V2 does not index the analyzed form. See [Structured properties](#structured-properties). Ordinary aspect fields stay keywords, numbers, dates, and booleans. Word-gram fields, ngram fields, and the per-field analyzer chain do not come forward.
 
 A keyword field filtered either with or without case is stored in both forms: the original value, and the value lowercased and ASCII-folded. An annotation-derived URN is two fields. The logical name is the parsed name. `<field>_urn` is the full URN used by filters, facets, sorts, and ranges, and `<field>_urn.lowercase` is the case-insensitive full URN. Callers still use `tags`, `owners`, and `parent`. Full text reads the logical field only when that field is included in full text, so `owners` has neither `text` nor `stemmed`. The document `urn` is the exact entity URN, and `urn_name` is its parsed identity and is not full text. A string or rich-text structured property follows the dual-form rule. A structured-property URN stays on `structuredProperties.<field>` and `__urn_name`. A date or a number has no case form.
 
