@@ -185,11 +185,18 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
                             )
                         ),
                     ).as_workunit()
-            elif urn not in emitted_urns and (
-                guess_entity_type(urn) == "container"
-                or (
-                    self.platform_instance
-                    and guess_entity_type(urn) in ("dataFlow", "dataJob")
+            elif (
+                # A source that only references an entity another source owns (a
+                # non-primary workunit) must not give it a fallback path built from
+                # its own platform and platform_instance.
+                any(wu.is_primary_source for wu in batch)
+                and urn not in emitted_urns
+                and (
+                    guess_entity_type(urn) == "container"
+                    or (
+                        self.platform_instance
+                        and guess_entity_type(urn) in ("dataFlow", "dataJob")
+                    )
                 )
             ):
                 # Emit a browse path for:

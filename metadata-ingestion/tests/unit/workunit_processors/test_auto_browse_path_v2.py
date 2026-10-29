@@ -529,6 +529,23 @@ def test_auto_browse_path_v2_dataflow_with_platform_instance(telemetry_ping_mock
 @mock.patch(
     "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
 )
+def test_auto_browse_path_v2_skips_non_primary_dataflow_fallback(telemetry_ping_mock):
+    flow_urn = make_data_flow_urn("lambda", "worker", platform_instance="account")
+    workunit = MetadataChangeProposalWrapper(
+        entityUrn=flow_urn,
+        aspect=models.StatusClass(removed=False),
+    ).as_workunit(is_primary_source=False)
+
+    new_wus = list(
+        _make_processor(platform="sqs", platform_instance="account").process([workunit])
+    )
+
+    assert new_wus == [workunit]
+
+
+@mock.patch(
+    "datahub.ingestion.workunit_processors.auto_browse_path_v2.telemetry.telemetry_instance.ping"
+)
 def test_auto_browse_path_v2_dataflow_without_platform_instance(telemetry_ping_mock):
     """DataFlow without platform_instance does NOT get a fallback browse path."""
     platform = "fivetran"
