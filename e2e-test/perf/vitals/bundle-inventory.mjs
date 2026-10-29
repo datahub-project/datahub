@@ -23,10 +23,10 @@
  * Zero dependencies — node:fs / node:zlib only.
  *
  *   node bundle-inventory.mjs --dist ../../../datahub-web-react/dist \
- *     --graph results/bundle-graph.json --label acryl-main --commit <sha> \
+ *     --graph results/bundle-graph.json --label local --commit <sha> \
  *     --out results/bundle-inventory.json --md-out results/bundle-inventory.md
  *
- *   node bundle-inventory.mjs --origin https://deploy-test.acryl.io \
+ *   node bundle-inventory.mjs --origin https://example.com \
  *     --out results/bundle-inventory-live.json
  *
  *   node bundle-inventory.mjs --dist <dist> --baseline <eager-budget-inventory.json> --regression

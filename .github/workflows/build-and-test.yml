@@ -312,8 +312,11 @@ jobs:
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --max-workers="$(nproc)" \
             -x :datahub-web-react:yarnTest
-          node --test datahub-web-react/scripts/eager-budget.test.mjs datahub-web-react/scripts/page-bundle-size.test.mjs \
+          node --test datahub-web-react/scripts/eager-budget.test.mjs \
+            datahub-web-react/scripts/page-bundle-size.test.mjs \
+            datahub-web-react/scripts/bundle-budget-chore.test.mjs \
             e2e-test/perf/vitals/bundle-inventory.test.mjs
+          node datahub-web-react/scripts/check-inventory-sync.mjs
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Eager JS budget

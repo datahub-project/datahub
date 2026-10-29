@@ -374,8 +374,9 @@ function main() {
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
     const baseline = JSON.parse(fs.readFileSync(path.join(root, 'page-budget.json'), 'utf8'));
     const findings = evaluatePageBudget(measured, baseline);
+    // Write next to the measured dist (honours --dist), not a hard-coded package dist/.
     fs.writeFileSync(
-        path.join(root, 'dist', 'page-budget-findings.json'),
+        path.join(args.dist, 'page-budget-findings.json'),
         `${JSON.stringify(
             {
                 soft: findings.soft,

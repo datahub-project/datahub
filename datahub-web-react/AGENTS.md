@@ -68,9 +68,15 @@ findings run `e2e-test/perf/vitals/bundle-inventory.mjs --regression` against
 
 Catalog owns a recurring **bundle-budget chore** (`.github/workflows/bundle-budget-reassessment.yml`,
 Mondays): measure `master`, publish the inventory diff, **auto-PR only when baselines
-should ratchet down**, and leave soft overages as a report (never auto-raise). Trim/optimize
-or raise the ceiling only in an explicit follow-up PR. Soft warnings on feature PRs are a
-signal for that chore, not a merge blocker.
+should ratchet down** (each field becomes `min(baseline, measured)` so a soft page bump
+within slack cannot ride along and raise the ceiling), and leave soft overages as a report
+(never auto-raise). Trim/optimize or raise the ceiling only in an explicit follow-up PR.
+Soft warnings on feature PRs are a signal for that chore, not a merge blocker.
+
+The chore workflow needs repo secret `BUNDLE_BUDGET_PR_TOKEN` (PAT or GitHub App token with
+`contents` + `pull-requests`) so the ratchet PR receives CI. Without it, Actions falls back
+to `github.token`, which can open the PR but will not trigger required checks. Also enable
+**Settings → Actions → General → Allow GitHub Actions to create and approve pull requests**.
 
 When you intentionally change `eager-budget.json`, refresh the inventory from the same
 `dist/`:
