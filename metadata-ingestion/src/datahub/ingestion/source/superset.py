@@ -15,6 +15,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
+from datahub._codegen.aspect import _Aspect
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -58,12 +59,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
     TimeStamp,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    ChartSnapshot,
-    DashboardSnapshot,
-    DatasetSnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BooleanTypeClass,
     DateTypeClass,
@@ -916,16 +911,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         self,
         dashboard_data: dict,
         position_data: Optional[Dict[str, Any]] = None,
-    ) -> DashboardSnapshot:
-        dashboard_urn = make_dashboard_urn(
-            platform=self.platform,
-            name=str(dashboard_data["id"]),
-            platform_instance=self.config.platform_instance,
-        )
-        dashboard_snapshot = DashboardSnapshot(
-            urn=dashboard_urn,
-            aspects=[Status(removed=False)],
-        )
+    ) -> List[_Aspect]:
+        dashboard_urn = self._dashboard_urn(dashboard_data)
+        aspects: List[_Aspect] = [Status(removed=False)]
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((dashboard_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
         now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
@@ -997,7 +985,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
             lastModified=change_audit_stamps,
         )
-        dashboard_snapshot.aspects.append(dashboard_info)
+        aspects.append(dashboard_info)
 
         dashboard_owners_list = self.build_owner_urn(dashboard_data, "dashboard")
         if dashboard_owners_list:
@@ -1011,14 +999,21 @@ class SupersetSource(StatefulIngestionSourceBase):
                 ],
                 lastModified=last_modified,
             )
-            dashboard_snapshot.aspects.append(owners_info)
+            aspects.append(owners_info)
 
         superset_tags = self._extract_and_map_tags(dashboard_data.get("tags", []))
         tags = self._merge_tags_with_existing(dashboard_urn, superset_tags)
         if tags:
-            dashboard_snapshot.aspects.append(tags)
+            aspects.append(tags)
 
-        return dashboard_snapshot
+        return aspects
+
+    def _dashboard_urn(self, dashboard_data: dict) -> str:
+        return make_dashboard_urn(
+            platform=self.platform,
+            name=str(dashboard_data["id"]),
+            platform_instance=self.config.platform_instance,
+        )
 
     def _report_filtered_chart_references(
         self,
@@ -1185,7 +1180,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                         title="position_json has no chart entries",
                     )
 
-            dashboard_snapshot = self.construct_dashboard_from_api_data(
+            dashboard_urn = self._dashboard_urn(dashboard_data)
+            dashboard_aspects = self.construct_dashboard_from_api_data(
                 dashboard_data, position_data=position_data
             )
 
@@ -1203,13 +1199,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
             return
 
-        mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-        yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-        yield from self._get_domain_wu(
-            title=dashboard_title, entity_urn=dashboard_snapshot.urn
-        )
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=dashboard_urn, aspects=dashboard_aspects
+        ):
+            yield mcp.as_workunit()
+        yield from self._get_domain_wu(title=dashboard_title, entity_urn=dashboard_urn)
 
-    def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
+    def gen_dashboard_workunits(self) -> Iterable[MetadataWorkUnit]:
         dashboard_data_list = [
             (dashboard_data,)
             for dashboard_data in self.paginate_entity_api_results(
@@ -1528,10 +1524,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             name=str(chart_data["id"]),
             platform_instance=self.config.platform_instance,
         )
-        chart_snapshot = ChartSnapshot(
-            urn=chart_urn,
-            aspects=[Status(removed=False)],
-        )
+        aspects: List[_Aspect] = [Status(removed=False)]
 
         modified_actor = f"urn:li:corpuser:{self.owner_info.get((chart_data.get('changed_by') or {}).get('id', -1), 'unknown')}"
         now = datetime.now().strftime("%I:%M%p on %B %d, %Y")
@@ -1669,7 +1662,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
             lastModified=change_audit_stamps,
         )
-        chart_snapshot.aspects.append(chart_info)
+        aspects.append(chart_info)
 
         input_fields = self.construct_chart_cll(
             chart_data, datasource_urn, datasource_id
@@ -1695,16 +1688,17 @@ class SupersetSource(StatefulIngestionSourceBase):
                 ],
                 lastModified=last_modified,
             )
-            chart_snapshot.aspects.append(owners_info)
+            aspects.append(owners_info)
 
         superset_tags = self._extract_and_map_tags(chart_data.get("tags", []))
         tags = self._merge_tags_with_existing(chart_urn, superset_tags)
         if tags:
-            chart_snapshot.aspects.append(tags)
+            aspects.append(tags)
 
-        yield MetadataWorkUnit(
-            id=chart_urn, mce=MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-        )
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=chart_urn, aspects=aspects
+        ):
+            yield mcp.as_workunit()
 
         yield from self._get_domain_wu(
             title=chart_data.get("slice_name", ""),
@@ -1839,7 +1833,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
             return
 
-    def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
+    def gen_chart_workunits(self) -> Iterable[MetadataWorkUnit]:
         chart_data_list = [
             (chart_data,)
             for chart_data in self.paginate_entity_api_results("chart/", PAGE_SIZE)
@@ -2046,9 +2040,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         return upstream_lineage
 
-    def construct_dataset_from_dataset_data(
-        self, dataset_data: dict
-    ) -> DatasetSnapshot:
+    def construct_dataset_from_dataset_data(self, dataset_data: dict) -> List[_Aspect]:
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
         result = dataset_response.get("result")
         if not isinstance(result, dict):
@@ -2131,7 +2123,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
         tags = self._merge_tags_with_existing(datasource_urn, dataset_tags)
 
-        aspects_items: List[Any] = [
+        aspects_items: List[_Aspect] = [
             self.gen_schema_metadata(dataset_response),
             dataset_info,
             upstream_lineage,
@@ -2139,11 +2131,6 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         if tags:
             aspects_items.append(tags)
-
-        dataset_snapshot = DatasetSnapshot(
-            urn=datasource_urn,
-            aspects=aspects_items,
-        )
 
         dataset_owners_list = self.build_owner_urn(dataset_data, "dataset")
         if dataset_owners_list:
@@ -2159,7 +2146,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
             aspects_items.append(owners_info)
 
-        return dataset_snapshot
+        return aspects_items
 
     def _extract_and_map_tags(self, raw_tags: Any) -> Optional[GlobalTagsClass]:
         """Extract and map Superset tags to DataHub GlobalTagsClass.
@@ -2253,8 +2240,12 @@ class SupersetSource(StatefulIngestionSourceBase):
                     )
                     return
 
-            dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+            dataset_aspects = self.construct_dataset_from_dataset_data(dataset_data)
+            # Cache hit: construct_dataset_from_dataset_data only returns after
+            # get_dataset_info cached this id.
+            dataset_urn = self.get_datasource_urn_from_id(
+                self.get_dataset_info(dataset_id), self.platform
+            )
         except Exception as e:
             self.report.warning(
                 message="Failed to construct dataset snapshot.",
@@ -2267,13 +2258,16 @@ class SupersetSource(StatefulIngestionSourceBase):
                 exc=e,
             )
             return
-        yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+        for mcp in MetadataChangeProposalWrapper.construct_many(
+            entityUrn=dataset_urn, aspects=dataset_aspects
+        ):
+            yield mcp.as_workunit()
         yield from self._get_domain_wu(
             title=dataset_data.get("table_name", ""),
-            entity_urn=dataset_snapshot.urn,
+            entity_urn=dataset_urn,
         )
 
-    def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
+    def gen_dataset_workunits(self) -> Iterable[MetadataWorkUnit]:
         dataset_data_list = [
             (dataset_data,)
             for dataset_data in self.paginate_entity_api_results("dataset/", PAGE_SIZE)
@@ -2287,11 +2281,11 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # TODO: Possibly change ingestion order to minimize API calls
         if self.config.ingest_datasets:
-            yield from self.emit_dataset_mces()
+            yield from self.gen_dataset_workunits()
         if self.config.ingest_charts:
-            yield from self.emit_chart_mces()
+            yield from self.gen_chart_workunits()
         if self.config.ingest_dashboards:
-            yield from self.emit_dashboard_mces()
+            yield from self.gen_dashboard_workunits()
 
     def get_report(self) -> StaleEntityRemovalSourceReport:
         return self.report

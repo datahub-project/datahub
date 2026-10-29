@@ -14,8 +14,11 @@ from datahub.ingestion.source.superset import (
     _extract_chart_id_with_status,
     get_filter_name,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import DashboardInfoClass, OwnershipClass
+from datahub.metadata.schema_classes import (
+    ChartInfoClass,
+    DashboardInfoClass,
+    OwnershipClass,
+)
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
 
@@ -191,13 +194,11 @@ def test_superset_dashboard_omits_ownership_when_no_owners_resolve(requests_mock
         "dashboard_title": "Sales",
         "owners": [{"id": 99}],
     }
-    dashboard_snapshot = source.construct_dashboard_from_api_data(
+    dashboard_aspects = source.construct_dashboard_from_api_data(
         dashboard_data, position_data={}
     )
 
-    assert not any(
-        isinstance(aspect, OwnershipClass) for aspect in dashboard_snapshot.aspects
-    )
+    assert not any(isinstance(aspect, OwnershipClass) for aspect in dashboard_aspects)
 
 
 def test_superset_chart_omits_ownership_when_no_owners_resolve(requests_mock):
@@ -215,14 +216,8 @@ def test_superset_chart_omits_ownership_when_no_owners_resolve(requests_mock):
     }
     workunits = list(source.construct_chart_from_chart_data(chart_data))
 
-    chart_snapshot = next(
-        wu.metadata.proposedSnapshot
-        for wu in workunits
-        if hasattr(wu.metadata, "proposedSnapshot")
-    )
-    assert not any(
-        isinstance(aspect, OwnershipClass) for aspect in chart_snapshot.aspects
-    )
+    assert any(wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)
+    assert not any(wu.get_aspect_of_type(OwnershipClass) for wu in workunits)
 
 
 def test_superset_dataset_omits_ownership_when_no_owners_resolve(requests_mock):
@@ -247,13 +242,11 @@ def test_superset_dataset_omits_ownership_when_no_owners_resolve(requests_mock):
         status_code=200,
     )
 
-    dataset_snapshot = source.construct_dataset_from_dataset_data(
+    dataset_aspects = source.construct_dataset_from_dataset_data(
         {"id": 77, "owners": [{"id": 99}]}
     )
 
-    assert not any(
-        isinstance(aspect, OwnershipClass) for aspect in dataset_snapshot.aspects
-    )
+    assert not any(isinstance(aspect, OwnershipClass) for aspect in dataset_aspects)
 
 
 _RESOLVABLE_OWNER = [
@@ -273,14 +266,12 @@ def test_superset_dashboard_includes_ownership_when_owner_resolves(requests_mock
         "dashboard_title": "Sales",
         "owners": [{"id": 1}],
     }
-    dashboard_snapshot = source.construct_dashboard_from_api_data(
+    dashboard_aspects = source.construct_dashboard_from_api_data(
         dashboard_data, position_data={}
     )
 
     ownership_aspects = [
-        aspect
-        for aspect in dashboard_snapshot.aspects
-        if isinstance(aspect, OwnershipClass)
+        aspect for aspect in dashboard_aspects if isinstance(aspect, OwnershipClass)
     ]
     assert len(ownership_aspects) == 1
     assert (
@@ -304,15 +295,8 @@ def test_superset_chart_includes_ownership_when_owner_resolves(requests_mock):
     }
     workunits = list(source.construct_chart_from_chart_data(chart_data))
 
-    chart_snapshot = next(
-        wu.metadata.proposedSnapshot
-        for wu in workunits
-        if hasattr(wu.metadata, "proposedSnapshot")
-    )
     ownership_aspects = [
-        aspect
-        for aspect in chart_snapshot.aspects
-        if isinstance(aspect, OwnershipClass)
+        aspect for wu in workunits if (aspect := wu.get_aspect_of_type(OwnershipClass))
     ]
     assert len(ownership_aspects) == 1
     assert (
@@ -343,14 +327,12 @@ def test_superset_dataset_includes_ownership_when_owner_resolves(requests_mock):
         status_code=200,
     )
 
-    dataset_snapshot = source.construct_dataset_from_dataset_data(
+    dataset_aspects = source.construct_dataset_from_dataset_data(
         {"id": 77, "owners": [{"id": 1}]}
     )
 
     ownership_aspects = [
-        aspect
-        for aspect in dataset_snapshot.aspects
-        if isinstance(aspect, OwnershipClass)
+        aspect for aspect in dataset_aspects if isinstance(aspect, OwnershipClass)
     ]
     assert len(ownership_aspects) == 1
     assert (
@@ -944,9 +926,13 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1, (
-            "Dashboard must be ingested even when detail API fails"
-        )
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        ), "Dashboard must be ingested even when detail API fails"
         assert source.report.num_dashboards_detail_api_failures == 1
         assert source.report.num_dashboards_missing_position_json == 0
         assert source.report.num_dashboards_with_no_charts == 1
@@ -1000,7 +986,13 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         assert source.report.num_dashboards_missing_position_json == 1
         assert source.report.num_dashboards_detail_api_failures == 0
         assert source.report.num_dashboards_invalid_position_json == 0
@@ -1026,7 +1018,13 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         assert source.report.num_dashboards_invalid_position_json == 1
         assert source.report.num_dashboards_with_no_charts == 1
         titles = {w.title for w in source.report.warnings}
@@ -1051,7 +1049,13 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         assert source.report.num_dashboards_missing_position_json == 1
         assert source.report.num_dashboards_invalid_position_json == 0
         assert source.report.num_dashboards_with_no_charts == 1
@@ -1079,7 +1083,13 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         assert source.report.num_dashboards_with_no_charts == 1
         assert source.report.num_dashboards_missing_position_json == 0
         assert source.report.num_dashboards_invalid_position_json == 0
@@ -1106,14 +1116,18 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         assert source.report.num_dashboards_missing_position_json == 0
         assert source.report.num_dashboards_with_no_charts == 0
 
-        mce = work_units[0].metadata
-        assert isinstance(mce, MetadataChangeEvent)
         dashboard_info = next(
-            a for a in mce.proposedSnapshot.aspects if isinstance(a, DashboardInfoClass)
+            a for wu in work_units if (a := wu.get_aspect_of_type(DashboardInfoClass))
         )
         expected = {
             make_chart_urn(platform="superset", name=str(cid)) for cid in ("100", "101")
@@ -1151,7 +1165,13 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         titles = {w.title for w in source.report.warnings}
         assert "Incomplete Ingestion" in titles
 
@@ -1200,10 +1220,8 @@ class TestChartsFallback:
     def _assert_chart_urns(
         self, work_units: list, expected_chart_ids: Set[str]
     ) -> None:
-        mce = work_units[0].metadata
-        assert isinstance(mce, MetadataChangeEvent)
         dashboard_info = next(
-            a for a in mce.proposedSnapshot.aspects if isinstance(a, DashboardInfoClass)
+            a for wu in work_units if (a := wu.get_aspect_of_type(DashboardInfoClass))
         )
         expected = {
             make_chart_urn(platform="superset", name=cid) for cid in expected_chart_ids
@@ -1227,7 +1245,13 @@ class TestChartsFallback:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         assert source.report.num_dashboards_recovered_via_charts_endpoint == 1
         assert source.report.num_dashboards_with_no_charts == 0
         assert source.report.num_dashboards_charts_api_failures == 0
@@ -1409,7 +1433,13 @@ class TestChartsFallback:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         assert source.report.num_dashboards_charts_api_failures == 1
         assert source.report.num_dashboards_recovered_via_charts_endpoint == 0
         assert source.report.num_dashboards_with_no_charts == 1
@@ -1486,10 +1516,8 @@ class TestChartsFallbackEdgeCases:
         return make_chart_urn(platform="superset", name=chart_id)
 
     def _dashboard_info(self, work_units: list) -> DashboardInfoClass:
-        mce = work_units[0].metadata
-        assert isinstance(mce, MetadataChangeEvent)
         return next(
-            a for a in mce.proposedSnapshot.aspects if isinstance(a, DashboardInfoClass)
+            a for wu in work_units if (a := wu.get_aspect_of_type(DashboardInfoClass))
         )
 
     def test_fallback_does_not_call_charts_endpoint_when_position_json_has_charts(
@@ -1548,7 +1576,13 @@ class TestChartsFallbackEdgeCases:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         # Chart 300 is unknown → unknown counter ticks AND warning emitted.
         assert source.report.num_dashboards_charts_unknown == 1
         titles = {w.title for w in source.report.warnings}
@@ -1609,7 +1643,13 @@ class TestChartsFallbackEdgeCases:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         assert source.report.num_dashboards_detail_api_failures == 1
         assert source.report.num_dashboards_charts_api_failures == 1
         assert source.report.num_dashboards_with_no_charts == 1
@@ -1658,7 +1698,13 @@ class TestChartsFallbackEdgeCases:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         assert source.report.num_dashboards_recovered_via_charts_endpoint == 0
         assert source.report.num_dashboards_with_no_charts == 1
         assert source.report.num_dashboards_charts_api_failures == 1
@@ -1685,7 +1731,13 @@ class TestChartsFallbackEdgeCases:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert len(work_units) == 1
+        assert (
+            sum(
+                wu.get_aspect_of_type(DashboardInfoClass) is not None
+                for wu in work_units
+            )
+            == 1
+        )
         assert source.report.num_dashboards_with_no_charts == 1
         assert source.report.num_dashboards_charts_api_failures == 1
 
