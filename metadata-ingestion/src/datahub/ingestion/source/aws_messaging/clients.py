@@ -15,6 +15,7 @@ def paginate(
     result_key: str,
     report: AwsMessagingReportBase,
     api_label: str,
+    optional: bool = False,
     **kwargs: Any,
 ) -> Iterator[Any]:
     # boto3 paginators raise from inside iteration, so the page count at the time
@@ -26,7 +27,7 @@ def paginate(
             yield from page.get(result_key) or []
     except (ClientError, BotoCoreError) as e:
         report.report_listing_failure(
-            pages_fetched=pages_fetched, exc=e, api_label=api_label
+            pages_fetched=pages_fetched, exc=e, api_label=api_label, optional=optional
         )
 
 

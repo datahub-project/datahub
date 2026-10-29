@@ -232,6 +232,32 @@ def test_account_id_comes_from_the_queue_url(
     monkeypatch.setattr(SqsClient, "get_attributes", lambda self, url: None)
     source = _run()
     assert source.get_report().account_id == ACCOUNT
-    assert {wu.get_urn() for wu in source.get_workunits_internal()} == {
-        queue_urn("orders")
+    datasets = {
+        wu.get_urn()
+        for wu in source.get_workunits_internal()
+        if wu.get_urn().startswith("urn:li:dataset:")
     }
+    assert datasets == {queue_urn("orders")}
+
+
+def test_all_unreadable_queues_still_emit_the_region_container(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_queue("orders")
+    monkeypatch.setattr(SqsClient, "get_attributes", lambda self, url: None)
+    urns = {wu.get_urn() for wu in _run().get_workunits_internal()}
+    assert any(urn.startswith("urn:li:container:") for urn in urns)
+
+
+def test_edge_to_an_unreadable_dead_letter_queue_is_kept(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dlq_arn = create_queue("orders-dlq")
+    create_queue("orders", Attributes=redrive(dlq_arn))
+    original = SqsClient.get_attributes
+
+    def flaky_dlq(self: SqsClient, url: str) -> Optional[Dict[str, str]]:
+        return None if url.endswith("/orders-dlq") else original(self, url)
+
+    monkeypatch.setattr(SqsClient, "get_attributes", flaky_dlq)
+    assert upstreams(_run()) == {queue_urn("orders-dlq"): {queue_urn("orders")}}

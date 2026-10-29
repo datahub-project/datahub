@@ -1,6 +1,7 @@
 from typing import Any
 
 import boto3
+from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
 from datahub.ingestion.source.aws_messaging.clients import SnsClient, SqsClient
@@ -92,3 +93,20 @@ def test_subscriptions_are_listed_per_topic() -> None:
             SnsClient(client, SqsSourceReport()).list_subscriptions(topic)
         )
     assert [s.owner for s in subscriptions] == ["210987654321"]
+
+
+def test_optional_listing_failure_is_only_a_warning() -> None:
+    # A lineage helper failing partway must not block stale removal of the
+    # queues and topics, which a report failure would.
+    report = SqsSourceReport()
+    error = ClientError(
+        {"Error": {"Code": "ThrottlingException", "Message": "x"}}, "ListX"
+    )
+    report.report_listing_failure(
+        pages_fetched=2, exc=error, api_label="x:ListX", optional=True
+    )
+    assert report.warnings and not report.failures
+    report.report_listing_failure(
+        pages_fetched=2, exc=error, api_label="sqs:ListQueues"
+    )
+    assert report.failures
