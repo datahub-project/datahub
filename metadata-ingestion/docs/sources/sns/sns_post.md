@@ -69,6 +69,7 @@ Code that sends with the AWS SDK leaves no trace in any configuration API, so mo
 - Any other caller (an ECS task or EC2 role, an IAM user) is listed by role ARN in the topic's `observed_producers` property, not drawn as lineage, because a role is not a DataHub entity.
 - The query only covers events in the recipe's region, and SQS targets are matched on the region and account in each queue URL, so a multi-region trail doesn't mix up same-named topics.
 - Give `event_data_store` as an ARN when the store is in another region: the query runs in the store's region. A store in another account must be shared with the ingestion role through its resource policy; the connector then queries it with the owner's account id.
+- If the query fails, the topic's existing `observed_producers` value is read back from DataHub and kept, which needs a DataHub connection (the `datahub-rest` sink provides one). Without one it is cleared until the next successful run, with a warning.
 - CloudTrail Lake bills queries by data scanned, and data events must be enabled for the topics, which also costs. Both are off by default.
 
 #### Tags and data protection

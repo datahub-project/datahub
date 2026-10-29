@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, Optional, Set
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws_messaging.arn import (
     UrnBuilder,
     parse_arn,
@@ -21,6 +22,7 @@ from datahub.ingestion.source.aws_messaging.lambda_lineage import LambdaLineage
 from datahub.ingestion.source.aws_messaging.models import Arn
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 from datahub.specific.dataset import DatasetPatchBuilder
 
 # Data events that put a message on a queue or topic, and the request
@@ -55,7 +57,13 @@ class ProducerLineage:
         urns: UrnBuilder,
         resolver: ResourceResolver,
         lambdas: Optional[LambdaLineage],
+        graph: Optional[DataHubGraph] = None,
+        owned: Optional[Set[str]] = None,
     ):
+        self.graph = graph
+        # Datasets this run emitted. Their datasetProperties are rewritten each
+        # run, which clears observed_producers unless it's patched back on.
+        self.owned = owned or set()
         self.config = config
         self.report = report
         self.client = client
@@ -113,7 +121,10 @@ class ProducerLineage:
             self.config.query_timeout_seconds,
             owner_account_id=owner,
         )
-        for row in rows or []:
+        if rows is None:
+            self._keep_previous_producers()
+            return
+        for row in rows:
             producer = row.get(PRODUCER_COLUMN)
             target = self._target_arn(row.get(RESOURCE_COLUMN) or "")
             # Only resources this run ingested; the query also sees others.
@@ -126,6 +137,29 @@ class ProducerLineage:
                 continue
             if not self._add_lambda_edge(producer, target_urn):
                 self.observed[target_urn].add(self._role_arn(producer))
+
+    def _keep_previous_producers(self) -> None:
+        """A failed query says nothing new, so the producers DataHub already holds
+        are written back after this run's full datasetProperties upsert."""
+        if self.graph is None:
+            self.report.warning(
+                title="Observed producers not kept",
+                message=(
+                    "The CloudTrail query failed and there is no DataHub connection to "
+                    "read the previous observed_producers, so they are cleared until the "
+                    "next successful run."
+                ),
+            )
+            return
+        for urn in sorted(self.owned):
+            properties = self.graph.get_aspect(urn, DatasetPropertiesClass)
+            value = (
+                (properties.customProperties or {}).get(OBSERVED_PRODUCERS_PROPERTY)
+                if properties is not None
+                else None
+            )
+            if value:
+                self.observed[urn].update(part.strip() for part in value.split(","))
 
     def _add_lambda_edge(self, producer: str, target_urn: str) -> bool:
         match = ASSUMED_ROLE_PATTERN.match(producer)

@@ -1,5 +1,6 @@
 import json
 from typing import Any, Dict, List, Optional
+from unittest.mock import MagicMock
 
 import boto3
 import pytest
@@ -10,7 +11,10 @@ from datahub.ingestion.source.aws_messaging.clients import CloudTrailLakeClient
 from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    MetadataChangeProposalClass,
+)
 from tests.unit.aws_messaging.conftest import ACCOUNT, REGION, base_config, sqs_client
 from tests.unit.aws_messaging.test_lambda_eventbridge import (
     create_function,
@@ -208,3 +212,44 @@ def test_owner_account_is_omitted_when_this_account_is_unknown(
         calls=calls,
     )
     assert calls == [{"region": "eu-west-1", "owner": None}]
+
+
+def test_failed_query_keeps_previous_observed_producers(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sqs_client().create_queue(QueueName="orders")
+    monkeypatch.setattr(
+        CloudTrailLakeClient, "run_query", lambda self, *args, **kwargs: None
+    )
+    previous = f"arn:aws:iam::{ACCOUNT}:role/ecs-task"
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = None
+    graph.get_aspect.side_effect = lambda urn, aspect: (
+        DatasetPropertiesClass(customProperties={"observed_producers": previous})
+        if urn == QUEUE_URN
+        else None
+    )
+    source = SqsSource.create(
+        base_config(
+            cloudtrail_producers={"enabled": True, "event_data_store": STORE},
+            lineage={"lambda_functions": False},
+        ),
+        PipelineContext(run_id="cloudtrail-test", graph=graph),
+    )
+    patches = [
+        json.loads(wu.metadata.aspect.value)
+        for wu in source.get_workunits()
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "datasetProperties"
+        and wu.metadata.aspect is not None
+    ]
+    # Written back after the full datasetProperties upsert, so it survives.
+    assert patches == [
+        [
+            {
+                "op": "add",
+                "path": "/customProperties/observed_producers",
+                "value": previous,
+            }
+        ]
+    ]

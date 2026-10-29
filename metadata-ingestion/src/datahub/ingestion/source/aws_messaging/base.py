@@ -137,6 +137,8 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             urns=self.urns,
             resolver=self.resolver,
             lambdas=self.lambdas,
+            graph=self.ctx.graph,
+            owned=self.lineage.owned,
         )
         producers.collect()
         yield from producers.workunits()
