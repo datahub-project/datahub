@@ -68,6 +68,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     const {
         content,
         readOnly,
+        editingDisabled,
         onChange,
         className,
         placeholder,
@@ -159,7 +160,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 <RemirrorLocaleProvider>
                     <Remirror
                         classNames={EDITOR_CLASS_NAMES}
-                        editable={!readOnly}
+                        editable={!readOnly && !editingDisabled}
                         manager={manager}
                         initialContent={state}
                         placeholder={placeholder || ''}

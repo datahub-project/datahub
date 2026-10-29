@@ -28,6 +28,11 @@ interface FileUploadProps {
 
 export type EditorProps = {
     readOnly?: boolean;
+    /**
+     * Reject edits while keeping the Remirror surface mounted. `readOnly` swaps in the
+     * static HTML renderer, which changes padding and placeholder placement.
+     */
+    editingDisabled?: boolean;
     content?: string;
     onChange?: (md: string) => void;
     className?: string;
