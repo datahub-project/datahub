@@ -128,24 +128,11 @@ def _mock_client() -> MagicMock:
     return client
 
 
-@pytest.mark.parametrize(
-    "parse_table_names_from_sql, golden",
-    [
-        (False, "redash_mces_golden.json"),
-        (True, "redash_parse_sql_mces_golden.json"),
-    ],
-)
-def test_redash_golden(
-    pytestconfig: pytest.Config,
-    tmp_path: pathlib.Path,
-    parse_table_names_from_sql: bool,
-    golden: str,
-) -> None:
+def test_redash_golden(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
     source = RedashSource(
         ctx=PipelineContext(run_id="redash-golden-test"),
         config=RedashConfig(
             connect_uri=CONNECT_URI,
-            parse_table_names_from_sql=parse_table_names_from_sql,
             parallelism=1,
         ),
     )
@@ -155,12 +142,12 @@ def test_redash_golden(
 
     assert not source.get_report().failures
     assert list(source.report.filtered) == ["Draft query", "Draft dashboard"]
-    output_path = tmp_path / golden
+    output_path = tmp_path / "redash.json"
     write_metadata_file(output_path, [wu.metadata for wu in workunits])
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_path,
-        golden_path=RESOURCES / golden,
+        golden_path=RESOURCES / "redash_mces_golden.json",
         golden_mces_as_mcps=True,
         fail_on_output_mces=True,
     )

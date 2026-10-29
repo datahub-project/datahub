@@ -470,7 +470,7 @@ def test_preset_stateful_ingest(
             request_mock=requests_mock, override_data=dashboard_endpoint_override
         )
 
-        # Capture MCEs of second run to validate Status(removed=true)
+        # Capture the second run's output to validate Status(removed=true)
         deleted_mces_path = f"{tmp_path}/preset_deleted_mces.json"
         pipeline_config_dict["sink"]["type"] = "file"
         pipeline_config_dict["sink"]["config"] = {"filename": deleted_mces_path}

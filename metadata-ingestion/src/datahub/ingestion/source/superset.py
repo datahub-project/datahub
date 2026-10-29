@@ -1188,7 +1188,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         except Exception as e:
             self.report.num_dashboards_dropped_unexpected_error += 1
             self.report.warning(
-                message="Failed to construct dashboard snapshot.",
+                message="Failed to construct dashboard metadata.",
                 context=self._warning_context(
                     dashboard_id=dashboard_id,
                     dashboard_title=dashboard_title,
@@ -1822,7 +1822,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             yield from self.construct_chart_from_chart_data(chart_data)
         except Exception as e:
             self.report.warning(
-                message="Failed to construct chart snapshot. This chart will not be ingested.",
+                message="Failed to construct chart metadata. This chart will not be ingested.",
                 context=self._warning_context(
                     chart_id=chart_id,
                     chart_name=chart_name,
@@ -2248,7 +2248,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         except Exception as e:
             self.report.warning(
-                message="Failed to construct dataset snapshot.",
+                message="Failed to construct dataset metadata.",
                 context=self._warning_context(
                     dataset_id=dataset_data.get("id"),
                     dataset_name=dataset_data.get("table_name"),
