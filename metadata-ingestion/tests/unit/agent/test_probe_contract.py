@@ -1308,15 +1308,31 @@ def _dropped_markers(config_cls: type) -> List[str]:
             if _is_hidden_field(klass, name):
                 continue
             kept = {
-                marker for info in fields.values() for marker in _field_markers(info)
+                _marker_identity(marker)
+                for info in fields.values()
+                for marker in _field_markers(info)
             }
-            lost = [m for m in _field_markers(inherited) if m not in kept]
+            lost = [
+                m for m in _field_markers(inherited) if _marker_identity(m) not in kept
+            ]
             if lost:
                 problems.append(
                     f"{klass.__module__}.{klass.__qualname__}.{name} redeclares "
                     f"an inherited field and drops {lost}"
                 )
     return problems
+
+
+def _marker_identity(marker: object) -> object:
+    """What makes two markers the same declaration.
+
+    The kind, not the whole marker: a redeclaration may legitimately say MORE
+    about the same field -- Unity adds `also_filters` to the `Filters(Table)`
+    it inherits -- and comparing by equality read that as dropping the
+    inherited one.
+    """
+    kind = getattr(marker, "kind", None)
+    return (type(marker).__name__, str(kind) if kind is not None else None)
 
 
 def test_no_config_drops_a_marker_by_redeclaring_its_field():

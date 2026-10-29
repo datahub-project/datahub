@@ -6,7 +6,9 @@ from sqlalchemy.engine.reflection import Inspector
 
 import datahub.ingestion.source.sql.sql_probe as sql_probe_module
 from datahub.configuration.common import Qualifier
+from datahub.ingestion.agent.declarations import also_filtering_fields
 from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.introspect import pattern_field_for_config
 from datahub.ingestion.agent.verdicts import ClassifyContext, ContainerUnknown
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import (
@@ -448,30 +450,43 @@ def test_unity_catalog_probe_filter_target_includes_the_catalog_segment():
 _UC: Dict[str, object] = {"token": "token", "workspace_url": "https://workspace_url"}
 
 
-def test_unity_catalog_table_kinds_are_a_known_gap_in_the_container_rule():
-    """Unity's own verdict override judges `table_pattern` for every
-    table-like kind, as ingestion does, so it answers before the container
-    rule can decline -- on a target missing its catalog.
+def test_a_field_consulted_for_another_kind_is_part_of_that_kinds_verdict():
+    """Unity's override judges `table_pattern` for every table-like kind, as
+    its ingestion does, so a view's verdict can rest on it.
 
     The rule asks "did anything decide this without needing the container?",
-    and an override that decided is taken at its word. Unity's did need the
-    container and does not say so, so the inversion survives here. This
-    matches master; it is pinned rather than fixed because closing it needs
-    the override to name the fields its verdict consulted, which is a change
-    to the hook contract rather than to this rule.
+    and an override that answered used to be taken at its word -- so a view
+    judged on `schema.view` came back excluded, the same inversion the rule
+    removes elsewhere. `Filters(..., also_filters=[...])` says which other
+    fields a verdict may consult, so the question can be asked of all of them.
     """
-    result = check_filters(
+    with pytest.raises(ContainerUnknown):
+        check_filters(
+            source_type="unity-catalog",
+            config_dict={**_UC, "table_pattern": {"allow": [r"^mycat\.sch\.v1$"]}},
+            kind=str(DatasetSubTypes.VIEW),
+            parent_path=["sch"],
+            names=["v1"],
+        )
+
+    # Naming the catalog answers it, which is what the refusal asks for.
+    answered = check_filters(
         source_type="unity-catalog",
-        config_dict={**_UC, "table_pattern": {"allow": [r"^mycat\.sch\.t1$"]}},
-        kind=str(DatasetSubTypes.TABLE),
-        parent_path=["sch"],
-        names=["t1"],
+        config_dict={**_UC, "table_pattern": {"allow": [r"^mycat\.sch\.v1$"]}},
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=["mycat", "sch"],
+        names=["v1"],
     )
-    verdict = result.results[0]
-    assert verdict.target == "sch.t1"
-    assert not verdict.included
-    # The degrade is at least said, which is what stops it being silent.
-    assert any("no catalog given" in w for w in result.warnings), result.warnings
+    assert answered.results[0].included
+
+
+def test_unity_declares_the_fields_its_override_really_consults():
+    """The declaration, not the behaviour: `view_pattern` stays the field a
+    caller edits for a view, and `table_pattern` is only added to the set the
+    rule inspects."""
+    config = UnityCatalogSourceConfig.model_validate(_UC)
+    assert also_filtering_fields(config, str(DatasetSubTypes.VIEW)) == {"table_pattern"}
+    assert pattern_field_for_config(config, str(DatasetSubTypes.VIEW)) == "view_pattern"
 
 
 def test_unity_catalog_still_answers_when_nothing_filters():

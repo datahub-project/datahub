@@ -509,11 +509,18 @@ The same holds where the get_identifier shim builds an incomplete identifier
 (a Postgres recipe with no `database`), for `bigquery-queries`,
 `snowflake-queries` and `snowflake-summary` tables, which declare no
 `probe_match_target`, for Unity Catalog's own Catalog and Schema kinds, and
-for MSSQL stored procedures. A connector whose `probe_verdict_override` judges
-a field other than the kind's own -- Unity consults `table_pattern` for every
-table-like kind -- answers before this rule can decline, so the inversion
-survives there too. Each is the same defect the rule removes elsewhere; they
-are listed rather than claimed.
+for MSSQL stored procedures. Each is the same defect the rule
+removes elsewhere; they are listed rather than claimed.
+
+**A verdict that consults another kind's field.** Where a
+`probe_verdict_override` judges a field other than the kind's own -- Unity
+checks `table_pattern` for every table-like kind, as its ingestion does --
+say so at the field with `Filters(kind, also_filters=[...])`. The kind's own
+field stays the one a verdict reports and `--try-allow` edits; `also_filters`
+only adds this field to the set the container rule inspects, so an override
+answering on a target missing its container is declined rather than believed.
+Declaring a kind no field is primary for, or the field's own kind, is refused
+as a declaration error.
 
 **Where the rule reaches.** Every SQL-family source, by either route: a
 config declaring `Qualifier()` (BigQuery, Redshift) through the shim, and a
