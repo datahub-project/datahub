@@ -161,15 +161,44 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
             # Sorted before the cut, for the same reason: the framework drops
             # the last item, so the order it drops from must be the final one.
             return sorted(pinned)[:limit]
-        if getattr(self._config, "project_labels", None):
-            self._warn(
-                "`project_labels` is set, so ingestion narrows these by a label "
-                "search this listing does not run; projects without the labels "
-                "appear here and would not be ingested"
-            )
+        labels = list(getattr(self._config, "project_labels", None) or [])
         with soft_listing(self._warn):
+            if labels:
+                return self._labelled_projects(labels, limit)
             return self._listed_projects(limit)
         return []
+
+    def _labelled_projects(self, labels: List[str], limit: int) -> List[str]:
+        """The label search ingestion runs for this recipe shape.
+
+        `project_labels` sends ingestion down a different API -- Resource
+        Manager's `search_projects`, not BigQuery's own `projects.list` -- and
+        it reads only what comes back. Listing the credential's view here
+        instead would answer a question the recipe does not ask, which is the
+        same fault as ignoring `project_ids`. It needs
+        `resourcemanager.projects.list`, as ingestion does for this recipe.
+        """
+        # lazy: Resource Manager is only reached on this branch
+        from datahub.ingestion.source.common.gcp_project_filter import (
+            iter_projects_by_labels,
+        )
+
+        try:
+            found = itertools.islice(
+                iter_projects_by_labels(
+                    frozenset(labels), self._config.get_projects_client()
+                ),
+                limit,
+            )
+            ids = [project.id for project in found]
+        except Forbidden as exc:
+            raise ProbeSoftError(
+                "searching projects by label needs "
+                "`resourcemanager.projects.list`, which this credential does "
+                "not have; ingestion needs it for this recipe too, so set "
+                "`project_ids` to name the projects instead"
+            ) from exc
+        return sorted(ids) if len(ids) < limit else ids
 
     def _listed_projects(self, limit: int) -> List[str]:
         timeout = self.query_budget.timeout_seconds

@@ -260,13 +260,40 @@ def test_bigquery_answers_for_the_recipe_not_for_the_credential() -> None:
     assert any("project_ids" in w for w in probe.warnings), probe.warnings
 
 
-def test_bigquery_says_project_labels_narrow_what_it_lists() -> None:
+def test_bigquery_runs_the_label_search_ingestion_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`project_labels` sends ingestion down Resource Manager's
+    `search_projects`, not BigQuery's own `projects.list`, and it reads only
+    what comes back. Listing the credential's view instead answered a
+    question the recipe does not ask -- the same fault as ignoring
+    `project_ids`, since the refusal points callers here.
+
+    The permission follows from the alignment: ingestion needs
+    `resourcemanager.projects.list` for this recipe shape, so the probe does
+    too, and a recipe the probe can answer is one ingestion can run.
+    """
+    import datahub.ingestion.source.common.gcp_project_filter as filter_module
     from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+    from datahub.ingestion.source.common.gcp_project_filter import GcpProject
 
     config = BigQueryV2Config.model_validate({"project_labels": ["env:prod"]})
-    probe = BigQueryMetadataProbe(FakeProjectsClient(["p1"]), config)
-    assert probe.projects() == ["p1"]
-    assert any("project_labels" in w for w in probe.warnings), probe.warnings
+    searched: Dict[str, object] = {}
+
+    def _fake_search(labels: object, client: object = None) -> object:
+        searched["labels"] = labels
+        return iter([GcpProject(id="labelled-1", name="one")])
+
+    monkeypatch.setattr(filter_module, "iter_projects_by_labels", _fake_search)
+    monkeypatch.setattr(
+        type(config), "get_projects_client", lambda _self: object(), raising=False
+    )
+
+    bq_client = FakeProjectsClient(["unlabelled"])
+    assert BigQueryMetadataProbe(bq_client, config).projects() == ["labelled-1"]
+    assert searched["labels"] == frozenset({"env:prod"})
+    # The credential's own view is not consulted on this branch.
+    assert bq_client.pulled == 0
 
 
 def test_bigquery_projects_declares_the_kind_the_refusal_looks_up() -> None:
