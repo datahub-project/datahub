@@ -85,6 +85,23 @@ def test_commented_write_and_unused_load_are_absent() -> None:
     assert "products" not in used
 
 
+def test_percent_line_inside_a_string_does_not_break_parsing() -> None:
+    # Blanking every line that starts with % would drop this string's closing
+    # quotes and leave the notebook unparseable.
+    source = '''
+report = """
+%"""
+orders = spark.read.format("delta").load("Tables/silver/orders")
+orders.write.format("delta").save("Tables/gold/dim_user")
+'''
+    lineage = extract_notebook_code_lineage(source)
+    assert lineage == {
+        CodeTable(table="dim_user", schema="gold"): {
+            CodeTable(table="orders", schema="silver")
+        }
+    }
+
+
 def test_intermediate_write_is_a_source_of_the_next_write() -> None:
     source = """
 source = f"{silver_path}/Tables/silver/"

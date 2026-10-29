@@ -38,15 +38,24 @@ def extract_notebook_code_lineage(
 ) -> Optional[Dict[CodeTable, Set[CodeTable]]]:
     """Map each table the notebook writes to the tables that write uses.
 
+    Only Python is read. fabricGitSource stores ``%%sql`` and other magic
+    cells as ``# MAGIC`` comments, so SQL cells are not parsed and their
+    outputs keep the Spark-plan lineage.
+
     Returns None when ``source`` is not parseable Python, so the caller can
     keep the Spark-plan lineage unchanged. An empty dict means the code parsed
     and contains no writes.
     """
     try:
-        tree = ast.parse(_strip_magics(source))
+        tree = ast.parse(source)
     except SyntaxError:
-        logger.debug("Notebook source is not parseable Python; skipping code lineage")
-        return None
+        try:
+            tree = ast.parse(_strip_magics(source))
+        except SyntaxError:
+            logger.debug(
+                "Notebook source is not parseable Python; skipping code lineage"
+            )
+            return None
 
     extractor = _Extractor()
     extractor.walk(tree.body)
@@ -134,7 +143,12 @@ def _resolve(
 
 
 def _strip_magics(source: str) -> str:
-    """Drop notebook magics so ``ast.parse`` can read the rest of the cell."""
+    """Blank raw ``%`` and ``!`` lines, such as a ``%pip install`` left
+    uncommented, so ``ast.parse`` can read the rest of the source.
+
+    Only used when the source does not parse as is, because it also blanks
+    such lines inside triple-quoted strings.
+    """
     kept: List[str] = []
     for line in source.splitlines():
         stripped = line.lstrip()
