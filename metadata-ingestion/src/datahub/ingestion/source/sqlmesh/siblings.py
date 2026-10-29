@@ -103,8 +103,7 @@ class SiblingsMixin(SqlmeshSourceBase):
         An external model stands for a warehouse table SQLMesh reads but doesn't
         build (dbt's "source"), so the table is its upstream. Kept even with
         ``skip_external_models_in_lineage``, so the external entity's own lineage
-        reaches the table; the UI's ``hideSqlmeshSourceInLineage`` folds the
-        entity into the table, as ``hideDbtSourceInLineage`` does for dbt.
+        reaches the table.
         """
         column_edges = [
             _column_copy(warehouse_urn, sqlmesh_urn, column)

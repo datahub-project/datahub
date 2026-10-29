@@ -18,9 +18,6 @@ the lineage graph, so lineage runs through SQLMesh from table to table:
 - Each external model (a `Source`) takes the table it declares as its upstream.
 - `skip_external_models_in_lineage: true` takes external models off the path: models
   read their warehouse tables directly, like dbt's `skip_sources_in_lineage`.
-- The GMS flag `HIDE_SQLMESH_SOURCE_IN_LINEAGE` (default `false`) is the counterpart of
-  `HIDE_DBT_SOURCE_IN_LINEAGE`. It removes no nodes from the graph. Opening a SQLMesh `Source`
-  shows its warehouse table's lineage, and that table shows both platform icons.
 
 Column field paths use the same casing as column lineage: lowercased when
 `convert_urns_to_lowercase` is in effect, unless `convert_column_urns_to_lowercase: false`.
