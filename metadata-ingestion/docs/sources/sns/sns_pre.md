@@ -21,7 +21,7 @@ SQS queues are ingested by the separate `sqs` source. Topic-to-queue lineage is 
         "sns:ListTopics",
         "sns:GetTopicAttributes",
         "sns:ListTagsForResource",
-        "sns:ListSubscriptions",
+        "sns:ListSubscriptionsByTopic",
         "sns:GetSubscriptionAttributes",
         "sns:GetDataProtectionPolicy"
       ],
@@ -51,6 +51,7 @@ SQS queues are ingested by the separate `sqs` source. Topic-to-queue lineage is 
 
 - `sqs:ListQueues` tells the connector which queues in its own account and region exist, so a subscription to a deleted queue doesn't create an empty queue entity. Without it, edges to local queues are skipped with a warning.
 - Tags are read with one `tag:GetResources` call. If it is denied the connector warns and calls `sns:ListTagsForResource` per topic, which SNS limits to 10 calls per second.
+- Subscriptions are listed per topic with `sns:ListSubscriptionsByTopic`, because `sns:ListSubscriptions` only returns the caller's own subscriptions and would miss ones other accounts created on your topics. That is one call per topic, and SNS allows 30 per second.
 - `sns:GetSubscriptionAttributes` is only called when `include_subscription_attributes` is on, and `sns:GetDataProtectionPolicy` only when `data_protection.enabled` is on.
 
 #### Authentication

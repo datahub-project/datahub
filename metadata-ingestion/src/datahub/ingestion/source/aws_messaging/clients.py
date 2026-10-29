@@ -166,14 +166,17 @@ class SnsClient:
         )
         return tags_to_dict((response or {}).get("Tags") or [])
 
-    def list_subscriptions(self) -> Iterator[SnsSubscription]:
-        # One account-wide listing instead of a call per topic; SNS caps both at 30 TPS.
+    def list_subscriptions(self, topic_arn: str) -> Iterator[SnsSubscription]:
+        # Per topic, because ListSubscriptions only returns the caller's own
+        # subscriptions and misses ones other accounts created on our topics.
+        # SNS allows 30 of these calls per second.
         for item in paginate(
             client=self._client,
-            operation="list_subscriptions",
+            operation="list_subscriptions_by_topic",
             result_key="Subscriptions",
             report=self.report,
-            api_label="sns:ListSubscriptions",
+            api_label="sns:ListSubscriptionsByTopic",
+            TopicArn=topic_arn,
         ):
             yield SnsSubscription(
                 subscription_arn=item.get("SubscriptionArn", ""),

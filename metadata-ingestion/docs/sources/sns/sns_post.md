@@ -8,7 +8,7 @@ When `platform_instance` is not set, the connector reads the account id from a t
 
 | Edge                                        | Read from                                                              |
 | ------------------------------------------- | ---------------------------------------------------------------------- |
-| Topic to SQS queue                          | `sns:ListSubscriptions`, protocol `sqs`                                |
+| Topic to SQS queue                          | `sns:ListSubscriptionsByTopic`, protocol `sqs`                         |
 | Topic to a subscription's dead-letter queue | the subscription's `RedrivePolicy` (`include_subscription_attributes`) |
 
 Edges are upstream lineage patches on the queue, so the queue keeps its dead-letter lineage from the `sqs` source and edges from other accounts' recipes. Each edge carries a `relationship` property (`subscription` or `subscription_dead_letter`).
