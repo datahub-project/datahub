@@ -3867,7 +3867,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             opContext, List.of(deleteItem), opContext.getRetrieverContext(), opContext);
     if (!exceptions.isEmpty()) {
       throw new ValidationException(
-          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
+          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions));
     }
 
     // Hard delete wipes all aspects in one shot; capture aspects needed by post-commit side
@@ -4096,8 +4096,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     if (!preCommitExceptions.isEmpty()) {
                       throw new ValidationException(
                           collectMetrics(
-                                  opContext.getMetricUtils().orElse(null), preCommitExceptions)
-                              .toString());
+                              opContext.getMetricUtils().orElse(null), preCommitExceptions));
                     }
 
                     // 5. Apply deletes and fix up latest row
