@@ -66,22 +66,35 @@ baseline `page-budget.json`).
 findings run `e2e-test/perf/vitals/bundle-inventory.mjs --regression` against
 `eager-budget-inventory.json` and append the package/area table to the job summary.
 
-Catalog owns a recurring **bundle-budget chore**. Nightly `build & test` (`schedule`) already
-builds the frontend and runs the budget scripts; on that event it also uploads a small
-`bundle-budget-artifacts` artifact (findings JSON + measured inventory snapshot).
-`.github/workflows/bundle-budget-reassessment.yml` then runs via `workflow_run` (no second
-frontend build, no JDK/Gradle/yarn setup, write permissions stay out of main CI): classify
-the artifact, **auto-PR only when baselines should ratchet down** (each field becomes
-`min(baseline, measured)` so a soft page bump within slack cannot ride along and raise the
-ceiling), and leave soft overages as a report (never auto-raise). It skips when
-`chore/bundle-budget-ratchet` already has an open PR. Trim/optimize or raise the ceiling
-only in an explicit follow-up PR. Soft warnings on feature PRs are a signal for that chore,
-not a merge blocker.
+Catalog owns a recurring **bundle-budget chore** (opt-in). Nightly `build & test`
+(`schedule`) already builds the frontend and runs the budget scripts; on that event it also
+uploads a small `bundle-budget-artifacts` artifact (findings JSON + measured inventory
+snapshot). `.github/workflows/bundle-budget-reassessment.yml` then runs via `workflow_run`
+when repo variable `BUNDLE_BUDGET_REASSESS=true` (no second frontend build, no
+JDK/Gradle/yarn setup, write permissions stay out of main CI): classify the artifact,
+**auto-PR only when baselines should ratchet down** (only fields with their own
+under-baseline soft finding are written, each as `min(baseline, measured)` — never raise),
+and leave soft overages as a report (never auto-raise). It skips when any
+`chore/bundle-budget-ratchet*` PR is already open and uses a unique branch per run. Soft
+warnings on feature PRs are a signal for that chore, not a merge blocker.
 
-The chore workflow needs repo secret `BUNDLE_BUDGET_PR_TOKEN` (PAT or GitHub App token with
-`contents` + `pull-requests`) so the ratchet PR receives CI. Without it, Actions falls back
-to `github.token`, which can open the PR but will not trigger required checks. Also enable
-**Settings → Actions → General → Allow GitHub Actions to create and approve pull requests**.
+**Enable in this repo** (and in downstream forks that want the same chore):
+
+1. Set Actions variable `BUNDLE_BUDGET_REASSESS=true`.
+2. Prefer a GitHub App so the ratchet PR gets required checks: set
+   `BUNDLE_BUDGET_APP_CLIENT_ID` (variable) and `BUNDLE_BUDGET_APP_PRIVATE_KEY` (secret).
+   Without them the workflow falls back to `github.token`, which can open the PR but will
+   not trigger other workflows.
+3. Enable **Settings → Actions → General → Allow GitHub Actions to create and approve pull
+   requests**.
+
+**Fork / alternate baselines.** Scripts accept `--budget-dir`, `--eager-budget`,
+`--page-budget`, `--inventory-baseline`, `--dist`, or the matching `BUNDLE_*` env vars
+(see `scripts/budget-paths.mjs`). Repo variables `BUNDLE_BUDGET_DIR`,
+`BUNDLE_EAGER_BUDGET`, `BUNDLE_PAGE_BUDGET`, `BUNDLE_INVENTORY_BASELINE`, and
+`BUNDLE_BUDGET_DIST` wire those paths in CI so a fork can keep its own (larger) baselines
+without conflicting with upstream on sync. The workflow checks out
+`github.event.repository.default_branch` (not a hard-coded branch name).
 
 When you intentionally change `eager-budget.json`, refresh the inventory from the same
 `dist/`:

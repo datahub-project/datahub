@@ -10,6 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
+import { resolveBudgetPaths } from './budget-paths.mjs';
 import {
     budgetExitCode,
     classifyGzipDelta,
@@ -307,7 +308,14 @@ function parseArgs(argv) {
             args.verbose = true;
         } else if (arg === '--check') {
             args.check = true;
-        } else if (arg === '--dist' || arg === '--base-dist' || arg === '--pr-dist' || arg === '--base-sha') {
+        } else if (
+            arg === '--dist' ||
+            arg === '--base-dist' ||
+            arg === '--pr-dist' ||
+            arg === '--base-sha' ||
+            arg === '--budget-dir' ||
+            arg === '--page-budget'
+        ) {
             args[arg.slice(2)] = argv[i + 1];
             i += 1;
         }
@@ -371,12 +379,17 @@ function main() {
     }
     console.log(JSON.stringify(summarize(measured), null, 2));
     if (!args.check) return;
-    const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-    const baseline = JSON.parse(fs.readFileSync(path.join(root, 'page-budget.json'), 'utf8'));
+    const paths = resolveBudgetPaths({
+        budgetDir: args['budget-dir'],
+        pageBudget: args['page-budget'],
+        dist: args.dist,
+    });
+    const baseline = JSON.parse(fs.readFileSync(paths.pageBudget, 'utf8'));
     const findings = evaluatePageBudget(measured, baseline);
     // Write next to the measured dist (honours --dist), not a hard-coded package dist/.
+    fs.mkdirSync(paths.dist, { recursive: true });
     fs.writeFileSync(
-        path.join(args.dist, 'page-budget-findings.json'),
+        path.join(paths.dist, 'page-budget-findings.json'),
         `${JSON.stringify(
             {
                 soft: findings.soft,

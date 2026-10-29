@@ -3,6 +3,8 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import zlib from 'zlib';
 
+import { resolveBudgetPaths, takeBudgetPathArgs } from './budget-paths.mjs';
+
 export const FORBIDDEN_EAGER_CHUNK = /phosphor-vendor|mui-vendor|mui-icons-catalog/;
 
 /** Soft warn above this; below it size noise is ignored. */
@@ -192,7 +194,13 @@ export function printBudgetFindings(findings) {
  * @param {string} distDir
  * @param {BudgetFindings} findings
  */
-export function writeBudgetFindings(distDir, findings) {
+/**
+ * @param {string} distDir
+ * @param {BudgetFindings} findings
+ * @param {{ totalGzip?: number }} [measured]
+ */
+export function writeBudgetFindings(distDir, findings, measured = {}) {
+    fs.mkdirSync(distDir, { recursive: true });
     const outPath = path.join(distDir, 'eager-budget-findings.json');
     fs.writeFileSync(
         outPath,
@@ -201,6 +209,9 @@ export function writeBudgetFindings(distDir, findings) {
                 soft: findings.soft,
                 hard: findings.hard,
                 hasFindings: findings.soft.length > 0 || findings.hard.length > 0,
+                measured: {
+                    totalGzip: measured.totalGzip,
+                },
             },
             null,
             2,
@@ -208,15 +219,15 @@ export function writeBudgetFindings(distDir, findings) {
     );
 }
 
-function main() {
-    const json = process.argv.includes('--json');
-    const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-    const distDir = path.join(root, 'dist');
-    const baseline = JSON.parse(fs.readFileSync(path.join(root, 'eager-budget.json'), 'utf8'));
-    const report = readReport(distDir);
+function main(argv = process.argv.slice(2)) {
+    const { rest, paths: pathOverrides } = takeBudgetPathArgs(argv);
+    const json = rest.includes('--json');
+    const paths = resolveBudgetPaths(pathOverrides);
+    const baseline = JSON.parse(fs.readFileSync(paths.eagerBudget, 'utf8'));
+    const report = readReport(paths.dist);
     const findings = evaluateEagerBudget(report, baseline);
     if (!json) {
-        writeBudgetFindings(distDir, findings);
+        writeBudgetFindings(paths.dist, findings, { totalGzip: report.totalGzip });
     }
     if (json) {
         console.log(JSON.stringify(sizeLimitJson(report.totalGzip)));

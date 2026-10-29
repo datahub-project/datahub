@@ -2,25 +2,32 @@
 /**
  * Decide what the scheduled bundle-budget reassessment should do.
  *
- * Reads dist/eager-budget-findings.json and dist/page-budget-findings.json after
- * a master build, then:
- *   - ratchet-down: lower only fields whose measured gzip is under the committed
- *     baseline (never raise a field that grew within slack)
+ * Reads eager/page findings JSON after a default-branch build, then:
+ *   - ratchet-down: lower only fields whose own soft finding is an under-baseline
+ *     shrink (never raise; each written field is min(baseline, measured))
  *   - soft-over: report only (do not bump ceilings)
  *   - hard: exit 1
  *   - ok: nothing to do
  *
  * Usage (from repo root, after frontend build + budget scripts):
  *   node datahub-web-react/scripts/bundle-budget-chore.mjs [--apply]
+ *     [--budget-dir DIR] [--eager-budget FILE] [--page-budget FILE] [--dist DIR]
  */
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
+import { resolveBudgetPaths, takeBudgetPathArgs } from './budget-paths.mjs';
 import { readReport } from './eager-budget.mjs';
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-const distDir = path.join(root, 'dist');
+/** Prefer findings.measured (artifact-friendly); fall back to recomputing from dist JS. */
+function resolveEagerMeasured(eagerFindings, distDir) {
+    const fromFindings = eagerFindings?.measured?.totalGzip;
+    if (typeof fromFindings === 'number' && Number.isFinite(fromFindings)) {
+        return fromFindings;
+    }
+    return readReport(distDir).totalGzip;
+}
 
 export function readJson(filePath) {
     if (!fs.existsSync(filePath)) return null;
@@ -29,6 +36,11 @@ export function readJson(filePath) {
 
 export function isUnderBaseline(message) {
     return /fell to .+ under the .+ baseline/.test(message);
+}
+
+/** Soft under-baseline finding that names this field (label substring). */
+export function hasUnderBaselineFieldFinding(softMessages, labelPart) {
+    return (softMessages || []).some((message) => isUnderBaseline(message) && message.includes(labelPart));
 }
 
 /** @param {{ soft?: string[], hard?: string[] } | null | undefined} findings */
@@ -42,24 +54,45 @@ export function classify(findings) {
 }
 
 /**
- * Never raise a committed ceiling. Each field becomes min(baseline, measured).
- * Fields without a measured value are left alone.
+ * Never raise a committed ceiling. Only fields with their own under-baseline
+ * soft finding are candidates; each becomes min(baseline, measured).
  *
- * @param {{ eager: { totalGzip: number }, page: { shell: number, search: number }, eagerMeasured: number, pageMeasured: { shell?: number | null, search?: number | null } }} args
+ * @param {object} args
+ * @param {{ totalGzip: number }} args.eager
+ * @param {{ shell: number, search: number }} args.page
+ * @param {number} args.eagerMeasured
+ * @param {{ shell?: number | null, search?: number | null }} args.pageMeasured
+ * @param {string[]} [args.eagerSoft]
+ * @param {string[]} [args.pageSoft]
  */
-export function planRatchet({ eager, page, eagerMeasured, pageMeasured }) {
-    return {
-        eager: {
-            ...eager,
-            totalGzip: Math.min(eager.totalGzip, eagerMeasured),
-        },
-        page: {
-            ...page,
-            shell: pageMeasured.shell == null ? page.shell : Math.min(page.shell, pageMeasured.shell),
-            search:
-                pageMeasured.search == null ? page.search : Math.min(page.search, pageMeasured.search),
-        },
-    };
+export function planRatchet({
+    eager,
+    page,
+    eagerMeasured,
+    pageMeasured,
+    eagerSoft = [],
+    pageSoft = [],
+}) {
+    const nextEager = { ...eager };
+    const nextPage = { ...page };
+    if (hasUnderBaselineFieldFinding(eagerSoft, 'Eager JS') && Number.isFinite(eagerMeasured)) {
+        nextEager.totalGzip = Math.min(eager.totalGzip, eagerMeasured);
+    }
+    if (
+        hasUnderBaselineFieldFinding(pageSoft, 'shell') &&
+        pageMeasured.shell != null &&
+        Number.isFinite(pageMeasured.shell)
+    ) {
+        nextPage.shell = Math.min(page.shell, pageMeasured.shell);
+    }
+    if (
+        hasUnderBaselineFieldFinding(pageSoft, 'search') &&
+        pageMeasured.search != null &&
+        Number.isFinite(pageMeasured.search)
+    ) {
+        nextPage.search = Math.min(page.search, pageMeasured.search);
+    }
+    return { eager: nextEager, page: nextPage };
 }
 
 export function budgetsChanged(before, after) {
@@ -70,46 +103,67 @@ export function budgetsChanged(before, after) {
     );
 }
 
-export function applyRatchet({ eagerMeasured, pageMeasured, rootDir = root }) {
-    const eagerPath = path.join(rootDir, 'eager-budget.json');
-    const pagePath = path.join(rootDir, 'page-budget.json');
-    const eager = JSON.parse(fs.readFileSync(eagerPath, 'utf8'));
-    const page = JSON.parse(fs.readFileSync(pagePath, 'utf8'));
-    const planned = planRatchet({ eager, page, eagerMeasured, pageMeasured });
-    if (!budgetsChanged({ eager, page }, planned)) {
-        return { eager, page, changed: false };
-    }
-    fs.writeFileSync(eagerPath, `${JSON.stringify(planned.eager, null, 4)}\n`);
-    fs.writeFileSync(pagePath, `${JSON.stringify(planned.page, null, 4)}\n`);
-    return { eager: planned.eager, page: planned.page, changed: true };
+/**
+ * Pure ratchet: returns the next JSON objects. Caller writes files when changed.
+ *
+ * @param {object} args
+ * @param {object} args.eager committed eager-budget.json
+ * @param {object} args.page committed page-budget.json
+ * @param {number} args.eagerMeasured
+ * @param {{ shell?: number | null, search?: number | null }} args.pageMeasured
+ * @param {string[]} [args.eagerSoft]
+ * @param {string[]} [args.pageSoft]
+ */
+export function applyRatchet({ eager, page, eagerMeasured, pageMeasured, eagerSoft, pageSoft }) {
+    const planned = planRatchet({
+        eager,
+        page,
+        eagerMeasured,
+        pageMeasured,
+        eagerSoft,
+        pageSoft,
+    });
+    return {
+        eager: planned.eager,
+        page: planned.page,
+        changed: budgetsChanged({ eager, page }, planned),
+    };
 }
 
-function main() {
-    const apply = process.argv.includes('--apply');
-    const eagerFindingsPath = path.join(distDir, 'eager-budget-findings.json');
-    const pageFindingsPath = path.join(distDir, 'page-budget-findings.json');
-    const eagerFindingsRaw = readJson(eagerFindingsPath);
-    const pageFindingsRaw = readJson(pageFindingsPath);
-    if (!eagerFindingsRaw) {
-        console.warn(`WARNING: missing ${eagerFindingsPath}; treating eager budget as ok`);
+function writeBudgetJson(filePath, value) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, `${JSON.stringify(value, null, 4)}\n`);
+}
+
+function main(argv = process.argv.slice(2)) {
+    const { rest, paths: pathOverrides } = takeBudgetPathArgs(argv);
+    const apply = rest.includes('--apply');
+    const paths = resolveBudgetPaths(pathOverrides);
+
+    const eagerFindingsPath = path.join(paths.dist, 'eager-budget-findings.json');
+    const pageFindingsPath = path.join(paths.dist, 'page-budget-findings.json');
+    const eagerFindings = readJson(eagerFindingsPath);
+    const pageFindings = readJson(pageFindingsPath);
+    if (!eagerFindings) {
+        console.error(`Missing findings file: ${eagerFindingsPath}`);
+        process.exit(1);
     }
-    if (!pageFindingsRaw) {
-        console.warn(`WARNING: missing ${pageFindingsPath}; treating page budget as ok`);
+    if (!pageFindings) {
+        console.error(`Missing findings file: ${pageFindingsPath}`);
+        process.exit(1);
     }
-    const eagerFindings = eagerFindingsRaw || { soft: [], hard: [] };
-    const pageFindings = pageFindingsRaw || { soft: [], hard: [], measured: {} };
+
     const eagerClass = classify(eagerFindings);
     const pageClass = classify(pageFindings);
     const order = { hard: 3, 'soft-over': 2, 'ratchet-down': 1, ok: 0 };
-    const decision =
-        [eagerClass, pageClass].sort((a, b) => order[b] - order[a])[0] || 'ok';
+    const decision = [eagerClass, pageClass].sort((a, b) => order[b] - order[a])[0] || 'ok';
 
-    const report = readReport(distDir);
+    const eagerMeasured = resolveEagerMeasured(eagerFindings, paths.dist);
     const summary = {
         decision,
         eagerClass,
         pageClass,
-        eagerMeasured: report.totalGzip,
+        eagerMeasured,
         pageMeasured: pageFindings.measured || {},
         eagerSoft: eagerFindings.soft,
         eagerHard: eagerFindings.hard,
@@ -118,10 +172,21 @@ function main() {
     };
 
     if (decision === 'ratchet-down' && apply) {
-        summary.applied = applyRatchet({
-            eagerMeasured: report.totalGzip,
+        const eager = JSON.parse(fs.readFileSync(paths.eagerBudget, 'utf8'));
+        const page = JSON.parse(fs.readFileSync(paths.pageBudget, 'utf8'));
+        const applied = applyRatchet({
+            eager,
+            page,
+            eagerMeasured,
             pageMeasured: pageFindings.measured || {},
+            eagerSoft: eagerFindings.soft || [],
+            pageSoft: pageFindings.soft || [],
         });
+        if (applied.changed) {
+            writeBudgetJson(paths.eagerBudget, applied.eager);
+            writeBudgetJson(paths.pageBudget, applied.page);
+        }
+        summary.applied = applied;
     }
 
     console.log(JSON.stringify(summary, null, 2));

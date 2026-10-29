@@ -26,13 +26,20 @@ Runs alternate A, B, A, B. A batched all-A-then-all-B loop lets host drift land 
 `bundle-inventory.mjs` attributes eager `index.html` JS (same set as
 `datahub-web-react/scripts/eager-budget.mjs`) to packages via source maps.
 
+Attribution and rendering live in `bundle-inventory-core.mjs` /
+`bundle-inventory-render.mjs`; `bundle-inventory.mjs` is the CLI entry (and
+re-exports for tests).
+
 `frontend-build` runs `--regression` whenever the eager budget has soft or hard
-findings. That report diffs the fresh `dist/` against
-`datahub-web-react/eager-budget-inventory.json` and appends markdown to the job
-summary. On the nightly `schedule` run it also uploads a
-`bundle-budget-artifacts` snapshot; `Bundle budget reassessment` consumes that
-artifact (no second frontend build) and opens a PR only to ratchet baselines
-down.
+findings. That report diffs the fresh `dist/` against the committed inventory
+baseline and appends markdown to the job summary. On the nightly `schedule` run
+it also uploads a `bundle-budget-artifacts` snapshot (findings + measured
+inventory — not the whole `dist/`). When repo variable `BUNDLE_BUDGET_REASSESS`
+is `true`, `Bundle budget reassessment` consumes that artifact via
+`workflow_run` (no second frontend build) and opens a PR only to **lower**
+baselines. Budget file paths are overridable for downstream forks via
+`BUNDLE_BUDGET_DIR` / `--eager-budget` / `--page-budget` /
+`--inventory-baseline` (see `datahub-web-react/AGENTS.md`).
 
 When you change `eager-budget.json`, refresh the inventory from the same build:
 
