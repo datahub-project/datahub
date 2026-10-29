@@ -7,35 +7,29 @@ import parseGql from 'graphql-tag';
  * them during module evaluation dominates the pre-paint long task (CAT-3693).
  * Apollo only needs the AST when a hook runs, which is after first paint for
  * almost all of those documents.
+ *
+ * Returns a plain object with lazy getters rather than a Proxy, so freezing,
+ * structured cloning, spreading and JSON serialization behave as they do for
+ * a normal DocumentNode. `kind` is constant, so graphql-tag's fragment
+ * interpolation check (`arg.kind === 'Document'`) does not force a parse.
  */
-export function gql(literals: any, ...args: any[]): DocumentNode {
-    let doc: DocumentNode | undefined;
-    const get = (): DocumentNode => {
-        if (!doc) {
-            doc = args.length > 0 ? parseGql(literals, ...args) : parseGql(literals);
+export function gql(literals: ReadonlyArray<string> | Readonly<string>, ...placeholders: unknown[]): DocumentNode {
+    let parsed: DocumentNode | undefined;
+    const parse = (): DocumentNode => {
+        if (!parsed) {
+            parsed = parseGql(literals, ...placeholders);
         }
-        return doc;
+        return parsed;
     };
 
-    return new Proxy({} as DocumentNode, {
-        get(_target, prop, receiver) {
-            return Reflect.get(get() as object, prop, receiver);
+    return Object.defineProperties(
+        {},
+        {
+            kind: { value: 'Document', enumerable: true },
+            definitions: { get: () => parse().definitions, enumerable: true },
+            loc: { get: () => parse().loc, enumerable: true },
         },
-        has(_target, prop) {
-            return Reflect.has(get() as object, prop);
-        },
-        ownKeys() {
-            return Reflect.ownKeys(get() as object);
-        },
-        getOwnPropertyDescriptor(_target, prop) {
-            const descriptor = Reflect.getOwnPropertyDescriptor(get() as object, prop);
-            // Proxies must report configurable:true for claimed own keys.
-            if (descriptor) {
-                return { ...descriptor, configurable: true };
-            }
-            return descriptor;
-        },
-    });
+    ) as DocumentNode;
 }
 
 export default gql;
