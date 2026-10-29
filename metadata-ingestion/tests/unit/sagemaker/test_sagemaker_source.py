@@ -230,7 +230,7 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
             "get_client",
             return_value=sagemaker_source_instance.sagemaker_client,
         ):
-            # Run the test and generate the MCEs
+            # Run the test and generate the work units
             mce_objects = [
                 wu.metadata for wu in sagemaker_source_instance.get_workunits()
             ]
@@ -242,6 +242,7 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         pytestconfig,
         output_path=tmp_path / "sagemaker_mces.json",
         golden_path=test_resources_dir / "sagemaker_mces_golden.json",
+        golden_mces_as_mcps=True,
     )
 
 
