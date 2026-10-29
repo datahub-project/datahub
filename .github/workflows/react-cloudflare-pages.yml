@@ -79,6 +79,9 @@ jobs:
       # which broke Meticulous. pages-action named them "datahub-project-web-react (Preview)" on
       # pull requests and "datahub-project-web-react (Production)" on the main branch. Record
       # those names ourselves after a successful Pages upload.
+      # Master pushes that do not change the frontend skip this record. Those SHAs
+      # still need a Production deployment or Meticulous has no base test run, so
+      # record-inherited-frontend-deployment.yml reuses the last published Pages URL.
       - name: Publish
         id: cloudflare
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
