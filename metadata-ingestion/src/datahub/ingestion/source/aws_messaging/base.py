@@ -28,9 +28,6 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
 
     platform: str
     service: AwsService
-    # Lineage relationships only this source writes. Stale edges of these types
-    # are retracted; edges written by the companion source are left alone.
-    owned_relationships: FrozenSet[LineageRelationship]
 
     def __init__(
         self,
@@ -69,8 +66,14 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         self.lineage = DatasetLineageCollector(
             report=report,
             graph=ctx.graph if config.remove_stale_lineage else None,
-            relationships=self.owned_relationships,
+            relationships=self.owned_relationships(),
         )
+
+    def owned_relationships(self) -> FrozenSet[LineageRelationship]:
+        """Lineage relationships this source writes and reads in full each run.
+        Stale edges of these types are retracted; edges the companion source
+        writes are left alone."""
+        raise NotImplementedError
 
     def create_clients(self) -> None:
         """Builds the AWS clients from self.session, once the region is known and

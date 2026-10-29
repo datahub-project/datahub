@@ -1,5 +1,5 @@
 import itertools
-from typing import Iterable, Iterator, List, Optional
+from typing import FrozenSet, Iterable, Iterator, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -58,7 +58,6 @@ class SqsSource(AwsMessagingSourceBase):
 
     platform = SQS_PLATFORM
     service = AwsService.SQS
-    owned_relationships = frozenset({LineageRelationship.DEAD_LETTER})
     config: SqsSourceConfig
     report: SqsSourceReport
 
@@ -83,6 +82,9 @@ class SqsSource(AwsMessagingSourceBase):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqsSource":
         return cls(SqsSourceConfig.model_validate(config_dict), ctx)
+
+    def owned_relationships(self) -> FrozenSet[LineageRelationship]:
+        return frozenset({LineageRelationship.DEAD_LETTER})
 
     def first_resource_arn(self) -> Optional[str]:
         # The queue URL carries the account id, so this needs only sqs:ListQueues.
