@@ -48,7 +48,7 @@ With `data_protection.enabled`, each topic's [message data protection](https://d
 
 - One region per recipe.
 - Schema metadata needs Glue Schema Registry and an explicit map; SNS itself doesn't store messages.
-- Lineage to queues excluded by the `sqs` recipe's `queue_pattern` is still written, because this source can't see that recipe's filters; the queue then appears with only its lineage.
+- Lineage to a queue that the `sqs` recipe's `queue_pattern` excludes is still written, because the queue exists and its URN follows from its ARN. This source doesn't read the `sqs` recipe's filters. The queue then appears in DataHub with only its lineage.
 - Subscriptions to Lambda, Firehose and HTTP endpoints are counted but not yet drawn as lineage.
 
 ### Troubleshooting
