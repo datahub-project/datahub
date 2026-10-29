@@ -333,10 +333,12 @@ jobs:
           EAGER="${BUNDLE_EAGER_BUDGET:-$BUNDLE_BUDGET_DIR/eager-budget.json}"
           PAGE="${BUNDLE_PAGE_BUDGET:-$BUNDLE_BUDGET_DIR/page-budget.json}"
           INVENTORY="${BUNDLE_INVENTORY_BASELINE:-$BUNDLE_BUDGET_DIR/eager-budget-inventory.json}"
-          echo "dist=$DIST" >> "$GITHUB_OUTPUT"
-          echo "eager=$EAGER" >> "$GITHUB_OUTPUT"
-          echo "page=$PAGE" >> "$GITHUB_OUTPUT"
-          echo "inventory=$INVENTORY" >> "$GITHUB_OUTPUT"
+          {
+            echo "dist=$DIST"
+            echo "eager=$EAGER"
+            echo "page=$PAGE"
+            echo "inventory=$INVENTORY"
+          } >> "$GITHUB_OUTPUT"
       - name: Eager JS budget
         id: eager-budget
         run: |

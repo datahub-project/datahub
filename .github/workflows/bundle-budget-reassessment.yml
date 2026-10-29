@@ -95,11 +95,16 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.value }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          # Match any open PR whose head starts with the ratchet prefix (unique per run_id).
-          existing=$(gh pr list --base "$DEFAULT_BRANCH" --state open --json number,headRefName,title \
-            --jq '[.[] | select(.headRefName | startswith("chore/bundle-budget-ratchet")) | .number][0] // empty')
+          # Search by title so we are not capped by the default 30-PR page of `gh pr list`
+          # (this repo routinely has far more open PRs). Title is fixed by this workflow.
+          existing=$(gh pr list --base "$DEFAULT_BRANCH" --state open --limit 20 \
+            --search 'in:title "ratchet frontend bundle budgets"' \
+            --json number,headRefName \
+            --jq '[.[] | select(.headRefName | startswith("chore/bundle-budget-ratchet"))][0].number // empty')
           if [ -n "$existing" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "skip=true"
+            } >> "$GITHUB_OUTPUT"
             echo "Open ratchet PR #$existing already exists — skipping reassessment to avoid stacking."
             {
               echo "### Bundle budget reassessment"
@@ -160,10 +165,12 @@ jobs:
             fi
             cp "/tmp/bundle-budget-artifacts/$f" "$DIST/$f"
           done
-          echo "DIST=$DIST" >> "$GITHUB_ENV"
-          echo "EAGER_BUDGET=${BUNDLE_EAGER_BUDGET:-$BUDGET_DIR/eager-budget.json}" >> "$GITHUB_ENV"
-          echo "PAGE_BUDGET=${BUNDLE_PAGE_BUDGET:-$BUDGET_DIR/page-budget.json}" >> "$GITHUB_ENV"
-          echo "INVENTORY_BASELINE=${BUNDLE_INVENTORY_BASELINE:-$BUDGET_DIR/eager-budget-inventory.json}" >> "$GITHUB_ENV"
+          {
+            echo "DIST=$DIST"
+            echo "EAGER_BUDGET=${BUNDLE_EAGER_BUDGET:-$BUDGET_DIR/eager-budget.json}"
+            echo "PAGE_BUDGET=${BUNDLE_PAGE_BUDGET:-$BUDGET_DIR/page-budget.json}"
+            echo "INVENTORY_BASELINE=${BUNDLE_INVENTORY_BASELINE:-$BUDGET_DIR/eager-budget-inventory.json}"
+          } >> "$GITHUB_ENV"
 
       - name: Classify budgets
         if: steps.skip.outputs.skip != 'true'
@@ -259,7 +266,14 @@ jobs:
           Lower only the ceilings that shrank and refresh the inventory snapshot.
           EOF
           )"
-          git push -u origin "$BRANCH"
+          # run_id is stable across workflow re-runs; force-with-lease lets a retry
+          # after a successful push + failed `gh pr create` update the same branch.
+          git push -u origin "$BRANCH" --force-with-lease
+          existing=$(gh pr list --head "$BRANCH" --base "$DEFAULT_BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Ratchet PR #$existing already open for $BRANCH — updated branch tip."
+            exit 0
+          fi
           gh pr create \
             --title "chore(ui): ratchet frontend bundle budgets down" \
             --body "$(cat <<'EOF'
