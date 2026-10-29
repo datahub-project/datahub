@@ -802,6 +802,11 @@ type FeatureFlagsConfig {
   showHasSiblingsFilter: Boolean!
 
   """
+  If turned on, ingestion sources can be sorted and filtered by their latest run
+  """
+  showIngestionSourceLastRunControls: Boolean!
+
+  """
   If turned on, show the redesigned search bar's autocomplete
   """
   showSearchBarAutocompleteRedesign: Boolean!

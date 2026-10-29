@@ -37,6 +37,7 @@ import {
     buildOwnerEntities,
     getIngestionSourceMutationInput,
     getIngestionSourceSystemFilter,
+    getLastRunControls,
     getSortInput,
     mapSourceTypeAliases,
     removeExecutionsFromIngestionSource,
@@ -44,6 +45,7 @@ import {
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/sharedV2/Message';
+import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useAddOwners } from '@app/sharedV2/owners/useAddOwners';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
@@ -217,7 +219,13 @@ export const IngestionSourceList = ({
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
 
-    const { sort, setSort } = useQueryParamSortCriterion(redirectQueryInputs?.sort);
+    const { sort: sortFromUrl, setSort } = useQueryParamSortCriterion(redirectQueryInputs?.sort);
+    const showLastRunControls = !!useFeatureFlag('showIngestionSourceLastRunControls');
+    const { sort, lastRunStatus: activeLastRunStatus } = getLastRunControls(
+        showLastRunControls,
+        sortFromUrl,
+        lastRunStatus,
+    );
 
     const sourceFilter = useMemo(() => sourceFilterFromUrl ?? IngestionSourceType.ALL, [sourceFilterFromUrl]);
     const prevSourceFilter = usePrevious(sourceFilter);
@@ -281,11 +289,11 @@ export const IngestionSourceList = ({
         if (sourceTypes.length) {
             draftFilters.push({ field: 'type', values: sourceTypes });
         }
-        if (lastRunStatus) {
-            draftFilters.push({ field: 'lastRunStatus', values: [lastRunStatus] });
+        if (activeLastRunStatus) {
+            draftFilters.push({ field: 'lastRunStatus', values: [activeLastRunStatus] });
         }
         return draftFilters;
-    }, [sourceFilter, hideSystemSources, sourceTypes, lastRunStatus]);
+    }, [sourceFilter, hideSystemSources, sourceTypes, activeLastRunStatus]);
 
     const queryInputs = useMemo(
         () => ({
@@ -692,12 +700,14 @@ export const IngestionSourceList = ({
                                 onUpdate={setSourceTypesFromUrl}
                                 hideSystemSources={hideSystemSources}
                             />
-                            <ResultStatusFilter
-                                values={lastRunStatus ? [lastRunStatus] : undefined}
-                                onUpdate={(values) =>
-                                    setLastRunStatus(values[0] === RESULT_STATUS_ALL_VALUE ? '' : values[0])
-                                }
-                            />
+                            {showLastRunControls && (
+                                <ResultStatusFilter
+                                    values={activeLastRunStatus ? [activeLastRunStatus] : undefined}
+                                    onUpdate={(values) =>
+                                        setLastRunStatus(values[0] === RESULT_STATUS_ALL_VALUE ? '' : values[0])
+                                    }
+                                />
+                            )}
                         </SearchContainer>
                         <FilterButtonsContainer>
                             <RefreshButton onClick={() => refetch()} id={INGESTION_REFRESH_SOURCES_ID} />
@@ -705,7 +715,11 @@ export const IngestionSourceList = ({
                     </StyledTabToolbar>
                 </HeaderContainer>
                 {!loading && data?.listIngestionSources?.total === 0 ? (
-                    <EmptySources sourceType={t('source.sourcesNoun')} isEmptySearchResult={!!query} />
+                    <EmptySources
+                        sourceType={t('source.sourcesNoun')}
+                        isEmptySearchResult={!!query}
+                        isEmptyLastRunResult={!!activeLastRunStatus}
+                    />
                 ) : (
                     <>
                         <TableContainer>
@@ -718,6 +732,7 @@ export const IngestionSourceList = ({
                                 onView={onView}
                                 onDelete={onDelete}
                                 onChangeSort={onChangeSort}
+                                showLastRunSort={showLastRunControls}
                                 isLoading={
                                     loading && (!data || data?.listIngestionSources?.ingestionSources?.length === 0)
                                 }

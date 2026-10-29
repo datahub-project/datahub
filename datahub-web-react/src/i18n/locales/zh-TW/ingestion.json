@@ -123,6 +123,8 @@
     "source.createError": "無法建立資料擷取來源！",
     "source.createErrorInterpolated": "無法建立資料擷取來源：\n {{error}}",
     "source.createSuccess": "已成功建立資料擷取來源！",
+    "source.emptyLastRunFilterSubtitle": "升級前執行過的來源可能需要幾分鐘才會顯示，因為其最近一次執行正在建立索引。",
+    "source.emptyLastRunFilterTitle": "沒有處於此最近執行狀態的來源",
     "source.emptySearchSubtitle": "請改用至少 3 個字元的其他搜尋條件...",
     "source.emptySearchTitle": "沒有搜尋結果！",
     "source.emptyTitle": "尚無任何{{sourceType}}！",

@@ -19,7 +19,7 @@ import {
     wrapOwnerColumnWithHover,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
-import { getSourceStatus } from '@app/ingestV2/source/utils';
+import { LAST_RUN_SORT_FIELD, getSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -39,6 +39,7 @@ interface Props {
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
+    showLastRunSort?: boolean;
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
     isLastPage?: boolean;
@@ -56,6 +57,7 @@ function IngestionSourceTable({
     onView,
     onDelete,
     onChangeSort,
+    showLastRunSort,
     isLoading,
     shouldPreserveParams,
     isLastPage,
@@ -129,10 +131,10 @@ function IngestionSourceTable({
         },
         {
             title: t('source.colLastRun'),
-            key: 'lastRunRequestedAtMillis',
+            key: LAST_RUN_SORT_FIELD,
             render: (record) => <DateTimeColumn time={record.lastExecTime} showRelative />,
             width: '20%',
-            sorter: true,
+            sorter: !!showLastRunSort,
             onCellClick: (record) => navigateToRunHistory(record),
             cellWrapper: (content, record) => wrapDateTimeColumnWithHover(content, record.lastExecTime),
         },
