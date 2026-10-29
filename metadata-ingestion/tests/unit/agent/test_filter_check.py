@@ -892,6 +892,42 @@ def test_a_hypothetical_pattern_is_normalized_the_way_the_recipe_would_be():
     assert not any(".*" in p for p in hypothetical.tried["allow"])
 
 
+def test_a_switched_off_kind_outlives_a_container_that_cannot_be_judged():
+    """The parent is judged first, so its refusal must not pre-empt a verdict
+    that holds in every container.
+
+    `include_views: false` excludes the view wherever it lives, so the
+    unresolvable project above it cannot change the answer. Moving
+    `_parent_exclusion` ahead of the name loop -- which is what stops an
+    excluded container being overruled -- reintroduced the same ordering
+    fault one level up until the parent's refusal was held back.
+    """
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={
+            "include_views": False,
+            "dataset_pattern": {"allow": ["^analytics$"]},
+        },
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=["analytics"],
+        names=["v1"],
+    )
+    assert result.results[0].excluded_by == "include_views"
+
+
+def test_a_container_that_cannot_be_judged_still_refuses_for_a_name_it_decides():
+    """The other half: with nothing else to decide the name, the parent's
+    refusal is the answer and must still be raised."""
+    with pytest.raises(ContainerUnknown):
+        check_filters(
+            source_type="bigquery",
+            config_dict={"dataset_pattern": {"allow": ["^analytics$"]}},
+            kind=str(DatasetSubTypes.VIEW),
+            parent_path=["analytics"],
+            names=["v1"],
+        )
+
+
 def test_a_container_that_cannot_be_judged_refuses_for_what_is_inside_it():
     """The --parent chain is judged too, so the rule has to hold there.
 

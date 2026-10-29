@@ -39,6 +39,7 @@ from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
     ClassifyContext,
     ContainerNeed,
+    ContainerUnknown,
     ProbeArgumentError,
     ProbeInternalError,
     Verdict,
@@ -552,13 +553,19 @@ def check_filters(
     # Judged first: nothing inside an excluded container is ingested, whatever
     # container the names inside it would otherwise need to be judged on.
     # Not for a kind nothing resolves: the warning above already says so.
-    parent_excluded_by = (
-        None
-        if unresolved
-        else _parent_exclusion(
-            source_type, config_dict, judged.config, kind, parent_path, warn
-        )
-    )
+    parent_excluded_by: Optional[str] = None
+    parent_refusal: Optional[ContainerUnknown] = None
+    if not unresolved:
+        try:
+            parent_excluded_by = _parent_exclusion(
+                source_type, config_dict, judged.config, kind, parent_path, warn
+            )
+        except ContainerUnknown as refusal:
+            # Held, not raised. The parent's verdict is only needed for a name
+            # something else would have included: one already excluded -- by a
+            # kind switch, an override or its own pattern -- is excluded in
+            # every container, so a container nobody named cannot change it.
+            parent_refusal = refusal
     results = []
     for name, name_attrs in zip(names, per_name, strict=True):
         try:
@@ -582,6 +589,8 @@ def check_filters(
                     excluded_by=parent_excluded_by,
                 )
             )
+    if parent_refusal is not None and any(result.included for result in results):
+        raise parent_refusal
     if parent_excluded_by is not None:
         for result in results:
             result.included = False
