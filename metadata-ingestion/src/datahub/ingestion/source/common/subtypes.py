@@ -69,8 +69,8 @@ class GenericContainerSubTypes(StrEnum):
 
     # Microsoft Fabric
     FABRIC_WORKSPACE = "Fabric Workspace"
-    # AWS region containers: Kinesis, and the sqs and sns sources.
-    KINESIS_REGION = "Region"
+    # AWS region containers (kinesis, sqs, sns).
+    AWS_REGION = "Region"
 
 
 class DatasetContainerSubTypes(StrEnum):
