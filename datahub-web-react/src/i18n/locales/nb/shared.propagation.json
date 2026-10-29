@@ -1,9 +1,12 @@
 {
     "autoPropagatedDescription": "Denne beskrivelsen ble automatisk propagert fra en oppstrøms kolonne. <learnMore>Les mer</learnMore>",
+    "ingested": "Hentet inn",
+    "ingestedFrom": "Hentet inn fra {{origin}}",
     "origin": "opprinnelse",
     "originLabel": "Opprinnelse",
     "propagated": "Propagert",
     "propagatedDescriptionTitle": "Propagert beskrivelse",
+    "sourceLabel": "Kilde",
     "via": "via",
     "viaLabel": "Via"
 }

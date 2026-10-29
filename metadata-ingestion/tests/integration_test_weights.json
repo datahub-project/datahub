@@ -24320,11 +24320,11 @@
     "duration": "0.012s"
   },
   {
-    "testId": "tests.unit.dbt.test_dbt_error_isolation::test_create_dbt_platform_mces_isolates_node_emission_failure",
+    "testId": "tests.unit.dbt.test_dbt_error_isolation::test_create_dbt_platform_mcps_isolates_node_emission_failure",
     "duration": "0.011s"
   },
   {
-    "testId": "tests.unit.dbt.test_dbt_error_isolation::test_create_dbt_platform_mces_partial_emission_before_failure",
+    "testId": "tests.unit.dbt.test_dbt_error_isolation::test_create_dbt_platform_mcps_partial_emission_before_failure",
     "duration": "0.010s"
   },
   {
@@ -24336,7 +24336,7 @@
     "duration": "0.010s"
   },
   {
-    "testId": "tests.unit.dbt.test_dbt_error_isolation::test_create_target_platform_mces_isolates_node_emission_failure",
+    "testId": "tests.unit.dbt.test_dbt_error_isolation::test_create_target_platform_mcps_isolates_node_emission_failure",
     "duration": "0.010s"
   },
   {

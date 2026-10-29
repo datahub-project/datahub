@@ -1056,10 +1056,57 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testV3ContainOnKeywordLabelStaysOnKeyword() {
     String query = v3Filter(buildCriterion("fieldPaths", Condition.CONTAIN, "user_id"));
-    assertTrue(query.contains("name_1.keyword"), query);
+    assertTrue(query.contains("name_1"), query);
+    assertFalse(query.contains("name_1.keyword"), query);
     assertTrue(query.contains("wildcard"), query);
     assertTrue(query.contains("*user_id*"), query);
+    assertFalse(wildcardUsesCaseInsensitive(query), query);
     assertFalse(query.contains("description.text"), query);
+  }
+
+  @Test
+  public void testV3NameWildcardReadsLowercaseSubfield() {
+    String contain = v3Filter(buildCriterion("name", Condition.CONTAIN, "Orders"));
+    assertTrue(contain.contains("name.lowercase"), contain);
+    assertTrue(contain.contains("*orders*"), contain);
+    assertFalse(contain.contains("*Orders*"), contain);
+    assertFalse(wildcardUsesCaseInsensitive(contain), contain);
+    assertFalse(contain.contains("name.keyword"), contain);
+
+    String prefix = v3Filter(buildCriterion("name", Condition.START_WITH, "Ord"));
+    assertTrue(prefix.contains("name.lowercase"), prefix);
+    assertTrue(prefix.contains("ord*"), prefix);
+    assertFalse(prefix.contains("Ord*"), prefix);
+    assertFalse(wildcardUsesCaseInsensitive(prefix), prefix);
+
+    String suffix = v3Filter(buildCriterion("name", Condition.END_WITH, "ERS"));
+    assertTrue(suffix.contains("name.lowercase"), suffix);
+    assertTrue(suffix.contains("*ers"), suffix);
+    assertFalse(suffix.contains("*ERS"), suffix);
+    assertFalse(wildcardUsesCaseInsensitive(suffix), suffix);
+  }
+
+  /** The query type and the pattern key each contain {@code "wildcard"}. */
+  private static boolean wildcardUsesCaseInsensitive(String query) {
+    int from = 0;
+    while ((from = query.indexOf("\"wildcard\"", from)) >= 0) {
+      String window = query.substring(from, Math.min(query.length(), from + 220));
+      if (window.contains("case_insensitive")) {
+        return true;
+      }
+      from += "\"wildcard\"".length();
+    }
+    return false;
+  }
+
+  private static int count(String text, String needle) {
+    int found = 0;
+    int from = 0;
+    while ((from = text.indexOf(needle, from)) >= 0) {
+      found++;
+      from += needle.length();
+    }
+    return found;
   }
 
   @Test
@@ -1125,9 +1172,50 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 V3_READ_CONFIG.getEntityIndex(),
                 cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
             .toString();
-    assertTrue(unlabeledFalse.contains("\"hasRowCount\""), unlabeledFalse);
-    assertTrue(unlabeledFalse.contains("\"false\""), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("must_not"), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("exists"), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("\"field\" : \"rowCount\""), unlabeledFalse);
     assertFalse(unlabeledFalse.contains("\"field\" : \"hasRowCount\""), unlabeledFalse);
+
+    String unlabeledTrue =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion("hasRowCount", Condition.EQUAL, "true"))))),
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+            .toString();
+    assertTrue(unlabeledTrue.contains("exists"), unlabeledTrue);
+    assertTrue(unlabeledTrue.contains("\"field\" : \"rowCount\""), unlabeledTrue);
+    assertFalse(unlabeledTrue.contains("\"field\" : \"hasRowCount\""), unlabeledTrue);
+
+    String unlabeledContain =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion("hasRowCount", Condition.CONTAIN, "1"))))),
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+            .toString();
+    assertTrue(unlabeledContain.contains("must_not"), unlabeledContain);
+    assertTrue(unlabeledContain.contains("match_all"), unlabeledContain);
+    assertFalse(unlabeledContain.contains("rowCount"), unlabeledContain);
 
     SearchRequestHandler handler =
         SearchRequestHandler.getBuilder(
@@ -1137,6 +1225,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
+    String incidentCounts =
+        handler
+            .getAggregationRequest(operationContext, "hasActiveIncidents", null, 10)
+            .source()
+            .toString();
+    assertTrue(incidentCounts.contains("activeIncidents_urn"), incidentCounts);
+    assertTrue(incidentCounts.contains("exists"), incidentCounts);
+    assertFalse(incidentCounts.contains("\"field\" : \"hasActiveIncidents\""), incidentCounts);
     assertThrows(
         IllegalArgumentException.class,
         () -> handler.getAggregationRequest(operationContext, "description", null, 10));
@@ -1162,6 +1258,34 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 0,
                 10,
                 List.of()));
+    String sortedByRemovedBoolean =
+        handler
+            .getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(true)),
+                "*",
+                null,
+                List.of(new SortCriterion().setField("hasRowCount").setOrder(SortOrder.DESCENDING)),
+                0,
+                10,
+                List.of())
+            .source()
+            .toString();
+    assertTrue(sortedByRemovedBoolean.contains("\"rowCount\""), sortedByRemovedBoolean);
+    assertFalse(sortedByRemovedBoolean.contains("hasRowCount"), sortedByRemovedBoolean);
+    String sortedByLabel =
+        handler
+            .getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(true)),
+                "*",
+                null,
+                List.of(
+                    new SortCriterion().setField("hasDescription").setOrder(SortOrder.DESCENDING)),
+                0,
+                10,
+                List.of())
+            .source()
+            .toString();
+    assertTrue(sortedByLabel.contains("\"hasDescription\""), sortedByLabel);
   }
 
   private String v3Filter(Criterion... criteria) {

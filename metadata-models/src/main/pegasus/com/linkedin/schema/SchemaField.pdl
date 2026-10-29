@@ -20,6 +20,7 @@ record SchemaField {
     "queryByDefault": "true",
     "v3": {
       "searchLabel": "name",
+      "lowercase": true,
       "degree": 1,
       "mappings": [
         { "type": "KEYWORD" },
@@ -76,6 +77,7 @@ record SchemaField {
     "boostScore": 1.0,
     "v3": {
       "searchLabel": "name",
+      "lowercase": true,
       "degree": 1,
       "mappings": [
         { "type": "KEYWORD" },

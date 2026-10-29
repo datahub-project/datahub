@@ -201,7 +201,7 @@ public final class SearchTemplateMatchReport {
     if (MatchEvidence.WORD.equals(mode)) {
       return path + StructuredPropertySubfields.STEMMED_SUFFIX;
     }
-    return path + StructuredPropertySubfields.KEYWORD_SUFFIX;
+    return path;
   }
 
   private static void walk(
