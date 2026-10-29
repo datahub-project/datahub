@@ -3,7 +3,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import (
     TYPE_CHECKING,
@@ -625,6 +625,16 @@ def make_assertion_note_from_test(
     )
 
 
+def _execution_time_utc(test_result: DBTTestResult) -> datetime:
+    # dbt writes run_results timestamps in UTC, but some omit the offset. Reading
+    # those as local time would misorder them against offset-aware ones on a
+    # non-UTC host, and comparing naive with aware datetimes raises TypeError.
+    execution_time = test_result.execution_time
+    if execution_time.tzinfo is None:
+        return execution_time.replace(tzinfo=timezone.utc)
+    return execution_time
+
+
 def select_test_results_to_emit(
     test_results: List[DBTTestResult], latest_only: bool
 ) -> List[DBTTestResult]:
@@ -634,19 +644,14 @@ def select_test_results_to_emit(
     out into an assertion notification. Emitting results in file order (rather than
     time order), or re-emitting superseded ones, produces spurious alerts.
     """
-    # Compare epoch seconds: run_results timestamps may or may not carry an offset,
-    # and comparing aware with naive datetimes raises TypeError.
     latest_by_invocation: Dict[str, DBTTestResult] = {}
     for result in test_results:
         existing = latest_by_invocation.get(result.invocation_id)
-        if (
-            existing is None
-            or result.execution_time.timestamp() >= existing.execution_time.timestamp()
+        if existing is None or _execution_time_utc(result) >= _execution_time_utc(
+            existing
         ):
             latest_by_invocation[result.invocation_id] = result
-    ordered = sorted(
-        latest_by_invocation.values(), key=lambda r: r.execution_time.timestamp()
-    )
+    ordered = sorted(latest_by_invocation.values(), key=_execution_time_utc)
     return ordered[-1:] if latest_only else ordered
 
 

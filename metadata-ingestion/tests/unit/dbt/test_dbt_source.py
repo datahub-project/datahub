@@ -1,4 +1,5 @@
 import dataclasses
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 from unittest import mock
@@ -5549,3 +5550,31 @@ def test_select_test_results_to_emit_mixes_offset_and_naive_timestamps() -> None
     assert select_test_results_to_emit([previous, current], latest_only=True) == [
         current
     ]
+
+
+def test_select_test_results_to_emit_reads_offset_less_timestamps_as_utc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # On a host west of UTC, reading 06:00 as local time would put it after 08:00Z.
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    time.tzset()
+    try:
+        build_failure = DBTTestResult(
+            invocation_id="inv-build",
+            status="fail",
+            execution_time=datetime(2026, 1, 1, 6, 0),
+            native_results={},
+        )
+        retry_pass = DBTTestResult(
+            invocation_id="inv-retry",
+            status="pass",
+            execution_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc),
+            native_results={},
+        )
+
+        assert select_test_results_to_emit(
+            [retry_pass, build_failure], latest_only=True
+        ) == [retry_pass]
+    finally:
+        monkeypatch.undo()
+        time.tzset()
