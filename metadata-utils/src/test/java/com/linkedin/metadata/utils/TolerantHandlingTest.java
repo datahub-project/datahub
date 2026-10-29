@@ -85,6 +85,7 @@ public class TolerantHandlingTest {
     assertFalse(handling.isUnknown(registry, "dataset", "status"));
     assertTrue(handling.isUnknownUrn(registry, "urn:li:entityFromNewerBuild:x", null));
     assertFalse(handling.isUnknownUrn(registry, "not-a-urn", null));
+    assertFalse(handling.isUnknownUrn(registry, null, null));
     assertFalse(handling.isUnknownUrn(registry, "urn:li:dataset:x", "status"));
     assertTrue(
         handling.referencesUnknownEntityType(

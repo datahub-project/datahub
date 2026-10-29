@@ -139,6 +139,9 @@ public final class TolerantHandling implements UnknownDataHandling {
     if (RegistryKnowledge.classifyUrn(registry, urn, aspectName).isUnknown()) {
       return true;
     }
+    if (urn == null) {
+      return false;
+    }
     // Same rule as admitUrn, which also skips a row whose urn key nests an unknown entity type.
     try {
       return RegistryKnowledge.referencesUnknownEntityType(registry, Urn.createFromString(urn));

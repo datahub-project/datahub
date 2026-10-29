@@ -26,12 +26,13 @@ import org.slf4j.LoggerFactory;
  * zero-downtime upgrade rollback). Classification is {@link RegistryKnowledge}; this adds the
  * reporting.
  *
- * <p>Each site holds one guard:
+ * <p>Each site holds one guard and admits through the installed handling, which decides from the
+ * tolerance flags whether unknown data is skipped at all:
  *
  * <pre>{@code
  * private static final UnknownDataGuard GUARD = UnknownDataGuard.forSite(MyConsumer.class, "MCL");
  * ...
- * if (!GUARD.admit(registry, opContext.getMetricUtils(), entityType, aspectName, urn)) {
+ * if (!handling().admit(GUARD, registry, opContext.getMetricUtils(), entityType, aspectName, urn)) {
  *   continue;
  * }
  * }</pre>

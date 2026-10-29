@@ -521,8 +521,7 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
               .partition(sqlPageSize)
               .forEach(
                   page -> {
-                    // Drop rows the registry does not know (written by a newer version) up front
-                    // so pageAspects stays index-aligned with the converted systemAspects.
+                    // Drop rows the registry does not know (written by a newer version) up front.
                     List<EbeanAspectV2> pageAspects =
                         page.filter(
                                 aspect ->
