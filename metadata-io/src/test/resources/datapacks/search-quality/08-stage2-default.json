@@ -1,0 +1,372 @@
+[
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2descprobe",
+        "qualifiedName": "stage2descprobe.described",
+        "description": "supplemental narrative"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2descprobe.described,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2descprobe",
+        "qualifiedName": "stage2descprobe.plain"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2descprobe.plain,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2ownerprobe",
+        "qualifiedName": "stage2ownerprobe.owned"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2ownerprobe.owned,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2ownerprobe",
+        "qualifiedName": "stage2ownerprobe.plain"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2ownerprobe.plain,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "lastModified": {
+          "actor": "urn:li:corpuser:datahub",
+          "time": 0
+        },
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:stage2owner",
+            "type": "TECHNICAL_OWNER"
+          }
+        ]
+      }
+    },
+    "aspectName": "ownership",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2ownerprobe.owned,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2tagprobe",
+        "qualifiedName": "stage2tagprobe.tagged"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2tagprobe.tagged,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2tagprobe",
+        "qualifiedName": "stage2tagprobe.plain"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2tagprobe.plain,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "tags": [
+          {
+            "tag": "urn:li:tag:stage2unrelated"
+          }
+        ]
+      }
+    },
+    "aspectName": "globalTags",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2tagprobe.tagged,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2termprobe",
+        "qualifiedName": "stage2termprobe.termed"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2termprobe.termed,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2termprobe",
+        "qualifiedName": "stage2termprobe.plain"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2termprobe.plain,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "auditStamp": {
+          "actor": "urn:li:corpuser:datahub",
+          "time": 0
+        },
+        "terms": [
+          {
+            "urn": "urn:li:glossaryTerm:stage2.unrelated"
+          }
+        ]
+      }
+    },
+    "aspectName": "glossaryTerms",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2termprobe.termed,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "definition": "stage2glossaryentityprobe",
+        "name": "stage2glossaryentityprobe",
+        "termSource": "INTERNAL"
+      }
+    },
+    "aspectName": "glossaryTermInfo",
+    "changeType": "UPSERT",
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:stage2.glossaryentity"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2glossaryentityprobe",
+        "qualifiedName": "stage2glossaryentityprobe",
+        "description": "stage2glossaryentityprobe"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2glossaryentityprobe,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2certprobe",
+        "qualifiedName": "stage2certprobe.certified"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2certprobe.certified,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2certprobe",
+        "qualifiedName": "stage2certprobe.plain"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2certprobe.plain,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2nonprodprobe",
+        "qualifiedName": "stage2nonprodprobe"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2nonprodprobe,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2nonprodprobe_staging",
+        "qualifiedName": "stage2nonprodprobe_staging"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2nonprodprobe_staging,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2backupprobe",
+        "qualifiedName": "stage2backupprobe"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2backupprobe,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "safe_stage2backupprobe",
+        "qualifiedName": "safe_stage2backupprobe"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,safe_stage2backupprobe,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2systemtagprobe",
+        "description": "stage2systemtagprobe"
+      }
+    },
+    "aspectName": "tagProperties",
+    "changeType": "UPSERT",
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:stage2systemtagprobe"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2systemtagprobe",
+        "description": "stage2systemtagprobe"
+      }
+    },
+    "aspectName": "tagProperties",
+    "changeType": "UPSERT",
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:metadata.object_tags.stage2systemtagprobe"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2namematchprobe",
+        "qualifiedName": "stage2namematchprobe"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2namematchprobe,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2namematchprobe extra",
+        "qualifiedName": "stage2namematchprobe.extra"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2namematchprobe.extra,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2allterms probe",
+        "qualifiedName": "stage2allterms.probe"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2allterms.probe,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2allterms",
+        "qualifiedName": "stage2allterms.partial",
+        "description": "probe"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2allterms.partial,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2fqnprobe",
+        "qualifiedName": "stage2warehouse.stage2fqnprobe"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2fqnprobe.match,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2fqnprobe",
+        "qualifiedName": "stage2warehouse.other"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2fqnprobe.other,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2userprobe",
+        "qualifiedName": "stage2userprobe.many"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2userprobe.many,PROD)"
+  },
+  {
+    "aspect": {
+      "json": {
+        "name": "stage2userprobe",
+        "qualifiedName": "stage2userprobe.none"
+      }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:ranking,stage2userprobe.none,PROD)"
+  }
+]

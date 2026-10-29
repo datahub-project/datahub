@@ -480,6 +480,11 @@ searchService:
       kubernetes-api-retries: ${SEARCH_SERVICE_HAZELCAST_KUBERNETES_API_RETRIES:5} # Hazelcast defaults: 3 attempts.
       service-dns-timeout: ${SEARCH_SERVICE_HAZELCAST_SERVICE_DNS_TIMEOUT:10} # Hazelcast default: 5 seconds.
       resolve-not-ready-addresses: ${SEARCH_SERVICE_HAZELCAST_RESOLVE_NOT_READY_ADDRESSES:true} # Hazelcast default: true.
+      # Extra entries for the Java-serialization allow-list of the embedded Hazelcast member, comma-separated.
+      # Only needed for custom Serializable types stored in Hazelcast; JDK and DataHub types are allowed already.
+      serializationAllowList:
+        classNames: ${SEARCH_SERVICE_HAZELCAST_SERIALIZATION_ALLOWED_CLASSES:}
+        packagePrefixes: ${SEARCH_SERVICE_HAZELCAST_SERIALIZATION_ALLOWED_PACKAGE_PREFIXES:}
   queryFilterRewriter:
     containerExpansion:
       enabled: ${SEARCH_SERVICE_FILTER_CONTAINER_EXPANSION_ENABLED:true}
@@ -1128,6 +1133,10 @@ elasticsearch:
     maxArrayLength: ${SEARCH_DOCUMENT_MAX_ARRAY_LENGTH:1000}
     maxObjectKeys: ${SEARCH_DOCUMENT_MAX_OBJECT_KEYS:1000}
     maxValueLength: ${SEARCH_DOCUMENT_MAX_VALUE_LENGTH:4096} # i.e. customProperty values
+    # A structuredProperties RESTATE with no previous value nulls mapped fields the aspect does not
+    # set. The field list is one mapping read per index, cached for the TTL below.
+    structuredPropertyRestateEnabled: ${ELASTICSEARCH_INDEX_STRUCTURED_PROPERTY_RESTATE_ENABLED:true}
+    structuredPropertyMappingCacheTtlSeconds: ${ELASTICSEARCH_INDEX_STRUCTURED_PROPERTIES_MAPPING_CACHE_TTL_SECONDS:300}
     enableMappingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX:false}
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout
@@ -1336,6 +1345,9 @@ elasticsearch:
         maxRoutes: ${SEARCH_V3_TEMPLATES_MAX_ROUTES:32}
         maxRoutePatternLength: ${SEARCH_V3_TEMPLATES_MAX_ROUTE_PATTERN_LENGTH:256}
         maxRouteHops: ${SEARCH_V3_TEMPLATES_MAX_ROUTE_HOPS:5}
+        # Ranking ceilings bound the stored signal list and the window passed to a window sizer.
+        maxRankingSignals: ${SEARCH_V3_TEMPLATES_MAX_RANKING_SIGNALS:32}
+        maxRankingWindow: ${SEARCH_V3_TEMPLATES_MAX_RANKING_WINDOW:1000}
         concurrency:
           corePoolSize: ${SEARCH_V3_TEMPLATES_CONCURRENCY_CORE_POOL_SIZE:-1}
           maxPoolSize: ${SEARCH_V3_TEMPLATES_CONCURRENCY_MAX_POOL_SIZE:0}

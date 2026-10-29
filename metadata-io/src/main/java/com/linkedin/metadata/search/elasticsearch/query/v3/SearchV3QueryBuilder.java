@@ -297,7 +297,8 @@ public class SearchV3QueryBuilder {
       @Nonnull MergedSearchTemplate template,
       @Nonnull Set<SearchFieldConfig> queried) {
     String text = query == null ? "" : query;
-    boolean structured = structuredTemplate(template);
+    String blob = templateBlob(template);
+    boolean structured = blob.contains(SearchTemplateContextVariables.STRUCTURED_QUERY);
     if (structured && text.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)) {
       text = text.substring(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX.length());
     }
@@ -488,13 +489,6 @@ public class SearchV3QueryBuilder {
     context.put(SearchTemplateContextVariables.PARTIAL_FACTOR, exactNumber(partial.getFactor()));
     putQueryShape(context, shape, normalization.synonymCap());
     context.putAll(template.getParameters());
-    String blob =
-        String.join(
-            "\n",
-            template.getQuery() == null ? "" : template.getQuery(),
-            template.getClauses() == null ? "" : template.getClauses(),
-            template.getFunctionScore() == null ? "" : template.getFunctionScore(),
-            String.join("\n", template.getQueryFragments().values()));
     if (template.isClasspathBridge()) {
       context.put(SearchTemplateViewer.URN, SearchTemplateViewer.urn(opContext));
       context.put(SearchTemplateViewer.GROUPS, "[]");
@@ -697,10 +691,19 @@ public class SearchV3QueryBuilder {
     return new SearchClauseBudget.FieldCounts(fields, wordGramFields);
   }
 
-  private static boolean structuredTemplate(@Nonnull MergedSearchTemplate template) {
-    String urn = template.getUrn();
-    return "urn:li:searchTemplate:structured".equals(urn)
-        || "urn:li:searchTemplate:structuredExact".equals(urn);
+  /**
+   * Every Mustache-rendered section of the template, joined. A variable only has to be produced
+   * when some section references it. The section text is the signal: the template URN is not,
+   * because a copy or a child keeps the hole and changes the URN.
+   */
+  @Nonnull
+  private static String templateBlob(@Nonnull MergedSearchTemplate template) {
+    return String.join(
+        "\n",
+        template.getQuery() == null ? "" : template.getQuery(),
+        template.getClauses() == null ? "" : template.getClauses(),
+        template.getFunctionScore() == null ? "" : template.getFunctionScore(),
+        String.join("\n", template.getQueryFragments().values()));
   }
 
   private static void putQueryShape(

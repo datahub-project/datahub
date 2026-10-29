@@ -262,14 +262,8 @@
         "boost" : 0.5,
         "field" : "tags"
       }, {
-        "boost" : 2.0,
-        "field" : "ldap"
-      }, {
         "boost" : 1.0,
         "field" : "customProperties"
-      }, {
-        "boost" : 10.0,
-        "field" : "fullName"
       }, {
         "boost" : 1.0,
         "field" : "email"
