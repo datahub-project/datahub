@@ -22,7 +22,9 @@ from datahub.ingestion.source.aws_messaging.config import (
 )
 from datahub.ingestion.source.aws_messaging.constants import (
     CONSOLE_PATHS,
+    EVENTBRIDGE_PIPES_PLATFORM,
     EVENTBRIDGE_PLATFORM,
+    LAMBDA_PLATFORM,
     OBSERVED_PRODUCERS_PROPERTY,
     AwsService,
 )
@@ -99,6 +101,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
                 ),
                 urns=self.urns,
                 resolver=self.resolver,
+                region_key=self.region_key(LAMBDA_PLATFORM),
             )
             if config.lineage.lambda_functions
             else None
@@ -117,6 +120,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             schemas=self.schemas,
             lambdas=self.lambdas,
             region_key=self.region_key(EVENTBRIDGE_PLATFORM),
+            pipes_region_key=self.region_key(EVENTBRIDGE_PIPES_PLATFORM),
         )
 
     def producer_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -195,16 +199,20 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         if self.base_config.lineage.eventbridge_rules:
             # The bus container may also come from the other source, so it is
             # not this source's to delete either.
-            yield from secondary(
-                self.with_region_container(
-                    self.eventbridge.rule_workunits(), EVENTBRIDGE_PLATFORM
-                )
+            yield from self.with_region_container(
+                secondary(self.eventbridge.rule_workunits()),
+                EVENTBRIDGE_PLATFORM,
             )
         if self.base_config.lineage.eventbridge_pipes:
-            yield from self.eventbridge.pipe_workunits()
+            yield from self.with_region_container(
+                secondary(self.eventbridge.pipe_workunits()),
+                EVENTBRIDGE_PIPES_PLATFORM,
+            )
         # Lambda jobs go last: rules and pipes add themselves as upstream jobs.
         if self.lambdas is not None:
-            yield from self.lambdas.workunits()
+            yield from self.with_region_container(
+                secondary(self.lambdas.workunits()), LAMBDA_PLATFORM
+            )
 
     def add_identity_column_lineage(
         self, upstream_urn: str, downstream_urn: str

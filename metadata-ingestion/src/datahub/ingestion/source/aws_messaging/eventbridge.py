@@ -116,6 +116,7 @@ class EventBridgeLineage:
         schemas: SchemaLookup,
         lambdas: Optional[LambdaLineage],
         region_key: AwsRegionKey,
+        pipes_region_key: AwsRegionKey,
     ):
         self.config = config
         self.report = report
@@ -126,6 +127,7 @@ class EventBridgeLineage:
         self.schemas = schemas
         self.lambdas = lambdas
         self.region_key = region_key
+        self.pipes_region_key = pipes_region_key
 
     def _job_urn(self, platform: str, flow_id: str, job_id: str, arn: Arn) -> str:
         return job_urn(
@@ -160,6 +162,7 @@ class EventBridgeLineage:
                     name=rule["Name"],
                     state=rule.get("State"),
                     event_pattern=rule.get("EventPattern"),
+                    schedule_expression=rule.get("ScheduleExpression"),
                     targets=targets,
                 )
 
@@ -169,7 +172,10 @@ class EventBridgeLineage:
             bus = rule.bus_arn
             instance = self.urns.instance_for(bus.account)
             bus_urn = self.urns.event_bus_urn(bus)
-            if bus_urn not in emitted_buses:
+            # A scheduled rule's events come from its schedule, not the bus, so
+            # it gets no bus input and no column lineage from the bus schema.
+            scheduled = rule.schedule_expression is not None
+            if not scheduled and bus_urn not in emitted_buses:
                 emitted_buses.add(bus_urn)
                 yield from secondary(
                     Dataset(
@@ -194,7 +200,7 @@ class EventBridgeLineage:
                 urn = self.resolver.urn(parse_arn(target.arn))
                 if urn:
                     outputs.append(urn)
-                    if self.config.column_lineage:
+                    if self.config.column_lineage and not scheduled:
                         fine_grained.extend(
                             self._rule_column_lineage(bus_urn, target, urn)
                         )
@@ -206,11 +212,13 @@ class EventBridgeLineage:
                 platform_instance=instance,
                 env=self.config.env,
                 subtype=DataFlowSubTypes.EVENTBRIDGE_RULE.value,
+                parent_container=self.region_key,
                 custom_properties=non_empty(
                     {
                         "event_bus": bus.event_bus_name,
                         "state": rule.state,
                         "event_pattern": rule.event_pattern,
+                        "schedule_expression": rule.schedule_expression,
                     }
                 ),
             )
@@ -224,7 +232,7 @@ class EventBridgeLineage:
             yield from shared_job_workunits(
                 flow=flow,
                 job=job,
-                inputs=[bus_urn],
+                inputs=[] if scheduled else [bus_urn],
                 outputs=outputs,
                 fine_grained=fine_grained,
             )
@@ -295,6 +303,7 @@ class EventBridgeLineage:
             platform_instance=self.urns.instance_for(pipe.arn.account),
             env=self.config.env,
             subtype=DataFlowSubTypes.EVENTBRIDGE_PIPE.value,
+            parent_container=self.pipes_region_key,
             custom_properties=non_empty(
                 {
                     "arn": str(pipe.arn),

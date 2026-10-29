@@ -272,3 +272,22 @@ def test_schema_that_parses_to_no_fields_is_not_attached(
         "orders"
     ]
     assert report.warnings
+
+
+def test_repeated_raw_subscriptions_add_field_lineage_once(aws: None) -> None:
+    source = _subscribe(raw=True)
+    queue_arn = f"arn:aws:sqs:{REGION}:{ACCOUNT}:orders"
+    topic_arn = f"arn:aws:sns:{REGION}:{ACCOUNT}:order-events"
+    # A second raw subscription of the same queue, e.g. with another filter policy.
+    sns_client().subscribe(
+        TopicArn=topic_arn,
+        Protocol="sqs",
+        Endpoint=queue_arn,
+        Attributes={
+            "RawMessageDelivery": "true",
+            "FilterPolicy": '{"kind": ["refund"]}',
+        },
+    )
+    lineage = fine_grained(list(source.get_workunits()))
+    assert len(lineage) == 2
+    assert source.get_report().column_lineage_edges_emitted == 2
