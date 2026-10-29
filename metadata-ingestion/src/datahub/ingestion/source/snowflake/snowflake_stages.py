@@ -243,8 +243,12 @@ class SnowflakeStagesExtractor:
             self.report.info(
                 title="External stage lineage not resolved",
                 message="Stage location did not resolve to a dataset URN, so no lineage "
-                "was emitted for it. Check datalake_lineage_config.path_specs and "
-                "that the location's scheme is supported (s3://, gcs://, azure://).",
+                "was emitted for it. Typical causes: no datalake_lineage_config.path_specs "
+                "entry matched (when ignore_non_path_spec_path is enabled), a path spec "
+                "excluded or filtered the prefix, the URL has no object path after the "
+                "scheme, or the location is not mappable. Supported locations are s3://, "
+                "gcs:// (or gs://), and azure:// on blob.core.windows.net; ADLS Gen2 "
+                "azure:// hosts on dfs.core.windows.net are not supported.",
                 context=f"stage={stage_identifier}, url={url}",
             )
         else:
