@@ -4420,9 +4420,10 @@ def _presto_view_text(payload: Any) -> str:
         _presto_view_text({"originalSql": "SELECT 1", "columns": 5}),
         # Pathologically nested JSON raises RecursionError, which must not escape either.
         "/* Presto View: "
-        + base64.b64encode(("[" * 100_000 + "]" * 100_000).encode()).decode()
+        + base64.b64encode(("[" * 10_000 + "]" * 10_000).encode()).decode()
         + " */",
     ],
+    ids=["invalid_base64", "columns_not_a_list", "deeply_nested_json"],
 )
 def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns(
     view_original_text: str,

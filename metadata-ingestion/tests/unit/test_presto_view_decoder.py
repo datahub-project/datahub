@@ -62,7 +62,17 @@ def test_decode_presto_view_raises_when_payload_not_object() -> None:
         ("varbinary", "binary"),
         # Anonymous row fields get positional names so the struct is kept.
         ("row(bigint, varchar)", "struct<field0:bigint,field1:varchar>"),
-        # Commas inside a quoted field name are not separators.
+        # Anonymous fields whose type is several words are not read as `name type`.
+        (
+            "row(interval day to second, interval year to month)",
+            "struct<field0:string,field1:string>",
+        ),
+        (
+            "row(timestamp with time zone, bigint)",
+            "struct<field0:timestamp,field1:bigint>",
+        ),
+        # Commas inside a quoted field name are not separators. Hive cannot parse
+        # the resulting name; that column is reported as untyped downstream.
         ('row("a,b" bigint, c varchar)', "struct<a,b:bigint,c:varchar>"),
         # Types Hive has no equivalent for, and malformed input, fall back to string.
         ("interval day to second", "string"),
@@ -76,10 +86,18 @@ def test_trino_type_to_hive_type(trino_type: str, hive_type: str) -> None:
 
 def test_trino_type_to_hive_type_caps_nesting_depth() -> None:
     # Untrusted catalog data must not be able to exhaust the stack.
-    deeply_nested = "array(" * 2000 + "bigint" + ")" * 2000
+    # Deeper than the nesting cap but within the length cap, so the depth limit
+    # is what applies.
+    deeply_nested = "array(" * 500 + "bigint" + ")" * 500
     hive_type = trino_type_to_hive_type(deeply_nested)
     assert hive_type.startswith("array<")
     assert "string" in hive_type
+
+
+def test_trino_type_to_hive_type_rejects_oversized_types() -> None:
+    # Long whitespace runs make the type regexes quadratic; oversized input is
+    # mapped straight to string instead of being parsed.
+    assert trino_type_to_hive_type("timestamp" + " " * 50_000 + "x") == "string"
 
 
 def test_get_presto_view_columns_returns_validated_columns() -> None:

@@ -24,6 +24,14 @@ _TYPE_PRECISION = re.compile(r"^(timestamp|time)\s*\(\s*\d+\s*\)$")
 _PARAMETERIZED_TYPE = re.compile(r"^(array|map|row)\s*\((.*)\)$", re.DOTALL)
 # A named row field: a double-quoted or bare identifier followed by its type.
 _ROW_FIELD = re.compile(r'^(?:"([^"]+)"|(\w+))\s+(.+)$', re.DOTALL)
+# Trino types spelled with several words. An anonymous row field of one of these
+# types (e.g. `interval day to second`) would otherwise match _ROW_FIELD, taking
+# the first word as a field name.
+_MULTI_WORD_TYPE = re.compile(
+    r"^(?:interval\s+(?:year|month|day|hour|minute|second)"
+    r"|(?:timestamp|time)\s+with"
+    r"|double\s+precision)\b"
+)
 
 # Trino scalar types whose name differs from the Hive equivalent.
 _TRINO_TO_HIVE_SCALAR_TYPES: Dict[str, str] = {
@@ -55,6 +63,9 @@ _HIVE_SCALAR_TYPES = frozenset(
 )
 _FALLBACK_HIVE_TYPE = "string"
 _MAX_TYPE_NESTING_DEPTH = 64
+# Real column types are far shorter. The regexes below are quadratic on long
+# whitespace runs, so a corrupt multi-kilobyte type could stall the run.
+_MAX_TYPE_LENGTH = 4096
 
 
 class PrestoViewDefinition(TypedDict, total=False):
@@ -167,6 +178,8 @@ def trino_type_to_hive_type(trino_type: str) -> str:
     represent are mapped to their nearest Hive type (dropping time zone and
     precision) or to ``string``, so the column is kept rather than lost.
     """
+    if len(trino_type) > _MAX_TYPE_LENGTH:
+        return _FALLBACK_HIVE_TYPE
     return _trino_type_to_hive_type(trino_type, depth=0)
 
 
@@ -195,7 +208,7 @@ def _trino_type_to_hive_type(trino_type: str, depth: int) -> str:
             struct_fields: List[str] = []
             for index, arg in enumerate(args):
                 row_field = _ROW_FIELD.match(arg)
-                if row_field:
+                if row_field and not _MULTI_WORD_TYPE.match(arg):
                     field_name = row_field.group(1) or row_field.group(2)
                     field_trino_type = row_field.group(3)
                 else:
