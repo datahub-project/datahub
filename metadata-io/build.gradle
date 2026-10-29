@@ -194,6 +194,7 @@ dependencies {
   testImplementation externalDependency.logbackClassic
   testImplementation 'net.datafaker:datafaker:1.9.0'
   testImplementation externalDependency.awaitility
+  testImplementation externalDependency.hazelcast
 
   // SDK dependencies for integration tests (comparing our implementation vs official SDKs)
   testImplementation 'com.openai:openai-java:0.18.0'

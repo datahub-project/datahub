@@ -13,8 +13,10 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.spi.merge.LatestUpdateMergePolicy;
 import com.hazelcast.spring.cache.HazelcastCacheManager;
+import com.linkedin.metadata.config.hazelcast.HazelcastSerializationAllowListContributor;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -45,6 +47,12 @@ public class CacheConfig {
   @Value("${searchService.cache.hazelcast.resolve-not-ready-addresses:}")
   private String kubernetesResolveNotReadyAddresses;
 
+  @Value("${searchService.cache.hazelcast.serializationAllowList.classNames:}")
+  private String serializationAllowListClassNames;
+
+  @Value("${searchService.cache.hazelcast.serializationAllowList.packagePrefixes:}")
+  private String serializationAllowListPackagePrefixes;
+
   @Bean
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "caffeine")
   public CacheManager caffeineCacheManager() {
@@ -65,11 +73,19 @@ public class CacheConfig {
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
   public HazelcastInstance hazelcastInstance(
       List<MapConfig> hazelcastMapConfigs,
-      List<ReplicatedMapConfig> hazelcastReplicatedMapConfigs) {
+      List<ReplicatedMapConfig> hazelcastReplicatedMapConfigs,
+      ObjectProvider<HazelcastSerializationAllowListContributor>
+          serializationAllowListContributors) {
     Config config = new Config();
 
     hazelcastMapConfigs.forEach(config::addMapConfig);
     hazelcastReplicatedMapConfigs.forEach(config::addReplicatedMapConfig);
+
+    HazelcastSerializationFilter.apply(
+        config,
+        serializationAllowListContributors.orderedStream().toList(),
+        serializationAllowListClassNames,
+        serializationAllowListPackagePrefixes);
 
     // Force classloader to load from application code
     config.setClassLoader(this.getClass().getClassLoader());

@@ -2,10 +2,10 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 com.google.errorprone:error_prone_annotations:2.38.0=testCompileClasspath
-com.google.errorprone:error_prone_annotations:2.47.0=spotless865458226
+com.google.errorprone:error_prone_annotations:2.50.0=spotless865458226
 com.google.googlejavaformat:google-java-format:1.18.1=spotless865458226
 com.google.guava:failureaccess:1.0.3=spotless865458226
-com.google.guava:guava:33.6.0-jre=spotless865458226
+com.google.guava:guava:33.7.2-jre=spotless865458226
 com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava=spotless865458226
 com.google.j2objc:j2objc-annotations:3.1=spotless865458226
 com.typesafe:config:1.4.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
@@ -26,7 +26,8 @@ org.jacoco:org.jacoco.agent:0.8.13=jacocoAgent,jacocoAnt
 org.jacoco:org.jacoco.ant:0.8.13=jacocoAnt
 org.jacoco:org.jacoco.core:0.8.13=jacocoAnt
 org.jacoco:org.jacoco.report:0.8.13=jacocoAnt
-org.jspecify:jspecify:1.0.0=spotless865458226,testCompileClasspath
+org.jspecify:jspecify:1.0.0=testCompileClasspath
+org.jspecify:jspecify:1.0.1=spotless865458226
 org.mockito:mockito-core:5.20.0=testCompileClasspath,testRuntimeClasspath
 org.objenesis:objenesis:3.3=testRuntimeClasspath
 org.osgi:org.osgi.annotation.bundle:2.0.0=testCompileClasspath
