@@ -278,6 +278,26 @@ public class SemanticNoOpEntityServiceTest {
     verify(retention, times(1)).applyRetentionWithPolicyDefaults(any(), anyList());
   }
 
+  @Test
+  public void bodyChangeWithoutAHistoryRowIsStillTrimmed() throws Exception {
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            mock(AspectDao.class),
+            mock(com.linkedin.metadata.event.EventProducer.class),
+            mock(PreProcessHooks.class),
+            new EntityServiceConfiguration().setPostCommitRetentionEnabled(true),
+            null);
+    @SuppressWarnings("unchecked")
+    RetentionService<ChangeItemImpl> retention = mock(RetentionService.class);
+    service.setRetentionService(retention);
+
+    // A time-only policy keeps one version, so a real change writes no history row (maxVersion 0).
+    // Retention still runs to age out older rows.
+    service.applyRetentionPostCommit(
+        opContext, List.of(upsertResult(lineage(1L), lineage(2L), false, 0L)));
+    verify(retention, times(1)).applyRetentionWithPolicyDefaults(any(), anyList());
+  }
+
   private SemanticNoOpComparator compile(String rules) {
     return SemanticNoOpComparator.compile(true, rules, registry, null);
   }

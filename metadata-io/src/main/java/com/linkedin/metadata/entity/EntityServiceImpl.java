@@ -1217,8 +1217,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   /**
    * Builds retention contexts from upsert results. Previous version existence is implied by
-   * oldValue != null. Results that wrote no history row (maxVersion == 0) are skipped: there is
-   * nothing new to trim.
+   * oldValue != null. Results that wrote no history row (maxVersion == 0) and left the body
+   * unchanged are skipped: there is nothing new to trim.
    *
    * @param updatedLatestAspects when non-null (legacy in-transaction path), restricts retention to
    *     urn/aspect pairs actually present in the post-upsert latest-aspect snapshot; when null
@@ -1237,9 +1237,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             .get(r.getUrn().toString())
                             .containsKey(r.getRequest().getAspectName())))
         .filter(r -> !r.isSemanticNoOp())
-        // Trim only when this write added a history row. Body equality is not enough: a write hook
-        // can make the final body equal after the version was already advanced and a row written.
-        .filter(r -> r.getOldValue() != null && r.getMaxVersion() > 0)
+        // Trim when this write added a history row, or changed the body. Body equality alone is not
+        // enough: a write hook can make the final body equal after a history row was written. A
+        // time-only policy writes no history row (maxVersion 0) but still ages out old rows.
+        .filter(r -> r.getOldValue() != null && (r.getMaxVersion() > 0 || !r.isNoOp()))
         .map(
             r ->
                 RetentionService.RetentionContext.builder()
