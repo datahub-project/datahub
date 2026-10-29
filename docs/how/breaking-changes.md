@@ -235,12 +235,13 @@ Requirements:
 
 - [#20758](https://github.com/datahub-project/datahub/pull/20758) **(Ingestion / dbt)** dbt now writes each dataset aspect separately instead of as one snapshot. Aspect values are unchanged. Differences you may notice:
 
-  - With the `set_attribution` transformer, dbt datasets now keep their properties, schema, lineage and view definition. Before, the transformer dropped them and kept only tags, owners and terms.
+  - With the `set_attribution` transformer, dbt datasets that have tags, owners or glossary terms now keep their properties, status, schema, lineage, view definition and links. Before, the transformer kept only the tags, owners and terms of those datasets and dropped the rest.
   - With the `tags_to_structured_properties` transformer, dbt datasets now get the structured properties derived from their tags. Before, these were dropped. If `meta_mapping` also sets structured properties, the transformer's values replace them.
   - With the REST sink in `SYNC` or `ASYNC` mode, one invalid aspect no longer rejects the whole dataset. The default `ASYNC_BATCH` mode already behaved this way.
-  - The ingestion report counts work units and failures per aspect instead of per dbt node, and work unit IDs become `<urn>-<aspectName>`.
+  - The ingestion report counts one work unit per aspect instead of one per node, and work unit IDs become `<urn>-<aspectName>`. Per-node failure counts (`node_emission_failures`) are unchanged.
+  - For custom code that subclasses the dbt source: `create_dbt_platform_mces`, `create_target_platform_mces` and `get_patched_mce` are now `create_dbt_platform_mcps`, `create_target_platform_mcps` and `_merge_with_server_aspects`. An override of an old name is no longer called.
 
-  **Action:** none required.
+  **Action:** none required, unless you subclass the dbt source and override one of the renamed methods.
 
 - [#20638](https://github.com/datahub-project/datahub/pull/20638) **(Ingestion / Glue)** Tables shared through a Lake Formation resource link (database-level or table-level) now also get column-level lineage to the shared table in the owning account: each column links to the same-named column of the owner's table. This is on by default through `include_column_lineage` and is additive: dataset URNs and the existing table-level lineage edges are unchanged. A link only gets column lineage when it has a schema. **Action:** none required. To turn it off, set `include_column_lineage: false`; note that this also turns off column-level lineage to the table's storage location.
 
