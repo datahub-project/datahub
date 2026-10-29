@@ -3133,13 +3133,23 @@ class GlueSource(StatefulIngestionSourceBase):
             return None
 
         view_columns: Optional[List[PrestoViewColumn]] = None
+        decode_error: Optional[ValueError] = None
         view_text = table.get("ViewOriginalText")
-        if isinstance(view_text, str) and is_presto_view(view_text):
+        if not isinstance(view_text, str) or not view_text:
+            reason = "view has no ViewOriginalText"
+        elif not is_presto_view(view_text):
+            reason = "view definition is not a Presto/Athena view"
+        else:
             try:
-                view_columns = get_presto_view_columns(decode_presto_view(view_text))
-            except Exception:
-                # _get_view_definition reports the decode failure for this view.
-                view_columns = None
+                definition = decode_presto_view(view_text)
+            except ValueError as e:
+                # Reported here as well as in _get_view_definition, because the
+                # resource-link owner path reaches this method without it.
+                decode_error = e
+                reason = "view definition could not be decoded"
+            else:
+                view_columns = get_presto_view_columns(definition)
+                reason = "view definition has no valid 'columns' list"
 
         if view_columns is None:
             self.report.num_view_placeholder_schema_unresolved += 1
@@ -3148,7 +3158,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 message="Glue stores only a placeholder 'dummy' column for this view "
                 "because one of its output columns has a type Hive cannot represent, "
                 "and the real columns could not be read from the view definition.",
-                context=table_name,
+                context=f"{table_name}: {reason}",
+                exc=decode_error,
                 log=False,
             )
             return None

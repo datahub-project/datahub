@@ -4408,19 +4408,24 @@ def _schema_column_names(workunits: List[Any]) -> List[str]:
 
 
 @pytest.mark.parametrize(
-    "view_original_text",
+    "view_original_text, is_decode_failure",
     [
-        "/* Presto View: not!valid!base64 */",
+        (None, False),
+        ("SELECT * FROM my_db.events", False),
+        ("/* Presto View: not!valid!base64 */", True),
         # A non-list `columns` must not raise out of the table loop and abort the run.
-        "/* Presto View: "
-        + base64.b64encode(
-            json.dumps({"originalSql": "SELECT 1", "columns": 5}).encode()
-        ).decode()
-        + " */",
+        (
+            "/* Presto View: "
+            + base64.b64encode(
+                json.dumps({"originalSql": "SELECT 1", "columns": 5}).encode()
+            ).decode()
+            + " */",
+            False,
+        ),
     ],
 )
 def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns(
-    view_original_text: str,
+    view_original_text: Optional[str], is_decode_failure: bool
 ) -> None:
     source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
     view = _placeholder_view("broken_view", view_original_text)
@@ -4428,9 +4433,16 @@ def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns
     assert _schema_column_names(list(source._gen_table_wu(view))) == ["dummy"]
     assert source.report.num_view_placeholder_schema_unresolved == 1
     assert source.report.num_view_schema_from_view_definition == 0
-    assert any(
-        w.title == "View schema is a placeholder column" for w in source.report.warnings
-    )
+    placeholder_contexts = [
+        context
+        for w in source.report.warnings
+        if w.title == "View schema is a placeholder column"
+        for context in w.context
+    ]
+    assert len(placeholder_contexts) == 1
+    assert placeholder_contexts[0].startswith("my_db.broken_view: ")
+    # The decode exception is kept so operators can see why decoding failed.
+    assert ("Error" in placeholder_contexts[0]) == is_decode_failure
 
 
 def test_glue_table_with_column_named_dummy_is_not_treated_as_placeholder() -> None:
