@@ -36,12 +36,16 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +77,7 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
   private final EntityService<?> entityService;
   private final SearchService searchService;
   private final EntitySearchService entitySearchService;
+  private final TimeseriesAspectService timeseriesAspectService;
   private final boolean reprocessEnabled;
   private final Integer batchSize;
 
@@ -81,12 +86,14 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
       EntityService<?> entityService,
       SearchService searchService,
       EntitySearchService entitySearchService,
+      TimeseriesAspectService timeseriesAspectService,
       boolean reprocessEnabled,
       Integer batchSize) {
     this.opContext = opContext;
     this.entityService = entityService;
     this.searchService = searchService;
     this.entitySearchService = entitySearchService;
+    this.timeseriesAspectService = timeseriesAspectService;
     this.reprocessEnabled = reprocessEnabled;
     this.batchSize = batchSize;
   }
@@ -153,9 +160,8 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
                         .setSkipAggregates(true)),
             List.of(INGESTION_SOURCE_ENTITY_NAME),
             "*",
-            // Sources the hook has already recorded a run for are current; backfilling them from
-            // search could replace a newer run with an older one. A forced reprocess rewrites
-            // every source, to repair events written by an earlier version.
+            // Sources the hook has already recorded a run for are current. A forced reprocess
+            // scrolls every source, but still skips a source whose recorded run is as new.
             reprocessEnabled
                 ? null
                 : QueryUtils.newFilter(CriterionUtils.buildNotExistsCriterion(LAST_RUN_FIELD_NAME)),
@@ -205,6 +211,7 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
             INGESTION_SOURCE_ENTITY_NAME,
             runsBySource.keySet(),
             Set.of(INGESTION_INFO_ASPECT_NAME));
+    Map<Urn, DataHubIngestionSourceRunEvent> recorded = recordedEvents(runsBySource.keySet());
 
     List<MetadataChangeProposal> proposals = new ArrayList<>();
     runsBySource.forEach(
@@ -222,13 +229,42 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
                   runs.get(latestRuns.getLatestRun()),
                   requestedAt(runs, latestRuns.getLatestSuccessfulRun()),
                   requestedAt(runs, latestRuns.getLatestFailedRun()));
-          if (event != null) {
+          // The scroll filter is applied when the page is read, so the hook may have recorded a
+          // run since. The source document keeps the last event written, so never write an
+          // older one.
+          DataHubIngestionSourceRunEvent current = recorded.get(sourceUrn);
+          if (event != null
+              && (current == null
+                  || current.getRequestedAtMillis() < event.getRequestedAtMillis())) {
             proposals.add(
                 AspectUtils.buildMetadataChangeProposal(
                     sourceUrn, INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, event));
           }
         });
     return proposals;
+  }
+
+  @Nonnull
+  private Map<Urn, DataHubIngestionSourceRunEvent> recordedEvents(@Nonnull Set<Urn> sourceUrns) {
+    Map<Urn, DataHubIngestionSourceRunEvent> recorded = new HashMap<>();
+    timeseriesAspectService
+        .getLatestTimeseriesAspectValues(
+            opContext, sourceUrns, Set.of(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME), null)
+        .forEach(
+            (sourceUrn, aspects) -> {
+              com.linkedin.metadata.aspect.EnvelopedAspect latest =
+                  aspects.get(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+              if (latest != null) {
+                GenericAspect value = latest.getAspect();
+                recorded.put(
+                    sourceUrn,
+                    GenericRecordUtils.deserializeAspect(
+                        value.getValue(),
+                        value.getContentType(),
+                        DataHubIngestionSourceRunEvent.class));
+              }
+            });
+    return recorded;
   }
 
   @Nonnull

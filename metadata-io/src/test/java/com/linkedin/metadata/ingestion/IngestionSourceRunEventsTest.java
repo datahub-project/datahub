@@ -2,7 +2,6 @@ package com.linkedin.metadata.ingestion;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -86,20 +85,6 @@ public class IngestionSourceRunEventsTest {
 
     assertEquals(success.getSuccessfulRunRequestedAtMillis(), Long.valueOf(100L));
     assertFalse(success.hasFailedRunRequestedAtMillis());
-  }
-
-  @Test
-  public void testOnlyALaterRecordedRunSupersedes() {
-    DataHubIngestionSourceRunEvent later =
-        new DataHubIngestionSourceRunEvent()
-            .setTimestampMillis(1L)
-            .setExecutionRequest(RUN)
-            .setRequestedAtMillis(200L)
-            .setStatus("PENDING");
-
-    assertTrue(IngestionSourceRunEvents.isSupersededBy(INPUT, later));
-    assertFalse(IngestionSourceRunEvents.isSupersededBy(INPUT, later.setRequestedAtMillis(100L)));
-    assertFalse(IngestionSourceRunEvents.isSupersededBy(INPUT, null));
   }
 
   @Test

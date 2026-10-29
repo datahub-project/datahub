@@ -1,0 +1,1493 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.dim_pairs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.dim_pairs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.dim_pairs,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "model",
+                            "materialization": "table",
+                            "dbt_file_path": "models/dim_pairs.sql",
+                            "language": "sql",
+                            "dbt_unique_id": "model.contract_fixture.dim_pairs",
+                            "dbt_package_name": "contract_fixture",
+                            "manifest_version": "1.12.6",
+                            "manifest_adapter": "duckdb",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
+                        },
+                        "name": "dim_pairs",
+                        "description": "",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "model.contract_fixture.dim_pairs",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "x",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INT",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "y",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INT",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": true,
+                        "viewLogic": "select 1 as x, 2 as y",
+                        "formattedViewLogic": "SELECT\n  1 AS x,\n  2 AS y",
+                        "viewLanguage": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "model",
+                            "materialization": "table",
+                            "dbt_file_path": "models/orders.sql",
+                            "language": "sql",
+                            "dbt_unique_id": "model.contract_fixture.orders",
+                            "dbt_package_name": "contract_fixture",
+                            "manifest_version": "1.12.6",
+                            "manifest_adapter": "duckdb",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
+                        },
+                        "name": "orders",
+                        "description": "",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "model.contract_fixture.orders",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "ID",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "a_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "amount",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "b_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "customer_id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "integer",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.dim_pairs,PROD)",
+                                "type": "TRANSFORMED"
+                            },
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.customers,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": true,
+                        "viewLogic": "select 1 as ID, 1 as a_id, 2 as b_id, 1 as customer_id, 10 as amount",
+                        "formattedViewLogic": "SELECT\n  1 AS ID,\n  1 AS a_id,\n  2 AS b_id,\n  1 AS customer_id,\n  10 AS amount",
+                        "viewLanguage": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0774e51da1842763f54bad27cb96e409",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_name": "model.contract_fixture.orders",
+                "dbt_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)"
+            },
+            "name": "contracts-build-invocation_urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1746719463100,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0774e51da1842763f54bad27cb96e409",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0774e51da1842763f54bad27cb96e409",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.dim_pairs,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.customers,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0774e51da1842763f54bad27cb96e409",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0774e51da1842763f54bad27cb96e409",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1746719463100,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0774e51da1842763f54bad27cb96e409",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1746719463300,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "success"
+            },
+            "durationMillis": 200
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Source"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.customers,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "source",
+                            "dbt_file_path": "models/sources.yml",
+                            "language": "sql",
+                            "dbt_unique_id": "source.contract_fixture.raw.customers",
+                            "dbt_package_name": "contract_fixture",
+                            "manifest_version": "1.12.6",
+                            "manifest_adapter": "duckdb",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "0.19.1"
+                        },
+                        "name": "customers",
+                        "description": "",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "source.contract_fixture.raw.customers",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.customers,PROD)",
+                                "type": "COPY"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.dim_pairs,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.dim_pairs,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.dim_pairs,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.dim_pairs,PROD),x)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.dim_pairs,PROD),x)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.dim_pairs,PROD),y)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.dim_pairs,PROD),y)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.orders,PROD),ID)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),ID)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.orders,PROD),a_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),a_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.orders,PROD),amount)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),amount)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.orders,PROD),b_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),b_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,fixture.main.orders,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),customer_id)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:6a50f449c01d5a8df80338a6c946e4f5",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:6a50f449c01d5a8df80338a6c946e4f5",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "test.contract_fixture.not_null_orders_ID.2c01be0ba6",
+                "dbt_test_upstream_unique_id": "model.contract_fixture.orders",
+                "manifest_version": "1.12.6",
+                "manifest_adapter": "duckdb",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "dbt",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),ID)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),ID)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "not_null_orders_ID",
+                "nativeParameters": {
+                    "column_name": "ID",
+                    "model": "{{ get_where_subquery(ref('orders')) }}"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:6a50f449c01d5a8df80338a6c946e4f5",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1746719463400,
+            "runId": "contracts-build-invocation",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {}
+            },
+            "assertionUrn": "urn:li:assertion:6a50f449c01d5a8df80338a6c946e4f5",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:d53929729ca5c09dfbfaeeec57cf8ed0",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:d53929729ca5c09dfbfaeeec57cf8ed0",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "test.contract_fixture.relationships_orders_customer_id__id__source_raw_customers_.d0b0775a98",
+                "dbt_test_upstream_unique_id": "source.contract_fixture.raw.customers",
+                "manifest_version": "1.12.6",
+                "manifest_adapter": "duckdb",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "dbt",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.customers,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.customers,PROD),customer_id)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.customers,PROD),customer_id)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "_NATIVE_",
+                "parameters": {
+                    "value": {
+                        "value": "null",
+                        "type": "SET"
+                    }
+                },
+                "nativeType": "relationships_orders_customer_id__id__source_raw_customers_",
+                "nativeParameters": {
+                    "column_name": "customer_id",
+                    "field": "id",
+                    "model": "{{ get_where_subquery(ref('orders')) }}",
+                    "to": "source('raw', 'customers')"
+                },
+                "logic": "orders.customer_id referential integrity to source('raw', 'customers').id"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:5309e93d552b18820e8d484670b60569",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:5309e93d552b18820e8d484670b60569",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "dbt_unique_id": "test.contract_fixture.relationships_orders_customer_id__id__source_raw_customers_.d0b0775a98",
+                "dbt_test_upstream_unique_id": "model.contract_fixture.orders",
+                "manifest_version": "1.12.6",
+                "manifest_adapter": "duckdb",
+                "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                "catalog_version": "0.19.1"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "dbt",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),customer_id)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),customer_id)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "_NATIVE_",
+                "parameters": {
+                    "value": {
+                        "value": "null",
+                        "type": "SET"
+                    }
+                },
+                "nativeType": "relationships_orders_customer_id__id__source_raw_customers_",
+                "nativeParameters": {
+                    "column_name": "customer_id",
+                    "field": "id",
+                    "model": "{{ get_where_subquery(ref('orders')) }}",
+                    "to": "source('raw', 'customers')"
+                },
+                "logic": "orders.customer_id referential integrity to source('raw', 'customers').id"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:920d62fc1cafe325c9b5d0ada36b4797",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:920d62fc1cafe325c9b5d0ada36b4797",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "source": "dbt_contract",
+                "dbt_unique_id": "model.contract_fixture.orders",
+                "dbt_contract_checksum": "b3fd3bd6dbece265e17ce3abebb95bbf773aba99382b8d00c3b07dd470598afd"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "dbt",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+                "scope": "DATASET_SCHEMA",
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "dbt_contract_schema",
+                "logic": "ID: integer\na_id: integer\namount: integer\nb_id: integer\ncustomer_id: integer"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e70115a36d75ff0526cce9fe6742b637",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e70115a36d75ff0526cce9fe6742b637",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "source": "dbt_model_constraint",
+                "dbt_unique_id": "model.contract_fixture.orders",
+                "constraint_type": "primary_key",
+                "enforced_by": "dbt_contract",
+                "warn_unenforced": "true",
+                "warn_unsupported": "true"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "dbt",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),id)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),id)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "dbt_constraint_not_null"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:318ca7fa30d814a0bf919145ae850b49",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:318ca7fa30d814a0bf919145ae850b49",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "source": "dbt_column_constraint",
+                "dbt_unique_id": "model.contract_fixture.orders",
+                "constraint_type": "check",
+                "enforced_by": "dbt_contract",
+                "warn_unenforced": "true",
+                "warn_unsupported": "true",
+                "expression": "amount >= 0",
+                "columns": "amount"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "dbt",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),amount)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),amount)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "dbt_constraint_check",
+                "nativeParameters": {
+                    "expression": "amount >= 0",
+                    "columns": "amount"
+                },
+                "logic": "amount >= 0"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2b40ed7e896d8bd93e17624f8a5882b0",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2b40ed7e896d8bd93e17624f8a5882b0",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "source": "dbt_column_constraint",
+                "dbt_unique_id": "model.contract_fixture.orders",
+                "constraint_type": "foreign_key",
+                "enforced_by": "dbt_contract",
+                "warn_unenforced": "true",
+                "warn_unsupported": "true",
+                "columns": "customer_id",
+                "to": "\"fixture\".\"main\".\"customers_tbl\"",
+                "to_columns": "id"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "dbt",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),customer_id)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),customer_id)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "dbt_constraint_foreign_key",
+                "nativeParameters": {
+                    "columns": "customer_id",
+                    "to": "\"fixture\".\"main\".\"customers_tbl\"",
+                    "to_columns": "id"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3ed15d69a24ac73ca82fc8d65d5b5bb1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3ed15d69a24ac73ca82fc8d65d5b5bb1",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "source": "dbt_model_constraint",
+                "dbt_unique_id": "model.contract_fixture.orders",
+                "constraint_type": "primary_key",
+                "enforced_by": "dbt_contract",
+                "warn_unenforced": "true",
+                "warn_unsupported": "true",
+                "columns": "id"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "dbt",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),id)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),id)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "UNIQUE_PROPOTION",
+                "operator": "EQUAL_TO",
+                "parameters": {
+                    "value": {
+                        "value": "1.0",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "dbt_constraint_unique"
+            },
+            "source": {
+                "type": "EXTERNAL"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:454d85c1d7ed564aec1bdb7e47c2a310",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:454d85c1d7ed564aec1bdb7e47c2a310",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "source": "dbt_model_constraint",
+                "dbt_unique_id": "model.contract_fixture.orders",
+                "constraint_type": "foreign_key",
+                "enforced_by": "dbt_contract",
+                "warn_unenforced": "true",
+                "warn_unsupported": "true",
+                "columns": "b_id,a_id",
+                "to": "\"fixture\".\"main\".\"dim_pairs\"",
+                "to_columns": "y,x"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "dbt",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),b_id)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),b_id)",
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD),a_id)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "_NATIVE_",
+                "operator": "_NATIVE_",
+                "nativeType": "dbt_constraint_foreign_key",
+                "nativeParameters": {
+                    "columns": "b_id,a_id",
+                    "to": "\"fixture\".\"main\".\"dim_pairs\"",
+                    "to_columns": "y,x"
+                }
+            },
+            "source": {
+                "type": "EXTERNAL"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:920d62fc1cafe325c9b5d0ada36b4797",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1746719463300,
+            "runId": "contracts-build-invocation",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "status": "success"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:920d62fc1cafe325c9b5d0ada36b4797",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:6f6480f278d5cc58cabbca27fd3dda6b",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractProperties",
+    "aspect": {
+        "json": {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:dbt,fixture.main.orders,PROD)",
+            "dataQuality": [
+                {
+                    "assertion": "urn:li:assertion:920d62fc1cafe325c9b5d0ada36b4797"
+                },
+                {
+                    "assertion": "urn:li:assertion:e70115a36d75ff0526cce9fe6742b637"
+                },
+                {
+                    "assertion": "urn:li:assertion:318ca7fa30d814a0bf919145ae850b49"
+                },
+                {
+                    "assertion": "urn:li:assertion:2b40ed7e896d8bd93e17624f8a5882b0"
+                },
+                {
+                    "assertion": "urn:li:assertion:3ed15d69a24ac73ca82fc8d65d5b5bb1"
+                },
+                {
+                    "assertion": "urn:li:assertion:454d85c1d7ed564aec1bdb7e47c2a310"
+                },
+                {
+                    "assertion": "urn:li:assertion:6a50f449c01d5a8df80338a6c946e4f5"
+                },
+                {
+                    "assertion": "urn:li:assertion:5309e93d552b18820e8d484670b60569"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:6f6480f278d5cc58cabbca27fd3dda6b",
+    "changeType": "UPSERT",
+    "aspectName": "dataContractStatus",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "state": "ACTIVE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:2b40ed7e896d8bd93e17624f8a5882b0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:318ca7fa30d814a0bf919145ae850b49",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:3ed15d69a24ac73ca82fc8d65d5b5bb1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:454d85c1d7ed564aec1bdb7e47c2a310",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:5309e93d552b18820e8d484670b60569",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:6a50f449c01d5a8df80338a6c946e4f5",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:920d62fc1cafe325c9b5d0ada36b4797",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:d53929729ca5c09dfbfaeeec57cf8ed0",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e70115a36d75ff0526cce9fe6742b637",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataContract",
+    "entityUrn": "urn:li:dataContract:6f6480f278d5cc58cabbca27fd3dda6b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0774e51da1842763f54bad27cb96e409",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-test-contracts",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

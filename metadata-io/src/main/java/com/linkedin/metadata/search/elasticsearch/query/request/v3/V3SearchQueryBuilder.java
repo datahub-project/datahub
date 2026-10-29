@@ -376,7 +376,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
         }
       }
       if (skipExpensiveClauses) {
-        // Light path: two constant_score clauses (name.keyword, title.keyword) so exact name
+        // Light path: two constant_score clauses (name, title) so exact name
         // matches still rank first regardless of cross-entity IDF disparities.
         if (customQueryConfig == null || customQueryConfig.isExactMatchQuery()) {
           getLightweightExactMatchBoost(colonStripped, getSynonymMap()).ifPresent(disMaxQuery::add);
@@ -910,11 +910,11 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
     String exactQuery = stripSurroundingQuotes(typedQuery);
     DisMaxQueryBuilder nameBoost = QueryBuilders.disMaxQuery().tieBreaker(0.0f);
     nameBoost.add(
-        QueryBuilders.termQuery("name.keyword", exactQuery)
+        QueryBuilders.termQuery("name", exactQuery)
             .caseInsensitive(true)
             .boost(EXACT_NAME_CONSTANT_BOOST));
     nameBoost.add(
-        QueryBuilders.termQuery("title.keyword", exactQuery)
+        QueryBuilders.termQuery("title", exactQuery)
             .caseInsensitive(true)
             .boost(EXACT_NAME_CONSTANT_BOOST));
     nameBoost.add(multiMatch);
@@ -922,9 +922,9 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   }
 
   /**
-   * Light path: minimal exact-match boost using only constant_score clauses on name.keyword and
-   * title.keyword. Keeps exact name matches above partial matches without the many clauses of the
-   * full exact/prefix query (term queries, phrase prefixes, synonyms and word grams on every core
+   * Light path: minimal exact-match boost using only constant_score clauses on name and title.
+   * Keeps exact name matches above partial matches without the many clauses of the full
+   * exact/prefix query (term queries, phrase prefixes, synonyms and word grams on every core
    * field).
    */
   @VisibleForTesting
@@ -940,7 +940,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
     DisMaxQueryBuilder disMaxQuery = QueryBuilders.disMaxQuery();
     disMaxQuery.tieBreaker(EXACT_PREFIX_DISMAX_TIE_BREAKER);
 
-    for (String field : List.of("name.keyword", "title.keyword")) {
+    for (String field : List.of("name", "title")) {
       disMaxQuery.add(
           QueryBuilders.constantScoreQuery(
                   QueryBuilders.termQuery(field, unquotedQuery).caseInsensitive(true))
@@ -1508,10 +1508,9 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
                     .computeIfAbsent(parentField, k -> QueryBuilders.boolQuery())
                     .should(
                         QueryBuilders.matchQuery(
-                                ESUtils.toKeywordField(
+                                ESUtils.toV3KeywordField(
                                     null,
                                     searchFieldConfig.fieldName(),
-                                    false,
                                     opContext.getAspectRetriever()),
                                 unquotedQuery)
                             .boost(
@@ -2189,7 +2188,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       keywordFields.add(
           v3FieldResolver.contains(fieldName)
               ? v3FieldResolver.exactPath(fieldName, Intent.EXACT)
-              : ESUtils.toKeywordField(null, fieldName, false, aspectRetriever));
+              : ESUtils.toV3KeywordField(null, fieldName, aspectRetriever));
     }
     if (v3FieldResolver != null && fieldName.endsWith(TEXT_SUFFIX)) {
       for (String parsed : v3FieldResolver.parsedKeywordPaths(baseName(fieldName))) {
@@ -2220,7 +2219,7 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   /**
    * Value of an exact-match term. Normalized keywords and {@code .lowercase} store the
    * keyword_normalizer token, so the term has to be folded first. A case-preserving keyword, such
-   * as {@code name.keyword} or a structured-property {@code __urn_name}, keeps the query text.
+   * as {@code name} or a structured-property {@code __urn_name}, keeps the query text.
    */
   @Nonnull
   private static String exactTermValue(

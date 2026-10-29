@@ -14,9 +14,11 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.update.OrderedSearchFields;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.CatchUpBatchRebuilder;
@@ -70,6 +72,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final boolean v2Enabled;
   @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
   @Nullable private final IncrementalReindexWriteTargets incrementalReindexWriteTargets;
+  @Nullable private final StructuredPropertyMappingCache structuredPropertyMappingCache;
   private final CatchUpBatchRebuilder catchUpBatchRebuilder;
 
   /** Drains of a batch that mirrored deletes into a rebuild's index, before it is given up on. */
@@ -78,7 +81,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   /**
    * Built through {@link #builder()}. Unset optional parts take their defaults: the URN hasher, no
    * document contributors, V2 not dual-written, no semantic search configuration, no rollback
-   * targets, no timeseries throttle.
+   * targets, no timeseries throttle, no structured-property restate nulls.
    */
   @Builder
   public UpdateIndicesV3Strategy(
@@ -91,7 +94,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nullable List<V3SearchDocumentContributor> documentContributors,
       boolean v2Enabled,
       @Nullable SemanticSearchConfiguration semanticSearchConfiguration,
-      @Nullable IncrementalReindexWriteTargets incrementalReindexWriteTargets) {
+      @Nullable IncrementalReindexWriteTargets incrementalReindexWriteTargets,
+      @Nullable StructuredPropertyMappingCache structuredPropertyMappingCache) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentProjector = new V3SearchDocumentProjector(searchDocumentTransformer);
@@ -108,6 +112,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     this.v2Enabled = v2Enabled;
     this.semanticSearchConfiguration = semanticSearchConfiguration;
     this.incrementalReindexWriteTargets = incrementalReindexWriteTargets;
+    this.structuredPropertyMappingCache = structuredPropertyMappingCache;
     try {
       this.mappingsBuilder =
           new MultiEntityMappingsBuilder(
@@ -457,12 +462,23 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       return List.of();
     }
 
+    List<OrderedSearchFields.Update> orderedUpdates =
+        orderedUpdates(opContext, events, combinedDocument);
     String finalDocument = combinedDocument.toString();
 
     if (fillTarget != null) {
       elasticSearchService.upsertDocumentByIndexName(opContext, fillTarget, finalDocument, docId);
     } else {
       elasticSearchService.upsertDocumentBySearchGroup(opContext, indexKey, finalDocument, docId);
+    }
+    for (OrderedSearchFields.Update update : orderedUpdates) {
+      if (fillTarget != null) {
+        elasticSearchService.applyScriptUpdateByIndexName(
+            opContext, fillTarget, docId, update.script(), update.params(), update.upsert());
+      } else {
+        elasticSearchService.applyScriptUpdateBySearchGroup(
+            opContext, indexKey, docId, update.script(), update.params(), update.upsert());
+      }
     }
     log.debug(
         "V3 upserted combined document for URN: {} to index key: {} with {} aspects",
@@ -503,12 +519,49 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         oldBackingIndex -> {
           elasticSearchService.upsertDocumentByIndexName(
               opContext, oldBackingIndex, finalDocument, docId);
+          for (OrderedSearchFields.Update update : orderedUpdates) {
+            elasticSearchService.applyScriptUpdateByIndexName(
+                opContext,
+                oldBackingIndex,
+                docId,
+                update.script(),
+                update.params(),
+                update.upsert());
+          }
           for (String runId : distinctRunIds) {
             elasticSearchService.appendRunIdByIndexName(
                 opContext, oldBackingIndex, docId, urn, runId);
           }
         });
     return mirrored.map(List::of).orElse(List.of());
+  }
+
+  /**
+   * Script updates for the batch's aspects whose fields only move forward, one per event in batch
+   * order. The combined document holds only the batch's last event for an aspect, which may be the
+   * older one, so those fields are removed from it and written by the scripts instead.
+   */
+  @Nonnull
+  private List<OrderedSearchFields.Update> orderedUpdates(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MCLItem> events,
+      @Nonnull ObjectNode combinedDocument) {
+    List<OrderedSearchFields.Update> updates = new ArrayList<>();
+    for (MCLItem event : events) {
+      String aspectName = event.getAspectSpec().getName();
+      if (!OrderedSearchFields.isOrdered(aspectName)
+          || event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE) {
+        continue;
+      }
+      ObjectNode eventDocument = JsonNodeFactory.instance.objectNode();
+      searchDocumentProjector
+          .projectAspect(opContext, event, null)
+          .ifPresent(
+              projected -> searchDocumentProjector.applyProjection(eventDocument, projected));
+      OrderedSearchFields.split(aspectName, eventDocument).ifPresent(updates::add);
+      OrderedSearchFields.split(aspectName, combinedDocument);
+    }
+    return updates;
   }
 
   /**
@@ -738,8 +791,72 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     applyDocumentContributors(opContext, urn, combinedDocument);
     if (isCatchUpBatch(events)) {
       clearStaleCatchUpFields(combinedDocument, events, indexedFields, timeseriesRootFields);
+    } else {
+      // A SQL restate has no previous aspect, so the partial upsert would keep structured-property
+      // fields the aspect no longer sets. Null the mapped ones. Catch-up already clears from the
+      // document it read; a baseline fill uses the index it is writing, not the live alias.
+      nullRemovedStructuredProperties(opContext, events, combinedDocument);
     }
     return combinedDocument;
+  }
+
+  /**
+   * Nulls mapped structured-property keys the finished document does not set. Skipped when the
+   * batch is not a structuredProperties RESTATE with a null previous value, or when the mapping
+   * cannot be read. The parent {@code structuredProperties} key is left alone.
+   */
+  private void nullRemovedStructuredProperties(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MCLItem> events,
+      @Nonnull ObjectNode document) {
+    if (structuredPropertyMappingCache == null
+        || !structuredPropertyMappingCache.isEnabled()
+        || isCatchUpBatch(events)
+        || !restatesStructuredPropertiesWithoutPrevious(events)) {
+      return;
+    }
+    String indexName = fillTarget(events);
+    if (indexName == null) {
+      indexName =
+          opContext
+              .getSearchContext()
+              .getIndexConvention()
+              .getEntityIndexNameV3(opContext, v3IndexKey(events.get(0).getEntitySpec()));
+    }
+    Optional<Set<String>> fields = structuredPropertyMappingCache.fields(opContext, indexName);
+    if (fields.isEmpty()) {
+      return;
+    }
+    nullMissingStructuredPropertyKeys(document, fields.get());
+  }
+
+  /**
+   * True when the batch restates structured properties and no structured-properties event in it has
+   * a previous value. A previous value is already diffed into nulls by the projector.
+   */
+  private static boolean restatesStructuredPropertiesWithoutPrevious(
+      @Nonnull List<MCLItem> events) {
+    boolean restate = false;
+    for (MCLItem event : events) {
+      if (!isStructuredProperties(event)) {
+        continue;
+      }
+      if (event.getPreviousRecordTemplate() != null) {
+        return false;
+      }
+      if (event.getChangeType() == ChangeType.RESTATE && event.getRecordTemplate() != null) {
+        restate = true;
+      }
+    }
+    return restate;
+  }
+
+  private static boolean isStructuredProperties(@Nonnull MCLItem event) {
+    if (event.getAspectSpec() != null
+        && Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(event.getAspectSpec().getName())) {
+      return true;
+    }
+    return Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(event.getAspectName());
   }
 
   /**

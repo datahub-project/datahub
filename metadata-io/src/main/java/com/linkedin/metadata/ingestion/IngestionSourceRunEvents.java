@@ -83,10 +83,12 @@ public final class IngestionSourceRunEvents {
             .setExecutionRequest(executionRequestUrn)
             .setRequestedAtMillis(input.getRequestedAt());
     event.setStatus(status);
+    // An older run can finish after a newer one, so keep whichever request is later.
     if (SUCCESS_STATUS.equals(status)) {
-      lastSuccessfulRequestedAtMillis = input.getRequestedAt();
+      lastSuccessfulRequestedAtMillis =
+          later(lastSuccessfulRequestedAtMillis, input.getRequestedAt());
     } else if (FAILURE_STATUS.equals(status)) {
-      lastFailedRequestedAtMillis = input.getRequestedAt();
+      lastFailedRequestedAtMillis = later(lastFailedRequestedAtMillis, input.getRequestedAt());
     }
     if (lastSuccessfulRequestedAtMillis != null) {
       event.setSuccessfulRunRequestedAtMillis(lastSuccessfulRequestedAtMillis);
@@ -97,9 +99,7 @@ public final class IngestionSourceRunEvents {
     return event;
   }
 
-  /** Whether the source already has an event for a run requested after this one. */
-  public static boolean isSupersededBy(
-      @Nonnull ExecutionRequestInput input, @Nullable DataHubIngestionSourceRunEvent latest) {
-    return latest != null && latest.getRequestedAtMillis() > input.getRequestedAt();
+  private static long later(@Nullable Long current, long requestedAt) {
+    return current != null ? Math.max(current, requestedAt) : requestedAt;
   }
 }

@@ -175,8 +175,10 @@ public class SearchTemplateGoldenTest {
     assertTrue(split.contains("\"query\" : \"orders2017\""), split);
     String exactName = render(SEARCH_TEMPLATE_FULLTEXT_URN, "orders", dataset);
     JsonNode exactQuery = SearchTemplateFixtures.JSON.readTree(exactName);
-    assertTrue(hasTermValue(exactQuery, "name.keyword", "orders"));
-    assertTrue(hasTermValue(exactQuery, "qualifiedName.keyword", "orders"));
+    assertTrue(hasTermValue(exactQuery, "name", "orders"));
+    assertTrue(hasTermValue(exactQuery, "qualifiedName", "orders"));
+    assertFalse(exactName.contains("name.keyword"), exactName);
+    assertFalse(exactName.contains("qualifiedName.keyword"), exactName);
     assertFalse(exactName.contains("_entityName"), exactName);
     assertFalse(exactName.contains("constant_score"), exactName);
     String fqn = render(SEARCH_TEMPLATE_FULLTEXT_URN, "my_db.analytics.orders", dataset);
@@ -192,7 +194,8 @@ public class SearchTemplateGoldenTest {
             "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)",
             dataset);
     assertTrue(identity.contains("\"boost\" : 100.0"), identity);
-    assertTrue(identity.contains("id.keyword"), identity);
+    assertTrue(identity.contains("\"id\""), identity);
+    assertFalse(identity.contains("id.keyword"), identity);
     assertIdentityFields(identity);
   }
 
@@ -396,7 +399,8 @@ public class SearchTemplateGoldenTest {
 
   private void assertDatasetFulltext(String query) throws Exception {
     SearchTemplateFixtures.Property certification = harness.property("certification.status");
-    assertTrue(query.contains(certification.fieldPath() + ".keyword"), certification.fieldPath());
+    assertTrue(query.contains(certification.fieldPath()), certification.fieldPath());
+    assertFalse(query.contains(certification.fieldPath() + ".keyword"), query);
     assertFalse(query.contains(harness.property("hidden.label").fieldPath()));
     assertFalse(query.contains(harness.property("notes.internal").fieldPath()));
     assertFalse(query.contains(harness.property("chart.only").fieldPath()));
@@ -408,7 +412,8 @@ public class SearchTemplateGoldenTest {
   private void assertFieldEdits(String query) throws Exception {
     SearchTemplateFixtures.Property hidden = harness.property("hidden.label");
     SearchTemplateFixtures.Property contract = harness.property("contract.id");
-    assertTrue(query.contains(hidden.fieldPath() + ".keyword"));
+    assertTrue(query.contains(hidden.fieldPath()));
+    assertFalse(query.contains(hidden.fieldPath() + ".keyword"));
     assertFalse(query.contains(harness.property("certification.status").fieldPath()));
     assertTrue(query.contains(contract.fieldPath()));
     assertTrue(contract.fieldPath().contains("_versioned"));
@@ -427,7 +432,8 @@ public class SearchTemplateGoldenTest {
 
   private void assertNameAndValue(String query) {
     assertTrue(query.contains("\"tie_breaker\" : 0.0"));
-    assertTrue(query.contains(harness.property("certification.status").fieldPath() + ".keyword"));
+    assertTrue(query.contains(harness.property("certification.status").fieldPath()));
+    assertFalse(query.contains(harness.property("certification.status").fieldPath() + ".keyword"));
     assertTrue(query.contains("\"gold\""));
     assertTrue(query.contains("\"boost\" : 8.0"));
     assertTrue(query.contains("\"boost\" : 3.0"));

@@ -45,6 +45,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.indices.GetMappingsRequest;
+import org.opensearch.cluster.metadata.MappingMetadata;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -302,6 +305,29 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    */
   public boolean indexExists(@Nonnull OperationContext opContext, @Nonnull String indexName) {
     return esWriteDAO.indexExists(opContext, indexName);
+  }
+
+  /** Applies a script update to a document in the V2 index of the given entity. */
+  public void applyScriptUpdate(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    esWriteDAO.applyScriptUpdate(opContext, entityName, docId, scriptSource, scriptParams, upsert);
+  }
+
+  /** Applies a script update to a document in the V3 index for the given search group. */
+  public void applyScriptUpdateBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    esWriteDAO.applyScriptUpdateBySearchGroup(
+        opContext, searchGroup, docId, scriptSource, scriptParams, upsert);
   }
 
   /**
@@ -850,6 +876,26 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       throws Exception {
     return builderFor(aliasName)
         .validateAndSwapAlias(opContext, aliasName, newBackingIndex, expectedSourceDocCount);
+  }
+
+  /**
+   * Mapping body for {@code indexName}, on the cluster that owns it. Empty when the index has no
+   * mapping. A restate uses this to find structured-property fields the aspect no longer sets.
+   */
+  @Nonnull
+  public Map<String, Object> indexMappingSource(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
+    return builderFor(indexName)
+        .getSearchClient()
+        .getIndexMapping(
+            opContext, new GetMappingsRequest().indices(indexName), RequestOptions.DEFAULT)
+        .mappings()
+        .values()
+        .stream()
+        .map(MappingMetadata::getSourceAsMap)
+        .filter(mapping -> mapping != null)
+        .findFirst()
+        .orElse(Map.of());
   }
 
   @Override

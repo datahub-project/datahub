@@ -12,7 +12,15 @@ record CorpUserKey {
   */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "lowercase": true,
+      "boostScore": 10.0,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
     },
     "fieldName": "ldap",
     "fieldType": "WORD_GRAM",

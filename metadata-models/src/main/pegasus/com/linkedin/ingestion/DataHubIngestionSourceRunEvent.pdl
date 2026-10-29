@@ -8,9 +8,9 @@ import com.linkedin.timeseries.TimeseriesAspectBase
  * request for the source is created or its result status changes.
  *
  * Every event carries all of the source's searchable fields, which are copied onto its search
- * document, so the source can be sorted and filtered by its latest run. An event is not written
- * for a run older than the source's newest request or latest event, so an older run finishing
- * late cannot replace them.
+ * document, so the source can be sorted and filtered by its latest run. Events can be written out
+ * of order, so the search document only takes the last-run fields from an event whose request is
+ * at least as new as the indexed one, and only moves the last success and failure times forward.
  */
 @Aspect = {
   "name": "dataHubIngestionSourceRunEvent",

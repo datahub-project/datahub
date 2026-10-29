@@ -68,20 +68,21 @@ public class V3SearchFieldModelTest {
         V3SearchFieldModel.forIndexGroup(REGISTRY, List.of(REGISTRY.getEntitySpec("document")))
             .resolver()
             .supports("description", Intent.FULL_TEXT));
-    assertEquals(document.exactPath("id", Intent.EXACT), "id.keyword");
-    assertEquals(document.exactPath("id", Intent.FILTER), "name.keyword");
-    assertEquals(document.exactPath("title", Intent.FILTER), "name.keyword");
+    assertEquals(document.exactPath("id", Intent.EXACT), "id");
+    assertEquals(document.exactPath("domains.keyword", Intent.FILTER), "domains_urn");
+    assertEquals(document.exactPath("id", Intent.FILTER), "name");
+    assertEquals(document.exactPath("title", Intent.FILTER), "name");
     assertEquals(document.exactPath("createdAt", Intent.RANGE), "sourceCreatedAt");
     assertEquals(document.exactPath("createdAt", Intent.SORT), "sourceCreatedAt");
     assertEquals(
         V3SearchFieldModel.of(List.of(REGISTRY.getEntitySpec("mlModel")))
             .resolver()
             .exactPath("id", Intent.EXACT),
-        "name.keyword");
+        "name");
     assertEquals(
         V3SearchFieldModel.of(List.of(REGISTRY.getEntitySpec("dataset")))
             .resolver()
             .exactPath("id", Intent.EXACT),
-        "name.keyword");
+        "name");
   }
 }
