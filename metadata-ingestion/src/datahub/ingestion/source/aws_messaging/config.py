@@ -57,6 +57,16 @@ class AwsMessagingConfigBase(
             "account id. Accounts not listed use their account id."
         ),
     )
+    remove_stale_lineage: bool = Field(
+        default=True,
+        description=(
+            "Remove lineage edges this source wrote on an earlier run that no longer "
+            "exist in AWS, such as a removed redrive policy or subscription. Only "
+            "edges from resources this run read in full are removed. Needs a "
+            "DataHub graph connection (the datahub-rest sink or datahub_api); costs "
+            "one DataHub lookup per queue or topic."
+        ),
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
         description="Stateful ingestion configuration for stale entity removal.",

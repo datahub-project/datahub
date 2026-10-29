@@ -58,23 +58,26 @@ class SqsSource(AwsMessagingSourceBase):
 
     platform = SQS_PLATFORM
     service = AwsService.SQS
+    owned_relationships = frozenset({LineageRelationship.DEAD_LETTER})
     config: SqsSourceConfig
     report: SqsSourceReport
 
     def __init__(self, config: SqsSourceConfig, ctx: PipelineContext):
         report = SqsSourceReport()
-        # The client is needed while the base class reads the account id.
-        self.sqs = SqsClient(
-            config.make_client(config.aws_config.get_session(), AwsService.SQS), report
-        )
-        super().__init__(config, ctx, report)
         self.config = config
+        super().__init__(config, ctx, report)
         self.report = report
         self.queues: List[SqsQueue] = []
         # Listed but unreadable this run: still in AWS, so kept out of stale removal.
         self.unreadable_queue_urls: List[str] = []
+
+    def create_clients(self) -> None:
+        self.sqs = SqsClient(
+            self.config.make_client(self.session, AwsService.SQS), self.base_report
+        )
         self.tagging = TaggingClient(
-            config.make_client(self.session, AwsService.TAGGING), report
+            self.config.make_client(self.session, AwsService.TAGGING),
+            self.base_report,
         )
 
     @classmethod
@@ -142,6 +145,7 @@ class SqsSource(AwsMessagingSourceBase):
             self.resolver.add(queue.arn)
             urn = self.urns.queue_urn(queue.arn)
             self.lineage.owned.add(urn)
+            self.lineage.complete.add(urn)
             yield from Dataset(
                 platform=SQS_PLATFORM,
                 name=self.urns.resource_id(queue.arn),
