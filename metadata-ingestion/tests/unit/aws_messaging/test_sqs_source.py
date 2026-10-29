@@ -221,3 +221,17 @@ def test_unreadable_queue_is_kept_out_of_stale_removal(
     # so stale-entity removal counts the queue as still present.
     assert [a for a in aspects if a[0] == flaky] == [(flaky, "status", True)]
     assert list(source.get_report().queues_failed) == ["flaky"]
+
+
+def test_account_id_comes_from_the_queue_url(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Even with GetQueueAttributes denied everywhere, the account (and so every
+    # URN) stays the same as on runs where it succeeds.
+    create_queue("orders")
+    monkeypatch.setattr(SqsClient, "get_attributes", lambda self, url: None)
+    source = _run()
+    assert source.get_report().account_id == ACCOUNT
+    assert {wu.get_urn() for wu in source.get_workunits_internal()} == {
+        queue_urn("orders")
+    }
