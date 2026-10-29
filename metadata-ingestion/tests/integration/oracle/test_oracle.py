@@ -230,6 +230,8 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
 
         mce_helpers.check_golden_file(
             pytestconfig,
+            golden_mces_as_mcps=True,
+            fail_on_output_mces=True,
             output_path=filtered_output_path,
             golden_path=filtered_golden_path,
             ignore_paths=ignore_paths,
@@ -237,6 +239,8 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
     else:
         mce_helpers.check_golden_file(
             pytestconfig,
+            golden_mces_as_mcps=True,
+            fail_on_output_mces=True,
             output_path=output_path,
             golden_path=golden_path,
             ignore_paths=ignore_paths,

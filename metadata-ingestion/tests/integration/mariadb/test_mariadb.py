@@ -82,6 +82,8 @@ def test_mariadb_ingest_no_db(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
         ignore_paths=ignore_paths,
         output_path=tmp_path / "mariadb_mces.json",
         golden_path=test_resources_dir / golden_file,

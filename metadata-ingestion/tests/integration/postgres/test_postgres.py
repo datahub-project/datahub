@@ -59,6 +59,8 @@ def test_postgres_ingest_with_db(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
         output_path=tmp_path / "postgres_mces.json",
         golden_path=test_resources_dir / "postgres_mces_with_db_golden.json",
     )
@@ -80,6 +82,8 @@ def test_postgres_ingest_with_all_db(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
         output_path=tmp_path / "postgres_all_db_mces.json",
         golden_path=test_resources_dir / "postgres_all_db_mces_with_db_golden.json",
     )

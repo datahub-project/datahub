@@ -35,13 +35,15 @@ def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, monkey
         )
         # These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to these.
         ignore_paths: List[str] = [
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_modification_time'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['data_paths'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_path'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['metadata_modification_time'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['data_paths'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['metadata_path'\]",
         ]
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
+            golden_mces_as_mcps=True,
+            fail_on_output_mces=True,
             ignore_paths=ignore_paths,
             output_path=tmp_path / "clickhouse_mces.json",
             golden_path=test_resources_dir / "clickhouse_mces_golden.json",
@@ -73,13 +75,15 @@ def test_clickhouse_ingest_uri_form(
         )
         # These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to these.
         ignore_paths: List[str] = [
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_modification_time'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['data_paths'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_path'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['metadata_modification_time'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['data_paths'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['metadata_path'\]",
         ]
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
+            golden_mces_as_mcps=True,
+            fail_on_output_mces=True,
             ignore_paths=ignore_paths,
             output_path=tmp_path / "clickhouse_mces_uri_form.json",
             golden_path=test_resources_dir / "clickhouse_mces_golden.json",

@@ -108,6 +108,8 @@ def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
+            golden_mces_as_mcps=True,
+            fail_on_output_mces=True,
             output_path="trino_mces.json",
             golden_path=test_resources_dir / "trino_mces_golden.json",
         )
@@ -154,12 +156,14 @@ def test_trino_hive_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_p
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
         output_path=events_file,
         golden_path=test_resources_dir / "trino_hive_mces_golden.json",
         ignore_paths=[
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['transient_lastddltime'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['numfiles'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['totalsize'\]",
         ],
     )
 
@@ -205,9 +209,11 @@ def test_trino_instance_ingest(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
         output_path=events_file,
         golden_path=test_resources_dir / "trino_hive_instance_mces_golden.json",
         ignore_paths=[
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['transient_lastddltime'\]",
         ],
     )

@@ -218,6 +218,8 @@ def test_db2_ingest(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
         output_path=output_path,
         golden_path=golden_path,
         ignore_paths=[
