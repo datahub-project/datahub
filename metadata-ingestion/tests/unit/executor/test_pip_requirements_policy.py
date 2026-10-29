@@ -221,6 +221,7 @@ class TestSetupVenvEnforcesPolicy:
         # package index the image was built with; a recipe must not move them.
         monkeypatch.setenv(EXTRA_PIP_REQUIREMENTS_ALLOWLIST_ENV, "pandas")
         monkeypatch.setenv("HOME", "/executor-home")
+        monkeypatch.setenv("XDG_CONFIG_HOME", "/executor-home/.config")
         recipe_env = {
             "HOME": str(tmp_path / "elsewhere"),
             "XDG_CONFIG_HOME": str(tmp_path / "elsewhere"),
@@ -248,7 +249,7 @@ class TestSetupVenvEnforcesPolicy:
         assert install_envs
         for env in install_envs:
             assert env["HOME"] == "/executor-home"
-            assert "XDG_CONFIG_HOME" not in env
+            assert env["XDG_CONFIG_HOME"] == "/executor-home/.config"
             assert "MY_SOURCE_SETTING" not in env
             assert env["VIRTUAL_ENV"].startswith(str(tmp_path))
         assert reference.extra_envs() == recipe_env
