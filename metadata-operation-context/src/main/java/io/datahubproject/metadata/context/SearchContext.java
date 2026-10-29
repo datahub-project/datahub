@@ -71,6 +71,12 @@ public class SearchContext implements ContextInterface {
    */
   @EqualsAndHashCode.Exclude @Nullable private final SearchClusterAccess searchClusterAccess;
 
+  /**
+   * Process-wide template runtime. Excluded from equals and cache keys: it selects how a request is
+   * built, not the stored result. Null on {@link #EMPTY} and when templates are off.
+   */
+  @EqualsAndHashCode.Exclude @Nullable private final SearchTemplateRuntime searchTemplateRuntime;
+
   @Nonnull private final SearchFlags searchFlags;
   @Nonnull private final LineageFlags lineageFlags;
   @Nullable private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
@@ -223,6 +229,7 @@ public class SearchContext implements ContextInterface {
       return new SearchContext(
           this.indexConvention,
           this.searchClusterAccess,
+          this.searchTemplateRuntime,
           this.searchFlags,
           this.lineageFlags,
           this.searchableFieldTypes,

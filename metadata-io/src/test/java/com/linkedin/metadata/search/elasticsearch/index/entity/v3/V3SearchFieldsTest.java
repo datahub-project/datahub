@@ -74,7 +74,7 @@ public class V3SearchFieldsTest {
                     "domains",
                     "dataProduct",
                     "platformInstance",
-                    "applications")),
+                    "_aspects.applications.applications__urn_name")),
         fields.get(OTHER).toString());
     assertFalse(fields.get(OTHER).contains("tags"), fields.toString());
     // A field that feeds a named shared field does not also land in other
@@ -250,18 +250,10 @@ public class V3SearchFieldsTest {
         Map.of(
             "type",
             "keyword",
-            "normalizer",
-            "keyword_normalizer",
             "ignore_above",
             8191,
             "fields",
-            Map.of(
-                "text",
-                text,
-                "stemmed",
-                stemmed,
-                "keyword",
-                Map.of("type", "keyword", "ignore_above", 8191)));
+            Map.of("text", text, "stemmed", stemmed));
     // Model labels are not shaped by name. The built-in helper's indexed form keeps a keyword.
     assertEquals(V3SearchFields.mapping(ENTITY_NAME, true), indexedFullText);
     assertEquals(V3SearchFields.mapping(DESCRIPTION, true), indexedFullText);
@@ -280,8 +272,7 @@ public class V3SearchFieldsTest {
     assertEquals(V3SearchFields.mapping("owner", true), indexedFullText);
     // A label no full-text field feeds stays a plain keyword
     assertEquals(
-        V3SearchFields.mapping("origin", false),
-        Map.of("type", "keyword", "normalizer", "keyword_normalizer", "ignore_above", 8191));
+        V3SearchFields.mapping("origin", false), Map.of("type", "keyword", "ignore_above", 8191));
   }
 
   /** A search of one entity of a grouped index reads the shared fields its whole group writes. */

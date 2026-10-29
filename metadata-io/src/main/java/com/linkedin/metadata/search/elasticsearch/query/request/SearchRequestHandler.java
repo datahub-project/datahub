@@ -18,6 +18,7 @@ import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.FieldConfiguration;
@@ -54,7 +55,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlig
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3AggregationQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
@@ -132,6 +133,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   private final QueryFilterRewriteChain queryFilterRewriteChain;
   @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
+  private final SearchConfiguration searchConfiguration;
 
   private SearchRequestHandler(
       @Nonnull OperationContext opContext,
@@ -193,6 +195,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchableFieldPaths = opContext.getSearchContext().getSearchableFieldPaths();
     this.queryFilterRewriteChain = queryFilterRewriteChain;
     this.entityIndexConfiguration = configs.getEntityIndex();
+    this.searchConfiguration = configs.getSearch();
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(configs.getSearch().getCustom(), customSearchConfiguration)
             .build();
@@ -284,8 +287,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
             opContext,
             queryFilterRewriteChain,
             v3SearchFieldResolver);
-    return applyDefaultSearchFilters(
-        opContext, entityNames, filter, filterQuery, entityIndexConfiguration);
+    return ESUtils.filterNonPrimarySiblings(
+        filter,
+        applyDefaultSearchFilters(
+            opContext, entityNames, filter, filterQuery, entityIndexConfiguration),
+        searchConfiguration);
   }
 
   public static BoolQueryBuilder getFilterQuery(
@@ -457,7 +463,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
               size,
               facets,
               null,
-              true)
+              scrollRequest())
           .request();
     }
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
@@ -606,8 +612,16 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   private static boolean templatesActive(@Nonnull OperationContext opContext) {
-    SearchTemplateCoordinator coordinator = SearchTemplates.current();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     return coordinator != null && coordinator.executes(opContext);
+  }
+
+  /**
+   * The scroll-shaped search API, including the first page. Search-after, the PIT, and keep-alive
+   * are null until the caller continues. Template rescore stays off for every page of that scroll.
+   */
+  public static boolean scrollRequest() {
+    return true;
   }
 
   /**
@@ -684,14 +698,32 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // Value counts are a zero-hit Java aggregation. A template may replace the lexical query
     // later; it does not supply this aggregation, highlighting, rescore, or suggestions.
     searchSourceBuilder.size(0);
-    String aggregationField =
-        v3SearchFieldResolver != null && v3SearchFieldResolver.contains(field)
-            ? v3SearchFieldResolver.exactPath(field, SearchFieldResolver.Intent.FACET)
-            : ESUtils.toKeywordField(opContext, field, false, opContext.getAspectRetriever());
-    searchSourceBuilder.aggregation(
-        AggregationBuilders.terms(field)
-            .field(aggregationField)
-            .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
+    Optional<String> unlabeledSource =
+        v3SearchFieldResolver == null
+            ? Optional.empty()
+            : v3SearchFieldResolver.unlabeledHasValuesSource(field);
+    if (unlabeledSource.isPresent()) {
+      // The boolean is not mapped. Count existence on the source field, including a URN's _urn.
+      searchSourceBuilder.aggregation(
+          AggregationQueryBuilder.unlabeledHasValuesAggregation(
+              field,
+              v3SearchFieldResolver.exactPath(
+                  unlabeledSource.get(), SearchFieldResolver.Intent.FILTER)));
+    } else {
+      String aggregationField =
+          v3SearchFieldResolver != null && v3SearchFieldResolver.contains(field)
+              ? v3SearchFieldResolver.exactPath(field, SearchFieldResolver.Intent.FACET)
+              : ESUtils.toKeywordField(
+                  opContext,
+                  field,
+                  false,
+                  opContext.getAspectRetriever(),
+                  v3SearchFieldResolver != null);
+      searchSourceBuilder.aggregation(
+          AggregationBuilders.terms(field)
+              .field(aggregationField)
+              .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
+    }
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;

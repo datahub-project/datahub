@@ -262,14 +262,8 @@
         "boost" : 0.5,
         "field" : "tags"
       }, {
-        "boost" : 2.0,
-        "field" : "ldap"
-      }, {
         "boost" : 1.0,
         "field" : "customProperties"
-      }, {
-        "boost" : 10.0,
-        "field" : "fullName"
       }, {
         "boost" : 1.0,
         "field" : "email"
@@ -1059,5 +1053,5 @@
       } ]
     }
   },
-  "templateFieldRoots" : [ "deprecated", "description", "glossaryTerms", "materialized", "name", "other", "qualifiedName", "structuredProperties._versioned.contract_id.00000000000001.string", "structuredProperties.certification_status", "structuredProperties.chart_only", "structuredProperties.hidden_label", "structuredProperties.owner_ref", "structuredProperties.owner_ref__urn_name", "structuredProperties.summary_notes", "tags", "urn" ]
+  "templateFieldRoots" : [ "deprecated", "description", "glossaryTerms", "name", "other", "qualifiedName", "structuredProperties._versioned.contract_id.00000000000001.string", "structuredProperties.certification_status", "structuredProperties.chart_only", "structuredProperties.hidden_label", "structuredProperties.owner_ref", "structuredProperties.owner_ref__urn_name", "structuredProperties.summary_notes", "tags", "urn" ]
 }

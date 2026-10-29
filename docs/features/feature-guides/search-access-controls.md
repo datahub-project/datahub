@@ -55,7 +55,7 @@ registry). Do not add them via `VIEW_UNRESTRICTED_ENTITY_TYPES_ADD` unless you i
 These are GMS environment variables (see [Environment Variables](../../deploy/environment-vars.md)). The same list
 applies to core view authorization when `VIEW_AUTHORIZATION_ENABLED=true` on DataHub Core deployments — that only
 gates entity pages / post-search masking on OSS; **query-time search filtering remains DataHub Cloud–only** (see the
-note at the top of this page). Breaking-change details: [updating DataHub](../../how/updating-datahub.md).
+note at the top of this page). Breaking-change details: [breaking changes](../../how/breaking-changes.md).
 
 #### Columns (`schemaField`) after you restrict them
 

@@ -37,4 +37,18 @@ public class LifecycleStageAssignmentUtilsTest {
 
     assertFalse(LifecycleStageAssignmentUtils.isUserAssignableForEntity(DRAFT, info, "aiAgent"));
   }
+
+  @Test
+  public void testEntityTypesAbsentMeansAllAndEmptyMeansNone() {
+    Urn stage = UrnUtils.getUrn("urn:li:lifecycleStageType:REVIEW");
+    LifecycleStageTypeInfo info =
+        new LifecycleStageTypeInfo()
+            .setName("Review")
+            .setSettings(new LifecycleStageSettings().setUserAssignable(true));
+
+    assertTrue(LifecycleStageAssignmentUtils.isUserAssignableForEntity(stage, info, "dataset"));
+
+    info.setEntityTypes(new StringArray());
+    assertFalse(LifecycleStageAssignmentUtils.isUserAssignableForEntity(stage, info, "dataset"));
+  }
 }

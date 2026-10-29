@@ -11,6 +11,7 @@ import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptio
 import MoveEntityMenuAction from '@app/entityV2/shared/EntityDropdown/MoveEntityMenuAction';
 import RaiseIncidentMenuAction from '@app/entityV2/shared/EntityDropdown/RaiseIncidentMenuAction';
 import UpdateDeprecationMenuAction from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationMenuAction';
+import { canCreateTermVersion } from '@app/entityV2/shared/EntityDropdown/utils';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import ShareMenuAction from '@app/sharedV2/share/v2/ShareMenuAction';
 import { useAppConfig } from '@src/app/useAppConfig';
@@ -30,6 +31,8 @@ export enum EntityMenuItems {
     LINK_VERSION,
     CLONE,
     CHANGE_HISTORY,
+    LIFECYCLE_STAGE,
+    NEW_VERSION,
 }
 
 export const MenuIcon = styled(DotsThreeVertical)<{ fontSize?: number }>`
@@ -76,7 +79,11 @@ function EntityMenuActions(props: Props) {
 
     const { entityVersioningEnabled } = useAppConfig().config.featureFlags;
 
-    const hasVersioningActions = !!(menuItems.has(EntityMenuItems.LINK_VERSION) || entityData?.versionProperties);
+    const hasVersioningActions = !!(
+        menuItems.has(EntityMenuItems.LINK_VERSION) ||
+        entityData?.versionProperties ||
+        (menuItems.has(EntityMenuItems.NEW_VERSION) && canCreateTermVersion(entityVersioningEnabled, entityData))
+    );
 
     return (
         <>
@@ -92,13 +99,19 @@ function EntityMenuActions(props: Props) {
                     )}
                     {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && <RaiseIncidentMenuAction />}
                     {menuItems.has(EntityMenuItems.CHANGE_HISTORY) && <ChangeHistoryMenuAction />}
-                    {entityVersioningEnabled && hasVersioningActions && (
+                    {((entityVersioningEnabled && hasVersioningActions) ||
+                        (menuItems.has(EntityMenuItems.LIFECYCLE_STAGE) &&
+                            !!entityData?.privileges?.canEditLifecycleStage)) && (
                         <MoreOptionsContainer>
                             <MoreOptionsMenuAction
                                 menuItems={
-                                    menuItems.has(EntityMenuItems.LINK_VERSION)
-                                        ? new Set([EntityMenuItems.LINK_VERSION])
-                                        : new Set()
+                                    new Set(
+                                        [
+                                            EntityMenuItems.LINK_VERSION,
+                                            EntityMenuItems.LIFECYCLE_STAGE,
+                                            EntityMenuItems.NEW_VERSION,
+                                        ].filter((item) => menuItems.has(item)),
+                                    )
                                 }
                                 urn={urn}
                                 entityType={entityType}

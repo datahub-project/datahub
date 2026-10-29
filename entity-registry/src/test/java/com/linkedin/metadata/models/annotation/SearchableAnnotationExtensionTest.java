@@ -965,6 +965,69 @@ public class SearchableAnnotationExtensionTest {
     assertEquals(resolved.indexedSharedHasValuesFieldName().get(), "hasParent");
   }
 
+  @Test
+  public void testV3LowercaseIsOptInForKeywords() {
+    DataMap v3 = new DataMap();
+    v3.put("lowercase", true);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "KEYWORD");
+    annotationMap.put("v3", v3);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "name", DataSchema.Type.STRING, "test context");
+
+    assertTrue(annotation.isV3Lowercase());
+    assertTrue(annotation.resolvedForV3().isV3Lowercase());
+
+    DataMap plain = new DataMap();
+    plain.put("fieldType", "KEYWORD");
+    assertFalse(
+        SearchableAnnotation.fromPegasusAnnotationObject(
+                plain, "name", DataSchema.Type.STRING, "test context")
+            .isV3Lowercase());
+  }
+
+  @Test
+  public void testV3LowercaseAllowsIndexedKeywordRoot() {
+    DataMap root = new DataMap();
+    root.put("type", "KEYWORD");
+    DataMap text = new DataMap();
+    text.put("subfield", "text");
+    text.put("type", "TEXT");
+    DataList mappings = new DataList();
+    mappings.add(root);
+    mappings.add(text);
+    DataMap v3 = new DataMap();
+    v3.put("lowercase", true);
+    v3.put("searchLabel", "name");
+    v3.put("mappings", mappings);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "WORD_GRAM");
+    annotationMap.put("v3", v3);
+
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "name", DataSchema.Type.STRING, "test context");
+
+    assertTrue(annotation.isV3Lowercase());
+  }
+
+  @Test
+  public void testV3LowercaseRejectsNonKeywords() {
+    DataMap v3 = new DataMap();
+    v3.put("lowercase", true);
+    DataMap annotationMap = new DataMap();
+    annotationMap.put("fieldType", "URN");
+    annotationMap.put("v3", v3);
+
+    assertThrows(
+        ModelValidationException.class,
+        () ->
+            SearchableAnnotation.fromPegasusAnnotationObject(
+                annotationMap, "activeIncidents", DataSchema.Type.STRING, "test context"));
+  }
+
   private static DataMap labeled(String fieldType, String searchLabel) {
     DataMap v3 = new DataMap();
     v3.put("searchLabel", searchLabel);

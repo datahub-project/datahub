@@ -66,6 +66,11 @@ public class EntityVersioningServiceTest {
       new DatasetUrn(new DataPlatformUrn("hive"), "myHiveDataset", FabricType.PROD);
   private static Urn TEST_DATASET_URN_3 =
       new DatasetUrn(new DataPlatformUrn("hive"), "myHiveDataset2", FabricType.PROD);
+  private static Urn TEST_GLOSSARY_VERSION_SET_URN =
+      UrnUtils.getUrn("urn:li:versionSet:(kpi-revenue,glossaryTerm)");
+  private static Urn TEST_GLOSSARY_TERM_V1_URN = UrnUtils.getUrn("urn:li:glossaryTerm:KpiRevenue");
+  private static Urn TEST_GLOSSARY_TERM_V2_URN =
+      UrnUtils.getUrn("urn:li:glossaryTerm:KpiRevenue_v2");
 
   @BeforeMethod
   public void setup() throws EntityRegistryException {
@@ -705,5 +710,100 @@ public class EntityVersioningServiceTest {
     verify(mockEntityService, never()).deleteAspect(any(), any(), any(), any(), anyBoolean());
     verify(mockEntityService, never()).deleteUrn(any(), any());
     verify(mockSearchRetriever, never()).scroll(any(), any(), anyString(), anyInt(), any(), any());
+  }
+
+  @Test
+  public void testLinkLatestVersionNewVersionSetGlossaryTerm() throws Exception {
+    VersionPropertiesInput input =
+        new VersionPropertiesInput("KPI v1 initial definition", "v1", 123456789L, "analyst");
+    // Mock version set doesn't exist yet
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), anySet()))
+        .thenReturn(Map.of(TEST_GLOSSARY_VERSION_SET_URN, false));
+
+    ArgumentCaptor<MetadataChangeProposal> aspectsCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    when(mockEntityService.ingestProposal(
+            eq(mockOpContext), aspectsCaptor.capture(), any(), eq(false)))
+        .thenReturn(null);
+
+    versioningService.linkLatestVersion(
+        mockOpContext, TEST_GLOSSARY_VERSION_SET_URN, TEST_GLOSSARY_TERM_V1_URN, input);
+
+    List<MetadataChangeProposal> capturedAspects = aspectsCaptor.getAllValues();
+    MetadataChangeProposal versionPropertiesProposal =
+        capturedAspects.stream()
+            .filter(mcpItem -> VERSION_PROPERTIES_ASPECT_NAME.equals(mcpItem.getAspectName()))
+            .collect(Collectors.toList())
+            .get(0);
+    VersionProperties versionProps =
+        GenericRecordUtils.deserializeAspect(
+            versionPropertiesProposal.getAspect().getValue(),
+            versionPropertiesProposal.getAspect().getContentType(),
+            VersionProperties.class);
+
+    assertEquals(versionProps.getSortId(), INITIAL_VERSION_SORT_ID);
+    assertEquals(versionProps.getComment(), "KPI v1 initial definition");
+    assertEquals(versionProps.getVersionSet(), TEST_GLOSSARY_VERSION_SET_URN);
+  }
+
+  @Test
+  public void testLinkLatestVersionExistingVersionSetGlossaryTerm() throws Exception {
+    VersionPropertiesInput input =
+        new VersionPropertiesInput("KPI v2 updated segmentation rule", "v2", 123456789L, "analyst");
+
+    // Mock version set exists with v1 as latest
+    when(mockAspectRetriever.entityExists(any(OperationFingerprint.class), anySet()))
+        .thenReturn(Map.of(TEST_GLOSSARY_VERSION_SET_URN, true));
+
+    VersionSetProperties existingVersionSetProps =
+        new VersionSetProperties()
+            .setVersioningScheme(VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB)
+            .setLatest(TEST_GLOSSARY_TERM_V1_URN);
+    SystemAspect mockVersionSetPropertiesAspect = mock(SystemAspect.class);
+    when(mockVersionSetPropertiesAspect.getRecordTemplate()).thenReturn(existingVersionSetProps);
+    when(mockVersionSetPropertiesAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
+    when(mockAspectRetriever.getLatestSystemAspect(
+            any(OperationFingerprint.class), eq(TEST_GLOSSARY_VERSION_SET_URN), anyString()))
+        .thenReturn(mockVersionSetPropertiesAspect);
+
+    // v1 has the initial sort ID
+    VersionProperties existingVersionProps =
+        new VersionProperties()
+            .setVersioningScheme(VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB)
+            .setSortId(INITIAL_VERSION_SORT_ID)
+            .setVersion(new VersionTag().setVersionTag("v1"))
+            .setVersionSet(TEST_GLOSSARY_VERSION_SET_URN);
+    SystemAspect mockVersionPropertiesAspect = mock(SystemAspect.class);
+    when(mockVersionPropertiesAspect.getRecordTemplate()).thenReturn(existingVersionProps);
+    when(mockVersionPropertiesAspect.getSystemMetadataVersion()).thenReturn(Optional.of(1L));
+    when(mockAspectRetriever.getLatestSystemAspect(
+            any(OperationFingerprint.class), eq(TEST_GLOSSARY_TERM_V1_URN), anyString()))
+        .thenReturn(mockVersionPropertiesAspect);
+
+    ArgumentCaptor<MetadataChangeProposal> aspectsCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    when(mockEntityService.ingestProposal(
+            eq(mockOpContext), aspectsCaptor.capture(), any(), eq(false)))
+        .thenReturn(null);
+
+    versioningService.linkLatestVersion(
+        mockOpContext, TEST_GLOSSARY_VERSION_SET_URN, TEST_GLOSSARY_TERM_V2_URN, input);
+
+    List<MetadataChangeProposal> capturedAspects = aspectsCaptor.getAllValues();
+    MetadataChangeProposal versionPropertiesProposal =
+        capturedAspects.stream()
+            .filter(mcpItem -> VERSION_PROPERTIES_ASPECT_NAME.equals(mcpItem.getAspectName()))
+            .collect(Collectors.toList())
+            .get(0);
+    VersionProperties versionProps =
+        GenericRecordUtils.deserializeAspect(
+            versionPropertiesProposal.getAspect().getValue(),
+            versionPropertiesProposal.getAspect().getContentType(),
+            VersionProperties.class);
+
+    // v2 must have an incremented sort ID and point to the same version set
+    assertEquals(versionProps.getSortId(), "AAAAAAAB");
+    assertEquals(versionProps.getComment(), "KPI v2 updated segmentation rule");
+    assertEquals(versionProps.getVersionSet(), TEST_GLOSSARY_VERSION_SET_URN);
   }
 }
