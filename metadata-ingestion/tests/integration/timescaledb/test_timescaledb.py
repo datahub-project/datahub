@@ -86,10 +86,9 @@ def test_timescaledb_ingest_with_db(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
         output_path=tmp_path / "timescaledb_mces.json",
-        golden_path=test_resources_dir / "timescaledb_mces_golden.json",
+        golden_path=test_resources_dir / "timescaledb_golden.json",
     )
 
 
@@ -104,10 +103,9 @@ def test_timescaledb_ingest_with_jobs(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
         output_path=tmp_path / "timescaledb_jobs_mces.json",
-        golden_path=test_resources_dir / "timescaledb_jobs_mces_golden.json",
+        golden_path=test_resources_dir / "timescaledb_jobs_golden.json",
     )
 
 
@@ -122,10 +120,9 @@ def test_timescaledb_lineage(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
         output_path=tmp_path / "timescaledb_lineage_mces.json",
-        golden_path=test_resources_dir / "timescaledb_lineage_mces_golden.json",
+        golden_path=test_resources_dir / "timescaledb_lineage_golden.json",
     )
 
 
@@ -140,8 +137,7 @@ def test_timescaledb_all_databases(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
         output_path=tmp_path / "timescaledb_all_db_mces.json",
-        golden_path=test_resources_dir / "timescaledb_all_db_mces_golden.json",
+        golden_path=test_resources_dir / "timescaledb_all_db_golden.json",
     )
