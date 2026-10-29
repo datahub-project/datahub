@@ -913,6 +913,13 @@ class SQLServerSource(SQLAlchemySource):
     """
 
     report: SQLSourceReport
+    # Class-level so the probe's config-only shim -- built with __new__, so no
+    # __init__ runs -- can call get_identifier before any database is walked.
+    # Without it the shim raised, the probe fell back to the bare fqn, and the
+    # reported target lost the lowercasing convert_urns_to_lowercase applies:
+    # `--parent DBO --name Orders` came back `DBO.Orders` rather than
+    # `dbo.orders`, which is the string ingestion matches.
+    current_database: Optional[str] = None
 
     def __init__(
         self,

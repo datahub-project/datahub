@@ -20,7 +20,10 @@ from datahub.ingestion.source.sql.mssql.source import (
     add_sql_variant_converter,
     database_name_from_url,
 )
-from datahub.ingestion.source.sql.sql_probe import execute_on_cursor
+from datahub.ingestion.source.sql.sql_probe import (
+    IDENTIFIER_DEGRADE_MARKER,
+    execute_on_cursor,
+)
 
 _BASE: Dict[str, object] = {"host_port": "h:1433", "username": "u", "password": "p"}
 _ODBC: Dict[str, object] = {
@@ -666,6 +669,31 @@ def test_multi_database_recipe_refuses_when_the_database_parent_is_missing() -> 
         )
     assert "table_pattern" in str(refusal.value)
     assert "Database" in str(refusal.value)
+
+
+def test_multi_database_recipe_reports_the_identifier_ingestion_matches() -> None:
+    """The target must come from the source's own get_identifier, not the
+    probe's fallback.
+
+    `get_identifier` reads `current_database`, which ingestion sets while it
+    walks. The probe's config-only shim runs no `__init__`, so without a
+    class-level default the attribute was missing, the shim raised, and the
+    probe fell back to the bare fqn -- losing the lowercasing
+    `convert_urns_to_lowercase` applies and reporting a string ingestion never
+    matches. It also built a fresh shim per name, which a `--from-run` batch
+    pays for once per row.
+    """
+    result = check_filters(
+        source_type="mssql",
+        config_dict={**_BASE, "convert_urns_to_lowercase": True},
+        kind="Table",
+        parent_path=["DBO"],
+        names=["Orders"],
+    )
+    assert result.results[0].target == "dbo.orders"
+    assert not any(IDENTIFIER_DEGRADE_MARKER in w for w in result.warnings), (
+        result.warnings
+    )
 
 
 def test_multi_database_recipe_still_answers_when_nothing_filters() -> None:
