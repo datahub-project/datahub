@@ -81,10 +81,14 @@ class SqsSource(AwsMessagingSourceBase):
         return cls(SqsSourceConfig.model_validate(config_dict), ctx)
 
     def first_resource_arn(self) -> Optional[str]:
+        # The queue URL carries the account id, so this needs only sqs:ListQueues.
+        # Depending on GetQueueAttributes would leave the account unresolved
+        # whenever that call is denied, and the URNs would change between runs.
         url = self.sqs.first_queue_url()
-        if url is None:
+        match = QUEUE_URL_PATTERN.search(url) if url else None
+        if match is None:
             return None
-        return (self.sqs.get_attributes(url) or {}).get(QueueAttribute.QUEUE_ARN)
+        return f"arn:aws:sqs:{self.base_config.aws_config.aws_region}:{match.group('account')}:{match.group('name')}"
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.with_region_container(self._queue_workunits())
