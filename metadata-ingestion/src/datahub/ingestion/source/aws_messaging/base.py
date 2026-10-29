@@ -19,6 +19,7 @@ from datahub.ingestion.source.aws_messaging.config import (
     GlueSchemaRegistryConfigBase,
 )
 from datahub.ingestion.source.aws_messaging.constants import (
+    CONSOLE_PATHS,
     EVENTBRIDGE_PLATFORM,
     AwsService,
 )
@@ -226,8 +227,8 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
                     name=self.region,
                     sub_types=[GenericContainerSubTypes.AWS_REGION.value],
                     external_url=(
-                        f"https://{self.region}.console.aws.amazon.com/{platform}/v3/home"
-                        f"?region={self.region}"
+                        f"https://{self.region}.console.aws.amazon.com/"
+                        f"{CONSOLE_PATHS[platform]}?region={self.region}"
                     ),
                 )
                 first = False

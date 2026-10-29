@@ -1,3 +1,4 @@
+import itertools
 from collections import defaultdict
 from typing import Dict, Iterable, Iterator, List, Optional
 
@@ -23,7 +24,6 @@ from datahub.ingestion.source.aws_messaging.clients import (
 )
 from datahub.ingestion.source.aws_messaging.config import SnsSourceConfig
 from datahub.ingestion.source.aws_messaging.constants import (
-    PENDING_CONFIRMATION,
     QUEUE_URL_PATTERN,
     SNS_PLATFORM,
     TRUE_STRING,
@@ -130,8 +130,9 @@ class SnsSource(AwsMessagingSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._load_local_queues()
-        yield from self.with_region_container(self._topic_workunits())
-        yield from self._keep_unreadable_topics()
+        yield from self.with_region_container(
+            itertools.chain(self._topic_workunits(), self._keep_unreadable_topics())
+        )
         for topic in self.topics:
             self._add_subscription_edges(topic)
         self.collect_s3_notifications()
@@ -144,7 +145,8 @@ class SnsSource(AwsMessagingSourceBase):
         # Every queue that exists counts, not only those the sqs recipe's
         # queue_pattern keeps: the subscription is real and the queue URN follows
         # from its ARN, so the edge is right even if sqs doesn't ingest the queue.
-        for url in self.sqs.list_queue_urls():
+        # Only used to check edges, so a failed listing must not fail the run.
+        for url in self.sqs.list_queue_urls(optional=True):
             match = QUEUE_URL_PATTERN.search(url)
             if match:
                 self.queues.known.add(
@@ -238,8 +240,10 @@ class SnsSource(AwsMessagingSourceBase):
     def _add_subscription_edges(self, topic: SnsTopic) -> None:
         topic_urn = self.urns.topic_urn(topic.arn)
         for subscription in self.subscriptions.get(str(topic.arn), []):
-            # An unconfirmed subscription delivers nothing yet.
-            if subscription.subscription_arn == PENDING_CONFIRMATION:
+            # Unconfirmed and deleted subscriptions deliver nothing: SNS reports
+            # them with a placeholder (`PendingConfirmation`, `Deleted`) instead
+            # of an ARN.
+            if parse_arn(subscription.subscription_arn) is None:
                 continue
             attributes = (
                 self.sns.get_subscription_attributes(subscription.subscription_arn)

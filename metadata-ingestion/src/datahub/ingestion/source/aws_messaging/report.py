@@ -43,12 +43,22 @@ class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
         pages_fetched: int,
         exc: Union[ClientError, BotoCoreError],
         api_label: str,
+        optional: bool = False,
     ) -> None:
         # A first-page failure usually means the call isn't permitted, which is a
         # valid setup. A later failure leaves the listing incomplete, and stateful
         # ingestion would soft-delete everything past that point, so it fails.
+        # Optional listings (lineage helpers, not the queues or topics themselves)
+        # only warn: a failure there mustn't block stale removal of the datasets.
         code = aws_error_code(exc)
-        if pages_fetched == 0:
+        if optional and pages_fetched > 0:
+            self.warning(
+                title="Listing incomplete",
+                message="An optional listing failed partway through; some lineage is missing this run.",
+                context=f"{api_label} returned {code} after {pages_fetched} page(s)",
+                exc=exc,
+            )
+        elif pages_fetched == 0:
             self.warning(
                 title="Listing denied",
                 message="The listing call failed on its first page; this part is skipped.",

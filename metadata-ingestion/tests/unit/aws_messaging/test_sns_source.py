@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, Iterator, List, Set
 
 import pytest
 import time_machine
@@ -10,6 +10,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws_messaging.clients import SnsClient
+from datahub.ingestion.source.aws_messaging.models import SnsSubscription
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.testing import mce_helpers
@@ -195,4 +196,35 @@ def test_unreadable_topic_is_kept_out_of_stale_removal(
         for wu in source.get_workunits_internal()
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
     ]
-    assert aspects == [(urn("sns", "flaky"), "status", True)]
+    assert [a for a in aspects if a[0] == urn("sns", "flaky")] == [
+        (urn("sns", "flaky"), "status", True)
+    ]
+
+
+def test_placeholder_subscriptions_are_skipped(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    orders = create_queue("orders")
+    topic = sns_client().create_topic(Name="order-events")["TopicArn"]
+
+    def placeholders(self: SnsClient, topic_arn: str) -> Iterator[SnsSubscription]:
+        for placeholder in ("PendingConfirmation", "Deleted"):
+            yield SnsSubscription(
+                subscription_arn=placeholder,
+                topic_arn=topic_arn,
+                protocol="sqs",
+                endpoint=orders,
+            )
+
+    monkeypatch.setattr(SnsClient, "list_subscriptions", placeholders)
+    assert topic
+    assert upstreams(_run(include_subscription_attributes=False)) == {}
+
+
+def test_all_unreadable_topics_still_emit_the_region_container(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sns_client().create_topic(Name="flaky")
+    monkeypatch.setattr(SnsClient, "get_topic_attributes", lambda self, arn: None)
+    urns = {wu.get_urn() for wu in _run().get_workunits_internal()}
+    assert any(urn.startswith("urn:li:container:") for urn in urns)
