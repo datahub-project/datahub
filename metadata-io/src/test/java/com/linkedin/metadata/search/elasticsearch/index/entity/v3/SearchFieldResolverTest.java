@@ -13,10 +13,15 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.testng.annotations.Test;
@@ -75,6 +80,30 @@ public class SearchFieldResolverTest {
   }
 
   @Test
+  public void testFieldWithoutSearchLabelDropsHasValues() {
+    SearchFieldResolver resolver =
+        resolver(
+            field(
+                "rowCount",
+                null,
+                List.of(FieldMapping.root(FieldMapping.Type.COUNT)),
+                "hasRowCount"),
+            field(
+                "description",
+                "description",
+                List.of(FieldMapping.root(FieldMapping.Type.KEYWORD, false, false)),
+                "hasDescription"));
+
+    assertFalse(resolver.contains("hasRowCount"));
+    assertEquals(resolver.unlabeledHasValuesSource("hasRowCount"), Optional.of("rowCount"));
+    assertEquals(resolver.hasValuesFieldName("rowCount"), Optional.empty());
+    assertTrue(resolver.supports("rowCount", Intent.FILTER));
+    assertTrue(resolver.contains("hasDescription"));
+    assertEquals(resolver.unlabeledHasValuesSource("hasDescription"), Optional.empty());
+    assertTrue(resolver.falseIsMissing("hasDescription"));
+  }
+
+  @Test
   public void testExactPathsFollowResolvedRootType() {
     SearchFieldResolver resolver =
         resolver(
@@ -87,7 +116,8 @@ public class SearchFieldResolverTest {
             field("owners", "owners", List.of(FieldMapping.root(FieldMapping.Type.URN))),
             field("createdAt", null, List.of(FieldMapping.root(FieldMapping.Type.DATETIME))));
 
-    assertEquals(resolver.exactPath("name", Intent.FILTER), "name.keyword");
+    assertEquals(resolver.exactPath("name", Intent.FILTER), "name");
+    assertEquals(resolver.exactPath("name.keyword", Intent.FILTER), "name");
     assertEquals(resolver.exactPath("name", Intent.SORT), "name");
     assertEquals(resolver.exactPath("owners", Intent.FACET), "owners");
     assertFalse(resolver.supports("owners", Intent.FULL_TEXT));
@@ -145,8 +175,8 @@ public class SearchFieldResolverTest {
                     field("score", null, List.of(FieldMapping.root(FieldMapping.Type.DOUBLE))),
                     field("count", null, List.of(FieldMapping.root(FieldMapping.Type.COUNT))))));
 
-    assertEquals(resolver.exactPath("_entityName", Intent.EXACT), "name.keyword");
-    assertEquals(resolver.exactPath("editedName", Intent.FILTER), "name.keyword");
+    assertEquals(resolver.exactPath("_entityName", Intent.EXACT), "name");
+    assertEquals(resolver.exactPath("editedName", Intent.FILTER), "name");
     assertEquals(
         resolver.resolve("name", Intent.FULL_TEXT).getSourceFields(),
         java.util.Set.of("displayName", "editedName"));
@@ -180,9 +210,9 @@ public class SearchFieldResolverTest {
     SearchFieldResolver parentResolver =
         new SearchFieldResolver(List.of(entity("schemaFieldKey", parent)));
     assertEquals(parentResolver.exactPath("parent", Intent.FILTER), "parent_urn");
-    assertEquals(parentResolver.exactPath("parent", Intent.EXACT), "parent");
+    assertEquals(parentResolver.exactPath("parent", Intent.EXACT), "parent_urn");
     assertEquals(parentResolver.parsedKeywordPaths("parent"), List.of("parent"));
-    assertTrue(parentResolver.supports("parent", Intent.FULL_TEXT));
+    assertFalse(parentResolver.supports("parent", Intent.FULL_TEXT));
 
     SearchableFieldSpec owners =
         field("owners", "owners", List.of(FieldMapping.root(FieldMapping.Type.URN)));
@@ -306,6 +336,34 @@ public class SearchFieldResolverTest {
     assertEquals(sharedRecord.exactPath("tags", Intent.FILTER), "tags_urn");
     assertEquals(sharedRecord.exactPath("tags_1", Intent.FILTER), "tags_1_urn");
     assertEquals(sharedRecord.exactPath("editedFieldTags", Intent.FILTER), "editedFieldTags");
+  }
+
+  @Test
+  public void testLowercaseSubfieldIsOptIn() {
+    SearchableFieldSpec plain =
+        field("platform", null, List.of(FieldMapping.root(FieldMapping.Type.KEYWORD)));
+    SearchFieldResolver stored = resolver(plain);
+    assertFalse(stored.hasLowercaseSubfield("platform"));
+
+    SearchableFieldSpec folded =
+        field("name", null, List.of(FieldMapping.root(FieldMapping.Type.KEYWORD)));
+    when(folded.getSearchableAnnotation().isV3Lowercase()).thenReturn(true);
+    SearchFieldResolver resolver = resolver(folded);
+    assertTrue(resolver.hasLowercaseSubfield("name"));
+
+    String query =
+        ESUtils.getQueryBuilderFromCriterion(
+                CriterionUtils.buildCriterion("name", Condition.CONTAIN, "José"),
+                false,
+                Map.of(),
+                TestOperationContexts.systemContextNoSearchAuthorization(),
+                QueryFilterRewriteChain.EMPTY,
+                resolver)
+            .toString();
+    assertTrue(query.contains("name.lowercase"), query);
+    assertTrue(query.contains("*jose*"), query);
+    assertFalse(query.contains("*José*"), query);
+    assertFalse(query.contains("case_insensitive"), query);
   }
 
   private static SearchFieldResolver resolver(SearchableFieldSpec... fields) {

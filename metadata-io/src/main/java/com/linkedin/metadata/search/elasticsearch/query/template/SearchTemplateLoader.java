@@ -14,6 +14,8 @@ import com.linkedin.search.template.EntityTypeBoostArray;
 import com.linkedin.search.template.FieldFactorArray;
 import com.linkedin.search.template.FieldValueScoreArray;
 import com.linkedin.search.template.HighlightFieldOverrides;
+import com.linkedin.search.template.RankingSignal;
+import com.linkedin.search.template.RankingSignalArray;
 import com.linkedin.search.template.SearchFieldOverrides;
 import com.linkedin.search.template.SearchTemplateBoostArray;
 import com.linkedin.search.template.SearchTemplateDefaultRoute;
@@ -28,6 +30,8 @@ import com.linkedin.search.template.StructuredPropertyQuery;
 import com.linkedin.search.template.TermWeightArray;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -259,7 +263,8 @@ public class SearchTemplateLoader {
         urn,
         new TemplateCopy(leaf, 0L),
         Map.of(),
-        source == SearchTemplateSource.CLASSPATH);
+        source == SearchTemplateSource.CLASSPATH,
+        true);
   }
 
   /**
@@ -280,7 +285,8 @@ public class SearchTemplateLoader {
         urn,
         new TemplateCopy(leaf, 0L),
         copies(overrides),
-        source == SearchTemplateSource.CLASSPATH);
+        source == SearchTemplateSource.CLASSPATH,
+        true);
   }
 
   @Nonnull
@@ -296,7 +302,8 @@ public class SearchTemplateLoader {
       @Nonnull OperationContext opContext, @Nonnull String urn) {
     AspectRetriever retriever = opContext.getAspectRetriever();
     boolean bridge = source == SearchTemplateSource.CLASSPATH || !stored(opContext, urn);
-    return compose(opContext, retriever, urn, fetch(opContext, retriever, urn), Map.of(), bridge);
+    return compose(
+        opContext, retriever, urn, fetch(opContext, retriever, urn), Map.of(), bridge, true);
   }
 
   @Nonnull
@@ -306,7 +313,8 @@ public class SearchTemplateLoader {
       @Nonnull String urn,
       @Nonnull TemplateCopy leaf,
       @Nonnull Map<String, TemplateCopy> overrides,
-      boolean classpathBridge) {
+      boolean classpathBridge,
+      boolean resolveReferences) {
     List<TemplateCopy> chain = new ArrayList<>();
     List<String> urns = new ArrayList<>();
     chain.add(leaf);
@@ -355,6 +363,8 @@ public class SearchTemplateLoader {
     boolean defaultRouteSet = false;
     Integer apiVersion = null;
     List<String> capabilities = null;
+    SearchTemplateRanking ranking = null;
+    Set<String> addSatisfiedRemoves = new LinkedHashSet<>();
     // Root first so the child replaces sections it sets.
     for (int i = chain.size() - 1; i >= 0; i--) {
       TemplateCopy copy = chain.get(i);
@@ -367,6 +377,9 @@ public class SearchTemplateLoader {
         capabilities = capabilityList(props.getCapabilities());
       }
       overlay(builder, props);
+      if (props.hasRanking()) {
+        ranking = mergeRanking(ranking, props.getRanking(), addSatisfiedRemoves);
+      }
       if (props.hasFields()) {
         fields = SearchTemplateFields.merge(fields, props.getFields(), resolver);
       }
@@ -466,6 +479,36 @@ public class SearchTemplateLoader {
     builder.routes(SearchTemplateRoutes.compile(routes, maxRoutes, maxRoutePatternLength));
     builder.defaultRoute(defaultRouteSet ? defaultRoute : null);
     builder.classpathBridge(classpathBridge);
+    List<RankingSignal> pendingAdds = rankingAdds(ranking);
+    List<String> pendingRemoves = rankingRemoves(ranking);
+    String rankingReference = rankingReferenceUrn(ranking);
+    if (resolveReferences) {
+      ResolvedRanking resolved =
+          resolveRankingReference(
+              operationContext, retriever, urn, ranking, overrides, classpathBridge, urns);
+      ranking = resolved.ranking();
+      if (rankingReference != null) {
+        lastModified = Math.max(lastModified, resolved.lastModified());
+        builder.chain(List.copyOf(urns));
+        builder.lastModified(lastModified);
+      }
+    }
+    if (resolveReferences || !referencesTemplate(ranking)) {
+      ranking = applyRankingPatches(ranking, pendingAdds, pendingRemoves, addSatisfiedRemoves);
+    }
+    if (ranking != null) {
+      boolean resolvedSignals =
+          ranking.hasSignals() && ranking.getSignals() != null && !ranking.getSignals().isEmpty();
+      boolean resolvedFormula =
+          ranking.hasFormula() && ranking.getFormula() != null && !ranking.getFormula().isBlank();
+      if (resolvedSignals && !hasCapability(capabilities, "rankingSignals")) {
+        throw new SearchTemplateException("Search template capability is required: rankingSignals");
+      }
+      if (resolvedFormula && !hasCapability(capabilities, "rankingFormula")) {
+        throw new SearchTemplateException("Search template capability is required: rankingFormula");
+      }
+    }
+    builder.ranking(ranking);
     MergedSearchTemplate merged = builder.build();
     SearchTemplateCapabilities.requireContract(merged);
     return merged;
@@ -501,9 +544,6 @@ public class SearchTemplateLoader {
     }
     if (props.hasKnn()) {
       builder.knn(blankToNull(props.getKnn()));
-    }
-    if (props.hasRanking()) {
-      builder.ranking(emptyRanking(props.getRanking()) ? null : props.getRanking());
     }
     if (props.hasComponent()) {
       builder.component(
@@ -625,6 +665,18 @@ public class SearchTemplateLoader {
     return StructuredPropertyClauses.empty(section);
   }
 
+  private static boolean hasRankingField(@Nonnull SearchTemplateRanking ranking) {
+    return ranking.hasPreset()
+        || ranking.hasWindow()
+        || ranking.hasWindowSizer()
+        || ranking.hasParameters()
+        || ranking.hasTemplate()
+        || ranking.hasSignals()
+        || ranking.hasAdd()
+        || ranking.hasRemove()
+        || ranking.hasFormula();
+  }
+
   public static boolean emptyRanking(@Nullable SearchTemplateRanking ranking) {
     if (ranking == null) {
       return true;
@@ -636,7 +688,357 @@ public class SearchTemplateLoader {
         !ranking.hasParameters()
             || ranking.getParameters() == null
             || ranking.getParameters().isEmpty();
-    return preset && window && sizer && parameters;
+    boolean template = !ranking.hasTemplate() || blank(ranking.getTemplate());
+    boolean signals =
+        !ranking.hasSignals() || ranking.getSignals() == null || ranking.getSignals().isEmpty();
+    boolean add = !ranking.hasAdd() || ranking.getAdd() == null || ranking.getAdd().isEmpty();
+    boolean remove =
+        !ranking.hasRemove() || ranking.getRemove() == null || ranking.getRemove().isEmpty();
+    boolean formula = !ranking.hasFormula() || blank(ranking.getFormula());
+    return preset
+        && window
+        && sizer
+        && parameters
+        && template
+        && signals
+        && add
+        && remove
+        && formula;
+  }
+
+  @Nullable
+  private static SearchTemplateRanking mergeRanking(
+      @Nullable SearchTemplateRanking base,
+      @Nullable SearchTemplateRanking overlay,
+      @Nonnull Set<String> addSatisfiedRemoves) {
+    // A record with no fields drops the section. A set field, including an empty
+    // list or string, drops that field and keeps the rest.
+    if (overlay == null || !hasRankingField(overlay)) {
+      addSatisfiedRemoves.clear();
+      return null;
+    }
+    if (base == null || emptyRanking(base)) {
+      base = new SearchTemplateRanking();
+      addSatisfiedRemoves.clear();
+    }
+    // A ranking is a reference or it is inline. Setting one drops the inherited other.
+    // A non-empty signal list leaves preset unset.
+    boolean overlayReference = referencesTemplate(overlay);
+    boolean overlayInline = inlineRanking(overlay);
+    boolean overlaySignals =
+        overlay.hasSignals() && overlay.getSignals() != null && !overlay.getSignals().isEmpty();
+    SearchTemplateRanking merged = new SearchTemplateRanking();
+    putString(
+        merged::setPreset,
+        overlay.hasPreset(),
+        overlay.getPreset(),
+        !overlayReference && !overlaySignals && base.hasPreset(),
+        base.getPreset());
+    if (overlay.hasWindow()) {
+      if (overlay.getWindow() != null) {
+        merged.setWindow(overlay.getWindow());
+      }
+    } else if (!overlayReference && base.hasWindow() && base.getWindow() != null) {
+      merged.setWindow(base.getWindow());
+    }
+    putString(
+        merged::setWindowSizer,
+        overlay.hasWindowSizer(),
+        overlay.getWindowSizer(),
+        !overlayReference && base.hasWindowSizer(),
+        base.getWindowSizer());
+    if (overlay.hasParameters()) {
+      if (overlay.getParameters() != null && !overlay.getParameters().isEmpty()) {
+        merged.setParameters(overlay.getParameters());
+      }
+    } else if (!overlayReference
+        && base.hasParameters()
+        && base.getParameters() != null
+        && !base.getParameters().isEmpty()) {
+      merged.setParameters(base.getParameters());
+    }
+    putString(
+        merged::setTemplate,
+        overlay.hasTemplate(),
+        overlay.getTemplate(),
+        !overlayInline && base.hasTemplate(),
+        base.getTemplate());
+    // A non-empty list replaces signals and discards patches. An empty list drops signals only.
+    if (overlaySignals) {
+      merged.setSignals(new RankingSignalArray(overlay.getSignals()));
+      addSatisfiedRemoves.clear();
+    } else {
+      if (!overlay.hasSignals()
+          && !overlayReference
+          && base.hasSignals()
+          && base.getSignals() != null
+          && !base.getSignals().isEmpty()) {
+        merged.setSignals(new RankingSignalArray(base.getSignals()));
+      }
+      // Patches beside a reference apply to that target. Clearing the reference drops them.
+      SearchTemplateRanking patchBase = base;
+      if (clearsTemplate(overlay) && referencesTemplate(base)) {
+        patchBase = new SearchTemplateRanking();
+        addSatisfiedRemoves.clear();
+      }
+      mergeSignalPatches(merged, patchBase, overlay, addSatisfiedRemoves);
+    }
+    putString(
+        merged::setFormula,
+        overlay.hasFormula(),
+        overlay.getFormula(),
+        !overlayReference && base.hasFormula(),
+        base.getFormula());
+    return emptyRanking(merged) ? null : merged;
+  }
+
+  private static void mergeSignalPatches(
+      @Nonnull SearchTemplateRanking merged,
+      @Nonnull SearchTemplateRanking base,
+      @Nonnull SearchTemplateRanking overlay,
+      @Nonnull Set<String> addSatisfiedRemoves) {
+    List<RankingSignal> adds = new ArrayList<>(rankingAdds(base));
+    List<String> removes = new ArrayList<>(rankingRemoves(base));
+    for (String name : rankingRemoves(overlay)) {
+      if (name == null || name.isBlank()) {
+        throw new SearchTemplateException("Search template ranking remove name is not valid");
+      }
+      boolean droppedAdd = false;
+      Iterator<RankingSignal> inherited = adds.iterator();
+      while (inherited.hasNext()) {
+        if (name.equals(inherited.next().getName())) {
+          inherited.remove();
+          droppedAdd = true;
+        }
+      }
+      if (droppedAdd) {
+        addSatisfiedRemoves.add(name);
+      }
+      if (!removes.contains(name)) {
+        removes.add(name);
+      }
+    }
+    Set<String> seen = new HashSet<>();
+    for (RankingSignal signal : rankingAdds(overlay)) {
+      String name = signal.getName();
+      if (name == null || !seen.add(name)) {
+        throw new SearchTemplateException(
+            "Search template ranking signal name is not valid: " + name);
+      }
+      removes.remove(name);
+      addSatisfiedRemoves.remove(name);
+      int index = indexOfSignal(adds, name);
+      if (index >= 0) {
+        adds.set(index, signal);
+      } else {
+        adds.add(signal);
+      }
+    }
+    if (!adds.isEmpty()) {
+      merged.setAdd(new RankingSignalArray(adds));
+    }
+    if (!removes.isEmpty()) {
+      merged.setRemove(new StringArray(removes));
+    }
+  }
+
+  @Nullable
+  private static SearchTemplateRanking applyRankingPatches(
+      @Nullable SearchTemplateRanking ranking,
+      @Nonnull List<RankingSignal> adds,
+      @Nonnull List<String> removes,
+      @Nonnull Set<String> addSatisfiedRemoves) {
+    if (adds.isEmpty() && removes.isEmpty()) {
+      return ranking;
+    }
+    List<RankingSignal> signals = new ArrayList<>();
+    if (ranking != null && ranking.hasSignals() && ranking.getSignals() != null) {
+      signals.addAll(ranking.getSignals());
+    }
+    for (String name : removes) {
+      boolean removed = false;
+      Iterator<RankingSignal> present = signals.iterator();
+      while (present.hasNext()) {
+        if (name.equals(present.next().getName())) {
+          present.remove();
+          removed = true;
+        }
+      }
+      if (!removed && !addSatisfiedRemoves.contains(name)) {
+        throw new SearchTemplateException(
+            "Search template ranking remove is not a signal: " + name);
+      }
+    }
+    for (RankingSignal signal : adds) {
+      int index = indexOfSignal(signals, signal.getName());
+      if (index >= 0) {
+        signals.set(index, signal);
+      } else {
+        signals.add(signal);
+      }
+    }
+    SearchTemplateRanking applied =
+        ranking == null ? new SearchTemplateRanking() : copyRankingScalars(ranking);
+    if (!signals.isEmpty()) {
+      applied.setSignals(new RankingSignalArray(signals));
+    }
+    return emptyRanking(applied) ? null : applied;
+  }
+
+  @Nonnull
+  private static SearchTemplateRanking copyRankingScalars(@Nonnull SearchTemplateRanking ranking) {
+    SearchTemplateRanking copy = new SearchTemplateRanking();
+    if (ranking.hasPreset() && ranking.getPreset() != null && !ranking.getPreset().isBlank()) {
+      copy.setPreset(ranking.getPreset());
+    }
+    if (ranking.hasWindow() && ranking.getWindow() != null) {
+      copy.setWindow(ranking.getWindow());
+    }
+    if (ranking.hasWindowSizer()
+        && ranking.getWindowSizer() != null
+        && !ranking.getWindowSizer().isBlank()) {
+      copy.setWindowSizer(ranking.getWindowSizer());
+    }
+    if (ranking.hasParameters()
+        && ranking.getParameters() != null
+        && !ranking.getParameters().isEmpty()) {
+      copy.setParameters(ranking.getParameters());
+    }
+    if (ranking.hasFormula() && ranking.getFormula() != null && !ranking.getFormula().isBlank()) {
+      copy.setFormula(ranking.getFormula());
+    }
+    return copy;
+  }
+
+  @Nonnull
+  private static List<RankingSignal> rankingAdds(@Nullable SearchTemplateRanking ranking) {
+    if (ranking == null || !ranking.hasAdd() || ranking.getAdd() == null) {
+      return List.of();
+    }
+    return ranking.getAdd();
+  }
+
+  @Nonnull
+  private static List<String> rankingRemoves(@Nullable SearchTemplateRanking ranking) {
+    if (ranking == null || !ranking.hasRemove() || ranking.getRemove() == null) {
+      return List.of();
+    }
+    return ranking.getRemove();
+  }
+
+  private static int indexOfSignal(@Nonnull List<RankingSignal> signals, @Nullable String name) {
+    for (int i = 0; i < signals.size(); i++) {
+      if (name != null && name.equals(signals.get(i).getName())) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  @Nullable
+  private static String rankingReferenceUrn(@Nullable SearchTemplateRanking ranking) {
+    if (ranking == null
+        || !ranking.hasTemplate()
+        || ranking.getTemplate() == null
+        || ranking.getTemplate().isBlank()) {
+      return null;
+    }
+    return ranking.getTemplate();
+  }
+
+  private static boolean clearsTemplate(@Nonnull SearchTemplateRanking ranking) {
+    return ranking.hasTemplate() && blank(ranking.getTemplate());
+  }
+
+  private static boolean referencesTemplate(@Nullable SearchTemplateRanking ranking) {
+    return ranking != null
+        && ranking.hasTemplate()
+        && ranking.getTemplate() != null
+        && !ranking.getTemplate().isBlank();
+  }
+
+  private static void putString(
+      java.util.function.Consumer<String> setter,
+      boolean overlaySet,
+      @Nullable String overlayValue,
+      boolean baseSet,
+      @Nullable String baseValue) {
+    if (overlaySet) {
+      if (overlayValue != null && !overlayValue.isBlank()) {
+        setter.accept(overlayValue);
+      }
+      return;
+    }
+    if (baseSet && baseValue != null && !baseValue.isBlank()) {
+      setter.accept(baseValue);
+    }
+  }
+
+  @Nonnull
+  private ResolvedRanking resolveRankingReference(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull AspectRetriever retriever,
+      @Nonnull String urn,
+      @Nullable SearchTemplateRanking ranking,
+      @Nonnull Map<String, TemplateCopy> overrides,
+      boolean classpathBridge,
+      @Nonnull List<String> urns) {
+    if (ranking == null
+        || !ranking.hasTemplate()
+        || ranking.getTemplate() == null
+        || ranking.getTemplate().isBlank()) {
+      return new ResolvedRanking(ranking, 0L);
+    }
+    if (inlineRanking(ranking)) {
+      throw new SearchTemplateException("Search template ranking is a reference or it is inline");
+    }
+    String target = ranking.getTemplate();
+    if (urn.equals(target) || urns.contains(target)) {
+      throw new SearchTemplateException("Search template ranking reference cycle at " + target);
+    }
+    TemplateCopy copy = resolve(operationContext, retriever, target, overrides);
+    MergedSearchTemplate targetMerged =
+        compose(operationContext, retriever, target, copy, overrides, classpathBridge, false);
+    SearchTemplateRanking resolved = targetMerged.getRanking();
+    if (resolved == null
+        || (resolved.hasTemplate()
+            && resolved.getTemplate() != null
+            && !resolved.getTemplate().isBlank())) {
+      throw new SearchTemplateException(
+          "Search template ranking reference must be inline: " + target);
+    }
+    for (String link : targetMerged.getChain()) {
+      if (urn.equals(link)) {
+        throw new SearchTemplateException("Search template ranking reference cycle at " + link);
+      }
+      if (!urns.contains(link)) {
+        urns.add(link);
+      }
+    }
+    return new ResolvedRanking(resolved, targetMerged.getLastModified());
+  }
+
+  private static boolean inlineRanking(@Nonnull SearchTemplateRanking ranking) {
+    boolean preset =
+        ranking.hasPreset() && ranking.getPreset() != null && !ranking.getPreset().isBlank();
+    boolean window = ranking.hasWindow() && ranking.getWindow() != null;
+    boolean sizer =
+        ranking.hasWindowSizer()
+            && ranking.getWindowSizer() != null
+            && !ranking.getWindowSizer().isBlank();
+    boolean parameters =
+        ranking.hasParameters()
+            && ranking.getParameters() != null
+            && !ranking.getParameters().isEmpty();
+    boolean signals =
+        ranking.hasSignals() && ranking.getSignals() != null && !ranking.getSignals().isEmpty();
+    boolean formula =
+        ranking.hasFormula() && ranking.getFormula() != null && !ranking.getFormula().isBlank();
+    return preset || window || sizer || parameters || signals || formula;
+  }
+
+  private static boolean hasCapability(@Nullable List<String> capabilities, @Nonnull String name) {
+    return capabilities != null && capabilities.contains(name);
   }
 
   public static boolean emptyRetrieval(@Nullable SearchTemplateRetrieval retrieval) {
@@ -802,7 +1204,8 @@ public class SearchTemplateLoader {
                 key,
                 new TemplateCopy(held.properties, held.stamp),
                 overrides,
-                held.classpathBridge));
+                held.classpathBridge,
+                true));
       } catch (SearchTemplateException e) {
         log.warn("Search template {} is invalid and was left out of the cache", key, e);
         rejected.put(key, e);
@@ -904,6 +1307,8 @@ public class SearchTemplateLoader {
       return null;
     }
   }
+
+  private record ResolvedRanking(@Nullable SearchTemplateRanking ranking, long lastModified) {}
 
   private record TemplateCopy(@Nonnull SearchTemplateProperties properties, long modifiedAt) {}
 

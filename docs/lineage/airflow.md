@@ -662,13 +662,13 @@ listed here. A version that is not listed behaves the same as the nearest older 
 and picking the newest published version is always safe.
 
 Entries start at `1.3.1.5`. For anything earlier, and for the full migration detail behind the
-breaking changes below, see [Updating DataHub](../how/updating-datahub.md).
+breaking changes below, see [Breaking Changes](../how/breaking-changes.md).
 
 ### Next
 
 _Changes_
 
-- OpenLineage references to S3, GCS, Azure (`abfs`, `wasb`) and DBFS paths now use the same platform and name as DataHub's storage sources and the Spark agent: `gs://my-bucket` plus `path/file` becomes `urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/file,PROD)` instead of a `gs` dataset without the bucket. Set `normalize_object_storage_urns = false` to keep the old URNs for OpenLineage references; the Asset changes below do not depend on it. Airflow Assets on `abfs://` and `abfss://` now use the `abs` platform instead of `adls`. See [Updating DataHub](../how/updating-datahub.md).
+- OpenLineage references to S3, GCS, Azure (`abfs`, `wasb`) and DBFS paths now use the same platform and name as DataHub's storage sources and the Spark agent: `gs://my-bucket` plus `path/file` becomes `urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/file,PROD)` instead of a `gs` dataset without the bucket. Set `normalize_object_storage_urns = false` to keep the old URNs for OpenLineage references; the Asset changes below do not depend on it. Airflow Assets on `abfs://` and `abfss://` now use the `abs` platform instead of `adls`. See [Breaking Changes](../how/breaking-changes.md).
 - New `dataset_pattern` option to drop individual inlets and outlets by `<platform>:<name>` pattern. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).
 - `file` datasets reported through OpenLineage (worker scratch paths) are no longer captured by default; set `capture_ol_file_datasets = true` to keep them. BigQuery tables in hidden `_`-prefixed datasets are dropped by default; set `capture_bigquery_temp_datasets = true` to keep them.
 - Airflow Assets with a `file:///` URI keep the leading slash in the dataset name (`file:///tmp/x` becomes `/tmp/x`, not `tmp/x`), matching OpenLineage and the Spark agent.
