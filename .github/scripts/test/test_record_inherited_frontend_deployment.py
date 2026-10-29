@@ -255,9 +255,12 @@ def test_list_deployments_encodes_environment_name(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(inherited.urllib.request, "urlopen", fake_urlopen)
     client = inherited.UrllibDeploymentClient("token", "https://api.github.com")
-    assert client.list_deployments(
-        "acme/datahub",         environment=inherited.RECORD_ENVIRONMENT, sha=None
-    ) == []
+    assert (
+        client.list_deployments(
+            "acme/datahub", environment=inherited.RECORD_ENVIRONMENT, sha=None
+        )
+        == []
+    )
     assert captured["method"] == "GET"
     assert "environment=datahub-project-web-react+%28Preview%29" in captured["url"]
     assert "per_page=100" in captured["url"]

@@ -45,8 +45,13 @@ jobs:
       # at the last published Pages URL. Meticulous base runs come from that
       # Preview environment. The deploy job below stays skipped, so this does not
       # start a second runner or rebuild the frontend.
+      # Best-effort: a failed record only costs Meticulous a base for this SHA,
+      # so it must not turn master red.
       - name: Record inherited Meticulous base deployment
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.ci-optimize.outputs.frontend-change == 'false' }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 .github/scripts/record_inherited_frontend_deployment.py
       - name: Check if cloudflare api token is available
         id: cloudflare-token-check
