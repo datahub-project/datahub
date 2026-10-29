@@ -535,6 +535,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Certification",
+              type: "doc",
+              id: "docs/features/feature-guides/context/certification",
+              className: "saasOnly",
+            },
+            {
               label: "Context Feedback",
               type: "doc",
               id: "docs/features/feature-guides/context/context-feedback",

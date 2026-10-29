@@ -14,6 +14,7 @@ This page explains the ideas the guide relies on. You can follow the steps witho
 | Concept                                                                                         | Where it appears in the guide                                                                    |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | [The Context Layer](#the-context-layer)                                                         | [Step 2: Ingest context](./ingest-context.md), [Step 3: Generate context](./generate-context.md) |
+| [Certification & Trust Ranking](#certification--trust-ranking)                                  | [Step 2: Ingest context](./ingest-context.md), [Step 3: Generate context](./generate-context.md) |
 | [Validating Context Through Evals](#validating-context-through-evals)                           | [Step 1: Define evals](./define-evals.md)                                                        |
 | [Validating Context Changes (Human in the Loop)](#validating-context-changes-human-in-the-loop) | [Step 3: Generate context](./generate-context.md)                                                |
 | [Global vs. Domain-Scoped Data Agents](#global-vs-domain-scoped-data-agents)                    | [Step 4: Activate context](./activate-context.md)                                                |
@@ -38,8 +39,7 @@ An agent uses these as **trust signals**, the way an experienced analyst would. 
 
 DataHub also uses these signals to rank what your agent sees. When an agent searches, context that's widely used and recently updated ranks higher, deprecated assets rank lower, and published documents rank above drafts. The more clearly your technical context separates good data from bad, the more reliably your agent finds the right answer.
 
-<!-- TODO(certification): When certification ships, add it here, e.g.
-"Assets and documents your team has certified also rank higher." Link to the certification feature guide. -->
+Assets and documents your team has certified rank highest of all. See [Certification & Trust Ranking](#certification--trust-ranking).
 
 ### Business Context
 
@@ -75,6 +75,22 @@ Domains let you manage context one area at a time, and they make [domain-scoped 
 - **Instructions** that teach your agent how to navigate your domain hierarchy, such as which domain to search for which kinds of questions
 
 The first two limit what the agent sees; the third guides where it looks.
+
+## Certification & Trust Ranking
+
+Usage, freshness, and ownership suggest which context is reliable. **Certification** states it. When someone your team authorizes certifies a table, metric, dashboard, or document, they vouch for it as the trusted source for the questions it covers, and DataHub passes that judgment to your agent.
+
+Every asset and document an agent finds carries a trust grade:
+
+| Grade         | What it means                                          | How the agent uses it                                                   |
+| ------------- | ------------------------------------------------------ | ----------------------------------------------------------------------- |
+| **Certified** | Someone your team authorized has vouched for it.       | Uses it as the primary basis for an answer when it covers the question. |
+| **Authored**  | A person wrote or curated it, but nobody certified it. | Relies on it, and says it's documented but not certified.               |
+| **Inferred**  | It was derived automatically.                          | Uses it only when nothing better covers the question, and says so.      |
+
+Certified context also ranks higher when your agent searches. Together, these separate the signal from the noise: your agent finds the sources your team vouches for first, builds its answer on them, and tells the user when it had to rely on something less certain.
+
+Certify sparingly, starting with the tables and documents behind your evals. A certification means the most when it's rare. See [Certification](../../features/feature-guides/context/certification.md).
 
 ## Validating Context Through Evals
 

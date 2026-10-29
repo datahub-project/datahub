@@ -70,8 +70,9 @@ For sensitive domains, turn **Auto-publish** off and choose **Reviewers**: the u
 
 Reviewers receive a request in **Tasks > Proposals**, where they can run your evals against the new documents to see what they would fix or break before anything is published. See [Reviewing Context Changes](../../features/feature-guides/context/context-review.md).
 
-<!-- TODO(certification): When certification ships, add guidance here, e.g.
-"**Certify the best ones.** Certify the documents you'd stake your name on. Certified documents get a boost when agents search." Link to the certification feature guide. -->
+### Certify the best documents
+
+Once a generated document has proven itself in your evals, certify it. Your agent then treats it as an authoritative source rather than one derived automatically. See [Certification](../../features/feature-guides/context/certification.md).
 
 ## 3. Grow your eval suite
 
