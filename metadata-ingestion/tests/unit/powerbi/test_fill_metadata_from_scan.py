@@ -1948,9 +1948,11 @@ def test_get_workunits_internal_phase2_failure_skips_only_that_workspace():
         for call in cast(mock.MagicMock, source.get_workspace_workunit).call_args_list
     ]
     assert emitted == ["WS-1"]
-    failed = [
-        w
+    failed_for = {
+        ws_id
         for w in source.reporter.warnings
         if w.title == "Failed to Fetch Workspace Metadata"
-    ]
-    assert len(failed) == 1 and any("WS-0" in c for c in failed[0].context)
+        for ws_id in ("WS-0", "WS-1")
+        if any(ws_id in c for c in w.context)
+    }
+    assert failed_for == {"WS-0"}

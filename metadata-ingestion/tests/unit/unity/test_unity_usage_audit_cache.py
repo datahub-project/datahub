@@ -3,30 +3,38 @@ recovery from an unreadable file, and cleanup when fetching fails."""
 
 import pathlib
 from datetime import timedelta
-from typing import List
+from typing import List, Tuple
 from unittest.mock import MagicMock
+
+import pytest
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 from datahub.sql_parsing.schema_resolver import SchemaResolver
+from tests.unit.unity.conftest import WAREHOUSE_ID, unity_config
 
 ORDERS = TableReference(metastore=None, catalog="main", schema="sales", table="orders")
 
 
-def _config(tmp_path: pathlib.Path) -> UnityCatalogSourceConfig:
-    return UnityCatalogSourceConfig.model_validate(
-        {
-            "token": "t",
-            "workspace_url": "https://ws.cloud.databricks.com",
-            "warehouse_id": "wh",
-            "include_hive_metastore": False,
-            "usage_data_source": "API",
-            "local_temp_path": str(tmp_path),
-        }
+@pytest.fixture
+def config(tmp_path: pathlib.Path) -> UnityCatalogSourceConfig:
+    return unity_config(
+        warehouse_id=WAREHOUSE_ID,
+        usage_data_source="API",
+        local_temp_path=str(tmp_path),
     )
+
+
+@pytest.fixture
+def proxy() -> MagicMock:
+    proxy = MagicMock(spec=UnityCatalogApiProxy)
+    # Set in UnityCatalogApiProxy.__init__, so the class spec does not carry it.
+    proxy.warehouse_id = WAREHOUSE_ID
+    return proxy
 
 
 def _query(config: UnityCatalogSourceConfig, qid: str) -> Query:
@@ -46,7 +54,7 @@ def _query(config: UnityCatalogSourceConfig, qid: str) -> Query:
 
 def _run(
     config: UnityCatalogSourceConfig, proxy: MagicMock
-) -> tuple[UnityCatalogUsageExtractor, List[MetadataWorkUnit]]:
+) -> Tuple[UnityCatalogUsageExtractor, List[MetadataWorkUnit]]:
     extractor = UnityCatalogUsageExtractor(
         config=config,
         report=UnityCatalogReport(),
@@ -66,10 +74,10 @@ def _cache_files(tmp_path: pathlib.Path) -> List[pathlib.Path]:
 
 
 def test_second_run_in_the_same_window_reads_the_cached_audit_log(
-    tmp_path: pathlib.Path,
+    config: UnityCatalogSourceConfig, proxy: MagicMock, tmp_path: pathlib.Path
 ) -> None:
-    config = _config(tmp_path)
-    proxy = MagicMock()
+    """The cache file is keyed by the time window, so a rerun over the same
+    window must not call query history again and still produce usage."""
     proxy.query_history.return_value = iter([_query(config, "q1")])
 
     first, _ = _run(config, proxy)
@@ -85,10 +93,8 @@ def test_second_run_in_the_same_window_reads_the_cached_audit_log(
 
 
 def test_unreadable_cached_audit_log_is_discarded_and_history_refetched(
-    tmp_path: pathlib.Path,
+    config: UnityCatalogSourceConfig, proxy: MagicMock, tmp_path: pathlib.Path
 ) -> None:
-    config = _config(tmp_path)
-    proxy = MagicMock()
     proxy.query_history.return_value = iter([_query(config, "q1")])
     _run(config, proxy)
     (cache_file,) = _cache_files(tmp_path)
@@ -98,22 +104,22 @@ def test_unreadable_cached_audit_log_is_discarded_and_history_refetched(
     extractor, _ = _run(config, proxy)
 
     assert extractor.report.num_queries == 1
-    assert any(
-        "cached audit log" in (w.title or "").lower() for w in extractor.report.warnings
-    )
+    assert "Discarded unreadable cached audit log" in {
+        w.title for w in extractor.report.warnings
+    }
     # The rebuilt cache is a valid sqlite file again.
     assert cache_file.read_bytes().startswith(b"SQLite format 3")
 
 
 def test_fetch_error_fails_the_run_and_leaves_no_partial_cache(
-    tmp_path: pathlib.Path,
+    config: UnityCatalogSourceConfig, proxy: MagicMock, tmp_path: pathlib.Path
 ) -> None:
-    config = _config(tmp_path)
-    proxy = MagicMock()
+    """A partially written cache would be reused as complete on the next run,
+    so a fetch failure must delete it as well as failing the run."""
     proxy.query_history.side_effect = RuntimeError("query history API unavailable")
 
     extractor, workunits = _run(config, proxy)
 
     assert workunits == []
-    assert any("usage" in (f.title or "").lower() for f in extractor.report.failures)
+    assert "Usage extraction failed" in {f.title for f in extractor.report.failures}
     assert _cache_files(tmp_path) == []

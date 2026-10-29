@@ -4,7 +4,7 @@ system.tables lineage map."""
 
 from types import SimpleNamespace
 from typing import Dict, Iterable, List, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 from clickhouse_sqlalchemy import types as ch_types
@@ -15,38 +15,21 @@ from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql import clickhouse
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig, ClickHouseSource
-from datahub.metadata.schema_classes import DatasetLineageTypeClass
-
-
-class _Connection:
-    """Answers each reflection query from the system table it reads."""
-
-    def __init__(self, rows_by_table: Dict[str, List[object]]) -> None:
-        self._rows_by_table = rows_by_table
-
-    def execute(self, query: object, params: Optional[dict] = None) -> "_Result":
-        sql = str(query)
-        for table, rows in self._rows_by_table.items():
-            if table in sql:
-                return _Result(rows)
-        raise AssertionError(f"unexpected query: {sql}")
-
-
-class _Result:
-    def __init__(self, rows: List[object]) -> None:
-        self._rows = rows
-
-    def __iter__(self):
-        return iter(self._rows)
-
-    def fetchone(self) -> Optional[object]:
-        return self._rows[0] if self._rows else None
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    UpstreamLineageClass,
+)
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from tests.unit.conftest import as_mock
+from tests.unit.sql_test_helpers import FakeConnection
 
 
 def _tables_conn(
     rows: Iterable[Tuple[str, str, Optional[str], Optional[str]]],
-) -> _Connection:
-    return _Connection(
+) -> FakeConnection:
+    """A connection whose system.tables lists ``(database, name, comment, properties)``;
+    names starting with ``v_`` are views."""
+    return FakeConnection(
         {
             "system.tables": [
                 SimpleNamespace(
@@ -123,6 +106,8 @@ def test_column_info_unwraps_nullable_and_low_cardinality(
 def test_unparseable_column_type_degrades_to_null_type(
     dialect: ClickHouseDialect,
 ) -> None:
+    """A type the driver cannot parse must not drop the column: it is kept
+    with NullType and its native spelling preserved in ``full_type``."""
     with patch.object(
         ClickHouseDialect, "_get_column_type", side_effect=TypeError("nested")
     ):
@@ -139,7 +124,7 @@ def test_columns_for_a_schema_come_from_one_batched_system_columns_read(
             database=db, table_name=table, name=name, type=type_, comment=""
         )
 
-    conn = _Connection(
+    conn = FakeConnection(
         {
             "system.columns": [
                 col("db", "t", "id", "UInt64"),
@@ -158,13 +143,16 @@ def test_columns_for_a_schema_come_from_one_batched_system_columns_read(
 def test_view_definition_is_empty_when_the_relation_is_not_a_view(
     dialect: ClickHouseDialect,
 ) -> None:
-    present = _Connection({"system.tables": [("CREATE VIEW db.v AS SELECT 1",)]})
-    absent = _Connection({"system.tables": []})
+    present = FakeConnection({"system.tables": [("CREATE VIEW db.v AS SELECT 1",)]})
+    absent = FakeConnection({"system.tables": []})
     assert (
         dialect.get_view_definition(present, "v", schema="db")
         == "CREATE VIEW db.v AS SELECT 1"
     )
     assert dialect.get_view_definition(absent, "t", schema="db") == ""
+
+
+# --- materialized views -----------------------------------------------------
 
 
 def _source(**config_kwargs: object) -> ClickHouseSource:
@@ -174,6 +162,12 @@ def _source(**config_kwargs: object) -> ClickHouseSource:
     return ClickHouseSource(config, PipelineContext(run_id="test"))
 
 
+def _source_with_mock_aggregator() -> ClickHouseSource:
+    source = _source()
+    source.aggregator = create_autospec(SqlParsingAggregator, instance=True)
+    return source
+
+
 def _urn(name: str) -> str:
     return make_dataset_urn("clickhouse", name, "PROD")
 
@@ -181,14 +175,16 @@ def _urn(name: str) -> str:
 def test_materialized_view_with_to_clause_registers_source_lineage_for_both_targets() -> (
     None
 ):
-    source = _source()
-    source.aggregator = MagicMock()
+    """A ``CREATE MATERIALIZED VIEW ... TO target`` writes into ``target``, so
+    the SELECT's lineage must be registered for the target table as well as for
+    the view itself, or the table that actually holds the rows has no upstream."""
+    source = _source_with_mock_aggregator()
     definition = "CREATE MATERIALIZED VIEW db.mv TO db.target AS SELECT id FROM db.src"
     source._add_view_to_aggregator(_urn("db.mv"), definition, "db", None)
 
     registered = [
         call.kwargs["view_urn"]
-        for call in source.aggregator.add_view_definition.call_args_list
+        for call in as_mock(source.aggregator).add_view_definition.call_args_list
     ]
     assert registered == [_urn("db.mv"), _urn("db.target")]
 
@@ -204,50 +200,35 @@ def test_unqualified_to_target_resolves_against_the_default_database() -> None:
     )
 
 
-def test_plain_views_register_once() -> None:
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "_extract_to_table_urn strips quotes only at the two ends of the whole "
+        "`TO` token, so a quoted table part (db.`target`) keeps its inner backtick "
+        "and the URN names a table that does not exist"
+    ),
+)
+@pytest.mark.parametrize(
+    "target",
+    ["db.`target`", "`db`.`target`", '"db"."target"'],
+)
+def test_quoted_to_target_is_unquoted_before_building_the_urn(target: str) -> None:
     source = _source()
-    source.aggregator = MagicMock()
+    definition = f"CREATE MATERIALIZED VIEW db.mv TO {target} AS SELECT 1"
+    assert source._extract_to_table_urn(_urn("db.mv"), definition, "db") == _urn(
+        "db.target"
+    )
+
+
+def test_plain_views_register_once() -> None:
+    source = _source_with_mock_aggregator()
     source._add_view_to_aggregator(
         _urn("db.v"), "CREATE VIEW db.v AS SELECT 1", "db", None
     )
-    assert source.aggregator.add_view_definition.call_count == 1
+    assert as_mock(source.aggregator).add_view_definition.call_count == 1
 
 
-class _LineageConnection:
-    def __init__(
-        self, all_tables: List[str], lineage_rows: List[Dict[str, str]]
-    ) -> None:
-        self._all_tables = all_tables
-        self._lineage_rows = lineage_rows
-
-    def __enter__(self) -> "_LineageConnection":
-        return self
-
-    def __exit__(self, *args: object) -> None:
-        return None
-
-    def execute(self, query: object) -> "_MappingResult":
-        if "AS table_name" in str(query):
-            rows = [
-                {"database": t.split(".")[0], "table_name": t.split(".")[1]}
-                for t in self._all_tables
-            ]
-            return _MappingResult(rows)
-        return _MappingResult(self._lineage_rows)
-
-
-class _MappingResult:
-    def __init__(self, rows: List[Dict[str, str]]) -> None:
-        self._rows = rows
-
-    def mappings(self) -> "_MappingResult":
-        return self
-
-    def fetchall(self) -> List[Dict[str, str]]:
-        return self._rows
-
-    def __iter__(self):
-        return iter(self._rows)
+# --- view lineage from system.tables ---------------------------------------
 
 
 def _lineage_row(target: str, source: str) -> Dict[str, str]:
@@ -261,6 +242,22 @@ def _lineage_row(target: str, source: str) -> Dict[str, str]:
     }
 
 
+def _lineage_connection(
+    all_tables: List[str], rows: List[Dict[str, str]]
+) -> FakeConnection:
+    """Answers the all-tables listing (``... AS table_name``) and, for anything
+    else, the view-lineage query."""
+    return FakeConnection(
+        {
+            "AS table_name": [
+                {"database": t.split(".")[0], "table_name": t.split(".")[1]}
+                for t in all_tables
+            ],
+            "": rows,
+        }
+    )
+
+
 def _view_lineage_source(
     monkeypatch: pytest.MonkeyPatch,
     all_tables: List[str],
@@ -268,7 +265,7 @@ def _view_lineage_source(
     **config_kwargs: object,
 ) -> ClickHouseSource:
     engine = MagicMock()
-    engine.connect.return_value = _LineageConnection(all_tables, rows)
+    engine.connect.return_value = _lineage_connection(all_tables, rows)
     monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **k: engine)
     return _source(
         include_table_lineage=True,
@@ -281,6 +278,8 @@ def _view_lineage_source(
 def test_view_lineage_map_merges_upstreams_and_drops_vanished_sources(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Upstreams that are no longer in the all-tables listing (dropped between
+    the two catalog reads) must not become dangling lineage edges."""
     source = _view_lineage_source(
         monkeypatch,
         all_tables=["db.src", "db.src2", "db.v"],
@@ -292,7 +291,8 @@ def test_view_lineage_map_merges_upstreams_and_drops_vanished_sources(
     )
     mcp = source.get_lineage_mcp(_urn("db.v"))
     assert mcp is not None
-    upstreams = mcp.aspect.upstreams  # type: ignore[union-attr]
+    assert isinstance(mcp.aspect, UpstreamLineageClass)
+    upstreams = mcp.aspect.upstreams
     assert {u.dataset for u in upstreams} == {_urn("db.src"), _urn("db.src2")}
     assert {u.type for u in upstreams} == {DatasetLineageTypeClass.VIEW}
     assert source.get_lineage_mcp(_urn("db.src")) is None
@@ -314,7 +314,7 @@ def test_lineage_query_failure_leaves_lineage_empty_instead_of_failing(
 ) -> None:
     engine = MagicMock()
     engine.connect.side_effect = [
-        _LineageConnection(["db.v"], []),  # the all-tables read succeeds
+        _lineage_connection(["db.v"], []),  # the all-tables read succeeds
         RuntimeError("query_log too large"),  # the lineage read does not
     ]
     monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **k: engine)

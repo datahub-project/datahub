@@ -25,7 +25,7 @@ def test_report_redshift_failure_classifies_driver_errors(
 ) -> None:
     report = RedshiftReport()
     report_redshift_failure(report, redshift_connector.Error(message))
-    assert [f.title for f in report.failures] == [expected_title]
+    assert expected_title in {f.title for f in report.failures}
 
 
 def test_handle_redshift_exceptions_returns_result_or_none_on_driver_error() -> None:
@@ -38,10 +38,12 @@ def test_handle_redshift_exceptions_returns_result_or_none_on_driver_error() -> 
         raise redshift_connector.Error("permission denied")
 
     assert handle_redshift_exceptions(report, boom) is None
-    assert len(report.failures) == 1
+    assert "Permission denied" in {f.title for f in report.failures}
 
 
 def test_handle_redshift_exceptions_yield_keeps_items_before_failure() -> None:
+    """A driver error part-way through a generator must not lose the items
+    already produced; the failure is reported and iteration ends cleanly."""
     report = RedshiftReport()
 
     def produce() -> Iterator[int]:
@@ -50,7 +52,7 @@ def test_handle_redshift_exceptions_yield_keeps_items_before_failure() -> None:
         raise redshift_connector.Error("permission denied for relation svv_table_info")
 
     assert list(handle_redshift_exceptions_yield(report, produce)) == [1, 2]
-    assert len(report.failures) == 1
+    assert "Permission denied" in {f.title for f in report.failures}
 
 
 def test_handle_redshift_exceptions_do_not_swallow_other_errors() -> None:

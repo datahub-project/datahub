@@ -1,10 +1,12 @@
 """View upstream resolution over real LookML files: derived-view references,
 native derived tables, SQL parse failures, and the Looker Query API path with
-its regex-parsing fallback."""
+field splitting and its regex-parsing fallback.
+
+Only the ``LookerAPI`` wrapper is mocked on the API path; the SQL it returns is
+parsed by the real sqlglot-based lineage parser."""
 
 import logging
-import pathlib
-from typing import Any, List
+from typing import Callable, List
 from unittest import mock
 
 import pytest
@@ -15,33 +17,22 @@ from looker_sdk.sdk.api40.models import (
     WriteQuery,
 )
 
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
-from datahub.ingestion.source.looker.lookml_concept_context import LookerFieldContext
-from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
 from datahub.ingestion.source.looker.view_upstream import (
     DerivedQueryUpstreamSource,
     LookerQueryAPIBasedViewUpstream,
     NativeDerivedViewUpstream,
     RegularViewUpstream,
-    create_view_upstream,
 )
-from tests.unit.lookml.test_lookml_view_context import PARENT_VIEW, Harness
+from tests.unit.lookml.conftest import LOOKER_API_CONFIG, LookMLProject, dataset_urn
 
-
-@pytest.fixture
-def harness(tmp_path: pathlib.Path) -> Harness:
-    base_folder = tmp_path / "project"
-    base_folder.mkdir()
-    config = LookMLSourceConfig.model_validate(
-        {
-            "base_folder": str(base_folder),
-            "connection_to_platform_map": {"my_connection": "postgres"},
-            "project_name": "test_project",
-        }
-    )
-    return Harness(base_folder, config)
-
+PARENT_VIEW = """
+view: parent {
+  sql_table_name: analytics.parent_table ;;
+  dimension: id { type: number sql: ${TABLE}.id ;; }
+  dimension: shared { type: string sql: ${TABLE}.parent_shared ;; }
+}
+"""
 
 ORDERS_VIEW = """
 view: orders {
@@ -53,10 +44,19 @@ view: orders {
     timeframes: [date, week]
     sql: ${TABLE}.created_at ;;
   }
+  dimension_group: updated {
+    type: time
+    sql: ${TABLE}.updated_at ;;
+  }
   dimension_group: since_signup {
     type: duration
     intervals: [day, week]
     sql_start: ${TABLE}.signup_at ;;
+    sql_end: CURRENT_TIMESTAMP ;;
+  }
+  dimension_group: since_order {
+    type: duration
+    sql_start: ${TABLE}.ordered_at ;;
     sql_end: CURRENT_TIMESTAMP ;;
   }
   dimension_group: untyped {
@@ -70,220 +70,23 @@ view: orders {
 }
 """
 
+# The alias "note" carries no "orders." prefix, which is how a column the API
+# attributes to another view comes back.
 ORDERS_SQL = (
     'SELECT orders."ID" AS "orders.id", orders."AMOUNT" AS "orders.amount", '
-    'orders."CREATED_AT" AS "orders.created_date" '
+    'orders."CREATED_AT" AS "orders.created_date", orders."NOTE" AS "note" '
     "FROM public.orders AS orders"
 )
 
+SMALL_VIEW = """
+view: orders {
+  sql_table_name: analytics.orders ;;
+  dimension: id { type: number sql: ${TABLE}.id ;; }
+  dimension: amount { type: number sql: ${TABLE}.amount ;; }
+}
+"""
 
-def _dataset_urn(name: str, platform: str = "postgres") -> str:
-    return f"urn:li:dataset:(urn:li:dataPlatform:{platform},{name},PROD)"
-
-
-def _field(harness: Harness, lkml: str, view: str, field: str) -> LookerFieldContext:
-    context = harness.context(lkml, view, file_name=f"{view}_{field}.view.lkml")
-    raw = next(
-        f
-        for f in context.dimensions() + context.measures() + context.dimension_groups()
-        if f["name"] == field
-    )
-    return LookerFieldContext(raw_field=raw)
-
-
-def _upstream(harness: Harness, lkml: str, view: str, **kwargs: Any) -> Any:
-    context = harness.context(lkml, view)
-    return create_view_upstream(
-        view_context=context,
-        looker_view_id_cache=harness.view_id_cache,
-        config=harness.config,
-        ctx=PipelineContext(run_id="t"),
-        reporter=harness.reporter,
-        **kwargs,
-    )
-
-
-class TestDerivedViewReferences:
-    def test_sql_table_name_reference_resolves_to_other_view_urn(
-        self, harness: Harness
-    ) -> None:
-        harness.write("parent.view.lkml", PARENT_VIEW)
-        upstream = _upstream(
-            harness,
-            """
-            view: child {
-              derived_table: {
-                sql: SELECT id, shared FROM ${parent.SQL_TABLE_NAME} ;;
-              }
-              dimension: id { type: number sql: ${TABLE}.id ;; }
-            }
-            """,
-            "child",
-        )
-        assert isinstance(upstream, DerivedQueryUpstreamSource)
-        assert upstream.get_upstream_dataset_urn() == [
-            _dataset_urn("test_project.view.parent", platform="looker")
-        ]
-        refs = upstream.get_upstream_column_ref(
-            _field(harness, PARENT_VIEW, "parent", "id")
-        )
-        assert [(r.table, r.column) for r in refs] == [
-            (_dataset_urn("test_project.view.parent", platform="looker"), "id")
-        ]
-
-    def test_unknown_view_reference_is_dropped(
-        self, harness: Harness, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        upstream = _upstream(
-            harness,
-            """
-            view: child {
-              derived_table: {
-                sql: SELECT id FROM ${missing.SQL_TABLE_NAME} ;;
-              }
-              dimension: id { type: number sql: ${TABLE}.id ;; }
-            }
-            """,
-            "child",
-        )
-        with caplog.at_level(logging.WARNING):
-            assert upstream.get_upstream_dataset_urn() == []
-            assert (
-                upstream.get_upstream_column_ref(
-                    _field(harness, ORDERS_VIEW, "orders", "id")
-                )
-                == []
-            )
-        assert "Not able to resolve to derived view looker id" in caplog.text
-
-
-class TestNativeDerivedView:
-    NATIVE = """
-    view: order_summary {
-      derived_table: {
-        explore_source: orders {
-          column: order_id { field: orders.id }
-          column: total { field: orders.amount }
-          column: plain {}
-        }
-      }
-      dimension: order_id { type: number sql: ${TABLE}.order_id ;; }
-      dimension: total { type: number sql: ${TABLE}.total ;; }
-      dimension: plain { type: string sql: ${TABLE}.plain ;; }
-      dimension: unmapped { type: string sql: ${TABLE}.unmapped ;; }
-    }
-    """
-
-    def test_upstream_is_the_source_explore(self, harness: Harness) -> None:
-        upstream = _upstream(harness, self.NATIVE, "order_summary")
-        assert isinstance(upstream, NativeDerivedViewUpstream)
-        explore_urn = _dataset_urn("data.explore.orders", platform="looker")
-        assert upstream.get_upstream_dataset_urn() == [explore_urn]
-
-        def refs(field: str) -> List[str]:
-            return [
-                r.column
-                for r in upstream.get_upstream_column_ref(
-                    _field(harness, self.NATIVE, "order_summary", field)
-                )
-            ]
-
-        # `field:` maps the column onto the explore field; a bare column keeps its name.
-        assert refs("order_id") == ["orders.id"]
-        assert refs("plain") == ["plain"]
-        assert refs("unmapped") == []
-
-    def test_view_missing_from_cache_is_an_error(self, harness: Harness) -> None:
-        context = harness.context(self.NATIVE, "order_summary")
-        harness.model.resolved_includes.clear()
-        upstream = NativeDerivedViewUpstream(
-            view_context=context,
-            looker_view_id_cache=harness.view_id_cache,
-            config=harness.config,
-            reporter=harness.reporter,
-            ctx=PipelineContext(run_id="t"),
-        )
-        with pytest.raises(ValueError, match="not found"):
-            upstream.get_upstream_dataset_urn()
-
-
-class TestSqlParsingSwitches:
-    DERIVED = """
-    view: facts {
-      derived_table: {
-        sql: SELECT id, amount FROM analytics.orders ;;
-      }
-      dimension: id { type: number sql: ${TABLE}.id ;; }
-    }
-    """
-
-    def test_disabled_sql_parsing_yields_nothing(self, tmp_path: pathlib.Path) -> None:
-        base = tmp_path / "project"
-        base.mkdir()
-        config = LookMLSourceConfig.model_validate(
-            {
-                "base_folder": str(base),
-                "connection_to_platform_map": {"my_connection": "postgres"},
-                "project_name": "test_project",
-                "parse_table_names_from_sql": False,
-            }
-        )
-        harness = Harness(base, config)
-        upstream = _upstream(harness, self.DERIVED, "facts")
-        assert upstream.get_upstream_dataset_urn() == []
-        assert upstream.create_fields() == []
-        assert (
-            upstream.get_upstream_column_ref(
-                _field(harness, self.DERIVED, "facts", "id")
-            )
-            == []
-        )
-
-    def test_unparseable_sql_is_reported_without_lineage(
-        self, harness: Harness
-    ) -> None:
-        upstream = _upstream(
-            harness,
-            """
-            view: broken {
-              derived_table: {
-                sql: SELECT FROM WHERE ((( ;;
-              }
-              dimension: id { type: number sql: ${TABLE}.id ;; }
-            }
-            """,
-            "broken",
-        )
-        assert upstream.get_upstream_dataset_urn() == []
-        assert upstream.create_fields() == []
-        assert (
-            upstream.get_upstream_column_ref(
-                _field(harness, self.DERIVED, "facts", "id")
-            )
-            == []
-        )
-        assert any(
-            w.title == "Table Level Lineage Missing" for w in harness.reporter.warnings
-        )
-
-
-def _api_harness(tmp_path: pathlib.Path) -> Harness:
-    base = tmp_path / "project"
-    base.mkdir()
-    config = LookMLSourceConfig.model_validate(
-        {
-            "base_folder": str(base),
-            "connection_to_platform_map": {"my_connection": "postgres"},
-            "project_name": "test_project",
-            "use_api_for_view_lineage": True,
-            "api": {
-                "client_id": "id",
-                "client_secret": "secret",
-                "base_url": "https://looker.example.com",
-            },
-        }
-    )
-    return Harness(base, config)
+EXPLORE_MAP = {"orders": "orders_explore"}
 
 
 def _api_explore() -> LookmlModelExplore:
@@ -313,107 +116,298 @@ def _api_explore() -> LookmlModelExplore:
     )
 
 
+def _api_client(sql: object = ORDERS_SQL) -> mock.MagicMock:
+    """A LookerAPI whose explore lookup fails (so fields come from the view
+    context) and whose SQL generation returns ``sql`` (or raises it)."""
+    client = mock.MagicMock(spec=LookerAPI)
+    client.lookml_model_explore.side_effect = RuntimeError("explore unavailable")
+    if isinstance(sql, BaseException) or callable(sql):
+        client.generate_sql_query.side_effect = sql
+    else:
+        client.generate_sql_query.return_value = sql
+    return client
+
+
+@pytest.fixture
+def api_project_factory(
+    lookml_project_factory: Callable[..., LookMLProject],
+) -> Callable[..., LookMLProject]:
+    def build(**overrides: object) -> LookMLProject:
+        return lookml_project_factory(
+            use_api_for_view_lineage=True, api=LOOKER_API_CONFIG, **overrides
+        )
+
+    return build
+
+
+class TestDerivedViewReferences:
+    def test_sql_table_name_reference_resolves_to_other_view_urn(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        lookml_project.write("parent.view.lkml", PARENT_VIEW)
+        upstream = lookml_project.upstream(
+            """
+            view: child {
+              derived_table: {
+                sql: SELECT id, shared FROM ${parent.SQL_TABLE_NAME} ;;
+              }
+              dimension: id { type: number sql: ${TABLE}.id ;; }
+            }
+            """,
+            "child",
+        )
+        assert isinstance(upstream, DerivedQueryUpstreamSource)
+        parent_urn = dataset_urn("test_project.view.parent", platform="looker")
+        assert upstream.get_upstream_dataset_urn() == [parent_urn]
+        refs = upstream.get_upstream_column_ref(
+            lookml_project.field(PARENT_VIEW, "parent", "id")
+        )
+        assert [(r.table, r.column) for r in refs] == [(parent_urn, "id")]
+
+    def test_unknown_view_reference_is_dropped(
+        self, lookml_project: LookMLProject, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A ``${view.SQL_TABLE_NAME}`` pointing at a view that is not in any
+        included file yields no lineage at all rather than a dangling URN."""
+        upstream = lookml_project.upstream(
+            """
+            view: child {
+              derived_table: {
+                sql: SELECT id FROM ${missing.SQL_TABLE_NAME} ;;
+              }
+              dimension: id { type: number sql: ${TABLE}.id ;; }
+            }
+            """,
+            "child",
+        )
+        with caplog.at_level(logging.WARNING):
+            assert upstream.get_upstream_dataset_urn() == []
+            assert (
+                upstream.get_upstream_column_ref(
+                    lookml_project.field(ORDERS_VIEW, "orders", "id")
+                )
+                == []
+            )
+        assert "Not able to resolve to derived view looker id" in caplog.text
+
+
+class TestNativeDerivedView:
+    NATIVE = """
+    view: order_summary {
+      derived_table: {
+        explore_source: orders {
+          column: order_id { field: orders.id }
+          column: total { field: orders.amount }
+          column: plain {}
+        }
+      }
+      dimension: order_id { type: number sql: ${TABLE}.order_id ;; }
+      dimension: total { type: number sql: ${TABLE}.total ;; }
+      dimension: plain { type: string sql: ${TABLE}.plain ;; }
+      dimension: unmapped { type: string sql: ${TABLE}.unmapped ;; }
+    }
+    """
+
+    def test_upstream_is_the_source_explore(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        upstream = lookml_project.upstream(self.NATIVE, "order_summary")
+        assert isinstance(upstream, NativeDerivedViewUpstream)
+        explore_urn = dataset_urn("data.explore.orders", platform="looker")
+        assert upstream.get_upstream_dataset_urn() == [explore_urn]
+
+        def refs(field: str) -> List[str]:
+            return [
+                r.column
+                for r in upstream.get_upstream_column_ref(
+                    lookml_project.field(self.NATIVE, "order_summary", field)
+                )
+            ]
+
+        # `field:` maps the column onto the explore field; a bare column keeps its name.
+        assert refs("order_id") == ["orders.id"]
+        assert refs("plain") == ["plain"]
+        assert refs("unmapped") == []
+
+    def test_view_missing_from_cache_is_an_error(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        upstream = lookml_project.upstream(self.NATIVE, "order_summary")
+        lookml_project.model.resolved_includes.clear()
+        with pytest.raises(ValueError, match="not found"):
+            upstream.get_upstream_dataset_urn()
+
+
+class TestSqlParsingSwitches:
+    DERIVED = """
+    view: facts {
+      derived_table: {
+        sql: SELECT id, amount FROM analytics.orders ;;
+      }
+      dimension: id { type: number sql: ${TABLE}.id ;; }
+    }
+    """
+
+    def test_disabled_sql_parsing_yields_nothing(
+        self, lookml_project_factory: Callable[..., LookMLProject]
+    ) -> None:
+        project = lookml_project_factory(parse_table_names_from_sql=False)
+        upstream = project.upstream(self.DERIVED, "facts")
+        assert upstream.get_upstream_dataset_urn() == []
+        assert upstream.create_fields() == []
+        assert (
+            upstream.get_upstream_column_ref(project.field(self.DERIVED, "facts", "id"))
+            == []
+        )
+
+    def test_unparseable_sql_is_reported_without_lineage(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        upstream = lookml_project.upstream(
+            """
+            view: broken {
+              derived_table: {
+                sql: SELECT FROM WHERE ((( ;;
+              }
+              dimension: id { type: number sql: ${TABLE}.id ;; }
+            }
+            """,
+            "broken",
+        )
+        assert upstream.get_upstream_dataset_urn() == []
+        assert upstream.create_fields() == []
+        assert (
+            upstream.get_upstream_column_ref(
+                lookml_project.field(self.DERIVED, "facts", "id")
+            )
+            == []
+        )
+        assert "Table Level Lineage Missing" in lookml_project.warning_titles()
+
+
 class TestLookerQueryApiUpstream:
     def test_sql_from_api_drives_table_and_column_lineage(
-        self, tmp_path: pathlib.Path
+        self, api_project_factory: Callable[..., LookMLProject]
     ) -> None:
-        harness = _api_harness(tmp_path)
-        client = mock.MagicMock(spec=LookerAPI)
+        project = api_project_factory()
+        client = _api_client()
+        client.lookml_model_explore.side_effect = None
         client.lookml_model_explore.return_value = _api_explore()
-        client.generate_sql_query.return_value = ORDERS_SQL
 
-        upstream = _upstream(
-            harness,
-            ORDERS_VIEW,
-            "orders",
-            looker_client=client,
-            view_to_explore_map={"orders": "orders_explore"},
+        upstream = project.upstream(
+            ORDERS_VIEW, "orders", looker_client=client, view_to_explore_map=EXPLORE_MAP
         )
         assert isinstance(upstream, LookerQueryAPIBasedViewUpstream)
-        assert upstream.get_upstream_dataset_urn() == [_dataset_urn("db.public.orders")]
+        assert upstream.get_upstream_dataset_urn() == [dataset_urn("db.public.orders")]
 
         query: WriteQuery = client.generate_sql_query.call_args.kwargs["write_query"]
         assert query.view == "orders_explore"
         assert query.model == "data"
+        assert query.limit == "1"
         # One field per dimension group, and only this view's fields.
         assert query.fields == ["orders.id", "orders.created_date", "orders.count"]
 
         id_refs = upstream.get_upstream_column_ref(
-            _field(harness, ORDERS_VIEW, "orders", "id")
+            project.field(ORDERS_VIEW, "orders", "id")
         )
         assert [(r.table, r.column) for r in id_refs] == [
-            (_dataset_urn("db.public.orders"), "ID")
+            (dataset_urn("db.public.orders"), "ID")
         ]
         created_refs = upstream.get_upstream_column_ref(
-            _field(harness, ORDERS_VIEW, "orders", "created")
+            project.field(ORDERS_VIEW, "orders", "created")
         )
         assert [r.column for r in created_refs] == ["CREATED_AT"]
         assert (
             upstream.get_upstream_column_ref(
-                _field(harness, ORDERS_VIEW, "orders", "since_signup")
+                project.field(ORDERS_VIEW, "orders", "since_signup")
             )
             == []
         )
-        fields = upstream.create_fields()
-        assert sorted(f.name for f in fields) == ["amount", "created_date", "id"]
-        assert harness.reporter.looker_query_api_latency_seconds
+        # Aliases prefixed with the view name are unqualified; others are kept whole.
+        assert sorted(f.name for f in upstream.create_fields()) == [
+            "amount",
+            "created_date",
+            "id",
+            "note",
+        ]
+        assert project.reporter.looker_query_api_latency_seconds
 
     def test_fields_fall_back_to_view_context_when_explore_lookup_fails(
-        self, tmp_path: pathlib.Path
+        self, api_project_factory: Callable[..., LookMLProject]
     ) -> None:
-        harness = _api_harness(tmp_path)
-        client = mock.MagicMock(spec=LookerAPI)
-        client.lookml_model_explore.side_effect = RuntimeError("explore unavailable")
-        client.generate_sql_query.return_value = ORDERS_SQL
+        """Without explore metadata the query is built from the view's own
+        fields: time groups use their first timeframe (``_raw`` when none is
+        declared), duration groups their first interval (days by default), and
+        untyped or unknown dimension groups are skipped."""
+        project = api_project_factory()
+        client = _api_client()
 
-        upstream = _upstream(
-            harness,
-            ORDERS_VIEW,
-            "orders",
-            looker_client=client,
-            view_to_explore_map={"orders": "orders_explore"},
+        upstream = project.upstream(
+            ORDERS_VIEW, "orders", looker_client=client, view_to_explore_map=EXPLORE_MAP
         )
         assert isinstance(upstream, LookerQueryAPIBasedViewUpstream)
         query: WriteQuery = client.generate_sql_query.call_args.kwargs["write_query"]
-        # Time groups use the first timeframe, duration groups the first interval;
-        # untyped or unknown dimension groups are skipped.
         assert query.fields == [
             "orders.id",
             "orders.amount",
             "orders.count",
             "orders.created_date",
+            "orders.updated_raw",
             "orders.days_since_signup",
+            "orders.days_since_order",
         ]
 
-    def test_api_failure_falls_back_to_regex_parsing(
-        self, tmp_path: pathlib.Path
+    def test_empty_sql_response_falls_back_to_regex_parsing(
+        self, api_project_factory: Callable[..., LookMLProject]
     ) -> None:
-        harness = _api_harness(tmp_path)
-        client = mock.MagicMock(spec=LookerAPI)
-        client.lookml_model_explore.return_value = _api_explore()
-        client.generate_sql_query.return_value = ""
+        project = api_project_factory()
+        client = _api_client(sql="")
 
-        upstream = _upstream(
-            harness,
-            ORDERS_VIEW,
-            "orders",
-            looker_client=client,
-            view_to_explore_map={"orders": "orders_explore"},
+        upstream = project.upstream(
+            ORDERS_VIEW, "orders", looker_client=client, view_to_explore_map=EXPLORE_MAP
         )
         assert isinstance(upstream, RegularViewUpstream)
         assert upstream.get_upstream_dataset_urn() == [
-            _dataset_urn("db.analytics.orders")
+            dataset_urn("db.analytics.orders")
         ]
-        assert any(
-            w.title == "Looker Query API based View Upstream Failed"
-            for w in harness.reporter.warnings
-        )
+        assert "Looker Query API based View Upstream Failed" in project.warning_titles()
 
-    def test_view_not_in_explore_map_skips_api(self, tmp_path: pathlib.Path) -> None:
-        harness = _api_harness(tmp_path)
-        client = mock.MagicMock(spec=LookerAPI)
-        upstream = _upstream(
-            harness,
+    def test_unparseable_sql_keeps_api_upstream_when_partial_results_allowed(
+        self, api_project_factory: Callable[..., LookMLProject]
+    ) -> None:
+        """``allow_partial_lineage_results`` (the default) turns a SQL parse
+        failure into a warning plus empty lineage instead of a fallback."""
+        project = api_project_factory()
+        client = _api_client(sql="SELECT ((( FROM")
+
+        upstream = project.upstream(
+            ORDERS_VIEW, "orders", looker_client=client, view_to_explore_map=EXPLORE_MAP
+        )
+        assert isinstance(upstream, LookerQueryAPIBasedViewUpstream)
+        assert upstream.get_upstream_dataset_urn() == []
+        assert upstream.create_fields() == []
+        assert "Table Level Lineage Extraction Failed" in project.warning_titles()
+
+    def test_unparseable_sql_falls_back_to_regex_when_partial_results_disallowed(
+        self, api_project_factory: Callable[..., LookMLProject]
+    ) -> None:
+        project = api_project_factory(allow_partial_lineage_results=False)
+        client = _api_client(sql="SELECT ((( FROM")
+
+        upstream = project.upstream(
+            ORDERS_VIEW, "orders", looker_client=client, view_to_explore_map=EXPLORE_MAP
+        )
+        assert isinstance(upstream, RegularViewUpstream)
+        titles = project.warning_titles()
+        assert "Table Level Lineage Extraction Failed" in titles
+        assert "Looker Query API based View Upstream Failed" in titles
+
+    def test_view_not_in_explore_map_skips_api(
+        self, api_project_factory: Callable[..., LookMLProject]
+    ) -> None:
+        project = api_project_factory()
+        client = _api_client()
+        upstream = project.upstream(
             ORDERS_VIEW,
             "orders",
             looker_client=client,
@@ -422,84 +416,86 @@ class TestLookerQueryApiUpstream:
         assert isinstance(upstream, RegularViewUpstream)
         client.generate_sql_query.assert_not_called()
 
+    def test_explore_fields_are_fetched_once_per_explore(self) -> None:
+        """Explore metadata is cached process-wide keyed on (client, model,
+        explore) because many views share one explore."""
+        client = mock.MagicMock(spec=LookerAPI)
+        client.lookml_model_explore.side_effect = lambda model, explore, fields=None: (
+            LookmlModelExplore(name=explore)
+        )
+        fetch = LookerQueryAPIBasedViewUpstream.get_explore_fields_from_looker_api
+
+        first = fetch(client, "data", "orders_explore")
+        assert fetch(client, "data", "orders_explore") is first
+        assert fetch(client, "data", "other_explore").name == "other_explore"
+        assert client.lookml_model_explore.call_count == 2
+
 
 class TestFieldSplitting:
-    def _harness(self, tmp_path: pathlib.Path, threshold: int = 1) -> Harness:
-        base = tmp_path / "project"
-        base.mkdir()
-        config = LookMLSourceConfig.model_validate(
-            {
-                "base_folder": str(base),
-                "connection_to_platform_map": {"my_connection": "postgres"},
-                "project_name": "test_project",
-                "use_api_for_view_lineage": True,
-                "field_threshold_for_splitting": threshold,
-                "max_workers_for_parallel_processing": 2,
-                "api": {
-                    "client_id": "id",
-                    "client_secret": "secret",
-                    "base_url": "https://looker.example.com",
-                },
-            }
+    @pytest.fixture
+    def project(
+        self, api_project_factory: Callable[..., LookMLProject]
+    ) -> LookMLProject:
+        return api_project_factory(
+            field_threshold_for_splitting=1, max_workers_for_parallel_processing=2
         )
-        return Harness(base, config)
-
-    SMALL_VIEW = """
-    view: orders {
-      sql_table_name: analytics.orders ;;
-      dimension: id { type: number sql: ${TABLE}.id ;; }
-      dimension: amount { type: number sql: ${TABLE}.amount ;; }
-    }
-    """
 
     @staticmethod
-    def _sql_for(query: WriteQuery, broken: str) -> str:
+    def _sql_for(query: WriteQuery, broken: str = "") -> str:
         fields = list(query.fields or [])
-        if broken in fields:
+        if broken and broken in fields:
             return "SELECT ((( FROM"
         column = fields[0].split(".")[1]
         return f'SELECT orders."{column.upper()}" AS "{fields[0]}" FROM public.orders AS orders'
 
-    def test_chunks_are_combined_and_failures_are_isolated(
-        self, tmp_path: pathlib.Path
+    def test_all_chunks_succeeding_reports_complete_success(
+        self, project: LookMLProject
     ) -> None:
-        harness = self._harness(tmp_path)
-        client = mock.MagicMock(spec=LookerAPI)
-        client.lookml_model_explore.side_effect = RuntimeError("no explore")
-        client.generate_sql_query.side_effect = lambda write_query, use_cache: (
-            self._sql_for(write_query, "orders.amount")
+        client = _api_client(
+            sql=lambda write_query, use_cache: self._sql_for(write_query)
         )
 
-        upstream = _upstream(
-            harness,
-            self.SMALL_VIEW,
-            "orders",
-            looker_client=client,
-            view_to_explore_map={"orders": "orders_explore"},
+        upstream = project.upstream(
+            SMALL_VIEW, "orders", looker_client=client, view_to_explore_map=EXPLORE_MAP
         )
         assert isinstance(upstream, LookerQueryAPIBasedViewUpstream)
-        assert upstream.get_upstream_dataset_urn() == [_dataset_urn("db.public.orders")]
+        assert client.generate_sql_query.call_count == 2
+        assert upstream.get_upstream_dataset_urn() == [dataset_urn("db.public.orders")]
+        assert sorted(f.name for f in upstream.create_fields()) == ["amount", "id"]
+        assert "Field Splitting Statistics - Complete Success" in [
+            i.title for i in project.reporter.infos
+        ]
+
+    def test_chunks_are_combined_and_failures_are_isolated(
+        self, project: LookMLProject
+    ) -> None:
+        """One chunk's SQL failing to parse costs only that chunk's fields; the
+        rest of the view still gets lineage from the chunks that succeeded."""
+        client = _api_client(
+            sql=lambda write_query, use_cache: self._sql_for(
+                write_query, broken="orders.amount"
+            )
+        )
+
+        upstream = project.upstream(
+            SMALL_VIEW, "orders", looker_client=client, view_to_explore_map=EXPLORE_MAP
+        )
+        assert isinstance(upstream, LookerQueryAPIBasedViewUpstream)
+        assert upstream.get_upstream_dataset_urn() == [dataset_urn("db.public.orders")]
         assert [f.name for f in upstream.create_fields()] == ["id"]
-        titles = [w.title for w in harness.reporter.warnings]
+        titles = project.warning_titles()
         assert "Problematic Fields Identified in LookMl View Processing" in titles
         assert "Field Splitting Statistics - Partial Success" in titles
 
     def test_all_chunks_failing_falls_back_to_regex_parsing(
-        self, tmp_path: pathlib.Path
+        self, project: LookMLProject
     ) -> None:
-        harness = self._harness(tmp_path)
-        client = mock.MagicMock(spec=LookerAPI)
-        client.lookml_model_explore.side_effect = RuntimeError("no explore")
-        client.generate_sql_query.side_effect = RuntimeError("api down")
+        client = _api_client(sql=RuntimeError("api down"))
 
-        upstream = _upstream(
-            harness,
-            self.SMALL_VIEW,
-            "orders",
-            looker_client=client,
-            view_to_explore_map={"orders": "orders_explore"},
+        upstream = project.upstream(
+            SMALL_VIEW, "orders", looker_client=client, view_to_explore_map=EXPLORE_MAP
         )
         assert isinstance(upstream, RegularViewUpstream)
-        titles = [w.title for w in harness.reporter.warnings]
+        titles = project.warning_titles()
         assert "Field Chunk Processing Failed" in titles
         assert "Looker Query API based View Upstream Failed" in titles

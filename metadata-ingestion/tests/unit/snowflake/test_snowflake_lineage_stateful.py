@@ -1,34 +1,37 @@
 """Stateful-window handling and edge mapping in SnowflakeLineageExtractor."""
 
 from datetime import datetime, timezone
-from typing import List, Tuple
-from unittest.mock import MagicMock
+from typing import Any, List, Tuple
+from unittest.mock import NonCallableMock, create_autospec
 
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
     UpstreamTableNode,
 )
+from datahub.ingestion.source.snowflake.snowflake_utils import (
+    SnowflakeIdentifierBuilder,
+)
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantLineageRunSkipHandler,
+)
 from datahub.metadata.schema_classes import DatasetLineageTypeClass
 from datahub.utilities.time import ts_millis_to_datetime
-from tests.unit.snowflake.test_snowflake_lineage_extraction import (  # type: ignore[import-untyped]
+from tests.unit.snowflake.conftest import (
     END,
     START,
-    _make_extractor,
+    as_mock,
+    log_keys,
+    make_lineage_extractor,
 )
 
 EPOCH = ts_millis_to_datetime(0)
 
 
-def _as_mock(obj: object) -> MagicMock:
-    assert isinstance(obj, MagicMock)
-    return obj
-
-
 def _with_handler(
-    **config_overrides: object,
-) -> Tuple[SnowflakeLineageExtractor, MagicMock]:
-    extractor = _make_extractor(lambda _sql: [], **config_overrides)
-    handler = MagicMock()
+    **config_overrides: Any,
+) -> Tuple[SnowflakeLineageExtractor, NonCallableMock]:
+    extractor = make_lineage_extractor(lambda _sql: [], **config_overrides)
+    handler = create_autospec(RedundantLineageRunSkipHandler, instance=True)
     handler.suggest_run_time_window.return_value = (
         datetime(2024, 1, 1, 6, tzinfo=timezone.utc),
         END,
@@ -69,23 +72,28 @@ def test_redundant_window_skips_lineage_with_a_warning() -> None:
         discovered_tables=["db.s.t"], discovered_views=[]
     )
 
-    _as_mock(extractor.connection).query.assert_not_called()
-    assert len(extractor.report.warnings) == 1
+    as_mock(extractor.connection).query.assert_not_called()
+    assert (
+        "Skip this run as there was already a run for current ingestion window."
+        in log_keys(extractor.report.warnings)
+    )
 
 
 def test_permission_errors_are_warnings_only_under_stateful_ingestion() -> None:
-    plain = _make_extractor(lambda _sql: [])
+    plain = make_lineage_extractor(lambda _sql: [])
     plain.warn_if_stateful_else_error("key", "reason")
-    assert len(plain.report.failures) == 1
+    assert "key" in log_keys(plain.report.failures)
 
-    stateful = _make_extractor(lambda _sql: [], stateful_ingestion={"enabled": True})
+    stateful = make_lineage_extractor(
+        lambda _sql: [], stateful_ingestion={"enabled": True}
+    )
     stateful.warn_if_stateful_else_error("key", "reason")
     assert stateful.report.failures == []
-    assert len(stateful.report.warnings) == 1
+    assert "key" in log_keys(stateful.report.warnings)
 
 
 def test_external_upstreams_are_limited_to_s3_locations() -> None:
-    extractor = _make_extractor(lambda _sql: [])
+    extractor = make_lineage_extractor(lambda _sql: [])
 
     upstreams = extractor.get_external_upstreams(
         {"s3://bucket/b", "gcs://bucket/a", "s3://bucket/a"}
@@ -97,7 +105,7 @@ def test_external_upstreams_are_limited_to_s3_locations() -> None:
 
 
 def test_upstreams_from_other_queries_or_unparseable_names_are_dropped() -> None:
-    extractor = _make_extractor(lambda _sql: [])
+    extractor = make_lineage_extractor(lambda _sql: [])
     nodes: List[UpstreamTableNode] = [
         UpstreamTableNode(
             upstream_object_domain="TABLE",
@@ -110,10 +118,10 @@ def test_upstreams_from_other_queries_or_unparseable_names_are_dropped() -> None
             query_id="other",
         ),
     ]
-    extractor.identifiers = MagicMock()
-    extractor.identifiers.get_dataset_identifier_from_qualified_name.side_effect = (
-        ValueError("bad name")
-    )
+    extractor.identifiers = create_autospec(SnowflakeIdentifierBuilder, instance=True)
+    as_mock(
+        extractor.identifiers
+    ).get_dataset_identifier_from_qualified_name.side_effect = ValueError("bad name")
 
     assert extractor.map_query_result_upstreams(nodes, "q1") == []
     assert extractor.map_query_result_upstreams(None, "q1") == []

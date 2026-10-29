@@ -1,6 +1,6 @@
 """OracleInspectorObjectWrapper (DBA_* data dictionary) behaviour: identifier
-normalisation, column type mapping, constraint parsing, and procedure
-dependency parsing, against a stubbed SQLAlchemy connection."""
+normalisation, column type mapping and constraint parsing, against a stubbed
+SQLAlchemy connection."""
 
 from typing import Dict, List, Optional, Tuple
 from unittest.mock import Mock
@@ -10,28 +10,11 @@ import sqlalchemy.exc
 from sqlalchemy.engine import Connection, Inspector
 from sqlalchemy.sql import sqltypes
 
-from datahub.ingestion.source.sql.oracle import (
-    OracleInspectorObjectWrapper,
-    _parse_oracle_procedure_dependencies,
-)
+from datahub.ingestion.source.sql.oracle import OracleInspectorObjectWrapper
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.ingestion.source.sql.sql_utils import gen_database_key
+from tests.unit.sql_test_helpers import FakeResult
 
 Row = Tuple[object, ...]
-
-
-class _Cursor:
-    def __init__(self, rows: List[Row]) -> None:
-        self._rows = rows
-
-    def __iter__(self):
-        return iter(self._rows)
-
-    def fetchall(self) -> List[Row]:
-        return list(self._rows)
-
-    def scalar(self) -> Optional[object]:
-        return self._rows[0][0] if self._rows else None
 
 
 @pytest.fixture
@@ -63,7 +46,8 @@ def wrapper(inspector: Mock, report: Mock) -> OracleInspectorObjectWrapper:
 
 
 def _answer(inspector: Mock, rows: List[Row]) -> None:
-    inspector.bind.execute.return_value = _Cursor(rows)
+    """Make every data-dictionary query on the wrapped connection return ``rows``."""
+    inspector.bind.execute.return_value = FakeResult(rows)
 
 
 def _last_query(inspector: Mock) -> Tuple[str, Dict[str, object]]:
@@ -158,6 +142,9 @@ def test_columns_map_oracle_data_types(
 def test_virtual_and_identity_columns_move_their_expression_out_of_default(
     wrapper: OracleInspectorObjectWrapper, inspector: Mock
 ) -> None:
+    """Oracle reports a virtual column's expression and an identity column's
+    sequence as DATA_DEFAULT; neither is a default value, so they are surfaced
+    as ``computed`` / ``identity`` and the default is cleared."""
     inspector.dialect._parse_identity_options.return_value = {"always": True}
     _answer(
         inspector,
@@ -252,6 +239,8 @@ def test_primary_key_lookup_failure_degrades_to_no_key_with_a_warning(
 def test_foreign_keys_group_columns_per_constraint_with_referred_schema(
     wrapper: OracleInspectorObjectWrapper, inspector: Mock
 ) -> None:
+    """A composite FK arrives as one row per column; they must be folded into
+    a single constraint, keeping the remote schema when it differs from the owner."""
     _answer(
         inspector,
         [
@@ -302,23 +291,3 @@ def test_view_definition_is_scoped_to_the_owner(
     sql, params = _last_query(inspector)
     assert "owner = :owner" in sql
     assert params == {"view_name": "V_ORDERS", "owner": "HR"}
-
-
-def test_procedure_dependencies_keep_only_procedure_like_objects() -> None:
-    database_key = gen_database_key(
-        database="orcl", platform="oracle", platform_instance=None, env="PROD"
-    )
-    deps = (
-        "HR.LOG_EVENT (PROCEDURE), HR.EMPLOYEES (TABLE), "
-        "HR.UTIL_PKG (PACKAGE), malformed entry, SALES.CALC (FUNCTION)"
-    )
-    urns = _parse_oracle_procedure_dependencies(
-        deps, database_key, None, procedure_registry={"hr.util_pkg": "util_pkg_v2"}
-    )
-
-    assert len(urns) == 3
-    assert any(urn.endswith(",log_event)") for urn in urns)
-    assert any(urn.endswith(",util_pkg_v2)") for urn in urns)
-    assert any("sales" in urn and urn.endswith(",calc)") for urn in urns)
-    assert not any("employees" in urn for urn in urns)
-    assert _parse_oracle_procedure_dependencies("  ", database_key, None) == []

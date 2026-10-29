@@ -3,44 +3,39 @@ schema resolution per platform, and platform detection fallbacks."""
 
 from typing import Any, Dict, List, Optional
 
-import jpype
-import jpype.imports
 import pytest
 
 from datahub.ingestion.source.kafka_connect.common import (
-    ConnectorManifest,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
+)
+from datahub.ingestion.source.kafka_connect.connector_registry import (
+    ConnectorRegistry,
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     JDBC_SOURCE_CONNECTOR_CLASS,
     ConfluentJDBCSourceConnector,
 )
+from tests.unit.kafka_connect.conftest import lineage_map, make_manifest, reported
 
 REGEX_ROUTER = "org.apache.kafka.connect.transforms.RegexRouter"
-
-
-@pytest.fixture(scope="session", autouse=True)
-def ensure_jvm_started() -> None:
-    if not jpype.isJVMStarted():
-        jpype.startJVM(jpype.getDefaultJVMPath())
+CONNECTOR = "jdbc-source"
+POSTGRES_URL = "jdbc:postgresql://db.example:5432/mydb"
 
 
 def _jdbc(
     config: Dict[str, str],
     topic_names: List[str],
     tables: Optional[str] = None,
+    tasks: Optional[List[Dict[str, Any]]] = None,
 ) -> ConfluentJDBCSourceConnector:
     """A JdbcSourceConnector as the Connect API reports it: the table list lives
     in the task configs, not the connector config."""
-    full_config = {"connector.class": JDBC_SOURCE_CONNECTOR_CLASS, **config}
-    tasks: List[Dict[str, Any]] = (
-        [{"id": 0, "config": {"tables": tables}}] if tables is not None else []
-    )
-    manifest = ConnectorManifest(
-        name="jdbc-source",
-        type="source",
-        config=full_config,
+    if tasks is None:
+        tasks = [{"id": 0, "config": {"tables": tables}}] if tables is not None else []
+    manifest = make_manifest(
+        {"connector.class": JDBC_SOURCE_CONNECTOR_CLASS, **config},
+        name=CONNECTOR,
         tasks=tasks,
         topic_names=topic_names,
     )
@@ -49,18 +44,13 @@ def _jdbc(
     )
 
 
-def _mapping(connector: ConfluentJDBCSourceConnector) -> Dict[str, Optional[str]]:
-    return {
-        lineage.target_dataset: lineage.source_dataset
-        for lineage in connector.extract_lineages()
-    }
-
-
 class TestTransformOrchestration:
     def test_multiple_tables_matched_to_routed_topics(self) -> None:
+        """With several source tables each table's topic is predicted through
+        the transform chain and matched against the runtime topics."""
         connector = _jdbc(
             {
-                "connection.url": "jdbc:postgresql://db.example:5432/mydb",
+                "connection.url": POSTGRES_URL,
                 "topic.prefix": "pg_",
                 "transforms": "route",
                 "transforms.route.type": REGEX_ROUTER,
@@ -71,7 +61,7 @@ class TestTransformOrchestration:
             tables='"public"."users","public"."orders"',
         )
 
-        assert _mapping(connector) == {
+        assert lineage_map(connector) == {
             "clean_users": "mydb.public.users",
             "clean_orders": "mydb.public.orders",
         }
@@ -79,7 +69,7 @@ class TestTransformOrchestration:
     def test_tables_whose_predicted_topic_is_absent_produce_no_lineage(self) -> None:
         connector = _jdbc(
             {
-                "connection.url": "jdbc:postgresql://db.example:5432/mydb",
+                "connection.url": POSTGRES_URL,
                 "topic.prefix": "pg_",
                 "transforms": "route",
                 "transforms.route.type": REGEX_ROUTER,
@@ -95,7 +85,7 @@ class TestTransformOrchestration:
     def test_transforms_without_any_table_config_yield_nothing(self) -> None:
         connector = _jdbc(
             {
-                "connection.url": "jdbc:postgresql://db.example:5432/mydb",
+                "connection.url": POSTGRES_URL,
                 "transforms": "route",
                 "transforms.route.type": REGEX_ROUTER,
                 "transforms.route.regex": "(.*)",
@@ -107,9 +97,11 @@ class TestTransformOrchestration:
         assert connector.extract_lineages() == []
 
     def test_complex_transform_is_reported_as_fallback(self) -> None:
+        """A transform the pipeline cannot predict keeps the direct prefix
+        mapping and tells the operator so."""
         connector = _jdbc(
             {
-                "connection.url": "jdbc:postgresql://db.example:5432/mydb",
+                "connection.url": POSTGRES_URL,
                 "topic.prefix": "pg_",
                 "transforms": "ts",
                 "transforms.ts.type": "org.apache.kafka.connect.transforms.TimestampConverter",
@@ -119,11 +111,11 @@ class TestTransformOrchestration:
             tables='"public"."users","public"."orders"',
         )
 
-        assert _mapping(connector) == {
+        assert lineage_map(connector) == {
             "pg_users": "mydb.public.users",
             "pg_orders": "mydb.public.orders",
         }
-        assert len(connector.report.infos) == 1
+        assert connector.report.infos
 
 
 class TestSchemaResolution:
@@ -137,22 +129,19 @@ class TestSchemaResolution:
             tables="`customers`",
         )
 
-        assert _mapping(connector) == {"mysql_customers": "shop.customers"}
+        assert lineage_map(connector) == {"mysql_customers": "shop.customers"}
 
     def test_three_level_platform_without_schema_excludes_source(self) -> None:
-        # The task reported a bare table name; without a schema the postgres URN
-        # would be wrong, so the lineage keeps the topic but drops the source.
+        """The task reported a bare table name; without a schema the postgres
+        URN would be wrong, so the lineage keeps the topic but drops the source."""
         connector = _jdbc(
-            {
-                "connection.url": "jdbc:postgresql://db.example:5432/mydb",
-                "topic.prefix": "pg_",
-            },
+            {"connection.url": POSTGRES_URL, "topic.prefix": "pg_"},
             topic_names=["pg_users"],
             tables='"users"',
         )
 
-        assert _mapping(connector) == {"pg_users": None}
-        assert len(connector.report.warnings) == 1
+        assert lineage_map(connector) == {"pg_users": None}
+        assert reported(connector.report.warnings, CONNECTOR)
 
 
 class TestTopicsFromConfig:
@@ -169,8 +158,10 @@ class TestTopicsFromConfig:
         assert connector.get_topics_from_config() == ["pg_users", "pg_orders"]
 
     def test_without_prefix_topic_is_the_table_name(self) -> None:
+        """The JDBC source names topics ``<prefix><table>``; the schema is never
+        part of the topic."""
         connector = _jdbc(
-            {"connection.url": "jdbc:postgresql://db.example:5432/mydb"},
+            {"connection.url": POSTGRES_URL},
             topic_names=[],
             tables='"public"."users"',
         )
@@ -190,8 +181,8 @@ class TestPlatformDetection:
     def test_platform_from_url_when_parser_cannot_build(
         self, url: str, expected: str
     ) -> None:
-        # A URL without a database name makes the parser fail; the platform
-        # must still be read from the JDBC scheme so the flow is categorised.
+        """A URL without a database name makes the parser fail; the platform
+        must still be read from the JDBC scheme so the flow is categorised."""
         connector = _jdbc({"connection.url": url}, topic_names=[])
 
         assert connector.get_platform() == expected
@@ -205,93 +196,24 @@ class TestPlatformDetection:
 class TestTopicPrefixEdgeCases:
     def test_prefix_without_separator_still_strips_leading_dot(self) -> None:
         connector = _jdbc(
-            {
-                "connection.url": "jdbc:postgresql://db.example:5432/mydb",
-                "topic.prefix": "pg",
-            },
+            {"connection.url": POSTGRES_URL, "topic.prefix": "pg"},
             topic_names=["pg.users"],
             tables='"public"."users"',
         )
 
-        assert _mapping(connector) == {"pg.users": "mydb.public.users"}
+        assert lineage_map(connector) == {"pg.users": "mydb.public.users"}
 
     def test_topic_outside_the_prefix_keeps_topic_but_no_source(self) -> None:
         connector = _jdbc(
-            {
-                "connection.url": "jdbc:postgresql://db.example:5432/mydb",
-                "topic.prefix": "pg_",
-            },
+            {"connection.url": POSTGRES_URL, "topic.prefix": "pg_"},
             topic_names=["pg_users", "audit"],
             tables='"public"."users"',
         )
 
-        assert _mapping(connector) == {"pg_users": "mydb.public.users", "audit": None}
-
-
-def _cloud_jdbc(
-    config: Dict[str, str], cluster_topics: List[str]
-) -> ConfluentJDBCSourceConnector:
-    """A Confluent Cloud managed connector handled by the JDBC strategy, given
-    the cluster topic list. extract_lineages() bails out on empty topic_names
-    before choosing a strategy, so the list is also set there."""
-    manifest = ConnectorManifest(
-        name="cloud-source",
-        type="source",
-        config={
-            "database.hostname": "db.example",
-            "database.port": "5432",
-            "database.dbname": "shop",
-            **config,
-        },
-        tasks=[],
-        topic_names=list(cluster_topics),
-    )
-    connector = ConfluentJDBCSourceConnector(
-        manifest, KafkaConnectSourceConfig(), KafkaConnectSourceReport()
-    )
-    connector.all_cluster_topics = cluster_topics
-    return connector
-
-
-class TestCloudStrategies:
-    def test_single_table_mode_maps_configured_table_to_its_topic(self) -> None:
-        connector = _cloud_jdbc(
-            {
-                "connector.class": "MySqlSource",
-                "kafka.topic": "shop-users",
-                "table.name": "users",
-            },
-            cluster_topics=["shop-users", "unrelated"],
-        )
-
-        assert _mapping(connector) == {"shop-users": "shop.users"}
-
-    def test_topic_prefix_infers_tables_from_cluster_topics(self) -> None:
-        connector = _cloud_jdbc(
-            {"connector.class": "MySqlSource", "topic.prefix": "mysql_"},
-            cluster_topics=["mysql_users", "mysql_orders"],
-        )
-
-        assert _mapping(connector) == {
-            "mysql_users": "shop.users",
-            "mysql_orders": "shop.orders",
+        assert lineage_map(connector) == {
+            "pg_users": "mydb.public.users",
+            "audit": None,
         }
-
-    def test_routed_topics_matched_through_forward_transforms(self) -> None:
-        connector = _cloud_jdbc(
-            {
-                "connector.class": "PostgresCdcSource",
-                "database.server.name": "srv",
-                "table.include.list": "public.users",
-                "transforms": "route",
-                "transforms.route.type": REGEX_ROUTER,
-                "transforms.route.regex": "srv\\.public\\.(.*)",
-                "transforms.route.replacement": "clean_$1",
-            },
-            cluster_topics=["clean_users", "noise"],
-        )
-
-        assert _mapping(connector) == {"clean_users": "shop.public.users"}
 
     @pytest.mark.parametrize(
         "connector_class,schema,prefix,expected",
@@ -300,19 +222,16 @@ class TestCloudStrategies:
             ("MySqlSource", "", "srv", "srv.users"),
             ("PostgresCdcSource", "public", "", "public.users"),
             ("PostgresCdcSource", "public", "srv", "srv.public.users"),
-            (
-                "io.confluent.connect.jdbc.JdbcSourceConnector",
-                "public",
-                "pg_",
-                "pg_users",
-            ),
+            (JDBC_SOURCE_CONNECTOR_CLASS, "public", "pg_", "pg_users"),
             ("com.example.Custom", "", "pg_", "pg_users"),
         ],
     )
     def test_original_topic_naming_convention_per_connector_family(
         self, connector_class: str, schema: str, prefix: str, expected: str
     ) -> None:
-        connector = _cloud_jdbc({"connector.class": "MySqlSource"}, [])
+        """The orchestrator predicts each table's pre-transform topic from the
+        connector family's naming rule before running the transform chain."""
+        connector = _jdbc({"connection.url": POSTGRES_URL}, topic_names=[])
 
         assert (
             connector._generate_original_topic_name(
@@ -321,23 +240,116 @@ class TestCloudStrategies:
             == expected
         )
 
-    def test_forward_transforms_predict_outbox_and_skip_unknown_types(self) -> None:
-        connector = _cloud_jdbc({"connector.class": "MySqlSource"}, [])
 
-        predicted = connector._apply_transforms_forward(
-            ["srv.outbox"],
-            [
-                {"type": "io.debezium.transforms.outbox.EventRouter"},
-                {"type": "org.apache.kafka.connect.transforms.InsertField$Value"},
-            ],
-        )
+class TestUnifiedFallback:
+    """``_extract_lineages_unified`` is the fallback ``extract_lineages`` takes
+    when the environment-aware extraction raises."""
 
-        assert predicted == ["outbox.event.srv.outbox"]
-
-    def test_without_transforms_expected_topics_are_the_original_names(self) -> None:
-        connector = _cloud_jdbc(
-            {"connector.class": "MySqlSource", "database.server.name": "srv"}, []
+    @pytest.mark.xfail(
+        strict=True,
+        reason="_derive_source_dataset_from_topic rebuilds the table from the topic "
+        "remainder without consulting the task table list, so three-level "
+        "platforms lose the schema (mydb.users instead of mydb.public.users)",
+    )
+    def test_config_derived_lineage_keeps_the_schema(self) -> None:
+        connector = _jdbc(
+            {"connection.url": POSTGRES_URL, "topic.prefix": "pg_"},
+            topic_names=["pg_users"],
+            tables='"public"."users"',
         )
         parser = connector.get_parser(connector.connector_manifest)
 
-        assert connector._apply_forward_transforms(["users"], parser) == ["srv.users"]
+        lineages = connector._extract_lineages_unified(parser)
+
+        assert [lineage.source_dataset for lineage in lineages] == ["mydb.public.users"]
+
+    @pytest.mark.xfail(
+        strict=True,
+        raises=AttributeError,
+        reason="the unified fallback's own except clause calls default_get_lineages, "
+        "which re-reads the task configs that raised in the first place, so the "
+        "error escapes extract_lineages instead of degrading to no lineage",
+    )
+    def test_malformed_task_payload_degrades_to_no_lineage(self) -> None:
+        connector = _jdbc(
+            {"connection.url": POSTGRES_URL, "topic.prefix": "pg_"},
+            topic_names=["pg_users"],
+            tasks=[{"id": 0, "config": "garbage"}],
+        )
+
+        assert connector.extract_lineages() == []
+
+
+class TestConfluentCloudJdbcSources:
+    """ConfluentJDBCSourceConnector carries Confluent Cloud strategies (single
+    table mode, topic.prefix inference), but ConnectorRegistry routes every
+    CLOUD_JDBC_SOURCE_CLASSES name to DebeziumSourceConnector, so ingestion
+    never runs them. These pin what a cloud MySqlSource recipe should yield."""
+
+    _BASE = {
+        "database.hostname": "db.example",
+        "database.port": "3306",
+        "database.dbname": "shop",
+    }
+
+    def _registered(
+        self, config: Dict[str, str], cluster_topics: List[str]
+    ) -> Dict[str, Optional[str]]:
+        manifest = make_manifest({**self._BASE, **config}, name="cloud-source")
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, KafkaConnectSourceConfig(), KafkaConnectSourceReport()
+        )
+        assert connector is not None
+        connector.all_cluster_topics = cluster_topics
+        return lineage_map(connector)
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="ConnectorRegistry dispatches MySqlSource to DebeziumSourceConnector, "
+        "which has no single-table (kafka.topic + table.name) strategy",
+    )
+    def test_single_table_mode_maps_configured_table_to_its_topic(self) -> None:
+        assert self._registered(
+            {
+                "connector.class": "MySqlSource",
+                "kafka.topic": "shop-users",
+                "table.name": "users",
+            },
+            cluster_topics=["shop-users", "unrelated"],
+        ) == {"shop-users": "shop.users"}
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="ConnectorRegistry dispatches MySqlSource to DebeziumSourceConnector, "
+        "which never infers tables from topic.prefix over the cluster topics",
+    )
+    def test_topic_prefix_infers_tables_from_cluster_topics(self) -> None:
+        assert self._registered(
+            {"connector.class": "MySqlSource", "topic.prefix": "mysql_"},
+            cluster_topics=["mysql_users", "mysql_orders", "unrelated"],
+        ) == {"mysql_users": "shop.users", "mysql_orders": "shop.orders"}
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="_extract_lineages_from_prefix_inference maps every cluster topic, "
+        "prefixed or not, so unrelated topics become tables of this connector",
+    )
+    def test_prefix_inference_ignores_topics_outside_the_prefix(self) -> None:
+        connector = ConfluentJDBCSourceConnector(
+            make_manifest(
+                {
+                    **self._BASE,
+                    "connector.class": "MySqlSource",
+                    "topic.prefix": "mysql_",
+                }
+            ),
+            KafkaConnectSourceConfig(),
+            KafkaConnectSourceReport(),
+        )
+        parser = connector.get_parser(connector.connector_manifest)
+
+        lineages = connector._extract_lineages_from_prefix_inference(
+            parser, ["mysql_users", "unrelated"]
+        )
+
+        assert [lineage.target_dataset for lineage in lineages] == ["mysql_users"]

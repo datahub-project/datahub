@@ -2,13 +2,11 @@
 
 from datetime import datetime, timezone
 from typing import List
-from unittest.mock import MagicMock
 
 from datahub.ingestion.source.snowflake.snowflake_assertion import (
     DataQualityMonitoringResult,
     SnowflakeAssertionsHandler,
 )
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
@@ -18,13 +16,14 @@ from datahub.metadata.schema_classes import (
     AssertionResultTypeClass,
     AssertionRunEventClass,
 )
+from tests.unit.snowflake.conftest import (
+    as_mock,
+    fake_connection,
+    log_keys,
+    make_v2_config,
+)
 
 MEASURED = datetime(2024, 1, 1, 12, tzinfo=timezone.utc)
-
-
-def _as_mock(obj: object) -> MagicMock:
-    assert isinstance(obj, MagicMock)
-    return obj
 
 
 def _row(metric: str, table: str = "ORDERS", value: int = 1) -> dict:
@@ -43,21 +42,12 @@ def _row(metric: str, table: str = "ORDERS", value: int = 1) -> dict:
 def _make_handler(
     rows: List[dict], **config_overrides: object
 ) -> SnowflakeAssertionsHandler:
-    config = SnowflakeV2Config.model_validate(
-        {
-            "account_id": "test_account",
-            "username": "user",
-            "password": "pass",
-            **config_overrides,
-        }
-    )
+    config = make_v2_config(**config_overrides)
     report = SnowflakeV2Report()
-    connection = MagicMock()
-    connection.query.return_value = rows
     return SnowflakeAssertionsHandler(
         config,
         report,
-        connection,
+        fake_connection(lambda _sql: rows),
         SnowflakeIdentifierBuilder(
             identifier_config=config, structured_reporter=report
         ),
@@ -65,6 +55,9 @@ def _make_handler(
 
 
 def test_results_for_discovered_datasets_become_run_events() -> None:
+    """Result rows for discovered tables become run events keyed by the DMF's
+    assertion URN (VALUE 1 is SUCCESS, 0 is FAILURE); rows for undiscovered
+    tables are dropped."""
     rows = [
         _row("datahub__abc", value=1),
         _row("datahub__abc", value=0),
@@ -76,7 +69,7 @@ def test_results_for_discovered_datasets_become_run_events() -> None:
 
     workunits = list(handler.get_assertion_workunits(["db.public.orders"]))
 
-    query = _as_mock(handler.connection).query.call_args.args[0]
+    query = as_mock(handler.connection).query.call_args.args[0]
     assert "ilike" not in query  # external DMFs included
     events = [
         wu.get_aspect_of_type(AssertionRunEventClass)
@@ -98,9 +91,7 @@ def test_malformed_result_row_is_reported_and_skipped() -> None:
     handler = _make_handler([{"METRIC_NAME": "datahub__abc"}])
 
     assert list(handler.get_assertion_workunits(["db.public.orders"])) == []
-    assert [w.message for w in handler.report.warnings] == [
-        "Failed to parse assertion result"
-    ]
+    assert "Failed to parse assertion result" in log_keys(handler.report.warnings)
 
 
 def test_argument_names_that_are_not_a_json_list_are_dropped() -> None:

@@ -1,10 +1,10 @@
 """Iceberg table-level metadata and profiling: how snapshot/manifest statistics,
 table properties and catalog connection settings end up in the emitted aspects."""
 
-from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
+import pytest
 from pyiceberg.catalog.rest import RestCatalog
 from pyiceberg.conversions import to_bytes
 from pyiceberg.io.pyarrow import PyArrowFileIO
@@ -13,7 +13,7 @@ from pyiceberg.schema import Schema
 from pyiceberg.table import Table
 from pyiceberg.table.metadata import TableMetadataV2
 from pyiceberg.table.snapshots import Operation, Snapshot, Summary
-from pyiceberg.table.sorting import UNSORTED_SORT_ORDER
+from pyiceberg.table.sorting import UNSORTED_SORT_ORDER, SortOrder
 from pyiceberg.types import (
     DateType,
     LongType,
@@ -42,10 +42,14 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     OwnershipClass,
 )
+from tests.unit.conftest import as_mock, log_contexts, log_titles
 
 GET_CATALOG = "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
 DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:iceberg,ns.tbl,PROD)"
 SNAPSHOT_TS_MS = 1700000000000
+# A local path nothing exists at, so manifest reads fail fast without touching
+# the network (an s3:// path would make pyarrow dial AWS).
+MANIFEST_LIST = "file:///nonexistent/ns/tbl/metadata/snap-1.avro"
 
 PROFILE_SCHEMA = Schema(
     NestedField(1, "id", LongType(), required=True),
@@ -81,11 +85,14 @@ class _Catalog:
 def _table(
     properties: Optional[Dict[str, str]] = None,
     last_updated_ms: int = 0,
+    sort_orders: Optional[List[SortOrder]] = None,
 ) -> Table:
+    """One snapshot, one schema, an unpartitioned spec and, unless given,
+    pyiceberg's default of no sort orders at all."""
     snapshot = Snapshot(
         snapshot_id=1,
         timestamp_ms=SNAPSHOT_TS_MS,
-        manifest_list="s3://bucket/ns/tbl/metadata/snap-1.avro",
+        manifest_list=MANIFEST_LIST,
         summary=Summary(
             operation=Operation.APPEND,
             **{"total-records": "10", "total-files-size": "2048"},
@@ -104,8 +111,7 @@ def _table(
             current_snapshot_id=1,
             last_updated_ms=last_updated_ms,
             properties=properties or {},
-            # Needed because the partition-spec warning path repr()s the table.
-            sort_orders=[UNSORTED_SORT_ORDER],
+            sort_orders=sort_orders or [],
             default_sort_order_id=0,
         ),
         metadata_location="s3://bucket/ns/tbl/metadata/v1.metadata.json",
@@ -117,6 +123,7 @@ def _table(
 def _ingest(
     table: Table, **config_overrides: Any
 ) -> Tuple[IcebergSource, Dict[str, Dict[str, Any]]]:
+    """Run the source over ``table`` and index the emitted aspects by urn and aspect name."""
     config = IcebergSourceConfig(
         catalog={"test": {"type": "rest"}},
         processing_threads=1,
@@ -126,11 +133,13 @@ def _ingest(
     with patch(GET_CATALOG, return_value=_Catalog(table)):
         workunits: List[MetadataWorkUnit] = list(source.get_workunits_internal())
 
-    aspects: Dict[str, Dict[str, Any]] = defaultdict(dict)
+    aspects: Dict[str, Dict[str, Any]] = {}
     for wu in workunits:
         assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
         assert wu.metadata.entityUrn and wu.metadata.aspectName
-        aspects[wu.metadata.entityUrn][wu.metadata.aspectName] = wu.metadata.aspect
+        aspects.setdefault(wu.metadata.entityUrn, {})[wu.metadata.aspectName] = (
+            wu.metadata.aspect
+        )
     return source, aspects
 
 
@@ -140,21 +149,20 @@ def _ingest(
 
 
 def test_snapshot_drives_last_modified_and_custom_properties() -> None:
+    """Metadata here has no last-updated time, so the current snapshot's
+    timestamp is used; ``created-at`` comes from the table properties."""
     table = _table(properties={"created-at": "2024-01-02T03:04:05Z"})
 
     _, aspects = _ingest(table)
 
     props = aspects[DATASET_URN]["datasetProperties"]
     assert isinstance(props, DatasetPropertiesClass)
-    # Metadata has no last-updated time, so the current snapshot's is used.
     assert props.lastModified is not None
     assert props.lastModified.time == SNAPSHOT_TS_MS
     assert props.created is not None
     assert props.created.time == 1704164645000
     assert props.customProperties["snapshot-id"] == "1"
-    assert props.customProperties["manifest-list"] == (
-        "s3://bucket/ns/tbl/metadata/snap-1.avro"
-    )
+    assert props.customProperties["manifest-list"] == MANIFEST_LIST
 
 
 def test_unparseable_created_at_is_ignored() -> None:
@@ -167,18 +175,50 @@ def test_unparseable_created_at_is_ignored() -> None:
     assert props.customProperties["created-at"] == "yesterday-ish"
 
 
-def test_partition_spec_failure_degrades_to_none_and_warns() -> None:
-    table = _table()
+PARTITION_SPEC_JSON = "datahub.ingestion.source.iceberg.iceberg.partition_spec_json"
+PARTITION_WARNING = "Failed to extract partition information"
 
-    with patch(
-        "datahub.ingestion.source.iceberg.iceberg.partition_spec_json",
-        side_effect=Exception("unsupported transform"),
-    ):
+
+def test_partition_spec_failure_degrades_to_none_and_warns() -> None:
+    """A partition spec the source cannot serialise costs the table its
+    ``partition-spec`` property and a warning, not the whole table.
+
+    The table carries a sort order only because the warning path repr()s the
+    table; ``test_partition_spec_failure_on_a_table_without_sort_orders_is_still_a_warning``
+    pins what happens without one.
+    """
+    table = _table(sort_orders=[UNSORTED_SORT_ORDER])
+
+    with patch(PARTITION_SPEC_JSON, side_effect=Exception("unsupported transform")):
         source, aspects = _ingest(table)
 
     props = aspects[DATASET_URN]["datasetProperties"]
     assert props.customProperties["partition-spec"] == "None"
-    assert source.report.warnings.total_elements == 1
+    assert PARTITION_WARNING in log_titles(source.report.warnings)
+    assert not source.report.failures
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "_get_partition_aspect logs context=str(table.name): table.name is a bound "
+        "method, whose repr() repr()s the table, which calls sort_order() and raises "
+        "StopIteration when the metadata has no sort orders; the recoverable warning "
+        "becomes a table failure"
+    ),
+)
+def test_partition_spec_failure_on_a_table_without_sort_orders_is_still_a_warning() -> (
+    None
+):
+    with patch(PARTITION_SPEC_JSON, side_effect=Exception("unsupported transform")):
+        source, aspects = _ingest(_table())
+
+    assert not source.report.failures
+    assert PARTITION_WARNING in log_titles(source.report.warnings)
+    assert (
+        aspects[DATASET_URN]["datasetProperties"].customProperties["partition-spec"]
+        == "None"
+    )
 
 
 def test_user_and_group_ownership_properties_become_owners() -> None:
@@ -211,15 +251,16 @@ def test_platform_instance_leads_the_browse_path() -> None:
 
 
 def test_profiling_enabled_emits_profile_even_when_manifests_unreadable() -> None:
-    """The manifest list lives in object storage that is not reachable here; the
-    profile must still be emitted from the snapshot summary with a warning."""
+    """The manifest list cannot be read (it points nowhere); the profile must
+    still be emitted from the snapshot summary, with the read failure warned."""
     source, aspects = _ingest(_table(), profiling={"enabled": True})
 
     profile = aspects[DATASET_URN]["datasetProfile"]
     assert isinstance(profile, DatasetProfileClass)
     assert profile.rowCount == 10
     assert profile.sizeInBytes == 2048
-    assert source.report.warnings.total_elements == 1
+    assert "Error when profiling a table" in log_titles(source.report.warnings)
+    assert not source.report.failures
 
 
 def test_catalog_initialisation_failure_is_reported_and_stops_ingestion() -> None:
@@ -229,7 +270,7 @@ def test_catalog_initialisation_failure_is_reported_and_stops_ingestion() -> Non
     with patch(GET_CATALOG, side_effect=Exception("cannot reach catalog")):
         assert list(source.get_workunits_internal()) == []
 
-    assert source.report.failures.total_elements == 1
+    assert "Failed to initialize catalog object" in log_titles(source.report.failures)
 
 
 # --------------------------------------------------------------------------- #
@@ -243,6 +284,7 @@ def _data_file(
     lower: Dict[int, bytes],
     upper: Dict[int, bytes],
 ) -> MagicMock:
+    """A manifest entry (pyiceberg object) carrying per-field statistics."""
     entry = MagicMock()
     entry.data_file.record_count = record_count
     entry.data_file.null_value_counts = null_counts
@@ -271,6 +313,8 @@ def _mock_table_with_entries(entries: List[MagicMock], total_records: str) -> Ma
 
 
 def test_profile_aggregates_bounds_and_null_counts_across_data_files() -> None:
+    """Column min/max are the extremes over every data file, null counts are
+    summed, and bounds for a field id the current schema no longer has are ignored."""
     ts_a = 1688559488157000  # 2023-07-05T12:18:08.157
     ts_b = 1688645888157000  # 2023-07-06T12:18:08.157
     entries = [
@@ -369,7 +413,12 @@ def test_render_value_failure_yields_none_and_warns() -> None:
     rendered = profiler._render_value("ns.tbl", DateType(), "not-a-day-count")
 
     assert rendered is None
-    assert profiler.report.warnings.total_elements == 1
+    assert "Couldn't render value when profiling a table" in log_titles(
+        profiler.report.warnings
+    )
+    assert any(
+        "ns.tbl" in context for context in log_contexts(profiler.report.warnings)
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -390,6 +439,8 @@ def test_timeout_adapter_applies_default_timeout_only_when_unset() -> None:
 
 
 def test_rest_catalog_gets_configured_timeout_and_retries() -> None:
+    """``connection.timeout`` / ``connection.retry`` are applied by mounting a
+    TimeoutHTTPAdapter on the REST catalog's session for both schemes."""
     config = IcebergSourceConfig(
         catalog={
             "test": {
@@ -408,7 +459,7 @@ def test_rest_catalog_gets_configured_timeout_and_retries() -> None:
     ):
         assert config.get_catalog() is rest_catalog
 
-    session = cast(MagicMock, rest_catalog._session)
+    session = as_mock(rest_catalog._session)
     mounted = {c.args[0]: c.args[1] for c in session.mount.call_args_list}
     assert set(mounted) == {"http://", "https://"}
     for adapter in mounted.values():

@@ -7,6 +7,7 @@ from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from urllib3 import HTTPSConnectionPool
 
 from datahub.ingestion.source.unity import proxy_patch
 from datahub.ingestion.source.unity.proxy_patch import (
@@ -16,8 +17,13 @@ from datahub.ingestion.source.unity.proxy_patch import (
     mask_proxy_credentials,
 )
 
+PROXY_URL = "http://proxy.example.com:3128"
+PROXY_URL_WITH_AUTH = "http://alice:s3cret@proxy.example.com:3128"
+
 
 class _FakeThriftClient:
+    """The attributes of databricks-sql's THttpClient that the patch reads."""
+
     def __init__(
         self,
         scheme: str = "https",
@@ -43,6 +49,14 @@ def _pool(client: Any) -> Any:
     return getattr(client, "_THttpClient__pool", None)
 
 
+@pytest.fixture
+def proxy_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    """No proxy variables at all, so each test sets exactly the ones it means."""
+    for var in proxy_patch.PROXY_VARS:
+        monkeypatch.delenv(var, raising=False)
+    return monkeypatch
+
+
 @pytest.mark.parametrize(
     ("url", "expected"),
     [
@@ -58,6 +72,18 @@ def test_mask_proxy_credentials_never_leaks_a_password(
     assert mask_proxy_credentials(url) == expected
 
 
+def test_direct_connection_builds_a_pool_without_calling_the_original_open() -> None:
+    original = MagicMock(name="original_open")
+    client = _FakeThriftClient()
+
+    _create_patched_open_method(original)(client)
+
+    pool = _pool(client)
+    assert isinstance(pool, HTTPSConnectionPool)
+    assert (pool.host, pool.port) == (client.host, client.port)
+    original.assert_not_called()
+
+
 def test_unknown_scheme_falls_back_to_the_original_open() -> None:
     original = MagicMock(name="original_open")
     client = _FakeThriftClient(scheme="ftp")
@@ -68,28 +94,50 @@ def test_unknown_scheme_falls_back_to_the_original_open() -> None:
     assert _pool(client) is None
 
 
-def test_proxy_client_without_real_host_falls_back_to_the_original_open(
-    monkeypatch: pytest.MonkeyPatch,
+def test_proxy_client_without_real_host_falls_back_before_building_a_proxy_manager(
+    proxy_env: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example.com:3128")
+    """realhost/realport are what the proxied pool connects to; without them
+    there is nothing to build, so the fallback happens before ProxyManager."""
+    proxy_env.setenv("HTTPS_PROXY", PROXY_URL)
     original = MagicMock(name="original_open")
-    client = _FakeThriftClient(
-        proxy=True, proxy_uri="http://proxy.example.com:3128", with_real_host=False
-    )
+    client = _FakeThriftClient(proxy=True, proxy_uri=PROXY_URL, with_real_host=False)
 
-    _create_patched_open_method(original)(client)
+    with patch("urllib3.poolmanager.ProxyManager") as proxy_manager:
+        _create_patched_open_method(original)(client)
 
     original.assert_called_once_with(client)
+    proxy_manager.assert_not_called()
+
+
+def test_proxy_credentials_from_the_environment_become_proxy_auth_headers(
+    proxy_env: pytest.MonkeyPatch,
+) -> None:
+    """The fix itself: databricks-sql < 3 dropped the Proxy-Authorization header,
+    so the patched pool is built through a ProxyManager carrying it."""
+    proxy_env.setenv("HTTPS_PROXY", PROXY_URL_WITH_AUTH)
+    original = MagicMock(name="original_open")
+    client = _FakeThriftClient(proxy=True, proxy_uri=PROXY_URL_WITH_AUTH)
+
+    with patch("urllib3.poolmanager.ProxyManager") as proxy_manager:
+        _create_patched_open_method(original)(client)
+
+    assert proxy_manager.call_args.args == (PROXY_URL_WITH_AUTH,)
+    assert "proxy-authorization" in proxy_manager.call_args.kwargs["proxy_headers"]
+    connection = proxy_manager.return_value.connection_from_host
+    connection.assert_called_once()
+    assert connection.call_args.kwargs["host"] == client.realhost
+    assert connection.call_args.kwargs["port"] == client.realport
+    assert _pool(client) is connection.return_value
+    original.assert_not_called()
 
 
 def test_proxy_without_credentials_builds_a_pool_without_auth_headers(
-    monkeypatch: pytest.MonkeyPatch,
+    proxy_env: pytest.MonkeyPatch,
 ) -> None:
-    for var in proxy_patch.PROXY_VARS:
-        monkeypatch.delenv(var, raising=False)
-    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.example.com:3128")
+    proxy_env.setenv("HTTPS_PROXY", PROXY_URL)
     original = MagicMock(name="original_open")
-    client = _FakeThriftClient(proxy=True, proxy_uri="http://proxy.example.com:3128")
+    client = _FakeThriftClient(proxy=True, proxy_uri=PROXY_URL)
 
     with patch("urllib3.poolmanager.ProxyManager") as proxy_manager:
         _create_patched_open_method(original)(client)
@@ -99,9 +147,19 @@ def test_proxy_without_credentials_builds_a_pool_without_auth_headers(
     assert _pool(client) is not None
 
 
+def test_failure_inside_the_patch_falls_back_to_the_original_open() -> None:
+    original = MagicMock(name="original_open")
+    client = _FakeThriftClient(proxy=True, proxy_uri=PROXY_URL)
+    client.using_proxy = MagicMock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
+
+    _create_patched_open_method(original)(client)
+
+    original.assert_called_once_with(client)
+
+
 def test_failure_in_the_patch_and_in_the_fallback_raises_the_fallback_error() -> None:
     original = MagicMock(side_effect=ConnectionError("fallback failed"))
-    client = _FakeThriftClient(proxy=True, proxy_uri="http://proxy.example.com:3128")
+    client = _FakeThriftClient(proxy=True, proxy_uri=PROXY_URL)
 
     with (
         patch(
@@ -135,6 +193,8 @@ def test_apply_fix_replaces_thrift_open_and_reports_success() -> None:
 def test_apply_fix_fails_soft_when_connector_internals_are_unavailable(
     error: Exception,
 ) -> None:
+    """Only the known thrift incompatibility is surfaced to the operator as a
+    global warning; any other import problem just leaves the fix unapplied."""
     with (
         patch.object(proxy_patch, "_ensure_thrift_imports", side_effect=error),
         patch(
@@ -143,17 +203,14 @@ def test_apply_fix_fails_soft_when_connector_internals_are_unavailable(
     ):
         assert not apply_databricks_proxy_fix()
 
-    # Only the known thrift incompatibility is surfaced to the operator.
     is_thrift_incompat = isinstance(error, AttributeError) and "thrift" in str(error)
     assert global_warning.called == is_thrift_incompat
 
 
 def test_proxy_environment_is_logged_masked(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    proxy_env: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    for var in proxy_patch.PROXY_VARS:
-        monkeypatch.delenv(var, raising=False)
-    monkeypatch.setenv("HTTPS_PROXY", "http://user:secret@proxy.example.com:3128")
+    proxy_env.setenv("HTTPS_PROXY", "http://user:secret@proxy.example.com:3128")
 
     with caplog.at_level(logging.INFO, logger=proxy_patch.__name__):
         _log_proxy_environment()

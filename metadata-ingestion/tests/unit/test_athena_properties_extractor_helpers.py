@@ -36,7 +36,24 @@ def test_double_quoted_column_comment_is_normalised_to_single_quotes() -> None:
     assert line == " `name` string COMMENT 'the user''s name',"
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "format_column_definition re-escapes every quote inside an already "
+        "single-quoted comment, so the valid escape 'it''s' becomes 'it''''s' "
+        "and the comment text gains a quote"
+    ),
+)
+def test_already_escaped_single_quoted_comment_is_left_alone() -> None:
+    line = AthenaPropertiesExtractor.format_column_definition(
+        "  name string COMMENT 'it''s',"
+    )
+    assert line == " `name` string COMMENT 'it''s',"
+
+
 def test_double_quoted_comment_survives_full_parse() -> None:
+    """SHOW CREATE TABLE output with a double-quoted column comment must still
+    parse, so partitions and the location are not lost for such tables."""
     sql = """CREATE TABLE t (
   id bigint COMMENT "primary id",
   name string
@@ -49,6 +66,8 @@ LOCATION 's3://bucket/t/'"""
 
 
 def test_transform_function_node_extracts_bucket_and_truncate_parameters() -> None:
+    """bucket(n, col) and truncate(n, col) carry their parameter first; it must
+    land on bucket_count / length respectively, never both."""
     bucket = Anonymous(
         this="bucket",
         expressions=[Literal.number(16), Column(this=Identifier(this="id"))],

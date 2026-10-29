@@ -1,9 +1,10 @@
 """Credential handling in SnowflakeConnectionConfig.get_connection().
 
 Each authentication type hands a different credential to the Snowflake driver.
-These tests check what reaches snowflake.connector.connect for key-pair, OAuth
-(client secret and certificate), externally supplied OAuth tokens and workload
-identity, plus how connection failures are classified.
+These tests check what reaches snowflake.connector.connect for key-pair and
+OAuth (client secret and certificate) credentials and externally supplied OAuth
+tokens, plus how connection failures are classified. Workload identity is
+covered by test_snowflake_source.py.
 """
 
 import pathlib
@@ -11,8 +12,6 @@ from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -20,22 +19,12 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
     SnowflakePermissionError,
 )
+from tests.unit.snowflake.conftest import rsa_private_key_pem
 
 BASE: Dict[str, object] = {"account_id": "acct", "username": "user"}
-
-
-def _pem(password: bytes | None = None) -> bytes:
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    encryption: serialization.KeySerializationEncryption = (
-        serialization.BestAvailableEncryption(password)
-        if password
-        else serialization.NoEncryption()
-    )
-    return key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=encryption,
-    )
+OAUTH_GENERATOR = (
+    "datahub.ingestion.source.snowflake.snowflake_connection.OAuthTokenGenerator"
+)
 
 
 def _connect_kwargs(config: SnowflakeConnectionConfig) -> dict:
@@ -45,7 +34,9 @@ def _connect_kwargs(config: SnowflakeConnectionConfig) -> dict:
 
 
 def test_inline_private_key_with_escaped_newlines_is_sent_as_der_bytes() -> None:
-    pem = _pem().decode().replace("\n", "\\n")
+    """Recipes often carry the PEM on one line with literal ``\\n``; the key must
+    still parse and reach the driver as DER, never as the raw text."""
+    pem = rsa_private_key_pem().decode().replace("\n", "\\n")
     config = SnowflakeConnectionConfig.model_validate(
         {**BASE, "authentication_type": "KEY_PAIR_AUTHENTICATOR", "private_key": pem}
     )
@@ -62,7 +53,7 @@ def test_encrypted_private_key_file_is_decrypted_with_the_configured_password(
     tmp_path: pathlib.Path,
 ) -> None:
     key_path = tmp_path / "rsa_key.p8"
-    key_path.write_bytes(_pem(password=b"s3cret"))
+    key_path.write_bytes(rsa_private_key_pem(password=b"s3cret"))
     config = SnowflakeConnectionConfig.model_validate(
         {
             **BASE,
@@ -106,9 +97,7 @@ def _oauth_config(**overrides: object) -> Dict[str, object]:
 def test_oauth_client_secret_flow_exchanges_a_token_before_connecting() -> None:
     config = SnowflakeConnectionConfig.model_validate(_oauth_config())
 
-    with patch(
-        "datahub.ingestion.source.snowflake.snowflake_connection.OAuthTokenGenerator"
-    ) as generator:
+    with patch(OAUTH_GENERATOR, autospec=True) as generator:
         generator.return_value.get_token_with_secret.return_value = {
             "access_token": "exchanged"
         }
@@ -130,9 +119,7 @@ def test_oauth_certificate_flow_uses_the_certificate_grant() -> None:
         )
     )
 
-    with patch(
-        "datahub.ingestion.source.snowflake.snowflake_connection.OAuthTokenGenerator"
-    ) as generator:
+    with patch(OAUTH_GENERATOR, autospec=True) as generator:
         generator.return_value.get_token_with_certificate.return_value = {
             "access_token": "cert-token"
         }
@@ -146,40 +133,11 @@ def test_oauth_response_without_access_token_is_a_configuration_error() -> None:
     config = SnowflakeConnectionConfig.model_validate(_oauth_config())
 
     with (
-        patch(
-            "datahub.ingestion.source.snowflake.snowflake_connection.OAuthTokenGenerator"
-        ) as generator,
+        patch(OAUTH_GENERATOR, autospec=True) as generator,
         pytest.raises(ConfigurationError, match="access_token"),
     ):
         generator.return_value.get_token_with_secret.return_value = {"error": "x"}
         config.get_connection()
-
-
-def test_workload_identity_sends_provider_but_no_secret() -> None:
-    config = SnowflakeConnectionConfig.model_validate(
-        {
-            **BASE,
-            "authentication_type": "WORKLOAD_IDENTITY_AUTHENTICATOR",
-            "workload_identity_provider": "aws",
-        }
-    )
-
-    kwargs = _connect_kwargs(config)
-
-    assert kwargs["authenticator"] == "WORKLOAD_IDENTITY"
-    assert kwargs["workload_identity_provider"] == "AWS"
-    assert "password" not in kwargs and "token" not in kwargs
-
-
-def test_workload_identity_provider_must_match_authentication_type() -> None:
-    with pytest.raises(ValueError, match="workload_identity_provider"):
-        SnowflakeConnectionConfig.model_validate(
-            {**BASE, "authentication_type": "WORKLOAD_IDENTITY_AUTHENTICATOR"}
-        )
-    with pytest.raises(ValueError, match="workload_identity_provider"):
-        SnowflakeConnectionConfig.model_validate(
-            {**BASE, "password": "p", "workload_identity_provider": "aws"}
-        )
 
 
 def test_connect_failures_are_classified_as_permission_or_configuration() -> None:

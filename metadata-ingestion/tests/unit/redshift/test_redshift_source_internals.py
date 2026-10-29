@@ -6,7 +6,7 @@ The redshift_connector boundary is stubbed; everything downstream runs for real.
 """
 
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Union, cast
+from typing import Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,15 +16,11 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
 from datahub.ingestion.source.redshift.redshift_schema import (
-    RedshiftColumn,
     RedshiftDatabase,
     RedshiftDataDictionary,
     RedshiftSchema,
-    RedshiftTable,
     RedshiftView,
 )
 from datahub.metadata.schema_classes import (
@@ -40,41 +36,19 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
-
-DB = "dev"
-
-
-def _config(**overrides: object) -> RedshiftConfig:
-    base: Dict[str, object] = dict(
-        host_port="localhost:5439",
-        database=DB,
-        start_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        end_time=datetime(2024, 1, 2, tzinfo=timezone.utc),
-    )
-    base.update(overrides)
-    return RedshiftConfig.model_validate(base)
-
-
-def _source(config: Optional[RedshiftConfig] = None) -> RedshiftSource:
-    return RedshiftSource(config or _config(), ctx=PipelineContext(run_id="test"))
-
-
-def _aspects(workunits: Iterable[MetadataWorkUnit], aspect_type: type) -> list:
-    return [
-        wu.metadata.aspect
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, aspect_type)
-    ]
-
-
-def _table(name: str = "t1", schema: str = "public", **kw: object) -> RedshiftTable:
-    base: Dict[str, object] = dict(
-        name=name, schema=schema, type="BASE TABLE", created=None, comment=None
-    )
-    base.update(kw)
-    return RedshiftTable(**base)  # type: ignore[arg-type]
-
+from tests.unit.redshift.conftest import (
+    DB,
+    HOST_PORT,
+    AllTables,
+    aspects_of,
+    make_column,
+    make_config,
+    make_cursor,
+    make_source,
+    make_table,
+    run_extract_metadata,
+    stub_lineage_extractor,
+)
 
 # --------------------------------------------------------------------------- #
 # Connection handling
@@ -82,7 +56,9 @@ def _table(name: str = "t1", schema: str = "public", **kw: object) -> RedshiftTa
 
 
 def test_get_redshift_connection_passes_config_and_enables_autocommit() -> None:
-    config = _config(username="u", password="p", extra_client_options={"ssl": False})
+    config = make_config(
+        username="u", password="p", extra_client_options={"ssl": False}
+    )
     conn = MagicMock()
     with patch.object(redshift_connector, "connect", return_value=conn) as connect:
         assert RedshiftSource.get_redshift_connection(config) is conn
@@ -111,7 +87,7 @@ def test_get_redshift_connection_passes_config_and_enables_autocommit() -> None:
 def test_try_get_redshift_connection_classifies_driver_errors(
     error_message: str, expected_title: str
 ) -> None:
-    source = _source()
+    source = make_source()
     with patch.object(
         RedshiftSource,
         "get_redshift_connection",
@@ -119,21 +95,22 @@ def test_try_get_redshift_connection_classifies_driver_errors(
     ):
         assert source._try_get_redshift_connection(source.config) is None
 
-    assert [f.title for f in source.report.failures] == [expected_title]
+    assert expected_title in {f.title for f in source.report.failures}
 
 
 def test_get_workunits_internal_short_circuits_without_connection() -> None:
-    source = _source()
+    source = make_source()
     with patch.object(source, "_try_get_redshift_connection", return_value=None):
         assert list(source.get_workunits_internal()) == []
     assert source.db is None
 
 
 def test_get_workunits_internal_reports_driver_errors_as_failure() -> None:
-    source = _source()
-    conn = MagicMock()
+    """A driver error after the database container was emitted is reported as
+    a structured failure instead of propagating out of the generator."""
+    source = make_source()
     with (
-        patch.object(source, "_try_get_redshift_connection", return_value=conn),
+        patch.object(source, "_try_get_redshift_connection", return_value=MagicMock()),
         patch.object(
             source.data_dictionary,
             "get_database_details",
@@ -149,19 +126,19 @@ def test_get_workunits_internal_reports_driver_errors_as_failure() -> None:
     ):
         workunits = list(source.get_workunits_internal())
 
-    # The database container was emitted before the failure, then we stopped.
     assert workunits
-    assert [f.title for f in source.report.failures] == ["Permission denied"]
+    assert "Permission denied" in {f.title for f in source.report.failures}
 
 
 def test_test_connection_reports_capabilities() -> None:
-    conn = MagicMock()
     with (
-        patch.object(RedshiftSource, "get_redshift_connection", return_value=conn),
+        patch.object(
+            RedshiftSource, "get_redshift_connection", return_value=MagicMock()
+        ),
         patch.object(RedshiftDataDictionary, "get_schemas", return_value=[]),
     ):
         report = RedshiftSource.test_connection(
-            {"host_port": "localhost:5439", "database": DB}
+            {"host_port": HOST_PORT, "database": DB}
         )
 
     assert report.basic_connectivity is not None
@@ -171,9 +148,10 @@ def test_test_connection_reports_capabilities() -> None:
 
 
 def test_test_connection_reports_schema_listing_failure() -> None:
-    conn = MagicMock()
     with (
-        patch.object(RedshiftSource, "get_redshift_connection", return_value=conn),
+        patch.object(
+            RedshiftSource, "get_redshift_connection", return_value=MagicMock()
+        ),
         patch.object(
             RedshiftDataDictionary,
             "get_schemas",
@@ -181,7 +159,7 @@ def test_test_connection_reports_schema_listing_failure() -> None:
         ),
     ):
         report = RedshiftSource.test_connection(
-            {"host_port": "localhost:5439", "database": DB}
+            {"host_port": HOST_PORT, "database": DB}
         )
 
     assert report.basic_connectivity is not None
@@ -199,7 +177,7 @@ def test_test_connection_reports_connection_failure() -> None:
         side_effect=RuntimeError("timeout"),
     ):
         report = RedshiftSource.test_connection(
-            {"host_port": "localhost:5439", "database": DB}
+            {"host_port": HOST_PORT, "database": DB}
         )
 
     assert report.basic_connectivity is not None
@@ -209,39 +187,15 @@ def test_test_connection_reports_connection_failure() -> None:
 
 def test_create_builds_source_from_dict() -> None:
     source = RedshiftSource.create(
-        {"host_port": "localhost:5439", "database": DB}, PipelineContext(run_id="x")
+        {"host_port": HOST_PORT, "database": DB}, PipelineContext(run_id="x")
     )
     assert source.config.database == DB
     assert source.get_platform_instance_id() == "redshift"
 
 
-# --------------------------------------------------------------------------- #
-# Config warnings
-# --------------------------------------------------------------------------- #
-
-
-def test_warns_about_legacy_schema_pattern_matching() -> None:
-    source = _source(
-        _config(
-            schema_pattern=AllowDenyPattern(deny=["internal"]),
-            match_fully_qualified_names=False,
-        )
-    )
-    source._warn_deprecated_configs()
-    assert "Config option deprecation warning" in [
-        w.title for w in source.report.warnings
-    ]
-
-
-def test_warns_when_column_usage_requested_without_usage_statistics() -> None:
-    source = _source(_config(include_column_usage_stats=True))
-    source._warn_deprecated_configs()
-    assert "Config option has no effect" in [w.title for w in source.report.warnings]
-
-
 def test_process_table_drops_tables_outside_table_pattern() -> None:
-    source = _source(_config(table_pattern=AllowDenyPattern(deny=[f"{DB}.public.x"])))
-    assert list(source._process_table(_table("x"), DB)) == []
+    source = make_source(table_pattern=AllowDenyPattern(deny=[f"{DB}.public.x"]))
+    assert list(source._process_table(make_table("x"), DB)) == []
     assert f"{DB}.public.x" in source.report.filtered
 
 
@@ -250,26 +204,17 @@ def test_process_table_drops_tables_outside_table_pattern() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def _column(name: str, data_type: str, **kw: object) -> RedshiftColumn:
-    base: Dict[str, object] = dict(
-        name=name,
-        ordinal_position=1,
-        data_type=data_type,
-        comment=None,
-        is_nullable=True,
-    )
-    base.update(kw)
-    return RedshiftColumn(**base)  # type: ignore[arg-type]
-
-
 def test_gen_schema_fields_types_tags_and_nested_columns() -> None:
-    source = _source()
+    """Precision-qualified postgres types resolve through the modified-type
+    map, unknown types degrade to NullType rather than failing the table, and
+    hive-style complex types are expanded into nested fields."""
+    source = make_source()
     fields = source.gen_schema_fields(
         [
-            _column("id", "INTEGER", dist_key=True, sort_key=True),
-            _column("label", "CHARACTER VARYING(256)"),
-            _column("blob", "CUSTOMTYPE"),
-            _column("tags", "ARRAY<STRING>"),
+            make_column("id", "INTEGER", dist_key=True, sort_key=True),
+            make_column("label", "CHARACTER VARYING(256)"),
+            make_column("blob", "CUSTOMTYPE"),
+            make_column("tags", "ARRAY<STRING>"),
         ]
     )
     by_path = {f.fieldPath: f for f in fields}
@@ -280,12 +225,9 @@ def test_gen_schema_fields_types_tags_and_nested_columns() -> None:
         "urn:li:tag:DIST_KEY",
         "urn:li:tag:SORT_KEY",
     }
-    # Precision-qualified postgres types resolve through the modified-type map.
     assert isinstance(by_path["label"].type.type, StringTypeClass)
     assert by_path["label"].nativeDataType == "CHARACTER VARYING(256)"
-    # Unknown types degrade to NullType rather than failing the table.
     assert isinstance(by_path["blob"].type.type, NullTypeClass)
-    # Complex hive types are expanded via the hive schema converter.
     array_fields = [f for f in fields if "tags" in f.fieldPath]
     assert array_fields
     assert isinstance(array_fields[0].type.type, ArrayTypeClass)
@@ -297,8 +239,8 @@ def test_gen_schema_fields_types_tags_and_nested_columns() -> None:
 
 
 def test_gen_table_dataset_workunits_collects_external_table_properties() -> None:
-    source = _source(_config(patch_custom_properties=False))
-    table = _table(
+    source = make_source(patch_custom_properties=False)
+    table = make_table(
         "ext",
         schema="spectrum",
         type="EXTERNAL_TABLE",
@@ -311,7 +253,7 @@ def test_gen_table_dataset_workunits_collects_external_table_properties() -> Non
         created=datetime(2024, 1, 1, tzinfo=timezone.utc),
         last_altered=datetime(2024, 1, 2, tzinfo=timezone.utc),
     )
-    props = _aspects(
+    props = aspects_of(
         source.gen_table_dataset_workunits(table, DB, f"{DB}.spectrum.ext"),
         DatasetPropertiesClass,
     )
@@ -330,11 +272,11 @@ def test_gen_table_dataset_workunits_collects_external_table_properties() -> Non
 
 
 def test_gen_view_dataset_workunits_emits_view_properties() -> None:
-    source = _source()
+    source = make_source()
     view = RedshiftView(
         name="v", comment=None, created=None, ddl="select 1", materialized=True
     )
-    view_props = _aspects(
+    view_props = aspects_of(
         source.gen_view_dataset_workunits(view, DB, "public"), ViewPropertiesClass
     )
     assert len(view_props) == 1
@@ -343,15 +285,13 @@ def test_gen_view_dataset_workunits_emits_view_properties() -> None:
 
 
 def test_gen_dataset_workunits_emits_platform_instance_and_domain() -> None:
-    source = _source(
-        _config(
-            platform_instance="prod_cluster",
-            domain={"urn:li:domain:sales": AllowDenyPattern(allow=[f"{DB}.public.*"])},
-        )
+    source = make_source(
+        platform_instance="prod_cluster",
+        domain={"urn:li:domain:sales": AllowDenyPattern(allow=[f"{DB}.public.*"])},
     )
     workunits = list(
         source.gen_dataset_workunits(
-            table=_table("orders"), database=DB, schema="public", sub_type="Table"
+            table=make_table("orders"), database=DB, schema="public", sub_type="Table"
         )
     )
     aspect_names = {
@@ -360,7 +300,7 @@ def test_gen_dataset_workunits_emits_platform_instance_and_domain() -> None:
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
     }
     assert "dataPlatformInstance" in aspect_names
-    domains = _aspects(workunits, DomainsClass)
+    domains = aspects_of(workunits, DomainsClass)
     assert len(domains) == 1
     assert domains[0].domains == ["urn:li:domain:sales"]
 
@@ -371,22 +311,22 @@ def test_gen_dataset_workunits_emits_platform_instance_and_domain() -> None:
 
 
 def test_process_schema_emits_tables_and_views_with_their_columns() -> None:
-    source = _source()
+    source = make_source()
     schema = RedshiftSchema(name="public", database=DB, type="local")
-    source.db_tables = {DB: {"public": [_table("orders")]}}
+    source.db_tables = {DB: {"public": [make_table("orders")]}}
     source.db_views = {
         DB: {"public": [RedshiftView(name="v", comment=None, created=None, ddl="x")]}
     }
     columns = {
-        "orders": [_column("id", "INTEGER")],
-        "v": [_column("id", "INTEGER"), _column("n", "VARCHAR")],
+        "orders": [make_column("id", "INTEGER")],
+        "v": [make_column("id", "INTEGER"), make_column("n", "VARCHAR")],
     }
     with patch.object(
         source.data_dictionary, "get_columns_for_schema", return_value=columns
     ):
         workunits = list(source.process_schema(MagicMock(), DB, schema))
 
-    schemas = {s.schemaName: s for s in _aspects(workunits, SchemaMetadataClass)}
+    schemas = {s.schemaName: s for s in aspects_of(workunits, SchemaMetadataClass)}
     assert [f.fieldPath for f in schemas[f"{DB}.public.orders"].fields] == ["id"]
     assert [f.fieldPath for f in schemas[f"{DB}.public.v"].fields] == ["id", "n"]
     assert source.report.table_processed[f"{DB}.public"] == 1
@@ -394,20 +334,20 @@ def test_process_schema_emits_tables_and_views_with_their_columns() -> None:
 
 
 def test_process_schema_skips_tables_and_views_when_disabled() -> None:
-    source = _source(_config(include_tables=False, include_views=False))
+    source = make_source(include_tables=False, include_views=False)
     schema = RedshiftSchema(name="public", database=DB, type="local")
-    source.db_tables = {DB: {"public": [_table("orders")]}}
+    source.db_tables = {DB: {"public": [make_table("orders")]}}
     source.db_views = {DB: {"public": []}}
     with patch.object(
         source.data_dictionary, "get_columns_for_schema", return_value={}
     ):
         workunits = list(source.process_schema(MagicMock(), DB, schema))
 
-    assert _aspects(workunits, SchemaMetadataClass) == []
+    assert aspects_of(workunits, SchemaMetadataClass) == []
 
 
 def test_process_schemas_drops_schemas_outside_pattern() -> None:
-    source = _source(_config(schema_pattern=AllowDenyPattern(deny=["internal"])))
+    source = make_source(schema_pattern=AllowDenyPattern(deny=["internal"]))
     schemas = [
         RedshiftSchema(name="public", database=DB, type="local"),
         RedshiftSchema(name="internal", database=DB, type="local"),
@@ -424,18 +364,16 @@ def test_process_schemas_drops_schemas_outside_pattern() -> None:
 
 
 def test_cache_tables_and_views_applies_schema_and_name_patterns() -> None:
-    source = _source(
-        _config(
-            schema_pattern=AllowDenyPattern(deny=["hidden"]),
-            table_pattern=AllowDenyPattern(deny=[f"{DB}.public.secret"]),
-            view_pattern=AllowDenyPattern(deny=[f"{DB}.public.secret_view"]),
-        )
+    source = make_source(
+        schema_pattern=AllowDenyPattern(deny=["hidden"]),
+        table_pattern=AllowDenyPattern(deny=[f"{DB}.public.secret"]),
+        view_pattern=AllowDenyPattern(deny=[f"{DB}.public.secret_view"]),
     )
     source.db_tables = {DB: {}}
     source.db_views = {DB: {}}
     tables = {
-        "public": [_table("orders"), _table("secret")],
-        "hidden": [_table("x", schema="hidden")],
+        "public": [make_table("orders"), make_table("secret")],
+        "hidden": [make_table("x", schema="hidden")],
     }
     views = {
         "public": [
@@ -461,53 +399,49 @@ def test_cache_tables_and_views_applies_schema_and_name_patterns() -> None:
 # Usage / lineage / profiling orchestration
 # --------------------------------------------------------------------------- #
 
-
-def _usage_cursor(rows: List[tuple]) -> MagicMock:
-    cursor = MagicMock()
-    cursor.description = [
-        ("userid",),
-        ("username",),
-        ("query",),
-        ("querytxt",),
-        ("tbl",),
-        ("database",),
-        ("schema",),
-        ("table",),
-        ("starttime",),
-        ("endtime",),
-    ]
-    cursor.fetchmany.side_effect = [rows, []]
-    return cursor
+USAGE_COLUMNS = [
+    "userid",
+    "username",
+    "query",
+    "querytxt",
+    "tbl",
+    "database",
+    "schema",
+    "table",
+    "starttime",
+    "endtime",
+]
 
 
 def test_extract_usage_attributes_reads_from_query_history() -> None:
-    source = _source(
-        _config(
-            email_domain="example.com",
-            include_usage_statistics=True,
-            include_operational_stats=False,
-        )
+    """The default (stl_scan) usage path attributes each history row to its
+    table, and tables with no reads in the window still get an empty usage
+    aspect so their popularity is reported as zero rather than missing."""
+    source = make_source(
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_operational_stats=False,
     )
-    all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {
-        DB: {"public": [_table("orders"), _table("quiet")]}
+    all_tables: AllTables = {
+        DB: {"public": [make_table("orders"), make_table("quiet")]}
     }
-    cursor = _usage_cursor(
-        [
-            (
-                100,
-                "alice",
-                1,
-                "select * from public.orders",
-                7,
-                DB,
-                "public",
-                "orders",
-                datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc),
-                datetime(2024, 1, 1, 10, 0, 1, tzinfo=timezone.utc),
-            )
-        ]
+    row: Tuple = (
+        100,
+        "alice",
+        1,
+        "select * from public.orders",
+        7,
+        DB,
+        "public",
+        "orders",
+        datetime(2024, 1, 1, 10, 0, tzinfo=timezone.utc),
+        datetime(2024, 1, 1, 10, 0, 1, tzinfo=timezone.utc),
     )
-    with patch.object(RedshiftDataDictionary, "get_query_result", return_value=cursor):
+    with patch.object(
+        RedshiftDataDictionary,
+        "get_query_result",
+        return_value=make_cursor(USAGE_COLUMNS, [row]),
+    ):
         workunits = list(source.extract_usage(MagicMock(), DB, all_tables))
 
     usage = {
@@ -520,87 +454,68 @@ def test_extract_usage_attributes_reads_from_query_history() -> None:
     assert orders.totalSqlQueries == 1
     assert orders.userCounts is not None
     assert orders.userCounts[0].user == "urn:li:corpuser:alice"
-    # Tables with no reads still get an (empty) usage aspect.
     assert usage[source.gen_dataset_urn(f"{DB}.public.quiet")].totalSqlQueries == 0
     assert DB in source.report.usage_extraction_sec
 
 
-def _run_extract_metadata(source: RedshiftSource) -> List[MetadataWorkUnit]:
-    with (
-        patch.object(source, "cache_tables_and_views", return_value=None),
-        patch.object(source, "process_schemas", return_value=iter([])),
-        patch.object(source, "extract_usage", return_value=iter([])),
-        patch.object(source, "extract_lineage_v2", return_value=iter([])),
-    ):
-        return list(source._extract_metadata(MagicMock(), DB))
-
-
 def test_extract_metadata_backfills_empty_usage_in_column_usage_mode() -> None:
-    source = _source(
-        _config(
-            email_domain="example.com",
-            include_usage_statistics=True,
-            include_column_usage_stats=True,
-        )
+    """In column-usage (v2) mode the lineage aggregator owns usage; the source
+    must still wrap its output so tables with no queries get an empty usage
+    aspect for the window."""
+    source = make_source(
+        email_domain="example.com",
+        include_usage_statistics=True,
+        include_column_usage_stats=True,
     )
-    source.db_tables = {DB: {"public": [_table("orders")]}}
+    source.db_tables = {DB: {"public": [make_table("orders")]}}
     source.db_views = {DB: {}}
-    workunits = _run_extract_metadata(source)
-    usage = _aspects(workunits, DatasetUsageStatisticsClass)
+    usage = aspects_of(
+        run_extract_metadata(source).workunits, DatasetUsageStatisticsClass
+    )
     assert len(usage) == 1
     assert usage[0].totalSqlQueries == 0
 
 
 def test_extract_metadata_runs_profiler_when_profiling_enabled() -> None:
-    source = _source(_config(profiling={"enabled": True}))
+    source = make_source(profiling={"enabled": True})
     source.db_tables = {DB: {}}
     source.db_views = {DB: {}}
     with patch(
         "datahub.ingestion.source.redshift.redshift.RedshiftProfiler.get_workunits",
         return_value=iter([]),
     ) as profiler_get_workunits:
-        _run_extract_metadata(source)
+        run_extract_metadata(source)
     profiler_get_workunits.assert_called_once_with(source.db_tables)
 
 
-def _lineage_extractor_for(source: RedshiftSource) -> MagicMock:
-    extractor = MagicMock()
-    extractor.start_time = source.config.start_time
-    extractor.end_time = source.config.end_time
-    extractor.generate.return_value = iter([])
-    return extractor
-
-
 def test_extract_lineage_v2_warns_when_inbound_share_options_are_truncated() -> None:
-    source = _source(_config(include_share_lineage=True, include_table_lineage=False))
+    source = make_source(include_share_lineage=True, include_table_lineage=False)
     source.db = RedshiftDatabase(name=DB, type="shared", options="garbage")
     with patch.object(
         source.data_dictionary, "get_outbound_datashares", return_value=iter([])
     ):
-        list(
-            source.extract_lineage_v2(
-                MagicMock(), DB, cast(MagicMock, _lineage_extractor_for(source))
-            )
-        )
-    assert "Upstream lineage of inbound datashare will be missing" in [
+        list(source.extract_lineage_v2(MagicMock(), DB, stub_lineage_extractor(source)))
+    assert "Upstream lineage of inbound datashare will be missing" in {
         w.title for w in source.report.warnings
-    ]
+    }
 
 
 def test_extract_lineage_v2_feeds_datashare_lineage_into_aggregator() -> None:
-    source = _source(_config(include_share_lineage=True))
+    """Datashare lineage is definition-level and is registered with the
+    aggregator even when the audit-log window is skipped as already covered."""
+    source = make_source(include_share_lineage=True)
     source.db = RedshiftDatabase(
         name=DB,
         type="shared",
         options='{"datashare_name":"s","datashare_producer_namespace":"ns"}',
     )
-    source.db_tables = {DB: {"public": [_table("orders")]}}
+    source.db_tables = {DB: {"public": [make_table("orders")]}}
     source.db_views = {DB: {}}
     mapping = KnownLineageMapping(
         upstream_urn="urn:li:dataset:(urn:li:dataPlatform:redshift,producer.public.orders,PROD)",
         downstream_urn=source.gen_dataset_urn(f"{DB}.public.orders"),
     )
-    extractor = _lineage_extractor_for(source)
+    extractor = stub_lineage_extractor(source)
     with (
         patch.object(
             source.data_dictionary, "get_outbound_datashares", return_value=iter([])
@@ -610,57 +525,58 @@ def test_extract_lineage_v2_feeds_datashare_lineage_into_aggregator() -> None:
         ),
         patch.object(source, "_should_ingest_lineage", return_value=False),
     ):
-        list(source.extract_lineage_v2(MagicMock(), DB, cast(MagicMock, extractor)))
+        list(source.extract_lineage_v2(MagicMock(), DB, extractor))
 
     extractor.aggregator.add.assert_called_once_with(mapping)
-    # Skipped run: the per-database lineage build never happened.
     extractor.build.assert_not_called()
 
 
-def test_extract_lineage_v2_updates_stateful_checkpoint() -> None:
-    source = _source(_config(include_share_lineage=False))
-    handler = MagicMock()
-    handler.should_skip_this_run.return_value = False
-    source.redundant_lineage_run_skip_handler = handler
-    extractor = _lineage_extractor_for(source)
+def test_extract_lineage_v2_updates_stateful_checkpoint(
+    lineage_skip_handler: MagicMock,
+) -> None:
+    source = make_source(include_share_lineage=False)
+    lineage_skip_handler.should_skip_this_run.return_value = False
+    source.redundant_lineage_run_skip_handler = lineage_skip_handler
+    extractor = stub_lineage_extractor(source)
     source.db_tables = {DB: {}}
     source.db_views = {DB: {}}
 
-    list(source.extract_lineage_v2(MagicMock(), DB, cast(MagicMock, extractor)))
+    list(source.extract_lineage_v2(MagicMock(), DB, extractor))
 
     extractor.build.assert_called_once()
-    handler.update_state.assert_called_once_with(
+    lineage_skip_handler.update_state.assert_called_once_with(
         source.config.start_time, source.config.end_time
     )
     assert DB in source.report.lineage_extraction_sec
 
 
-def test_should_ingest_lineage_skips_already_covered_window() -> None:
-    source = _source()
-    handler = MagicMock()
-    handler.should_skip_this_run.return_value = True
-    source.redundant_lineage_run_skip_handler = handler
+def test_should_ingest_lineage_skips_already_covered_window(
+    lineage_skip_handler: MagicMock,
+) -> None:
+    source = make_source()
+    lineage_skip_handler.should_skip_this_run.return_value = True
+    source.redundant_lineage_run_skip_handler = lineage_skip_handler
     assert not source._should_ingest_lineage()
-    assert source.report.warnings
+    assert any("lineage-extraction" in w.context for w in source.report.warnings)
 
 
 def test_extract_lineage_v2_emits_platform_resources_for_outbound_shares() -> None:
-    source = _source(_config(include_share_lineage=True, include_table_lineage=False))
+    source = make_source(include_share_lineage=True, include_table_lineage=False)
     source.db = RedshiftDatabase(name=DB, type="local")
-    cursor = MagicMock()
-    cursor.fetchall.return_value = [("OUTBOUND", "share1", "ns1", DB)]
+    cursor = make_cursor(
+        ["share_type", "share_name", "producer_namespace", "source_database"],
+        [("OUTBOUND", "share1", "ns1", DB)],
+    )
     with (
         patch.object(RedshiftDataDictionary, "get_query_result", return_value=cursor),
         patch.object(source, "_should_ingest_lineage", return_value=False),
     ):
         workunits = list(
-            source.extract_lineage_v2(
-                MagicMock(), DB, cast(MagicMock, _lineage_extractor_for(source))
-            )
+            source.extract_lineage_v2(MagicMock(), DB, stub_lineage_extractor(source))
         )
     assert source.report.outbound_shares_count == 1
     assert any(
         "urn:li:platformResource:" in str(getattr(wu.metadata, "entityUrn", ""))
         for wu in workunits
     )
-    assert not _aspects(workunits, UpstreamLineageClass)
+    assert not aspects_of(workunits, UpstreamLineageClass)

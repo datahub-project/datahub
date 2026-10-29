@@ -17,7 +17,7 @@ from tests.test_helpers.probe_parity import (
     by_name,
     pipeline_ingestion,
 )
-from tests.unit.fabric_onelake.onelake_fakes import LH_ID, WS, FakeOneLakeClient
+from tests.unit.fabric_onelake.conftest import LH_ID, WS, FakeOneLakeClient
 
 # The parity harness masks its reports against the process-global registry, as
 # the CLI does; a secret an earlier test registered could otherwise redact a

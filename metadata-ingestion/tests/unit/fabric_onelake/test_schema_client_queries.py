@@ -5,11 +5,12 @@ engine acquisition is stubbed and the assertions are on the SQL and bind
 parameters the client sends and on how it shapes the rows it gets back."""
 
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Dict, Iterator, List, Tuple
+from unittest.mock import NonCallableMagicMock, create_autospec, patch
 
 import pytest
 
+from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
 from datahub.ingestion.source.fabric.onelake.schema_client import (
     SqlAnalyticsEndpointClient,
@@ -18,6 +19,7 @@ from datahub.ingestion.source.fabric.onelake.schema_client import (
 from datahub.ingestion.source.fabric.onelake.schema_report import (
     SqlAnalyticsEndpointReport,
 )
+from tests.unit.fabric_common.conftest import fabric_response, specced_auth_helper
 
 
 class _Row:
@@ -31,7 +33,7 @@ class _Result:
         self._rows = list(rows)
         self.fetchmany_sizes: List[int] = []
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[_Row]:
         return iter(self._rows)
 
     def fetchmany(self, size: int) -> List[_Row]:
@@ -66,7 +68,7 @@ class _Engine:
 
 def _client(rows: List[_Row]) -> Tuple[SqlAnalyticsEndpointClient, _Engine]:
     client = SqlAnalyticsEndpointClient(
-        auth_helper=MagicMock(),
+        auth_helper=specced_auth_helper(),
         config=SqlEndpointConfig(enabled=True),
         endpoint_url="abc.datawarehouse.fabric.microsoft.com",
         item_display_name="lh_main",
@@ -76,6 +78,8 @@ def _client(rows: List[_Row]) -> Tuple[SqlAnalyticsEndpointClient, _Engine]:
 
 
 def test_get_all_views_excludes_system_schemas_and_keeps_null_definitions() -> None:
+    """A view the login cannot read comes back with a NULL definition; it is
+    still a view (emitted without lineage), not a row to drop."""
     client, engine = _client(
         [
             _Row(TABLE_SCHEMA="dbo", TABLE_NAME="v1", VIEW_DEFINITION="SELECT 1"),
@@ -99,6 +103,9 @@ def test_get_all_views_excludes_system_schemas_and_keeps_null_definitions() -> N
 def test_stream_usage_history_binds_naive_utc_and_filters_failures(
     skip_failed: bool,
 ) -> None:
+    """queryinsights stores naive UTC, so an aware window bound must be
+    converted to UTC before its zone is dropped, or the window shifts by
+    the caller's offset."""
     rows = [
         _Row(
             start_time=datetime(2024, 1, 1, tzinfo=timezone.utc),
@@ -133,18 +140,20 @@ def test_stream_usage_history_binds_naive_utc_and_filters_failures(
     assert engine.connection.result.fetchmany_sizes[0] == 2
 
 
-def _fabric_client(item_body: Optional[Dict[str, object]]) -> MagicMock:
-    base_client = MagicMock()
-    base_client.get.return_value.json.return_value = item_body or {}
+def _fabric_client(item_body: Dict[str, object]) -> NonCallableMagicMock:
+    base_client = create_autospec(BaseFabricClient, instance=True)
+    base_client.get.return_value = fabric_response(200, item_body)
     return base_client
 
 
 def test_factory_fails_and_counts_when_the_item_has_no_endpoint() -> None:
+    """An item without a provisioned endpoint must fail loudly and be counted,
+    not yield a client pointed at an empty host."""
     report = SqlAnalyticsEndpointReport()
     with pytest.raises(ValueError):
         create_schema_extraction_client(
             method="sql_analytics_endpoint",
-            auth_helper=MagicMock(),
+            auth_helper=specced_auth_helper(),
             config=SqlEndpointConfig(enabled=True),
             report=report,
             workspace_id="ws",
@@ -167,7 +176,7 @@ def test_factory_configures_the_client_from_the_provisioned_endpoint() -> None:
     }
     client = create_schema_extraction_client(
         method="sql_analytics_endpoint",
-        auth_helper=MagicMock(),
+        auth_helper=specced_auth_helper(),
         config=SqlEndpointConfig(enabled=True),
         report=None,
         workspace_id="ws",

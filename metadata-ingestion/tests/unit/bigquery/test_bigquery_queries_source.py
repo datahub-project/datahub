@@ -1,3 +1,6 @@
+"""BigQueryQueriesSource: the standalone queries-v2 source is a thin shell
+around BigQueryQueriesExtractor."""
+
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.api.common import PipelineContext
@@ -7,6 +10,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
 from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
     BigQueryQueriesSource,
 )
+from tests.unit.bigquery.conftest import as_mock
 
 MODULE = "datahub.ingestion.source.bigquery_v2.bigquery_queries"
 
@@ -46,4 +50,4 @@ def test_close_releases_extractor_and_connection() -> None:
         source.close()
 
     extractor_close.assert_called_once()
-    source.connection.close.assert_called_once()  # type: ignore[attr-defined]
+    as_mock(source.connection).close.assert_called_once()

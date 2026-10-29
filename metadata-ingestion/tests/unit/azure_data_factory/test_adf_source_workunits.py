@@ -2,21 +2,15 @@
 pipelines, activities and execution history become as workunits, and how a
 failing Azure call degrades."""
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Iterator, List, Optional, Type, TypeVar, cast
-from unittest.mock import MagicMock, patch
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar
+from unittest.mock import create_autospec, patch
 
 from azure.mgmt.datafactory import models as adf
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.azure_data_factory.adf_client import (
-    AzureDataFactoryClient,
-)
-from datahub.ingestion.source.azure_data_factory.adf_config import (
-    AzureDataFactoryConfig,
-)
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     AzureDataFactorySource,
 )
@@ -31,18 +25,34 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRelationshipsClass,
     DataProcessInstanceRunEventClass,
     DataTransformLogicClass,
-    OtherSchemaClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
-    StringTypeClass,
+    EditableDataFlowPropertiesClass,
+    EditableDataJobPropertiesClass,
     _Aspect,
 )
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
-
-SUB = "00000000-0000-0000-0000-000000000000"
-RG = "my-rg"
-FACTORY = "my-factory"
+from tests.unit.azure_data_factory.conftest import (
+    ADF_CLIENT_CLASS,
+    FACTORY,
+    RG,
+    SUB,
+    FakeAdfClient,
+    activity_run,
+    adf_factory,
+    build_adf_source,
+    dataset_resource,
+    ds_ref,
+    factory_id,
+    hydrate,
+    ingest,
+    linked_service_resource,
+    ls_ref,
+    pipeline_ref,
+    pipeline_resource,
+    pipeline_run,
+    raw,
+    schema_metadata,
+)
+from tests.unit.conftest import log_titles
 
 SQL_LS = "SqlLs"
 BLOB_LS = "BlobLs"
@@ -58,87 +68,19 @@ ORDERS_CSV = "urn:li:dataset:(urn:li:dataPlatform:abs,raw/orders/orders.csv,PROD
 PARAM_PLACEHOLDER = f"urn:li:dataset:({MSSQL},ParamDs,PROD)"
 
 T = TypeVar("T", bound=_Aspect)
-M = TypeVar("M")
-
-
-def _raw(value: object) -> Any:
-    # ARM returns these properties as untyped JSON -- a connection string or a
-    # table name arrives as a plain string -- so the SDK's declared types
-    # (MutableMapping) don't describe what this fixture must imitate.
-    return value
-
-
-def _hydrate(model: M, **readonly: Any) -> M:
-    """Populate readonly SDK attributes (name, id, run fields) the way the
-    SDK deserializer does, since their constructors don't accept them."""
-    for attribute, value in readonly.items():
-        setattr(model, attribute, value)
-    return model
-
-
-def _factory_id(name: str, rg: str = RG) -> str:
-    return (
-        f"/subscriptions/{SUB}/resourceGroups/{rg}"
-        f"/providers/Microsoft.DataFactory/factories/{name}"
-    )
-
-
-def _factory(name: Optional[str] = FACTORY, rg: str = RG) -> adf.Factory:
-    return _hydrate(
-        adf.Factory(location="westeurope", tags={"team": "data"}),
-        name=name,
-        id=_factory_id(name, rg) if name else None,
-        provisioning_state="Succeeded",
-    )
-
-
-def _ls_ref(name: str) -> adf.LinkedServiceReference:
-    return adf.LinkedServiceReference(
-        type="LinkedServiceReference", reference_name=name
-    )
-
-
-def _ds_ref(name: str, **parameters: Any) -> adf.DatasetReference:
-    return adf.DatasetReference(
-        type="DatasetReference", reference_name=name, parameters=parameters or None
-    )
-
-
-def _pipeline_ref(name: str) -> adf.PipelineReference:
-    return adf.PipelineReference(type="PipelineReference", reference_name=name)
-
-
-def _dataset(name: str, properties: adf.Dataset) -> adf.DatasetResource:
-    return _hydrate(adf.DatasetResource(properties=properties), name=name)
 
 
 def _sql_table(
     name: str, sql_schema: Optional[str], table: Any, **kwargs: Any
 ) -> adf.DatasetResource:
-    return _dataset(
+    return dataset_resource(
         name,
         adf.AzureSqlTableDataset(
-            linked_service_name=_ls_ref(SQL_LS),
-            schema_type_properties_schema=_raw(sql_schema),
-            table=_raw(table),
+            linked_service_name=ls_ref(SQL_LS),
+            schema_type_properties_schema=raw(sql_schema),
+            table=raw(table),
             **kwargs,
         ),
-    )
-
-
-def _linked_service(
-    name: str, properties: adf.LinkedService
-) -> adf.LinkedServiceResource:
-    return _hydrate(adf.LinkedServiceResource(properties=properties), name=name)
-
-
-def _pipeline(
-    name: Optional[str], activities: List[adf.Activity], **kwargs: Any
-) -> adf.PipelineResource:
-    return _hydrate(
-        adf.PipelineResource(activities=activities, **kwargs),
-        name=name,
-        id=f"{_factory_id(FACTORY)}/pipelines/{name}",
     )
 
 
@@ -153,14 +95,14 @@ def _copy(
         name=name,
         source=adf.AzureSqlSource(),
         sink=adf.AzureSqlSink(),
-        inputs=[_ds_ref(source, **(source_params or {}))],
-        outputs=[_ds_ref(sink)],
+        inputs=[ds_ref(source, **(source_params or {}))],
+        outputs=[ds_ref(sink)],
         translator=translator,
     )
 
 
 def _wait(name: str) -> adf.WaitActivity:
-    return adf.WaitActivity(name=name, wait_time_in_seconds=_raw(1))
+    return adf.WaitActivity(name=name, wait_time_in_seconds=raw(1))
 
 
 def _execute_data_flow(name: str, data_flow: Optional[str]) -> adf.Activity:
@@ -174,7 +116,7 @@ def _execute_data_flow(name: str, data_flow: Optional[str]) -> adf.Activity:
         # The SDK drops the reference when ADF returns "dataflow" in a
         # different case than the SDK expects; the source then matches on
         # the activity name.
-        _hydrate(activity, data_flow=None)
+        hydrate(activity, data_flow=None)
     return activity
 
 
@@ -188,25 +130,23 @@ def _mapping_data_flow(
     resource = adf.DataFlowResource(
         properties=adf.MappingDataFlow(
             sources=[
-                adf.DataFlowSource(name=f"src_{s}", dataset=_ds_ref(s)) for s in sources
+                adf.DataFlowSource(name=f"src_{s}", dataset=ds_ref(s)) for s in sources
             ],
-            sinks=[
-                adf.DataFlowSink(name=f"snk_{s}", dataset=_ds_ref(s)) for s in sinks
-            ],
+            sinks=[adf.DataFlowSink(name=f"snk_{s}", dataset=ds_ref(s)) for s in sinks],
             script_lines=script_lines,
             script=script,
         )
     )
-    return _hydrate(resource, name=name)
+    return hydrate(resource, name=name)
 
 
 def _schedule_trigger(name: str, pipelines: List[str]) -> adf.TriggerResource:
-    return _hydrate(
+    return hydrate(
         adf.TriggerResource(
             properties=adf.ScheduleTrigger(
                 recurrence=adf.ScheduleTriggerRecurrence(frequency="Day", interval=1),
                 pipelines=[
-                    adf.TriggerPipelineReference(pipeline_reference=_pipeline_ref(p))
+                    adf.TriggerPipelineReference(pipeline_reference=pipeline_ref(p))
                     for p in pipelines
                 ],
             )
@@ -216,10 +156,10 @@ def _schedule_trigger(name: str, pipelines: List[str]) -> adf.TriggerResource:
 
 
 def _global_parameters(**values: str) -> adf.GlobalParameterResource:
-    return _hydrate(
+    return hydrate(
         adf.GlobalParameterResource(
             properties={
-                k: adf.GlobalParameterSpecification(type="String", value=_raw(v))
+                k: adf.GlobalParameterSpecification(type="String", value=raw(v))
                 for k, v in values.items()
             }
         ),
@@ -227,169 +167,25 @@ def _global_parameters(**values: str) -> adf.GlobalParameterResource:
     )
 
 
-def _pipeline_run(
-    pipeline: Optional[str],
-    run_id: Optional[str],
-    status: str = "Succeeded",
-    parameters: Optional[Dict[str, str]] = None,
-    ended: bool = True,
-) -> adf.PipelineRun:
-    invoked_by = _hydrate(
-        adf.PipelineRunInvokedBy(),
-        name="DailyTrigger",
-        invoked_by_type="ScheduleTrigger",
-    )
-    return _hydrate(
-        adf.PipelineRun(),
-        pipeline_name=pipeline,
-        run_id=run_id,
-        status=status,
-        message="m" * 600,
-        parameters=parameters,
-        run_start=datetime(2024, 1, 1, 8, 0, tzinfo=timezone.utc),
-        run_end=datetime(2024, 1, 1, 9, 0, tzinfo=timezone.utc) if ended else None,
-        invoked_by=invoked_by,
-    )
-
-
-def _activity_run(
-    activity: Optional[str],
-    run_id: str,
-    pipeline: str = "MainPipeline",
-    pipeline_run_id: str = "run-1",
-    activity_type: str = "Copy",
-    status: str = "Succeeded",
-    run_input: Optional[Dict[str, Any]] = None,
-    error: Optional[Dict[str, Any]] = None,
-) -> adf.ActivityRun:
-    return _hydrate(
-        adf.ActivityRun(),
-        activity_name=activity,
-        activity_run_id=run_id,
-        pipeline_name=pipeline,
-        pipeline_run_id=pipeline_run_id,
-        activity_type=activity_type,
-        status=status,
-        duration_in_ms=1200,
-        activity_run_start=datetime(2024, 1, 1, 8, 1, tzinfo=timezone.utc),
-        activity_run_end=datetime(2024, 1, 1, 8, 2, tzinfo=timezone.utc),
-        input=run_input,
-        error=error,
-    )
-
-
-class FakeAdfClient:
-    """One factory's resources, served through the AzureDataFactoryClient
-    surface the source calls. A method named in `errors` raises instead."""
-
-    def __init__(self, factories: Optional[List[adf.Factory]] = None) -> None:
-        self.factories = factories if factories is not None else [_factory()]
-        self.datasets: List[adf.DatasetResource] = []
-        self.linked_services: List[adf.LinkedServiceResource] = []
-        self.global_parameters: List[adf.GlobalParameterResource] = []
-        self.triggers: List[adf.TriggerResource] = []
-        self.data_flows: List[adf.DataFlowResource] = []
-        self.pipelines: List[adf.PipelineResource] = []
-        self.pipeline_runs: List[adf.PipelineRun] = []
-        self.activity_runs: Dict[str, List[adf.ActivityRun]] = {}
-        self.errors: Dict[str, Exception] = {}
-        self.run_queries: List[str] = []
-        self.closed = False
-
-    def _serve(self, method: str, items: List[Any]) -> Iterator[Any]:
-        if method in self.errors:
-            raise self.errors[method]
-        yield from items
-
-    def get_factories(
-        self, resource_group: Optional[str] = None
-    ) -> Iterator[adf.Factory]:
-        return self._serve("get_factories", self.factories)
-
-    def get_datasets(
-        self, resource_group: str, factory_name: str
-    ) -> Iterator[adf.DatasetResource]:
-        return self._serve("get_datasets", self.datasets)
-
-    def get_linked_services(
-        self, resource_group: str, factory_name: str
-    ) -> Iterator[adf.LinkedServiceResource]:
-        return self._serve("get_linked_services", self.linked_services)
-
-    def get_global_parameters(
-        self, resource_group: str, factory_name: str
-    ) -> Iterator[adf.GlobalParameterResource]:
-        return self._serve("get_global_parameters", self.global_parameters)
-
-    def get_triggers(
-        self, resource_group: str, factory_name: str
-    ) -> Iterator[adf.TriggerResource]:
-        return self._serve("get_triggers", self.triggers)
-
-    def get_data_flows(
-        self, resource_group: str, factory_name: str
-    ) -> Iterator[adf.DataFlowResource]:
-        return self._serve("get_data_flows", self.data_flows)
-
-    def get_pipelines(
-        self, resource_group: str, factory_name: str
-    ) -> Iterator[adf.PipelineResource]:
-        return self._serve("get_pipelines", self.pipelines)
-
-    def get_pipeline_runs(
-        self, resource_group: str, factory_name: str, days: int = 7
-    ) -> Iterator[adf.PipelineRun]:
-        return self._serve("get_pipeline_runs", self.pipeline_runs)
-
-    def get_activity_runs(
-        self, resource_group: str, factory_name: str, run_id: str
-    ) -> Iterator[adf.ActivityRun]:
-        self.run_queries.append(run_id)
-        return self._serve("get_activity_runs", self.activity_runs.get(run_id, []))
-
-    def close(self) -> None:
-        self.closed = True
-
-
-def _source(client: FakeAdfClient, **overrides: Any) -> AzureDataFactorySource:
-    config = AzureDataFactoryConfig.model_validate(
-        {
-            "subscription_id": SUB,
-            "credential": {"authentication_method": "cli"},
-            **overrides,
-        }
-    )
-    with patch(
-        "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactoryClient"
-    ):
-        source = AzureDataFactorySource(config, PipelineContext(run_id="adf-test"))
-    source.client = cast(AzureDataFactoryClient, client)
-    return source
-
-
 def _tenant() -> FakeAdfClient:
     """A factory with the activity shapes lineage is extracted from."""
     client = FakeAdfClient()
     client.linked_services = [
-        _linked_service(
+        linked_service_resource(
             SQL_LS,
             adf.AzureSqlDatabaseLinkedService(
-                connection_string=_raw(
-                    "Server=tcp:placeholder;Initial Catalog=salesdb;"
-                )
+                connection_string=raw("Server=tcp:placeholder;Initial Catalog=salesdb;")
             ),
         ),
-        _linked_service(
+        linked_service_resource(
             BLOB_LS,
             adf.AzureBlobStorageLinkedService(
-                connection_string=_raw(
-                    "DefaultEndpointsProtocol=https;AccountName=acct"
-                )
+                connection_string=raw("DefaultEndpointsProtocol=https;AccountName=acct")
             ),
         ),
         # HttpServer has no DataHub platform mapping.
-        _linked_service(
-            HTTP_LS, adf.HttpLinkedService(url=_raw("https://placeholder"))
+        linked_service_resource(
+            HTTP_LS, adf.HttpLinkedService(url=raw("https://placeholder"))
         ),
     ]
     client.datasets = [
@@ -403,18 +199,20 @@ def _tenant() -> FakeAdfClient:
             {"value": "@dataset().tbl", "type": "Expression"},
             parameters={"tbl": adf.ParameterSpecification(type="String")},
         ),
-        _dataset(
+        dataset_resource(
             "OrdersCsv",
             adf.DelimitedTextDataset(
-                linked_service_name=_ls_ref(BLOB_LS),
+                linked_service_name=ls_ref(BLOB_LS),
                 location=adf.AzureBlobStorageLocation(
-                    container=_raw("raw"),
-                    folder_path=_raw("orders"),
-                    file_name=_raw("orders.csv"),
+                    container=raw("raw"),
+                    folder_path=raw("orders"),
+                    file_name=raw("orders.csv"),
                 ),
             ),
         ),
-        _dataset("HttpDs", adf.HttpDataset(linked_service_name=_ls_ref(HTTP_LS))),
+        dataset_resource(
+            "HttpDs", adf.HttpDataset(linked_service_name=ls_ref(HTTP_LS))
+        ),
     ]
     client.global_parameters = [_global_parameters(env_name="prod")]
     client.triggers = [
@@ -434,18 +232,18 @@ def _tenant() -> FakeAdfClient:
         _mapping_data_flow("Scriptless", [], []),
     ]
     client.pipelines = [
-        _pipeline(
+        pipeline_resource(
             "MainPipeline",
             [
                 _copy("CopyOrders", "SrcOrders", "OrdersCsv"),
                 _execute_data_flow("RunTransform", "TransformOrders"),
                 adf.ExecutePipelineActivity(
-                    name="CallChild", pipeline=_pipeline_ref("ChildPipeline")
+                    name="CallChild", pipeline=pipeline_ref("ChildPipeline")
                 ),
                 adf.LookupActivity(
                     name="LookupConfig",
                     source=adf.AzureSqlSource(),
-                    dataset=_ds_ref("SrcOrders"),
+                    dataset=ds_ref("SrcOrders"),
                 ),
                 adf.ForEachActivity(
                     name="LoopTables",
@@ -462,16 +260,16 @@ def _tenant() -> FakeAdfClient:
             annotations=["nightly"],
             concurrency=2,
         ),
-        _pipeline("ChildPipeline", [_wait("ChildStart")]),
-        _pipeline(
+        pipeline_resource("ChildPipeline", [_wait("ChildStart")]),
+        pipeline_resource(
             "LegacyPipeline",
             [
                 _execute_data_flow("Legacy Flow", None),
                 _execute_data_flow("LEGACYFLOW", None),
             ],
         ),
-        _pipeline("ScratchPipeline", [_wait("Nothing")]),
-        _pipeline(None, [_wait("Unnamed")]),
+        pipeline_resource("ScratchPipeline", [_wait("Nothing")]),
+        pipeline_resource(None, [_wait("Unnamed")]),
     ]
     return client
 
@@ -527,20 +325,21 @@ def _script(logic: DataTransformLogicClass) -> Optional[str]:
     return statement.value if statement is not None else None
 
 
-def _edge(fgl: Any) -> tuple[str, str]:
+def _edge(fgl: Any) -> Tuple[str, str]:
+    """One column edge; fails on a fan-in or fan-out lineage, which ADF
+    column mappings never produce."""
     assert fgl.upstreams and fgl.downstreams
+    assert len(fgl.upstreams) == len(fgl.downstreams) == 1
     return fgl.upstreams[0], fgl.downstreams[0]
-
-
-def _warning_titles(source: AzureDataFactorySource) -> List[Optional[str]]:
-    return [w.title for w in source.report.warnings]
 
 
 def _ingest(
     client: FakeAdfClient, **overrides: Any
-) -> tuple[AzureDataFactorySource, List[MetadataWorkUnit]]:
-    source = _source(client, pipeline_pattern={"deny": ["Scratch.*"]}, **overrides)
-    return source, list(source.get_workunits_internal())
+) -> Tuple[AzureDataFactorySource, List[MetadataWorkUnit]]:
+    source = build_adf_source(
+        client, pipeline_pattern={"deny": ["Scratch.*"]}, **overrides
+    )
+    return source, ingest(source)
 
 
 class TestStaticMetadata:
@@ -550,10 +349,11 @@ class TestStaticMetadata:
         containers = list(_last(workunits, ContainerPropertiesClass).values())
         assert len(containers) == 1
         assert containers[0].name == FACTORY
+        assert f"/resourceGroups/{RG}/" in (containers[0].externalUrl or "")
         assert (
             containers[0].customProperties.items()
             >= {
-                "azure_resource_id": _factory_id(FACTORY),
+                "azure_resource_id": factory_id(FACTORY),
                 "location": "westeurope",
                 "tag:team": "data",
                 "provisioning_state": "Succeeded",
@@ -563,11 +363,16 @@ class TestStaticMetadata:
     def test_pipelines_become_dataflows_carrying_folder_annotations_and_triggers(
         self,
     ) -> None:
+        """The pipeline description is ingested metadata: under ingestion
+        attribution it belongs in dataFlowInfo, never in the editable aspect
+        a user's UI edit would be overwritten through."""
         source, workunits = _ingest(_tenant())
 
         flows = _last(workunits, DataFlowInfoClass)
         main = flows[_flow_urn("MainPipeline")]
         assert main.name == "MainPipeline"
+        assert main.description == "Nightly load"
+        assert _last(workunits, EditableDataFlowPropertiesClass) == {}
         assert main.customProperties["folder"] == "etl"
         assert main.customProperties["annotations"] == "nightly"
         assert main.customProperties["concurrency"] == "2"
@@ -600,16 +405,13 @@ class TestStaticMetadata:
             _job_urn("MainPipeline", "CopyOrders")
         ]
         assert io.fineGrainedLineages is not None
-        assert {
-            (tuple(fgl.upstreams or ()), tuple(fgl.downstreams or ()))
-            for fgl in io.fineGrainedLineages
-        } == {
+        assert sorted(_edge(fgl) for fgl in io.fineGrainedLineages) == sorted(
             (
-                (f"urn:li:schemaField:({ORDERS},{col})",),
-                (f"urn:li:schemaField:({ORDERS_CSV},{col})",),
+                f"urn:li:schemaField:({ORDERS},{col})",
+                f"urn:li:schemaField:({ORDERS_CSV},{col})",
             )
             for col in ("id", "amount")
-        }
+        )
 
     def test_nested_activities_get_datajobs_with_lineage(self) -> None:
         _, workunits = _ingest(_tenant())
@@ -660,6 +462,8 @@ class TestStaticMetadata:
     def test_execute_pipeline_links_the_caller_to_the_childs_first_activity(
         self,
     ) -> None:
+        """Cross-pipeline lineage is an edge from the caller to the child
+        pipeline's entry activity, since DataFlows cannot carry job edges."""
         source, workunits = _ingest(_tenant())
 
         caller = _job_urn("MainPipeline", "CallChild")
@@ -681,20 +485,31 @@ class TestStaticMetadata:
         ]
         assert io.inputDatasets == []
         assert io.outputDatasets == [STG_ORDERS]
-        assert "Unmapped Linked Service Type" in _warning_titles(source)
+        assert "Unmapped Linked Service Type" in log_titles(source.report.warnings)
 
     def test_activity_without_lineage_still_gets_a_typed_datajob(self) -> None:
-        _, workunits = _ingest(_tenant())
+        client = _tenant()
+        main_activities = client.pipelines[0].activities
+        assert main_activities is not None
+        pause = next(a for a in main_activities if a.name == "Pause")
+        pause.description = "Waits for the upstream export"
+        _, workunits = _ingest(client)
 
         job = _last(workunits, DataJobInfoClass)[_job_urn("MainPipeline", "Pause")]
         assert job.customProperties["activity_type"] == "Wait"
+        assert job.description == "Waits for the upstream export"
+        assert _last(workunits, EditableDataJobPropertiesClass) == {}
         assert _job_urn("MainPipeline", "Pause") not in _last(
             workunits, DataJobInputOutputClass
         )
 
     def test_factory_pattern_and_nameless_factories_are_skipped(self) -> None:
         client = _tenant()
-        client.factories = [_factory(), _factory("other-factory"), _factory(None)]
+        client.factories = [
+            adf_factory(),
+            adf_factory("other-factory"),
+            adf_factory(None),
+        ]
         source, workunits = _ingest(client, factory_pattern={"deny": ["other.*"]})
 
         containers = _last(workunits, ContainerPropertiesClass)
@@ -703,6 +518,8 @@ class TestStaticMetadata:
         assert source.report.factories_scanned == 1
 
     def test_global_parameters_resolve_dataset_references(self) -> None:
+        """A dataset parameter defaulting to a global parameter resolves to
+        that global's value, giving a real table instead of a placeholder."""
         client = _tenant()
         client.datasets.append(
             _sql_table(
@@ -712,13 +529,15 @@ class TestStaticMetadata:
                 parameters={
                     "tbl": adf.ParameterSpecification(
                         type="String",
-                        default_value=_raw("@pipeline().globalParameters.env_name"),
+                        default_value=raw("@pipeline().globalParameters.env_name"),
                     )
                 },
             )
         )
         client.pipelines.append(
-            _pipeline("GlobalPipeline", [_copy("CopyGlobal", "GlobalDs", "StgOrders")])
+            pipeline_resource(
+                "GlobalPipeline", [_copy("CopyGlobal", "GlobalDs", "StgOrders")]
+            )
         )
         _, workunits = _ingest(client)
 
@@ -729,14 +548,12 @@ class TestStaticMetadata:
 
     def test_close_releases_the_client(self) -> None:
         client = _tenant()
-        source = _source(client)
+        source = build_adf_source(client)
         source.close()
         assert client.closed
 
     def test_create_builds_from_a_recipe_dict(self) -> None:
-        with patch(
-            "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactoryClient"
-        ):
+        with patch(ADF_CLIENT_CLASS, autospec=True):
             source = AzureDataFactorySource.create(
                 {
                     "subscription_id": SUB,
@@ -751,17 +568,17 @@ class TestLineageShapes:
     def test_legacy_blob_dataset_combines_folder_and_file(self) -> None:
         client = _tenant()
         client.datasets.append(
-            _dataset(
+            dataset_resource(
                 "LegacyBlob",
                 adf.AzureBlobDataset(
-                    linked_service_name=_ls_ref(BLOB_LS),
-                    folder_path=_raw("raw/legacy"),
-                    file_name=_raw("orders.csv"),
+                    linked_service_name=ls_ref(BLOB_LS),
+                    folder_path=raw("raw/legacy"),
+                    file_name=raw("orders.csv"),
                 ),
             )
         )
         client.pipelines.append(
-            _pipeline(
+            pipeline_resource(
                 "LegacyBlobPipeline", [_copy("CopyLegacy", "SrcOrders", "LegacyBlob")]
             )
         )
@@ -775,9 +592,11 @@ class TestLineageShapes:
         ]
 
     def test_execute_data_flow_referencing_a_missing_flow_has_no_lineage(self) -> None:
+        """A dangling data flow reference still yields the DataJob, with no
+        lineage or script invented for it."""
         client = _tenant()
         client.pipelines.append(
-            _pipeline(
+            pipeline_resource(
                 "MissingFlowPipeline", [_execute_data_flow("RunGone", "GoneFlow")]
             )
         )
@@ -793,11 +612,11 @@ class TestLineageShapes:
     ) -> None:
         client = _tenant()
         client.pipelines.append(
-            _pipeline(
+            pipeline_resource(
                 "CallerPipeline",
                 [
                     adf.ExecutePipelineActivity(
-                        name="CallGone", pipeline=_pipeline_ref("GonePipeline")
+                        name="CallGone", pipeline=pipeline_ref("GonePipeline")
                     )
                 ],
             )
@@ -822,9 +641,7 @@ class TestAzureFailures:
         source, workunits = _ingest(client)
 
         assert workunits == []
-        assert [f.title for f in source.report.failures] == [
-            "Failed to List Data Factories"
-        ]
+        assert "Failed to List Data Factories" in log_titles(source.report.failures)
 
     def test_listing_pipelines_failure_keeps_the_factory_container(self) -> None:
         client = _tenant()
@@ -833,7 +650,8 @@ class TestAzureFailures:
 
         assert len(_last(workunits, ContainerPropertiesClass)) == 1
         assert _last(workunits, DataFlowInfoClass) == {}
-        assert _warning_titles(source) == ["Failed to List Pipelines"]
+        assert "Failed to List Pipelines" in log_titles(source.report.warnings)
+        assert not source.report.failures
 
     def test_global_parameters_failure_does_not_skip_the_factory(self) -> None:
         client = _tenant()
@@ -841,11 +659,12 @@ class TestAzureFailures:
         source, workunits = _ingest(client)
 
         assert _flow_urn("MainPipeline") in _last(workunits, DataFlowInfoClass)
-        assert "Failed to List Global Parameters" in _warning_titles(source)
+        assert "Failed to List Global Parameters" in log_titles(source.report.warnings)
 
     def test_a_failing_factory_is_skipped_and_the_next_one_processed(self) -> None:
+        """A per-factory failure must cost only that factory, not the run."""
         client = _tenant()
-        client.factories = [_factory(), _factory("second")]
+        client.factories = [adf_factory(), adf_factory("second")]
         calls = 0
 
         def fail_once(*args: Any) -> Iterator[adf.DatasetResource]:
@@ -860,15 +679,17 @@ class TestAzureFailures:
 
         names = [c.name for c in _last(workunits, ContainerPropertiesClass).values()]
         assert names == ["second"]
-        assert "Failed to Process Data Factory" in _warning_titles(source)
+        assert "Failed to Process Data Factory" in log_titles(source.report.warnings)
         assert source.report.factories_scanned == 2
 
     def test_unparseable_factory_id_falls_back_to_an_unknown_resource_group(
         self,
     ) -> None:
+        """A factory id without a resourceGroups segment must not abort the
+        factory; its portal URLs fall back to an `unknown` resource group."""
         client = _tenant()
-        broken = _hydrate(
-            _factory(),
+        broken = hydrate(
+            adf_factory(),
             id="/subscriptions/x/providers/Microsoft.DataFactory/factories/y",
         )
         client.factories = [broken]
@@ -903,19 +724,19 @@ def _history_client() -> FakeAdfClient:
         ]
     )
     client.pipeline_runs = [
-        _pipeline_run(
+        pipeline_run(
             "MainPipeline", "run-1", parameters={"SourceTable": "dbo.customers"}
         ),
-        _pipeline_run("MainPipeline", "run-2", status="InProgress", ended=False),
-        _pipeline_run("ScratchPipeline", "run-3"),
-        _pipeline_run("MainPipeline", None),
+        pipeline_run("MainPipeline", "run-2", status="InProgress", ended=False),
+        pipeline_run("ScratchPipeline", "run-3"),
+        pipeline_run("MainPipeline", None),
     ]
     return client
 
 
 def _history(
     client: FakeAdfClient, **overrides: Any
-) -> tuple[AzureDataFactorySource, List[MetadataWorkUnit]]:
+) -> Tuple[AzureDataFactorySource, List[MetadataWorkUnit]]:
     return _ingest(
         client, include_execution_history=True, execution_history_days=3, **overrides
     )
@@ -923,6 +744,9 @@ def _history(
 
 class TestExecutionHistory:
     def test_pipeline_runs_become_process_instances_with_events(self) -> None:
+        """Run messages are truncated to 500 characters, an in-progress run
+        gets no COMPLETE event, and nameless or denied runs are counted but
+        not emitted."""
         client = _history_client()
         source, workunits = _history(client)
 
@@ -947,13 +771,15 @@ class TestExecutionHistory:
         assert client.run_queries == ["run-1", "run-2"]
 
     def test_activity_runs_link_to_their_datajob(self) -> None:
+        """Activity runs must hang off the DataJob (not the DataFlow) for the
+        Runs tab to show on the activity, and carry its static lineage."""
         client = _history_client()
         client.activity_runs["run-1"] = [
-            _activity_run("Pause", "ar-wait", activity_type="Wait"),
-            _activity_run(
+            activity_run("Pause", "ar-wait", activity_type="Wait"),
+            activity_run(
                 "CopyOrders", "ar-failed", status="Failed", error={"message": "E" * 600}
             ),
-            _activity_run(None, "ar-nameless"),
+            activity_run(None, "ar-nameless"),
         ]
         source, workunits = _history(client)
 
@@ -984,7 +810,7 @@ class TestExecutionHistory:
         the static lineage on the run and on the activity's DataJob."""
         client = _history_client()
         client.activity_runs["run-1"] = [
-            _activity_run(
+            activity_run(
                 "CopyEach",
                 "ar-each",
                 run_input={
@@ -1007,16 +833,20 @@ class TestExecutionHistory:
         io = _last(workunits, DataJobInputOutputClass)[job]
         assert (io.inputDatasets, io.outputDatasets) == ([CUSTOMERS], [STG_CUSTOMERS])
         assert io.fineGrainedLineages is not None
-        assert {_edge(fgl)[1] for fgl in io.fineGrainedLineages} == {
-            f"urn:li:schemaField:({STG_CUSTOMERS},id)",
-            f"urn:li:schemaField:({STG_CUSTOMERS},amount)",
-        }
-        assert source.report.column_lineage_extracted >= 2
+        assert sorted(_edge(fgl) for fgl in io.fineGrainedLineages) == sorted(
+            (
+                f"urn:li:schemaField:({CUSTOMERS},{col})",
+                f"urn:li:schemaField:({STG_CUSTOMERS},{col})",
+            )
+            for col in ("id", "amount")
+        )
 
     def test_unresolved_templating_in_a_run_query_is_not_a_table(self) -> None:
+        """An unresolved `@{...}` expression in a run's query must keep the
+        static lineage rather than be parsed into a garbage table name."""
         client = _history_client()
         client.activity_runs["run-1"] = [
-            _activity_run(
+            activity_run(
                 "CopyEach",
                 "ar-garbage",
                 run_input={
@@ -1032,13 +862,15 @@ class TestExecutionHistory:
         assert _last(workunits, DataProcessInstanceOutputClass)[run].outputs == [
             STG_ORDERS
         ]
-        titles = _warning_titles(source)
+        titles = log_titles(source.report.warnings)
         assert "Unresolved ADF Expression in Activity Run Query" in titles
         assert "Unresolved ADF Expression in Activity Run DDL Statement" in titles
 
     def test_pipeline_run_parameters_replace_a_placeholder_dataset(self) -> None:
+        """A table named by a pipeline parameter is a placeholder statically;
+        the run's parameter value replaces it on the DataJob and the run."""
         client = _history_client()
-        client.activity_runs["run-1"] = [_activity_run("CopyParam", "ar-param")]
+        client.activity_runs["run-1"] = [activity_run("CopyParam", "ar-param")]
         _, workunits = _history(client)
 
         job = _job_urn("MainPipeline", "CopyParam")
@@ -1054,7 +886,7 @@ class TestExecutionHistory:
     def test_dynamic_translator_resolved_on_the_run_gives_column_lineage(self) -> None:
         client = _history_client()
         client.activity_runs["run-1"] = [
-            _activity_run(
+            activity_run(
                 "CopyMapped",
                 "ar-mapped",
                 run_input={
@@ -1085,7 +917,7 @@ class TestExecutionHistory:
     ) -> None:
         client = _history_client()
         client.activity_runs["run-1"] = [
-            _activity_run(
+            activity_run(
                 "CopyMapped",
                 "ar-unmapped",
                 run_input={
@@ -1110,7 +942,7 @@ class TestExecutionHistory:
         read from DataHub and matched against the sink's own casing."""
         client = _history_client()
         client.activity_runs["run-1"] = [
-            _activity_run(
+            activity_run(
                 "CopyEach",
                 "ar-star",
                 run_input={
@@ -1119,39 +951,41 @@ class TestExecutionHistory:
                 },
             )
         ]
-        source = _source(
+        source = build_adf_source(
             client,
             pipeline_pattern={"deny": ["Scratch.*"]},
             include_execution_history=True,
         )
-        graph = MagicMock()
-        graph.get_schema_metadata.side_effect = lambda urn: _schema_metadata(
+        graph = create_autospec(DataHubGraph, instance=True)
+        graph.get_schema_metadata.side_effect = lambda urn: schema_metadata(
             ["id", "amount"] if urn == CUSTOMERS else ["ID", "AMOUNT"]
         )
         source.ctx.graph = graph
-        workunits = list(source.get_workunits_internal())
+        workunits = ingest(source)
 
         io = _last(workunits, DataJobInputOutputClass)[
             _job_urn("MainPipeline", "CopyEach")
         ]
         assert io.fineGrainedLineages is not None
-        assert {_edge(fgl) for fgl in io.fineGrainedLineages} == {
-            (
-                f"urn:li:schemaField:({CUSTOMERS},id)",
-                f"urn:li:schemaField:({STG_CUSTOMERS},ID)",
-            ),
-            (
-                f"urn:li:schemaField:({CUSTOMERS},amount)",
-                f"urn:li:schemaField:({STG_CUSTOMERS},AMOUNT)",
-            ),
-        }
+        assert sorted(_edge(fgl) for fgl in io.fineGrainedLineages) == sorted(
+            [
+                (
+                    f"urn:li:schemaField:({CUSTOMERS},id)",
+                    f"urn:li:schemaField:({STG_CUSTOMERS},ID)",
+                ),
+                (
+                    f"urn:li:schemaField:({CUSTOMERS},amount)",
+                    f"urn:li:schemaField:({STG_CUSTOMERS},AMOUNT)",
+                ),
+            ]
+        )
 
     def test_pre_copy_script_without_a_table_keeps_the_static_sink(self) -> None:
         """A T-SQL batch sqlglot can only treat as an opaque command names no
         table, so the sink is left as statically resolved rather than guessed."""
         client = _history_client()
         client.activity_runs["run-1"] = [
-            _activity_run(
+            activity_run(
                 "CopyEach",
                 "ar-batch",
                 run_input={
@@ -1178,20 +1012,25 @@ class TestExecutionHistory:
         source, workunits = _history(client)
 
         assert _last(workunits, DataProcessInstancePropertiesClass) == {}
-        assert "Failed to Fetch Execution History" in _warning_titles(source)
+        assert "Failed to Fetch Execution History" in log_titles(source.report.warnings)
         # Static metadata is unaffected.
         assert _flow_urn("MainPipeline") in _last(workunits, DataFlowInfoClass)
 
-    def test_activity_run_failure_keeps_the_pipeline_run(self) -> None:
+    def test_activity_run_failure_keeps_the_pipeline_run_and_warns(self) -> None:
+        """A throttled activity-run query loses that run's activity history;
+        the operator has to be told, and the pipeline run itself kept."""
         client = _history_client()
         client.errors["get_activity_runs"] = RuntimeError("throttled")
-        _, workunits = _history(client)
+        source, workunits = _history(client)
 
         assert "run-1" in _run_urns(workunits, "run_id")
+        assert "Failed to Fetch Activity Runs" in log_titles(source.report.warnings)
 
     def test_lineage_disabled_skips_run_lineage_and_dataset_caches(self) -> None:
+        """include_lineage=False must drop lineage from runs as well as
+        DataJobs, while still emitting the runs themselves."""
         client = _history_client()
-        client.activity_runs["run-1"] = [_activity_run("CopyOrders", "ar-plain")]
+        client.activity_runs["run-1"] = [activity_run("CopyOrders", "ar-plain")]
         _, workunits = _history(client, include_lineage=False)
 
         assert _last(workunits, DataProcessInstanceInputClass) == {}
@@ -1199,21 +1038,3 @@ class TestExecutionHistory:
             workunits, DataJobInputOutputClass
         )
         assert "ar-plain" in _run_urns(workunits, "activity_run_id")
-
-
-def _schema_metadata(columns: List[str]) -> SchemaMetadataClass:
-    return SchemaMetadataClass(
-        schemaName="t",
-        platform=MSSQL,
-        version=0,
-        hash="",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath=column,
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="varchar",
-            )
-            for column in columns
-        ],
-    )

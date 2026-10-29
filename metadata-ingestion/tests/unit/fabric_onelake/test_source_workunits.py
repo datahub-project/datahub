@@ -2,43 +2,44 @@
 containers and tables one ingestion emits, and how a failing Fabric call
 degrades to a warning or a failure instead of aborting the run."""
 
-from typing import Any, Dict, List, Tuple, Union, cast
-from unittest.mock import MagicMock, patch
+from typing import Any, List, Tuple, Union
+from unittest.mock import create_autospec, patch
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
 from datahub.metadata.schema_classes import StatusClass
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
-from tests.unit.fabric_onelake.onelake_fakes import LH_ID, WH_ID, WS, FakeOneLakeClient
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from tests.unit.conftest import log_titles
+from tests.unit.fabric_onelake.conftest import (
+    LH_ID,
+    REST_ONLY,
+    WH_ID,
+    WS,
+    FakeOneLakeClient,
+    OneLakeSourceFactory,
+)
 
 Emitted = Union[MetadataWorkUnit, Entity]
 
-# No SQL Analytics Endpoint: tables come from the REST listing alone.
-_REST_ONLY: Dict[str, Any] = {
-    "sql_endpoint": None,
-    "extract_views": False,
-    "extract_schema": {"enabled": False},
-    "usage": {"include_usage_statistics": False},
+# One workspace, one lakehouse, one warehouse: the duplicates the fake serves
+# exist for the probe's name-resolution tests.
+_ONE_OF_EACH = {
+    "workspace_pattern": {"deny": ["^hr-ws$"]},
+    "lakehouse_pattern": {"deny": ["^shared_name$"]},
+    "warehouse_pattern": {"deny": ["^shared_name$"]},
 }
 
 
-def _source(client: FakeOneLakeClient, **config: Any) -> FabricOneLakeSource:
-    source = FabricOneLakeSource.create(
-        {**_REST_ONLY, **config}, PipelineContext(run_id="onelake-wu")
-    )
-    source.client = cast(OneLakeClient, client)
-    return source
-
-
 def _ingest(
-    client: FakeOneLakeClient, **config: Any
+    make_onelake_source: OneLakeSourceFactory,
+    client: FakeOneLakeClient,
+    **recipe: Any,
 ) -> Tuple[FabricOneLakeSource, List[Emitted]]:
-    source = _source(client, **config)
+    source = make_onelake_source(client, **{**REST_ONLY, **recipe})
     return source, list(source.get_workunits_internal())
 
 
@@ -50,18 +51,11 @@ def _datasets(emitted: List[Emitted]) -> List[Dataset]:
     return [e for e in emitted if isinstance(e, Dataset)]
 
 
-def _warning_titles(source: FabricOneLakeSource) -> List[str]:
-    return [w.title or "" for w in source.report.warnings]
-
-
-def test_workspace_items_and_tables_are_emitted_under_their_containers() -> None:
+def test_workspace_items_and_tables_are_emitted_under_their_containers(
+    make_onelake_source: OneLakeSourceFactory,
+) -> None:
     client = FakeOneLakeClient()
-    source, emitted = _ingest(
-        client,
-        workspace_pattern={"deny": ["^hr-ws$"]},
-        lakehouse_pattern={"deny": ["^shared_name$"]},
-        warehouse_pattern={"deny": ["^shared_name$"]},
-    )
+    source, emitted = _ingest(make_onelake_source, client, **_ONE_OF_EACH)
 
     containers = {c.display_name for c in _containers(emitted)}
     # Workspace, lakehouse, warehouse and one schema container per schema;
@@ -80,8 +74,11 @@ def test_workspace_items_and_tables_are_emitted_under_their_containers() -> None
     assert "lakehouse_tables" in client.calls and "warehouse_tables" in client.calls
 
 
-def test_without_schema_containers_tables_sit_directly_under_their_item() -> None:
+def test_without_schema_containers_tables_sit_directly_under_their_item(
+    make_onelake_source: OneLakeSourceFactory,
+) -> None:
     _, emitted = _ingest(
+        make_onelake_source,
         FakeOneLakeClient(),
         extract_schemas=False,
         extract_warehouses=False,
@@ -95,52 +92,72 @@ def test_without_schema_containers_tables_sit_directly_under_their_item() -> Non
         assert dataset.parent_container == lakehouse.urn
 
 
-def test_workspace_listing_failure_is_a_failure() -> None:
+def test_workspace_listing_failure_is_a_failure(
+    make_onelake_source: OneLakeSourceFactory,
+) -> None:
+    """Without the workspace listing nothing can be ingested, so this is the
+    one Fabric read whose failure fails the run rather than warning."""
     client = FakeOneLakeClient()
     client.workspaces_error = RuntimeError("401")
-    source, emitted = _ingest(client)
+    source, emitted = _ingest(make_onelake_source, client)
 
     assert _containers(emitted) == [] and _datasets(emitted) == []
-    assert [f.title for f in source.report.failures] == ["Failed to List Workspaces"]
+    assert "Failed to List Workspaces" in log_titles(source.report.failures)
 
 
-def test_lakehouse_listing_failure_still_processes_warehouses() -> None:
+def test_lakehouse_listing_failure_still_processes_warehouses(
+    make_onelake_source: OneLakeSourceFactory,
+) -> None:
     client = FakeOneLakeClient()
     client.lakehouses_error = RuntimeError("403")
-    source, emitted = _ingest(client, workspace_pattern={"deny": ["^hr-ws$"]})
+    source, emitted = _ingest(
+        make_onelake_source, client, workspace_pattern={"deny": ["^hr-ws$"]}
+    )
 
     assert {d.display_name for d in _datasets(emitted)} == {"facts"}
-    assert _warning_titles(source) == ["Failed to List Lakehouses"]
+    assert "Failed to List Lakehouses" in log_titles(source.report.warnings)
+    assert not source.report.failures
 
 
-def test_warehouse_listing_failure_is_a_warning() -> None:
+def test_warehouse_listing_failure_is_a_warning(
+    make_onelake_source: OneLakeSourceFactory,
+) -> None:
     client = FakeOneLakeClient()
     with patch.object(client, "list_warehouses", side_effect=RuntimeError("403")):
-        source, emitted = _ingest(client, workspace_pattern={"deny": ["^hr-ws$"]})
+        source, emitted = _ingest(
+            make_onelake_source, client, workspace_pattern={"deny": ["^hr-ws$"]}
+        )
 
     assert "facts" not in {d.display_name for d in _datasets(emitted)}
     assert source.report.lakehouses_scanned == 2
-    assert _warning_titles(source) == ["Failed to List Warehouses"]
+    assert "Failed to List Warehouses" in log_titles(source.report.warnings)
+    assert not source.report.failures
 
 
-def test_table_listing_failure_is_a_warning_for_that_item_only() -> None:
+def test_table_listing_failure_is_a_warning_for_that_item_only(
+    make_onelake_source: OneLakeSourceFactory,
+) -> None:
     client = FakeOneLakeClient()
     with patch.object(client, "list_lakehouse_tables", side_effect=RuntimeError("500")):
-        source, emitted = _ingest(
-            client,
-            workspace_pattern={"deny": ["^hr-ws$"]},
-            lakehouse_pattern={"deny": ["^shared_name$"]},
-            warehouse_pattern={"deny": ["^shared_name$"]},
-        )
+        source, emitted = _ingest(make_onelake_source, client, **_ONE_OF_EACH)
 
     assert {d.display_name for d in _datasets(emitted)} == {"facts"}
-    assert _warning_titles(source) == ["Failed to Process Tables"]
+    assert "Failed to Process Tables" in log_titles(source.report.warnings)
+    assert not source.report.failures
 
 
-def test_aggregator_output_is_emitted_after_the_catalog() -> None:
-    client = FakeOneLakeClient()
-    source = _source(client, extract_lakehouses=False, extract_warehouses=False)
-    aggregator = MagicMock()
+def test_aggregator_output_is_emitted_after_the_catalog(
+    make_onelake_source: OneLakeSourceFactory,
+) -> None:
+    """Lineage and usage are generated once every view definition and query
+    has been registered, so they have to come last."""
+    source = make_onelake_source(
+        FakeOneLakeClient(),
+        **REST_ONLY,
+        extract_lakehouses=False,
+        extract_warehouses=False,
+    )
+    aggregator = create_autospec(SqlParsingAggregator, instance=True)
     mcp = MetadataChangeProposalWrapper(
         entityUrn="urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,x,PROD)",
         aspect=StatusClass(removed=False),
@@ -155,15 +172,19 @@ def test_aggregator_output_is_emitted_after_the_catalog() -> None:
     assert not source.report.failures
 
 
-def test_aggregator_failure_is_a_failure_not_a_crash() -> None:
-    client = FakeOneLakeClient()
-    source = _source(client, extract_lakehouses=False, extract_warehouses=False)
-    aggregator = MagicMock()
+def test_aggregator_failure_is_a_failure_not_a_crash(
+    make_onelake_source: OneLakeSourceFactory,
+) -> None:
+    source = make_onelake_source(
+        FakeOneLakeClient(),
+        **REST_ONLY,
+        extract_lakehouses=False,
+        extract_warehouses=False,
+    )
+    aggregator = create_autospec(SqlParsingAggregator, instance=True)
     aggregator.gen_metadata.side_effect = RuntimeError("parse state corrupt")
     source.aggregator = aggregator
 
     list(source.get_workunits_internal())
 
-    assert [f.title for f in source.report.failures] == [
-        "Failed to Generate Lineage / Usage"
-    ]
+    assert "Failed to Generate Lineage / Usage" in log_titles(source.report.failures)

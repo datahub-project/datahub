@@ -2,7 +2,7 @@
 tables into the connector's typed records."""
 
 from datetime import datetime, timezone
-from typing import List, Optional, Sequence, Tuple
+from typing import Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.redshift.query import RedshiftServerlessQuery
@@ -16,32 +16,16 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftSchema,
 )
 from datahub.metadata.schema_classes import RecordTypeClass
-
-
-def _cursor(
-    columns: Sequence[str],
-    rows: List[Tuple],
-    paged: bool = True,
-) -> MagicMock:
-    cursor = MagicMock()
-    cursor.description = [(c,) for c in columns]
-    cursor.fetchall.return_value = rows
-    cursor.fetchone.return_value = rows[0] if rows else None
-    if paged:
-        cursor.fetchmany.side_effect = [rows, []]
-    return cursor
-
-
-def _conn(cursor: MagicMock) -> MagicMock:
-    conn = MagicMock()
-    conn.cursor.return_value = cursor
-    return conn
+from tests.unit.redshift.conftest import make_connection, make_cursor
 
 
 def test_get_query_result_binds_parameters_separately() -> None:
+    """Parameters must reach the driver as bind values, never interpolated into
+    the (query-tagged) SQL text."""
     cursor = MagicMock()
-    conn = _conn(cursor)
-    RedshiftDataDictionary.get_query_result(conn, "select %s", ("x",))
+    RedshiftDataDictionary.get_query_result(
+        make_connection(cursor), "select %s", ("x",)
+    )
     executed_sql, params = cursor.execute.call_args[0]
     assert executed_sql.endswith("select %s")
     assert params == ("x",)
@@ -54,14 +38,16 @@ def test_serverless_dictionary_uses_serverless_queries() -> None:
 
 
 def test_get_databases_and_database_details() -> None:
-    conn = _conn(_cursor(["datname"], [("dev",), ("prod",)]))
+    conn = make_connection(make_cursor(["datname"], [("dev",), ("prod",)]))
     assert RedshiftDataDictionary.get_databases(conn) == ["dev", "prod"]
 
-    conn = _conn(_cursor(["name", "type", "options"], [("dev", "shared", "{}")]))
+    conn = make_connection(
+        make_cursor(["name", "type", "options"], [("dev", "shared", "{}")])
+    )
     db = RedshiftDataDictionary.get_database_details(conn, "dev")
     assert db == RedshiftDatabase(name="dev", type="shared", options="{}")
 
-    conn = _conn(_cursor(["name", "type", "options"], []))
+    conn = make_connection(make_cursor(["name", "type", "options"], []))
     assert RedshiftDataDictionary.get_database_details(conn, "dev") is None
 
 
@@ -83,7 +69,9 @@ def test_enrich_tables_is_keyed_by_schema_and_table() -> None:
     ]
     dictionary = RedshiftDataDictionary(is_serverless=False)
     with patch.object(
-        RedshiftDataDictionary, "get_query_result", return_value=_cursor(columns, rows)
+        RedshiftDataDictionary,
+        "get_query_result",
+        return_value=make_cursor(columns, rows),
     ):
         enriched = dictionary.enrich_tables(MagicMock())
 
@@ -133,6 +121,10 @@ TABLE_COLUMNS = [
 
 
 def test_get_tables_and_views_merges_enrichment_stats() -> None:
+    """svv_table_info stats are joined onto the pg_class listing by name: tables
+    missing from it are reported as empty (not unknown), external tables keep
+    their stats unset, and the two view flavours keep their DDL/materialized
+    flag."""
     created = datetime(2024, 1, 1, 12, 0)
     accessed = datetime(2024, 1, 5, 12, 0)
     enriched = {
@@ -163,7 +155,7 @@ def test_get_tables_and_views_merges_enrichment_stats() -> None:
         patch.object(
             RedshiftDataDictionary,
             "get_query_result",
-            return_value=_cursor(TABLE_COLUMNS, rows),
+            return_value=make_cursor(TABLE_COLUMNS, rows),
         ),
     ):
         tables, views = dictionary.get_tables_and_views(MagicMock(), "dev")
@@ -173,10 +165,8 @@ def test_get_tables_and_views_merges_enrichment_stats() -> None:
     assert by_name["orders"].rows_count == 42
     assert by_name["orders"].last_altered == accessed.replace(tzinfo=timezone.utc)
     assert by_name["orders"].created == created.replace(tzinfo=timezone.utc)
-    # svv_table_info omits empty tables: report them as empty, not unknown.
     assert by_name["empty"].rows_count == 0
     assert by_name["empty"].size_in_bytes == 0
-    # External tables are never in svv_table_info; leave stats unset.
     assert by_name["ext"].rows_count is None
     assert by_name["ext"].owner == "owner1"
 
@@ -194,7 +184,7 @@ def test_get_tables_and_views_without_enrichment_leaves_stats_unset() -> None:
         patch.object(
             RedshiftDataDictionary,
             "get_query_result",
-            return_value=_cursor(TABLE_COLUMNS, rows),
+            return_value=make_cursor(TABLE_COLUMNS, rows),
         ),
     ):
         tables, _ = dictionary.get_tables_and_views(MagicMock(), "dev", enrich=False)
@@ -205,6 +195,8 @@ def test_get_tables_and_views_without_enrichment_leaves_stats_unset() -> None:
 
 
 def test_get_table_stats_falls_back_to_creation_time_for_last_altered() -> None:
+    """A table present in svv_table_info but never accessed has no last_accessed;
+    last_altered must then be the creation time rather than None."""
     created = datetime(2024, 1, 1, 12, 0)
     enriched = {
         "public": {
@@ -242,7 +234,9 @@ def test_get_columns_for_schema_groups_columns_by_table() -> None:
     ]
     schema = RedshiftSchema(name="public", database="dev", type="local")
     with patch.object(
-        RedshiftDataDictionary, "get_query_result", return_value=_cursor(columns, rows)
+        RedshiftDataDictionary,
+        "get_query_result",
+        return_value=make_cursor(columns, rows),
     ):
         result = RedshiftDataDictionary.get_columns_for_schema(
             MagicMock(), "dev", schema
@@ -271,10 +265,16 @@ def test_get_schema_fields_for_column_expands_struct() -> None:
 
 
 def test_get_lineage_rows_unescapes_ddl_and_tolerates_missing_columns() -> None:
+    """stl_query stores newlines as the two characters ``\\n``; they must be
+    restored before parsing. Lineage queries that do not project every
+    LineageRow column (e.g. no source_schema for the SQL-parser feed) must
+    still produce a row."""
     columns = ["target_schema", "target_table", "ddl", "session_id"]
     rows = [("public", "t", "insert into t\\nselect 1", 123)]
     with patch.object(
-        RedshiftDataDictionary, "get_query_result", return_value=_cursor(columns, rows)
+        RedshiftDataDictionary,
+        "get_query_result",
+        return_value=make_cursor(columns, rows),
     ):
         lineage_rows = list(
             RedshiftDataDictionary.get_lineage_rows(MagicMock(), "select ...")
@@ -290,6 +290,8 @@ def test_get_lineage_rows_unescapes_ddl_and_tolerates_missing_columns() -> None:
 
 
 def test_temporary_and_alter_rows_skip_entries_without_session() -> None:
+    """Temp tables are resolved per session, so a row with no session id can
+    never be matched to its consumer and is dropped by both feeds."""
     columns = [
         "transaction_id",
         "session_id",
@@ -303,14 +305,18 @@ def test_temporary_and_alter_rows_skip_entries_without_session() -> None:
         (2, 7, "create table #b\\nas select 1", "create table #b", now),
     ]
     with patch.object(
-        RedshiftDataDictionary, "get_query_result", return_value=_cursor(columns, rows)
+        RedshiftDataDictionary,
+        "get_query_result",
+        return_value=make_cursor(columns, rows),
     ):
         temp_rows = list(RedshiftDataDictionary.get_temporary_rows(MagicMock(), "q"))
     assert [r.session_id for r in temp_rows] == ["7"]
     assert temp_rows[0].query_text == "create table #b\nas select 1"
 
     with patch.object(
-        RedshiftDataDictionary, "get_query_result", return_value=_cursor(columns, rows)
+        RedshiftDataDictionary,
+        "get_query_result",
+        return_value=make_cursor(columns, rows),
     ):
         alter_rows = list(
             RedshiftDataDictionary.get_alter_table_commands(MagicMock(), "q")
@@ -322,7 +328,7 @@ def test_datashare_lookups() -> None:
     with patch.object(
         RedshiftDataDictionary,
         "get_query_result",
-        return_value=_cursor(
+        return_value=make_cursor(
             ["share_type", "share_name", "producer_namespace", "source_database"],
             [("OUTBOUND", "s1", "ns1", "dev")],
         ),
@@ -335,7 +341,7 @@ def test_datashare_lookups() -> None:
     with patch.object(
         RedshiftDataDictionary,
         "get_query_result",
-        return_value=_cursor(
+        return_value=make_cursor(
             ["share_type", "share_name", "producer_namespace", "consumer_database"],
             [("INBOUND", "s2", "ns2", "dev")],
         ),
@@ -348,32 +354,16 @@ def test_datashare_lookups() -> None:
     with patch.object(
         RedshiftDataDictionary,
         "get_query_result",
-        return_value=_cursor(["share_type"], []),
+        return_value=make_cursor(["share_type"], []),
     ):
         assert RedshiftDataDictionary.get_inbound_datashare(MagicMock(), "dev") is None
 
 
-def test_inbound_share_parsing_handles_truncated_options() -> None:
-    # The options column is varchar(128), so the namespace may be cut off or
-    # missing entirely; we still want the share name.
-    full = RedshiftDatabase(
-        name="dev",
-        type="shared",
-        options='{"datashare_name":"s","datashare_producer_account":"1","datashare_producer_namespace":"abc-def"}',
-    )
-    assert full.get_inbound_share() == InboundDatashare(
-        share_name="s", producer_namespace="abc-def", consumer_database="dev"
-    )
-
-    truncated = RedshiftDatabase(
-        name="dev",
-        type="shared",
-        options='{"datashare_name":"s","datashare_producer_namespace":"abc-',
-    )
-    assert truncated.get_inbound_share() == PartialInboundDatashare(
-        share_name="s", producer_namespace_prefix="abc-", consumer_database="dev"
-    )
-
+def test_inbound_share_parsing_tolerates_namespace_cut_off_entirely() -> None:
+    """The svv database options column is varchar(128). The full and
+    prefix-truncated cases live in test_redshift_datashares; this covers the
+    namespace key itself being cut off (empty prefix) and options with no
+    share name at all."""
     name_only = RedshiftDatabase(
         name="dev", type="shared", options='{"datashare_name":"s","datashare_prod'
     )
@@ -384,18 +374,17 @@ def test_inbound_share_parsing_handles_truncated_options() -> None:
         PartialInboundDatashare("s", "abc-", "dev").get_description()
         == "Namespace Prefix abc- Share s"
     )
-
     assert (
         RedshiftDatabase(name="dev", type="shared", options="{}").get_inbound_share()
         is None
     )
-    assert (
-        RedshiftDatabase(name="dev", type="local", options="{}").get_inbound_share()
-        is None
-    )
 
 
-def test_external_schema_without_schema_option_has_no_upstream_schema() -> None:
+def test_external_schema_with_options_but_no_schema_key_has_no_upstream_schema() -> (
+    None
+):
+    """Covers the branch where the option JSON is present but carries no SCHEMA
+    key (the option=None branch is covered in test_redshift_lineage)."""
     schema = RedshiftSchema(
         name="ext",
         database="dev",

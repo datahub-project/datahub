@@ -17,25 +17,17 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
-from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
-    create_dataplatform_instance_resolver,
-)
-from datahub.ingestion.source.powerbi.powerbi import Mapper, PowerBiDashboardSource
+from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     App,
     AppDashboard,
     AppReport,
-    Column,
-    Dashboard,
     Measure,
     MeasureProfile,
     Page,
     PowerBIDataset,
-    Report,
     ReportType,
-    Table,
     Tile,
-    User,
     Workspace,
 )
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
@@ -49,54 +41,27 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     GlobalTagsClass,
     MetadataChangeProposalClass,
-    NumberTypeClass,
     OwnershipClass,
     SubTypesClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from tests.unit.powerbi.conftest import (
+    POWERBI_BASE_CONFIG,
+    MsalStub,
+    make_column,
+    make_dashboard,
+    make_dataset as _bare_dataset,
+    make_mapper,
+    make_report,
+    make_table,
+    make_tile,
+    make_user,
+    make_workspace,
+    powerbi_config,
+)
 
-_BASE = {"tenant_id": "t", "client_id": "c", "client_secret": "s"}
-
-
-def _config(**overrides: Any) -> PowerBiDashboardSourceConfig:
-    return PowerBiDashboardSourceConfig.model_validate({**_BASE, **overrides})
-
-
-def _workspace() -> Workspace:
-    return Workspace(
-        id="ws-1",
-        name="Sales",
-        type="Workspace",
-        webUrl="https://app.powerbi.com/groups/ws-1",
-        datasets={},
-        dashboards={},
-        reports={},
-        report_endorsements={},
-        dashboard_endorsements={},
-        scan_result={},
-        independent_datasets={},
-        app=None,
-    )
-
-
-def _mapper(config: PowerBiDashboardSourceConfig, workspace: Workspace) -> Mapper:
-    mapper = Mapper(
-        ctx=PipelineContext(run_id="test"),
-        config=config,
-        reporter=PowerBiDashboardSourceReport(),
-        dataplatform_instance_resolver=create_dataplatform_instance_resolver(config),
-    )
-    # The source emits the workspace container first; that call also fixes
-    # the parent container key every later entity is attached to.
-    list(mapper.generate_container_for_workspace(workspace))
-    return mapper
-
-
-def _column(name: str, hidden: bool = False) -> Column:
-    return Column(
-        name=name, dataType="Int64", isHidden=hidden, datahubDataType=NumberTypeClass()
-    )
+_ORDERS_URN = "urn:li:dataset:(urn:li:dataPlatform:powerbi,Model.Orders,PROD)"
 
 
 def _dataset(
@@ -105,73 +70,17 @@ def _dataset(
     expression: Optional[str] = None,
     configured_by: Optional[str] = None,
 ) -> PowerBIDataset:
-    dataset = PowerBIDataset(
-        id=dataset_id,
-        name="Model",
-        description="desc",
-        webUrl="https://app.powerbi.com/groups/ws-1/datasets/ds-1",
-        workspace_id="ws-1",
-        workspace_name="Sales",
-        parameters={},
-        tables=[],
-        tags=tags or [],
-        configuredBy=configured_by,
-    )
+    """A ``Model`` dataset with one ``Orders`` table carrying an ``amount`` column."""
+    dataset = _bare_dataset(dataset_id, tags=tags, configured_by=configured_by)
     dataset.tables = [
-        Table(
-            name="Orders",
-            full_name="Model.Orders",
+        make_table(
+            "Orders",
             expression=expression,
-            columns=[_column("amount")],
+            columns=[make_column("amount")],
             dataset=dataset,
         )
     ]
     return dataset
-
-
-def _report(
-    dataset: Optional[PowerBIDataset], pages: Optional[List[Page]] = None
-) -> Report:
-    return Report(
-        id="r-1",
-        name="Report",
-        type=ReportType.PowerBIReport,
-        webUrl="https://app.powerbi.com/groups/ws-1/reports/r-1",
-        embedUrl=None,
-        description="",
-        dataset_id=dataset.id if dataset else None,
-        dataset=dataset,
-        pages=pages or [],
-        users=[],
-        tags=[],
-    )
-
-
-def _dashboard(tiles: List[Tile], users: Optional[List[User]] = None) -> Dashboard:
-    return Dashboard(
-        id="d-1",
-        displayName="Dash",
-        description="",
-        embedUrl=None,
-        isReadOnly=False,
-        workspace_id="ws-1",
-        workspace_name="Sales",
-        tiles=tiles,
-        users=users or [],
-        tags=[],
-        webUrl=None,
-    )
-
-
-def _user(user_id: str = "u-1") -> User:
-    return User(
-        id=user_id,
-        displayName="Alice",
-        emailAddress="alice@example.com",
-        graphId="g-1",
-        principalType="User",
-        dashboardUserAccessRight="Owner",
-    )
 
 
 def _aspects(mcps: Iterable[MetadataChangeProposalWrapper], cls: type) -> List[Any]:
@@ -187,19 +96,24 @@ def _wu_aspects(wus: Iterable[MetadataWorkUnit], cls: Any) -> List[Any]:
 
 
 def test_dataset_outside_the_endorsement_filter_is_skipped() -> None:
-    config = _config(filter_dataset_endorsements={"allow": ["Certified"]})
-    mapper = _mapper(config, _workspace())
-    assert mapper.to_datahub_dataset(_dataset(tags=["Promoted"]), _workspace()) == []
-    assert mapper.to_datahub_dataset(_dataset(tags=["Certified"]), _workspace())
+    config = powerbi_config(filter_dataset_endorsements={"allow": ["Certified"]})
+    mapper = make_mapper(config, make_workspace())
+    assert (
+        mapper.to_datahub_dataset(_dataset(tags=["Promoted"]), make_workspace()) == []
+    )
+    assert mapper.to_datahub_dataset(_dataset(tags=["Certified"]), make_workspace())
 
 
 def test_dataset_tables_carry_view_logic_and_configured_by_owner() -> None:
-    config = _config(
+    """``#(lf)`` escapes in the M expression are unescaped for viewLogic, the
+    dataset's configuredBy becomes the owner, and every table is attached to
+    the workspace container by default."""
+    config = powerbi_config(
         extract_ownership=True,
         ownership={"dataset_configured_by_as_owner": True, "remove_email_suffix": True},
     )
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
     mcps = mapper.to_datahub_dataset(
         _dataset(expression='ROW("a",#(lf)1)', configured_by="bob@example.com"),
         workspace,
@@ -208,7 +122,6 @@ def test_dataset_tables_carry_view_logic_and_configured_by_owner() -> None:
     assert [v.viewLogic for v in views] == ['ROW("a",\n1)']
     owners = _aspects(mcps, OwnershipClass)
     assert [o.owner for o in owners[0].owners] == ["urn:li:corpuser:bob"]
-    # Every table is attached to the workspace container by default.
     containers = _aspects(mcps, ContainerClass)
     assert [c.container for c in containers] == [
         mapper.make_container_urn_for_workspace(workspace)
@@ -216,25 +129,20 @@ def test_dataset_tables_carry_view_logic_and_configured_by_owner() -> None:
 
 
 def test_dataset_tables_are_grouped_under_a_dataset_container_when_enabled() -> None:
-    config = _config(
+    config = powerbi_config(
         extract_datasets_to_containers=True,
         extract_endorsements_to_tags=True,
     )
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
     dataset = _dataset(tags=["Certified"])
     mcps = mapper.to_datahub_dataset(dataset, workspace)
 
     dataset_container_urn = mapper.make_container_urn_for_dataset(dataset)
-    table_urn = next(
-        m.entityUrn
-        for m in mcps
-        if isinstance(m.aspect, ViewPropertiesClass) or m.entityType == "dataset"
-    )
     table_containers = [
         m.aspect.container
         for m in mcps
-        if isinstance(m.aspect, ContainerClass) and m.entityUrn == table_urn
+        if isinstance(m.aspect, ContainerClass) and m.entityUrn == _ORDERS_URN
     ]
     assert table_containers == [dataset_container_urn]
     # The dataset container itself is emitted and parented to the workspace.
@@ -249,20 +157,20 @@ def test_dataset_tables_are_grouped_under_a_dataset_container_when_enabled() -> 
 
 
 def test_profile_aspect_skips_hidden_and_denied_columns() -> None:
-    config = _config(
+    config = powerbi_config(
         profiling={"enabled": True},
         profile_pattern={"deny": [".*\\.denied$"]},
     )
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
     dataset = _dataset()
     table = dataset.tables[0]
     table.row_count, table.column_count = 42, 1
     stats = MeasureProfile(min="1", max="9", unique_count=3, sample_values=["1", "9"])
     table.columns = [
-        _column("amount"),
-        _column("hidden", hidden=True),
-        _column("denied"),
+        make_column("amount"),
+        make_column("hidden", hidden=True),
+        make_column("denied"),
     ]
     for column in table.columns:
         column.measure_profile = stats
@@ -284,10 +192,10 @@ def test_profile_aspect_skips_hidden_and_denied_columns() -> None:
 
 
 def test_profile_aspect_is_not_emitted_when_profiling_is_off() -> None:
-    mapper = _mapper(_config(), _workspace())
+    mapper = make_mapper(powerbi_config(), make_workspace())
     dataset = _dataset()
     mcps: List[MetadataChangeProposalWrapper] = []
-    mapper.extract_profile(mcps, _workspace(), dataset, dataset.tables[0], "urn:x")
+    mapper.extract_profile(mcps, make_workspace(), dataset, dataset.tables[0], "urn:x")
     assert mcps == []
 
 
@@ -295,43 +203,35 @@ def test_profile_aspect_is_not_emitted_when_profiling_is_off() -> None:
 
 
 def test_dashboard_work_units_wire_charts_to_datasets_and_reports() -> None:
-    config = _config(extract_ownership=True, ownership={"create_corp_user": False})
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
-    dataset = _dataset()
-    report = _report(dataset)
-    tile = Tile(
-        id="t-1",
-        title="Tile",
-        embedUrl=None,
-        dataset_id=dataset.id,
-        report_id=report.id,
-        createdFrom=Tile.CreatedFrom.REPORT,
-        dataset=dataset,
-        report=report,
+    """A tile created from a report becomes a chart whose inputs are the
+    report's dataset tables and whose dashboard links back to the report;
+    with create_corp_user off the owner is named without a corpuser entity."""
+    config = powerbi_config(
+        extract_ownership=True, ownership={"create_corp_user": False}
     )
-    wus = mapper.to_datahub_work_units(_dashboard([tile], users=[_user()]), workspace)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset()
+    report = make_report(dataset)
+    wus = mapper.to_datahub_work_units(
+        make_dashboard([make_tile(dataset, report)], users=[make_user()]), workspace
+    )
 
     charts = _wu_aspects(wus, ChartInfoClass)
     assert len(charts) == 1
-    assert charts[0].inputs == [
-        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Model.Orders,PROD)"
-    ]
+    assert charts[0].inputs == [_ORDERS_URN]
     assert charts[0].externalUrl == report.webUrl
     assert charts[0].customProperties["reportId"] == "r-1"
 
     dashboards = _wu_aspects(wus, DashboardInfoClass)
     assert len(dashboards) == 1
-    assert dashboards[0].charts == [
-        "urn:li:chart:(powerbi,charts.t-1)",
-    ]
+    assert dashboards[0].charts == ["urn:li:chart:(powerbi,charts.t-1)"]
     assert dashboards[0].dashboards is not None
     assert [e.destinationUrn for e in dashboards[0].dashboards] == [
         mapper.make_dashboard_urn_for_report(report)
     ]
     assert dashboards[0].customProperties["chartCount"] == "1"
 
-    # Soft-reference mode names the owner without creating a corpuser entity.
     owners = _wu_aspects(wus, OwnershipClass)
     assert [o.owner for o in owners[0].owners] == ["urn:li:corpuser:alice@example.com"]
     assert all(wu.is_primary_source for wu in wus)
@@ -339,29 +239,33 @@ def test_dashboard_work_units_wire_charts_to_datasets_and_reports() -> None:
 
 
 def test_dashboard_user_work_units_are_secondary_when_users_are_created() -> None:
-    config = _config(
+    """Stateful ingestion must never soft-delete users PowerBI stops listing,
+    so the corpuser work units are flagged as non-primary."""
+    config = powerbi_config(
         extract_ownership=True,
         ownership={"create_corp_user": True, "use_powerbi_email": True},
     )
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
-    wus = mapper.to_datahub_work_units(_dashboard([], users=[_user()]), workspace)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    wus = mapper.to_datahub_work_units(make_dashboard(users=[make_user()]), workspace)
 
     user_wus = [wu for wu in wus if wu.get_urn() == "urn:li:corpuser:alice@example.com"]
     assert user_wus
-    # Stateful ingestion must never soft-delete users PowerBI stops listing.
     assert not any(wu.is_primary_source for wu in user_wus)
     owners = _wu_aspects(wus, OwnershipClass)
     assert [o.owner for o in owners[0].owners] == ["urn:li:corpuser:alice@example.com"]
 
 
 def test_report_work_units_make_pages_charts_with_dataset_edges() -> None:
-    config = _config()
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
+    workspace = make_workspace()
+    mapper = make_mapper(powerbi_config(), workspace)
     dataset = _dataset()
     pages = [Page(id="r-1.Summary", displayName="Summary", name="Summary", order=2)]
-    wus = list(mapper.report_to_datahub_work_units(_report(dataset, pages), workspace))
+    wus = list(
+        mapper.report_to_datahub_work_units(
+            make_report(dataset, pages=pages), workspace
+        )
+    )
 
     charts = _wu_aspects(wus, ChartInfoClass)
     assert [(c.title, c.customProperties["order"]) for c in charts] == [
@@ -379,9 +283,7 @@ def test_report_work_units_make_pages_charts_with_dataset_edges() -> None:
     dashboards = _wu_aspects(wus, DashboardInfoClass)
     assert dashboards[0].charts == ["urn:li:chart:(powerbi,pages.r-1.Summary)"]
     assert dashboards[0].datasetEdges is not None
-    assert [e.destinationUrn for e in dashboards[0].datasetEdges] == [
-        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Model.Orders,PROD)"
-    ]
+    assert [e.destinationUrn for e in dashboards[0].datasetEdges] == [_ORDERS_URN]
 
 
 # --- source-level emission --------------------------------------------------
@@ -394,12 +296,12 @@ def _source(
     source = PowerBiDashboardSource.__new__(PowerBiDashboardSource)
     source.source_config = config
     source.reporter = PowerBiDashboardSourceReport()
-    source.mapper = _mapper(config, workspace)
+    source.mapper = make_mapper(config, workspace)
     return source
 
 
 def _app_workspace() -> Workspace:
-    workspace = _workspace()
+    workspace = make_workspace()
     workspace.app = App(
         id="app-1",
         name="Sales App",
@@ -413,15 +315,17 @@ def _app_workspace() -> Workspace:
 
 def test_app_is_not_emitted_unless_opted_in() -> None:
     workspace = _app_workspace()
-    source = _source(_config(), workspace)
+    source = _source(powerbi_config(), workspace)
     assert list(source.emit_app(workspace)) == []
     assert any(i.title == "App Ingestion Is Disabled" for i in source.reporter.infos)
 
 
 def test_app_links_to_original_assets_and_uses_the_configured_url_pattern() -> None:
+    """App dashboards/reports are copies; the app entity must link to the
+    original workspace assets, not to the copies' ids."""
     workspace = _app_workspace()
     source = _source(
-        _config(extract_app=True, app_url_pattern="REDIRECT_BASED"), workspace
+        powerbi_config(extract_app=True, app_url_pattern="REDIRECT_BASED"), workspace
     )
     mcps = list(source.emit_app(workspace))
 
@@ -441,32 +345,32 @@ def test_app_links_to_original_assets_and_uses_the_configured_url_pattern() -> N
 
 def test_app_url_defaults_to_the_workspace_based_pattern() -> None:
     workspace = _app_workspace()
-    source = _source(_config(extract_app=True), workspace)
+    source = _source(powerbi_config(extract_app=True), workspace)
     info = _aspects(source.emit_app(workspace), DashboardInfoClass)[0]
     assert info.dashboardUrl == "https://app.powerbi.com/groups/ws-1/apps/app-1"
 
 
 def test_independent_datasets_are_reported_but_not_emitted_by_default() -> None:
-    workspace = _workspace()
+    workspace = make_workspace()
     workspace.independent_datasets = {"ds-1": _dataset()}
-    source = _source(_config(), workspace)
+    source = _source(powerbi_config(), workspace)
     assert list(source.extract_independent_datasets(workspace)) == []
     assert any(
         i.title == "Skipped Independent Dataset" and "Model" in str(i.context)
         for i in source.reporter.infos
     )
 
-    source = _source(_config(extract_independent_datasets=True), workspace)
+    source = _source(powerbi_config(extract_independent_datasets=True), workspace)
     wus = list(source.extract_independent_datasets(workspace))
-    assert {wu.get_urn() for wu in wus} == {
-        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Model.Orders,PROD)"
-    }
+    assert {wu.get_urn() for wu in wus} == {_ORDERS_URN}
 
 
 @pytest.mark.parametrize("patch_metadata", [True, False])
 def test_dashboard_info_is_patched_only_when_enabled(patch_metadata: bool) -> None:
-    workspace = _workspace()
-    source = _source(_config(patch_metadata=patch_metadata), workspace)
+    """Only dashboardInfo is converted into a PATCH (so other sources' chart
+    lists survive); every other aspect passes through untouched."""
+    workspace = make_workspace()
+    source = _source(powerbi_config(patch_metadata=patch_metadata), workspace)
     info_wu = MetadataChangeProposalWrapper(
         entityUrn="urn:li:dashboard:(powerbi,reports.r-1)",
         aspect=DashboardInfoClass(
@@ -491,16 +395,21 @@ def test_dashboard_info_is_patched_only_when_enabled(patch_metadata: bool) -> No
 
 
 def test_unknown_dataset_type_mapping_platform_is_rejected() -> None:
-    workspace = _workspace()
-    source = _source(_config(dataset_type_mapping={"Teradata": "teradata"}), workspace)
+    workspace = make_workspace()
+    source = _source(
+        powerbi_config(dataset_type_mapping={"Teradata": "teradata"}), workspace
+    )
     with pytest.raises(ValueError, match="Teradata"):
         source.validate_dataset_type_mapping()
 
 
 def test_stale_entity_removal_runs_per_workspace_under_modified_since() -> None:
-    workspace = _workspace()
-    source = _source(_config(modified_since="2024-01-01T00:00:00.0000000Z"), workspace)
-    # The global processor would wipe every workspace not in this partial run.
+    """A modified_since run only sees changed workspaces, so the global
+    stale-entity processor would wipe every workspace not in this run."""
+    workspace = make_workspace()
+    source = _source(
+        powerbi_config(modified_since="2024-01-01T00:00:00.0000000Z"), workspace
+    )
     assert source.get_excluded_workunit_processors() == [
         AutoStaleEntityRemovalProcessor
     ]
@@ -516,9 +425,9 @@ _MSSQL_M_QUERY = (
 
 
 def test_extract_lineage_emits_upstream_and_column_lineage_for_mquery_tables() -> None:
-    config = _config(extract_column_level_lineage=True)
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
+    config = powerbi_config(extract_column_level_lineage=True)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
     dataset = _dataset(expression=_MSSQL_M_QUERY)
     ds_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,model.orders,PROD)"
 
@@ -536,12 +445,12 @@ def test_extract_lineage_emits_upstream_and_column_lineage_for_mquery_tables() -
 
 
 def test_extract_lineage_skips_platforms_outside_dataset_type_mapping() -> None:
-    config = _config(
+    config = powerbi_config(
         dataset_type_mapping={"PostgreSQL": "postgres"},
         extract_column_level_lineage=False,
     )
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
     dataset = _dataset(expression=_MSSQL_M_QUERY)
 
     assert (
@@ -550,9 +459,9 @@ def test_extract_lineage_skips_platforms_outside_dataset_type_mapping() -> None:
 
 
 def test_fine_grained_lineage_is_omitted_when_column_lineage_is_disabled() -> None:
-    config = _config(extract_column_level_lineage=False)
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
+    config = powerbi_config(extract_column_level_lineage=False)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
     dataset = _dataset(expression=_MSSQL_M_QUERY)
 
     mcps = mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace)
@@ -560,19 +469,10 @@ def test_fine_grained_lineage_is_omitted_when_column_lineage_is_disabled() -> No
 
 
 def test_schema_fields_carry_column_and_measure_descriptions() -> None:
-    mapper = _mapper(_config(), _workspace())
-    table = Table(
-        name="Orders",
-        full_name="Model.Orders",
-        columns=[
-            Column(
-                name="amount",
-                dataType="Int64",
-                isHidden=False,
-                datahubDataType=NumberTypeClass(),
-                description="Order total",
-            )
-        ],
+    mapper = make_mapper(powerbi_config(), make_workspace())
+    table = make_table(
+        "Orders",
+        columns=[make_column("amount", description="Order total")],
         measures=[
             Measure(
                 name="total",
@@ -595,46 +495,35 @@ def test_schema_fields_carry_column_and_measure_descriptions() -> None:
 
 
 def test_owner_criteria_keeps_only_users_with_a_matching_access_right() -> None:
-    config = _config(
+    """Viewers and groups are dropped by the owner criteria even though the
+    group has the right access level: only User principals become owners."""
+    config = powerbi_config(
         extract_ownership=True,
         ownership={"create_corp_user": False, "owner_criteria": ["Owner"]},
     )
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
-    owner = _user("owner")
-    viewer = User(
-        id="viewer",
-        displayName="Vic",
-        emailAddress="vic@example.com",
-        graphId="g-2",
-        principalType="User",
-        dashboardUserAccessRight="Read",
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    owner = make_user("owner")
+    viewer = make_user(
+        "viewer", display_name="Vic", email="vic@example.com", access_right="Read"
     )
-    group = User(
-        id="grp",
-        displayName="Group",
-        emailAddress=None,
-        graphId="g-3",
-        principalType="Group",
-        dashboardUserAccessRight="Owner",
-    )
+    group = make_user("grp", display_name="Group", email=None, principal_type="Group")
 
     wus = mapper.to_datahub_work_units(
-        _dashboard([], users=[owner, viewer, group]), workspace
+        make_dashboard(users=[owner, viewer, group]), workspace
     )
     owners = _wu_aspects(wus, OwnershipClass)
     assert [o.owner for o in owners[0].owners] == ["urn:li:corpuser:alice@example.com"]
 
 
 def test_report_owners_are_emitted_and_users_are_secondary_work_units() -> None:
-    config = _config(
+    config = powerbi_config(
         extract_ownership=True,
         ownership={"create_corp_user": True, "remove_email_suffix": True},
     )
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
-    report = _report(_dataset())
-    report.users = [_user()]
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    report = make_report(_dataset(), users=[make_user()])
 
     wus = list(mapper.report_to_datahub_work_units(report, workspace))
 
@@ -650,20 +539,20 @@ def test_report_owners_are_emitted_and_users_are_secondary_work_units() -> None:
 
 
 def test_no_container_is_attached_when_containers_are_disabled() -> None:
-    config = _config(extract_workspaces_to_containers=False)
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
+    config = powerbi_config(extract_workspaces_to_containers=False)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
     mcps = mapper.to_datahub_dataset(_dataset(), workspace)
     assert _aspects(mcps, ContainerClass) == []
 
 
 def test_profile_is_skipped_for_tables_outside_the_profile_pattern() -> None:
-    config = _config(
+    config = powerbi_config(
         profiling={"enabled": True},
         profile_pattern={"deny": ["Sales\\.Model\\.Orders"]},
     )
-    workspace = _workspace()
-    mapper = _mapper(config, workspace)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
     dataset = _dataset()
     mcps: List[MetadataChangeProposalWrapper] = []
     mapper.extract_profile(mcps, workspace, dataset, dataset.tables[0], "urn:x")
@@ -671,19 +560,12 @@ def test_profile_is_skipped_for_tables_outside_the_profile_pattern() -> None:
 
 
 def test_tile_without_a_resolved_dataset_still_becomes_a_chart() -> None:
-    workspace = _workspace()
-    mapper = _mapper(_config(), workspace)
-    tile = Tile(
-        id="t-1",
-        title="Tile",
-        embedUrl=None,
-        dataset_id="ds-missing",
-        report_id=None,
-        createdFrom=Tile.CreatedFrom.VISUALIZATION,
-        dataset=None,
-        report=None,
+    workspace = make_workspace()
+    mapper = make_mapper(powerbi_config(), workspace)
+    tile = make_tile(
+        dataset_id="ds-missing", created_from=Tile.CreatedFrom.VISUALIZATION
     )
-    wus = mapper.to_datahub_work_units(_dashboard([tile]), workspace)
+    wus = mapper.to_datahub_work_units(make_dashboard([tile]), workspace)
     charts = _wu_aspects(wus, ChartInfoClass)
     assert len(charts) == 1
     assert charts[0].inputs == []
@@ -693,13 +575,13 @@ def test_tile_without_a_resolved_dataset_still_becomes_a_chart() -> None:
 
 
 def test_workspace_work_units_cover_container_dashboards_and_reports() -> None:
-    workspace = _workspace()
-    config = _config(extract_workspaces_to_containers=True)
+    workspace = make_workspace()
+    config = powerbi_config(extract_workspaces_to_containers=True)
     source = _source(config, workspace)
     dataset = _dataset()
     workspace.datasets = {dataset.id: dataset}
-    workspace.dashboards = {"d-1": _dashboard([])}
-    workspace.reports = {"r-1": _report(dataset)}
+    workspace.dashboards = {"d-1": make_dashboard()}
+    workspace.reports = {"r-1": make_report(dataset)}
 
     wus = list(source.get_workspace_workunit(workspace))
 
@@ -712,43 +594,38 @@ def test_workspace_work_units_cover_container_dashboards_and_reports() -> None:
     assert source.get_excluded_workunit_processors() == []
 
 
-class _FailingMsal:
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        raise RuntimeError("tenant not found")
-
-
-class _StubMsal:
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        pass
-
-    def acquire_token_for_client(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
-        return {"access_token": "token", "expires_in": 3600}
-
-
-def test_test_connection_reports_authentication_outcome() -> None:
-    with mock.patch("msal.ConfidentialClientApplication", _StubMsal):
-        ok = PowerBiDashboardSource.test_connection(dict(_BASE))
+def test_test_connection_reports_authentication_outcome(msal_stub: MsalStub) -> None:
+    ok = PowerBiDashboardSource.test_connection(dict(POWERBI_BASE_CONFIG))
     assert ok.basic_connectivity is not None and ok.basic_connectivity.capable
 
-    with mock.patch("msal.ConfidentialClientApplication", _FailingMsal):
-        failed = PowerBiDashboardSource.test_connection(dict(_BASE))
+    with mock.patch(
+        "msal.ConfidentialClientApplication",
+        side_effect=RuntimeError("tenant not found"),
+    ):
+        failed = PowerBiDashboardSource.test_connection(dict(POWERBI_BASE_CONFIG))
     assert failed.basic_connectivity is not None
     assert not failed.basic_connectivity.capable
     assert "tenant not found" in str(failed.basic_connectivity.failure_reason)
 
 
 def test_source_exits_when_the_powerbi_api_cannot_be_reached() -> None:
-    with mock.patch("msal.ConfidentialClientApplication", _FailingMsal):
+    with mock.patch(
+        "msal.ConfidentialClientApplication",
+        side_effect=RuntimeError("tenant not found"),
+    ):
         with pytest.raises(SystemExit):
-            PowerBiDashboardSource.create(dict(_BASE), PipelineContext(run_id="t"))
+            PowerBiDashboardSource.create(
+                dict(POWERBI_BASE_CONFIG), PipelineContext(run_id="t")
+            )
 
 
-def test_created_source_validates_mapping_and_closes_cleanly() -> None:
-    with mock.patch("msal.ConfidentialClientApplication", _StubMsal):
-        source = PowerBiDashboardSource.create(
-            {**_BASE, "dataset_type_mapping": {"Sql": "mssql"}},
-            PipelineContext(run_id="t"),
-        )
-        source.validate_dataset_type_mapping()
-        assert source.get_workunit_processors()
-        source.close()
+def test_created_source_validates_mapping_and_closes_cleanly(
+    msal_stub: MsalStub,
+) -> None:
+    source = PowerBiDashboardSource.create(
+        {**POWERBI_BASE_CONFIG, "dataset_type_mapping": {"Sql": "mssql"}},
+        PipelineContext(run_id="t"),
+    )
+    source.validate_dataset_type_mapping()
+    assert source.get_workunit_processors()
+    source.close()

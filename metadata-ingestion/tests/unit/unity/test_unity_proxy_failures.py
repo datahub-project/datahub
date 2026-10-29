@@ -2,11 +2,11 @@
 APIs misbehave, instead of aborting ingestion. The WorkspaceClient and the
 databricks-sql ``connect`` are the mocked boundaries."""
 
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
-from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import ColumnInfo, TableInfo, TableType
 
 from datahub.ingestion.source.unity.config import LineageDataSource
@@ -17,25 +17,13 @@ from datahub.ingestion.source.unity.proxy import (
 from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
     CustomCatalogType,
+    ExternalTableReference,
     Schema,
     Table,
 )
-from datahub.ingestion.source.unity.report import UnityCatalogReport
+from tests.unit.unity.conftest import warning_messages
 
-
-def _ws(warehouse_id: Optional[str] = "wh") -> MagicMock:
-    ws = MagicMock(spec=WorkspaceClient)
-    ws.config.host = "https://ws.cloud.databricks.com"
-    ws.config.warehouse_id = warehouse_id
-    return ws
-
-
-def _proxy(
-    ws: MagicMock, lineage_data_source: LineageDataSource = LineageDataSource.API
-) -> UnityCatalogApiProxy:
-    return UnityCatalogApiProxy(
-        ws, report=UnityCatalogReport(), lineage_data_source=lineage_data_source
-    )
+ProxyBuilder = Callable[..., UnityCatalogApiProxy]
 
 
 def _schema(catalog_type: Optional[CustomCatalogType] = None) -> Schema:
@@ -74,32 +62,37 @@ def _table(catalog_type: Optional[CustomCatalogType] = None) -> Table:
     )
 
 
-def test_constraint_lookup_failure_is_a_warning_with_no_constraints() -> None:
-    ws = _ws()
-    ws.tables.get.side_effect = RuntimeError("PERMISSION_DENIED")
-    proxy = _proxy(ws)
+def test_constraint_lookup_failure_is_a_warning_with_no_constraints(
+    workspace_client: MagicMock, api_proxy: ProxyBuilder
+) -> None:
+    workspace_client.tables.get.side_effect = RuntimeError("PERMISSION_DENIED")
+    proxy = api_proxy(workspace_client)
 
     assert proxy.get_table_constraints(_table()) == []
-    assert len(proxy.report.warnings) == 1
+    assert warning_messages(proxy.report) == {"Unable to fetch table constraints"}
 
 
-def test_hive_metastore_tables_skip_constraint_and_lineage_apis() -> None:
-    ws = _ws()
-    proxy = _proxy(ws)
+def test_hive_metastore_tables_skip_constraint_and_lineage_apis(
+    workspace_client: MagicMock, api_proxy: ProxyBuilder
+) -> None:
+    """Unity's constraint and lineage APIs reject hive_metastore tables, so the
+    proxy must not even call them for that catalog."""
+    proxy = api_proxy(workspace_client)
     table = _table(CustomCatalogType.HIVE_METASTORE_CATALOG)
 
     assert proxy.get_table_constraints(table) == []
     proxy.table_lineage(table, include_entity_lineage=False)
 
-    ws.tables.get.assert_not_called()
-    ws.api_client.do.assert_not_called()
+    workspace_client.tables.get.assert_not_called()
+    workspace_client.api_client.do.assert_not_called()
     assert table.upstreams == {}
 
 
-def test_lineage_api_errors_leave_the_table_without_lineage() -> None:
-    ws = _ws()
-    ws.api_client.do.side_effect = RuntimeError("503 Service Unavailable")
-    proxy = _proxy(ws)
+def test_lineage_api_errors_leave_the_table_without_lineage(
+    workspace_client: MagicMock, api_proxy: ProxyBuilder
+) -> None:
+    workspace_client.api_client.do.side_effect = RuntimeError("503 Service Unavailable")
+    proxy = api_proxy(workspace_client)
     table = _table()
 
     proxy.table_lineage(table, include_entity_lineage=True)
@@ -109,7 +102,11 @@ def test_lineage_api_errors_leave_the_table_without_lineage() -> None:
     assert table.external_upstreams == set()
 
 
-def test_system_table_column_lineage_is_folded_into_table_upstreams() -> None:
+def test_system_table_column_lineage_is_folded_into_table_upstreams(
+    workspace_client: MagicMock, api_proxy: ProxyBuilder
+) -> None:
+    """system.access.column_lineage rows are keyed per column; the proxy must
+    group them under one TableReference per upstream table."""
     rows: List[Dict[str, Any]] = [
         {
             "target_table_schema": "sales",
@@ -127,7 +124,9 @@ def test_system_table_column_lineage_is_folded_into_table_upstreams() -> None:
     connection = MagicMock()
     connection.__enter__.return_value = connection
     connection.cursor.return_value.__enter__.return_value = cursor
-    proxy = _proxy(_ws(), LineageDataSource.SYSTEM_TABLES)
+    proxy = api_proxy(
+        workspace_client, lineage_data_source=LineageDataSource.SYSTEM_TABLES
+    )
     table = _table()
 
     with patch("datahub.ingestion.source.unity.proxy.connect", return_value=connection):
@@ -139,10 +138,14 @@ def test_system_table_column_lineage_is_folded_into_table_upstreams() -> None:
 
 
 def test_proxy_related_sql_failure_reports_which_proxy_variables_are_set(
+    workspace_client: MagicMock,
+    api_proxy: ProxyBuilder,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """A 407 is almost always a proxy-auth problem; the warning names the proxy
+    variables in effect but must never carry the credentials in them."""
     monkeypatch.setenv("HTTPS_PROXY", "http://user:secret@proxy.example.com:3128")
-    proxy = _proxy(_ws())
+    proxy = api_proxy(workspace_client)
 
     with patch(
         "datahub.ingestion.source.unity.proxy.connect",
@@ -151,38 +154,48 @@ def test_proxy_related_sql_failure_reports_which_proxy_variables_are_set(
         assert proxy._execute_sql_query("SELECT 1") == []
 
     (warning,) = proxy.report.warnings
+    assert warning.message is not None
     assert "secret" not in str(warning)
 
 
-def test_sql_queries_are_skipped_without_a_warehouse() -> None:
-    proxy = _proxy(_ws(warehouse_id=None))
+def test_sql_queries_are_skipped_without_a_warehouse(
+    workspace_client: MagicMock, api_proxy: ProxyBuilder
+) -> None:
+    workspace_client.config.warehouse_id = None
+    proxy = api_proxy(workspace_client)
 
     with patch("datahub.ingestion.source.unity.proxy.connect") as connect:
         assert proxy.get_table_tags("main") == {}
 
     connect.assert_not_called()
-    assert len(proxy.report.warnings) == 1
+    assert {w.title for w in proxy.report.warnings} == {"Cannot execute SQL query"}
 
 
-def test_unparseable_table_is_reported_and_the_rest_still_listed() -> None:
-    ws = _ws()
-    ws.tables.list.return_value = [
-        # A plain TableInfo lacks the generation attribute the proxy relies on.
+def test_unparseable_table_is_reported_and_the_rest_still_listed(
+    workspace_client: MagicMock, api_proxy: ProxyBuilder
+) -> None:
+    """tables() patches the SDK's TableInfo so that generation is carried, but a
+    plain TableInfo (the patch not applying) must still parse, with generation
+    unknown; only a genuinely malformed entry is dropped with a warning."""
+    workspace_client.tables.list.return_value = [
         TableInfo(name="legacy", columns=[ColumnInfo(name="id")]),
         TableInfoWithGeneration(name="orders", columns=[ColumnInfo(name="id")]),
         TableInfoWithGeneration(name=None),
+        TableInfoWithGeneration(name="broken", created_at="not-a-timestamp"),  # type: ignore[arg-type]
     ]
-    proxy = _proxy(ws)
+    proxy = api_proxy(workspace_client)
 
-    tables = list(proxy.tables(_schema()))
+    tables = {t.name: t for t in proxy.tables(_schema())}
 
-    assert [t.name for t in tables] == ["orders"]
+    assert set(tables) == {"legacy", "orders"}
+    assert tables["legacy"].generation is None
     assert proxy.report.num_tables_missing_name == 1
-    assert len(proxy.report.warnings) == 1
+    assert warning_messages(proxy.report) == {"Error parsing table"}
 
 
-def test_query_history_entries_that_cannot_be_parsed_are_skipped() -> None:
-    ws = _ws()
+def test_query_history_entries_that_cannot_be_parsed_are_skipped(
+    workspace_client: MagicMock, api_proxy: ProxyBuilder
+) -> None:
     good = {
         "query_id": "q1",
         "query_text": "SELECT 1",
@@ -190,13 +203,30 @@ def test_query_history_entries_that_cannot_be_parsed_are_skipped() -> None:
         "query_end_time_ms": 1_700_000_001_000,
     }
     bad = {**good, "query_id": "q2", "query_start_time_ms": "not-a-timestamp"}
-    ws.api_client.do.return_value = {"res": [bad, good]}
-    proxy = _proxy(ws)
-
-    from datetime import datetime, timezone
-
+    workspace_client.api_client.do.return_value = {"res": [bad, good]}
+    proxy = api_proxy(workspace_client)
     start = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
     queries = list(proxy.query_history(start, start))
 
     assert [q.query_id for q in queries] == ["q1"]
-    assert len(proxy.report.warnings) == 1
+    assert {w.title for w in proxy.report.warnings} == {"Failed to parse query"}
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason=(
+        "ExternalTableReference.create_from_lineage uses "
+        "`d.get('has_permission') or True`, so a lineage entry the token cannot "
+        "read is recorded as permitted and is never counted under "
+        "num_external_upstreams_lacking_permissions"
+    ),
+)
+def test_external_upstream_without_permission_is_recorded_as_such() -> None:
+    ref = ExternalTableReference.create_from_lineage(
+        {"path": "s3://bucket/restricted", "has_permission": False}
+    )
+
+    assert ref is not None
+    assert not ref.has_permission

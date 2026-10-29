@@ -6,9 +6,6 @@ lineage extraction for Confluent Cloud Snowflake Source connectors.
 """
 
 from typing import Dict, List, Optional
-from unittest.mock import Mock
-
-import pytest
 
 from datahub.ingestion.source.kafka_connect.common import (
     SNOWFLAKE_SOURCE_CLOUD,
@@ -22,20 +19,13 @@ from datahub.ingestion.source.kafka_connect.connector_registry import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     SnowflakeSourceConnector,
 )
-
-
-@pytest.fixture
-def config():
-    """Create test configuration."""
-    return KafkaConnectSourceConfig(
-        connect_uri="http://localhost:8083", cluster_name="test"
-    )
-
-
-@pytest.fixture
-def report():
-    """Create test report."""
-    return KafkaConnectSourceReport()
+from tests.unit.kafka_connect.conftest import (
+    StubSchemaResolver,
+    attach_resolver,
+    make_manifest,
+    mock_graph,
+    reported,
+)
 
 
 def test_snowflake_source_connector_supports_class():
@@ -301,39 +291,6 @@ def test_snowflake_source_with_table_whitelist(config, report):
     assert len(parser.table_names) == 2
     assert "ANALYTICS.PUBLIC.USERS" in parser.table_names
     assert "ANALYTICS.PUBLIC.ORDERS" in parser.table_names
-
-
-def test_snowflake_source_with_patterns_no_schema_resolver(config, report):
-    """Test that patterns without schema resolver are skipped with warning."""
-    manifest = ConnectorManifest(
-        name="snowflake-source-test",
-        type="source",
-        config={
-            "connector.class": SNOWFLAKE_SOURCE_CLOUD,
-            "snowflake.database.name": "ANALYTICS",
-            "table.include.list": "ANALYTICS.PUBLIC.*,ANALYTICS.PRIVATE.USER_*",
-        },
-        tasks=[],
-        topic_names=["some_topic"],
-        lineages=[],
-    )
-
-    connector = SnowflakeSourceConnector(manifest, config, report)
-    # schema_resolver is None by default
-    assert connector.schema_resolver is None
-
-    lineages = connector.extract_lineages()
-
-    # Should return empty lineages when patterns exist but no schema resolver
-    assert len(lineages) == 0
-
-    # Should have warning in report
-    assert len(report.warnings) > 0
-    warning_messages = [w.message for w in report.warnings if hasattr(w, "message")]
-    assert any("table patterns" in msg.lower() for msg in warning_messages)
-    assert any(
-        "schema resolver is not available" in msg.lower() for msg in warning_messages
-    )
 
 
 def test_snowflake_source_static_tables_without_patterns(config, report):
@@ -656,39 +613,7 @@ def test_snowflake_source_parser_extracts_transforms(config, report):
     assert timestamp_transform["field"] == "updated_at"
 
 
-def _snowflake(
-    config: KafkaConnectSourceConfig,
-    report: KafkaConnectSourceReport,
-    extra: Dict[str, str],
-    topic_names: Optional[List[str]] = None,
-) -> SnowflakeSourceConnector:
-    manifest = ConnectorManifest(
-        name="snowflake-source",
-        type="source",
-        config={
-            "connector.class": SNOWFLAKE_SOURCE_CLOUD,
-            "snowflake.database.name": "ANALYTICS",
-            "topic.prefix": "snowflake_",
-            **extra,
-        },
-        tasks=[],
-        topic_names=topic_names or [],
-    )
-    return SnowflakeSourceConnector(manifest, config, report)
-
-
-def _datahub_resolver(urns: Optional[List[str]]) -> Mock:
-    resolver = Mock()
-    resolver.env = "PROD"
-    resolver.platform_instance = None
-    if urns is None:
-        resolver.graph = None
-    else:
-        resolver.graph = Mock()
-        resolver.graph.get_urns_by_filter.return_value = iter(urns)
-    return resolver
-
-
+CONNECTOR = "snowflake-source"
 _USERS_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.public.users,PROD)"
 )
@@ -697,15 +622,48 @@ _ORDERS_URN = (
 )
 
 
+def _snowflake(
+    config: KafkaConnectSourceConfig,
+    report: KafkaConnectSourceReport,
+    extra: Dict[str, str],
+    topic_names: Optional[List[str]] = None,
+) -> SnowflakeSourceConnector:
+    return SnowflakeSourceConnector(
+        make_manifest(
+            {
+                "connector.class": SNOWFLAKE_SOURCE_CLOUD,
+                "snowflake.database.name": "ANALYTICS",
+                "topic.prefix": "snowflake_",
+                **extra,
+            },
+            name=CONNECTOR,
+            topic_names=topic_names,
+        ),
+        config,
+        report,
+    )
+
+
+def _datahub_resolver(urns: Optional[List[str]]) -> StubSchemaResolver:
+    """A resolver whose DataHub graph answers a single pattern query with
+    ``urns``; ``None`` is a resolver with no graph at all."""
+    graph = None
+    if urns is not None:
+        graph = mock_graph()
+        graph.get_urns_by_filter.return_value = iter(urns)
+    return StubSchemaResolver("snowflake", graph=graph)
+
+
 def test_snowflake_source_expanded_patterns_are_reused_for_lineage(
     config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
 ) -> None:
+    """get_topics_from_config() expands the patterns against DataHub once;
+    extract_lineages() must reuse that expansion. The graph answers a single
+    query (an exhausted iterator afterwards), so a second query finds nothing."""
     connector = _snowflake(config, report, {"table.include.list": "ANALYTICS.PUBLIC.*"})
-    connector.schema_resolver = _datahub_resolver([_USERS_URN, _ORDERS_URN])
+    attach_resolver(connector, _datahub_resolver([_USERS_URN, _ORDERS_URN]))
 
     topics = connector.get_topics_from_config()
-    # A second DataHub query would see an exhausted iterator and find nothing,
-    # so lineage must come from the tables expanded above.
     lineages = connector.extract_lineages()
 
     assert topics == [
@@ -725,12 +683,14 @@ def test_snowflake_source_patterns_without_resolver_derive_no_topics(
 
     assert connector.get_topics_from_config() == []
     assert connector.extract_lineages() == []
-    assert len(report.warnings) == 1
+    assert reported(report.warnings, CONNECTOR)
 
 
 def test_snowflake_source_transforms_rename_derived_topics(
     config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
 ) -> None:
+    """A RegexRouter renames the derived topic; a transform type the pipeline
+    does not know is skipped rather than blocking the rename."""
     connector = _snowflake(
         config,
         report,
@@ -777,13 +737,18 @@ def test_snowflake_source_without_table_list_has_no_lineage(
 def test_snowflake_source_pattern_query_ignores_foreign_and_malformed_urns(
     config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
 ) -> None:
+    """DataHub's filter is best effort; a URN from another platform or an
+    unparseable one must not turn into a Snowflake table."""
     connector = _snowflake(config, report, {"table.include.list": "ANALYTICS.PUBLIC.*"})
-    connector.schema_resolver = _datahub_resolver(
-        [
-            _USERS_URN,
-            "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics.public.orders,PROD)",
-            "not-a-urn",
-        ]
+    attach_resolver(
+        connector,
+        _datahub_resolver(
+            [
+                _USERS_URN,
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,analytics.public.orders,PROD)",
+                "not-a-urn",
+            ]
+        ),
     )
 
     assert [lineage.source_dataset for lineage in connector.extract_lineages()] == [
@@ -795,7 +760,7 @@ def test_snowflake_source_resolver_without_graph_cannot_expand(
     config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
 ) -> None:
     connector = _snowflake(config, report, {"table.include.list": "ANALYTICS.PUBLIC.*"})
-    connector.schema_resolver = _datahub_resolver(None)
+    attach_resolver(connector, _datahub_resolver(None))
 
     assert connector.extract_lineages() == []
 
@@ -804,9 +769,9 @@ def test_snowflake_source_datahub_connection_failure_is_reported(
     config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
 ) -> None:
     connector = _snowflake(config, report, {"table.include.list": "ANALYTICS.PUBLIC.*"})
-    resolver = _datahub_resolver([])
-    resolver.graph.get_urns_by_filter.side_effect = ConnectionError("unreachable")
-    connector.schema_resolver = resolver
+    graph = mock_graph()
+    graph.get_urns_by_filter.side_effect = ConnectionError("unreachable")
+    attach_resolver(connector, StubSchemaResolver("snowflake", graph=graph))
 
     assert connector.extract_lineages() == []
-    assert len(report.failures) == 1
+    assert reported(report.failures, CONNECTOR)

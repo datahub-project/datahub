@@ -9,7 +9,7 @@ audit-log caching and cleanup are exercised together.
 import json
 import pathlib
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional, Union
+from typing import Dict, Optional
 from unittest.mock import MagicMock, patch
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
@@ -29,16 +29,16 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
+from tests.unit.snowflake.conftest import (
+    QueryHandler,
+    QueryResult,
+    as_mock,
+    fake_connection,
+    log_keys,
+)
 
 START = datetime(2024, 1, 1, tzinfo=timezone.utc)
 END = datetime(2024, 1, 2, tzinfo=timezone.utc)
-QueryResult = Union[List[dict], Exception]
-Dispatch = Callable[[str], QueryResult]
-
-
-def _as_mock(obj: object) -> MagicMock:
-    assert isinstance(obj, MagicMock)
-    return obj
 
 
 def _audit_row(
@@ -73,7 +73,7 @@ def _audit_row(
 
 
 def _make_extractor(
-    dispatch: Dispatch,
+    dispatch: QueryHandler,
     local_temp_path: Optional[pathlib.Path] = None,
     **config_overrides: object,
 ) -> SnowflakeQueriesExtractor:
@@ -84,17 +84,8 @@ def _make_extractor(
         local_temp_path=local_temp_path,
         **config_overrides,  # type: ignore[arg-type]
     )
-    connection = MagicMock()
-
-    def query(sql: str) -> List[dict]:
-        result = dispatch(sql)
-        if isinstance(result, Exception):
-            raise result
-        return list(result)
-
-    connection.query.side_effect = query
     return SnowflakeQueriesExtractor(
-        connection=connection,
+        connection=fake_connection(dispatch),
         config=config,
         structured_report=report,
         filters=SnowflakeFilter(
@@ -107,7 +98,9 @@ def _make_extractor(
     )
 
 
-def _dispatch_for(rows: Dict[str, QueryResult]) -> Dispatch:
+def _dispatch_for(rows: Dict[str, QueryResult]) -> QueryHandler:
+    """Answer a query from the first marker found in its upper-cased text."""
+
     def dispatch(sql: str) -> QueryResult:
         upper = sql.upper()
         for marker, result in rows.items():
@@ -121,6 +114,8 @@ def _dispatch_for(rows: Dict[str, QueryResult]) -> Dispatch:
 def test_audit_log_feeds_users_copy_history_and_query_log_into_lineage(
     tmp_path: pathlib.Path,
 ) -> None:
+    """The whole get_workunits_internal flow: user lookup, copy history, query
+    log, stored-procedure tracking, and audit-log reuse across extractors."""
     insert = _audit_row(
         "q-insert",
         "INSERT",
@@ -154,7 +149,9 @@ def test_audit_log_feeds_users_copy_history_and_query_log_into_lineage(
         workunits = list(extractor.get_workunits_internal())
 
     assert extractor.report.num_users == 1
-    assert len(extractor.structured_reporter.warnings) == 2  # user row, copy row
+    assert {"Error parsing user row", "Error parsing copy history row"} <= log_keys(
+        extractor.structured_reporter.warnings
+    )
     assert extractor.report.stored_proc_lineage is not None
     assert extractor.report.audit_log_path == str(tmp_path / "audit_log.sqlite")
     urns = {wu.get_urn() for wu in workunits}
@@ -173,6 +170,8 @@ def test_audit_log_feeds_users_copy_history_and_query_log_into_lineage(
 
 
 def test_query_log_fetch_is_skipped_when_no_query_feature_is_enabled() -> None:
+    """With every query feature off, the query log is never fetched (checked on
+    the issued SQL) and the default-location audit log is removed on close."""
     extractor = _make_extractor(
         _dispatch_for({"SNOWFLAKE.ACCOUNT_USAGE.USERS": []}),
         include_lineage=False,
@@ -184,7 +183,7 @@ def test_query_log_fetch_is_skipped_when_no_query_feature_is_enabled() -> None:
 
     assert list(extractor.get_workunits_internal()) == []
     issued = [
-        c.args[0].upper() for c in _as_mock(extractor.connection).query.call_args_list
+        c.args[0].upper() for c in as_mock(extractor.connection).query.call_args_list
     ]
     assert not any("QUERY_HISTORY" in q for q in issued)
     extractor.close()

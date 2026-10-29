@@ -3,10 +3,6 @@
 import sys
 from unittest.mock import Mock, patch
 
-import jpype
-import jpype.imports
-import pytest
-
 from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
     KafkaConnectSourceConfig,
@@ -19,14 +15,6 @@ from datahub.ingestion.source.kafka_connect.pattern_matchers import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     DebeziumSourceConnector,
 )
-
-
-@pytest.fixture(scope="session", autouse=True)
-def ensure_jvm_started():
-    """Ensure JVM is started for all tests requiring Java regex."""
-    if not jpype.isJVMStarted():
-        jpype.startJVM(jpype.getDefaultJVMPath())
-    yield
 
 
 class TestJavaRegexMatcher:

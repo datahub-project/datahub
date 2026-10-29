@@ -1,47 +1,35 @@
 """Tests for NotionSource."""
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import create_autospec, patch
 
 import pytest
 from pydantic import SecretStr
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
+from datahub.ingestion.source.notion.notion_hierarchy import NotionHierarchyExtractor
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
 from datahub.ingestion.source.notion.notion_source import NotionSource
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
 from datahub.ingestion.source.unstructured.chunking_source import (
+    DocumentChunkingReport,
+    DocumentChunkingSource,
     SkipMarkerReadError,
+)
+from datahub.ingestion.source.unstructured.document_builder import (
+    ContentMapper,
+    DocumentEntityBuilder,
 )
 from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
     AutoStaleEntityRemovalProcessor,
 )
-
-
-@pytest.fixture
-def config():
-    return NotionSourceConfig(
-        api_key=SecretStr("secret_test_key"),
-        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
-        # Bypass server validation in tests with valid test config
-        embedding={
-            "provider": "bedrock",
-            "model": "cohere.embed-english-v3",
-            "aws_region": "us-west-2",
-            "allow_local_embedding_config": True,
-        },
-    )
-
-
-@pytest.fixture
-def pipeline_context():
-    return PipelineContext(run_id="test_run")
-
-
-@pytest.fixture
-def notion_source(config, pipeline_context):
-    return NotionSource(config=config, ctx=pipeline_context)
+from datahub.sdk.document import Document
+from tests.unit.ingestion.source.notion.conftest import PAGE_ID, make_notion_source
 
 
 def test_source_initialization(notion_source):
@@ -359,7 +347,7 @@ def test_stateful_ingestion_processor_wired_up():
         stateful_ingestion={"enabled": True, "remove_stale_metadata": True},
     )
     ctx = PipelineContext(run_id="test_run", pipeline_name="test_run")
-    ctx.graph = MagicMock()
+    ctx.graph = create_autospec(DataHubGraph, instance=True)
     source = NotionSource(config=config, ctx=ctx)
 
     processors = source.get_workunit_processors()
@@ -436,39 +424,26 @@ def test_extract_notion_parent_urn_with_ingested_pages():
     assert parent_urn is None
 
 
-def _make_notion_source() -> NotionSource:
-    config = NotionSourceConfig(
-        api_key=SecretStr("secret_test_key"),
-        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
-        embedding={
-            "provider": "bedrock",
-            "model": "cohere.embed-english-v3",
-            "aws_region": "us-west-2",
-            "allow_local_embedding_config": True,
-        },
-    )
-    return NotionSource(config=config, ctx=PipelineContext(run_id="test"))
-
-
+@pytest.mark.usefixtures("inline_processing_stub")
 def test_browse_path_failure_reports_warning_and_still_emits():
     """A browse-path failure surfaces as a report warning but never drops the doc."""
     from datahub.metadata.schema_classes import DocumentInfoClass
 
-    source = _make_notion_source()
+    source = make_notion_source(page_ids=[PAGE_ID])
     source.notion_parent_metadata = {
         "child": {"parent": {"type": "page_id", "page_id": "root"}},
         "root": {"parent": {"type": "workspace", "workspace": True}},
     }
-    source._should_process_document = MagicMock(return_value=True)  # type: ignore[method-assign]
-    source.chunking_source.process_elements_inline = MagicMock(return_value=[])  # type: ignore[method-assign]
 
     data = {
         "elements": [{"type": "Title", "text": "Child", "metadata": {}}],
         "metadata": {"data_source": {"record_locator": {"page_id": "child"}}},
     }
 
-    with patch(
-        "datahub.ingestion.source.notion.notion_source.NotionHierarchyExtractor.build_browse_path_v2",
+    with patch.object(
+        NotionHierarchyExtractor,
+        "build_browse_path_v2",
+        autospec=True,
         side_effect=RuntimeError("boom"),
     ):
         workunits = list(source._create_document_entity(data, {"child", "root"}))
@@ -488,7 +463,7 @@ def test_browse_path_failure_reports_warning_and_still_emits():
 
 def test_build_notion_document_urn_matches_parent_urn():
     """Browse-path URNs must match the URN derived for parent references."""
-    source = _make_notion_source()
+    source = make_notion_source(page_ids=[PAGE_ID])
     source.notion_parent_metadata = {
         "child-page-id": {"parent": {"type": "page_id", "page_id": "parent-page-id"}}
     }
@@ -501,7 +476,7 @@ def test_build_notion_document_urn_matches_parent_urn():
 
 
 def test_notion_title_for_page_falls_back_to_page_id():
-    source = _make_notion_source()
+    source = make_notion_source(page_ids=[PAGE_ID])
     source.notion_page_titles = {"known": "Known Title"}
 
     assert source._notion_title_for_page("known") == "Known Title"
@@ -510,11 +485,7 @@ def test_notion_title_for_page_falls_back_to_page_id():
 
 def test_source_emits_hierarchical_browse_path():
     """The source wiring should produce a BrowsePathsV2 with ancestor URNs/titles."""
-    from datahub.ingestion.source.notion.notion_hierarchy import (
-        NotionHierarchyExtractor,
-    )
-
-    source = _make_notion_source()
+    source = make_notion_source(page_ids=[PAGE_ID])
     source.notion_parent_metadata = {
         "child": {"parent": {"type": "page_id", "page_id": "parent"}},
         "parent": {"parent": {"type": "page_id", "page_id": "root"}},
@@ -912,7 +883,7 @@ def test_max_documents_limit_raises_error():
             },
         }
 
-    mock_doc = MagicMock()
+    mock_doc = create_autospec(Document, instance=True)
     mock_doc.urn = "urn:li:document:notion.page-1"
     mock_doc.as_workunits.return_value = iter([])
 
@@ -922,10 +893,16 @@ def test_max_documents_limit_raises_error():
 
     with (
         patch.object(
-            source.document_builder, "build_document_entity", return_value=mock_doc
+            source.document_builder,
+            "build_document_entity",
+            autospec=True,
+            return_value=mock_doc,
         ),
         patch.object(
-            source.chunking_source, "_chunk_elements", return_value=dummy_chunk
+            source.chunking_source,
+            "_chunk_elements",
+            autospec=True,
+            return_value=dummy_chunk,
         ),
     ):
         # First document — should succeed
@@ -1168,18 +1145,21 @@ def _document_entity_test_setup(notion_source, side_effect):
             "filetype": "notion",
         },
     }
-    doc = MagicMock()
+    doc = create_autospec(Document, instance=True)
     doc.urn = "urn:li:document:p1"
     doc.as_workunits.return_value = []
-    notion_source.document_builder = MagicMock()
-    notion_source.document_builder.build_document_entity.return_value = doc
-    notion_source.document_builder.content_mapper.extract_text_content.return_value = (
-        "hello"
+    builder = create_autospec(DocumentEntityBuilder, instance=True)
+    builder.build_document_entity.return_value = doc
+    builder.content_mapper = create_autospec(ContentMapper, instance=True)
+    builder.content_mapper.extract_text_content.return_value = "hello"
+    notion_source.document_builder = builder
+    chunking_source = create_autospec(DocumentChunkingSource, instance=True)
+    chunking_source.process_elements_inline.side_effect = side_effect
+    chunking_source.report = DocumentChunkingReport()
+    notion_source.chunking_source = chunking_source
+    notion_source.config.stateful_ingestion = StatefulStaleMetadataRemovalConfig(
+        enabled=True
     )
-    notion_source.chunking_source = MagicMock()
-    notion_source.chunking_source.process_elements_inline.side_effect = side_effect
-    notion_source.chunking_source.report.num_documents_limit_reached = False
-    notion_source.config.stateful_ingestion = MagicMock(enabled=True)
     return data
 
 
@@ -1191,7 +1171,9 @@ def test_skip_marker_read_error_leaves_document_retryable(notion_source):
         notion_source, SkipMarkerReadError("read failed")
     )
 
-    with patch.object(notion_source, "_update_document_state") as update_state:
+    with patch.object(
+        notion_source, "_update_document_state", autospec=True
+    ) as update_state:
         list(notion_source._create_document_entity(data))
 
     # Discriminates the dedicated SkipMarkerReadError handler: if it were removed,
@@ -1210,7 +1192,9 @@ def test_embedding_failure_leaves_document_retryable(notion_source):
         notion_source, RuntimeError("provider returned no vectors")
     )
 
-    with patch.object(notion_source, "_update_document_state") as update_state:
+    with patch.object(
+        notion_source, "_update_document_state", autospec=True
+    ) as update_state:
         list(notion_source._create_document_entity(data))
 
     # The non-limit RuntimeError handler must return: without the return, execution falls
@@ -1226,7 +1210,9 @@ def test_unexpected_embedding_exception_leaves_document_retryable(notion_source)
         notion_source, Exception("AuthFailure: credentials could not be validated")
     )
 
-    with patch.object(notion_source, "_update_document_state") as update_state:
+    with patch.object(
+        notion_source, "_update_document_state", autospec=True
+    ) as update_state:
         list(notion_source._create_document_entity(data))
 
     update_state.assert_not_called()

@@ -18,13 +18,11 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryDataset,
     BigQuerySchemaApi,
     PartitionInfo,
-    query_project_list,
     query_project_list_from_labels,
 )
 from datahub.ingestion.source.bigquery_v2.common import BigQueryFilter
+from tests.unit.bigquery.conftest import DATASET, PROJECT, as_mock
 
-PROJECT = "test-project"
-DATASET = "test_dataset"
 NOW = datetime(2024, 1, 1, tzinfo=timezone.utc)
 
 
@@ -40,16 +38,6 @@ def make_api() -> BigQuerySchemaApi:
         client=MagicMock(),
         projects_client=MagicMock(),
     )
-
-
-def bq_client(api: BigQuerySchemaApi) -> MagicMock:
-    assert isinstance(api.bq_client, MagicMock)
-    return api.bq_client
-
-
-def projects_client(api: BigQuerySchemaApi) -> MagicMock:
-    assert isinstance(api.projects_client, MagicMock)
-    return api.projects_client
 
 
 def table_row(
@@ -109,7 +97,7 @@ def constraint_row(
 class TestProjects:
     def test_projects_with_labels_are_filtered_by_project_id_pattern(self) -> None:
         api = make_api()
-        projects_client(api).search_projects.return_value = [
+        as_mock(api.projects_client).search_projects.return_value = [
             SimpleNamespace(project_id="keep-me", display_name="Keep"),
             SimpleNamespace(project_id="drop-me", display_name="Drop"),
         ]
@@ -128,12 +116,14 @@ class TestProjects:
         assert [p.id for p in projects] == ["keep-me"]
         assert (
             "labels.team:data"
-            in projects_client(api).search_projects.call_args.kwargs["query"]
+            in as_mock(api.projects_client).search_projects.call_args.kwargs["query"]
         )
 
     def test_label_search_failure_is_reported_as_no_projects(self) -> None:
         api = make_api()
-        projects_client(api).search_projects.side_effect = RuntimeError("forbidden")
+        as_mock(api.projects_client).search_projects.side_effect = RuntimeError(
+            "forbidden"
+        )
         report = BigQueryV2Report()
         config = BigQueryV2Config.model_validate({"project_labels": ["team:data"]})
 
@@ -142,25 +132,15 @@ class TestProjects:
         )
 
         assert projects == []
-        assert len(report.failures) == 1
-
-    def test_project_listing_exception_is_reported_as_no_projects(self) -> None:
-        api = make_api()
-        report = BigQueryV2Report()
-        config = BigQueryV2Config.model_validate({})
-        with patch.object(api, "get_projects", side_effect=RuntimeError("boom")):
-            projects = list(
-                query_project_list(api, report, BigQueryFilter(config, report))
-            )
-
-        assert projects == []
-        assert len(report.failures) == 1
+        assert report.failures
 
 
 class TestDatasets:
     def test_filtered_out_datasets_skip_metadata_enrichment(self) -> None:
+        """Only datasets that pass the filter are enriched from SCHEMATA, and a
+        dataset absent from the SCHEMATA result keeps its listing-only fields."""
         api = make_api()
-        bq_client(api).list_datasets.return_value = [
+        as_mock(api.bq_client).list_datasets.return_value = [
             SimpleNamespace(
                 dataset_id="keep",
                 labels={},
@@ -183,7 +163,7 @@ class TestDatasets:
 
     def test_everything_filtered_out_means_no_metadata_query(self) -> None:
         api = make_api()
-        bq_client(api).list_datasets.return_value = [
+        as_mock(api.bq_client).list_datasets.return_value = [
             SimpleNamespace(dataset_id="skip", labels={}, _properties={})
         ]
         with patch.object(api, "_fetch_dataset_metadata_batch") as fetch:
@@ -229,10 +209,14 @@ class TestTables:
             )
 
         assert [t.name for t in tables] == ["ok", "ok2"]
-        assert len(report.warnings) == 1
-        assert f"{PROJECT}.{DATASET}.broken" in str(report.warnings[0].context)
+        failed = [w for w in report.warnings if w.title == "Failed to process table"]
+        assert len(failed) == 1
+        assert f"{PROJECT}.{DATASET}.broken" in str(failed[0].context)
 
     def test_table_list_item_properties_are_merged_in(self) -> None:
+        """Fields that only the tables.list item carries (labels, clustering,
+        expiry, range partitioning) are merged with the INFORMATION_SCHEMA row,
+        and the shard id and external-table options are derived from it."""
         item = MagicMock()
         item.labels = {"env": "prod"}
         item.clustering_fields = ["a"]
@@ -258,6 +242,8 @@ class TestTables:
         assert table.partition_info == PartitionInfo(fields=("bucket",), type="RANGE")
 
     def test_unrepresentable_expiration_is_dropped(self) -> None:
+        """BigQuery accepts expiry timestamps that Python's datetime cannot
+        represent; the table must still be ingested, just without an expiry."""
         item = MagicMock()
         type(item).expires = PropertyMock(
             side_effect=OverflowError("year out of range")
@@ -284,7 +270,7 @@ class TestViewsAndSnapshots:
             views = list(api.get_views_for_dataset(PROJECT, DATASET, False, report))
 
         assert [v.name for v in views] == ["v"]
-        assert len(report.warnings) == 1
+        assert "Failed to process view" in {w.title for w in report.warnings}
 
     def test_broken_snapshot_row_is_reported(self) -> None:
         api = make_api()
@@ -301,7 +287,7 @@ class TestViewsAndSnapshots:
         assert len(snapshots) == 1
         assert snapshots[0].base_table_identifier is not None
         assert snapshots[0].base_table_identifier.table == "base"
-        assert len(report.warnings) == 1
+        assert "Failed to process snapshot" in {w.title for w in report.warnings}
 
 
 class TestConstraints:
@@ -349,7 +335,9 @@ class TestConstraints:
             assert (
                 api.get_table_constraints_for_dataset(PROJECT, DATASET, report) is None
             )
-        assert len(report.warnings) == 1
+        assert "Failed to retrieve table constraints for dataset" in {
+            w.title for w in report.warnings
+        }
 
 
 class TestColumns:
@@ -399,13 +387,35 @@ class TestColumns:
                 )
                 is None
             )
-        assert len(report.warnings) == 1
+        assert "Failed to retrieve columns for dataset" in {
+            w.title for w in report.warnings
+        }
 
-    def test_unreadable_policy_tags_column_disables_policy_tag_extraction(self) -> None:
+    @pytest.mark.xfail(
+        strict=True,
+        raises=AssertionError,
+        reason="get_columns_for_dataset checks column_limit against the `columns` "
+        "dict while iterating the cursor, but that dict is only populated from "
+        "raw_rows after the loop, so the limit never applies.",
+    )
+    def test_column_limit_caps_the_columns_kept_per_table(self) -> None:
         api = make_api()
         report = BigQueryV2Report()
-        # An INFORMATION_SCHEMA without the policy_tags column surfaces as a
-        # non-iterable value; extraction must degrade rather than abort the dataset.
+        rows = [self._column_row("wide", f"c{i}", i) for i in range(3)]
+        with patch.object(api, "get_query_result", return_value=rows):
+            columns = api.get_columns_for_dataset(
+                PROJECT, DATASET, column_limit=2, report=report
+            )
+
+        assert columns is not None
+        assert [c.name for c in columns["wide"]] == ["c0", "c1"]
+
+    def test_unreadable_policy_tags_column_disables_policy_tag_extraction(self) -> None:
+        """An INFORMATION_SCHEMA without the policy_tags column surfaces as a
+        non-iterable value; extraction must degrade rather than abort the
+        dataset."""
+        api = make_api()
+        report = BigQueryV2Report()
         rows = [self._column_row("t", "c0", 1, policy_tags=123)]
         with (
             patch.object(api, "get_query_result", return_value=rows),
@@ -421,7 +431,9 @@ class TestColumns:
 
         assert columns is not None and columns["t"][0].policy_tags == []
         build_mapping.assert_not_called()
-        assert len(report.warnings) == 1
+        assert "Policy tags column not available in INFORMATION_SCHEMA" in {
+            w.title for w in report.warnings
+        }
 
 
 def test_partition_info_rejects_blank_field_names() -> None:
@@ -430,6 +442,8 @@ def test_partition_info_rejects_blank_field_names() -> None:
 
 
 def test_dataset_metadata_batch_groups_by_location() -> None:
+    """INFORMATION_SCHEMA.SCHEMATA is regional, so datasets are enriched with
+    one query per location and location-less datasets default to US."""
     api = make_api()
     datasets = [
         BigqueryDataset(name="a", location="EU"),

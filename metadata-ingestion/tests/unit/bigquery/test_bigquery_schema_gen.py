@@ -3,19 +3,19 @@ lightweight table discovery, schema field generation and dataset workunits."""
 
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import create_autospec, patch
 
 import pytest
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
+    BigQueryPlatformResourceHelper,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryDataset,
@@ -26,9 +26,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryView,
     PartitionInfo,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
-    BigQuerySchemaGenerator,
+from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
+    BigQuerySharingHandler,
 )
+from datahub.ingestion.source.bigquery_v2.profiling.profiler import BigqueryProfiler
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
@@ -40,43 +41,15 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
 )
+from tests.unit.bigquery.conftest import (
+    DATASET,
+    PROJECT,
+    as_mock,
+    make_schema_gen,
+    make_table,
+)
 
-PROJECT = "test-project"
-DATASET = "test_dataset"
 NOW = datetime(2024, 1, 1, tzinfo=timezone.utc)
-
-
-def make_schema_gen(**config_overrides: Any) -> BigQuerySchemaGenerator:
-    with (
-        patch.object(BigQueryV2Config, "get_bigquery_client"),
-        patch.object(BigQueryV2Config, "get_projects_client"),
-    ):
-        config = BigQueryV2Config.model_validate(
-            {"project_id": PROJECT, **config_overrides}
-        )
-        source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    schema_gen = source.bq_schema_extractor
-    # The real BigQuerySchemaApi wraps a MagicMock client; replace it wholesale so
-    # each test states exactly what the API returns.
-    schema_gen.schema_api = MagicMock()
-    return schema_gen
-
-
-def mock_api(schema_gen: BigQuerySchemaGenerator) -> MagicMock:
-    assert isinstance(schema_gen.schema_api, MagicMock)
-    return schema_gen.schema_api
-
-
-def make_table(name: str, **kwargs: Any) -> BigqueryTable:
-    return BigqueryTable(
-        name=name,
-        comment=None,
-        created=NOW,
-        last_altered=NOW,
-        size_in_bytes=None,
-        rows_count=None,
-        **kwargs,
-    )
 
 
 def make_column(
@@ -99,11 +72,13 @@ def make_column(
     )
 
 
-def table_list_item(table_id: str, table_type: Optional[str] = None) -> TableListItem:
+def table_list_item(
+    table_id: str, table_type: Optional[str] = None, dataset: str = DATASET
+) -> TableListItem:
     resource: Dict[str, Any] = {
         "tableReference": {
             "projectId": PROJECT,
-            "datasetId": DATASET,
+            "datasetId": dataset,
             "tableId": table_id,
         }
     }
@@ -123,29 +98,33 @@ def aspects_of(wus: Iterable[MetadataWorkUnit], aspect_type: type) -> List[Any]:
 
 
 def urns_with(wus: Iterable[MetadataWorkUnit], aspect_type: type) -> List[str]:
-    return [
-        wu.metadata.entityUrn  # type: ignore[misc]
-        for wu in wus
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, aspect_type)
-    ]
+    out: List[str] = []
+    for wu in wus:
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
+            wu.metadata.aspect, aspect_type
+        ):
+            assert wu.metadata.entityUrn
+            out.append(wu.metadata.entityUrn)
+    return out
 
 
 class TestProjectProcessing:
     def test_dataset_listing_failure_is_reported_and_project_skipped(self) -> None:
         schema_gen = make_schema_gen()
-        mock_api(schema_gen).get_datasets_for_project_id.side_effect = Exception(
-            "project has not enabled BigQuery."
-        )
+        as_mock(
+            schema_gen.schema_api.get_datasets_for_project_id
+        ).side_effect = Exception("project has not enabled BigQuery.")
 
         wus = list(schema_gen.get_project_workunits(BigqueryProject(PROJECT, PROJECT)))
 
         assert wus == []
-        assert len(schema_gen.report.failures) == 1
+        assert "Unable to get datasets for project" in {
+            f.title for f in schema_gen.report.failures
+        }
 
     def test_empty_project_is_dropped_when_exclude_empty_projects(self) -> None:
         schema_gen = make_schema_gen(exclude_empty_projects=True)
-        mock_api(schema_gen).get_datasets_for_project_id.return_value = []
+        as_mock(schema_gen.schema_api.get_datasets_for_project_id).return_value = []
 
         wus = list(schema_gen.get_project_workunits(BigqueryProject(PROJECT, PROJECT)))
 
@@ -155,39 +134,50 @@ class TestProjectProcessing:
 
     def test_empty_project_still_gets_container_and_warning_by_default(self) -> None:
         schema_gen = make_schema_gen()
-        mock_api(schema_gen).get_datasets_for_project_id.return_value = []
+        as_mock(schema_gen.schema_api.get_datasets_for_project_id).return_value = []
 
         wus = list(schema_gen.get_project_workunits(BigqueryProject(PROJECT, PROJECT)))
 
         assert aspects_of(wus, ContainerPropertiesClass)
-        assert len(schema_gen.report.warnings) == 1
+        assert "No datasets found in project" in {
+            w.title for w in schema_gen.report.warnings
+        }
 
     def test_profiler_runs_after_dataset_processing_when_profiling_enabled(
         self,
     ) -> None:
+        """The profiler gets every table discovered for the project in one call,
+        after the schema workunits, so its workunits come out of the same
+        generator."""
         schema_gen = make_schema_gen(
             profiling={"enabled": True},
             include_views=False,
             include_table_snapshots=False,
         )
         dataset = BigqueryDataset(name=DATASET, location="US")
-        mock_api(schema_gen).get_datasets_for_project_id.return_value = [dataset]
-        mock_api(schema_gen).get_columns_for_dataset.return_value = {}
-        mock_api(schema_gen).get_table_constraints_for_dataset.return_value = {}
+        api = as_mock(schema_gen.schema_api)
+        api.get_datasets_for_project_id.return_value = [dataset]
+        api.get_columns_for_dataset.return_value = {}
+        api.get_table_constraints_for_dataset.return_value = {}
         table = make_table("t1")
-        schema_gen.get_tables_for_dataset = MagicMock(return_value=[table])  # type: ignore[method-assign]
         profile_wu = MetadataChangeProposalWrapper(
             entityUrn="urn:li:dataset:(urn:li:dataPlatform:bigquery,p.d.t,PROD)",
             aspect=StatusClass(removed=False),
         ).as_workunit()
-        schema_gen.profiler = MagicMock()
-        schema_gen.profiler.get_workunits.return_value = [profile_wu]
+        profiler = create_autospec(BigqueryProfiler, instance=True)
+        profiler.get_workunits.return_value = [profile_wu]
+        schema_gen.profiler = profiler
 
-        wus = list(schema_gen.get_project_workunits(BigqueryProject(PROJECT, PROJECT)))
+        with patch.object(
+            schema_gen, "get_tables_for_dataset", autospec=True, return_value=[table]
+        ):
+            wus = list(
+                schema_gen.get_project_workunits(BigqueryProject(PROJECT, PROJECT))
+            )
 
         assert profile_wu in wus
-        schema_gen.profiler.get_workunits.assert_called_once()
-        kwargs = schema_gen.profiler.get_workunits.call_args.kwargs
+        profiler.get_workunits.assert_called_once()
+        kwargs = profiler.get_workunits.call_args.kwargs
         assert kwargs["project_id"] == PROJECT
         assert kwargs["tables"] == {DATASET: [table]}
         assert schema_gen.report.num_project_datasets_to_scan[PROJECT] == 1
@@ -202,7 +192,7 @@ class TestProjectProcessing:
             include_table_snapshots=False,
             include_table_constraints=False,
         )
-        mock_api(schema_gen).get_columns_for_dataset.return_value = {}
+        as_mock(schema_gen.schema_api.get_columns_for_dataset).return_value = {}
         broken = BigqueryDataset(name="broken")
         good = BigqueryDataset(name="good")
         denied = BigqueryDataset(name="denied_ds")
@@ -214,22 +204,31 @@ class TestProjectProcessing:
                 raise RuntimeError("tables.list forbidden")
             return [make_table("t1")]
 
-        schema_gen.get_tables_for_dataset = MagicMock(side_effect=tables_for)  # type: ignore[method-assign]
-
-        wus = list(
-            schema_gen._process_project_datasets(
-                BigqueryProject(PROJECT, PROJECT, datasets=[broken, good, denied]), {}
+        with patch.object(schema_gen, "get_tables_for_dataset", side_effect=tables_for):
+            wus = list(
+                schema_gen._process_project_datasets(
+                    BigqueryProject(PROJECT, PROJECT, datasets=[broken, good, denied]),
+                    {},
+                )
             )
-        )
 
         assert "denied_ds.*" in schema_gen.report.filtered
-        assert len(schema_gen.report.failures) == 1
-        assert f"{PROJECT}.broken" in str(schema_gen.report.failures[0].context)
+        failed = [
+            f
+            for f in schema_gen.report.failures
+            if f.title == "Unable to get tables for dataset"
+        ]
+        assert len(failed) == 1
+        assert f"{PROJECT}.broken" in str(failed[0].context)
         assert any(urn.endswith("good.t1,PROD)") for urn in urns_with(wus, StatusClass))
 
 
 class TestProcessSchema:
     def test_full_schema_path_emits_tables_views_and_snapshots(self) -> None:
+        """One dataset with a table, a view and a snapshot: the dataset
+        container carries location, description and label tags, every entity
+        gets a status aspect and a table ref, primary keys reach the schema
+        fields, and snapshot DDL/stats land in dataset properties."""
         schema_gen = make_schema_gen(
             rate_limit=True,
             include_table_constraints=True,
@@ -251,16 +250,14 @@ class TestProcessSchema:
             type="PRIMARY KEY",
             field_path="id",
         )
-        mock_api(schema_gen).get_columns_for_dataset.return_value = {
+        api = as_mock(schema_gen.schema_api)
+        api.get_columns_for_dataset.return_value = {
             "t1": [make_column("id", "INT64")],
             "v1": [make_column("id", "INT64")],
             "s1": [make_column("id", "INT64")],
         }
-        mock_api(schema_gen).get_table_constraints_for_dataset.return_value = {
-            "t1": [pk]
-        }
-        schema_gen.get_tables_for_dataset = MagicMock(return_value=[make_table("t1")])  # type: ignore[method-assign]
-        mock_api(schema_gen).get_views_for_dataset.return_value = [
+        api.get_table_constraints_for_dataset.return_value = {"t1": [pk]}
+        api.get_views_for_dataset.return_value = [
             BigqueryView(
                 name="v1",
                 comment=None,
@@ -269,7 +266,7 @@ class TestProcessSchema:
                 view_definition="SELECT 1",
             )
         ]
-        mock_api(schema_gen).get_snapshots_for_dataset.return_value = [
+        api.get_snapshots_for_dataset.return_value = [
             BigqueryTableSnapshot(
                 name="s1",
                 comment=None,
@@ -283,10 +280,16 @@ class TestProcessSchema:
             )
         ]
 
-        wus = list(schema_gen._process_schema(PROJECT, dataset, {}, {}, {}))
+        with patch.object(
+            schema_gen,
+            "get_tables_for_dataset",
+            autospec=True,
+            return_value=[make_table("t1")],
+        ):
+            wus = list(schema_gen._process_schema(PROJECT, dataset, {}, {}, {}))
 
         # Rate limiter is threaded through to the columns query.
-        columns_kwargs = mock_api(schema_gen).get_columns_for_dataset.call_args.kwargs
+        columns_kwargs = api.get_columns_for_dataset.call_args.kwargs
         assert columns_kwargs["rate_limiter"] is not None
 
         container_props = aspects_of(wus, ContainerPropertiesClass)
@@ -326,20 +329,32 @@ class TestProcessSchema:
         assert snapshot_props.customProperties["size_in_bytes"] == "10"
 
     def test_biglake_dataset_skips_constraints_and_region_autodetect(self) -> None:
+        """BigLake/Omni datasets report locations like `aws-us-east-1` that are
+        not valid INFORMATION_SCHEMA region qualifiers and have no constraint
+        tables. Adding them to discovered_locations would make the queries
+        extractor scan `region-aws-us-east-1` and fail every run."""
         schema_gen = make_schema_gen(
             include_table_constraints=True,
-            include_tables=False,
             include_views=False,
             include_table_snapshots=False,
         )
-        mock_api(schema_gen).get_columns_for_dataset.return_value = {}
-        dataset = BigqueryDataset(name=DATASET, location="aws-us-east-1")
+        api = as_mock(schema_gen.schema_api)
+        api.get_columns_for_dataset.return_value = {}
+        api.get_table_constraints_for_dataset.return_value = {}
+        api.list_tables.return_value = []
+        biglake = BigqueryDataset(name="ds-biglake", location="aws-us-east-1")
+        gcp = BigqueryDataset(name="ds-gcp", location="europe-west1")
 
-        list(schema_gen._process_schema(PROJECT, dataset, {}, {}, {}))
+        list(schema_gen._process_schema(PROJECT, biglake, {}, {}, {}))
+        list(schema_gen._process_schema(PROJECT, gcp, {}, {}, {}))
 
-        mock_api(schema_gen).get_table_constraints_for_dataset.assert_not_called()
-        assert schema_gen.discovered_locations == set()
+        assert schema_gen.discovered_locations == {"europe-west1"}
         assert schema_gen.report.num_biglake_datasets_skipped_for_region_autodetect == 1
+        constraint_datasets = [
+            call.kwargs["dataset_name"]
+            for call in api.get_table_constraints_for_dataset.call_args_list
+        ]
+        assert constraint_datasets == ["ds-gcp"]
 
     def test_snapshot_denied_by_pattern_is_dropped(self) -> None:
         schema_gen = make_schema_gen(table_snapshot_pattern={"deny": [".*old.*"]})
@@ -359,6 +374,9 @@ class TestProcessSchema:
         assert f"{PROJECT}.{DATASET}.old_snap" in schema_gen.report.filtered
 
     def test_partition_columns_attached_only_when_every_field_resolves(self) -> None:
+        """Partition fields are resolved against the table's columns in field
+        order; if any field is unknown the resolved tuple is left unset rather
+        than published half-complete."""
         schema_gen = make_schema_gen()
         cols = [make_column("a", "DATE", 1), make_column("b", "STRING", 2)]
 
@@ -378,10 +396,13 @@ class TestProcessSchema:
 
 class TestLightweightDiscovery:
     def test_schema_off_keeps_only_newest_shard_in_table_refs(self) -> None:
+        """With include_schema_metadata off, tables are still discovered for
+        lineage; sharded tables collapse to one ref and no columns are read."""
         schema_gen = make_schema_gen(
             include_schema_metadata=False, include_table_lineage=True
         )
-        mock_api(schema_gen).list_tables.return_value = [
+        api = as_mock(schema_gen.schema_api)
+        api.list_tables.return_value = [
             table_list_item("events_20220101"),
             table_list_item("events_20220103"),
             table_list_item("events_20220102"),
@@ -401,16 +422,18 @@ class TestLightweightDiscovery:
             f"projects/{PROJECT}/datasets/{DATASET}/tables/events",
             f"projects/{PROJECT}/datasets/{DATASET}/tables/plain",
         ]
-        mock_api(schema_gen).get_columns_for_dataset.assert_not_called()
+        api.get_columns_for_dataset.assert_not_called()
 
 
 class TestCoreTableDetails:
-    def test_views_temp_and_denied_tables_are_filtered(self) -> None:
+    def test_views_and_denied_tables_are_filtered(self) -> None:
+        """Views (plain or sharded) are dropped when views are not included,
+        and the table pattern is applied to the un-sharded base name."""
         schema_gen = make_schema_gen(
             include_views=False,
             table_pattern={"deny": [".*secret.*"]},
         )
-        mock_api(schema_gen).list_tables.return_value = [
+        as_mock(schema_gen.schema_api.list_tables).return_value = [
             table_list_item("kept"),
             table_list_item("v_plain", "VIEW"),
             table_list_item("v_20240101", "VIEW"),
@@ -418,7 +441,7 @@ class TestCoreTableDetails:
             table_list_item("secret_plain"),
         ]
 
-        items = schema_gen.get_core_table_details(DATASET, PROJECT, "_tmp")
+        items = schema_gen.get_core_table_details(DATASET, PROJECT, "_")
 
         assert list(items) == ["kept"]
         dropped = set(schema_gen.report.filtered)
@@ -427,26 +450,46 @@ class TestCoreTableDetails:
         assert f"{PROJECT}.{DATASET}.secret" in dropped
         assert f"{PROJECT}.{DATASET}.secret_plain" in dropped
 
+    @pytest.mark.xfail(
+        strict=True,
+        raises=AssertionError,
+        reason="get_core_table_details compares temp_table_dataset_prefix against "
+        "str(table_identifier), i.e. the full `project.dataset.table` string, "
+        "instead of the dataset name, so tables in temporary datasets are never "
+        "dropped on this path.",
+    )
+    def test_tables_in_a_temporary_dataset_are_dropped(self) -> None:
+        schema_gen = make_schema_gen()
+        as_mock(schema_gen.schema_api.list_tables).return_value = [
+            table_list_item("scratch", dataset="_tmp_ds")
+        ]
+
+        items = schema_gen.get_core_table_details("_tmp_ds", PROJECT, "_")
+
+        assert list(items) == []
+        assert f"{PROJECT}._tmp_ds.scratch" in schema_gen.report.filtered
+
     def test_sharded_views_are_kept_when_views_are_included(self) -> None:
         schema_gen = make_schema_gen(include_views=True)
-        mock_api(schema_gen).list_tables.return_value = [
+        as_mock(schema_gen.schema_api.list_tables).return_value = [
             table_list_item("v_20240101", "VIEW"),
             table_list_item("v_20240102", "VIEW"),
         ]
 
-        items = schema_gen.get_core_table_details(DATASET, PROJECT, "_tmp")
+        items = schema_gen.get_core_table_details(DATASET, PROJECT, "_")
 
         assert list(items) == ["v_20240102"]
 
     def test_tables_are_fetched_in_batches(self) -> None:
+        """Profiling means partition stats are requested, and that batch size
+        (200) dwarfs the 5 tables, so everything arrives in a single call."""
         schema_gen = make_schema_gen(
             number_of_datasets_process_in_batch=2,
             profiling={"enabled": True},
         )
-        mock_api(schema_gen).list_tables.return_value = [
-            table_list_item(f"t{i}") for i in range(5)
-        ]
-        mock_api(schema_gen).get_tables_for_dataset.side_effect = lambda *a, **k: [
+        api = as_mock(schema_gen.schema_api)
+        api.list_tables.return_value = [table_list_item(f"t{i}") for i in range(5)]
+        api.get_tables_for_dataset.side_effect = lambda *a, **k: [
             make_table(name) for name in a[2]
         ]
 
@@ -455,18 +498,15 @@ class TestCoreTableDetails:
         )
 
         assert [t.name for t in tables] == [f"t{i}" for i in range(5)]
-        calls = mock_api(schema_gen).get_tables_for_dataset.call_args_list
-        # Profiling means partition stats are requested, and its batch size (200)
-        # dwarfs the 5 tables, so everything arrives in a single call.
+        calls = api.get_tables_for_dataset.call_args_list
         assert len(calls) == 1
         assert calls[0].kwargs["with_partitions"] is True
         assert f"{PROJECT}.{DATASET}" in schema_gen.report.metadata_extraction_sec
 
     def test_small_batch_size_without_partitions_splits_requests(self) -> None:
         schema_gen = make_schema_gen(number_of_datasets_process_in_batch=2)
-        mock_api(schema_gen).list_tables.return_value = [
-            table_list_item(f"t{i}") for i in range(5)
-        ]
+        api = as_mock(schema_gen.schema_api)
+        api.list_tables.return_value = [table_list_item(f"t{i}") for i in range(5)]
         batch_sizes: List[int] = []
 
         def fetch(*args: Any, **kwargs: Any) -> List[BigqueryTable]:
@@ -474,7 +514,7 @@ class TestCoreTableDetails:
             batch_sizes.append(len(args[2]))
             return [make_table(name) for name in args[2]]
 
-        mock_api(schema_gen).get_tables_for_dataset.side_effect = fetch
+        api.get_tables_for_dataset.side_effect = fetch
 
         tables = list(
             schema_gen.get_tables_for_dataset(PROJECT, BigqueryDataset(name=DATASET))
@@ -482,7 +522,7 @@ class TestCoreTableDetails:
 
         assert len(tables) == 5
         assert batch_sizes == [2, 2, 1]
-        calls = mock_api(schema_gen).get_tables_for_dataset.call_args_list
+        calls = api.get_tables_for_dataset.call_args_list
         assert all(c.kwargs["with_partitions"] is False for c in calls)
 
 
@@ -547,11 +587,13 @@ class TestDatasetWorkunits:
         assert len(aspects_of(wus, PlatformResourceInfoClass)) == 2
 
     def test_label_platform_resource_conflict_keeps_original_tag(self) -> None:
+        """A label already mapped to a different tag in DataHub is still emitted
+        as the tag BigQuery says, just without a (conflicting) platform
+        resource."""
         schema_gen = make_schema_gen(capture_table_label_as_tag=True)
-        schema_gen.platform_resource_helper = MagicMock()
-        schema_gen.platform_resource_helper.generate_label_platform_resource.side_effect = ValueError(
-            "urn mismatch"
-        )
+        helper = create_autospec(BigQueryPlatformResourceHelper, instance=True)
+        helper.generate_label_platform_resource.side_effect = ValueError("urn mismatch")
+        schema_gen.platform_resource_helper = helper
         table = make_table("t1", labels={"team": "data"})
 
         wus = list(schema_gen.gen_table_dataset_workunits(table, [], PROJECT, DATASET))
@@ -561,8 +603,9 @@ class TestDatasetWorkunits:
         assert not aspects_of(wus, PlatformResourceInfoClass)
 
     def test_encoded_tag_labels_are_decoded(self) -> None:
+        """DataHub tags synced into BigQuery labels are base32-encoded with a
+        marker prefix because labels cannot hold arbitrary characters."""
         schema_gen = make_schema_gen()
-        # Encoding used when syncing DataHub tags into BigQuery labels.
         assert (
             schema_gen.modified_base32decode(
                 "urn_li_encoded_tag_jbswy3dpeblw64tmmq______"
@@ -576,6 +619,9 @@ class TestSchemaMetadata:
     def test_nested_struct_columns_get_descriptions_and_flat_columns_get_tags(
         self,
     ) -> None:
+        """Struct members come from INFORMATION_SCHEMA as separate rows keyed by
+        field_path; their descriptions must attach to the nested field, while
+        clustering position, policy tags and key flags attach to flat columns."""
         schema_gen = make_schema_gen()
         columns = [
             make_column(
@@ -630,6 +676,9 @@ class TestSchemaMetadata:
     def test_foreign_keys_are_grouped_per_referenced_table_and_schema_feeds_resolver(
         self,
     ) -> None:
+        """Two FK columns pointing at the same table form one composite foreign
+        key, and the emitted schema is registered with the SQL parser's resolver
+        so lineage can resolve this table's columns."""
         schema_gen = make_schema_gen(lineage_use_sql_parser=True)
 
         def fk(column: str, ref_column: str, ref_table: str) -> BigqueryTableConstraint:
@@ -675,8 +724,9 @@ class TestSchemaMetadata:
         self,
     ) -> None:
         schema_gen = make_schema_gen(lineage_use_sql_parser=False)
-        schema_gen.sharing_handler = MagicMock()
-        schema_gen.sharing_handler.needs_schema_for_copy_lineage.return_value = True
+        sharing = create_autospec(BigQuerySharingHandler, instance=True)
+        sharing.needs_schema_for_copy_lineage.return_value = True
+        schema_gen.sharing_handler = sharing
         identifier = BigqueryTableIdentifier(PROJECT, DATASET, "t1")
         dataset_urn = schema_gen.identifiers.gen_dataset_urn(PROJECT, DATASET, "t1")
 

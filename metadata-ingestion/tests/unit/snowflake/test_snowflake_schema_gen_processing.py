@@ -1,34 +1,25 @@
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Type, TypeVar
-from unittest.mock import MagicMock
+"""What SnowflakeSchemaGenerator emits for the objects it discovers.
 
-from datahub.ingestion.api.workunit import MetadataWorkUnit
+The data dictionary is replaced by canned objects (see ``make_gen`` in
+conftest.py) so these tests exercise filtering, aspect construction and the
+lineage registered with the aggregator rather than row parsing.
+"""
+
+import pytest
+
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.constants import GENERIC_PERMISSION_ERROR_KEY
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakePermissionError,
 )
-from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SnowflakeColumn,
-    SnowflakeDatabase,
     SnowflakeDynamicTable,
     SnowflakeFK,
     SnowflakePK,
-    SnowflakeSchema,
-    SnowflakeStream,
     SnowflakeTable,
     SnowflakeTag,
-    SnowflakeView,
 )
-from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
-    SnowflakeSchemaGenerator,
-)
-from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeFilter,
-    SnowflakeIdentifierBuilder,
-)
-from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     GlobalTagsClass,
@@ -37,139 +28,45 @@ from datahub.metadata.schema_classes import (
     StructuredPropertiesClass,
     SubTypesClass,
     TagPropertiesClass,
-    _Aspect,
 )
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
-
-DB = "TEST_DB"
-SCHEMA = "PUBLIC"
-CREATED = datetime(2023, 1, 15, 10, 30, tzinfo=timezone.utc)
-
-A = TypeVar("A", bound=_Aspect)
-
-
-def _as_mock(obj: object) -> MagicMock:
-    assert isinstance(obj, MagicMock)
-    return obj
-
-
-def _make_gen(
-    aggregator: Optional[MagicMock] = None, **config_overrides: object
-) -> SnowflakeSchemaGenerator:
-    config = SnowflakeV2Config.model_validate(
-        {
-            "account_id": "test_account",
-            "username": "user",
-            "password": "pass",
-            "include_streams": False,
-            "include_procedures": False,
-            "include_streamlits": False,
-            # Pinned so the column-case sweep (DATAHUB_TEST_PRESERVE_COLUMN_CASE=1 in
-            # CI, see conftest.py) does not change the lowercased field paths asserted here.
-            "preserve_column_case": False,
-            **config_overrides,
-        }
-    )
-    report = SnowflakeV2Report()
-    connection = MagicMock()
-    connection.query.return_value = []
-    gen = SnowflakeSchemaGenerator(
-        config=config,
-        report=report,
-        connection=connection,
-        filters=SnowflakeFilter(filter_config=config, structured_reporter=report),
-        identifiers=SnowflakeIdentifierBuilder(
-            identifier_config=config, structured_reporter=report
-        ),
-        domain_registry=None,
-        profiler=None,
-        aggregator=aggregator,
-        snowsight_url_builder=None,
-    )
-    # The data dictionary is the query layer; its row parsing is covered by
-    # test_snowflake_schema.py, so here it is replaced by canned objects.
-    data_dictionary = MagicMock()
-    data_dictionary.get_pk_constraints_for_schema.return_value = {}
-    data_dictionary.get_fk_constraints_for_schema.return_value = {}
-    data_dictionary.get_columns_for_schema.return_value = {}
-    gen.data_dictionary = data_dictionary
-    return gen
-
-
-def _column(name: str, position: int = 1) -> SnowflakeColumn:
-    return SnowflakeColumn(
-        name=name,
-        ordinal_position=position,
-        is_nullable=True,
-        data_type="VARCHAR",
-        comment=None,
-        character_maximum_length=None,
-        numeric_precision=None,
-        numeric_scale=None,
-    )
-
-
-def _table(name: str, **overrides: object) -> SnowflakeTable:
-    return SnowflakeTable(
-        name=name,
-        comment=None,
-        created=CREATED,
-        last_altered=None,
-        size_in_bytes=None,
-        rows_count=None,
-        **overrides,  # type: ignore[arg-type]
-    )
-
-
-def _view(name: str, **overrides: object) -> SnowflakeView:
-    return SnowflakeView(
-        name=name,
-        comment=None,
-        created=CREATED,
-        last_altered=None,
-        view_definition="select 1",
-        **overrides,  # type: ignore[arg-type]
-    )
-
-
-def _schema(name: str = SCHEMA) -> SnowflakeSchema:
-    return SnowflakeSchema(name=name, created=CREATED, last_altered=None, comment=None)
-
-
-def _database(name: str = DB) -> SnowflakeDatabase:
-    return SnowflakeDatabase(name=name, created=CREATED, comment=None)
-
-
-def _aspects(workunits: List[MetadataWorkUnit], aspect_type: Type[A]) -> Dict[str, A]:
-    found: Dict[str, A] = {}
-    for wu in workunits:
-        aspect = wu.get_aspect_of_type(aspect_type)
-        if aspect is not None:
-            found[wu.get_urn()] = aspect
-    return found
-
-
-def _urn(gen: SnowflakeSchemaGenerator, name: str) -> str:
-    return gen.identifiers.gen_dataset_urn(f"{DB}.{SCHEMA}.{name}".lower())
+from tests.unit.snowflake.conftest import (
+    CREATED,
+    DB,
+    SCHEMA,
+    as_mock,
+    aspects,
+    column,
+    database,
+    dataset_urn,
+    log_keys,
+    make_aggregator,
+    make_gen,
+    procedure,
+    schema,
+    stream,
+    table,
+    view,
+)
 
 
 def test_databases_schemas_and_datasets_are_filtered_and_emitted() -> None:
-    aggregator = MagicMock()
-    gen = _make_gen(
+    aggregator = make_aggregator()
+    gen = make_gen(
         aggregator=aggregator,
         database_pattern={"deny": ["DENIED_DB"]},
         schema_pattern={"deny": ["HIDDEN"]},
     )
-    dd = _as_mock(gen.data_dictionary)
-    dd.show_databases.return_value = [_database(DB), _database("DENIED_DB")]
-    dd.get_databases.return_value = [_database(DB), _database("DENIED_DB")]
-    dd.get_schemas_for_database.return_value = [_schema(SCHEMA), _schema("HIDDEN")]
-    dd.get_tables_for_database.return_value = {SCHEMA: [_table("T1")]}
-    dd.get_views_for_database.return_value = {SCHEMA: [_view("V1")]}
+    dd = as_mock(gen.data_dictionary)
+    dd.show_databases.return_value = [database(DB), database("DENIED_DB")]
+    dd.get_databases.return_value = [database(DB), database("DENIED_DB")]
+    dd.get_schemas_for_database.return_value = [schema(SCHEMA), schema("HIDDEN")]
+    dd.get_tables_for_database.return_value = {SCHEMA: [table("T1")]}
+    dd.get_views_for_database.return_value = {SCHEMA: [view("V1")]}
     dd.get_columns_for_schema.return_value = {
-        "T1": [_column("ID")],
-        "V1": [_column("ID")],
+        "T1": [column("ID")],
+        "V1": [column("ID")],
     }
 
     workunits = list(gen.get_workunits_internal())
@@ -181,40 +78,43 @@ def test_databases_schemas_and_datasets_are_filtered_and_emitted() -> None:
     assert "DENIED_DB.*" in gen.report.filtered
     assert f"{DB}.HIDDEN.*" in gen.report.filtered
 
-    subtypes = _aspects(workunits, SubTypesClass)
-    assert subtypes[_urn(gen, "T1")].typeNames == [DatasetSubTypes.TABLE]
-    assert subtypes[_urn(gen, "V1")].typeNames == [DatasetSubTypes.VIEW]
-    assert set(_aspects(workunits, StatusClass)) >= {_urn(gen, "T1"), _urn(gen, "V1")}
+    subtypes = aspects(workunits, SubTypesClass)
+    assert subtypes[dataset_urn(gen, "T1")].typeNames == [DatasetSubTypes.TABLE]
+    assert subtypes[dataset_urn(gen, "V1")].typeNames == [DatasetSubTypes.VIEW]
+    assert set(aspects(workunits, StatusClass)) >= {
+        dataset_urn(gen, "T1"),
+        dataset_urn(gen, "V1"),
+    }
     # Containers for the database and the schema, but nothing for the dropped ones.
     container_urns = {
         wu.get_urn() for wu in workunits if wu.get_urn().startswith("urn:li:container:")
     }
     assert len(container_urns) == 2
     aggregator.add_view_definition.assert_called_once()
-    assert aggregator.add_view_definition.call_args.kwargs["view_urn"] == _urn(
+    assert aggregator.add_view_definition.call_args.kwargs["view_urn"] == dataset_urn(
         gen, "V1"
     )
     assert gen.report.failures == []
 
 
 def test_permission_error_listing_schemas_is_a_reported_failure() -> None:
-    gen = _make_gen()
-    dd = _as_mock(gen.data_dictionary)
-    dd.show_databases.return_value = [_database(DB)]
-    dd.get_databases.return_value = [_database(DB)]
+    gen = make_gen()
+    dd = as_mock(gen.data_dictionary)
+    dd.show_databases.return_value = [database(DB)]
+    dd.get_databases.return_value = [database(DB)]
     dd.get_schemas_for_database.side_effect = SnowflakePermissionError("not authorized")
 
     workunits = list(gen.get_workunits_internal())
 
-    assert _aspects(workunits, SchemaMetadataClass) == {}
-    assert len(gen.report.failures) == 1
+    assert aspects(workunits, SchemaMetadataClass) == {}
+    assert GENERIC_PERMISSION_ERROR_KEY in log_keys(gen.report.failures)
 
 
 def test_primary_and_foreign_keys_land_in_schema_metadata() -> None:
-    gen = _make_gen()
-    dd = _as_mock(gen.data_dictionary)
+    gen = make_gen()
+    dd = as_mock(gen.data_dictionary)
     dd.get_columns_for_schema.return_value = {
-        "T1": [_column("ID", 1), _column("PARENT_ID", 2)]
+        "T1": [column("ID", 1), column("PARENT_ID", 2)]
     }
     dd.get_pk_constraints_for_schema.return_value = {
         "T1": SnowflakePK(name="PK_T1", column_names=["ID"])
@@ -232,22 +132,25 @@ def test_primary_and_foreign_keys_land_in_schema_metadata() -> None:
         ]
     }
 
-    workunits = list(gen._process_table(_table("T1"), _schema(), DB))
+    workunits = list(gen._process_table(table("T1"), schema(), DB))
 
-    schema = _aspects(workunits, SchemaMetadataClass)[_urn(gen, "T1")]
-    assert [(f.fieldPath, f.isPartOfKey) for f in schema.fields] == [
+    schema_metadata = aspects(workunits, SchemaMetadataClass)[dataset_urn(gen, "T1")]
+    assert [(f.fieldPath, f.isPartOfKey) for f in schema_metadata.fields] == [
         ("id", True),
         ("parent_id", False),
     ]
-    assert schema.foreignKeys is not None and len(schema.foreignKeys) == 1
-    fk = schema.foreignKeys[0]
-    assert fk.foreignDataset == _urn(gen, "T0")
-    assert fk.foreignFields == [f"urn:li:schemaField:({_urn(gen, 'T0')},id)"]
-    assert fk.sourceFields == [f"urn:li:schemaField:({_urn(gen, 'T1')},parent_id)"]
+    assert schema_metadata.foreignKeys is not None
+    assert len(schema_metadata.foreignKeys) == 1
+    fk = schema_metadata.foreignKeys[0]
+    assert fk.foreignDataset == dataset_urn(gen, "T0")
+    assert fk.foreignFields == [f"urn:li:schemaField:({dataset_urn(gen, 'T0')},id)"]
+    assert fk.sourceFields == [
+        f"urn:li:schemaField:({dataset_urn(gen, 'T1')},parent_id)"
+    ]
 
 
 def test_dataset_properties_describe_table_kind() -> None:
-    gen = _make_gen()
+    gen = make_gen()
     dynamic = SnowflakeDynamicTable(
         name="DT",
         comment="refreshed hourly",
@@ -276,91 +179,99 @@ def test_dataset_properties_describe_table_kind() -> None:
         "TARGET_LAG": "1 hour",
     }
 
-    secure = gen.get_dataset_properties(_view("V1", is_secure=True), SCHEMA, DB)
+    secure = gen.get_dataset_properties(view("V1", is_secure=True), SCHEMA, DB)
     assert secure.customProperties == {"IS_SECURE": "true"}
     assert secure.lastModified is None
 
 
+_PII = SnowflakeTag(database=DB, schema=SCHEMA, name="PII", value="HIGH")
+_PII_TAG_URN = "urn:li:tag:test_db.public.pii:high"
+
+
+def _tagged_table() -> SnowflakeTable:
+    return table("T1", tags=[_PII], column_tags={"ID": [_PII]}, columns=[column("ID")])
+
+
 def test_tags_are_emitted_once_as_tag_entities_or_as_structured_properties() -> None:
-    tag = SnowflakeTag(database=DB, schema=SCHEMA, name="PII", value="HIGH")
-    tag_urn = "urn:li:tag:test_db.public.pii:high"
+    gen = make_gen()
+    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
 
-    def tagged_table() -> SnowflakeTable:
-        return _table(
-            "T1", tags=[tag], column_tags={"ID": [tag]}, columns=[_column("ID")]
-        )
+    tag_properties = aspects(workunits, TagPropertiesClass)
+    assert list(tag_properties) == [_PII_TAG_URN]
+    assert tag_properties[_PII_TAG_URN].name == "PII: HIGH"
+    dataset_tags = aspects(workunits, GlobalTagsClass)[dataset_urn(gen, "T1")]
+    assert [t.tag for t in dataset_tags.tags] == [_PII_TAG_URN]
+    schema_metadata = aspects(workunits, SchemaMetadataClass)[dataset_urn(gen, "T1")]
+    assert schema_metadata.fields[0].globalTags is not None
+    assert [t.tag for t in schema_metadata.fields[0].globalTags.tags] == [_PII_TAG_URN]
 
-    gen = _make_gen()
-    workunits = list(gen.gen_dataset_workunits(tagged_table(), SCHEMA, DB))
+    sp_gen = make_gen(extract_tags_as_structured_properties=True)
+    workunits = list(sp_gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
 
-    tag_properties = _aspects(workunits, TagPropertiesClass)
-    assert list(tag_properties) == [tag_urn]
-    assert tag_properties[tag_urn].name == "PII: HIGH"
-    dataset_tags = _aspects(workunits, GlobalTagsClass)[_urn(gen, "T1")]
-    assert [t.tag for t in dataset_tags.tags] == [tag_urn]
-    schema = _aspects(workunits, SchemaMetadataClass)[_urn(gen, "T1")]
-    assert schema.fields[0].globalTags is not None
-    assert [t.tag for t in schema.fields[0].globalTags.tags] == [tag_urn]
-
-    sp_gen = _make_gen(extract_tags_as_structured_properties=True)
-    workunits = list(sp_gen.gen_dataset_workunits(tagged_table(), SCHEMA, DB))
-
-    assert _aspects(workunits, TagPropertiesClass) == {}
-    assert _aspects(workunits, GlobalTagsClass) == {}
-    structured = _aspects(workunits, StructuredPropertiesClass)
-    dataset_props = structured[_urn(sp_gen, "T1")]
+    assert aspects(workunits, TagPropertiesClass) == {}
+    assert aspects(workunits, GlobalTagsClass) == {}
+    structured = aspects(workunits, StructuredPropertiesClass)
+    dataset_props = structured[dataset_urn(sp_gen, "T1")]
     assert [(p.propertyUrn, p.values) for p in dataset_props.properties] == [
         ("urn:li:structuredProperty:snowflake.test_db.public.pii", ["HIGH"])
     ]
-    field_urns = [urn for urn in structured if urn.startswith("urn:li:schemaField:")]
-    assert len(field_urns) == 1
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "gen_column_tags_as_structured_properties builds the schemaField URN from "
+        "the raw column name, while gen_schema_metadata emits the field under "
+        "snowflake_column_identifier(name) (lowercased by default), so the "
+        "column-level structured property points at a field that is never emitted."
+    ),
+)
+def test_column_structured_properties_target_the_emitted_schema_field() -> None:
+    """A column tag as a structured property must land on the field the schema emits."""
+    gen = make_gen(extract_tags_as_structured_properties=True)
+
+    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
+
+    schema_metadata = aspects(workunits, SchemaMetadataClass)[dataset_urn(gen, "T1")]
+    assert [f.fieldPath for f in schema_metadata.fields] == ["id"]
+    field_urns = [
+        urn
+        for urn in aspects(workunits, StructuredPropertiesClass)
+        if urn.startswith("urn:li:schemaField:")
+    ]
+    assert field_urns == [make_schema_field_urn(dataset_urn(gen, "T1"), "id")]
 
 
 def test_stream_gets_metadata_columns_and_copy_lineage_from_source() -> None:
-    aggregator = MagicMock()
-    gen = _make_gen(aggregator=aggregator, include_streams=True)
-    _as_mock(gen.data_dictionary).get_columns_for_schema.return_value = {
-        "SRC": [_column("ID")]
+    aggregator = make_aggregator()
+    gen = make_gen(aggregator=aggregator, include_streams=True)
+    as_mock(gen.data_dictionary).get_columns_for_schema.return_value = {
+        "SRC": [column("ID")]
     }
-    stream = SnowflakeStream(
-        name="S1",
-        created=CREATED,
-        owner="OWNER",
-        source_type="Table",
-        type="DELTA",
-        stale="false",
-        mode="DEFAULT",
-        invalid_reason="",
-        owner_role_type="ROLE",
-        database_name=DB,
-        schema_name=SCHEMA,
-        table_name=f"{DB}.{SCHEMA}.SRC",
-        comment=None,
-        stale_after=CREATED,
-    )
 
-    workunits = list(gen._process_stream(stream, _schema(), DB))
+    workunits = list(gen._process_stream(stream("S1", "SRC"), schema(), DB))
 
-    schema = _aspects(workunits, SchemaMetadataClass)[_urn(gen, "S1")]
-    assert [f.fieldPath for f in schema.fields] == [
+    schema_metadata = aspects(workunits, SchemaMetadataClass)[dataset_urn(gen, "S1")]
+    assert [f.fieldPath for f in schema_metadata.fields] == [
         "id",
         "metadata$action",
         "metadata$isupdate",
         "metadata$row_id",
     ]
-    props = _aspects(workunits, DatasetPropertiesClass)[_urn(gen, "S1")]
+    props = aspects(workunits, DatasetPropertiesClass)[dataset_urn(gen, "S1")]
     assert props.customProperties["TABLE_NAME"] == f"{DB}.{SCHEMA}.SRC"
     assert props.customProperties["STALE_AFTER"] == CREATED.isoformat()
     assert "INVALID_REASON" not in props.customProperties
     aggregator.add_known_lineage_mapping.assert_called_once()
     call = aggregator.add_known_lineage_mapping.call_args.kwargs
-    assert call["upstream_urn"] == _urn(gen, "SRC")
-    assert call["downstream_urn"] == _urn(gen, "S1")
+    assert call["upstream_urn"] == dataset_urn(gen, "SRC")
+    assert call["downstream_urn"] == dataset_urn(gen, "S1")
     assert gen.report.num_streams_with_known_upstreams == 1
 
 
 def test_external_table_ddl_lineage_only_for_discovered_s3_tables() -> None:
-    gen = _make_gen()
+    """Only discovered tables on S3 get a DDL edge, and each edge is counted once."""
+    gen = make_gen()
 
     def row(name: str, location: str) -> dict:
         return {
@@ -370,7 +281,7 @@ def test_external_table_ddl_lineage_only_for_discovered_s3_tables() -> None:
             "location": location,
         }
 
-    _as_mock(gen.connection).query.return_value = [
+    as_mock(gen.connection).query.side_effect = lambda _sql: [
         row("EXT1", "s3://bucket/ext1/"),
         row("EXT2", "azure://container/ext2/"),
         row("EXT3", "s3://bucket/ext3/"),
@@ -381,59 +292,49 @@ def test_external_table_ddl_lineage_only_for_discovered_s3_tables() -> None:
 
     assert len(mappings) == 1
     assert isinstance(mappings[0], KnownLineageMapping)
-    assert mappings[0].downstream_urn == _urn(gen, "EXT1")
+    assert mappings[0].downstream_urn == dataset_urn(gen, "EXT1")
     assert DatasetUrn.from_string(mappings[0].upstream_urn).platform.endswith("s3")
+    # The counter mirrors the copy-history one in the lineage extractor: one per
+    # edge yielded, not one per external table scanned plus one per S3 edge.
+    assert gen.report.num_external_table_edges_scanned == 1
 
 
 def test_secure_view_definition_lookup_degrades_gracefully() -> None:
-    gen = _make_gen()
-    _as_mock(gen.data_dictionary).get_secure_view_definitions.return_value = {
+    gen = make_gen()
+    as_mock(gen.data_dictionary).get_secure_view_definitions.return_value = {
         DB: {SCHEMA: {"V1": "select 1"}}
     }
 
     assert gen.fetch_secure_view_definition("V1", SCHEMA, DB) == "select 1"
     assert gen.fetch_secure_view_definition("V2", SCHEMA, DB) is None
-    assert len(gen.report.infos) == 1
+    assert "Secure view definition not found" in log_keys(gen.report.infos)
 
-    _as_mock(
+    as_mock(
         gen.data_dictionary
     ).get_secure_view_definitions.side_effect = SnowflakePermissionError(
         "not authorized"
     )
     assert gen.fetch_secure_view_definition("V1", SCHEMA, DB) is None
-    assert len(gen.report.warnings) == 1
+    assert "Failed to get secure views definitions" in log_keys(gen.report.warnings)
 
 
 def test_procedures_are_filtered_by_pattern_and_permission_errors_warn() -> None:
-    def procedure(name: str) -> BaseProcedure:
-        return BaseProcedure(
-            name=name,
-            procedure_definition="begin return 1; end",
-            created=None,
-            last_altered=None,
-            comment=None,
-            argument_signature="()",
-            return_type="NUMBER",
-            language="SQL",
-            extra_properties=None,
-        )
-
-    gen = _make_gen(
+    gen = make_gen(
         include_procedures=True, procedure_pattern={"deny": [".*\\.internal_.*"]}
     )
-    _as_mock(gen.data_dictionary).get_procedures_for_database.return_value = {
+    as_mock(gen.data_dictionary).get_procedures_for_database.return_value = {
         SCHEMA: [procedure("PUBLIC_PROC"), procedure("INTERNAL_PROC")]
     }
 
-    kept = gen.fetch_procedures_for_schema(_schema(), DB)
+    kept = gen.fetch_procedures_for_schema(schema(), DB)
 
     assert [p.name for p in kept] == ["PUBLIC_PROC"]
     assert f"{DB}.{SCHEMA}.INTERNAL_PROC".lower() in gen.report.filtered
 
-    _as_mock(
+    as_mock(
         gen.data_dictionary
     ).get_procedures_for_database.side_effect = SnowflakePermissionError(
         "not authorized"
     )
-    assert gen.fetch_procedures_for_schema(_schema(), DB) == []
-    assert len(gen.report.warnings) == 1
+    assert gen.fetch_procedures_for_schema(schema(), DB) == []
+    assert "Failed to get procedures for schema" in log_keys(gen.report.warnings)

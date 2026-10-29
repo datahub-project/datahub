@@ -2,12 +2,12 @@
 per-database inspector walk, against a stubbed SQLAlchemy connection."""
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union, cast
-from unittest.mock import MagicMock, PropertyMock, patch
+from typing import Any, Dict, List, Optional, Set, Union
+from unittest.mock import MagicMock, PropertyMock, create_autospec, patch
 
 import pytest
 from pydantic import ValidationError
-from sqlalchemy.engine import make_url
+from sqlalchemy.engine import Connection, make_url
 from sqlalchemy.exc import (
     DatabaseError,
     DBAPIError,
@@ -45,6 +45,16 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
 )
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from tests.unit.conftest import (
+    as_mock,
+    aspects_of_type,
+    log_contexts,
+    log_messages,
+    log_titles,
+    single_aspect,
+)
+from tests.unit.sql_test_helpers import FakeConnection, FakeResult
 
 Rows = List[Dict[str, Any]]
 Outcome = Union[Rows, Exception]
@@ -74,42 +84,18 @@ def _conn(inspector: MagicMock) -> MagicMock:
     return inspector.engine.connect.return_value.__enter__.return_value
 
 
-def _result(rows: Rows) -> MagicMock:
-    result = MagicMock()
-    result.mappings.return_value = rows
-    return result
+def _workunit(name: str) -> MagicMock:
+    return MagicMock(spec=MetadataWorkUnit, name=name)
 
 
-def _route(handlers: Dict[str, Outcome]) -> Callable[..., MagicMock]:
-    """conn.execute stand-in that answers by a needle in the statement text."""
-
-    def execute(statement: Any, params: Optional[Dict[str, Any]] = None) -> MagicMock:
-        sql = str(statement)
-        for needle, outcome in handlers.items():
-            if needle in sql:
-                if isinstance(outcome, Exception):
-                    raise outcome
-                return _result(outcome)
-        raise AssertionError(f"unexpected statement: {sql}")
-
-    return execute
-
-
-def _warnings(source: SQLServerSource) -> List[str]:
-    """Run-time warnings, without the lineage-casing advisories __init__ emits."""
-    return [
-        str(w)
+def _runtime_warnings(source: SQLServerSource) -> Set[str]:
+    """Contexts of the run-time warnings, without the lineage-casing
+    advisories __init__ emits (titled "Potential issue ...")."""
+    return log_contexts(
+        w
         for w in source.report.warnings
         if not str(w.title or "").startswith("Potential issue")
-    ]
-
-
-def _aspects(workunits: List[MetadataWorkUnit], aspect_type: type) -> List[Any]:
-    return [
-        aspect
-        for aspect in (wu.get_aspect_of_type(aspect_type) for wu in workunits)
-        if aspect is not None
-    ]
+    )
 
 
 # --- SQL Agent jobs ---
@@ -138,24 +124,44 @@ def test_loop_jobs_emits_a_flow_per_job_and_a_task_per_step() -> None:
     with patch.object(source, "_get_jobs", return_value=jobs):
         workunits = list(source.loop_jobs(_inspector(), source.config))
 
-    (flow,) = _aspects(workunits, DataFlowInfoClass)
+    flow = single_aspect(workunits, DataFlowInfoClass)
     # Commas would break the URN, so the name is sanitised.
     assert flow.name == "Nightly- Load"
-    (job,) = _aspects(workunits, DataJobInfoClass)
+    job = single_aspect(workunits, DataJobInfoClass)
     assert job.name == "Nightly- Load"
     assert job.type == "MSSQL_JOB_STEP"
     assert job.customProperties["command"] == "EXEC dbo.LoadOrders"
     assert job.customProperties["step_name"] == "Load Orders"
     assert job.customProperties["database_name"] == "TestDB"
-    assert [s.typeNames for s in _aspects(workunits, SubTypesClass)] == [
+    assert [s.typeNames for s in aspects_of_type(workunits, SubTypesClass)] == [
         [FlowContainerSubTypes.MSSQL_JOB],
         [JobContainerSubTypes.MSSQL_JOBSTEP],
     ]
     # Flow and step both carry the platform instance and database container.
-    assert len(_aspects(workunits, DataPlatformInstanceClass)) == 2
-    assert len(_aspects(workunits, ContainerClass)) == 2
+    assert len(aspects_of_type(workunits, DataPlatformInstanceClass)) == 2
+    assert len(aspects_of_type(workunits, ContainerClass)) == 2
     # Job steps carry no parsed lineage, but the aspect is still emitted.
-    assert len(_aspects(workunits, DataJobInputOutputClass)) == 1
+    assert len(aspects_of_type(workunits, DataJobInputOutputClass)) == 1
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "loop_job_steps stringifies every step field with str(), so a NULL "
+        "description/command lands in customProperties as the literal 'None'"
+    ),
+)
+def test_null_job_step_fields_are_not_stringified_into_properties() -> None:
+    source = _source()
+    with patch.object(
+        source,
+        "_get_jobs",
+        return_value={"J": {1: _step(description=None, command=None)}},
+    ):
+        workunits = list(source.loop_jobs(_inspector(), source.config))
+
+    job = single_aspect(workunits, DataJobInfoClass)
+    assert "None" not in job.customProperties.values()
 
 
 def test_loop_jobs_without_containers_or_platform_instance() -> None:
@@ -163,15 +169,16 @@ def test_loop_jobs_without_containers_or_platform_instance() -> None:
     with patch.object(source, "_get_jobs", return_value={"J": {1: _step()}}):
         workunits = list(source.loop_jobs(_inspector(), source.config))
 
-    assert not _aspects(workunits, DataPlatformInstanceClass)
-    assert not _aspects(workunits, ContainerClass)
+    assert not aspects_of_type(workunits, DataPlatformInstanceClass)
+    assert not aspects_of_type(workunits, ContainerClass)
 
 
 def test_loop_jobs_reports_a_failing_job_and_continues() -> None:
+    """One job whose flow cannot be built must not take the other jobs with it."""
     source = _source()
     jobs = {"BadJob": {1: _step(job_name="BadJob")}, "GoodJob": {1: _step()}}
-    flow_wu = MagicMock(name="flow")
-    step_wu = MagicMock(name="step")
+    flow_wu = _workunit("flow")
+    step_wu = _workunit("step")
 
     with (
         patch.object(source, "_get_jobs", return_value=jobs),
@@ -185,8 +192,7 @@ def test_loop_jobs_reports_a_failing_job_and_continues() -> None:
         workunits = list(source.loop_jobs(_inspector(), source.config))
 
     assert workunits == [flow_wu, step_wu]
-    (warning,) = _warnings(source)
-    assert "BadJob" in warning
+    assert "BadJob" in _runtime_warnings(source)
 
 
 def test_loop_jobs_yields_nothing_when_there_are_no_jobs() -> None:
@@ -211,8 +217,10 @@ def test_loop_jobs_propagates_a_failed_listing() -> None:
 
 
 def test_database_level_workunits_report_job_failures_without_aborting() -> None:
+    """msdb access is commonly denied; the tables and views of the database
+    must still be emitted, with the job listing recorded as a failure."""
     source = _source()
-    base_wu = MagicMock(name="base")
+    base_wu = _workunit("base")
 
     with (
         patch.object(
@@ -225,11 +233,12 @@ def test_database_level_workunits_report_job_failures_without_aborting() -> None
         workunits = list(source.get_database_level_workunits(_inspector(), "TestDB"))
 
     assert workunits == [base_wu]
-    assert len(source.report.failures) == 1
-    assert "Failed to list jobs" in str(source.report.failures[0])
+    assert "Failed to list jobs" in log_messages(source.report.failures)
 
 
 def test_job_fallback_reports_structure_and_unexpected_errors() -> None:
+    """Each listing strategy that fails is reported under its own context
+    before the next one is tried; the first that works wins."""
     source = _source()
     jobs = {"J": {1: _step()}}
 
@@ -247,15 +256,16 @@ def test_job_fallback_reports_structure_and_unexpected_errors() -> None:
     )
 
     assert result == jobs
-    failures = [str(f) for f in source.report.failures]
-    assert len(failures) == 2
-    assert any("job_structure_error_on_prem" in f for f in failures)
-    assert any("job_extraction_error_on_prem" in f for f in failures)
+    assert {"job_structure_error_on_prem", "job_extraction_error_on_prem"} <= (
+        log_contexts(source.report.failures)
+    )
 
 
 def test_jobs_via_stored_procedures_keep_steps_in_this_database_and_skip_unreadable_jobs() -> (
     None
 ):
+    """sp_help_jobstep is read per job: steps targeting another database are
+    dropped, and a job whose steps cannot be read is skipped rather than fatal."""
     source = _source()
     job_rows = [
         {"job_id": "1", "name": "JobA", "description": "a"},
@@ -274,23 +284,20 @@ def test_jobs_via_stored_procedures_keep_steps_in_this_database_and_skip_unreada
         "4": RuntimeError("unexpected"),
     }
 
-    def execute(statement: Any, params: Optional[Dict[str, Any]] = None) -> MagicMock:
-        if "sp_help_jobstep" in str(statement):
-            assert params is not None
-            outcome = steps[params["job_id"]]
-            if isinstance(outcome, Exception):
-                raise outcome
-            return _result(outcome)
-        return _result(job_rows)
+    def steps_for(params: Optional[Dict[str, Any]]) -> Outcome:
+        assert params is not None
+        return steps[params["job_id"]]
 
-    conn = MagicMock()
-    conn.execute.side_effect = execute
+    conn = MagicMock(spec=Connection)
+    conn.execute.side_effect = FakeConnection(
+        {"sp_help_jobstep": steps_for, "": job_rows}
+    ).execute
 
     jobs = source._get_jobs_via_stored_procedures(conn, "TestDB")
 
     assert list(jobs) == ["JobA"]
     # Keyed by step_id, an int, although the annotation says str.
-    steps_found = cast(Dict[Any, Any], jobs["JobA"])
+    steps_found: Dict[Any, Any] = jobs["JobA"]
     assert sorted(steps_found) == [1, 3]
     assert steps_found[1]["job_name"] == "JobA"
     assert steps_found[1]["description"] == "a"
@@ -301,6 +308,7 @@ def test_jobs_via_stored_procedures_keep_steps_in_this_database_and_skip_unreada
 
 
 def _procedure_catalog(**overrides: Outcome) -> Dict[str, Outcome]:
+    """The catalog reads loop_stored_procedures makes, keyed by a needle in each statement."""
     handlers: Dict[str, Outcome] = {
         "[sys].[procedures]": [
             {"procedure_name": "LoadOrders", "schema_name": "dbo"},
@@ -326,6 +334,14 @@ def _procedure_catalog(**overrides: Outcome) -> Dict[str, Outcome]:
     return handlers
 
 
+def _inspector_with_catalog(**overrides: Outcome) -> MagicMock:
+    inspector = _inspector()
+    _conn(inspector).execute.side_effect = FakeConnection(
+        _procedure_catalog(**overrides)
+    ).execute
+    return inspector
+
+
 def test_loop_stored_procedures_emits_jobs_with_dependencies_code_and_parameters() -> (
     None
 ):
@@ -334,14 +350,14 @@ def test_loop_stored_procedures_emits_jobs_with_dependencies_code_and_parameters
         include_containers_for_pipelines=True,
         procedure_pattern={"deny": [r"TestDB\.dbo\.Skipped"]},
     )
-    inspector = _inspector()
-    _conn(inspector).execute.side_effect = _route(_procedure_catalog())
 
-    workunits = list(source.loop_stored_procedures(inspector, "dbo", source.config))
+    workunits = list(
+        source.loop_stored_procedures(_inspector_with_catalog(), "dbo", source.config)
+    )
 
-    (flow,) = _aspects(workunits, DataFlowInfoClass)
+    flow = single_aspect(workunits, DataFlowInfoClass)
     assert flow.name == "TestDB.dbo.stored_procedures"
-    (job,) = _aspects(workunits, DataJobInfoClass)
+    job = single_aspect(workunits, DataJobInfoClass)
     assert job.name == "TestDB.dbo.LoadOrders"
     props = job.customProperties
     assert props["procedure_depends_on"] == str({"testdb.dbo.staging": "USER_TABLE"})
@@ -352,15 +368,16 @@ def test_loop_stored_procedures_emits_jobs_with_dependencies_code_and_parameters
     assert props["input parameters"] == "['@since']"
     assert props["parameter @since"] == str({"type": "datetime"})
     assert props["date_created"] == "2024-01-01"
-    (transform,) = _aspects(workunits, DataTransformLogicClass)
-    assert transform.transforms[0].queryStatement.value == props["code"]
-    assert [s.typeNames for s in _aspects(workunits, SubTypesClass)] == [
+    statement = single_aspect(workunits, DataTransformLogicClass).transforms[0]
+    assert statement.queryStatement is not None
+    assert statement.queryStatement.value == props["code"]
+    assert [s.typeNames for s in aspects_of_type(workunits, SubTypesClass)] == [
         [FlowContainerSubTypes.PROCEDURE_CONTAINER],
         [JobContainerSubTypes.STORED_PROCEDURE],
     ]
-    assert len(_aspects(workunits, ContainerClass)) == 2
+    assert len(aspects_of_type(workunits, ContainerClass)) == 2
     # Lineage is parsed at the end of the run, not here.
-    assert not _aspects(workunits, DataJobInputOutputClass)
+    assert not aspects_of_type(workunits, DataJobInputOutputClass)
     assert list(source.report.filtered) == ["TestDB.dbo.Skipped"]
     assert [p.name for p in source.stored_procedures] == ["LoadOrders"]
     assert source.stored_procedures[0].code == props["code"]
@@ -368,11 +385,19 @@ def test_loop_stored_procedures_emits_jobs_with_dependencies_code_and_parameters
 
 def test_loop_stored_procedures_emits_no_flow_when_every_procedure_is_denied() -> None:
     source = _source(procedure_pattern={"deny": [".*"]})
-    inspector = _inspector()
-    _conn(inspector).execute.side_effect = _route(_procedure_catalog())
 
-    assert list(source.loop_stored_procedures(inspector, "dbo", source.config)) == []
-    assert len(source.report.filtered) == 2
+    assert (
+        list(
+            source.loop_stored_procedures(
+                _inspector_with_catalog(), "dbo", source.config
+            )
+        )
+        == []
+    )
+    assert set(source.report.filtered) == {
+        "TestDB.dbo.LoadOrders",
+        "TestDB.dbo.Skipped",
+    }
 
 
 def test_procedure_code_is_omitted_when_sp_helptext_is_denied() -> None:
@@ -396,23 +421,25 @@ def test_procedure_code_is_omitted_when_sp_helptext_is_denied() -> None:
 
 
 def test_a_failing_procedure_is_reported_and_the_rest_are_processed() -> None:
+    """Recorded as a failure, not a warning: stale-entity removal suppresses
+    soft-deletion only on a failure, and a skipped procedure must not be deleted."""
     source = _source()
-    inspector = _inspector()
-    _conn(inspector).execute.side_effect = _route(_procedure_catalog())
-    ok_wu = MagicMock(name="ok")
+    ok_wu = _workunit("ok")
 
     with patch.object(
         source,
         "_process_stored_procedure",
         side_effect=[RuntimeError("bad definition"), iter([ok_wu])],
     ):
-        workunits = list(source.loop_stored_procedures(inspector, "dbo", source.config))
+        workunits = list(
+            source.loop_stored_procedures(
+                _inspector_with_catalog(), "dbo", source.config
+            )
+        )
 
     assert workunits[-1] is ok_wu
-    # A failure, not a warning: it keeps stale-entity removal from soft-deleting
-    # the procedure that was skipped.
-    assert len(source.report.failures) == 1
-    assert "TestDB.dbo.LoadOrders" in str(source.report.failures[0])
+    assert "Failed to process stored procedure" in log_titles(source.report.failures)
+    assert "TestDB.dbo.LoadOrders" in log_contexts(source.report.failures)
 
 
 @pytest.mark.parametrize(
@@ -423,18 +450,24 @@ def test_a_failing_procedure_is_reported_and_the_rest_are_processed() -> None:
     ],
 )
 def test_a_dead_connection_stops_the_schema(fatal: Exception) -> None:
+    """A dead connection would fail every remaining procedure the same way,
+    so it propagates instead of being reported once per procedure."""
     source = _source()
-    inspector = _inspector()
-    _conn(inspector).execute.side_effect = _route(_procedure_catalog())
 
     with (
         patch.object(source, "_process_stored_procedure", side_effect=fatal),
         pytest.raises(type(fatal)),
     ):
-        list(source.loop_stored_procedures(inspector, "dbo", source.config))
+        list(
+            source.loop_stored_procedures(
+                _inspector_with_catalog(), "dbo", source.config
+            )
+        )
 
 
 def test_stored_procedure_lineage_is_parsed_after_the_schema_walk() -> None:
+    """Procedure bodies are parsed once every dataset is known, so the lineage
+    can be resolved against the discovered (here: lowercased) dataset names."""
     source = _source(
         convert_urns_to_lowercase=True, convert_column_urns_to_lowercase=True
     )
@@ -463,7 +496,7 @@ def test_stored_procedure_lineage_is_parsed_after_the_schema_walk() -> None:
     ):
         workunits = list(source.get_workunits_internal())
 
-    (lineage,) = _aspects(workunits, DataJobInputOutputClass)
+    lineage = single_aspect(workunits, DataJobInputOutputClass)
     assert lineage.inputDatasets == [
         "urn:li:dataset:(urn:li:dataPlatform:mssql,testdb.dbo.staging,PROD)"
     ]
@@ -491,17 +524,17 @@ def test_report_procedure_failure_counts_on_the_aggregator_report() -> None:
 def test_get_inspectors_walks_allowed_databases_and_skips_failed_logins(
     create_engine: MagicMock, inspect_mock: MagicMock
 ) -> None:
+    """A database the login cannot open is warned about and skipped; denied
+    databases are never even connected to."""
     source = _source(database=None, database_pattern={"deny": ["Denied"]})
 
     def make_engine(url: str, **_: Any) -> MagicMock:
         engine = MagicMock()
         engine.url_text = url
         listing = engine.begin.return_value.__enter__.return_value
-        listing.execute.return_value.mappings.return_value.fetchall.return_value = [
-            {"name": "Alpha"},
-            {"name": "Broken"},
-            {"name": "Denied"},
-        ]
+        listing.execute.return_value = FakeResult(
+            [{"name": "Alpha"}, {"name": "Broken"}, {"name": "Denied"}]
+        )
         return engine
 
     def inspect_engine(engine: MagicMock) -> MagicMock:
@@ -516,8 +549,7 @@ def test_get_inspectors_walks_allowed_databases_and_skips_failed_logins(
 
     assert len(inspectors) == 1
     assert source.current_database == "Alpha"
-    (warning,) = _warnings(source)
-    assert "Broken" in warning
+    assert "Broken" in _runtime_warnings(source)
     opened = [c.args[0] for c in create_engine.call_args_list]
     assert not any("Denied" in url for url in opened)
 
@@ -529,9 +561,7 @@ def test_get_inspectors_propagates_connection_errors_other_than_login(
 ) -> None:
     source = _source(database=None)
     listing = create_engine.return_value.begin.return_value.__enter__.return_value
-    listing.execute.return_value.mappings.return_value.fetchall.return_value = [
-        {"name": "Alpha"}
-    ]
+    listing.execute.return_value = FakeResult([{"name": "Alpha"}])
     inspect_mock.side_effect = OperationalError("timeout", None, Exception())
 
     with pytest.raises(OperationalError):
@@ -619,7 +649,7 @@ def test_foreign_key_columns_follow_the_column_lowercase_flag() -> None:
     ) as base:
         source.get_foreign_key_metadata("urn:li:dataset:x", "dbo", fk, MagicMock())
 
-    passed = cast(Dict[str, Any], base.call_args.args[2])
+    passed: Dict[str, Any] = base.call_args.args[2]
     assert passed["constrained_columns"] == ["customerid"]
     assert passed["referred_columns"] == ["id"]
     # The caller's dict is left alone.
@@ -654,10 +684,9 @@ def test_get_db_name_reads_the_engine_url_or_fails_loudly() -> None:
 
 def test_close_closes_the_aggregator() -> None:
     source = _source()
-    aggregator = MagicMock()
-    source.aggregator = aggregator
+    source.aggregator = create_autospec(SqlParsingAggregator, instance=True)
     source.close()
-    aggregator.close.assert_called_once()
+    as_mock(source.aggregator).close.assert_called_once()
 
 
 def test_query_log_source_fails_when_no_database_had_a_log() -> None:
@@ -665,8 +694,7 @@ def test_query_log_source_fails_when_no_database_had_a_log() -> None:
     with patch.object(source, "get_inspectors", return_value=[]):
         source._populate_aggregator_with_query_history()
 
-    assert len(source.report.failures) == 1
-    assert "No query log available" in str(source.report.failures[0])
+    assert "No query log available" in log_titles(source.report.failures)
 
 
 # --- config and driver helpers ---

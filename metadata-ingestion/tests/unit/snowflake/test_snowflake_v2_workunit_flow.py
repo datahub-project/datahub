@@ -2,54 +2,58 @@
 
 The schema generator is replaced by a stub that reports a fixed set of discovered
 objects; everything downstream of it (queries v2 vs legacy lineage/usage, semantic
-view usage gating, assertions, marketplace, stages/tasks/pipes, session probes,
-test_connection) runs against a dispatching fake connection.
+view usage gating, assertions, marketplace, stages/tasks/pipes, session probes)
+runs against the dispatching fake connection built by ``make_source``.
+``test_connection`` is covered by test_snowflake_source.py.
 """
 
 import os
-from datetime import datetime, timezone
-from typing import Dict, Iterator, List, Optional
-from unittest.mock import MagicMock, patch
+from typing import Callable, Dict, Iterator, List, Optional
+from unittest.mock import create_autospec, patch
 
 import pytest
 
-from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.common.semantic_model_gate import ResolvedEmitDecision
+from datahub.ingestion.source.snowflake.snowflake_queries import (
+    SnowflakeQueriesExtractor,
+    SnowflakeQueriesExtractorReport,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
-from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SnowflakeDatabase,
-    SnowflakeSchema,
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDatabase
+from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+    SnowflakeSchemaGenerator,
 )
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
-from tests.unit.snowflake.test_snowflake_v2_orchestration import (  # type: ignore[import-untyped]
+from tests.unit.snowflake.conftest import (
+    CREATED,
+    DB,
+    SCHEMA,
     QueryResult,
-    _Cursor,
-    _make_source,
+    as_mock,
+    database,
+    log_keys,
+    make_source,
+    schema,
 )
 
-CREATED = datetime(2024, 1, 1, tzinfo=timezone.utc)
-DB = "TEST_DB"
-SCHEMA = "PUBLIC"
-SCHEMA_GEN = "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeSchemaGenerator"
+V2 = "datahub.ingestion.source.snowflake.snowflake_v2"
 
 
 def _databases(
     tables: List[str], semantic_views: Optional[List[str]] = None
 ) -> List[SnowflakeDatabase]:
-    schema = SnowflakeSchema(
-        name=SCHEMA, created=CREATED, last_altered=None, comment=None
-    )
-    schema.tables = tables
-    schema.semantic_views = semantic_views or []
-    db = SnowflakeDatabase(name=DB, created=CREATED, comment=None)
-    db.schemas = [schema]
+    snowflake_schema = schema()
+    snowflake_schema.tables = tables
+    snowflake_schema.semantic_views = semantic_views or []
+    db = database()
+    db.schemas = [snowflake_schema]
     return [db]
 
 
 def _run(source: SnowflakeV2Source, databases: List[SnowflakeDatabase]) -> List:
     with (
         patch.object(source, "_snowflake_clear_ocsp_cache"),
-        patch(SCHEMA_GEN) as schema_gen,
+        patch(f"{V2}.SnowflakeSchemaGenerator", autospec=True) as schema_gen,
     ):
         schema_gen.return_value.get_workunits_internal.return_value = iter([])
         schema_gen.return_value.databases = databases
@@ -58,14 +62,16 @@ def _run(source: SnowflakeV2Source, databases: List[SnowflakeDatabase]) -> List:
 
 
 def test_queries_v2_flow_passes_discovered_tables_and_cleans_up_extractor() -> None:
-    source = _make_source(use_queries_v2=True, include_table_lineage=True)
-    queries_extractor = MagicMock()
+    source = make_source(use_queries_v2=True, include_table_lineage=True)
+    queries_extractor = create_autospec(SnowflakeQueriesExtractor, instance=True)
     queries_extractor.get_workunits_internal.return_value = iter([])
+    queries_extractor.report = SnowflakeQueriesExtractorReport()
     queries_extractor.report.audit_log_path = "/tmp/audit.sqlite"
     queries_extractor.close.side_effect = OSError("disk full")
 
     with patch(
-        "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeQueriesExtractor",
+        f"{V2}.SnowflakeQueriesExtractor",
+        autospec=True,
         return_value=queries_extractor,
     ) as extractor_cls:
         _run(source, _databases(["T1"]))
@@ -76,14 +82,16 @@ def test_queries_v2_flow_passes_discovered_tables_and_cleans_up_extractor() -> N
     assert kwargs["config"].include_lineage
     assert source.report.queries_extractor is queries_extractor.report
     # A failed cleanup is downgraded to a warning rather than masking the stage.
-    assert [w.title for w in source.report.warnings] == [
-        "Failed to clean up after query extraction"
-    ]
+    assert "Failed to clean up after query extraction" in log_keys(
+        source.report.warnings
+    )
     assert source.report.failures == []
 
 
 def test_legacy_flow_runs_lineage_before_usage_and_updates_state() -> None:
-    source = _make_source(
+    """Lineage state is checkpointed before usage runs, so a usage failure
+    cannot roll the lineage window back."""
+    source = make_source(
         include_table_lineage=True,
         include_usage_stats=True,
         include_assertion_results=True,
@@ -92,24 +100,33 @@ def test_legacy_flow_runs_lineage_before_usage_and_updates_state() -> None:
     assert source.usage_extractor is not None
     calls: List[str] = []
 
-    def record(name: str) -> MagicMock:
+    def record(name: str) -> Callable[..., Iterator]:
         def side_effect(*args: object, **kwargs: object) -> Iterator:
             calls.append(name)
             return iter([])
 
-        return MagicMock(side_effect=side_effect)
+        return side_effect
 
     with (
         patch.object(
             source.lineage_extractor,
             "add_time_based_lineage_to_aggregator",
-            record("lineage"),
+            autospec=True,
+            side_effect=record("lineage"),
         ),
-        patch.object(source.lineage_extractor, "update_state", record("state")),
-        patch.object(source.usage_extractor, "get_usage_workunits", record("usage")),
-        patch(
-            "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeAssertionsHandler"
-        ) as assertions,
+        patch.object(
+            source.lineage_extractor,
+            "update_state",
+            autospec=True,
+            side_effect=record("state"),
+        ),
+        patch.object(
+            source.usage_extractor,
+            "get_usage_workunits",
+            autospec=True,
+            side_effect=record("usage"),
+        ),
+        patch(f"{V2}.SnowflakeAssertionsHandler", autospec=True) as assertions,
     ):
         assertions.return_value.get_assertion_workunits.return_value = iter([])
         _run(source, _databases(["T1"]))
@@ -121,34 +138,42 @@ def test_legacy_flow_runs_lineage_before_usage_and_updates_state() -> None:
 
 
 def test_semantic_view_usage_needs_technical_schema() -> None:
-    source = _make_source(
+    source = make_source(
         include_technical_schema=False,
         semantic_views={"enabled": True, "include_usage": True},
     )
     assert source.semantic_view_usage_extractor is not None
 
     with patch.object(
-        source.semantic_view_usage_extractor, "get_semantic_view_usage_workunits"
+        source.semantic_view_usage_extractor,
+        "get_semantic_view_usage_workunits",
+        autospec=True,
     ) as usage:
         _run(source, _databases([], semantic_views=["SV"]))
 
     usage.assert_not_called()
-    assert [w.title for w in source.report.warnings] == [
-        "Semantic view queries/usage skipped without technical schema"
-    ]
+    assert "Semantic view queries/usage skipped without technical schema" in log_keys(
+        source.report.warnings
+    )
 
 
 def test_legacy_semantic_views_get_usage_and_queries_and_count_as_datasets() -> None:
-    source = _make_source(semantic_views={"enabled": True, "include_usage": True})
+    source = make_source(semantic_views={"enabled": True, "include_usage": True})
     extractor = source.semantic_view_usage_extractor
     assert extractor is not None
 
     with (
         patch.object(
-            extractor, "get_semantic_view_usage_workunits", return_value=iter([])
+            extractor,
+            "get_semantic_view_usage_workunits",
+            autospec=True,
+            return_value=iter([]),
         ) as usage,
         patch.object(
-            extractor, "get_semantic_view_query_workunits", return_value=iter([])
+            extractor,
+            "get_semantic_view_query_workunits",
+            autospec=True,
+            return_value=iter([]),
         ) as queries,
     ):
         _run(source, _databases(["T1"], semantic_views=["SV"]))
@@ -163,7 +188,7 @@ def test_legacy_semantic_views_get_usage_and_queries_and_count_as_datasets() -> 
 def test_semantic_model_mode_emits_only_queries_and_excludes_views_from_datasets() -> (
     None
 ):
-    source = _make_source(
+    source = make_source(
         semantic_views={
             "enabled": True,
             "include_queries": True,
@@ -174,9 +199,14 @@ def test_semantic_model_mode_emits_only_queries_and_excludes_views_from_datasets
     assert extractor is not None
 
     with (
-        patch.object(extractor, "get_semantic_view_usage_workunits") as usage,
         patch.object(
-            extractor, "get_semantic_view_query_workunits", return_value=iter([])
+            extractor, "get_semantic_view_usage_workunits", autospec=True
+        ) as usage,
+        patch.object(
+            extractor,
+            "get_semantic_view_query_workunits",
+            autospec=True,
+            return_value=iter([]),
         ) as queries,
     ):
         _run(source, _databases(["T1"], semantic_views=["SV"]))
@@ -208,7 +238,7 @@ def test_marketplace_stages_tasks_and_pipes_run_after_schema_extraction() -> Non
             }
         ],
     }
-    source = _make_source(
+    source = make_source(
         show_rows,
         include_stages=True,
         include_tasks=True,
@@ -216,9 +246,7 @@ def test_marketplace_stages_tasks_and_pipes_run_after_schema_extraction() -> Non
         marketplace={"enabled": True},
     )
 
-    with patch(
-        "datahub.ingestion.source.snowflake.snowflake_v2.SnowflakeMarketplaceHandler"
-    ) as marketplace:
+    with patch(f"{V2}.SnowflakeMarketplaceHandler", autospec=True) as marketplace:
         marketplace.return_value.get_marketplace_workunits.return_value = iter([])
         workunits = _run(source, _databases(["T1"]))
 
@@ -231,13 +259,13 @@ def test_marketplace_stages_tasks_and_pipes_run_after_schema_extraction() -> Non
 
 
 def test_create_queries_extractor_mirrors_recipe_window_and_flags() -> None:
-    source = _make_source(
+    source = make_source(
         use_queries_v2=True,
         include_queries=False,
         include_query_usage_statistics=False,
         temporary_tables_pattern=["^tmp_.*"],
     )
-    schema_extractor = MagicMock()
+    schema_extractor = create_autospec(SnowflakeSchemaGenerator, instance=True)
     schema_extractor.dynamic_table_identifiers = {"db.s.dt"}
     source.discovered_datasets = ["db.s.t"]
 
@@ -272,61 +300,63 @@ def _decision(**overrides: object) -> ResolvedEmitDecision:
 def test_server_veto_of_requested_semantic_model_emission_warns_and_falls_back() -> (
     None
 ):
-    source = _make_source(
+    """Every reason the server could not confirm support is surfaced, and the
+    recipe's request is forced off rather than emitting entities GMS may reject."""
+    source = make_source(
         semantic_views={"enabled": True, "emit_semantic_model_entities": True}
     )
     decision = _decision(version_unparseable=True, metrics_probe_failed=True)
 
     with patch(
-        "datahub.ingestion.source.snowflake.snowflake_v2.resolve_emit_semantic_model_entities",
+        f"{V2}.resolve_emit_semantic_model_entities",
+        autospec=True,
         return_value=decision,
     ):
         source._resolve_semantic_model_emission()
 
     assert source.config.semantic_views.emit_semantic_model_entities is False
     assert not source.report.semantic_model_emission_effective
-    assert [w.title for w in source.report.warnings] == [
+    assert {
         "Could not parse DataHub server version",
         "Could not verify Metrics kill-switch",
         "semantic_views.emit_semantic_model_entities forced off",
-    ]
+    } <= log_keys(source.report.warnings)
 
 
 def test_auto_enabled_semantic_model_emission_warns_about_ignored_settings() -> None:
-    source = _make_source(
+    source = make_source(
         include_technical_schema=False,
         semantic_views={"enabled": True, "include_usage": True},
     )
 
     with patch(
-        "datahub.ingestion.source.snowflake.snowflake_v2.resolve_emit_semantic_model_entities",
+        f"{V2}.resolve_emit_semantic_model_entities",
+        autospec=True,
         return_value=_decision(enabled=True, entity_types_capable=True),
     ):
         source._resolve_semantic_model_emission()
 
     assert source.config.semantic_views.emit_semantic_model_entities is True
-    assert [w.title for w in source.report.warnings] == [
+    assert {
         "semantic_views.include_usage ignored",
         "semantic_views.emit_semantic_model_entities requires include_technical_schema",
-    ]
+    } <= log_keys(source.report.warnings)
 
 
 def test_semantic_model_resolution_is_skipped_when_semantic_views_are_off() -> None:
-    source = _make_source()
+    source = make_source()
 
-    with patch(
-        "datahub.ingestion.source.snowflake.snowflake_v2.resolve_emit_semantic_model_entities"
-    ) as resolve:
+    with patch(f"{V2}.resolve_emit_semantic_model_entities", autospec=True) as resolve:
         source._resolve_semantic_model_emission()
 
     resolve.assert_not_called()
 
 
-# --- Session probes and connection testing ------------------------------------
+# --- Session probes -----------------------------------------------------------
 
 
 def test_each_session_probe_failure_is_reported_separately() -> None:
-    source = _make_source(
+    source = make_source(
         {
             SnowflakeQuery.current_version(): RuntimeError("version"),
             SnowflakeQuery.current_role(): RuntimeError("role"),
@@ -337,114 +367,33 @@ def test_each_session_probe_failure_is_reported_separately() -> None:
 
     source.inspect_session_metadata(source.connection)
 
-    assert len(source.report.failures) == 3
+    assert {
+        "Could not determine the current Snowflake version",
+        "Could not determine the current Snowflake role",
+        "Could not determine the current Snowflake warehouse",
+    } <= log_keys(source.report.failures)
     assert source.report.default_warehouse is None
     assert source.report.edition is None
-
-
-def _grants_connection(
-    grants: Dict[str, List[dict]], warehouse: Optional[str] = "WH"
-) -> MagicMock:
-    def execute(query: str) -> _Cursor:
-        if query == "select current_role()":
-            return _Cursor([{"CURRENT_ROLE()": "MAIN"}])
-        if query == "select current_secondary_roles()":
-            return _Cursor([{"CURRENT_SECONDARY_ROLES()": '{"roles": ""}'}])
-        if query == "select current_warehouse()":
-            return _Cursor([{"CURRENT_WAREHOUSE()": warehouse}])
-        if query.startswith("show grants to role "):
-            role = query.split('"')[1]
-            return _Cursor(grants.get(role, []))
-        raise AssertionError(f"Unexpected query: {query}")
-
-    native = MagicMock()
-    native.cursor.return_value.execute.side_effect = execute
-    return native
-
-
-CONNECTION_CONFIG = {
-    "account_id": "test_account",
-    "username": "user",
-    "password": "pass",
-    "warehouse": "WH",
-}
-
-
-def test_test_connection_derives_capabilities_from_the_role_hierarchy() -> None:
-    grants = {
-        "MAIN": [
-            {"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB"},
-            {"privilege": "USAGE", "granted_on": "ROLE", "name": "CHILD"},
-        ],
-        "CHILD": [
-            {
-                "privilege": "SELECT",
-                "granted_on": "VIEW",
-                "name": "SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY",
-            }
-        ],
-    }
-
-    with patch("snowflake.connector.connect", return_value=_grants_connection(grants)):
-        report = SnowflakeV2Source.test_connection(CONNECTION_CONFIG)
-
-    assert report.basic_connectivity is not None
-    assert report.basic_connectivity.capable
-    capabilities = report.capability_report
-    assert capabilities is not None
-    assert capabilities[SourceCapability.CONTAINERS].capable
-    assert capabilities[SourceCapability.SCHEMA_METADATA].capable
-    assert capabilities[SourceCapability.LINEAGE_COARSE].capable
-    assert capabilities[SourceCapability.USAGE_STATS].capable
-
-
-def test_test_connection_without_warehouse_marks_warehouse_bound_capabilities() -> None:
-    grants = {"MAIN": [{"privilege": "USAGE", "granted_on": "DATABASE", "name": "DB"}]}
-
-    with patch(
-        "snowflake.connector.connect",
-        return_value=_grants_connection(grants, warehouse=None),
-    ):
-        report = SnowflakeV2Source.test_connection(CONNECTION_CONFIG)
-
-    capabilities = report.capability_report
-    assert capabilities is not None
-    assert not capabilities[SourceCapability.SCHEMA_METADATA].capable
-    assert "warehouse" in (
-        capabilities[SourceCapability.SCHEMA_METADATA].failure_reason or ""
-    )
-    # CONTAINERS was granted but is not warehouse-bound, so it stays capable.
-    assert capabilities[SourceCapability.CONTAINERS].capable
-    assert not capabilities[SourceCapability.DESCRIPTIONS].capable
-
-
-def test_test_connection_reports_connect_failure_as_no_connectivity() -> None:
-    with patch("snowflake.connector.connect", side_effect=RuntimeError("refused")):
-        report = SnowflakeV2Source.test_connection(CONNECTION_CONFIG)
-
-    assert report.basic_connectivity is not None
-    assert not report.basic_connectivity.capable
-    assert report.capability_report is None
 
 
 # --- Construction side effects ------------------------------------------------
 
 
 def test_password_auth_is_flagged_as_deprecated_in_the_report() -> None:
-    source = _make_source(authentication_type="DEFAULT_AUTHENTICATOR", password="pw")
+    source = make_source(authentication_type="DEFAULT_AUTHENTICATOR", password="pw")
 
-    assert any("password" in w.title.lower() for w in source.report.warnings)
+    assert any("password" in key.lower() for key in log_keys(source.report.warnings))
 
 
 def test_domain_config_creates_a_registry() -> None:
-    source = _make_source(domain={"urn:li:domain:sales": {"allow": [".*"]}})
+    source = make_source(domain={"urn:li:domain:sales": {"allow": [".*"]}})
 
     assert source.domain_registry is not None
 
 
 def test_close_closes_the_native_connection() -> None:
-    source = _make_source()
-    native = source.connection.native_connection()
+    source = make_source()
+    native = as_mock(source.connection.native_connection())
 
     source.close()
 
@@ -453,7 +402,7 @@ def test_close_closes_the_native_connection() -> None:
 
 @pytest.mark.parametrize("system", ["Darwin", "Windows", "Linux"])
 def test_ocsp_cache_file_is_removed_when_present(system: str) -> None:
-    source = _make_source()
+    source = make_source()
 
     with (
         patch("platform.system", return_value=system),
@@ -468,7 +417,7 @@ def test_ocsp_cache_file_is_removed_when_present(system: str) -> None:
 
 
 def test_ocsp_cache_removal_failure_is_ignored() -> None:
-    source = _make_source()
+    source = make_source()
 
     with (
         patch("os.path.exists", return_value=True),

@@ -1,7 +1,7 @@
-import pathlib
-from typing import Dict, List, Optional
+"""LookerViewFileLoader, include resolution and the view-id cache over a real
+temporary project (base project plus one dependency project)."""
 
-import pytest
+import pathlib
 
 from datahub.ingestion.source.looker.looker_common import ViewFieldValue
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
@@ -10,112 +10,29 @@ from datahub.ingestion.source.looker.looker_dataclasses import (
     LookerModel,
     ProjectInclude,
 )
-from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.looker_view_id_cache import (
-    LookerViewIdCache,
     determine_view_file_path,
 )
-from datahub.ingestion.source.looker.lookml_config import (
-    BASE_PROJECT_NAME,
-    LookMLSourceConfig,
-    LookMLSourceReport,
-)
-
-CONNECTION = LookerConnectionDefinition(
-    platform="postgres", default_db="db", default_schema="public"
-)
-
-
-class Project:
-    """A temp LookML project with a real config, reporter and file loader."""
-
-    def __init__(self, tmp_path: pathlib.Path):
-        self.folder = tmp_path / "project"
-        self.folder.mkdir()
-        self.dep_folder = tmp_path / "dep_project"
-        self.dep_folder.mkdir()
-        self.projects = {BASE_PROJECT_NAME: self.folder, "dep_project": self.dep_folder}
-        self.config = LookMLSourceConfig.model_validate(
-            {
-                "base_folder": str(self.folder),
-                "connection_to_platform_map": {"my_connection": "postgres"},
-                "project_name": "test_project",
-                "lookml_constants": {"schema_name": "config_schema"},
-            }
-        )
-        self.reporter = LookMLSourceReport()
-        self.loader = self.make_loader()
-
-    def make_loader(
-        self, manifest_constants: Optional[Dict[str, LookerConstant]] = None
-    ) -> LookerViewFileLoader:
-        return LookerViewFileLoader(
-            root_project_name="test_project",
-            base_projects_folder=self.projects,
-            reporter=self.reporter,
-            source_config=self.config,
-            manifest_constants=manifest_constants,
-        )
-
-    def write(self, name: str, content: str = "", dep: bool = False) -> str:
-        path = (self.dep_folder if dep else self.folder) / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content)
-        return str(path)
-
-    def load(
-        self, path: str, loader: Optional[LookerViewFileLoader] = None
-    ) -> Optional[object]:
-        return (loader or self.loader).load_viewfile(
-            path, BASE_PROJECT_NAME, CONNECTION, self.reporter
-        )
-
-    def resolve(self, includes: List[str], model_path: str) -> List[ProjectInclude]:
-        return LookerModel.resolve_includes(
-            includes,
-            BASE_PROJECT_NAME,
-            "test_project",
-            self.projects,
-            model_path,
-            self.config,
-            self.reporter,
-            seen_so_far=set(),
-        )
-
-    def view_id_cache(self, includes: List[ProjectInclude]) -> LookerViewIdCache:
-        model = LookerModel(
-            connection="c", includes=[], explores=[], resolved_includes=includes
-        )
-        return LookerViewIdCache(
-            project_name="test_project",
-            model_name="data",
-            looker_model=model,
-            looker_viewfile_loader=self.loader,
-            reporter=self.reporter,
-        )
-
-    def warning_titles(self) -> List[str]:
-        return [w.title for w in self.reporter.warnings if w.title]
-
-
-@pytest.fixture
-def project(tmp_path: pathlib.Path) -> Project:
-    return Project(tmp_path)
+from datahub.ingestion.source.looker.lookml_config import BASE_PROJECT_NAME
+from tests.unit.lookml.conftest import CONNECTION, DEP_PROJECT_NAME, LookMLProject
 
 
 class TestLookerViewFileLoader:
-    def test_loads_views_and_resolves_constants(self, project: Project) -> None:
-        path = project.write(
+    def test_loads_views_and_resolves_constants(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        """Constants come from the config (``lookml_constants``) and from the
+        manifest; both are substituted into ``sql_table_name``."""
+        lookml_project.config.lookml_constants = {"schema_name": "config_schema"}
+        path = lookml_project.write(
             "orders.view.lkml",
             "view: orders {\n  sql_table_name: @{schema_name}.@{table_name} ;;\n}\n",
         )
-        loader = project.make_loader(
+        loader = lookml_project.make_loader(
             {"table_name": LookerConstant(name="table_name", value="orders_tbl")}
         )
 
-        viewfile = loader.load_viewfile(
-            path, BASE_PROJECT_NAME, CONNECTION, project.reporter
-        )
+        viewfile = lookml_project.load(path, loader)
 
         assert viewfile is not None
         assert viewfile.connection is CONNECTION
@@ -124,33 +41,41 @@ class TestLookerViewFileLoader:
             == "config_schema.orders_tbl"
         )
 
-    def test_non_view_file_extension_is_skipped(self, project: Project) -> None:
-        path = project.write("data.model.lkml", "connection: my_connection\n")
+    def test_non_view_file_extension_is_skipped(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        path = lookml_project.write("data.model.lkml", "connection: my_connection\n")
 
-        assert project.load(path) is None
+        assert lookml_project.load(path) is None
 
-    def test_missing_file_is_reported_and_returns_none(self, project: Project) -> None:
-        assert project.load(str(project.folder / "missing.view.lkml")) is None
-        assert "LKML File Loading Error" in project.warning_titles()
+    def test_missing_file_is_reported_and_returns_none(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        missing = str(lookml_project.base_folder / "missing.view.lkml")
+
+        assert lookml_project.load(missing) is None
+        assert "LKML File Loading Error" in lookml_project.warning_titles()
 
     def test_unparseable_file_is_reported_and_returns_none(
-        self, project: Project
+        self, lookml_project: LookMLProject
     ) -> None:
-        path = project.write("broken.view.lkml", "view: broken {\n")
+        path = lookml_project.write("broken.view.lkml", "view: broken {\n")
 
-        assert project.load(path) is None
-        assert "LKML File Parsing Error" in project.warning_titles()
+        assert lookml_project.load(path) is None
+        assert "LKML File Parsing Error" in lookml_project.warning_titles()
 
-    def test_file_is_read_from_disk_only_once(self, project: Project) -> None:
-        path = project.write("orders.view.lkml", "view: orders {}\n")
-        project.load(path)
+    def test_file_is_read_from_disk_only_once(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        """The loader caches parsed files: a rewrite on disk is not picked up,
+        but the connection passed on each call is still attached."""
+        path = lookml_project.write("orders.view.lkml", "view: orders {}\n")
+        lookml_project.load(path)
 
-        # Rewrite on disk: a cached loader must keep serving the first parse,
-        # while still attaching the connection passed on this call.
         pathlib.Path(path).write_text("view: orders_changed {}\n")
         other_connection = LookerConnectionDefinition(platform="mysql", default_db="x")
-        second = project.loader.load_viewfile(
-            path, BASE_PROJECT_NAME, other_connection, project.reporter
+        second = lookml_project.loader.load_viewfile(
+            path, BASE_PROJECT_NAME, other_connection, lookml_project.reporter
         )
 
         assert second is not None
@@ -159,92 +84,133 @@ class TestLookerViewFileLoader:
 
 
 class TestResolveIncludes:
-    def test_wildcard_include_matches_views_recursively(self, project: Project) -> None:
-        a = project.write("views/a.view.lkml", "view: a {}\n")
-        b = project.write("views/nested/b.view.lkml", "view: b {}\n")
-        model_path = project.write("data.model.lkml")
+    def test_wildcard_include_matches_views_recursively(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        a = lookml_project.write("views/a.view.lkml", "view: a {}\n")
+        b = lookml_project.write("views/nested/b.view.lkml", "view: b {}\n")
+        model_path = lookml_project.write("data.model.lkml")
 
-        resolved = project.resolve(["/views/**/*.view.lkml"], model_path)
+        resolved = lookml_project.resolve_includes(
+            ["/views/**/*.view.lkml"], model_path
+        )
 
         assert {r.include for r in resolved} == {a, b}
         assert all(r.project == BASE_PROJECT_NAME for r in resolved)
 
     def test_relative_include_without_extension_is_resolved(
-        self, project: Project
+        self, lookml_project: LookMLProject
     ) -> None:
-        a = project.write("models/a.view.lkml", "view: a {}\n")
-        model_path = project.write("models/data.model.lkml")
+        a = lookml_project.write("models/a.view.lkml", "view: a {}\n")
+        model_path = lookml_project.write("models/data.model.lkml")
 
-        resolved = project.resolve(["a.view"], model_path)
+        resolved = lookml_project.resolve_includes(["a.view"], model_path)
 
         assert [r.include for r in resolved] == [a]
 
-    def test_dashboard_includes_are_dropped(self, project: Project) -> None:
-        project.write("weekly.dashboard.lookml")
-        a = project.write("a.view.lkml", "view: a {}\n")
-        model_path = project.write("models/data.model.lkml")
+    def test_dashboard_includes_are_dropped(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        """Dashboards are ingested through the Looker source, so model includes
+        pointing at ``*.dashboard.lookml`` files are skipped here."""
+        lookml_project.write("weekly.dashboard.lookml")
+        a = lookml_project.write("a.view.lkml", "view: a {}\n")
+        model_path = lookml_project.write("models/data.model.lkml")
 
-        resolved = project.resolve(
+        resolved = lookml_project.resolve_includes(
             ["/weekly.dashboard.lookml", "/a.view.lkml"], model_path
         )
 
         assert [r.include for r in resolved] == [a]
 
-    def test_nested_includes_in_view_files_are_followed(self, project: Project) -> None:
-        parent = project.write("parent.view.lkml", "view: parent {}\n")
-        child = project.write(
+    def test_dashboards_matched_by_a_wildcard_are_dropped(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        """Regression: the per-file dashboard check only skipped loading, so a
+        wildcard such as ``/views/*`` still returned the dashboard files it
+        matched as resolved includes."""
+        lookml_project.write("views/weekly.dashboard.lookml")
+        lookml_project.write("views/daily.dashboard.lkml")
+        a = lookml_project.write("views/a.view.lkml", "view: a {}\n")
+        model_path = lookml_project.write("data.model.lkml")
+
+        resolved = lookml_project.resolve_includes(["/views/*"], model_path)
+
+        assert {r.include for r in resolved} == {a}
+
+    def test_nested_includes_in_view_files_are_followed(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        parent = lookml_project.write("parent.view.lkml", "view: parent {}\n")
+        child = lookml_project.write(
             "child.view.lkml",
             'include: "/parent.view.lkml"\nview: child { extends: [parent] }\n',
         )
-        model_path = project.write("data.model.lkml")
+        model_path = lookml_project.write("data.model.lkml")
 
-        resolved = project.resolve(["/child.view.lkml"], model_path)
+        resolved = lookml_project.resolve_includes(["/child.view.lkml"], model_path)
 
         assert {r.include for r in resolved} == {child, parent}
 
     def test_remote_include_resolves_against_dependency_project(
-        self, project: Project
+        self, lookml_project: LookMLProject
     ) -> None:
-        shared = project.write("views/shared.view.lkml", "view: shared {}\n", dep=True)
-        model_path = project.write("data.model.lkml")
+        shared = lookml_project.write(
+            "views/shared.view.lkml", "view: shared {}\n", dep=True
+        )
+        model_path = lookml_project.write("data.model.lkml")
 
-        resolved = project.resolve(["//dep_project/views/shared.view.lkml"], model_path)
+        resolved = lookml_project.resolve_includes(
+            [f"//{DEP_PROJECT_NAME}/views/shared.view.lkml"], model_path
+        )
 
-        assert resolved == [ProjectInclude(project="dep_project", include=shared)]
+        assert resolved == [ProjectInclude(project=DEP_PROJECT_NAME, include=shared)]
 
     def test_remote_include_for_unknown_project_is_skipped(
-        self, project: Project
+        self, lookml_project: LookMLProject
     ) -> None:
-        model_path = project.write("data.model.lkml")
+        model_path = lookml_project.write("data.model.lkml")
 
-        resolved = project.resolve(["//not_checked_out/views/x.view.lkml"], model_path)
+        resolved = lookml_project.resolve_includes(
+            ["//not_checked_out/views/x.view.lkml"], model_path
+        )
 
         assert resolved == []
 
-    def test_project_prefixed_local_include_is_resolved(self, project: Project) -> None:
+    def test_project_prefixed_local_include_is_resolved(
+        self, lookml_project: LookMLProject
+    ) -> None:
         # "/{project_name}/path" is treated as "/path" when no such folder exists.
-        a = project.write("views/a.view.lkml", "view: a {}\n")
-        model_path = project.write("data.model.lkml")
+        a = lookml_project.write("views/a.view.lkml", "view: a {}\n")
+        model_path = lookml_project.write("data.model.lkml")
 
-        resolved = project.resolve(["/test_project/views/a.view.lkml"], model_path)
+        resolved = lookml_project.resolve_includes(
+            ["/test_project/views/a.view.lkml"], model_path
+        )
 
         assert [r.include for r in resolved] == [a]
 
-    def test_unresolvable_explicit_include_is_reported(self, project: Project) -> None:
-        model_path = project.write("data.model.lkml")
+    def test_unresolvable_explicit_include_is_reported(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        model_path = lookml_project.write("data.model.lkml")
 
-        resolved = project.resolve(["/views/missing.view.lkml"], model_path)
+        resolved = lookml_project.resolve_includes(
+            ["/views/missing.view.lkml"], model_path
+        )
 
         assert resolved == []
-        assert "Error Resolving Include" in project.warning_titles()
+        assert "Error Resolving Include" in lookml_project.warning_titles()
 
 
 class TestLookerModelFromDict:
     def test_explores_from_included_explore_files_are_merged(
-        self, project: Project
+        self, lookml_project: LookMLProject
     ) -> None:
-        project.write("sales.explore.lkml", "explore: sales_explore { from: orders }\n")
-        model_path = project.write("data.model.lkml")
+        lookml_project.write(
+            "sales.explore.lkml", "explore: sales_explore { from: orders }\n"
+        )
+        model_path = lookml_project.write("data.model.lkml")
 
         model = LookerModel.from_looker_dict(
             looker_model_dict={
@@ -254,10 +220,10 @@ class TestLookerModelFromDict:
             },
             base_project_name=BASE_PROJECT_NAME,
             root_project_name="test_project",
-            base_projects_folders=project.projects,
+            base_projects_folders=lookml_project.projects,
             path=model_path,
-            source_config=project.config,
-            reporter=project.reporter,
+            source_config=lookml_project.config,
+            reporter=lookml_project.reporter,
         )
 
         assert model.connection == "my_connection"
@@ -282,31 +248,40 @@ class TestDetermineViewFilePath:
 
 
 class TestLookerViewIdCache:
-    def test_finds_view_in_included_file_and_builds_id(self, project: Project) -> None:
-        path = project.write("views/orders.view.lkml", "view: orders {}\n")
-        cache = project.view_id_cache([ProjectInclude(BASE_PROJECT_NAME, path)])
+    def test_finds_view_in_included_file_and_builds_id(
+        self, lookml_project: LookMLProject
+    ) -> None:
+        lookml_project.write("views/orders.view.lkml", "view: orders {}\n")
+        base = str(lookml_project.base_folder)
 
-        view_id = cache.get_looker_view_id("orders", str(project.folder))
+        view_id = lookml_project.view_id_cache.get_looker_view_id("orders", base)
 
         assert view_id is not None
         assert view_id.project_name == "test_project"
         assert view_id.model_name == "data"
         assert view_id.file_path == "views/orders.view.lkml"
-        assert cache.get_looker_view_id("orders", str(project.folder)) is view_id
+        assert (
+            lookml_project.view_id_cache.get_looker_view_id("orders", base) is view_id
+        )
 
     def test_view_from_dependency_project_keeps_that_project_name(
-        self, project: Project
+        self, lookml_project: LookMLProject
     ) -> None:
-        path = project.write("shared.view.lkml", "view: shared {}\n", dep=True)
-        cache = project.view_id_cache([ProjectInclude("dep_project", path)])
+        lookml_project.write("shared.view.lkml", "view: shared {}\n", dep=True)
 
-        view_id = cache.get_looker_view_id("shared", str(project.folder))
+        view_id = lookml_project.view_id_cache.get_looker_view_id(
+            "shared", str(lookml_project.base_folder)
+        )
 
         assert view_id is not None
-        assert view_id.project_name == "dep_project"
+        assert view_id.project_name == DEP_PROJECT_NAME
 
-    def test_unknown_view_returns_none(self, project: Project) -> None:
-        path = project.write("orders.view.lkml", "view: orders {}\n")
-        cache = project.view_id_cache([ProjectInclude(BASE_PROJECT_NAME, path)])
+    def test_unknown_view_returns_none(self, lookml_project: LookMLProject) -> None:
+        lookml_project.write("orders.view.lkml", "view: orders {}\n")
 
-        assert cache.get_looker_view_id("customers", str(project.folder)) is None
+        assert (
+            lookml_project.view_id_cache.get_looker_view_id(
+                "customers", str(lookml_project.base_folder)
+            )
+            is None
+        )

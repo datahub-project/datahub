@@ -1,6 +1,6 @@
 import io
 import json
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import avro.io
@@ -13,16 +13,22 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 )
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
+from datahub.ingestion.source.kafka.kafka import KafkaSource
 from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     KafkaSchemaClass,
     SchemaMetadataClass,
 )
+from tests.unit.kafka.conftest import (
+    KAFKA_MODULE,
+    FakeConsumer,
+    FakeMessage,
+    KafkaClientMocks,
+    SourceFactory,
+    schemaless_metadata,
+    warned_about,
+)
 
-KAFKA_MODULE = "datahub.ingestion.source.kafka.kafka"
-REGISTRY_MODULE = "datahub.ingestion.source.confluent_schema_registry"
 TOPIC = "orders"
 CONFLUENT_HEADER = bytes([0, 0, 0, 0, 1])
 RECORD_SCHEMA = json.dumps(
@@ -32,77 +38,7 @@ RECORD_SCHEMA = json.dumps(
         "fields": [{"name": "id", "type": "long"}, {"name": "name", "type": "string"}],
     }
 )
-
-
-class FakeMessage:
-    """Minimal stand-in for confluent_kafka.Message (which cannot be instantiated)."""
-
-    def __init__(
-        self,
-        value: Optional[bytes],
-        key: Optional[bytes] = None,
-        offset: int = 0,
-        error: Optional[str] = None,
-        timestamp_ms: Optional[int] = 1_700_000_000_000,
-    ) -> None:
-        self._value = value
-        self._key = key
-        self._offset = offset
-        self._error = error
-        self._timestamp_ms = timestamp_ms
-
-    def key(self) -> Optional[bytes]:
-        return self._key
-
-    def value(self) -> Optional[bytes]:
-        return self._value
-
-    def offset(self) -> int:
-        return self._offset
-
-    def error(self) -> Optional[str]:
-        return self._error
-
-    def timestamp(self) -> Optional[Tuple[int, int]]:
-        if self._timestamp_ms is None:
-            return None
-        return (confluent_kafka.TIMESTAMP_CREATE_TIME, self._timestamp_ms)
-
-
-class FakeConsumer:
-    """Serves scripted batches from consume() and records what was requested."""
-
-    def __init__(
-        self,
-        batches: List[List[FakeMessage]],
-        partitions: Optional[Dict[int, Tuple[int, int]]] = None,
-    ) -> None:
-        self._batches = list(batches)
-        self._watermarks = partitions or {}
-        self.requested: List[int] = []
-        self.unassigned = False
-
-    def list_topics(self, topic: str, timeout: int) -> MagicMock:
-        topic_meta = MagicMock()
-        topic_meta.partitions = {p: MagicMock() for p in self._watermarks}
-        metadata = MagicMock()
-        metadata.topics = {topic: topic_meta}
-        return metadata
-
-    def get_watermark_offsets(
-        self, partition: confluent_kafka.TopicPartition
-    ) -> Tuple[int, int]:
-        return self._watermarks[partition.partition]
-
-    def assign(self, partitions: List[confluent_kafka.TopicPartition]) -> None:
-        pass
-
-    def consume(self, num_messages: int, timeout: float) -> List[FakeMessage]:
-        self.requested.append(num_messages)
-        return self._batches.pop(0)[:num_messages] if self._batches else []
-
-    def unassign(self) -> None:
-        self.unassigned = True
+SCHEMALESS_METADATA = schemaless_metadata(TOPIC)
 
 
 def avro_encode(schema_str: str, datum: Any) -> bytes:
@@ -126,43 +62,16 @@ def avro_schema_metadata(schema_str: str) -> SchemaMetadataClass:
     )
 
 
-# What the source builds for a topic whose fields were inferred from messages:
-# schema metadata exists, but there is no registered document schema to decode with.
-SCHEMALESS_METADATA = SchemaMetadataClass(
-    schemaName=TOPIC,
-    platform="urn:li:dataPlatform:kafka",
-    version=0,
-    hash="",
-    platformSchema=KafkaSchemaClass(documentSchema=""),
-    fields=[],
-)
-
-
 @pytest.fixture
-def registry() -> Iterator[MagicMock]:
-    with patch(f"{REGISTRY_MODULE}.SchemaRegistryClient", autospec=True) as mock:
-        mock.return_value.get_subjects.return_value = []
-        yield mock
-
-
-@pytest.fixture
-def source(registry: MagicMock) -> Iterator[KafkaSource]:
-    with (
-        patch(f"{KAFKA_MODULE}.confluent_kafka.Consumer", autospec=True),
-        patch(f"{KAFKA_MODULE}.AdminClient", autospec=True),
-    ):
-        config = KafkaSourceConfig.model_validate(
-            {
-                "connection": {"bootstrap": "localhost:9092"},
-                "profiling": {"enabled": True, "sample_size": 4, "batch_size": 10},
-            }
-        )
-        kafka_source = KafkaSource(config, PipelineContext(run_id="test"))
-        yield kafka_source
-        kafka_source.close()
+def source(make_kafka_source: SourceFactory) -> KafkaSource:
+    """Profiling source with a small sample size so batch clamping is observable."""
+    return make_kafka_source(
+        {"profiling": {"enabled": True, "sample_size": 4, "batch_size": 10}}
+    )
 
 
 def test_get_sample_messages_reads_from_every_partition(source: KafkaSource) -> None:
+    """Never reads more than sample_size, and releases the assignment afterwards."""
     messages = [
         FakeMessage(json.dumps({"amount": i}).encode(), offset=i) for i in range(6, 10)
     ]
@@ -178,7 +87,6 @@ def test_get_sample_messages_reads_from_every_partition(source: KafkaSource) -> 
     assert [s["offset"] for s in samples] == [6, 7, 8, 9]
     assert samples[0]["amount"] == "6"
     assert "timestamp" in samples[0]
-    # Never reads more than sample_size, and releases the assignment afterwards.
     assert consumer.requested == [4]
     assert consumer.unassigned
 
@@ -193,23 +101,25 @@ def test_get_sample_messages_with_no_partitions_warns(source: KafkaSource) -> No
     )
 
     assert samples == []
-    assert source.report.warnings
+    assert warned_about(source.report, TOPIC)
 
 
 def test_get_sample_messages_survives_broker_errors(source: KafkaSource) -> None:
+    """A broker error degrades to "no samples" plus warnings for both the
+    collection and the failed unassign, never an exception out of the worker."""
     consumer = MagicMock()
     consumer.list_topics.side_effect = confluent_kafka.KafkaException("timed out")
     consumer.unassign.side_effect = RuntimeError("not assigned")
 
     samples = source.get_sample_messages(TOPIC, consumer=consumer)
 
-    # A broker error degrades to "no samples" with warnings, never an exception
-    # out of the profiling worker.
     assert samples == []
-    assert len(source.report.warnings) >= 2
+    assert warned_about(source.report, TOPIC)
+    assert warned_about(source.report, "profiling")
 
 
 def test_batch_read_is_clamped_to_available_messages(source: KafkaSource) -> None:
+    """Asking consume() for more than the watermarks hold would block on it."""
     messages = [FakeMessage(b'{"a": 1}', offset=i) for i in range(3)]
     consumer = FakeConsumer([messages])
     samples: List[Dict[str, Any]] = []
@@ -223,12 +133,14 @@ def test_batch_read_is_clamped_to_available_messages(source: KafkaSource) -> Non
         max_available=2,
     )
 
-    # Asking for more than the watermarks hold would block on consume().
     assert consumer.requested == [2]
     assert len(samples) == 2
 
 
 def test_batch_read_skips_errored_and_undecodable_messages(source: KafkaSource) -> None:
+    """An errored message is dropped and reported; an undecodable value is
+    counted as skipped and produces no sample at all (a metadata-only sample
+    would inflate the row count without any field data)."""
     consumer = FakeConsumer(
         [
             [
@@ -248,13 +160,10 @@ def test_batch_read_skips_errored_and_undecodable_messages(source: KafkaSource) 
         consumer=consumer,  # type: ignore[arg-type]
     )
 
-    # The errored message is dropped and reported; the undecodable one keeps its
-    # metadata but contributes no synthetic value field, and is counted as skipped.
-    assert [s["offset"] for s in samples] == [1, 2]
-    assert "value" not in samples[0]
-    assert samples[1]["a"] == "1"
+    assert [s["offset"] for s in samples] == [2]
+    assert samples[0]["a"] == "1"
     assert source.report.profiling_samples_skipped == 1
-    assert source.report.warnings
+    assert warned_about(source.report, TOPIC)
 
 
 def test_complex_key_fields_are_prefixed(source: KafkaSource) -> None:
@@ -291,6 +200,24 @@ def test_scalar_key_and_value_use_fixed_field_names(source: KafkaSource) -> None
     assert sample["value"] == 42
 
 
+def test_tombstone_keeps_its_key_fields(source: KafkaSource) -> None:
+    """A null value is a tombstone, not a decode failure: the key is still sampled."""
+    samples: List[Dict[str, Any]] = []
+    msg = FakeMessage(None, key=b'{"id": 1}', offset=9)
+
+    source._process_message_to_sample(
+        msg,  # type: ignore[arg-type]
+        samples,
+        TOPIC,
+        SCHEMALESS_METADATA,
+    )
+
+    [sample] = samples
+    assert sample["key.id"] == "1"
+    assert "value" not in sample
+    assert source.report.profiling_samples_skipped == 0
+
+
 def test_malformed_message_metadata_is_skipped(source: KafkaSource) -> None:
     samples: List[Dict[str, Any]] = []
     msg = FakeMessage(b'{"a": 1}', timestamp_ms=None)  # timestamp() -> None
@@ -303,7 +230,7 @@ def test_malformed_message_metadata_is_skipped(source: KafkaSource) -> None:
     )
 
     assert samples == []
-    assert source.report.warnings
+    assert warned_about(source.report, "profiling")
 
 
 def test_avro_record_is_decoded_with_schema(source: KafkaSource) -> None:
@@ -329,8 +256,8 @@ def test_avro_primitive_is_returned_as_is(source: KafkaSource) -> None:
 def test_avro_message_without_wire_header_falls_back_to_text(
     source: KafkaSource,
 ) -> None:
-    # Producers that bypass the Confluent serializer write plain JSON even on a
-    # topic with a registered Avro schema; those must still be profiled.
+    """Producers that bypass the Confluent serializer write plain JSON even on a
+    topic with a registered Avro schema; those must still be profiled."""
     decoded = source._process_message_part(
         b'{"id": 7}', "value", TOPIC, avro_schema_metadata(RECORD_SCHEMA)
     )
@@ -338,9 +265,25 @@ def test_avro_message_without_wire_header_falls_back_to_text(
     assert decoded == {"id": "7"}
 
 
-def test_undecodable_binary_without_schema_is_skipped(source: KafkaSource) -> None:
+@pytest.mark.parametrize("schema_metadata", [None, SCHEMALESS_METADATA])
+def test_bytes_without_schema_are_decoded_as_json(
+    source: KafkaSource, schema_metadata: Optional[SchemaMetadataClass]
+) -> None:
+    """With no usable schema the payload is decoded as JSON/text rather than
+    handed to the profiler as raw bytes."""
     decoded = source._process_message_part(
-        b"\x8a\x8b\xff", "value", TOPIC, SCHEMALESS_METADATA
+        b'{"id": 1}', "value", TOPIC, schema_metadata
+    )
+
+    assert decoded == {"id": "1"}
+
+
+@pytest.mark.parametrize("schema_metadata", [None, SCHEMALESS_METADATA])
+def test_undecodable_binary_without_schema_is_skipped(
+    source: KafkaSource, schema_metadata: Optional[SchemaMetadataClass]
+) -> None:
+    decoded = source._process_message_part(
+        b"\x8a\x8b\xff", "value", TOPIC, schema_metadata
     )
 
     assert decoded is None
@@ -357,10 +300,12 @@ def test_unexpected_decode_error_is_reported_not_raised(source: KafkaSource) -> 
 
     assert decoded is None
     assert source.report.profiling_samples_skipped == 1
-    assert source.report.warnings
+    assert warned_about(source.report, TOPIC)
 
 
 def test_collect_and_profile_topic_returns_profile(source: KafkaSource) -> None:
+    """The per-topic worker builds its own consumer, tolerates a failing close(),
+    and returns (urn, profile) for the topic."""
     worker_consumer = MagicMock()
     worker_consumer.close.side_effect = RuntimeError("already closed")
     samples = [{"offset": i, "amount": i} for i in range(3)]
@@ -402,29 +347,24 @@ def test_parallel_profiling_yields_a_workunit_per_profiled_topic(
     assert list(source.generate_profiles_in_parallel([])) == []
 
 
-@patch(f"{KAFKA_MODULE}.AdminClient", autospec=True)
-@patch(f"{KAFKA_MODULE}.confluent_kafka.Consumer", autospec=True)
 def test_profiling_is_queued_only_for_topics_with_schema_info(
-    consumer: MagicMock, admin: MagicMock, registry: MagicMock
+    kafka_clients: KafkaClientMocks, make_kafka_source: SourceFactory
 ) -> None:
-    metadata = MagicMock()
-    metadata.topics = {"with_schema": None, "schemaless": None}
-    consumer.return_value.list_topics.return_value = metadata
-    registry.return_value.get_subjects.return_value = ["with_schema-value"]
-    registry.return_value.get_latest_version.return_value = RegisteredSchema(
-        schema_id=1,
-        guid=None,
-        schema=Schema(schema_str=RECORD_SCHEMA, schema_type="AVRO"),
-        subject="with_schema-value",
-        version=1,
+    """A topic with no schema has nothing to decode against, so it is not profiled."""
+    kafka_clients.set_topics(["with_schema", "schemaless"])
+    kafka_clients.registry.return_value.get_subjects.return_value = [
+        "with_schema-value"
+    ]
+    kafka_clients.registry.return_value.get_latest_version.return_value = (
+        RegisteredSchema(
+            schema_id=1,
+            guid=None,
+            schema=Schema(schema_str=RECORD_SCHEMA, schema_type="AVRO"),
+            subject="with_schema-value",
+            version=1,
+        )
     )
-    kafka_source = KafkaSource.create(
-        {
-            "connection": {"bootstrap": "localhost:9092"},
-            "profiling": {"enabled": True},
-        },
-        PipelineContext(run_id="test"),
-    )
+    kafka_source = make_kafka_source({"profiling": {"enabled": True}})
 
     with patch.object(
         kafka_source, "generate_profiles_in_parallel", return_value=iter([])
@@ -433,6 +373,5 @@ def test_profiling_is_queued_only_for_topics_with_schema_info(
 
     profiles.assert_called_once()
     [tasks] = profiles.call_args.args
-    # A topic with no schema has nothing to decode against, so it is not profiled.
     assert [topic for _, topic, _ in tasks] == ["with_schema"]
     assert isinstance(tasks[0][2], SchemaMetadataClass)

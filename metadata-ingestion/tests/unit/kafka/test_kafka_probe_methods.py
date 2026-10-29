@@ -163,16 +163,18 @@ class _ConfigAdmin(_Admin):
 
 
 def test_topic_config_returns_broker_values():
+    """The broker-side request itself must be bounded, not only the future wait."""
     admin = _ConfigAdmin()
     with _probe(admin=admin) as p:
         config = p.topic_config("events")
 
     assert config == {"retention.ms": "86400000", "cleanup.policy": "compact"}
-    # The broker-side request itself must be bounded, not only the future wait.
     assert admin.request_timeout == 10
 
 
 def test_for_config_enforces_the_timeout_floor():
+    """A client_timeout_seconds below 10 is raised to the floor for probe
+    calls, and the consumer is closed when the probe context exits."""
     config = KafkaSourceConfig.model_validate(
         {"connection": {"bootstrap": "localhost:9092", "client_timeout_seconds": 3}}
     )

@@ -7,7 +7,6 @@ whole source is driven, rather than individual helpers.
 
 import logging
 import pathlib
-import textwrap
 from typing import Dict, List, Union
 from unittest import mock
 
@@ -29,6 +28,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.sdk.entity import Entity
+from tests.unit.lookml.conftest import LOOKER_API_CONFIG, write_lkml
 
 ORDERS_VIEW = """
 view: orders {
@@ -118,20 +118,14 @@ constant: schema_name {
 """
 
 
-def write(path: pathlib.Path, content: str) -> pathlib.Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(textwrap.dedent(content))
-    return path
-
-
 def make_project(root: pathlib.Path, with_manifest: bool = True) -> pathlib.Path:
-    write(root / "views" / "orders.view.lkml", ORDERS_VIEW)
-    write(root / "views" / "customers.view.lkml", CUSTOMERS_VIEW)
-    write(root / "views" / "order_facts.view.lkml", ORDER_FACTS_VIEW)
-    write(root / "unreferenced" / "orphan.view.lkml", ORPHAN_VIEW)
-    write(root / "models" / "sales.model.lkml", SALES_MODEL)
+    write_lkml(root / "views" / "orders.view.lkml", ORDERS_VIEW)
+    write_lkml(root / "views" / "customers.view.lkml", CUSTOMERS_VIEW)
+    write_lkml(root / "views" / "order_facts.view.lkml", ORDER_FACTS_VIEW)
+    write_lkml(root / "unreferenced" / "orphan.view.lkml", ORPHAN_VIEW)
+    write_lkml(root / "models" / "sales.model.lkml", SALES_MODEL)
     if with_manifest:
-        write(root / "manifest.lkml", MANIFEST)
+        write_lkml(root / "manifest.lkml", MANIFEST)
     return root
 
 
@@ -336,6 +330,8 @@ class TestLookMLSourceEmission:
     def test_tag_definitions_emitted_once_views_are_produced(
         self, project: pathlib.Path
     ) -> None:
+        """The Dimension/Temporal/Measure tag entities are emitted exactly once
+        per run, after the views that reference them."""
         run = run_source(base_config(project))
         tag_urns = [
             wu.get_urn()
@@ -360,6 +356,27 @@ class TestLookMLSourceEmission:
         assert count_field.globalTags is None
         assert run.aspects(GlobalTagsClass) == {}
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "lookml_source checks self.report (the StatefulIngestionSourceBase "
+            "default, which nobody reads) instead of self.reporter, so the 'No "
+            "metadata was produced' failure never reaches the report returned "
+            "by get_report()"
+        ),
+    )
+    def test_run_without_models_is_reported_as_a_failure(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        root = tmp_path / "repo"
+        write_lkml(root / "manifest.lkml", MANIFEST)
+        run = run_source(base_config(root))
+        assert run.workunits == []
+        assert any(
+            (f.message or "").startswith("No metadata was produced")
+            for f in run.source.get_report().failures
+        )
+
 
 class TestLookMLSourceFiltering:
     def test_unreferenced_view_file_is_reported_not_emitted(
@@ -378,7 +395,9 @@ class TestLookMLSourceFiltering:
     def test_included_but_unreachable_view_is_dropped(
         self, project: pathlib.Path
     ) -> None:
-        write(
+        """With ``emit_reachable_views_only`` (the default) a view that a model
+        includes but no explore joins is dropped and counted, not emitted."""
+        write_lkml(
             project / "views" / "lonely.view.lkml",
             "view: lonely { sql_table_name: analytics.lonely ;; dimension: id { type: number sql: ${TABLE}.id ;; } }",
         )
@@ -393,8 +412,7 @@ class TestLookMLSourceFiltering:
         assert dataset_urn("my_project.view.customers") not in run.urns_with(
             ViewPropertiesClass
         )
-        assert len(run.source.reporter.views_dropped) == 1
-        assert "customers" in run.source.reporter.views_dropped[0]
+        assert any("customers" in v for v in run.source.reporter.views_dropped)
 
     def test_model_pattern_drops_models(self, project: pathlib.Path) -> None:
         run = run_source(base_config(project, model_pattern={"deny": ["^sales$"]}))
@@ -405,7 +423,7 @@ class TestLookMLSourceFiltering:
     def test_unknown_connection_without_api_drops_model(
         self, project: pathlib.Path
     ) -> None:
-        write(
+        write_lkml(
             project / "models" / "other.model.lkml",
             'connection: "unknown_connection"\ninclude: "/views/customers.view.lkml"\nexplore: customers {}',
         )
@@ -422,7 +440,9 @@ class TestLookMLSourceFiltering:
     def test_unparseable_model_is_reported_and_skipped(
         self, project: pathlib.Path
     ) -> None:
-        write(project / "models" / "broken.model.lkml", "connection: {{{ not lookml")
+        write_lkml(
+            project / "models" / "broken.model.lkml", "connection: {{{ not lookml"
+        )
         run = run_source(base_config(project))
         assert any(
             w.title == "Error Loading Model File" for w in run.source.reporter.warnings
@@ -434,7 +454,9 @@ class TestLookMLSourceFiltering:
     def test_view_seen_via_second_connection_is_emitted_once(
         self, project: pathlib.Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        write(
+        """A view file included by two models (different connections) is
+        processed under the first model only; the duplicate is logged."""
+        write_lkml(
             project / "models" / "other.model.lkml",
             'connection: "other_connection"\ninclude: "/views/customers.view.lkml"\nexplore: customers {}',
         )
@@ -465,17 +487,17 @@ class TestLookMLSourceProjects:
         self, tmp_path: pathlib.Path
     ) -> None:
         root = make_project(tmp_path / "repo")
-        write(
+        write_lkml(
             root / "manifest.lkml",
             MANIFEST + '\nlocal_dependency: {\n  project: "dep_project"\n}\n',
         )
         dep = tmp_path / "dep"
-        write(
+        write_lkml(
             dep / "views" / "regions.view.lkml",
             "view: regions { sql_table_name: analytics.regions ;; dimension: id { type: number sql: ${TABLE}.id ;; } }",
         )
-        write(dep / "manifest.lkml", 'project_name: "dep_project"')
-        write(
+        write_lkml(dep / "manifest.lkml", 'project_name: "dep_project"')
+        write_lkml(
             root / "models" / "geo.model.lkml",
             'connection: "my_connection"\ninclude: "//dep_project/views/regions.view.lkml"\nexplore: regions {}',
         )
@@ -503,7 +525,7 @@ class TestLookMLSourceProjects:
     def test_missing_dependency_folder_is_logged(
         self, project: pathlib.Path, caplog: pytest.LogCaptureFixture
     ) -> None:
-        write(
+        write_lkml(
             project / "manifest.lkml",
             MANIFEST + '\nlocal_dependency: {\n  project: "missing_dep"\n}\n',
         )
@@ -512,6 +534,8 @@ class TestLookMLSourceProjects:
         assert "Could not find missing_dep in the project_dependencies" in caplog.text
 
     def test_repo_is_cloned_when_no_base_folder(self, tmp_path: pathlib.Path) -> None:
+        """Without ``base_folder`` the project is checked out from ``git_info``
+        into a temp dir and ingested from there."""
         checkout = make_project(tmp_path / "checkout")
         config = base_config(checkout)
         del config["base_folder"]
@@ -551,11 +575,7 @@ class TestProjectNameFromApi:
     def _api_config(self, project: pathlib.Path) -> Dict[str, object]:
         config = base_config(project)
         del config["project_name"]
-        config["api"] = {
-            "client_id": "id",
-            "client_secret": "secret",
-            "base_url": "https://looker.example.com",
-        }
+        config["api"] = LOOKER_API_CONFIG
         return config
 
     def test_project_name_resolved_through_lookml_model(

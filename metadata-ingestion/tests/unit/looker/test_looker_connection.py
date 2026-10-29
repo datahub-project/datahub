@@ -1,8 +1,10 @@
+"""Resolving a LookML ``connection:`` name to a platform definition, from the
+recipe's ``connection_to_platform_map`` or, failing that, the Looker API."""
+
 import pathlib
 from typing import Optional
 from unittest import mock
 
-import pytest
 from looker_sdk.error import SDKError
 from looker_sdk.sdk.api40.models import DBConnection
 
@@ -54,6 +56,8 @@ def test_configured_mapping_wins_without_api_call(tmp_path: pathlib.Path) -> Non
 
 
 def test_api_connection_is_cached_in_config(tmp_path: pathlib.Path) -> None:
+    """A connection fetched from the API is written back into the config map so
+    every later view on the same connection skips the API call."""
     client = _client(
         DBConnection(name="warehouse", dialect_name="postgres", database="db")
     )
@@ -98,18 +102,16 @@ def test_connection_without_dialect_is_reported(tmp_path: pathlib.Path) -> None:
         reporter=reporter,
     )
     assert definition is None
-    assert len(reporter.warnings) == 1
+    # The warning's message carries the connection key; its wording is not pinned.
+    assert any("warehouse" in (w.message or "") for w in reporter.warnings)
 
 
-@pytest.mark.parametrize("looker_client", [None])
-def test_no_api_and_no_mapping_yields_none(
-    tmp_path: pathlib.Path, looker_client: Optional[LookerAPI]
-) -> None:
+def test_no_api_and_no_mapping_yields_none(tmp_path: pathlib.Path) -> None:
     assert (
         get_connection_def_based_on_connection_string(
             connection="warehouse",
             source_config=_config(tmp_path, with_map=False),
-            looker_client=looker_client,
+            looker_client=None,
             reporter=LookMLSourceReport(),
         )
         is None

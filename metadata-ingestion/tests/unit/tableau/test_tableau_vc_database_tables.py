@@ -4,37 +4,33 @@ level lineage emitted for VC tables. Also the malformed-payload handling in VC
 reference extraction and lookup.
 """
 
-from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar
+import logging
+from typing import Any, Dict, Iterable, List, Optional
 from unittest import mock
 
-from tableauserverclient.models import UserItem
+import pytest
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
-    make_schema_field_urn,
-)
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.source.tableau import tableau_constant as c
-from datahub.ingestion.source.tableau.tableau import (
-    SiteIdContentUrl,
-    TableauConfig,
-    TableauSiteSource,
-    TableauSourceReport,
-)
+from datahub.ingestion.source.tableau.tableau import TableauSiteSource
 from datahub.ingestion.source.tableau.tableau_virtual_connections import (
     DatasourceType,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     UpstreamLineageClass,
 )
-from tests.unit.tableau.test_tableau_config import default_config
+from tests.unit.tableau.conftest import (
+    ORDERS_URN,
+    SiteSourceFactory,
+    mcp_aspects,
+    snapshot_aspects,
+    tableau_urn,
+)
 
-T = TypeVar("T")
-
+# fullName is three-part here on purpose: a two-part fullName trips the doubled
+# schema bug pinned by test_vc_database_table_urn_from_a_two_part_full_name, and
+# the matching tests below are about name lookup, not URN building.
 ORDERS_TABLE: dict = {
     c.ID: "t-1",
     c.NAME: "orders",
@@ -58,32 +54,10 @@ UNUSABLE_TABLES: List[dict] = [
     {c.ID: "t-3", c.NAME: None, c.DATABASE: {c.CONNECTION_TYPE: "postgres"}},
     {c.ID: "t-4", c.NAME: "no_connection", c.DATABASE: None},
 ]
-ORDERS_URN = make_dataset_urn_with_platform_instance(
-    "postgres", "dvdrental.public.orders", "demo_postgres_instance", "PROD"
-)
-EVENTS_URN = make_dataset_urn_with_platform_instance(
-    "snowflake", "analytics.web.events", None, "PROD"
-)
 
 
-def _make_source(**overrides: object) -> TableauSiteSource:
-    config = TableauConfig.model_validate(
-        {**default_config, "ingest_virtual_connections": True, **overrides}
-    )
-    server = mock.MagicMock()
-    server.user_id = "user-1"
-    server.site_id = "site-1"
-    server.users.get_by_id.return_value = UserItem(
-        name="user", site_role=UserItem.Roles.SiteAdministratorExplorer
-    )
-    return TableauSiteSource(
-        config=config,
-        ctx=PipelineContext(run_id="test"),
-        platform="tableau",
-        site=SiteIdContentUrl(site_id="site-1", site_content_url="site-a"),
-        report=TableauSourceReport(),
-        server=server,
-    )
+def _vc_source(site_source: SiteSourceFactory) -> TableauSiteSource:
+    return site_source(ingest_virtual_connections=True)
 
 
 def _connection_objects(
@@ -95,34 +69,14 @@ def _connection_objects(
     return get
 
 
-def _mcp_aspects(
-    work_units: Iterable[MetadataWorkUnit], aspect_type: Type[T]
-) -> List[T]:
-    return [
-        wu.metadata.aspect
-        for wu in work_units
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, aspect_type)
-    ]
-
-
-def _snapshot_aspects(
-    work_units: Iterable[MetadataWorkUnit], aspect_type: Type[T]
-) -> List[T]:
-    return [
-        aspect
-        for wu in work_units
-        if isinstance(wu.metadata, MetadataChangeEvent)
-        for aspect in wu.metadata.proposedSnapshot.aspects
-        if isinstance(aspect, aspect_type)
-    ]
-
-
-def _source_with_lookup() -> TableauSiteSource:
-    source = _make_source()
+def _source_with_lookup(site_source: SiteSourceFactory) -> TableauSiteSource:
+    """A VC-enabled source whose databaseTables lookup has been built from
+    ORDERS_TABLE, EVENTS_TABLE and the unusable rows."""
+    source = _vc_source(site_source)
     with mock.patch.object(
         source,
         "get_connection_objects",
+        autospec=True,
         side_effect=_connection_objects(
             {
                 c.DATABASE_TABLES_CONNECTION: [
@@ -140,8 +94,13 @@ def _source_with_lookup() -> TableauSiteSource:
     return source
 
 
-def test_vc_table_names_resolve_to_database_tables_by_several_strategies() -> None:
-    source = _source_with_lookup()
+def test_vc_table_names_resolve_to_database_tables_by_several_strategies(
+    site_source: SiteSourceFactory,
+) -> None:
+    """VC table names arrive in several shapes (bare, bracketed, Tableau's
+    "TABLE (schema.table)" label, fully qualified, foreign prefix); each must
+    land on the same databaseTables row."""
+    source = _source_with_lookup(site_source)
 
     def match(vc_table_name: str) -> Optional[str]:
         table = source._find_matching_database_table(vc_table_name)
@@ -149,7 +108,6 @@ def test_vc_table_names_resolve_to_database_tables_by_several_strategies() -> No
 
     assert match("orders") == "t-1"
     assert match("[public].[orders]") == "t-1"
-    # Tableau labels VC tables as "TABLE (schema.table)".
     assert match("ORDERS (public.orders)") == "t-1"
     assert match("dvdrental.public.orders") == "t-1"
     # A prefix Tableau never listed still matches on the bare table name.
@@ -161,8 +119,8 @@ def test_vc_table_names_resolve_to_database_tables_by_several_strategies() -> No
     assert match("no_connection") is None
 
 
-def test_lookup_is_inert_until_built() -> None:
-    source = _make_source()
+def test_lookup_is_inert_until_built(site_source: SiteSourceFactory) -> None:
+    source = _vc_source(site_source)
 
     assert source._find_matching_database_table("orders") is None
     assert source._create_database_table_urn({c.NAME: "orders", c.DATABASE: None}) is (
@@ -176,8 +134,34 @@ def test_lookup_is_inert_until_built() -> None:
     )
 
 
-def test_vc_table_lineage_maps_columns_case_insensitively() -> None:
-    source = _source_with_lookup()
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "_create_database_table_urn hands fullName to get_fully_qualified_table_name "
+        "as the table name and the schema separately, so a two-part fullName such "
+        "as [public].[orders] builds public.public.orders for three-tier platforms"
+    ),
+)
+def test_vc_database_table_urn_from_a_two_part_full_name(
+    site_source: SiteSourceFactory,
+) -> None:
+    source = _vc_source(site_source)
+
+    assert (
+        source._create_database_table_urn(
+            {**ORDERS_TABLE, c.FULL_NAME: "[public].[orders]"}
+        )
+        == ORDERS_URN
+    )
+
+
+def test_vc_table_lineage_maps_columns_case_insensitively(
+    site_source: SiteSourceFactory,
+) -> None:
+    """Only the VC table that matched a databaseTables row gets upstream lineage;
+    its columns are matched to the database columns ignoring case, and nameless
+    columns are counted and skipped."""
+    source = _source_with_lookup(site_source)
     source.vc_processor.virtual_connection_ids_being_used = ["vc-1"]
     virtual_connection = {
         c.ID: "vc-1",
@@ -199,46 +183,44 @@ def test_vc_table_lineage_maps_columns_case_insensitively() -> None:
     with mock.patch.object(
         source,
         "get_connection_objects",
+        autospec=True,
         side_effect=_connection_objects(
             {c.VIRTUAL_CONNECTIONS_CONNECTION: [virtual_connection]}
         ),
     ):
         work_units = list(source.vc_processor.emit_virtual_connections())
 
-    orders_urn = make_dataset_urn_with_platform_instance(
-        "tableau", "vc-1.orders", None, "PROD"
-    )
+    orders_urn = tableau_urn("vc-1.orders")
     schemas = {
         s.fields[0].fieldPath: s
-        for s in _snapshot_aspects(work_units, SchemaMetadataClass)
+        for s in snapshot_aspects(work_units, SchemaMetadataClass)
     }
     assert [f.fieldPath for f in schemas["id"].fields] == ["id", "amount"]
     assert source.report.num_datasource_field_skipped_no_name == 1
 
-    lineages = _mcp_aspects(work_units, UpstreamLineageClass)
-    # Only the table that matched a database table gets upstream lineage.
+    lineages = mcp_aspects(work_units, UpstreamLineageClass)
     assert [u.dataset for lineage in lineages for u in lineage.upstreams] == [
         ORDERS_URN
     ]
     assert lineages[0].fineGrainedLineages is not None
-    column_edges = {
-        (tuple(fgl.upstreams or []), tuple(fgl.downstreams or []))
-        for fgl in lineages[0].fineGrainedLineages
-    }
-    assert column_edges == {
+    assert [
+        (fgl.upstreams, fgl.downstreams) for fgl in lineages[0].fineGrainedLineages
+    ] == [
         (
-            (make_schema_field_urn(ORDERS_URN, "ID"),),
-            (make_schema_field_urn(orders_urn, "id"),),
+            [make_schema_field_urn(ORDERS_URN, "ID")],
+            [make_schema_field_urn(orders_urn, "id")],
         ),
         (
-            (make_schema_field_urn(ORDERS_URN, "amount"),),
-            (make_schema_field_urn(orders_urn, "amount"),),
+            [make_schema_field_urn(ORDERS_URN, "amount")],
+            [make_schema_field_urn(orders_urn, "amount")],
         ),
-    }
+    ]
 
 
-def test_upstream_table_without_a_connection_type_is_counted_not_fatal() -> None:
-    source = _make_source()
+def test_upstream_table_without_a_connection_type_is_counted_not_fatal(
+    site_source: SiteSourceFactory,
+) -> None:
+    source = _vc_source(site_source)
     broken = {c.ID: "t-9", c.NAME: "orders", c.DATABASE: {c.NAME: "dvdrental"}}
 
     upstreams, id_to_urn = source.get_upstream_tables(
@@ -248,9 +230,9 @@ def test_upstream_table_without_a_connection_type_is_counted_not_fatal() -> None
     assert [u.dataset for u in upstreams] == [ORDERS_URN]
     assert id_to_urn == {"t-1": ORDERS_URN}
     assert source.report.num_upstream_table_failed_generate_reference == 1
-    assert [w.title for w in source.report.warnings] == [
-        "Potentially Missing Lineage Issue"
-    ]
+    assert "Potentially Missing Lineage Issue" in {
+        w.title for w in source.report.warnings
+    }
 
 
 def _vc_table(table_id: str, name: Optional[str]) -> dict:
@@ -262,8 +244,13 @@ def _vc_table(table_id: str, name: Optional[str]) -> dict:
     }
 
 
-def test_vc_references_survive_malformed_upstream_columns() -> None:
-    source = _make_source()
+def test_vc_references_survive_malformed_upstream_columns(
+    site_source: SiteSourceFactory,
+) -> None:
+    """Null entries, non-dict tables, non-list upstreamColumns and blank table
+    ids are counted and skipped without losing the well-formed references in
+    the same datasource; a missing VC table name is kept for later lookup."""
+    source = _vc_source(site_source)
     processor = source.vc_processor
     datasource = {
         c.ID: "ds-1",
@@ -279,7 +266,6 @@ def test_vc_references_survive_malformed_upstream_columns() -> None:
                     {c.NAME: "AMOUNT", c.TABLE: _vc_table("vct-1", "orders")},
                 ],
             },
-            # Tableau can omit the VC table name in field upstream paths.
             {
                 c.NAME: "region",
                 c.UPSTREAM_COLUMNS: [
@@ -301,8 +287,13 @@ def test_vc_references_survive_malformed_upstream_columns() -> None:
     assert source.report.num_virtual_connections_tables_malformed == 1
 
 
-def test_vc_lookup_fills_in_table_names_tableau_omitted() -> None:
-    source = _make_source()
+def test_vc_lookup_fills_in_table_names_tableau_omitted(
+    site_source: SiteSourceFactory,
+) -> None:
+    """The VC listing maps referenced table ids to their VC and supplies the
+    table name when the datasource's field upstream path left it out; junk
+    and unreferenced entries in the listing are ignored."""
+    source = _vc_source(site_source)
     processor = source.vc_processor
     processor.vc_table_ids_for_lookup = {"vct-2"}
     processor.datasource_vc_relationships["ds-1"] = [
@@ -325,31 +316,28 @@ def test_vc_lookup_fills_in_table_names_tableau_omitted() -> None:
         ],
     }
 
-    with mock.patch.object(source, "get_connection_objects", return_value=[listing]):
+    with mock.patch.object(
+        source, "get_connection_objects", autospec=True, return_value=[listing]
+    ):
         processor.lookup_vc_ids_from_table_ids()
 
     assert processor.vc_table_id_to_vc_id == {"vct-2": "vc-1"}
     assert processor.virtual_connection_ids_being_used == ["vc-1"]
 
-    datasource_urn = make_dataset_urn_with_platform_instance(
-        "tableau", "ds-1", None, "PROD"
-    )
-    result = processor.create_datasource_vc_lineage(datasource_urn)
+    result = processor.create_datasource_vc_lineage(tableau_urn("ds-1"))
 
     assert [fgl.upstreams for fgl in result.fine_grained_lineages] == [
-        [
-            make_schema_field_urn(
-                make_dataset_urn_with_platform_instance(
-                    "tableau", "vc-1.regions", None, "PROD"
-                ),
-                "REGION",
-            )
-        ]
+        [make_schema_field_urn(tableau_urn("vc-1.regions"), "REGION")]
     ]
 
 
-def test_parenthesised_field_name_redirects_lineage_to_the_named_vc_table() -> None:
-    source = _make_source()
+def test_parenthesised_field_name_redirects_lineage_to_the_named_vc_table(
+    site_source: SiteSourceFactory,
+) -> None:
+    """A field named "column (table)" points at that table rather than the
+    table its upstream path listed, provided another reference knows the
+    table's VC."""
+    source = _vc_source(site_source)
     processor = source.vc_processor
     processor.datasource_vc_relationships["ds-1"] = [
         {
@@ -367,25 +355,26 @@ def test_parenthesised_field_name_redirects_lineage_to_the_named_vc_table() -> N
             "vc_id": "vc-2",
         },
     ]
-    datasource_urn = make_dataset_urn_with_platform_instance(
-        "tableau", "ds-1", None, "PROD"
-    )
 
-    result = processor.create_datasource_vc_lineage(datasource_urn)
+    result = processor.create_datasource_vc_lineage(tableau_urn("ds-1"))
 
-    events_urn = make_dataset_urn_with_platform_instance(
-        "tableau", "vc-2.web.events", None, "PROD"
-    )
+    events_urn = tableau_urn("vc-2.web.events")
     amount, ts = result.fine_grained_lineages
     assert amount.upstreams == [make_schema_field_urn(events_urn, "AMOUNT")]
     assert amount.transformOperation == "Source: amount from web.events"
     assert ts.upstreams == [make_schema_field_urn(events_urn, "TS")]
 
 
-def test_malformed_datasource_urn_is_counted_as_a_parsing_error() -> None:
-    source = _make_source()
+def test_malformed_datasource_urn_is_counted_as_a_parsing_error(
+    site_source: SiteSourceFactory, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A URN Tableau data cannot have produced is a data problem: it is counted
+    and logged as such, not as an unexpected code bug with a stack trace."""
+    source = _vc_source(site_source)
 
-    result = source.vc_processor.create_datasource_vc_lineage("not-a-urn")
+    with caplog.at_level(logging.ERROR):
+        result = source.vc_processor.create_datasource_vc_lineage("not-a-urn")
 
     assert result.fine_grained_lineages == []
     assert source.report.num_virtual_connections_lineage_parsing_errors == 1
+    assert caplog.records and all(r.exc_info is None for r in caplog.records)

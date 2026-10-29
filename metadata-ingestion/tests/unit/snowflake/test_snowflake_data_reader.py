@@ -1,8 +1,11 @@
 """SnowflakeDataReader samples rows for classification."""
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec
 
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+)
 from datahub.ingestion.source.snowflake.snowflake_data_reader import (
     SnowflakeDataReader,
 )
@@ -13,7 +16,7 @@ def test_sample_query_is_quoted_and_columns_are_normalised() -> None:
     cursor.__enter__.return_value = cursor
     cursor.fetchall.return_value = [(1, "a"), (2, None)]
     cursor.description = [SimpleNamespace(name="ID"), SimpleNamespace(name="Name")]
-    connection = MagicMock()
+    connection = create_autospec(SnowflakeConnection, instance=True)
     connection.native_connection.return_value.cursor.return_value = cursor
 
     reader = SnowflakeDataReader.create(connection, str.lower)

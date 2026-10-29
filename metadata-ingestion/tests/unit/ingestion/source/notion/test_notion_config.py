@@ -216,6 +216,8 @@ def test_external_mode_sets_mapping():
 
 
 def test_page_and_database_ids_accept_notion_urls():
+    """A pasted Notion URL (with slug, query and fragment) is reduced to its
+    hyphenated 32-hex id, for both page and database ids."""
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         page_ids=[
@@ -236,6 +238,7 @@ def test_notion_url_without_id_is_rejected():
 
 
 def test_parent_document_urn_anchors_hierarchy_root():
+    """parent_document_urn is forwarded into the folder mapping as the root parent."""
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         parent_document_urn="urn:li:document:knowledge-base",

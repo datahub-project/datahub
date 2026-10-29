@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from datahub.ingestion.agent.introspect import declares_qualifier
@@ -40,3 +42,21 @@ def test_connect_args_and_extra_client_options_cannot_both_be_set():
             options={"connect_args": {"ssl": False}},
             extra_client_options={"ssl": True},
         )
+
+
+def test_schema_pattern_compatibility_warning_reaches_the_logging_hierarchy(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The validator used to log through a detached `logging.Logger(...)` that
+    no handler (file, CLI or caplog) was attached to, so the deprecation advice
+    never reached operators."""
+    with caplog.at_level(logging.WARNING):
+        RedshiftConfig(
+            host_port="localhost:5439",
+            database="test",
+            schema_pattern={"deny": ["internal"]},
+        )
+    assert any(
+        "match_fully_qualified_names" in record.getMessage()
+        for record in caplog.records
+    )

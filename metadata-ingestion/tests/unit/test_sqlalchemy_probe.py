@@ -1,12 +1,10 @@
 """The SQLAlchemy probe provider over a real engine: the per-object metadata
 commands, and the engine-building refusals that happen before any connection."""
 
-import pathlib
-import sqlite3
-from typing import Iterator
+from typing import Callable
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
@@ -17,9 +15,9 @@ from datahub.ingestion.source.sql.two_tier_sql_source import TwoTierSQLAlchemyCo
 
 
 @pytest.fixture
-def engine() -> Iterator[Engine]:
-    engine = create_engine("sqlite://")
-    with engine.begin() as conn:
+def engine(sqlite_engine: Engine) -> Engine:
+    """An in-memory parent/child schema with an index and a view."""
+    with sqlite_engine.begin() as conn:
         conn.execute(text("CREATE TABLE parent (id INTEGER PRIMARY KEY, name TEXT)"))
         conn.execute(
             text(
@@ -29,8 +27,7 @@ def engine() -> Iterator[Engine]:
         )
         conn.execute(text("CREATE INDEX child_parent_idx ON child (parent_id)"))
         conn.execute(text("CREATE VIEW child_v AS SELECT id FROM child"))
-    yield engine
-    engine.dispose()
+    return sqlite_engine
 
 
 def test_constraint_and_index_commands_describe_the_resolved_table(
@@ -81,17 +78,13 @@ def test_a_malformed_recipe_url_is_refused_before_connecting() -> None:
 
 
 @pytest.fixture
-def sqlite_file(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> str:
-    monkeypatch.chdir(tmp_path)
-    conn = sqlite3.connect("main")
-    conn.executescript(
+def sqlite_file(sqlite_file_db: Callable[..., str]) -> str:
+    return sqlite_file_db(
+        "main",
         "CREATE TABLE parent (id INTEGER PRIMARY KEY);"
         "CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER);"
-        "CREATE VIEW child_v AS SELECT id FROM child;"
+        "CREATE VIEW child_v AS SELECT id FROM child;",
     )
-    conn.commit()
-    conn.close()
-    return "sqlite:///main"
 
 
 def test_a_probe_built_from_a_recipe_lists_what_ingestion_enumerates(
@@ -121,6 +114,9 @@ def test_a_probe_built_from_a_recipe_lists_what_ingestion_enumerates(
 def test_a_two_tier_recipe_naming_its_database_lists_only_that_one(
     sqlite_file: str,
 ) -> None:
+    """A pinned two-tier recipe lists only its database, and only when the
+    server lists it too; a misspelt one is absent, never echoed back."""
+
     def _probe(**overrides: object) -> SqlAlchemyMetadataProbe:
         config = TwoTierSQLAlchemyConfig.model_validate(
             {

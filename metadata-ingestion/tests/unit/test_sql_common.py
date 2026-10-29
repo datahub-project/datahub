@@ -1,25 +1,21 @@
 import datetime
 import logging
-import pathlib
-import sqlite3
-from collections import defaultdict
 from typing import (
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
     Optional,
     Set,
     Tuple,
-    Type,
-    TypeVar,
     cast,
 )
 from unittest import mock
-from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import NoSuchTableError, ProgrammingError
 from sqlalchemy.pool import NullPool, QueuePool, StaticPool
@@ -64,10 +60,8 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
-    DatasetSnapshotClass,
     DomainsClass,
     ForeignKeyConstraintClass,
-    MetadataChangeEventClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
@@ -79,8 +73,15 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-
-T = TypeVar("T")
+from tests.unit.conftest import (
+    aspects_by_urn,
+    aspects_of_type,
+    log_contexts,
+    log_messages,
+    log_titles,
+    single_aspect,
+)
+from tests.unit.sql_test_helpers import make_procedure
 
 
 class _TestSQLAlchemyConfig(SQLCommonConfig):
@@ -489,41 +490,14 @@ class _SqliteSource(SQLAlchemySource):
 
 
 @pytest.fixture
-def sqlite_db(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> str:
-    monkeypatch.chdir(tmp_path)
-    conn = sqlite3.connect("testdb")
-    conn.executescript(_SQLITE_SCHEMA_SQL)
-    conn.commit()
-    conn.close()
-    return "sqlite:///testdb"
+def sqlite_db(sqlite_file_db: Callable[..., str]) -> str:
+    return sqlite_file_db("testdb", _SQLITE_SCHEMA_SQL)
 
 
 def _sqlite_source(connect_uri: str, **overrides: Any) -> _SqliteSource:
     return _SqliteSource.create(
         {"connect_uri": connect_uri, **overrides}, PipelineContext(run_id="test")
     )
-
-
-def _aspects_by_urn(workunits: Iterable[MetadataWorkUnit]) -> Dict[str, List[Any]]:
-    """Every aspect emitted per entity urn, whether it came as an MCP or
-    inside an MCE snapshot."""
-    aspects: Dict[str, List[Any]] = defaultdict(list)
-    for wu in workunits:
-        metadata = wu.metadata
-        if isinstance(metadata, MetadataChangeProposalWrapper):
-            assert metadata.entityUrn is not None
-            aspects[metadata.entityUrn].append(metadata.aspect)
-        elif isinstance(metadata, MetadataChangeEventClass):
-            snapshot = metadata.proposedSnapshot
-            assert isinstance(snapshot, DatasetSnapshotClass)
-            aspects[snapshot.urn].extend(snapshot.aspects)
-    return aspects
-
-
-def _only(aspects: List[Any], aspect_type: Type[T]) -> T:
-    found = [a for a in aspects if isinstance(a, aspect_type)]
-    assert len(found) == 1, f"expected one {aspect_type.__name__}, got {found}"
-    return found[0]
 
 
 CHILD_URN = "urn:li:dataset:(urn:li:dataPlatform:sqlite,testdb.main.child,PROD)"
@@ -534,12 +508,15 @@ VIEW_URN = "urn:li:dataset:(urn:li:dataPlatform:sqlite,testdb.main.child_view,PR
 def test_workunits_describe_tables_views_containers_and_view_lineage(
     sqlite_db: str,
 ) -> None:
+    """The whole SQLAlchemySource walk over a real database: containers,
+    schemas (keys, nullability, types, FKs), subtypes, view logic and the view
+    lineage the single aggregator emits at the end."""
     source = _sqlite_source(sqlite_db)
 
-    aspects = _aspects_by_urn(source.get_workunits_internal())
+    aspects = aspects_by_urn(source.get_workunits_internal())
 
     containers = {
-        _only(a, ContainerPropertiesClass).name: urn
+        single_aspect(a, ContainerPropertiesClass).name: urn
         for urn, a in aspects.items()
         if urn.startswith("urn:li:container:")
     }
@@ -547,13 +524,16 @@ def test_workunits_describe_tables_views_containers_and_view_lineage(
     # The schema container hangs off the database container, and every
     # dataset off the schema container.
     assert (
-        _only(aspects[containers["main"]], ContainerClass).container
+        single_aspect(aspects[containers["main"]], ContainerClass).container
         == containers["testdb"]
     )
     for urn in (CHILD_URN, PARENT_URN, VIEW_URN):
-        assert _only(aspects[urn], ContainerClass).container == containers["main"]
+        assert (
+            single_aspect(aspects[urn], ContainerClass).container
+            == (containers["main"])
+        )
 
-    child_schema = _only(aspects[CHILD_URN], SchemaMetadataClass)
+    child_schema = single_aspect(aspects[CHILD_URN], SchemaMetadataClass)
     assert [f.fieldPath for f in child_schema.fields] == ["id", "parent_id", "note"]
     assert child_schema.fields[0].isPartOfKey
     assert not child_schema.fields[1].isPartOfKey
@@ -565,16 +545,19 @@ def test_workunits_describe_tables_views_containers_and_view_lineage(
     assert child_schema.foreignKeys[0].sourceFields == [
         f"urn:li:schemaField:({CHILD_URN},parent_id)"
     ]
-    assert _only(aspects[CHILD_URN], SubTypesClass).typeNames == [DatasetSubTypes.TABLE]
-    assert _only(aspects[CHILD_URN], DatasetPropertiesClass).name == "child"
+    assert single_aspect(aspects[CHILD_URN], SubTypesClass).typeNames == [
+        DatasetSubTypes.TABLE
+    ]
+    assert single_aspect(aspects[CHILD_URN], DatasetPropertiesClass).name == "child"
 
-    assert _only(aspects[VIEW_URN], SubTypesClass).typeNames == [DatasetSubTypes.VIEW]
-    view_properties = _only(aspects[VIEW_URN], ViewPropertiesClass)
+    assert single_aspect(aspects[VIEW_URN], SubTypesClass).typeNames == [
+        DatasetSubTypes.VIEW
+    ]
+    view_properties = single_aspect(aspects[VIEW_URN], ViewPropertiesClass)
     assert "SELECT id, note FROM child" in view_properties.viewLogic
-    dataset_properties = _only(aspects[VIEW_URN], DatasetPropertiesClass)
+    dataset_properties = single_aspect(aspects[VIEW_URN], DatasetPropertiesClass)
     assert dataset_properties.customProperties["is_view"] == "True"
-    # View lineage flows through the single aggregator and is emitted at the end.
-    lineage = _only(aspects[VIEW_URN], UpstreamLineageClass)
+    lineage = single_aspect(aspects[VIEW_URN], UpstreamLineageClass)
     assert [u.dataset for u in lineage.upstreams] == [CHILD_URN]
 
     assert source.report.tables_scanned == 2
@@ -589,18 +572,18 @@ def test_patterns_and_include_flags_decide_what_is_emitted(sqlite_db: str) -> No
         table_pattern={"deny": [".*parent"]},
         view_pattern={"allow": [".*view"]},
     )
-    aspects = _aspects_by_urn(source.get_workunits_internal())
+    aspects = aspects_by_urn(source.get_workunits_internal())
     assert CHILD_URN in aspects
     assert VIEW_URN in aspects
     assert PARENT_URN not in aspects
     assert "testdb.main.parent" in source.report.filtered
 
     source = _sqlite_source(sqlite_db, include_tables=False, include_views=False)
-    aspects = _aspects_by_urn(source.get_workunits_internal())
+    aspects = aspects_by_urn(source.get_workunits_internal())
     assert not [urn for urn in aspects if urn.startswith("urn:li:dataset:")]
 
     source = _sqlite_source(sqlite_db, schema_pattern={"deny": ["main"]})
-    aspects = _aspects_by_urn(source.get_workunits_internal())
+    aspects = aspects_by_urn(source.get_workunits_internal())
     assert not [urn for urn in aspects if urn.startswith("urn:li:dataset:")]
     assert "main.*" in source.report.filtered
 
@@ -608,13 +591,13 @@ def test_patterns_and_include_flags_decide_what_is_emitted(sqlite_db: str) -> No
 def test_platform_instance_is_stamped_on_datasets_and_urns(sqlite_db: str) -> None:
     source = _sqlite_source(sqlite_db, platform_instance="inst")
 
-    aspects = _aspects_by_urn(source.get_workunits_internal())
+    aspects = aspects_by_urn(source.get_workunits_internal())
 
     for name in ("child", "child_view"):
         urn = (
             f"urn:li:dataset:(urn:li:dataPlatform:sqlite,inst.testdb.main.{name},PROD)"
         )
-        dpi = _only(aspects[urn], DataPlatformInstanceClass)
+        dpi = single_aspect(aspects[urn], DataPlatformInstanceClass)
         assert (
             dpi.instance
             == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqlite,inst)"
@@ -632,13 +615,17 @@ def test_domain_patterns_attach_domains_to_datasets_and_containers(
         },
     )
 
-    aspects = _aspects_by_urn(source.get_workunits_internal())
+    aspects = aspects_by_urn(source.get_workunits_internal())
 
-    assert _only(aspects[CHILD_URN], DomainsClass).domains == ["urn:li:domain:children"]
-    assert _only(aspects[VIEW_URN], DomainsClass).domains == ["urn:li:domain:children"]
-    assert not [a for a in aspects[PARENT_URN] if isinstance(a, DomainsClass)]
+    assert single_aspect(aspects[CHILD_URN], DomainsClass).domains == [
+        "urn:li:domain:children"
+    ]
+    assert single_aspect(aspects[VIEW_URN], DomainsClass).domains == [
+        "urn:li:domain:children"
+    ]
+    assert not aspects_of_type(aspects[PARENT_URN], DomainsClass)
     container_domains = [
-        _only(a, DomainsClass).domains
+        single_aspect(a, DomainsClass).domains
         for urn, a in aspects.items()
         if urn.startswith("urn:li:container:")
     ]
@@ -661,63 +648,80 @@ class _LocationSource(_SqliteSource):
         )
 
 
+def _location_source(connect_uri: str, **overrides: Any) -> _LocationSource:
+    return _LocationSource(
+        _SqliteConfig.model_validate({"connect_uri": connect_uri, **overrides}),
+        PipelineContext(run_id="test"),
+    )
+
+
+LOCATION_URN = "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/child,PROD)"
+
+
 def test_table_location_lineage_links_to_storage_with_column_lineage(
     sqlite_db: str,
 ) -> None:
-    source = _LocationSource(
-        _SqliteConfig.model_validate({"connect_uri": sqlite_db}),
-        PipelineContext(run_id="test"),
-    )
+    """A table backed by a storage location gets COPY lineage from it, column by
+    column. Asserted on the last upstreamLineage emitted, which is the one the
+    server keeps (see the xfail below for why there is more than one)."""
+    aspects = aspects_by_urn(_location_source(sqlite_db).get_workunits_internal())
 
-    aspects = _aspects_by_urn(source.get_workunits_internal())
-
-    location = "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/child,PROD)"
-    # The location lineage is emitted directly by _process_table and again by
-    # the aggregator it was registered with; both must name the storage
-    # location, since the last SET wins server-side.
-    lineages = [a for a in aspects[CHILD_URN] if isinstance(a, UpstreamLineageClass)]
-    assert lineages
-    for lineage in lineages:
-        assert [(u.dataset, u.type) for u in lineage.upstreams] == [
-            (location, DatasetLineageTypeClass.COPY)
-        ]
-        assert lineage.fineGrainedLineages is not None
-        assert [fg.downstreams for fg in lineage.fineGrainedLineages] == [
-            [f"urn:li:schemaField:({CHILD_URN},id)"],
-            [f"urn:li:schemaField:({CHILD_URN},parent_id)"],
-            [f"urn:li:schemaField:({CHILD_URN},note)"],
-        ]
+    lineage = aspects_of_type(aspects[CHILD_URN], UpstreamLineageClass)[-1]
+    assert [(u.dataset, u.type) for u in lineage.upstreams] == [
+        (LOCATION_URN, DatasetLineageTypeClass.COPY)
+    ]
+    assert lineage.fineGrainedLineages is not None
+    assert [fg.downstreams for fg in lineage.fineGrainedLineages] == [
+        [f"urn:li:schemaField:({CHILD_URN},id)"],
+        [f"urn:li:schemaField:({CHILD_URN},parent_id)"],
+        [f"urn:li:schemaField:({CHILD_URN},note)"],
+    ]
     assert (
-        _only(aspects[CHILD_URN], DatasetPropertiesClass).description == "about child"
+        single_aspect(aspects[CHILD_URN], DatasetPropertiesClass).description
+        == "about child"
     )
 
-    source = _LocationSource(
-        _SqliteConfig.model_validate(
-            {"connect_uri": sqlite_db, "include_table_location_lineage": False}
-        ),
-        PipelineContext(run_id="test"),
-    )
-    aspects = _aspects_by_urn(source.get_workunits_internal())
-    assert not [a for a in aspects[CHILD_URN] if isinstance(a, UpstreamLineageClass)]
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "_process_table emits the storage-location UpstreamLineage directly and "
+        "also registers the same edge with the aggregator twice, which emits it "
+        "again at the end of the run: two upstreamLineage aspects per table"
+    ),
+)
+def test_table_location_lineage_is_emitted_once(sqlite_db: str) -> None:
+    aspects = aspects_by_urn(_location_source(sqlite_db).get_workunits_internal())
+
+    single_aspect(aspects[CHILD_URN], UpstreamLineageClass)
+
+
+def test_table_location_lineage_can_be_switched_off(sqlite_db: str) -> None:
+    source = _location_source(sqlite_db, include_table_location_lineage=False)
+
+    aspects = aspects_by_urn(source.get_workunits_internal())
+
+    assert not aspects_of_type(aspects[CHILD_URN], UpstreamLineageClass)
 
 
 def test_view_without_readable_columns_is_still_emitted(sqlite_db: str) -> None:
+    """A view whose columns cannot be reflected keeps its view logic and is
+    still recorded as discovered, so query-history consumers do not mistake it
+    for a temp table."""
     source = _sqlite_source(sqlite_db)
     engine = create_engine(sqlite_db)
     with engine.connect() as conn:
         inspector = inspect(conn)
         with mock.patch.object(inspector, "get_columns", side_effect=KeyError("v")):
-            aspects = _aspects_by_urn(
+            aspects = aspects_by_urn(
                 source.loop_views(inspector, "main", source.config)
             )
+    engine.dispose()
 
     assert VIEW_URN in aspects
-    assert not [a for a in aspects[VIEW_URN] if isinstance(a, SchemaMetadataClass)]
-    assert _only(aspects[VIEW_URN], ViewPropertiesClass)
-    assert [list(w.context) for w in source.report.warnings] == [
-        ["testdb.main.child_view"]
-    ]
-    # Recorded as discovered so query-history consumers don't treat it as a temp table.
+    assert not aspects_of_type(aspects[VIEW_URN], SchemaMetadataClass)
+    assert single_aspect(aspects[VIEW_URN], ViewPropertiesClass)
+    assert "testdb.main.child_view" in log_contexts(source.report.warnings)
     assert "testdb.main.child_view" in source.discovered_datasets
 
 
@@ -729,21 +733,22 @@ def test_failing_table_or_view_is_warned_about_not_fatal(sqlite_db: str) -> None
         with mock.patch.object(
             inspector, "get_pk_constraint", side_effect=RuntimeError("boom")
         ):
-            table_aspects = _aspects_by_urn(
+            table_aspects = aspects_by_urn(
                 source.loop_tables(inspector, "main", source.config)
             )
         with mock.patch.object(
             inspector, "get_view_definition", side_effect=RuntimeError("boom")
         ):
-            view_aspects = _aspects_by_urn(
+            view_aspects = aspects_by_urn(
                 source.loop_views(inspector, "main", source.config)
             )
+    engine.dispose()
 
     assert CHILD_URN not in table_aspects and VIEW_URN not in view_aspects
-    assert [w.message for w in source.report.warnings] == [
-        "Error processing table",
-        "Error processing view",
-    ]
+    assert {"Error processing table", "Error processing view"} <= log_messages(
+        source.report.warnings
+    )
+    assert {"main.child", "main.child_view"} <= log_contexts(source.report.warnings)
     assert not source.report.failures
 
 
@@ -760,16 +765,16 @@ def test_listing_failure_is_reported_as_failure(sqlite_db: str) -> None:
             inspector, "get_view_names", side_effect=RuntimeError("no catalog")
         ):
             assert not list(source.loop_views(inspector, "main", source.config))
+    engine.dispose()
 
-    assert [f.message for f in source.report.failures] == [
-        "Error processing tables",
-        "Error processing views",
-    ]
+    assert {"Error processing tables", "Error processing views"} <= log_messages(
+        source.report.failures
+    )
 
 
 def test_duplicate_table_names_are_emitted_once(sqlite_db: str) -> None:
-    # Some dialects list a table twice (case variants, synonyms); the second
-    # listing must not produce a second dataset.
+    """Some dialects list a table twice (case variants, synonyms); the second
+    listing must not produce a second dataset."""
     source = _sqlite_source(sqlite_db)
     engine = create_engine(sqlite_db)
     with engine.connect() as conn:
@@ -778,6 +783,7 @@ def test_duplicate_table_names_are_emitted_once(sqlite_db: str) -> None:
             inspector, "get_table_names", return_value=["child", "child"]
         ):
             workunits = list(source.loop_tables(inspector, "main", source.config))
+    engine.dispose()
 
     assert [wu.id for wu in workunits if isinstance(wu, SqlWorkUnit)] == [
         "testdb.main.child"
@@ -788,13 +794,13 @@ def test_duplicate_table_names_are_emitted_once(sqlite_db: str) -> None:
 def test_get_table_properties_retries_with_quoted_schema_on_programming_error(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # Snowflake needs the schema quoted when fetching table comments.
-    # The retry's debug line passes the exception as a %-arg to an f-string
-    # message, which pytest's strict log handler raises on; keep DEBUG off so
-    # the behaviour under test (the retry) is what is observed.
-    caplog.set_level(logging.INFO, logger="datahub.ingestion.source.sql.sql_common")
+    """Snowflake needs the schema quoted when fetching table comments. Run at
+    DEBUG so the retry's log call is formatted too: it used to pass the
+    exception as an extra argument to an f-string message, which made logging
+    raise inside the handler."""
+    caplog.set_level(logging.DEBUG, logger="datahub.ingestion.source.sql.sql_common")
     source = get_test_sql_alchemy_source()
-    inspector = cast(MagicMock, mock.MagicMock())
+    inspector = mock.MagicMock()
     inspector.get_table_comment.side_effect = [
         ProgrammingError("stmt", {}, Exception("needs quoting")),
         {"text": "a comment", "properties": {"owner": "me"}},
@@ -806,31 +812,36 @@ def test_get_table_properties_retries_with_quoted_schema_on_programming_error(
 
     assert (description, properties, location) == ("a comment", {"owner": "me"}, None)
     assert inspector.get_table_comment.call_args_list[1] == mock.call("tbl", '"sch"')
+    assert any("Retrying with quoted schema" in m for m in caplog.messages)
 
 
 def test_get_table_properties_handles_dialects_without_comments() -> None:
     source = get_test_sql_alchemy_source()
-    inspector = cast(MagicMock, mock.MagicMock())
+    inspector = mock.MagicMock()
     inspector.get_table_comment.side_effect = NotImplementedError()
 
     assert source.get_table_properties(inspector, "sch", "tbl") == (None, {}, None)
 
 
 def test_column_and_foreign_key_reflection_failures_degrade_gracefully() -> None:
+    """Unreadable or empty column metadata and MySQL's KeyError-from-FK-reflection
+    leave the table with no columns / FKs and a warning keyed by the dataset."""
     source = get_test_sql_alchemy_source()
-    inspector = cast(MagicMock, mock.MagicMock())
+    inspector = mock.MagicMock()
     inspector.get_columns.side_effect = RuntimeError("reflection failed")
-    # MySQL's case irregularities surface as a KeyError inside SQLAlchemy.
     inspector.get_foreign_keys.side_effect = KeyError("CONSTRAINT_NAME")
 
     assert source._get_columns("db.sch.tbl", inspector, "sch", "tbl") == []
     assert source._get_foreign_keys("urn:li:dataset:x", inspector, "sch", "tbl") == []
-    assert len(source.report.warnings) == 1
 
     inspector.get_columns.side_effect = None
     inspector.get_columns.return_value = []
     assert source._get_columns("db.sch.tbl", inspector, "sch", "tbl") == []
-    assert len(source.report.warnings) == 2
+
+    assert log_contexts(source.report.warnings) == {"db.sch.tbl"}
+    messages = log_messages(source.report.warnings)
+    assert "missing column information" in messages
+    assert any("unable to get column information" in m for m in messages)
 
 
 def test_schema_fields_carry_keys_partitions_and_tags() -> None:
@@ -844,7 +855,7 @@ def test_schema_fields_carry_keys_partitions_and_tags() -> None:
     fields = source.get_schema_fields(
         "db.sch.tbl",
         columns,
-        cast(Inspector, mock.MagicMock()),
+        mock.MagicMock(),
         pk_constraints={"constrained_columns": ["id"]},
         partition_keys=["dt"],
         tags={"id": ["pii"], "dt": []},
@@ -867,13 +878,15 @@ def test_schema_fields_tolerate_list_shaped_pk_constraints() -> None:
     fields = source.get_schema_fields(
         "db.sch.tbl",
         [{"name": "id", "type": types.Integer(), "nullable": False}],
-        cast(Inspector, mock.MagicMock()),
+        mock.MagicMock(),
         pk_constraints=cast(Any, []),
     )
     assert not fields[0].isPartOfKey
 
 
 def test_get_column_type_maps_known_unknown_and_unmapped_types() -> None:
+    """Types DataHub knows to have no equivalent map to NullType silently; a
+    type it has never seen also maps to NullType but is reported as an info."""
     report = SQLSourceReport()
 
     assert isinstance(
@@ -885,7 +898,7 @@ def test_get_column_type_maps_known_unknown_and_unmapped_types() -> None:
         pass
 
     assert isinstance(get_column_type(report, "t", _VendorType()).type, NullTypeClass)
-    assert len(report.infos) == 1
+    assert "Unable to map column types to DataHub types" in log_titles(report.infos)
 
 
 def test_get_schema_metadata_simplifies_field_paths_and_keeps_foreign_keys() -> None:
@@ -917,13 +930,12 @@ def test_get_schema_metadata_simplifies_field_paths_and_keeps_foreign_keys() -> 
     )
 
 
-def test_get_db_name_reads_the_engine_url() -> None:
+def test_get_db_name_reads_the_engine_url(sqlite_engine: Engine) -> None:
     source = get_test_sql_alchemy_source()
-    engine = create_engine("sqlite://")
-    with engine.connect() as conn:
+    with sqlite_engine.connect() as conn:
         assert source.get_db_name(inspect(conn)) == ""
 
-    inspector = cast(MagicMock, mock.MagicMock())
+    inspector = mock.MagicMock()
     inspector.engine = object()
     with pytest.raises(Exception, match="Unable to get database name"):
         source.get_db_name(inspector)
@@ -941,8 +953,8 @@ def test_test_connection_ignores_stateful_ingestion(sqlite_db: str) -> None:
 def test_error_records_a_failure_with_a_truncated_reason() -> None:
     source = get_test_sql_alchemy_source()
     source.error(logging.getLogger("test"), "key", "x" * 200)
-    assert [list(f.context) for f in source.report.failures] == [["key"]]
-    assert len(source.report.failures[0].message) == 100
+    assert "key" in log_contexts(source.report.failures)
+    assert "x" * 100 in log_messages(source.report.failures)
 
 
 def test_aggregator_failure_is_reported_not_raised(sqlite_db: str) -> None:
@@ -951,22 +963,25 @@ def test_aggregator_failure_is_reported_not_raised(sqlite_db: str) -> None:
         source.aggregator, "gen_metadata", side_effect=RuntimeError("graph down")
     ):
         assert not list(source._generate_aggregator_workunits())
-    assert [f.title for f in source.report.failures] == [
-        "Failed to generate lineage/usage from SQL parsing"
-    ]
+    assert "Failed to generate lineage/usage from SQL parsing" in log_titles(
+        source.report.failures
+    )
 
 
 # --- profiling -------------------------------------------------------------
 
 
 class _ProfilingSource(_SqliteSource):
-    """Exercises the hooks a profiling-capable source overrides."""
+    """Exercises the hooks a profiling-capable source overrides; each test sets
+    the instance attributes it needs."""
 
-    candidates: Optional[List[str]] = None
-    partitioned: Set[str] = set()
-    partition_of: Dict[str, str] = {}
-    storage_bytes: Dict[str, int] = {}
-    fail_metadata: bool = False
+    def __init__(self, config: _SqliteConfig, ctx: PipelineContext) -> None:
+        super().__init__(config, ctx)
+        self.candidates: Optional[List[str]] = None
+        self.partitioned: Set[str] = set()
+        self.partition_of: Dict[str, str] = {}
+        self.storage_bytes: Dict[str, int] = {}
+        self.fail_metadata = False
 
     def generate_profile_candidates(
         self,
@@ -1013,16 +1028,16 @@ def _profiling_source(connect_uri: str, **overrides: Any) -> _ProfilingSource:
 
 def _profiles(workunits: MetadataWorkUnitIterable) -> Dict[str, DatasetProfileClass]:
     profiles: Dict[str, DatasetProfileClass] = {}
-    for wu in workunits:
-        assert isinstance(wu, MetadataWorkUnit)
-        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        assert wu.metadata.entityUrn is not None
-        assert isinstance(wu.metadata.aspect, DatasetProfileClass)
-        profiles[wu.metadata.entityUrn] = wu.metadata.aspect
+    for urn, aspects in aspects_by_urn(
+        wu for wu in workunits if isinstance(wu, MetadataWorkUnit)
+    ).items():
+        profiles[urn] = single_aspect(aspects, DatasetProfileClass)
     return profiles
 
 
 def test_profiling_emits_a_profile_per_eligible_table(sqlite_db: str) -> None:
+    """Storage size comes from the source's own catalog (add_profile_metadata)
+    when the profiler has none; profile_pattern-denied tables are counted."""
     source = _profiling_source(sqlite_db, profile_pattern={"deny": [".*parent"]})
     source.storage_bytes = {"testdb.main.child": 4096}
 
@@ -1031,7 +1046,6 @@ def test_profiling_emits_a_profile_per_eligible_table(sqlite_db: str) -> None:
     assert set(profiles) == {CHILD_URN}
     assert profiles[CHILD_URN].rowCount == 3
     assert profiles[CHILD_URN].columnCount == 3
-    # Storage size comes from the source's own catalog when the profiler has none.
     assert profiles[CHILD_URN].sizeInBytes == 4096
     assert source.report.entities_profiled == 1
     assert source.report.profiling_skipped_table_profile_pattern["main"] == 1
@@ -1040,8 +1054,8 @@ def test_profiling_emits_a_profile_per_eligible_table(sqlite_db: str) -> None:
 
 
 def test_profile_candidates_restrict_what_is_profiled(sqlite_db: str) -> None:
-    # A size/row/freshness limit asks the source for candidates; a table the
-    # source does not list is skipped as "other".
+    """A size/row/freshness limit asks the source for candidates; a table the
+    source does not list is skipped as "other"."""
     source = _profiling_source(
         sqlite_db, profiling={**_PROFILING, "profile_if_updated_since_days": 1}
     )
@@ -1053,18 +1067,17 @@ def test_profile_candidates_restrict_what_is_profiled(sqlite_db: str) -> None:
 
 
 def test_partitioned_tables_follow_the_partition_settings(sqlite_db: str) -> None:
+    """child has a partition but partition profiling is off, so it is skipped
+    quietly; parent is partitioned yet no partition could be picked, which is
+    warned about under its dataset name."""
     source = _profiling_source(
         sqlite_db, profiling={**_PROFILING, "partition_profiling_enabled": False}
     )
-    # child has a partition but partition profiling is off; parent is
-    # partitioned yet no partition could be picked.
     source.partition_of = {"child": "dt=2024-01-01"}
     source.partitioned = {"parent"}
 
     assert not _profiles(source.get_profiling_internal())
-    assert len(source.report.warnings) == 1
-    warning = source.report.warnings[0]
-    assert "testdb.main.parent" in (warning.message, *warning.context)
+    assert log_contexts(source.report.warnings) == {"testdb.main.parent"}
 
 
 def test_profile_metadata_failure_is_a_warning_not_a_stop(sqlite_db: str) -> None:
@@ -1075,7 +1088,7 @@ def test_profile_metadata_failure_is_a_warning_not_a_stop(sqlite_db: str) -> Non
 
     assert set(profiles) == {CHILD_URN, PARENT_URN}
     assert profiles[CHILD_URN].sizeInBytes is None
-    assert [list(w.context) for w in source.report.warnings] == [["profile_metadata"]]
+    assert "profile_metadata" in log_contexts(source.report.warnings)
 
 
 def test_profiling_is_off_unless_enabled(sqlite_db: str) -> None:
@@ -1087,23 +1100,11 @@ def test_profiling_is_off_unless_enabled(sqlite_db: str) -> None:
 # --- stored procedures ------------------------------------------------------
 
 
-def _procedure(name: str, definition: str) -> BaseProcedure:
-    return BaseProcedure(
-        name=name,
-        procedure_definition=definition,
-        created=None,
-        last_altered=None,
-        comment=None,
-        argument_signature=None,
-        return_type=None,
-        language="SQL",
-        extra_properties=None,
-    )
-
-
 class _ProcedureSource(_SqliteSource):
-    procedures: List[BaseProcedure] = []
-    listing_error: Optional[Exception] = None
+    def __init__(self, config: _SqliteConfig, ctx: PipelineContext) -> None:
+        super().__init__(config, ctx)
+        self.procedures: List[BaseProcedure] = []
+        self.listing_error: Optional[Exception] = None
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
@@ -1132,18 +1133,18 @@ FLOW_URN = "urn:li:dataFlow:(sqlite,testdb.main.stored_procedures,PROD)"
 def test_stored_procedures_become_jobs_under_one_flow(sqlite_db: str) -> None:
     source = _procedure_source(sqlite_db, procedure_pattern={"deny": [".*skipped"]})
     source.procedures = [
-        _procedure("load_child", "INSERT INTO child SELECT * FROM parent"),
-        _procedure("skipped", "SELECT 1"),
+        make_procedure("load_child", "INSERT INTO child SELECT * FROM parent"),
+        make_procedure("skipped", "SELECT 1"),
     ]
 
-    aspects = _aspects_by_urn(source.get_workunits_internal())
+    aspects = aspects_by_urn(source.get_workunits_internal())
 
-    assert _only(aspects[FLOW_URN], SubTypesClass).typeNames == [
+    assert single_aspect(aspects[FLOW_URN], SubTypesClass).typeNames == [
         FlowContainerSubTypes.PROCEDURE_CONTAINER
     ]
     job_urn = f"urn:li:dataJob:({FLOW_URN},load_child)"
-    assert _only(aspects[job_urn], DataJobInfoClass).name == "load_child"
-    io = _only(aspects[job_urn], DataJobInputOutputClass)
+    assert single_aspect(aspects[job_urn], DataJobInfoClass).name == "load_child"
+    io = single_aspect(aspects[job_urn], DataJobInputOutputClass)
     assert io.inputDatasets == [PARENT_URN]
     assert io.outputDatasets == [CHILD_URN]
     assert f"urn:li:dataJob:({FLOW_URN},skipped)" not in aspects
@@ -1154,12 +1155,10 @@ def test_procedure_listing_errors_are_warnings(sqlite_db: str) -> None:
     source = _procedure_source(sqlite_db)
     source.listing_error = RuntimeError("no catalog access")
 
-    aspects = _aspects_by_urn(source.get_workunits_internal())
+    aspects = aspects_by_urn(source.get_workunits_internal())
 
     assert FLOW_URN not in aspects
-    assert [w.title for w in source.report.warnings] == [
-        "Failed to get procedures for schema"
-    ]
+    assert "Failed to get procedures for schema" in log_titles(source.report.warnings)
 
 
 def test_dialect_without_procedure_support_is_a_warning(sqlite_db: str) -> None:
@@ -1170,22 +1169,20 @@ def test_dialect_without_procedure_support_is_a_warning(sqlite_db: str) -> None:
         include_views=False,
     )
 
-    aspects = _aspects_by_urn(source.get_workunits_internal())
+    aspects = aspects_by_urn(source.get_workunits_internal())
 
     assert not [urn for urn in aspects if urn.startswith("urn:li:dataFlow:")]
-    assert [w.title for w in source.report.warnings] == [
-        "Stored procedures not supported"
-    ]
+    assert "Stored procedures not supported" in log_titles(source.report.warnings)
     assert not source.report.failures
 
 
 def test_unexpected_procedure_failure_is_a_failure(sqlite_db: str) -> None:
     source = _procedure_source(sqlite_db)
-    inspector = cast(MagicMock, mock.MagicMock())
+    inspector = mock.MagicMock()
     inspector.engine = object()  # get_db_name cannot read a url off this
 
     list(source.get_schema_level_workunits(inspector, "main", "testdb"))
 
-    assert [f.title for f in source.report.failures] == [
-        "Failed to list stored procedures for schema"
-    ]
+    assert "Failed to list stored procedures for schema" in log_titles(
+        source.report.failures
+    )

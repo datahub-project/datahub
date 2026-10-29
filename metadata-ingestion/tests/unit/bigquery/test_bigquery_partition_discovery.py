@@ -20,9 +20,13 @@ from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discover
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.types import (
     CachedPartitionMetadata,
 )
-from tests.unit.bigquery.test_bigquery_profiling import make_config, make_table
+from tests.unit.bigquery.conftest import (
+    PROFILING_PROJECT,
+    make_profiling_config,
+    make_table,
+)
 
-PROJECT = "test-project-123456"
+PROJECT = PROFILING_PROJECT
 SCHEMA = "ds"
 TABLE_REF = f"`{PROJECT}`.`{SCHEMA}`.`test_table`"
 
@@ -82,7 +86,7 @@ class TestPartitionRangeFromPartitionId:
 
 class TestPartitionColumnsFromDdl:
     def test_missing_or_unpartitioned_ddl_yields_nothing(self) -> None:
-        discovery = PartitionDiscovery(make_config())
+        discovery = PartitionDiscovery(make_profiling_config())
 
         def execute(query: str, job_config: Any, context: str) -> list:
             raise AssertionError("no query expected")
@@ -104,7 +108,7 @@ class TestPartitionColumnsFromDdl:
         )
 
     def test_range_bucket_partition_resolves_to_bucketed_column(self) -> None:
-        discovery = PartitionDiscovery(make_config())
+        discovery = PartitionDiscovery(make_profiling_config())
         execute, _ = recording_execute(
             lambda q: [row(column_name="user_id", data_type="INT64")]
         )
@@ -119,7 +123,7 @@ class TestPartitionColumnsFromDdl:
 
     def test_unparseable_ddl_is_reported_not_raised(self) -> None:
         report = BigQueryV2Report()
-        discovery = PartitionDiscovery(make_config(), report)
+        discovery = PartitionDiscovery(make_profiling_config(), report)
         execute, _ = recording_execute(lambda q: [])
 
         result = discovery.get_partition_columns_from_ddl(
@@ -135,7 +139,7 @@ class TestDiscoveryPriority:
 
     def test_cached_metadata_skips_information_schema_columns_lookups(self) -> None:
         report = BigQueryV2Report()
-        discovery = PartitionDiscovery(make_config(), report)
+        discovery = PartitionDiscovery(make_profiling_config(), report)
         execute, queries = recording_execute(lambda q: [])
         cached = CachedPartitionMetadata(
             partition_columns=["dt", "dt"], column_types={"dt": "DATE"}
@@ -157,7 +161,7 @@ class TestDiscoveryPriority:
             ) -> Optional[List[str]]:
                 return ["`dt` = '2024-01-15'"]
 
-        discovery = ZeroScan(make_config())
+        discovery = ZeroScan(make_profiling_config())
         execute, queries = recording_execute(lambda q: [])
         table = make_table(
             max_partition_id="20240115", partition_info=PartitionInfo(fields=("dt",))
@@ -185,7 +189,7 @@ class TestDiscoveryPriority:
                 self.direct_called = True
                 return ["`dt` = '1999-01-01'"]
 
-        discovery = Spy(make_config())
+        discovery = Spy(make_profiling_config())
         execute, _ = recording_execute(lambda q: [])
         table = make_table(partition_info=PartitionInfo(fields=("dt",)))
 
@@ -212,10 +216,10 @@ class TestDiscoveryPriority:
         execute, _ = recording_execute(lambda q: [])
         table = make_table(partition_info=PartitionInfo(fields=("dt",)))
 
-        assert DirectWins(make_config()).get_required_partition_filters(
+        assert DirectWins(make_profiling_config()).get_required_partition_filters(
             table, PROJECT, SCHEMA, execute
         ) == ["`dt` = '2024-01-15'"]
-        assert SamplingWins(make_config()).get_required_partition_filters(
+        assert SamplingWins(make_profiling_config()).get_required_partition_filters(
             table, PROJECT, SCHEMA, execute
         ) == ["`dt` = '2024-01-14'"]
 
@@ -238,7 +242,7 @@ class TestDiscoveryPriority:
     def test_tables_that_cannot_be_scanned_unfiltered_are_skipped(
         self, table: BigqueryTable
     ) -> None:
-        discovery = PartitionDiscovery(make_config())
+        discovery = PartitionDiscovery(make_profiling_config())
         execute, _ = recording_execute(lambda q: [])
 
         assert (
@@ -255,7 +259,7 @@ class TestDiscoveryPriority:
             ) -> Optional[List[str]]:
                 return ["`region` = 'eu'"]
 
-        discovery = ExternalAware(make_config())
+        discovery = ExternalAware(make_profiling_config())
         execute, _ = recording_execute(lambda q: [])
 
         filters = discovery.get_required_partition_filters(
@@ -269,7 +273,7 @@ class TestPartitionDatetimeOverride:
     def test_composite_key_ignores_configured_partition_datetime(self) -> None:
         report = BigQueryV2Report()
         discovery = PartitionDiscovery(
-            make_config(partition_datetime="2024-01-15T00:00:00"), report
+            make_profiling_config(partition_datetime="2024-01-15T00:00:00"), report
         )
 
         result = discovery._get_partition_datetime_override_filters(
@@ -282,7 +286,7 @@ class TestPartitionDatetimeOverride:
     def test_non_temporal_column_ignores_configured_partition_datetime(self) -> None:
         report = BigQueryV2Report()
         discovery = PartitionDiscovery(
-            make_config(partition_datetime="2024-01-15T00:00:00"), report
+            make_profiling_config(partition_datetime="2024-01-15T00:00:00"), report
         )
 
         result = discovery._get_partition_datetime_override_filters(
@@ -298,7 +302,7 @@ class TestDirectTableQueryDiscovery:
         """A DATE column, year/month components and a non-date column: components
         are constrained by the resolved year, and the non-date column is picked within
         all earlier filters so the composite key actually co-occurs."""
-        discovery = PartitionDiscovery(make_config())
+        discovery = PartitionDiscovery(make_profiling_config())
         column_types = {
             "event_date": "DATE",
             "year": "INT64",
@@ -340,7 +344,7 @@ class TestDirectTableQueryDiscovery:
         }
 
     def test_no_partition_columns_runs_no_queries(self) -> None:
-        discovery = PartitionDiscovery(make_config())
+        discovery = PartitionDiscovery(make_profiling_config())
         execute, queries = recording_execute(lambda q: [])
 
         assert (
@@ -353,7 +357,7 @@ class TestDirectTableQueryDiscovery:
 
     def test_incomplete_date_hierarchy_discards_all_values(self) -> None:
         report = BigQueryV2Report()
-        discovery = PartitionDiscovery(make_config(), report)
+        discovery = PartitionDiscovery(make_profiling_config(), report)
 
         def respond(query: str) -> list:
             if "`year` as val" in query:
@@ -381,7 +385,7 @@ class TestDirectTableQueryDiscovery:
 
     def test_failing_or_empty_columns_are_dropped_with_warnings(self) -> None:
         report = BigQueryV2Report()
-        discovery = PartitionDiscovery(make_config(), report)
+        discovery = PartitionDiscovery(make_profiling_config(), report)
 
         def respond(query: str) -> list:
             if "`created_at`" in query:
@@ -410,7 +414,7 @@ class TestDirectTableQueryDiscovery:
 
     def test_component_query_failure_is_reported_and_yields_no_filter(self) -> None:
         report = BigQueryV2Report()
-        discovery = PartitionDiscovery(make_config(), report)
+        discovery = PartitionDiscovery(make_profiling_config(), report)
 
         def execute(query: str, job_config: Any, context: str) -> list:
             raise RuntimeError("timeout")
@@ -423,7 +427,7 @@ class TestDirectTableQueryDiscovery:
         assert warnings_titled(report, "Partition value discovery failed for column")
 
     def test_partition_columns_from_table_info_include_resolved_columns(self) -> None:
-        discovery = PartitionDiscovery(make_config())
+        discovery = PartitionDiscovery(make_profiling_config())
         column = BigqueryColumn(
             name="dt",
             ordinal_position=1,
@@ -443,7 +447,7 @@ class TestDirectTableQueryDiscovery:
 
 class TestValueFilter:
     def test_date_object_is_widened_to_its_day(self) -> None:
-        discovery = PartitionDiscovery(make_config())
+        discovery = PartitionDiscovery(make_profiling_config())
         filter_str = discovery._value_filter(
             make_table(), "dt", date(2024, 3, 15), "DATE"
         )
@@ -452,7 +456,7 @@ class TestValueFilter:
     def test_non_temporal_value_on_temporal_column_falls_back_to_safe_filter(
         self,
     ) -> None:
-        discovery = PartitionDiscovery(make_config())
+        discovery = PartitionDiscovery(make_profiling_config())
         assert (
             discovery._value_filter(make_table(), "dt", 20240315, "DATE")
             == "`dt` = '2024-03-15'"
@@ -475,7 +479,7 @@ class TestStrategicDateCandidate:
             ) -> Optional[List[str]]:
                 return None
 
-        return Candidate(make_config(**cfg), report)
+        return Candidate(make_profiling_config(**cfg), report)
 
     def test_filters_are_built_per_column_kind(self) -> None:
         discovery = self._discovery(
@@ -547,7 +551,7 @@ class TestStrategicDateCandidate:
 class TestFallbackFilters:
     def test_unbuildable_discovered_value_is_dropped_with_warning(self) -> None:
         report = BigQueryV2Report()
-        discovery = PartitionDiscovery(make_config(), report)
+        discovery = PartitionDiscovery(make_profiling_config(), report)
 
         filters = discovery._filters_from_partition_values(
             make_table(),
@@ -562,7 +566,7 @@ class TestFallbackFilters:
         self,
     ) -> None:
         report = BigQueryV2Report()
-        discovery = PartitionDiscovery(make_config(), report)
+        discovery = PartitionDiscovery(make_profiling_config(), report)
 
         filters = discovery._get_fallback_partition_filters(
             make_table(), PROJECT, SCHEMA, ["region"], {}
@@ -572,7 +576,7 @@ class TestFallbackFilters:
         assert warnings_titled(report, "Partition discovery fell back to full scan")
 
     def test_fallback_filter_per_column_kind(self) -> None:
-        discovery = PartitionDiscovery(make_config())
+        discovery = PartitionDiscovery(make_profiling_config())
         fallback_date = datetime(2024, 3, 15, tzinfo=timezone.utc)
         guessed: List[str] = []
 
@@ -593,7 +597,7 @@ class TestFallbackFilters:
 
     def test_invalid_configured_fallback_degrades_to_is_not_null(self) -> None:
         discovery = PartitionDiscovery(
-            make_config(fallback_partition_values={"bucket": "abc"})
+            make_profiling_config(fallback_partition_values={"bucket": "abc"})
         )
 
         filter_str = discovery._create_fallback_filter_for_column(
@@ -605,7 +609,7 @@ class TestFallbackFilters:
 
 class TestEnhanceWithActualValues:
     def test_placeholder_only_filters_cannot_be_enhanced(self) -> None:
-        discovery = PartitionDiscovery(make_config())
+        discovery = PartitionDiscovery(make_profiling_config())
         execute, queries = recording_execute(lambda q: [])
 
         result = discovery._enhance_partition_filters_with_actual_values(
@@ -617,7 +621,7 @@ class TestEnhanceWithActualValues:
 
     def test_unresolvable_non_date_columns_keep_placeholder_and_warn(self) -> None:
         report = BigQueryV2Report()
-        discovery = PartitionDiscovery(make_config(), report)
+        discovery = PartitionDiscovery(make_profiling_config(), report)
         column_types = {"dt": "DATE", "region": "STRING", "shard": "STRING"}
 
         def respond(query: str) -> list:
@@ -651,7 +655,7 @@ class TestEnhanceWithActualValues:
 
     def test_invalid_table_reference_is_reported_as_full_scan_fallback(self) -> None:
         report = BigQueryV2Report()
-        discovery = PartitionDiscovery(make_config(), report)
+        discovery = PartitionDiscovery(make_profiling_config(), report)
         execute, _ = recording_execute(lambda q: [])
 
         result = discovery._enhance_partition_filters_with_actual_values(
@@ -668,7 +672,7 @@ class TestEnhanceWithActualValues:
 
 
 def test_partition_column_types_prefer_cached_values() -> None:
-    discovery = PartitionDiscovery(make_config())
+    discovery = PartitionDiscovery(make_profiling_config())
     execute, queries = recording_execute(lambda q: [])
     cached = CachedPartitionMetadata(
         partition_columns=["dt"], column_types={"dt": "DATE", "x": "STRING"}

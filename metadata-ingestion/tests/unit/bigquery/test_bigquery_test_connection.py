@@ -1,3 +1,6 @@
+"""BigQueryTestConnection: the per-capability probes behind `datahub ingest
+test-connection`, and how their failures are reported rather than raised."""
+
 from types import SimpleNamespace
 from typing import Any, Dict, Iterator, Sequence
 from unittest.mock import MagicMock, patch
@@ -15,7 +18,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_test_connection import (
     BigQueryTestConnection,
 )
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
-from tests.unit.bigquery.test_bigquery_audit_log_api import v1_query_entry
+from tests.unit.bigquery.conftest import v1_query_entry
 
 
 def _bq_client(
@@ -65,7 +68,10 @@ class TestMetadataReadCapability:
         self, mocked_google_clients: Dict[str, MagicMock]
     ) -> None:
         with patch.object(
-            BigQuerySchemaApi, "get_datasets_for_project_id", return_value=[]
+            BigQuerySchemaApi,
+            "get_datasets_for_project_id",
+            autospec=True,
+            return_value=[],
         ):
             report = BigQueryTestConnection.metadata_read_capability_test(
                 ["proj-a"], self._config()
@@ -79,9 +85,15 @@ class TestMetadataReadCapability:
             patch.object(
                 BigQuerySchemaApi,
                 "get_datasets_for_project_id",
+                autospec=True,
                 return_value=[BigqueryDataset(name="ds")],
             ),
-            patch.object(BigQuerySchemaApi, "get_tables_for_dataset", return_value=[]),
+            patch.object(
+                BigQuerySchemaApi,
+                "get_tables_for_dataset",
+                autospec=True,
+                return_value=[],
+            ),
         ):
             report = BigQueryTestConnection.metadata_read_capability_test(
                 ["proj-a"], self._config()
@@ -94,6 +106,7 @@ class TestMetadataReadCapability:
         with patch.object(
             BigQuerySchemaApi,
             "get_datasets_for_project_id",
+            autospec=True,
             side_effect=RuntimeError("403 forbidden"),
         ):
             report = BigQueryTestConnection.metadata_read_capability_test(
@@ -109,10 +122,14 @@ class TestMetadataReadCapability:
             patch.object(
                 BigQuerySchemaApi,
                 "get_datasets_for_project_id",
+                autospec=True,
                 return_value=[BigqueryDataset(name="ds")],
             ),
             patch.object(
-                BigQuerySchemaApi, "get_tables_for_dataset", return_value=[object()]
+                BigQuerySchemaApi,
+                "get_tables_for_dataset",
+                autospec=True,
+                return_value=[object()],
             ),
         ):
             report = BigQueryTestConnection.metadata_read_capability_test(
@@ -176,6 +193,9 @@ class TestLineageAndUsageCapability:
     def test_usage_failure_recorded_in_report_is_not_capable(
         self, mocked_google_clients: Dict[str, MagicMock]
     ) -> None:
+        """The usage probe reports permission problems on the structured report
+        instead of raising, so the connection test must read the report."""
+
         def record_failure(self: BigQueryUsageExtractor, project_id: str) -> None:
             self.report.failure(message="audit log query failed", context=project_id)
 
@@ -197,10 +217,14 @@ class TestFullConnectionReport:
             patch.object(
                 BigQuerySchemaApi,
                 "get_datasets_for_project_id",
+                autospec=True,
                 return_value=[BigqueryDataset(name="ds")],
             ) as datasets,
             patch.object(
-                BigQuerySchemaApi, "get_tables_for_dataset", return_value=[object()]
+                BigQuerySchemaApi,
+                "get_tables_for_dataset",
+                autospec=True,
+                return_value=[object()],
             ),
         ):
             report = BigQueryTestConnection.test_connection(
@@ -219,8 +243,8 @@ class TestFullConnectionReport:
             SourceCapability.USAGE_STATS,
         } <= set(report.capability_report)
         assert all(c.capable for c in report.capability_report.values())
-        # The project pattern limits which projects are probed.
-        probed_projects = [call.args[0] for call in datasets.call_args_list]
+        # The project pattern limits which projects are probed (args[0] is self).
+        probed_projects = [call.args[1] for call in datasets.call_args_list]
         assert probed_projects == ["proj-a"]
 
     def test_disabled_features_are_not_reported(
@@ -230,10 +254,14 @@ class TestFullConnectionReport:
             patch.object(
                 BigQuerySchemaApi,
                 "get_datasets_for_project_id",
+                autospec=True,
                 return_value=[BigqueryDataset(name="ds")],
             ),
             patch.object(
-                BigQuerySchemaApi, "get_tables_for_dataset", return_value=[object()]
+                BigQuerySchemaApi,
+                "get_tables_for_dataset",
+                autospec=True,
+                return_value=[object()],
             ),
         ):
             report = BigQueryTestConnection.test_connection(

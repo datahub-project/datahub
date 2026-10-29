@@ -1,11 +1,11 @@
 """Two-tier sources (MySQL, MariaDB, ClickHouse, ...) have no schema layer:
 the database is the container, and the Inspector's "schemas" are databases."""
 
-import pathlib
-import sqlite3
-from typing import Any, List
+from typing import Any, Callable, List
+from unittest.mock import create_autospec
 
 import pytest
+from sqlalchemy.engine import Inspector
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -39,6 +39,8 @@ def test_url_is_built_from_parts_with_the_current_database() -> None:
 
 
 def test_explicit_uri_keeps_its_password_and_query_but_swaps_the_database() -> None:
+    """Per-database reconnects rebuild the recipe's own URI: the password must
+    not be masked and its query string must survive alongside uri_opts."""
     config = _config(
         sqlalchemy_uri="mysql+pymysql://u:secret@host:3307/db1?charset=utf8"
     )
@@ -62,7 +64,8 @@ def test_containers_are_databases() -> None:
     )
     assert source.get_db_schema("db1.table") == (None, "db1")
     # The "schema" the loops pass around is the database itself.
-    assert list(source.get_allowed_schemas(None, "db1")) == ["db1"]  # type: ignore[arg-type]
+    inspector = create_autospec(Inspector, instance=True)
+    assert list(source.get_allowed_schemas(inspector, "db1")) == ["db1"]
     assert list(source.gen_schema_containers(schema="db1", database="db1")) == []
     with pytest.raises(NotImplementedError):
         source.gen_schema_key("db1", "db1")
@@ -86,44 +89,35 @@ def test_tables_are_parented_by_the_database_container() -> None:
 
 
 @pytest.fixture
-def sqlite_dir(tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch) -> pathlib.Path:
-    # Relative sqlite URLs make `current_db` a file name under tmp_path, so the
-    # per-database reconnect in get_inspectors runs against real engines.
-    monkeypatch.chdir(tmp_path)
-    sqlite3.connect("main").close()
-    return tmp_path
+def main_db(sqlite_file_db: Callable[..., str]) -> str:
+    """A relative ``sqlite:///main`` URL: swapping its database part for
+    ``current_db`` names another file in the same temp dir, so the per-database
+    reconnect in get_inspectors runs against real engines."""
+    return sqlite_file_db("main")
 
 
-def _two_tier_sqlite(**overrides: Any) -> TwoTierSQLAlchemySource:
+def _two_tier_sqlite(url: str, **overrides: Any) -> TwoTierSQLAlchemySource:
     config = TwoTierSQLAlchemyConfig.model_validate(
-        {
-            "host_port": "",
-            "scheme": "sqlite",
-            "sqlalchemy_uri": "sqlite:///main",
-            **overrides,
-        }
+        {"host_port": "", "scheme": "sqlite", "sqlalchemy_uri": url, **overrides}
     )
     return TwoTierSQLAlchemySource(config, PipelineContext(run_id="test"), "sqlite")
 
 
 def test_get_inspectors_opens_one_connection_per_allowed_database(
-    sqlite_dir: pathlib.Path,
+    main_db: str,
 ) -> None:
-    source = _two_tier_sqlite()
+    source = _two_tier_sqlite(main_db)
 
     inspectors = list(source.get_inspectors())
 
     assert [source.get_db_name(i) for i in inspectors] == ["main"]
-    assert source.get_db_name(inspectors[0]) == "main"
 
 
-def test_database_pattern_filters_the_databases_connected_to(
-    sqlite_dir: pathlib.Path,
-) -> None:
-    denied = _two_tier_sqlite(database_pattern={"deny": ["main"]})
+def test_database_pattern_filters_the_databases_connected_to(main_db: str) -> None:
+    denied = _two_tier_sqlite(main_db, database_pattern={"deny": ["main"]})
     assert list(denied.get_inspectors()) == []
 
     # A recipe naming its database connects to that one alone, without listing.
-    pinned = _two_tier_sqlite(database="other")
+    pinned = _two_tier_sqlite(main_db, database="other")
     names: List[str] = [pinned.get_db_name(i) for i in pinned.get_inspectors()]
     assert names == ["other"]

@@ -1,7 +1,11 @@
+"""BigqueryLineageExtractor: building the lineage map from audit-log query
+events (with and without the SQL parser), the Data Catalog lineage API, view and
+snapshot definitions, external-table DDL, and the lineage workunit flow."""
+
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Set
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 
@@ -27,16 +31,21 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdgeColumnMapping,
     _merge_lineage_edge_columns,
 )
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantLineageRunSkipHandler,
+)
 from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.utilities.file_backed_collections import FileBackedDict
-from tests.unit.bigquery.test_bigquery_audit_log_api import (
+from tests.unit.bigquery.conftest import (
     DATASET,
     PROJECT,
     FakeLogEntry,
+    as_mock,
     bq_ref,
     exported_row,
     table_ref,
+    urn_for,
     v1_query_entry,
     v2_job_metadata,
     v2_query_entry,
@@ -48,7 +57,7 @@ END = datetime(2023, 1, 2, tzinfo=timezone.utc)
 
 def make_extractor(
     config: BigQueryV2Config,
-    redundant_run_skip_handler: Optional[MagicMock] = None,
+    redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
 ) -> BigqueryLineageExtractor:
     report = BigQueryV2Report()
     return BigqueryLineageExtractor(
@@ -98,8 +107,11 @@ def upstream_lineage_by_urn(
     return result
 
 
-def urn_for(table: str) -> str:
-    return f"urn:li:dataset:(urn:li:dataPlatform:bigquery,{PROJECT}.{DATASET}.{table},PROD)"
+def skip_handler(skip: bool) -> RedundantLineageRunSkipHandler:
+    handler = create_autospec(RedundantLineageRunSkipHandler, instance=True)
+    handler.suggest_run_time_window.return_value = (START, END)
+    handler.should_skip_this_run.return_value = skip
+    return handler
 
 
 class TestCreateLineageMap:
@@ -161,9 +173,9 @@ class TestCreateLineageMap:
         assert extractor.report.num_skipped_lineage_entries_missing_data[PROJECT] == 1
 
     def test_sql_parser_result_overrides_indirect_audit_log_references(self) -> None:
+        """BigQuery lists the base table of a view in referencedTables; the
+        parsed SQL only references the view, which is the lineage we want."""
         extractor = make_extractor(BigQueryV2Config())
-        # BigQuery lists the base table of a view in referencedTables; the
-        # parsed SQL only references the view, which is the lineage we want.
         event = query_event(
             "dest",
             referenced_tables=["view_base_table"],
@@ -246,6 +258,9 @@ class TestAuditLogParsing:
     def test_gcp_logging_entries_are_counted_and_fetched_with_padded_window(
         self,
     ) -> None:
+        """Unparseable and unrelated entries are counted but do not abort the
+        project, and the query window is widened by max_query_duration so
+        delayed job-completion events still join."""
         config = BigQueryV2Config(
             start_time=START, end_time=END, max_query_duration=timedelta(hours=1)
         )
@@ -270,7 +285,6 @@ class TestAuditLogParsing:
         assert extractor.report.num_lineage_total_log_entries[PROJECT] == 3
         assert extractor.report.num_lineage_parsed_log_entries[PROJECT] == 1
         assert extractor.report.num_lineage_log_parse_failures[PROJECT] == 1
-        # The window is widened so delayed job-completion events still join.
         assert extractor.report.log_entry_start_time == START - timedelta(hours=1)
         assert extractor.report.log_entry_end_time == END + timedelta(hours=1)
         log_filter = logging_client.list_entries.call_args.kwargs["filter_"]
@@ -282,6 +296,9 @@ class TestLineageWorkunits:
     def test_exported_audit_metadata_emits_lineage_only_for_requested_tables(
         self,
     ) -> None:
+        """Only tables in table_refs get an upstreamLineage aspect, and tables
+        whose lineage came from their definition (views, snapshots) are not
+        overwritten by the audit log."""
         config = BigQueryV2Config(
             use_exported_bigquery_audit_metadata=True,
             bigquery_audit_metadata_datasets=[f"{PROJECT}.audit"],
@@ -341,9 +358,7 @@ class TestLineageWorkunits:
         assert set(upstream_lineage_by_urn(workunits)) == {urn_for("t1")}
 
     def test_redundant_run_is_skipped_without_touching_checkpoint(self) -> None:
-        handler = MagicMock()
-        handler.suggest_run_time_window.return_value = (START, END)
-        handler.should_skip_this_run.return_value = True
+        handler = skip_handler(skip=True)
         extractor = make_extractor(
             BigQueryV2Config(), redundant_run_skip_handler=handler
         )
@@ -351,10 +366,14 @@ class TestLineageWorkunits:
         workunits = list(extractor.get_lineage_workunits([PROJECT], {table_ref("t1")}))
 
         assert workunits == []
-        handler.update_state.assert_not_called()
-        assert len(extractor.report.warnings) == 1
+        as_mock(handler.update_state).assert_not_called()
+        assert "Skipped redundant lineage extraction" in {
+            w.title for w in extractor.report.warnings
+        }
 
     def test_views_and_snapshots_get_lineage_from_definitions(self) -> None:
+        """A view's SQL and a snapshot's base table are the authoritative
+        upstreams, so both are recorded as exempt from audit-log lineage."""
         extractor = make_extractor(BigQueryV2Config())
         view_definitions = FileBackedDict[str]()
         view_definitions[table_ref("my_view")] = (
@@ -390,7 +409,6 @@ class TestLineageWorkunits:
         assert [u.dataset for u in lineage[urn_for("my_snapshot")].upstreams] == [
             urn_for("base_table")
         ]
-        # Audit-log lineage must not later overwrite these.
         assert extractor.datasets_skip_audit_log_lineage == {
             table_ref("my_view"),
             table_ref("my_snapshot"),
@@ -435,7 +453,8 @@ class TestCatalogLineageApi:
                 "datahub.ingestion.source.bigquery_v2.lineage.datacatalog_lineage.LineageClient"
             ) as lineage_client_cls,
             patch(
-                "datahub.ingestion.source.bigquery_v2.lineage.BigQuerySchemaApi"
+                "datahub.ingestion.source.bigquery_v2.lineage.BigQuerySchemaApi",
+                autospec=True,
             ) as schema_api_cls,
             patch.object(BigQueryV2Config, "get_bigquery_client"),
             patch.object(BigQueryV2Config, "get_projects_client"),
@@ -457,6 +476,9 @@ class TestCatalogLineageApi:
     def test_upstreams_are_merged_across_regions_and_filtered(
         self, google_clients: Dict[str, MagicMock]
     ) -> None:
+        """The catalog is queried once per region and the results are unioned;
+        denied tables are counted as not allowed and external tables are never
+        looked up because the catalog has no lineage for them."""
         google_clients["schema"].get_datasets_for_project_id.return_value = [
             BigqueryDataset(name=DATASET)
         ]
@@ -495,7 +517,6 @@ class TestCatalogLineageApi:
             table_ref("src_eu"),
         }
         assert extractor.report.num_skipped_lineage_entries_not_allowed[PROJECT] == 1
-        # External tables are never looked up in the catalog.
         looked_up = {
             call.kwargs["request"].target.fully_qualified_name
             for call in google_clients["lineage"].search_links.call_args_list
@@ -525,8 +546,8 @@ class TestExternalTableLineage:
         wus = list(extractor.gen_lineage_workunits_for_external_table(self._urn(), ddl))
 
         assert len(wus) == 1
-        aspect = wus[0].metadata.aspect  # type: ignore[union-attr]
-        assert isinstance(aspect, UpstreamLineageClass)
+        aspect = wus[0].get_aspect_of_type(UpstreamLineageClass)
+        assert aspect is not None
         assert [u.dataset for u in aspect.upstreams] == [
             "urn:li:dataset:(urn:li:dataPlatform:gcs,bucket/path/a,PROD)"
         ]
@@ -592,12 +613,11 @@ def test_lineage_edges_for_the_same_table_merge_their_column_mappings() -> None:
 
 
 def test_run_status_is_forwarded_to_redundant_run_handler() -> None:
-    handler = MagicMock()
-    handler.suggest_run_time_window.return_value = (START, END)
+    handler = skip_handler(skip=False)
     extractor = make_extractor(BigQueryV2Config(), redundant_run_skip_handler=handler)
 
     extractor.report_status("lineage-ingestion", False)
 
-    handler.report_current_run_status.assert_called_once_with(
+    as_mock(handler.report_current_run_status).assert_called_once_with(
         "lineage-ingestion", False
     )

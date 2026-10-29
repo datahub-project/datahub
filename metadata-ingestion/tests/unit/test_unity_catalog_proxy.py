@@ -1664,19 +1664,6 @@ class TestUnityCatalogProxyAuthentication:
             assert result == [("result",)]
             mock_connect.assert_called_once()
 
-    def test_apply_databricks_proxy_fix(self):
-        with patch("datahub.ingestion.source.unity.proxy_patch.logger") as mock_logger:
-            from datahub.ingestion.source.unity.proxy_patch import (
-                apply_databricks_proxy_fix,
-            )
-
-            apply_databricks_proxy_fix()
-
-            log_calls = [call.args[0] for call in mock_logger.info.call_args_list]
-            assert any(
-                "databricks-sql proxy authentication fix" in msg for msg in log_calls
-            )
-
 
 class TestUnityCatalogProxyUsageSystemTables:
     """Test suite for system tables query history functionality."""

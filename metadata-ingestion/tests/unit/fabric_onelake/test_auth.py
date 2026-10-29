@@ -17,33 +17,34 @@ from datahub.ingestion.source.azure.azure_auth import (
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 
 
-class TestFabricAuthHelper:
-    """Tests for FabricAuthHelper."""
-
-    def test_get_credential_creates_token_credential(self) -> None:
-        """get_credential should return a TokenCredential."""
-        config = AzureCredentialConfig(
+@pytest.fixture
+def helper() -> FabricAuthHelper:
+    return FabricAuthHelper(
+        AzureCredentialConfig(
             authentication_method=AzureAuthenticationMethod.SERVICE_PRINCIPAL,
             client_id="test-client",
             client_secret="test-secret",
             tenant_id="test-tenant",
         )
-        helper = FabricAuthHelper(config)
+    )
+
+
+class TestFabricAuthHelper:
+    """Tests for FabricAuthHelper."""
+
+    def test_get_credential_creates_token_credential(
+        self, helper: FabricAuthHelper
+    ) -> None:
+        """get_credential should return a TokenCredential."""
         credential = helper.get_credential()
         assert credential is not None
 
     @patch("time.time")
-    def test_token_caching(self, mock_time: MagicMock) -> None:
+    def test_token_caching(
+        self, mock_time: MagicMock, helper: FabricAuthHelper
+    ) -> None:
         """Token should be cached and reused if not expired."""
         mock_time.return_value = 1000.0
-
-        config = AzureCredentialConfig(
-            authentication_method=AzureAuthenticationMethod.SERVICE_PRINCIPAL,
-            client_id="test-client",
-            client_secret="test-secret",
-            tenant_id="test-tenant",
-        )
-        helper = FabricAuthHelper(config)
 
         # Mock token response
         mock_token_response = MagicMock()
@@ -65,17 +66,11 @@ class TestFabricAuthHelper:
             assert mock_credential.get_token.call_count == 1
 
     @patch("time.time")
-    def test_token_refresh_on_expiry(self, mock_time: MagicMock) -> None:
+    def test_token_refresh_on_expiry(
+        self, mock_time: MagicMock, helper: FabricAuthHelper
+    ) -> None:
         """Token should be refreshed when expired."""
         mock_time.return_value = 1000.0
-
-        config = AzureCredentialConfig(
-            authentication_method=AzureAuthenticationMethod.SERVICE_PRINCIPAL,
-            client_id="test-client",
-            client_secret="test-secret",
-            tenant_id="test-tenant",
-        )
-        helper = FabricAuthHelper(config)
 
         # Mock token responses
         mock_token_response1 = MagicMock()
@@ -103,15 +98,8 @@ class TestFabricAuthHelper:
             # Verify get_token was called twice
             assert mock_credential.get_token.call_count == 2
 
-    def test_get_authorization_header_format(self) -> None:
+    def test_get_authorization_header_format(self, helper: FabricAuthHelper) -> None:
         """Authorization header should have correct format."""
-        config = AzureCredentialConfig(
-            authentication_method=AzureAuthenticationMethod.SERVICE_PRINCIPAL,
-            client_id="test-client",
-            client_secret="test-secret",
-            tenant_id="test-tenant",
-        )
-        helper = FabricAuthHelper(config)
 
         mock_token_response = MagicMock()
         mock_token_response.token = "test-token-123"
@@ -125,21 +113,11 @@ class TestFabricAuthHelper:
             assert header.startswith("Bearer ")
 
 
-def _helper() -> FabricAuthHelper:
-    return FabricAuthHelper(
-        AzureCredentialConfig(
-            authentication_method=AzureAuthenticationMethod.SERVICE_PRINCIPAL,
-            client_id="test-client",
-            client_secret="test-secret",
-            tenant_id="test-tenant",
-        )
-    )
-
-
-def test_datetime_expiry_is_honoured_for_cache_validity() -> None:
+def test_datetime_expiry_is_honoured_for_cache_validity(
+    helper: FabricAuthHelper,
+) -> None:
     """Some credential types report expires_on as a datetime rather than a
     Unix timestamp; both must drive the same refresh decision."""
-    helper = _helper()
     credential = MagicMock()
     credential.get_token.return_value = SimpleNamespace(
         token="t1", expires_on=datetime.fromtimestamp(2000.0, tz=timezone.utc)
@@ -153,8 +131,11 @@ def test_datetime_expiry_is_honoured_for_cache_validity() -> None:
     credential.get_token.assert_called_once()
 
 
-def test_token_without_expiry_is_reused_within_the_default_hour() -> None:
-    helper = _helper()
+def test_token_without_expiry_is_reused_within_the_default_hour(
+    helper: FabricAuthHelper,
+) -> None:
+    """A credential that reports no expiry must not force a token request
+    on every Fabric call."""
     credential = MagicMock()
     credential.get_token.return_value = SimpleNamespace(token="t1")
     with (
@@ -166,8 +147,11 @@ def test_token_without_expiry_is_reused_within_the_default_hour() -> None:
     credential.get_token.assert_called_once()
 
 
-def test_token_acquisition_failure_propagates_and_caches_nothing() -> None:
-    helper = _helper()
+def test_token_acquisition_failure_propagates_and_caches_nothing(
+    helper: FabricAuthHelper,
+) -> None:
+    """A failed acquisition must not leave a cached token behind that would
+    stop the next call from retrying."""
     credential = MagicMock()
     credential.get_token.side_effect = RuntimeError("AADSTS700016")
     with patch.object(helper, "get_credential", return_value=credential):

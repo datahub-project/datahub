@@ -7,6 +7,7 @@ from datahub.ingestion.source.confluence.confluence_config import (
     ConfluenceSourceConfig,
 )
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
+from tests.unit.ingestion.source.confluence.conftest import cloud_config_dict
 
 
 def test_minimal_cloud_config_valid() -> None:
@@ -700,26 +701,18 @@ def test_platform_instance_none_is_valid() -> None:
 
 
 def test_deny_lists_must_be_non_empty_when_present() -> None:
-    base = {
-        "url": "https://test.atlassian.net/wiki",
-        "username": "test@example.com",
-        "api_token": "test-token-123",
-    }
+    """An empty deny list is almost always a templating mistake; it is rejected
+    rather than silently treated as 'deny nothing'."""
     with pytest.raises(ValidationError, match="spaces.deny"):
-        ConfluenceSourceConfig.model_validate({**base, "spaces": {"deny": []}})
+        ConfluenceSourceConfig.model_validate(cloud_config_dict(spaces={"deny": []}))
     with pytest.raises(ValidationError, match="pages.deny"):
-        ConfluenceSourceConfig.model_validate({**base, "pages": {"deny": []}})
+        ConfluenceSourceConfig.model_validate(cloud_config_dict(pages={"deny": []}))
 
 
 def test_whitespace_only_page_identifier_is_rejected() -> None:
     with pytest.raises(ValidationError, match="empty"):
         ConfluenceSourceConfig.model_validate(
-            {
-                "url": "https://test.atlassian.net/wiki",
-                "username": "test@example.com",
-                "api_token": "test-token-123",
-                "pages": {"allow": ["   "]},
-            }
+            cloud_config_dict(pages={"allow": ["   "]})
         )
 
 
@@ -746,12 +739,9 @@ def test_auth_method_must_match_cloud_flag() -> None:
 
 
 def test_parent_document_urn_becomes_hierarchy_root() -> None:
+    """The top-level parent_document_urn shortcut is copied into the hierarchy
+    folder mapping, which is what the emitter actually reads."""
     config = ConfluenceSourceConfig.model_validate(
-        {
-            "url": "https://test.atlassian.net/wiki",
-            "username": "test@example.com",
-            "api_token": "test-token-123",
-            "parent_document_urn": "urn:li:document:root",
-        }
+        cloud_config_dict(parent_document_urn="urn:li:document:root")
     )
     assert config.hierarchy.folder_mapping.root_parent == "urn:li:document:root"

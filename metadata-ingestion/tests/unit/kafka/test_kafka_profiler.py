@@ -116,8 +116,13 @@ def test_clean_field_path():
     assert "name" in cleaned
 
     assert clean_field_path("id[key=True]") == "id"
+    assert clean_field_path("[version=2.0].[type=Order].[type=long].id") == "id"
     # Nothing but path tokens: fall back to the raw path instead of an empty name.
+    # "[version=2.0]" contains a dot, so its tail must not be taken as the name.
     assert clean_field_path("[type=record]") == "[type=record]"
+    assert (
+        clean_field_path("[version=2.0].[type=Order]") == "[version=2.0].[type=Order]"
+    )
 
 
 def test_is_overflow_value():
@@ -359,9 +364,9 @@ def _paths(profile: DatasetProfileClass) -> Set[str]:
 
 
 def test_sampled_fields_map_onto_registry_field_paths():
-    # Samples look like what the source's sampler produces: Kafka metadata plus
-    # "key."-prefixed key fields. Key and value both have an "id" field, which
-    # must land on their own schema paths rather than being merged.
+    """Samples look like what the source's sampler produces: Kafka metadata plus
+    "key."-prefixed key fields. Key and value both have an "id" field, which
+    must land on their own schema paths rather than being merged."""
     samples: List[Dict[str, Any]] = [
         {
             "offset": i,
@@ -396,6 +401,7 @@ def test_scalar_key_maps_onto_the_single_key_field():
 
 
 def test_key_fields_without_schema_keep_their_prefix():
+    """Kafka metadata is never profiled as a field; keys keep a visible prefix."""
     samples: List[Dict[str, Any]] = [
         {"offset": 0, "timestamp": "t", "key.id": 1, "name": "x"},
         {"offset": 1, "timestamp": "t", "key": "k", "name": "y"},
@@ -403,7 +409,6 @@ def test_key_fields_without_schema_keep_their_prefix():
 
     profile = KafkaProfiler(ProfilerConfig()).generate_dataset_profile(samples, None)
 
-    # Kafka metadata is never profiled as a field; keys keep a visible prefix.
     assert _paths(profile) == {"key.id", "key", "name"}
 
 
@@ -416,6 +421,7 @@ def test_unparseable_key_schema_does_not_abort_profiling():
 
 
 def test_profile_topic_reports_samples_it_could_not_process():
+    """A non-dict sample is counted as skipped and warned about, not fatal."""
     report = KafkaSourceReport()
     samples = cast(List[Dict[str, Any]], [{"a": 1}, "not a dict"])
 
@@ -440,8 +446,9 @@ def test_profile_topic_turns_recursion_error_into_runtime_error():
 
 
 def test_numeric_schema_field_tolerates_string_encoded_values():
-    # JSON producers often quote numbers; a numeric schema field must still get
-    # stats from the parseable values and ignore the junk.
+    """JSON producers often quote numbers; a numeric schema field must still get
+    stats from the parseable values and ignore the junk. Nothing numeric at
+    all means no stats rather than a crash or bogus zeros."""
     schema = SchemaMetadataClass(
         schemaName="orders",
         platform="urn:li:dataPlatform:kafka",
@@ -476,7 +483,6 @@ def test_numeric_schema_field_tolerates_string_encoded_values():
     assert by_path["amount"].min == "1.5"
     assert by_path["amount"].max == "4.5"
     assert by_path["amount"].histogram is not None
-    # Nothing numeric at all: no stats rather than a crash or bogus zeros.
     assert by_path["count"].min is None
     assert by_path["count"].histogram is None
 

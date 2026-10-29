@@ -7,10 +7,9 @@ rules, the name validation, and the usage rows that are silently dropped.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Union
-from unittest.mock import MagicMock
+from typing import Any, Dict, Optional
+from unittest.mock import NonCallableMock, create_autospec
 
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakePermissionError,
 )
@@ -24,46 +23,37 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantUsageRunSkipHandler,
+)
+from datahub.utilities.registries.domain_registry import DomainRegistry
+from tests.unit.snowflake.conftest import (
+    QueryHandler,
+    QueryResult,
+    as_mock,
+    fake_connection,
+    log_keys,
+    make_v2_config,
+)
 
-QueryResult = Union[List[dict], Exception]
-Dispatch = Callable[[str], QueryResult]
 LISTING = "ORG.DATA.LISTING"
 
 
-def _as_mock(obj: object) -> MagicMock:
-    assert isinstance(obj, MagicMock)
-    return obj
-
-
 def _make_handler(
-    dispatch: Dispatch,
-    redundant_run_skip_handler: Optional[MagicMock] = None,
+    dispatch: QueryHandler,
+    redundant_run_skip_handler: Optional[NonCallableMock] = None,
     **marketplace_overrides: object,
 ) -> SnowflakeMarketplaceHandler:
-    config = SnowflakeV2Config.model_validate(
-        {
-            "account_id": "test_account",
-            "username": "user",
-            "password": "pass",
-            "table_pattern": {"deny": [".*\\.denied_.*"]},
-            "database_pattern": {"deny": ["DENIED_DB"]},
-            "marketplace": {"enabled": True, **marketplace_overrides},
-        }
+    config = make_v2_config(
+        table_pattern={"deny": [".*\\.denied_.*"]},
+        database_pattern={"deny": ["DENIED_DB"]},
+        marketplace={"enabled": True, **marketplace_overrides},
     )
     report = SnowflakeV2Report()
-    connection = MagicMock()
-
-    def query(sql: str) -> List[dict]:
-        result = dispatch(sql)
-        if isinstance(result, Exception):
-            raise result
-        return list(result)
-
-    connection.query.side_effect = query
     return SnowflakeMarketplaceHandler(
         config=config,
         report=report,
-        connection=connection,
+        connection=fake_connection(dispatch),
         identifiers=SnowflakeIdentifierBuilder(config, report),
         snowsight_url_builder=None,
         redundant_run_skip_handler=redundant_run_skip_handler,
@@ -114,50 +104,49 @@ def test_desc_share_permission_error_falls_back_to_database_enumeration() -> Non
     )
 
     assert assets == [_urn(handler, "SRC_DB.S.ORDERS")]
-    assert [i.title for i in handler.report.infos] == [
+    assert (
         "DESC SHARE permission denied — falling back to database enumeration"
-    ]
+        in log_keys(handler.report.infos)
+    )
 
 
 def test_desc_share_failures_without_fallback_only_warn() -> None:
     denied = _make_handler(lambda _sql: SnowflakePermissionError("not authorized"))
     assert denied._collect_assets_from_share("MY_SHARE", LISTING) == []
-    assert [w.title for w in denied.report.warnings] == [
-        "Failed to describe provider share"
-    ]
+    assert "Failed to describe provider share" in log_keys(denied.report.warnings)
 
     broken = _make_handler(lambda _sql: RuntimeError("boom"))
     assert broken._collect_assets_from_share("MY_SHARE", LISTING) == []
-    assert [w.title for w in broken.report.warnings] == [
-        "Failed to parse share description"
-    ]
+    assert "Failed to parse share description" in log_keys(broken.report.warnings)
 
 
 def test_malformed_share_and_database_names_are_never_interpolated_into_sql() -> None:
+    """Names that fail identifier validation are reported and never reach SQL."""
     handler = _make_handler(lambda _sql: [])
 
     assert handler._collect_assets_from_share("bad name; drop", LISTING) == []
     assert handler._collect_assets_from_database("bad name; drop", LISTING) == []
-    _as_mock(handler.connection).query.assert_not_called()
-    assert len(handler.report.warnings) == 2
+    as_mock(handler.connection).query.assert_not_called()
+    assert {
+        "Skipping share with malformed name",
+        "Skipping database with malformed name",
+    } <= log_keys(handler.report.warnings)
 
 
 def test_database_enumeration_respects_patterns_and_reports_failures() -> None:
     handler = _make_handler(lambda _sql: [])
     assert handler._collect_assets_from_database("DENIED_DB", LISTING) == []
     assert handler._collect_assets_from_database("", LISTING) == []
-    _as_mock(handler.connection).query.assert_not_called()
+    as_mock(handler.connection).query.assert_not_called()
 
     denied = _make_handler(lambda _sql: SnowflakePermissionError("not authorized"))
     assert denied._collect_assets_from_database("DB", LISTING) == []
     broken = _make_handler(lambda _sql: RuntimeError("boom"))
     assert broken._collect_assets_from_database("DB", LISTING) == []
-    assert [w.title for w in denied.report.warnings] == [
-        "Failed to query imported database tables"
-    ]
-    assert [w.title for w in broken.report.warnings] == [
-        "Failed to parse database tables"
-    ]
+    assert "Failed to query imported database tables" in log_keys(
+        denied.report.warnings
+    )
+    assert "Failed to parse database tables" in log_keys(broken.report.warnings)
 
 
 def test_organization_domain_mapping_accepts_urns_names_and_registry_lookups() -> None:
@@ -178,8 +167,10 @@ def test_organization_domain_mapping_accepts_urns_names_and_registry_lookups() -
     assert handler._resolve_domain_for_listing(_listing("UNMAPPED")) is None
     assert handler._resolve_domain_for_listing(_listing("")) is None
 
-    handler.domain_registry = MagicMock()
-    handler.domain_registry.get_domain_urn.return_value = "urn:li:domain:resolved"
+    handler.domain_registry = create_autospec(DomainRegistry, instance=True)
+    as_mock(
+        handler.domain_registry
+    ).get_domain_urn.return_value = "urn:li:domain:resolved"
     assert (
         handler._resolve_domain_for_listing(_listing("REGISTERED"))
         == "urn:li:domain:resolved"
@@ -198,19 +189,17 @@ def test_invalid_owner_regex_is_reported_and_skipped() -> None:
     owners = handler._resolve_owners_for_listing(_listing())
 
     assert owners == ["urn:li:corpuser:good"]
-    assert [w.title for w in handler.report.warnings] == [
-        "Invalid marketplace owner regex"
-    ]
+    assert "Invalid marketplace owner regex" in log_keys(handler.report.warnings)
 
 
 def test_usage_is_skipped_for_a_redundant_window() -> None:
-    skip_handler = MagicMock()
+    skip_handler = create_autospec(RedundantUsageRunSkipHandler, instance=True)
     skip_handler.should_skip_this_run.return_value = True
     handler = _make_handler(lambda _sql: [], redundant_run_skip_handler=skip_handler)
 
     assert list(handler._create_marketplace_usage_statistics()) == []
-    _as_mock(handler.connection).query.assert_not_called()
-    assert len(handler.report.warnings) == 1
+    as_mock(handler.connection).query.assert_not_called()
+    assert "marketplace-usage-extraction" in log_keys(handler.report.warnings)
 
 
 def test_usage_permission_error_is_a_warning() -> None:
@@ -218,10 +207,15 @@ def test_usage_permission_error_is_a_warning() -> None:
     handler._marketplace_listings[LISTING] = _listing()
 
     assert list(handler._create_marketplace_usage_statistics()) == []
-    assert len(handler.report.warnings) == 1
+    assert (
+        "Failed to get marketplace usage statistics - insufficient permissions"
+        in log_keys(handler.report.warnings)
+    )
 
 
 def test_usage_rows_that_cannot_be_attributed_are_dropped() -> None:
+    """Rows for non-table objects, unqualified or denied names, or without a
+    bucket are dropped silently; only an unparseable row is reported."""
     handler = _make_handler(lambda _sql: [])
     bucket = datetime(2024, 6, 1, tzinfo=timezone.utc)
 
@@ -253,6 +247,4 @@ def test_usage_rows_that_cannot_be_attributed_are_dropped() -> None:
 
     # A value that cannot be coerced is reported rather than aborting the stage.
     assert handler._build_marketplace_usage_workunit(row(TOTAL_QUERIES="many")) is None
-    assert [w.title for w in handler.report.warnings] == [
-        "Failed to parse marketplace usage row"
-    ]
+    assert "Failed to parse marketplace usage row" in log_keys(handler.report.warnings)

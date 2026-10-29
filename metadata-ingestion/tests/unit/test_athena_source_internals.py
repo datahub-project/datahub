@@ -3,14 +3,13 @@ PyAthena boundary: engine wiring, view DDL reads, container keys, partition
 discovery from CREATE TABLE statements and the probe's failing report."""
 
 from datetime import datetime
-from typing import Dict, List, cast
+from typing import Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy import exc
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.sql_passthrough import QueryBudget
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.athena import (
@@ -22,6 +21,7 @@ from datahub.ingestion.source.sql.athena import (
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.metadata.schema_classes import ContainerClass, ContainerPropertiesClass
+from tests.unit.conftest import as_mock, aspects_of_type, single_aspect
 
 
 def _config(**overrides: object) -> AthenaConfig:
@@ -181,6 +181,8 @@ def test_get_db_schema_treats_first_component_as_schema() -> None:
 
 
 def test_get_table_properties_opens_cursor_from_inspector_on_first_use() -> None:
+    """The PyAthena cursor is created lazily from the first inspector, and the
+    partition keys of its table metadata become the ``partition_keys`` property."""
     source = _source()
     inspector = MagicMock()
     cursor = inspector.engine.raw_connection.return_value.cursor.return_value
@@ -209,18 +211,13 @@ def test_no_database_level_container_is_emitted() -> None:
 
 
 def test_schema_container_is_emitted_as_database_container() -> None:
+    """Athena has no level above the Glue database, which SQLAlchemy calls a
+    schema: it is emitted as a top-level database container."""
     source = _source(platform_instance="athena_prod")
     workunits = list(source.gen_schema_containers(schema="sales", database="sales"))
-    aspects = [
-        wu.metadata.aspect
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-    ]
-    props = [a for a in aspects if isinstance(a, ContainerPropertiesClass)]
-    assert len(props) == 1
-    assert props[0].name == "sales"
+    assert single_aspect(workunits, ContainerPropertiesClass).name == "sales"
     # Databases have no parent container.
-    assert not any(isinstance(a, ContainerClass) for a in aspects)
+    assert not aspects_of_type(workunits, ContainerClass)
 
 
 def test_database_container_key_falls_back_to_schema_when_db_unset() -> None:
@@ -239,15 +236,10 @@ def test_add_table_to_schema_container_parents_dataset_to_database() -> None:
             schema="sales",
         )
     )
-    containers = [
-        wu.metadata.aspect
-        for wu in workunits
-        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        and isinstance(wu.metadata.aspect, ContainerClass)
-    ]
-    assert [c.container for c in containers] == [
-        source.get_database_container_key("sales", "sales").as_urn()
-    ]
+    assert (
+        single_aspect(workunits, ContainerClass).container
+        == source.get_database_container_key("sales", "sales").as_urn()
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -275,6 +267,8 @@ def _create_statement_cursor(lines: List[str]) -> MagicMock:
 
 
 def test_partitions_from_create_table_statement() -> None:
+    """With extract_partitions_using_create_statements, Iceberg transform
+    partitions (day(ts), bucket(16, id)) resolve to their source columns."""
     source = _source(extract_partitions_using_create_statements=True)
     source.cursor = _create_statement_cursor(
         [
@@ -287,7 +281,7 @@ def test_partitions_from_create_table_statement() -> None:
         ]
     )
     assert source.get_partitions(MagicMock(), "s", "t") == ["ts", "id"]
-    executed = cast(MagicMock, source.cursor).execute.call_args[0][0]
+    executed = as_mock(source.cursor).execute.call_args[0][0]
     assert executed == "SHOW CREATE TABLE `s`.`t`"
 
 
@@ -311,6 +305,8 @@ def test_partitions_fall_back_to_metadata_when_show_create_fails() -> None:
 
 
 def test_partition_profiler_query_filters_on_cached_max_partition() -> None:
+    """The profiling query targets the newest partition found earlier, with
+    values quoted for SQL (the single quote in ``us'east`` is doubled)."""
     source = _source(profiling={"enabled": True, "partition_profiling_enabled": True})
     source.table_partition_cache = {
         "s": {

@@ -1,20 +1,11 @@
-import pathlib
-from typing import Dict, List
+"""LookML refinements (``view: +name``) merged into views and explores."""
+
+from typing import Callable, Dict
 
 import pytest
 
-from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
-from datahub.ingestion.source.looker.looker_dataclasses import (
-    LookerModel,
-    ProjectInclude,
-)
-from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
-from datahub.ingestion.source.looker.lookml_config import (
-    BASE_PROJECT_NAME,
-    LookMLSourceConfig,
-    LookMLSourceReport,
-)
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
+from tests.unit.lookml.conftest import LookMLProject
 
 BOOK_VIEW = """
 view: book {
@@ -35,60 +26,10 @@ view: +book {
 """
 
 
-def _write(path: pathlib.Path, content: str) -> str:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content)
-    return str(path)
-
-
 @pytest.fixture
-def base_folder(tmp_path: pathlib.Path) -> pathlib.Path:
-    folder = tmp_path / "project"
-    folder.mkdir()
-    return folder
-
-
-@pytest.fixture
-def connection() -> LookerConnectionDefinition:
-    return LookerConnectionDefinition(
-        platform="postgres", default_db="db", default_schema="public"
-    )
-
-
-def _make_resolver(
-    base_folder: pathlib.Path,
-    connection: LookerConnectionDefinition,
-    resolved_includes: List[ProjectInclude],
-    process_refinements: bool = True,
-) -> LookerRefinementResolver:
-    config = LookMLSourceConfig.model_validate(
-        {
-            "base_folder": str(base_folder),
-            "connection_to_platform_map": {"my_connection": "postgres"},
-            "project_name": "test_project",
-            "process_refinements": process_refinements,
-        }
-    )
-    reporter = LookMLSourceReport()
-    loader = LookerViewFileLoader(
-        root_project_name="test_project",
-        base_projects_folder={BASE_PROJECT_NAME: base_folder},
-        reporter=reporter,
-        source_config=config,
-    )
-    model = LookerModel(
-        connection="my_connection",
-        includes=[],
-        explores=[],
-        resolved_includes=resolved_includes,
-    )
-    return LookerRefinementResolver(
-        looker_model=model,
-        looker_viewfile_loader=loader,
-        connection_definition=connection,
-        source_config=config,
-        reporter=reporter,
-    )
+def project(lookml_project_factory: Callable[..., LookMLProject]) -> LookMLProject:
+    """Refinement processing is opt-in (``process_refinements`` defaults to False)."""
+    return lookml_project_factory(process_refinements=True)
 
 
 class TestMergeRefinements:
@@ -147,27 +88,17 @@ class TestMergeRefinements:
 
 class TestApplyViewRefinement:
     def test_refinement_from_included_file_is_applied(
-        self, base_folder: pathlib.Path, connection: LookerConnectionDefinition
+        self, project: LookMLProject
     ) -> None:
-        book_path = _write(base_folder / "book.view.lkml", BOOK_VIEW)
-        refinement_path = _write(
-            base_folder / "book_refinement.view.lkml", BOOK_REFINEMENT
-        )
-        resolver = _make_resolver(
-            base_folder,
-            connection,
-            [
-                ProjectInclude(BASE_PROJECT_NAME, book_path),
-                ProjectInclude(BASE_PROJECT_NAME, refinement_path),
-            ],
-        )
+        project.write("book.view.lkml", BOOK_VIEW)
+        project.write("book_refinement.view.lkml", BOOK_REFINEMENT)
         raw_view: Dict = {
             "name": "book",
             "dimensions": [{"name": "id"}, {"name": "title", "type": "string"}],
             "measures": [{"name": "count"}],
         }
 
-        refined = resolver.apply_view_refinement(raw_view)
+        refined = project.refinement_resolver.apply_view_refinement(raw_view)
 
         dims = {d["name"]: d for d in refined["dimensions"]}
         assert dims["title"]["description"] == "refined"
@@ -176,72 +107,57 @@ class TestApplyViewRefinement:
         assert [g["name"] for g in refined["dimension_groups"]] == ["published"]
 
     def test_refinement_views_themselves_are_not_refined(
-        self, base_folder: pathlib.Path, connection: LookerConnectionDefinition
+        self, project: LookMLProject
     ) -> None:
-        resolver = _make_resolver(base_folder, connection, [])
         raw_view: Dict = {"name": "+book", "dimensions": [{"name": "title"}]}
 
-        assert resolver.apply_view_refinement(raw_view) is raw_view
+        assert project.refinement_resolver.apply_view_refinement(raw_view) is raw_view
 
     def test_disabled_refinement_processing_returns_raw_view(
-        self, base_folder: pathlib.Path, connection: LookerConnectionDefinition
+        self, lookml_project_factory: Callable[..., LookMLProject]
     ) -> None:
-        refinement_path = _write(
-            base_folder / "book_refinement.view.lkml", BOOK_REFINEMENT
-        )
-        resolver = _make_resolver(
-            base_folder,
-            connection,
-            [ProjectInclude(BASE_PROJECT_NAME, refinement_path)],
-            process_refinements=False,
-        )
+        project = lookml_project_factory(process_refinements=False)
+        project.write("book_refinement.view.lkml", BOOK_REFINEMENT)
         raw_view: Dict = {"name": "book", "dimensions": [{"name": "title"}]}
 
-        refined = resolver.apply_view_refinement(raw_view)
+        refined = project.refinement_resolver.apply_view_refinement(raw_view)
 
         assert refined is raw_view
         assert [d["name"] for d in refined["dimensions"]] == ["title"]
 
     def test_view_without_matching_refinement_is_unchanged(
-        self, base_folder: pathlib.Path, connection: LookerConnectionDefinition
+        self, project: LookMLProject
     ) -> None:
-        refinement_path = _write(
-            base_folder / "book_refinement.view.lkml", BOOK_REFINEMENT
-        )
-        resolver = _make_resolver(
-            base_folder,
-            connection,
-            [ProjectInclude(BASE_PROJECT_NAME, refinement_path)],
-        )
+        project.write("book_refinement.view.lkml", BOOK_REFINEMENT)
         raw_view: Dict = {"name": "order", "dimensions": [{"name": "id"}]}
 
-        refined = resolver.apply_view_refinement(raw_view)
+        refined = project.refinement_resolver.apply_view_refinement(raw_view)
 
         assert refined == raw_view
 
 
 class TestApplyExploreRefinement:
     def test_extends_from_refinements_are_added_to_explore(
-        self, base_folder: pathlib.Path, connection: LookerConnectionDefinition
+        self, project: LookMLProject
     ) -> None:
-        resolver = _make_resolver(base_folder, connection, [])
-        resolver.looker_model.explores = [
+        project.model.explores = [
             {"name": "+orders", "extends": [["customers"]]},
             {"name": "+orders", "extends__all": [["products"]]},
             {"name": "+other_explore", "extends": [["ignored"]]},
         ]
         raw_explore: Dict = {"name": "orders"}
 
-        refined = resolver.apply_explore_refinement(raw_explore)
+        refined = project.refinement_resolver.apply_explore_refinement(raw_explore)
 
         assert set(refined["extends"]) == {"customers", "products"}
 
     def test_explore_without_refinements_gets_no_extends(
-        self, base_folder: pathlib.Path, connection: LookerConnectionDefinition
+        self, project: LookMLProject
     ) -> None:
-        resolver = _make_resolver(base_folder, connection, [])
-        resolver.looker_model.explores = [{"name": "orders"}]
+        project.model.explores = [{"name": "orders"}]
 
-        refined = resolver.apply_explore_refinement({"name": "orders"})
+        refined = project.refinement_resolver.apply_explore_refinement(
+            {"name": "orders"}
+        )
 
         assert "extends" not in refined

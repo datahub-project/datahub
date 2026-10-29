@@ -5,9 +5,7 @@ queries into the connector's dataclasses. These tests drive it with canned rows 
 check the mapping, the null handling, and the fallbacks that matter in production.
 """
 
-from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Union
-from unittest.mock import MagicMock
+from typing import Any, Dict, List
 
 import pytest
 
@@ -15,30 +13,23 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeDynamicTable,
+    SnowflakeFK,
     SnowflakeStageType,
     SnowflakeTable,
     SnowflakeTaskState,
 )
+from tests.unit.snowflake.conftest import (
+    CREATED,
+    DB,
+    SCHEMA,
+    QueryHandler,
+    fake_connection,
+    log_keys,
+)
 
-CREATED = datetime(2024, 1, 1, tzinfo=timezone.utc)
-DB = "MY_DB"
-SCHEMA = "MY_SCHEMA"
 
-QueryResult = Union[List[dict], Exception]
-Dispatch = Callable[[str], QueryResult]
-
-
-def _make_dictionary(dispatch: Dispatch) -> SnowflakeDataDictionary:
-    connection = MagicMock()
-
-    def query(sql: str) -> List[dict]:
-        result = dispatch(sql)
-        if isinstance(result, Exception):
-            raise result
-        return list(result)
-
-    connection.query.side_effect = query
-    return SnowflakeDataDictionary(connection, SnowflakeV2Report())
+def _make_dictionary(dispatch: QueryHandler) -> SnowflakeDataDictionary:
+    return SnowflakeDataDictionary(fake_connection(dispatch), SnowflakeV2Report())
 
 
 def _rows(rows: List[dict]) -> SnowflakeDataDictionary:
@@ -198,6 +189,18 @@ def test_columns_for_schema_groups_columns_by_table() -> None:
     assert "T" in single
 
 
+def _fk_row(fk_name: str, fk_table: str, fk_column: str, pk_column: str) -> dict:
+    return {
+        "pk_database_name": DB,
+        "pk_schema_name": SCHEMA,
+        "fk_name": fk_name,
+        "fk_table_name": fk_table,
+        "fk_column_name": fk_column,
+        "pk_table_name": "PARENT",
+        "pk_column_name": pk_column,
+    }
+
+
 def test_primary_and_foreign_key_rows_are_grouped_per_constraint() -> None:
     pk = _rows(
         [
@@ -208,35 +211,54 @@ def test_primary_and_foreign_key_rows_are_grouped_per_constraint() -> None:
     assert pk["T"].name == "PK_T"
     assert pk["T"].column_names == ["A", "B"]
 
-    # Two single-column constraints on different tables. (Composite keys are
-    # deliberately not asserted here: the grouping check in the source keys on
-    # the wrong dict, so a multi-column FK currently splits into one entry per
-    # column.)
-    base = {"pk_database_name": DB, "pk_schema_name": SCHEMA}
     fk = _rows(
         [
-            {
-                **base,
-                "fk_name": "FK_1",
-                "fk_table_name": "CHILD",
-                "fk_column_name": "P_ID",
-                "pk_table_name": "PARENT",
-                "pk_column_name": "ID",
-            },
-            {
-                **base,
-                "fk_name": "FK_2",
-                "fk_table_name": "OTHER",
-                "fk_column_name": "X",
-                "pk_table_name": "PARENT",
-                "pk_column_name": "ID",
-            },
+            _fk_row("FK_1", "CHILD", "P_ID", "ID"),
+            _fk_row("FK_2", "OTHER", "X", "ID"),
         ]
     ).get_fk_constraints_for_schema(SCHEMA, DB)
     assert sorted(fk) == ["CHILD", "OTHER"]
-    assert fk["CHILD"][0].column_names == ["P_ID"]
-    assert fk["CHILD"][0].referred_column_names == ["ID"]
-    assert fk["CHILD"][0].referred_table == "PARENT"
+    assert fk["CHILD"] == [
+        SnowflakeFK(
+            name="FK_1",
+            column_names=["P_ID"],
+            referred_database=DB,
+            referred_schema=SCHEMA,
+            referred_table="PARENT",
+            referred_column_names=["ID"],
+        )
+    ]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "get_fk_constraints_for_schema guards the 'new constraint' branch with "
+        "`row['fk_name'] not in constraints`, but `constraints` is keyed by table "
+        "name, so every row of a composite FK appends the (shared) SnowflakeFK to "
+        "the table's list again: a two-column FK comes back as two references to "
+        "one two-column constraint."
+    ),
+)
+def test_composite_foreign_key_is_one_constraint_with_all_its_columns() -> None:
+    """A composite FK is emitted once, with its columns in row order."""
+    fk = _rows(
+        [
+            _fk_row("FK_COMPOSITE", "CHILD", "P_ID", "ID"),
+            _fk_row("FK_COMPOSITE", "CHILD", "P_KIND", "KIND"),
+        ]
+    ).get_fk_constraints_for_schema(SCHEMA, DB)
+
+    assert fk["CHILD"] == [
+        SnowflakeFK(
+            name="FK_COMPOSITE",
+            column_names=["P_ID", "P_KIND"],
+            referred_database=DB,
+            referred_schema=SCHEMA,
+            referred_table="PARENT",
+            referred_column_names=["ID", "KIND"],
+        )
+    ]
 
 
 def _tag_row(domain: str, **overrides: object) -> dict:
@@ -288,7 +310,7 @@ def test_tag_references_with_missing_fields_or_unknown_domain_are_skipped() -> N
     assert cache.get_schema_tags(SCHEMA, DB) == []
     assert cache.get_column_tags_for_table("OBJ", SCHEMA, DB) == {}
     # Only the unrecognised domain is reported; null fields are logged quietly.
-    assert len(dictionary.report.warnings) == 1
+    assert log_keys(dictionary.report.warnings) == {"Unexpected tag domain encountered"}
 
 
 def test_streamlit_apps_are_grouped_by_schema() -> None:
@@ -350,14 +372,14 @@ def test_stages_tasks_and_pipes_map_show_rows_with_defaults() -> None:
             {
                 "name": "T_JSON",
                 "created_on": CREATED,
-                "predecessors": '["MY_DB.MY_SCHEMA.ROOT"]',
+                "predecessors": f'["{DB}.{SCHEMA}.ROOT"]',
                 "state": "started",
                 "allow_overlapping_execution": "true",
             },
             {
                 "name": "T_LIST",
                 "created_on": CREATED,
-                "predecessors": ["MY_DB.MY_SCHEMA.ROOT"],
+                "predecessors": [f"{DB}.{SCHEMA}.ROOT"],
                 "state": None,
             },
             {
@@ -369,13 +391,13 @@ def test_stages_tasks_and_pipes_map_show_rows_with_defaults() -> None:
     )
     task_list = tasks.get_tasks_for_schema(DB, SCHEMA)
     by_name = {t.name: t for t in task_list}
-    assert by_name["T_JSON"].predecessors == ["MY_DB.MY_SCHEMA.ROOT"]
+    assert by_name["T_JSON"].predecessors == [f"{DB}.{SCHEMA}.ROOT"]
     assert by_name["T_JSON"].state == SnowflakeTaskState.STARTED
     assert by_name["T_JSON"].allow_overlapping_execution
-    assert by_name["T_LIST"].predecessors == ["MY_DB.MY_SCHEMA.ROOT"]
+    assert by_name["T_LIST"].predecessors == [f"{DB}.{SCHEMA}.ROOT"]
     assert by_name["T_LIST"].state == SnowflakeTaskState.SUSPENDED
     assert by_name["T_BAD"].predecessors == []
-    assert len(tasks.report.warnings) == 1
+    assert "Failed to parse task predecessors" in log_keys(tasks.report.warnings)
 
     pipe = _rows(
         [
@@ -393,13 +415,20 @@ def test_stages_tasks_and_pipes_map_show_rows_with_defaults() -> None:
 
 
 @pytest.mark.parametrize(
-    "method", ["get_stages_for_schema", "get_tasks_for_schema", "get_pipes_for_schema"]
+    ("method", "warning"),
+    [
+        ("get_stages_for_schema", "Failed to get stages for schema"),
+        ("get_tasks_for_schema", "Failed to get tasks for schema"),
+        ("get_pipes_for_schema", "Failed to get pipes for schema"),
+    ],
 )
-def test_stage_task_pipe_listing_failures_warn_and_return_empty(method: str) -> None:
+def test_stage_task_pipe_listing_failures_warn_and_return_empty(
+    method: str, warning: str
+) -> None:
     dictionary = _make_dictionary(lambda _sql: RuntimeError("no privilege"))
 
     assert getattr(dictionary, method)(DB, SCHEMA) == []
-    assert len(dictionary.report.warnings) == 1
+    assert warning in log_keys(dictionary.report.warnings)
 
 
 def test_as_obj_reports_cache_statistics() -> None:

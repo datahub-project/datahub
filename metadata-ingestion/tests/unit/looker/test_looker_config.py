@@ -1,10 +1,12 @@
-from typing import Any, Dict
+from typing import Callable
 
 import pytest
 from looker_sdk.sdk.api40.models import DBConnection
+from pydantic import ValidationError
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.looker.looker_config import (
+    LookerCommonConfig,
     LookerConnectionDefinition,
     LookerDashboardSourceConfig,
     LookerViewNamingPattern,
@@ -79,6 +81,19 @@ class TestNamingPattern:
             pattern.validate_pattern(at_least_one=True)
         assert pattern.validate_pattern(at_least_one=False)
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "NamingPattern hooks validate_pattern in through __get_validators__, "
+            "which pydantic v2 never calls, so a recipe with an unknown "
+            "variable in view_naming_pattern is accepted and only fails later "
+            "when the pattern is formatted"
+        ),
+    )
+    def test_config_rejects_pattern_with_unknown_variable(self) -> None:
+        with pytest.raises(ValidationError, match="bogus"):
+            LookerCommonConfig.model_validate({"view_naming_pattern": "{bogus}"})
+
     def test_replace_variables_ignores_unset_values(self) -> None:
         pattern = LookerViewNamingPattern(pattern="{project}.{name}")
         assert (
@@ -87,37 +102,34 @@ class TestNamingPattern:
         )
 
 
-class TestLookerDashboardSourceConfig:
-    def _raw(self, **overrides: Any) -> Dict[str, Any]:
-        raw: Dict[str, Any] = {
-            "base_url": "https://looker.example.com:19999",
-            "client_id": "id",
-            "client_secret": "secret",
-        }
-        raw.update(overrides)
-        return raw
+ConfigFactory = Callable[..., LookerDashboardSourceConfig]
 
-    def test_external_base_url_defaults_to_base_url(self) -> None:
-        config = LookerDashboardSourceConfig.model_validate(self._raw())
-        assert config.external_base_url == "https://looker.example.com:19999"
-        explicit = LookerDashboardSourceConfig.model_validate(
-            self._raw(external_base_url="https://looker.example.com")
+
+class TestLookerDashboardSourceConfig:
+    def test_external_base_url_defaults_to_base_url(
+        self, looker_config_factory: ConfigFactory
+    ) -> None:
+        internal = "https://looker.example.com:19999"
+        config = looker_config_factory(base_url=internal)
+        assert config.external_base_url == internal
+        explicit = looker_config_factory(
+            base_url=internal, external_base_url="https://looker.example.com"
         )
         assert explicit.external_base_url == "https://looker.example.com"
 
-    def test_independent_looks_require_stateful_ingestion(self) -> None:
+    def test_independent_looks_require_stateful_ingestion(
+        self, looker_config_factory: ConfigFactory
+    ) -> None:
+        """Independent looks are soft-deleted through stateful ingestion, so
+        enabling them without it is rejected at config time."""
         with pytest.raises(ValueError, match="stateful_ingestion"):
-            LookerDashboardSourceConfig.model_validate(
-                self._raw(extract_independent_looks=True)
-            )
-        config = LookerDashboardSourceConfig.model_validate(
-            self._raw(
-                extract_independent_looks=True, stateful_ingestion={"enabled": True}
-            )
+            looker_config_factory(extract_independent_looks=True)
+        config = looker_config_factory(
+            extract_independent_looks=True, stateful_ingestion={"enabled": True}
         )
         assert config.extract_independent_looks
 
-    def test_probe_ancestor_kinds(self) -> None:
-        config = LookerDashboardSourceConfig.model_validate(self._raw())
+    def test_probe_ancestor_kinds(self, looker_config_factory: ConfigFactory) -> None:
+        config = looker_config_factory()
         assert config.probe_ancestor_kinds(DASHBOARD_KIND) == ()
         assert config.probe_ancestor_kinds("folder") is None

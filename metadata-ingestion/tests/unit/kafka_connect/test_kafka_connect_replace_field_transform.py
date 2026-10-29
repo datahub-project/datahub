@@ -19,20 +19,6 @@ from datahub.ingestion.source.kafka_connect.common import (
 )
 
 
-@pytest.fixture
-def config():
-    """Create test configuration."""
-    return KafkaConnectSourceConfig(
-        connect_uri="http://localhost:8083", cluster_name="test"
-    )
-
-
-@pytest.fixture
-def report():
-    """Create test report."""
-    return KafkaConnectSourceReport()
-
-
 def test_no_transforms():
     """Test that columns pass through unchanged when no transforms are configured."""
     manifest = ConnectorManifest(

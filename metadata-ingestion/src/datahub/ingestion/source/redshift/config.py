@@ -35,7 +35,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
-logger = logging.Logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 # A view must pass view_pattern, then table_pattern (redshift.py

@@ -2,7 +2,7 @@
 which SDK listing it calls, that SDK errors reach the caller, and that run
 queries follow continuation tokens."""
 
-from typing import Any, Iterator, List, TypeVar, cast
+from typing import Iterator, List, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,6 +12,11 @@ from azure.mgmt.datafactory import models as adf
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
 )
+from tests.unit.azure_data_factory.conftest import (
+    activity_run,
+    adf_factory,
+    pipeline_run,
+)
 
 _SDK_CLIENT = (
     "datahub.ingestion.source.azure_data_factory.adf_client.DataFactoryManagementClient"
@@ -20,6 +25,8 @@ _SDK_CLIENT = (
 
 @pytest.fixture
 def client() -> Iterator[AzureDataFactoryClient]:
+    # The management client and the credential are Azure SDK objects, so
+    # they stay unspecced; only their call shapes are asserted.
     with patch(_SDK_CLIENT):
         yield AzureDataFactoryClient(credential=MagicMock(), subscription_id="sub")
 
@@ -28,26 +35,12 @@ def _sdk(client: AzureDataFactoryClient) -> MagicMock:
     return cast(MagicMock, client._client)
 
 
-M = TypeVar("M")
-
-
-def _hydrate(model: M, **readonly: Any) -> M:
-    """Populate readonly SDK attributes the way the deserializer does."""
-    for attribute, value in readonly.items():
-        setattr(model, attribute, value)
-    return model
-
-
-def _named(name: str) -> adf.Factory:
-    return _hydrate(adf.Factory(location="westeurope"), name=name)
-
-
 def test_factories_are_listed_by_resource_group_only_when_one_is_given(
     client: AzureDataFactoryClient,
 ) -> None:
     sdk = _sdk(client)
-    sdk.factories.list.return_value = iter([_named("sub-wide")])
-    sdk.factories.list_by_resource_group.return_value = iter([_named("rg-only")])
+    sdk.factories.list.return_value = iter([adf_factory("sub-wide")])
+    sdk.factories.list_by_resource_group.return_value = iter([adf_factory("rg-only")])
 
     assert [f.name for f in client.get_factories()] == ["sub-wide"]
     assert [f.name for f in client.get_factories(resource_group="rg")] == ["rg-only"]
@@ -98,6 +91,8 @@ def test_listing_factories_propagates_sdk_errors(
 def test_single_resource_lookups_refuse_an_empty_sdk_response(
     client: AzureDataFactoryClient,
 ) -> None:
+    """The SDK types `get` as Optional; a None must fail at the lookup rather
+    than surface later as an AttributeError on the caller's side."""
     sdk = _sdk(client)
     sdk.factories.get.return_value = None
     sdk.pipelines.get.return_value = None
@@ -112,7 +107,7 @@ def test_single_resource_lookups_return_the_sdk_model(
     client: AzureDataFactoryClient,
 ) -> None:
     sdk = _sdk(client)
-    sdk.factories.get.return_value = _named("factory")
+    sdk.factories.get.return_value = adf_factory("factory")
     pipeline = adf.PipelineResource()
     sdk.pipelines.get.return_value = pipeline
 
@@ -123,14 +118,6 @@ def test_single_resource_lookups_return_the_sdk_model(
     )
 
 
-def _run(run_id: str) -> adf.PipelineRun:
-    return _hydrate(adf.PipelineRun(), run_id=run_id)
-
-
-def _activity_run(name: str) -> adf.ActivityRun:
-    return _hydrate(adf.ActivityRun(), activity_name=name)
-
-
 def test_pipeline_runs_follow_continuation_tokens_within_the_history_window(
     client: AzureDataFactoryClient,
 ) -> None:
@@ -139,8 +126,12 @@ def test_pipeline_runs_follow_continuation_tokens_within_the_history_window(
     missing loop would silently truncate execution history to one page."""
     query = _sdk(client).pipeline_runs.query_by_factory
     query.side_effect = [
-        adf.PipelineRunsQueryResponse(value=[_run("r1")], continuation_token="page2"),
-        adf.PipelineRunsQueryResponse(value=[_run("r2")], continuation_token=None),
+        adf.PipelineRunsQueryResponse(
+            value=[pipeline_run(None, "r1")], continuation_token="page2"
+        ),
+        adf.PipelineRunsQueryResponse(
+            value=[pipeline_run(None, "r2")], continuation_token=None
+        ),
     ]
 
     runs = list(client.get_pipeline_runs("rg", "factory", days=3))
@@ -160,10 +151,12 @@ def test_pipeline_runs_follow_continuation_tokens_within_the_history_window(
 def test_activity_runs_follow_continuation_tokens_for_one_pipeline_run(
     client: AzureDataFactoryClient,
 ) -> None:
+    """Every page must be queried for the same pipeline run; a token sent
+    without its run id would page through another run's activities."""
     query = _sdk(client).activity_runs.query_by_pipeline_run
     query.side_effect = [
         adf.ActivityRunsQueryResponse(
-            value=[_activity_run("Copy")], continuation_token="more"
+            value=[activity_run("Copy", "ar-1")], continuation_token="more"
         ),
         adf.ActivityRunsQueryResponse(value=[], continuation_token=None),
     ]

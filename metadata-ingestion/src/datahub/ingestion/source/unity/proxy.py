@@ -1483,7 +1483,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             view_definition=obj.view_definition or None,
             properties=obj.properties or {},
             owner=obj.owner,
-            generation=obj.generation,
+            # tables.list() only yields TableInfoWithGeneration while the TableInfo
+            # patch in tables() holds; a plain TableInfo must still parse.
+            generation=getattr(obj, "generation", None),
             created_at=(parse_ts_millis(obj.created_at) if obj.created_at else None),
             created_by=obj.created_by,
             updated_at=(parse_ts_millis(obj.updated_at) if obj.updated_at else None),

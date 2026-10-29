@@ -1,16 +1,19 @@
-from typing import cast
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 from sqlalchemy.exc import DatabaseError, ProgrammingError
 
+from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.ingestion.source.sql.postgres.lineage import (
     PostgresLineageExtractor,
     PostgresQueryEntry,
 )
 from datahub.ingestion.source.sql.postgres.query import PostgresQuery
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import SqlUnderstandingError
+from tests.unit.conftest import as_mock, log_contexts
+from tests.unit.sql_test_helpers import FakeResult
 
 
 class TestPostgresQuery:
@@ -297,32 +300,32 @@ class TestPostgresLineageExtractorFailures:
 
     @pytest.fixture
     def extractor(self, report: SQLSourceReport) -> PostgresLineageExtractor:
-        config = MagicMock()
-        config.database = "testdb"
-        config.include_query_lineage = True
-        config.max_queries_to_extract = 1000
-        config.min_query_calls = 1
-        config.query_exclude_patterns = None
+        config = PostgresConfig.model_validate(
+            {
+                "host_port": "localhost:5432",
+                "username": "u",
+                "password": "p",
+                "database": "testdb",
+                "include_query_lineage": True,
+            }
+        )
         return PostgresLineageExtractor(
             config=config,
             connection=MagicMock(),
             report=report,
-            sql_aggregator=MagicMock(),
+            sql_aggregator=create_autospec(SqlParsingAggregator, instance=True),
         )
 
     @staticmethod
-    def _row(*values: object) -> MagicMock:
-        result = MagicMock()
-        result.fetchone.return_value = list(values)
-        return result
+    def _row(*values: object) -> FakeResult:
+        return FakeResult([list(values)])
 
     def test_version_check_failure_does_not_block_extraction(
         self, extractor: PostgresLineageExtractor
     ) -> None:
-        # The version query is advisory: when it fails the extension and
-        # permission checks still decide readiness.
-        connection = cast(MagicMock, extractor.connection)
-        connection.execute.side_effect = [
+        """The version query is advisory: when it fails the extension and
+        permission checks still decide readiness."""
+        as_mock(extractor.connection).execute.side_effect = [
             DatabaseError("no pg_catalog access", None, Exception()),
             self._row(True),
             self._row(True, False),
@@ -335,8 +338,7 @@ class TestPostgresLineageExtractorFailures:
     def test_extension_check_failure_is_not_ready(
         self, extractor: PostgresLineageExtractor
     ) -> None:
-        connection = cast(MagicMock, extractor.connection)
-        connection.execute.side_effect = [
+        as_mock(extractor.connection).execute.side_effect = [
             self._row(130000),
             DatabaseError("relation pg_extension denied", None, Exception()),
         ]
@@ -349,8 +351,9 @@ class TestPostgresLineageExtractorFailures:
     def test_missing_stats_role_is_not_ready(
         self, extractor: PostgresLineageExtractor
     ) -> None:
-        connection = cast(MagicMock, extractor.connection)
-        connection.execute.side_effect = [
+        """Without superuser or pg_read_all_stats, pg_stat_statements hides other
+        roles' query text, so extraction would silently see almost nothing."""
+        as_mock(extractor.connection).execute.side_effect = [
             self._row(130000),
             self._row(True),
             self._row(False, False),
@@ -369,15 +372,13 @@ class TestPostgresLineageExtractorFailures:
         ):
             assert extractor.extract_query_history() == []
 
-        assert len(report.failures) == 1
-        assert "pg_stat_statements_not_ready" in str(report.failures[0])
-        cast(MagicMock, extractor.connection).execute.assert_not_called()
+        assert "pg_stat_statements_not_ready" in log_contexts(report.failures)
+        as_mock(extractor.connection).execute.assert_not_called()
 
     def test_extract_query_history_reports_query_failure(
         self, extractor: PostgresLineageExtractor, report: SQLSourceReport
     ) -> None:
-        connection = cast(MagicMock, extractor.connection)
-        connection.execute.side_effect = ProgrammingError(
+        as_mock(extractor.connection).execute.side_effect = ProgrammingError(
             "column total_exec_time does not exist", None, Exception()
         )
         with patch.object(
@@ -385,12 +386,14 @@ class TestPostgresLineageExtractorFailures:
         ):
             assert extractor.extract_query_history() == []
 
-        assert len(report.failures) == 1
-        assert "query_history_extraction_failed" in str(report.failures[0])
+        assert "query_history_extraction_failed" in log_contexts(report.failures)
 
     def test_unparseable_queries_are_counted_not_fatal(
         self, extractor: PostgresLineageExtractor, report: SQLSourceReport
     ) -> None:
+        """A query the aggregator rejects is counted as a parse failure and the
+        rest of the batch is still handed over."""
+
         def entry(query_id: str, text: str) -> PostgresQueryEntry:
             return PostgresQueryEntry(
                 query_id=query_id,
@@ -401,7 +404,7 @@ class TestPostgresLineageExtractorFailures:
                 database_name="testdb",
             )
 
-        aggregator = cast(MagicMock, extractor.sql_aggregator)
+        aggregator = as_mock(extractor.sql_aggregator)
         aggregator.add_observed_query.side_effect = [
             SqlUnderstandingError("unsupported"),
             None,

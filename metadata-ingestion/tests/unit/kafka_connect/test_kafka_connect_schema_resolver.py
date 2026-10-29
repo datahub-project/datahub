@@ -2,7 +2,6 @@
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple
-from unittest.mock import MagicMock
 
 from datahub.ingestion.source.kafka_connect.common import (
     ConnectorManifest,
@@ -17,6 +16,12 @@ from datahub.ingestion.source.kafka_connect.source_connectors import (
     DebeziumSourceConnector,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
+from tests.unit.kafka_connect.conftest import (
+    StubSchemaResolver,
+    attach_resolver,
+    mock_graph,
+    reported,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1381,12 +1386,15 @@ class TestSinkFineGrainedLineage:
         connector = JdbcSinkConnector(
             manifest, self._config(), KafkaConnectSourceReport(), platform="postgres"
         )
-        connector.schema_resolver = self._resolver(  # type: ignore[assignment]
-            platform="postgres",
-            db_schemas={"testdb.public.orders": {"id": "INTEGER"}},
-            kafka_schemas={
-                self._KAFKA_ORDERS_URN: ["id", "internal_note", "legacy_flag"]
-            },
+        attach_resolver(
+            connector,
+            self._resolver(
+                platform="postgres",
+                db_schemas={"testdb.public.orders": {"id": "INTEGER"}},
+                kafka_schemas={
+                    self._KAFKA_ORDERS_URN: ["id", "internal_note", "legacy_flag"]
+                },
+            ),
         )
 
         result = connector._extract_sink_fine_grained_lineage(
@@ -1416,11 +1424,9 @@ class TestSinkFineGrainedLineage:
         connector = JdbcSinkConnector(
             manifest, self._config(), report, platform="postgres"
         )
-        resolver = self._resolver(platform="postgres")
-        failing_graph = MagicMock()
+        failing_graph = mock_graph()
         failing_graph.get_aspect.side_effect = RuntimeError("datahub unavailable")
-        resolver.graph = failing_graph  # type: ignore[assignment]
-        connector.schema_resolver = resolver  # type: ignore[assignment]
+        attach_resolver(connector, StubSchemaResolver("postgres", graph=failing_graph))
 
         lineages = connector.extract_lineages()
 
@@ -1428,7 +1434,7 @@ class TestSinkFineGrainedLineage:
             "testdb.public.orders"
         ]
         assert lineages[0].fine_grained_lineages is None
-        assert len(report.warnings) == 1
+        assert reported(report.warnings, "connector=jdbc-sink")
 
     def test_case_insensitive_snowflake_columns(self) -> None:
         """Kafka lowercase fields match Snowflake uppercase DB columns case-insensitively."""

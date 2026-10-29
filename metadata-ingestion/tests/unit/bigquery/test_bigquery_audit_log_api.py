@@ -1,224 +1,42 @@
-import json
-from dataclasses import dataclass, field
+"""Audit-log access (queries.py templates, BigQueryAuditLogApi) and parsing of
+the raw entries into QueryEvent / ReadEvent (bigquery_audit.py)."""
+
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence
+from typing import Callable, List, Optional
 from unittest.mock import MagicMock
 
 import pytest
-from google.cloud.bigquery.table import Row
+from pydantic import ValidationError
 
-from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
-    BigqueryTableIdentifier,
-    BigQueryTableRef,
-    QueryEvent,
-    ReadEvent,
-)
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import QueryEvent, ReadEvent
 from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
     BigQueryAuditLogApi,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryAuditLogApiPerfReport,
-    BigQueryV2Report,
 )
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
-    BigQueryIdentifierBuilder,
 )
 from datahub.ingestion.source.bigquery_v2.queries import (
     bigquery_audit_metadata_query_template_lineage,
     bigquery_audit_metadata_query_template_usage,
 )
-
-PROJECT = "my-project"
-DATASET = "my_dataset"
-ACTOR = "user@example.com"
-TS = datetime(2023, 1, 2, 12, 0, tzinfo=timezone.utc)
-START_TIME = "2023-01-02T12:00:00Z"
-END_TIME = "2023-01-02T12:00:01Z"
-
-
-# ---------------------------------------------------------------------------
-# Raw audit-log builders. These are shared with the lineage and usage
-# extractor tests so every test parses the same shapes that GCP emits.
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class FakeLogEntry:
-    """The subset of a google.cloud.logging LogEntry the parsers read."""
-
-    payload: Dict[str, Any] = field(default_factory=dict)
-    timestamp: datetime = TS
-
-
-def table_ref(table: str, project: str = PROJECT, dataset: str = DATASET) -> str:
-    return f"projects/{project}/datasets/{dataset}/tables/{table}"
-
-
-def _table_spec(table: str) -> Dict[str, str]:
-    return {"projectId": PROJECT, "datasetId": DATASET, "tableId": table}
-
-
-def v1_query_entry(
-    query: str = "SELECT 1",
-    statement_type: str = "SELECT",
-    destination: Optional[str] = None,
-    referenced_tables: Sequence[str] = (),
-    referenced_views: Sequence[str] = (),
-    job_id: str = "job_1",
-    project: str = PROJECT,
-) -> FakeLogEntry:
-    """A legacy AuditData (serviceData.jobCompletedEvent) entry."""
-    query_conf: Dict[str, Any] = {
-        "query": query,
-        "statementType": statement_type,
-        "defaultDataset": {},
-    }
-    if destination:
-        query_conf["destinationTable"] = _table_spec(destination)
-    return FakeLogEntry(
-        payload={
-            "authenticationInfo": {"principalEmail": ACTOR},
-            "serviceData": {
-                "jobCompletedEvent": {
-                    "job": {
-                        "jobName": {"projectId": project, "jobId": job_id},
-                        "jobConfiguration": {"query": query_conf},
-                        "jobStatistics": {
-                            "startTime": START_TIME,
-                            "endTime": END_TIME,
-                            "totalBilledBytes": "2048",
-                            "queryOutputRowCount": "7",
-                            "referencedTables": [
-                                _table_spec(t) for t in referenced_tables
-                            ],
-                            "referencedViews": [
-                                _table_spec(v) for v in referenced_views
-                            ],
-                        },
-                    }
-                }
-            },
-        }
-    )
-
-
-def v2_job_metadata(
-    query: str = "SELECT 1",
-    statement_type: str = "SELECT",
-    destination: Optional[str] = None,
-    referenced_tables: Sequence[str] = (),
-    referenced_views: Sequence[str] = (),
-    job_id: str = "job_1",
-    project: str = PROJECT,
-) -> Dict[str, Any]:
-    """The BigQueryAuditMetadata `jobChange` payload shared by v2 log entries
-    and exported audit rows."""
-    return {
-        "jobChange": {
-            "job": {
-                "jobName": f"projects/{project}/jobs/{job_id}",
-                "jobConfig": {
-                    "queryConfig": {
-                        "query": query,
-                        "statementType": statement_type,
-                        "destinationTable": table_ref(destination)
-                        if destination
-                        else None,
-                    }
-                },
-                "jobStats": {
-                    "startTime": START_TIME,
-                    "endTime": END_TIME,
-                    "queryStats": {
-                        "referencedTables": [table_ref(t) for t in referenced_tables],
-                        "referencedViews": [table_ref(v) for v in referenced_views],
-                        "outputRowCount": "7",
-                        "totalBilledBytes": "2048",
-                    },
-                },
-            }
-        }
-    }
-
-
-def v2_query_entry(**kwargs: Any) -> FakeLogEntry:
-    return FakeLogEntry(
-        payload={
-            "authenticationInfo": {"principalEmail": ACTOR},
-            "metadata": v2_job_metadata(**kwargs),
-        }
-    )
-
-
-def read_metadata(
-    fields: Sequence[str] = ("id",),
-    reason: str = "JOB",
-    job_name: Optional[str] = f"projects/{PROJECT}/jobs/job_1",
-) -> Dict[str, Any]:
-    read_info: Dict[str, Any] = {"fields": list(fields), "reason": reason}
-    if job_name:
-        read_info["jobName"] = job_name
-    return {"tableDataRead": read_info}
-
-
-def read_entry(
-    table: str,
-    fields: Sequence[str] = ("id",),
-    reason: str = "JOB",
-    dataset: str = DATASET,
-    timestamp: datetime = TS,
-) -> FakeLogEntry:
-    return FakeLogEntry(
-        payload={
-            "authenticationInfo": {"principalEmail": ACTOR},
-            "resourceName": table_ref(table, dataset=dataset),
-            "metadata": read_metadata(fields=fields, reason=reason),
-        },
-        timestamp=timestamp,
-    )
-
-
-def exported_row(metadata: Dict[str, Any], resource_name: Optional[str] = None) -> Row:
-    """A row as returned by the exported-audit-log query templates."""
-    proto_payload: Dict[str, Any] = {"authenticationInfo": {"principalEmail": ACTOR}}
-    if resource_name:
-        proto_payload["resourceName"] = resource_name
-    return Row(
-        (
-            TS,
-            "projects/p/logs/data_access",
-            "insert-1",
-            proto_payload,
-            json.dumps(metadata),
-        ),
-        {"timestamp": 0, "logName": 1, "insertId": 2, "protoPayload": 3, "metadata": 4},
-    )
-
-
-def bq_ref(table: str) -> BigQueryTableRef:
-    return BigQueryTableRef.from_string_name(table_ref(table))
-
-
-@pytest.fixture
-def shard_suffix() -> Iterator[str]:
-    """The shard suffix is process-wide state set by whichever
-    BigQueryIdentifierBuilder was constructed last, so pin it through the
-    public config knob for this test and restore it afterwards."""
-    previous = BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX
-    BigQueryIdentifierBuilder(
-        BigQueryV2Config(enable_legacy_sharded_table_support=False),
-        BigQueryV2Report(),
-    )
-    yield BigqueryTableIdentifier.DEFAULT_BQ_SHARDED_TABLE_SUFFIX
-    BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = previous
-
-
-# ---------------------------------------------------------------------------
-# Query templates (queries.py)
-# ---------------------------------------------------------------------------
+from tests.unit.bigquery.conftest import (
+    ACTOR,
+    PROJECT,
+    TS,
+    bq_ref,
+    exported_row,
+    read_entry,
+    read_metadata,
+    table_ref,
+    v1_query_entry,
+    v2_job_metadata,
+    v2_query_entry,
+)
 
 TEMPLATES = [
     bigquery_audit_metadata_query_template_lineage,
@@ -248,11 +66,6 @@ class TestAuditMetadataQueryTemplates:
         assert "limit 5" in query
 
 
-# ---------------------------------------------------------------------------
-# BigQueryAuditLogApi
-# ---------------------------------------------------------------------------
-
-
 def _api(rate_limit: bool = False) -> BigQueryAuditLogApi:
     return BigQueryAuditLogApi(
         report=BigQueryAuditLogApiPerfReport(),
@@ -279,7 +92,22 @@ class TestExportedAuditMetadataApi:
         assert rows == []
         client.query.assert_not_called()
 
+    @pytest.mark.xfail(
+        strict=True,
+        raises=pytest.fail.Exception,
+        reason="validate_bigquery_audit_metadata_datasets is a field validator on "
+        "bigquery_audit_metadata_datasets that reads use_exported_bigquery_audit_metadata "
+        "from info.data, but that field is declared after it and so is never present "
+        "when the validator runs; the guard cannot fire.",
+    )
+    def test_exported_audit_metadata_requires_datasets(self) -> None:
+        with pytest.raises(ValidationError):
+            BigQueryV2Config(use_exported_bigquery_audit_metadata=True)
+
     def test_queries_each_dataset_with_formatted_time_window(self) -> None:
+        """Each configured dataset gets its own query with the window rendered in
+        both the timestamp and the _TABLE_SUFFIX formats, and no template
+        placeholder is left behind."""
         api = _api()
         client = MagicMock()
         client.query.side_effect = [["row1"], ["row2", "row3"]]
@@ -349,15 +177,12 @@ class TestGcpLoggingApi:
         assert api.report.num_list_log_entries_api_requests == 1
 
 
-# ---------------------------------------------------------------------------
-# Entry parsing (bigquery_audit.py)
-# ---------------------------------------------------------------------------
-
-
 class TestQueryEventParsing:
     def test_v1_entry_parses_job_tables_and_sanitizes_shards(
         self, shard_suffix: str
     ) -> None:
+        """Shard suffixes collapse to the logical table so lineage and usage
+        merge across daily shards."""
         entry = v1_query_entry(
             query="INSERT INTO t SELECT 1",
             statement_type="INSERT",
@@ -375,12 +200,10 @@ class TestQueryEventParsing:
         assert event.numAffectedRows == 7
         assert event.start_time == datetime(2023, 1, 2, 12, 0, tzinfo=timezone.utc)
         assert event.end_time == datetime(2023, 1, 2, 12, 0, 1, tzinfo=timezone.utc)
-        # Shard suffixes collapse to the logical table so lineage/usage merge
-        # across daily shards.
-        assert event.destinationTable == bq_ref("events_yyyymmdd")
+        assert event.destinationTable == bq_ref(f"events{shard_suffix}")
         assert event.referencedTables == [
-            bq_ref("src_yyyymmdd"),
-            bq_ref("src_yyyymmdd"),
+            bq_ref(f"src{shard_suffix}"),
+            bq_ref(f"src{shard_suffix}"),
         ]
         assert not event.query_on_view
         assert event.payload is None
@@ -428,7 +251,9 @@ class TestQueryEventParsing:
 
 
 class TestReadEventParsing:
-    def test_job_read_keeps_job_name_and_strips_partition_decorator(self) -> None:
+    def test_job_read_keeps_job_name_and_strips_non_date_partition_decorator(
+        self,
+    ) -> None:
         entry = read_entry("t$__UNPARTITIONED__", fields=["a", "b"], reason="JOB")
         assert ReadEvent.get_missing_key_entry(entry) is None
 
@@ -440,6 +265,21 @@ class TestReadEventParsing:
         assert event.jobName == f"projects/{PROJECT}/jobs/job_1"
         assert event.actor_email == ACTOR
         assert not event.from_query
+
+    @pytest.mark.xfail(
+        strict=True,
+        raises=AssertionError,
+        reason="BigqueryTableIdentifier.is_sharded_table matches the date in a "
+        "partition decorator (t$20230101) as a shard suffix, so the sanitized "
+        "ref becomes t_yyyymmdd instead of t and the read is attributed to a "
+        "table that was never ingested (dropped from usage).",
+    )
+    def test_date_partition_decorator_is_stripped_not_treated_as_shard(
+        self, shard_suffix: str
+    ) -> None:
+        event = ReadEvent.from_entry(read_entry("t$20230101"))
+
+        assert event.resource == bq_ref("t")
 
     def test_non_job_read_has_no_job_name(self) -> None:
         event = ReadEvent.from_entry(read_entry("t", reason="TABLEDATA_LIST_REQUEST"))

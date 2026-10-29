@@ -8,12 +8,6 @@ import re
 from typing import Dict, Iterable, List, Tuple
 from unittest import mock
 
-# jpype.imports must precede the kafka_connect modules: transform_plugins
-# imports java.util.regex at import time, which only resolves once it is
-# loaded. Run alone, this file would otherwise switch RegexRouter support off
-# for the whole process.
-import jpype
-import jpype.imports  # noqa: F401
 import pytest
 import requests
 import requests_mock

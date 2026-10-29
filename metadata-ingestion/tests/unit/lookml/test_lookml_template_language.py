@@ -1,5 +1,7 @@
-import pathlib
-from typing import Any, Dict
+"""Looker template language handling: liquid tags and variables, ``-- if --``
+comments, LookML constants and the transformer chain over a view dict."""
+
+from typing import Any, Callable, Dict
 
 import pytest
 
@@ -22,26 +24,15 @@ from datahub.ingestion.source.looker.lookml_config import (
 
 
 @pytest.fixture
-def config_dict(tmp_path: pathlib.Path) -> Dict[str, object]:
-    base = tmp_path / "base"
-    base.mkdir()
-    return {
-        "base_folder": str(base),
-        "connection_to_platform_map": {"my_connection": "postgres"},
-        "project_name": "test_project",
-    }
+def prod_config(lookml_config: LookMLSourceConfig) -> LookMLSourceConfig:
+    return lookml_config
 
 
 @pytest.fixture
-def prod_config(config_dict: Dict[str, object]) -> LookMLSourceConfig:
-    return LookMLSourceConfig.model_validate(config_dict)
-
-
-@pytest.fixture
-def dev_config(config_dict: Dict[str, object]) -> LookMLSourceConfig:
-    return LookMLSourceConfig.model_validate(
-        {**config_dict, "looker_environment": "dev"}
-    )
+def dev_config(
+    lookml_config_factory: Callable[..., LookMLSourceConfig],
+) -> LookMLSourceConfig:
+    return lookml_config_factory(looker_environment="dev")
 
 
 class TestLiquidTags:
@@ -318,6 +309,9 @@ class TestLookmlConstantTransformer:
     def test_constant_resolution_order_and_warnings(
         self, prod_config: LookMLSourceConfig
     ) -> None:
+        """Config constants win over manifest constants; a name that is only a
+        liquid variable is flagged as misplaced and an unknown one as missing,
+        both being left unresolved in the text."""
         prod_config.lookml_constants = {"from_config": "cfg"}
         prod_config.liquid_variables = {"misplaced": "liquid"}
         reporter = LookMLSourceReport()
@@ -333,10 +327,10 @@ class TestLookmlConstantTransformer:
             transformer.resolve_lookml_constant(text, view_name="v")
             == "cfg.man.@{misplaced}.@{missing}"
         )
-        assert [w.title for w in reporter.warnings] == [
+        assert {w.title for w in reporter.warnings} == {
             "Misplaced lookml constant",
             "LookML constant not found",
-        ]
+        }
 
 
 class TestTransformedLookMlView:

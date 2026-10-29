@@ -193,5 +193,13 @@ class TestFlattenJson:
     def test_top_level_list_is_indexed(self):
         assert flatten_json([1, {"a": 2}]) == {"[0]": "1", "[1].item.a": "2"}
 
+    def test_list_nested_in_dict_is_indexed(self):
+        """A list value is expanded into indexed keys like a top-level list is,
+        rather than being re-wrapped until the depth limit truncates it."""
+        assert flatten_json({"tags": ["a", {"x": 1}]}) == {
+            "tags[0]": "a",
+            "tags[1].item.x": "1",
+        }
+
     def test_list_is_kept_intact_for_schema_inference(self):
         assert flatten_json([1, 2], stringify_values=False) == {"item": [1, 2]}

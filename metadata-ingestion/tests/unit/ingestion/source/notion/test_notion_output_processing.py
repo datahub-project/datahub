@@ -17,105 +17,53 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_source import NotionSource
-from datahub.metadata.schema_classes import BrowsePathsV2Class, DocumentInfoClass
+from datahub.metadata.schema_classes import BrowsePathsV2Class
+from tests.unit.ingestion.source.notion.conftest import (
+    CHILD_ID,
+    DB_ID,
+    LONG_TEXT,
+    ORPHAN_ID,
+    PAGE_ID,
+    document_infos,
+    make_notion_source,
+    write_indexer_record,
+    write_output_file,
+)
 
-ROOT_ID = "2bffc6a6-4277-8024-97c9-d0f26faa4480"
-CHILD_ID = "3cffc6a6-4277-8024-97c9-d0f26faa4481"
-ORPHAN_ID = "4dffc6a6-4277-8024-97c9-d0f26faa4482"
-DB_ID = "abcdef01-2345-6789-0123-456789012345"
-LONG_TEXT = "This paragraph is comfortably longer than the fifty character floor."
-EMBEDDING: Dict[str, Any] = {
-    "provider": "bedrock",
-    "model": "cohere.embed-english-v3",
-    "aws_region": "us-west-2",
-    "allow_local_embedding_config": True,
-}
+pytestmark = pytest.mark.usefixtures("inline_processing_stub")
+
+ROOT_ID = PAGE_ID
 
 
 def _make_source(
-    work_dir: Path,
-    ctx: Optional[PipelineContext] = None,
-    **overrides: Any,
+    work_dir: Path, ctx: Optional[PipelineContext] = None, **overrides: Any
 ) -> NotionSource:
-    config = NotionSourceConfig.parse_obj(
-        {
-            "api_key": "secret_test_key",
-            "page_ids": [ROOT_ID],
-            "embedding": EMBEDDING,
-            "advanced": {"work_dir": str(work_dir)},
-            **overrides,
-        }
+    """Source scoped to ROOT_ID whose work dir is under the test's tmp_path."""
+    return make_notion_source(
+        ctx=ctx,
+        page_ids=[ROOT_ID],
+        advanced={"work_dir": str(work_dir), **overrides.pop("advanced", {})},
+        **overrides,
     )
-    source = NotionSource(config=config, ctx=ctx or PipelineContext(run_id="test"))
-    source.chunking_source.process_elements_inline = MagicMock(return_value=[])  # type: ignore[method-assign]
-    return source
-
-
-def _write_indexer_record(
-    work_dir: Path,
-    page_id: str,
-    parent: Dict[str, Any],
-    record_key: str = "page_id",
-    **file_metadata: str,
-) -> None:
-    indexer_dir = work_dir / "indexer"
-    indexer_dir.mkdir(parents=True, exist_ok=True)
-    (indexer_dir / f"{page_id}.json").write_text(
-        json.dumps(
-            {
-                "metadata": {"record_locator": {record_key: page_id}, **file_metadata},
-                "additional_metadata": {
-                    "parent": parent,
-                    "url": f"https://www.notion.so/{page_id.replace('-', '')}",
-                },
-            }
-        )
-    )
-
-
-def _write_output_file(output_dir: Path, page_id: str, texts: List[str]) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    metadata = {
-        "filename": f"{page_id}.html",
-        "filetype": "text/html",
-        "data_source": {"record_locator": {"page_id": page_id}},
-    }
-    elements = [
-        {
-            "type": "Title" if i == 0 else "NarrativeText",
-            "text": t,
-            "metadata": metadata,
-        }
-        for i, t in enumerate(texts)
-    ]
-    (output_dir / f"{page_id}.json").write_text(json.dumps(elements))
-
-
-def _document_infos(workunits: List[MetadataWorkUnit]) -> Dict[str, DocumentInfoClass]:
-    infos: Dict[str, DocumentInfoClass] = {}
-    for wu in workunits:
-        aspect = wu.get_aspect_of_type(DocumentInfoClass)
-        if aspect is not None:
-            infos[wu.get_urn()] = aspect
-    return infos
 
 
 def test_load_parent_metadata_merges_timestamps_and_skips_corrupt_files(
     tmp_path: Path,
 ) -> None:
+    """Indexer records are keyed by page or database id, carry the Notion
+    timestamps when present, and a corrupt record does not abort the load."""
     source = _make_source(tmp_path)
     assert source._load_notion_parent_metadata(tmp_path) == {}
 
-    _write_indexer_record(
+    write_indexer_record(
         tmp_path,
         CHILD_ID,
         {"type": "page_id", "page_id": ROOT_ID},
         date_created="2025-12-04T18:35:00.000Z",
         date_modified="2026-01-17T08:19:00.000Z",
     )
-    _write_indexer_record(
+    write_indexer_record(
         tmp_path,
         DB_ID,
         {"type": "workspace", "workspace": True},
@@ -138,17 +86,17 @@ def test_process_output_exempts_short_parents_and_links_children(
     """A parent page below min_text_length is still ingested so that its child's
     parent reference and browse path resolve; a short leaf page is filtered."""
     source = _make_source(tmp_path, filtering={"min_text_length": 50})
-    _write_indexer_record(tmp_path, ROOT_ID, {"type": "workspace", "workspace": True})
-    _write_indexer_record(tmp_path, CHILD_ID, {"type": "page_id", "page_id": ROOT_ID})
-    _write_indexer_record(tmp_path, ORPHAN_ID, {"type": "page_id", "page_id": ROOT_ID})
+    write_indexer_record(tmp_path, ROOT_ID, {"type": "workspace", "workspace": True})
+    write_indexer_record(tmp_path, CHILD_ID, {"type": "page_id", "page_id": ROOT_ID})
+    write_indexer_record(tmp_path, ORPHAN_ID, {"type": "page_id", "page_id": ROOT_ID})
     output_dir = tmp_path / "output"
-    _write_output_file(output_dir, ROOT_ID, ["Engineering"])
-    _write_output_file(output_dir, CHILD_ID, ["Backend", LONG_TEXT])
-    _write_output_file(output_dir, ORPHAN_ID, ["Stub"])
+    write_output_file(output_dir, ROOT_ID, ["Engineering"])
+    write_output_file(output_dir, CHILD_ID, ["Backend", LONG_TEXT])
+    write_output_file(output_dir, ORPHAN_ID, ["Stub"])
 
     workunits = list(source._process_unstructured_output(output_dir))
 
-    infos = _document_infos(workunits)
+    infos = document_infos(workunits)
     root_urn = source._build_notion_document_urn(ROOT_ID)
     child_urn = source._build_notion_document_urn(CHILD_ID)
     assert set(infos) == {root_urn, child_urn}
@@ -179,15 +127,15 @@ def test_process_output_drops_parent_reference_to_filtered_parent(
 ) -> None:
     """Parent references must only point at documents that are actually emitted."""
     source = _make_source(tmp_path)
-    _write_indexer_record(tmp_path, ROOT_ID, {"type": "workspace", "workspace": True})
-    _write_indexer_record(tmp_path, CHILD_ID, {"type": "page_id", "page_id": ROOT_ID})
+    write_indexer_record(tmp_path, ROOT_ID, {"type": "workspace", "workspace": True})
+    write_indexer_record(tmp_path, CHILD_ID, {"type": "page_id", "page_id": ROOT_ID})
     output_dir = tmp_path / "output"
-    _write_output_file(output_dir, ROOT_ID, [])  # image-only page: no text
-    _write_output_file(output_dir, CHILD_ID, ["Backend", LONG_TEXT])
+    write_output_file(output_dir, ROOT_ID, [])  # image-only page: no text
+    write_output_file(output_dir, CHILD_ID, ["Backend", LONG_TEXT])
 
     workunits = list(source._process_unstructured_output(output_dir))
 
-    infos = _document_infos(workunits)
+    infos = document_infos(workunits)
     child_urn = source._build_notion_document_urn(CHILD_ID)
     assert set(infos) == {child_urn}
     assert infos[child_urn].parentDocument is None
@@ -199,13 +147,15 @@ def test_process_output_drops_parent_reference_to_filtered_parent(
 def test_process_output_malformed_file_honours_continue_on_failure(
     tmp_path: Path,
 ) -> None:
+    """A malformed output file is counted as failed and skipped by default, but
+    aborts the run when continue_on_failure is off."""
     output_dir = tmp_path / "output"
-    _write_output_file(output_dir, ROOT_ID, ["Engineering", LONG_TEXT])
+    write_output_file(output_dir, ROOT_ID, ["Engineering", LONG_TEXT])
     (output_dir / "bad.json").write_text(json.dumps({"elements": []}))
 
     lenient = _make_source(tmp_path)
     workunits = list(lenient._process_unstructured_output(output_dir))
-    assert len(_document_infos(workunits)) == 1
+    assert len(document_infos(workunits)) == 1
     assert lenient.report.num_files_failed == 1
 
     strict = _make_source(tmp_path, advanced={"continue_on_failure": False})
@@ -214,6 +164,8 @@ def test_process_output_malformed_file_honours_continue_on_failure(
 
 
 def test_notion_timestamps_parsed_from_indexer_metadata(tmp_path: Path) -> None:
+    """Timestamps come from the indexer record for the page; an unparseable or
+    missing value yields None rather than an error."""
     source = _make_source(tmp_path)
     source.notion_parent_metadata = {
         CHILD_ID: {
@@ -267,21 +219,26 @@ def _stateful_source(tmp_path: Path) -> NotionSource:
 
 
 def _run_once(tmp_path: Path) -> List[MetadataWorkUnit]:
+    """Run a fresh stateful source over one page, bypassing the Notion pipeline."""
     source = _stateful_source(tmp_path)
     output_dir = tmp_path / "work" / "output"
-    _write_output_file(output_dir, ROOT_ID, ["Engineering", LONG_TEXT])
-    with patch.object(source, "_run_unstructured_pipeline", return_value=output_dir):
+    write_output_file(output_dir, ROOT_ID, ["Engineering", LONG_TEXT])
+    with patch.object(
+        source, "_run_unstructured_pipeline", autospec=True, return_value=output_dir
+    ):
         return list(source.get_workunits_internal())
 
 
 def test_state_file_written_after_run_and_loaded_by_next_source(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The content-hash state lands in ~/.datahub/notion_state/<pipeline>.json
+    keyed by emitted URN, and a new source for the same pipeline loads it."""
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
 
     workunits = _run_once(tmp_path)
 
-    emitted_urns = set(_document_infos(workunits))
+    emitted_urns = set(document_infos(workunits))
     assert len(emitted_urns) == 1
     state_file = (
         tmp_path / "home" / ".datahub" / "notion_state" / "notion_pipeline.json"
@@ -305,13 +262,14 @@ def test_state_file_written_after_run_and_loaded_by_next_source(
 def test_unchanged_document_skipped_on_second_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Change detection must skip a page whose content and config are unchanged."""
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
 
     first_run = _run_once(tmp_path)
     second_run = _run_once(tmp_path)
 
-    assert len(_document_infos(first_run)) == 1
-    assert _document_infos(second_run) == {}
+    assert len(document_infos(first_run)) == 1
+    assert document_infos(second_run) == {}
 
 
 def test_close_removes_work_dir_unless_outputs_preserved(tmp_path: Path) -> None:
@@ -327,6 +285,8 @@ def test_close_removes_work_dir_unless_outputs_preserved(tmp_path: Path) -> None
 
 
 def test_database_title_monkeypatch_prepends_title_heading() -> None:
+    """The patched extract_database_html puts the database title as an h1 ahead
+    of the table, and leaves untitled databases alone."""
     pytest.importorskip("unstructured_ingest")
     from htmlBuilder.tags import Table
     from unstructured_ingest.processes.connectors.notion import helpers

@@ -22,25 +22,18 @@ def connection() -> Iterator[sqlite3.Connection]:
     conn.close()
 
 
-def test_execute_on_cursor_returns_named_columns_and_closes_the_cursor(
+def test_execute_on_cursor_stops_at_the_limit_on_a_real_dbapi_cursor(
     connection: sqlite3.Connection,
 ) -> None:
+    """Against a real DB-API cursor (the fakes in test_mssql_probe.py cover
+    closing on failure): rows beyond ``limit`` are not returned, and the cursor
+    is closed afterwards."""
     cursor = connection.cursor()
 
     rows = execute_on_cursor(cursor, "SELECT a, b FROM t ORDER BY a", 2)
 
     assert rows.columns == ["a", "b"]
     assert rows.rows == [[1, "x"], [2, "y"]]
-    with pytest.raises(sqlite3.ProgrammingError):
-        cursor.execute("SELECT 1")
-
-
-def test_execute_on_cursor_closes_even_when_the_query_fails(
-    connection: sqlite3.Connection,
-) -> None:
-    cursor = connection.cursor()
-    with pytest.raises(sqlite3.OperationalError):
-        execute_on_cursor(cursor, "SELECT * FROM missing", 2)
     with pytest.raises(sqlite3.ProgrammingError):
         cursor.execute("SELECT 1")
 

@@ -442,6 +442,8 @@ def test_extract_parent_id_tolerates_malformed_immediate_parent() -> None:
 
 
 def test_collect_folder_nodes_skips_non_dict_ancestors() -> None:
+    """A junk entry in one page's ancestor chain is skipped without losing the
+    real folder after it, and the folder's parent is not read from the junk."""
     pages = [
         {
             "id": "1",

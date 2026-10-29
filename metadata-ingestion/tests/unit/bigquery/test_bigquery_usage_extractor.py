@@ -1,6 +1,10 @@
+"""BigQueryUsageExtractor: parsing audit-log entries into usage events,
+storing them in BigQueryUsageState, and turning them into operation and usage
+workunits."""
+
 from datetime import datetime, timedelta, timezone
 from typing import Any, Collection, Optional, Sequence
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 
@@ -21,18 +25,23 @@ from datahub.ingestion.source.bigquery_v2.usage import (
     BigQueryUsageExtractor,
     BigQueryUsageState,
 )
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantUsageRunSkipHandler,
+)
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from tests.unit.bigquery.test_bigquery_audit_log_api import (
+from tests.unit.bigquery.conftest import (
     ACTOR,
     DATASET,
     PROJECT,
     FakeLogEntry,
+    as_mock,
     bq_ref,
     exported_row,
     read_entry,
     read_metadata,
     table_ref,
+    urn_for,
     v1_query_entry,
     v2_job_metadata,
     v2_query_entry,
@@ -53,7 +62,10 @@ def make_config(**usage: Any) -> BigQueryV2Config:
     )
 
 
-def make_extractor(config: Optional[BigQueryV2Config] = None) -> BigQueryUsageExtractor:
+def make_extractor(
+    config: Optional[BigQueryV2Config] = None,
+    redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
+) -> BigQueryUsageExtractor:
     config = config or make_config()
     report = BigQueryV2Report()
     return BigQueryUsageExtractor(
@@ -61,6 +73,7 @@ def make_extractor(config: Optional[BigQueryV2Config] = None) -> BigQueryUsageEx
         report,
         schema_resolver=SchemaResolver(platform="bigquery"),
         identifiers=BigQueryIdentifierBuilder(config, report),
+        redundant_run_skip_handler=redundant_run_skip_handler,
     )
 
 
@@ -106,10 +119,6 @@ def query_event(
         numAffectedRows=12,
         query_on_view=query_on_view,
     )
-
-
-def urn_for(table: str) -> str:
-    return f"urn:li:dataset:(urn:li:dataPlatform:bigquery,{PROJECT}.{DATASET}.{table},PROD)"
 
 
 class TestLogEntryParsing:
@@ -163,6 +172,9 @@ class TestLogEntryParsing:
 
 class TestAuditLogFetching:
     def test_entries_are_counted_and_fetched_with_padded_window(self) -> None:
+        """Unparseable entries are reported but do not abort the project, and the
+        query window is widened by max_query_duration so query and read events
+        from the same job still join."""
         extractor = make_extractor()
         logging_client = MagicMock()
         broken = v1_query_entry(destination="a")
@@ -181,8 +193,9 @@ class TestAuditLogFetching:
         assert len(events) == 1 and events[0].read_event is not None
         assert extractor.report.num_usage_total_log_entries[PROJECT] == 3
         assert extractor.report.num_usage_parsed_log_entries[PROJECT] == 1
-        assert len(extractor.report.warnings) == 1
-        # max_query_duration pads the window so query/read events still join.
+        assert "Unable to parse usage log entry" in {
+            w.message for w in extractor.report.warnings
+        }
         assert extractor.report.audit_start_time == START - timedelta(hours=1)
         assert extractor.report.audit_end_time == END + timedelta(hours=1)
         log_filter = logging_client.list_entries.call_args.kwargs["filter_"]
@@ -225,6 +238,9 @@ class TestStoreUsageEvent:
     def test_only_known_non_temporary_reads_inside_the_window_are_stored(
         self,
     ) -> None:
+        """Reads outside the window, of tables that were not ingested, of
+        temporary tables, and query events without a job name are dropped; the
+        stored read also records one column access per field read."""
         config = make_config()
         extractor = make_extractor(config)
         table_refs: Collection[str] = {table_ref("t1")}
@@ -398,18 +414,12 @@ class TestViewUsage:
 
 @pytest.mark.parametrize("skip", [True, False])
 def test_redundant_run_handling(skip: bool) -> None:
-    config = make_config()
-    report = BigQueryV2Report()
-    handler = MagicMock()
+    """A run the skip handler deems redundant fetches nothing and leaves the
+    checkpoint untouched; otherwise the audit log is read and state updated."""
+    handler = create_autospec(RedundantUsageRunSkipHandler, instance=True)
     handler.suggest_run_time_window.return_value = (START, END)
     handler.should_skip_this_run.return_value = skip
-    extractor = BigQueryUsageExtractor(
-        config,
-        report,
-        schema_resolver=SchemaResolver(platform="bigquery"),
-        identifiers=BigQueryIdentifierBuilder(config, report),
-        redundant_run_skip_handler=handler,
-    )
+    extractor = make_extractor(redundant_run_skip_handler=handler)
     logging_client = MagicMock()
     logging_client.list_entries.return_value = []
 
@@ -419,7 +429,7 @@ def test_redundant_run_handling(skip: bool) -> None:
         list(extractor.get_usage_workunits([PROJECT], [table_ref("t1")]))
 
     assert logging_client.list_entries.called is not skip
-    assert handler.update_state.called is not skip
+    assert as_mock(handler.update_state).called is not skip
 
 
 class TestExportedAuditMetadata:
@@ -450,6 +460,8 @@ class TestExportedAuditMetadata:
 
 
 def test_query_text_hash_collisions_are_kept_apart() -> None:
+    """Two distinct query texts with the same md5 must not share a usage key,
+    otherwise one query's text would be reported for the other's usage."""
     config = make_config()
     extractor = make_extractor(config)
     collision_hash = "deadbeef"
@@ -473,3 +485,17 @@ def test_query_text_hash_collisions_are_kept_apart() -> None:
 
 def test_empty_query_on_view_has_no_tables() -> None:
     assert make_extractor().get_tables_from_query("", default_project=PROJECT) == []
+
+
+def test_parser_crash_on_view_query_yields_no_tables() -> None:
+    """A crash inside the SQL parser is a parse failure like any other: the
+    view read is skipped, not the whole usage run."""
+    extractor = make_extractor()
+
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.usage.sqlglot_lineage",
+        side_effect=RuntimeError("parser crashed"),
+    ):
+        tables = extractor.get_tables_from_query("SELECT 1", default_project=PROJECT)
+
+    assert tables == []

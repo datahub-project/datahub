@@ -7,7 +7,7 @@ usage statistics and the Looker API wrapper -- runs for real.
 
 import datetime
 import json
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 from unittest import mock
 
 import pytest
@@ -37,15 +37,12 @@ from looker_sdk.sdk.api40.models import (
 )
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.looker.looker_common import (
     LookerDashboardElement,
     LookerExplore,
     LookerFolder,
 )
-from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     BASIC_INGEST_REQUIRED_PERMISSIONS,
 )
@@ -68,10 +65,11 @@ from datahub.metadata.schema_classes import (
     InputFieldsClass,
     OwnershipClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
-from datahub.sdk.entity import Entity
+from tests.unit.looker.conftest import LOOKER_BASE_URL as BASE_URL, EmittedWorkUnits
 
-BASE_URL = "https://looker.example.com"
+SourceFactory = Callable[..., LookerDashboardSource]
 SHARED = FolderBase(id="f-shared", name="Shared")
 SALES = FolderBase(id="f-sales", name="Sales", parent_id="f-shared")
 PERSONAL = FolderBase(
@@ -110,10 +108,9 @@ QUERY_ELEMENT = DashboardElement(
         slug="slug-query",
     ),
 )
-# Mirrors the integration fixtures: the element shares the look's id, which is
-# also what usage extraction keys chart usage on.
+# As in Looker itself, the element id and the id of the look it renders differ.
 LOOK_ELEMENT = DashboardElement(
-    id="l-1",
+    id="e-look",
     type="vis",
     title="",
     dashboard_id="d-1",
@@ -352,52 +349,8 @@ def fake_client() -> mock.MagicMock:
     return client
 
 
-def make_config(**overrides: Any) -> LookerDashboardSourceConfig:
-    raw: Dict[str, Any] = {
-        "base_url": BASE_URL,
-        "client_id": "id",
-        "client_secret": "secret",
-        "max_threads": 1,
-        "extract_usage_history": False,
-        "extract_owners": True,
-    }
-    raw.update(overrides)
-    return LookerDashboardSourceConfig.model_validate(raw)
-
-
-def make_source(
-    client: Optional[mock.MagicMock] = None, **overrides: Any
-) -> LookerDashboardSource:
-    ctx = PipelineContext("t")
-    if overrides.get("stateful_ingestion"):
-        ctx = PipelineContext("t", pipeline_name="p", graph=mock.MagicMock())
-    with mock.patch("looker_sdk.init40", return_value=client or fake_client()):
-        return LookerDashboardSource(make_config(**overrides), ctx)
-
-
-class Emitted:
-    def __init__(self, items: Iterable[Union[MetadataWorkUnit, Entity]]):
-        self.workunits: List[MetadataWorkUnit] = []
-        for item in items:
-            if isinstance(item, Entity):
-                self.workunits.extend(item.as_workunits())
-            else:
-                self.workunits.append(item)
-
-    def aspects(self, cls: type) -> Dict[str, List[Any]]:
-        found: Dict[str, List[Any]] = {}
-        for wu in self.workunits:
-            aspect = wu.get_aspect_of_type(cls)
-            if aspect is not None:
-                found.setdefault(wu.get_urn(), []).append(aspect)
-        return found
-
-    def urns(self, cls: type) -> List[str]:
-        return sorted(self.aspects(cls))
-
-
-def run(source: LookerDashboardSource) -> Emitted:
-    return Emitted(source.get_workunits_internal())
+def run(source: LookerDashboardSource) -> EmittedWorkUnits:
+    return EmittedWorkUnits(source.get_workunits_internal())
 
 
 class TestConnectionTest:
@@ -412,7 +365,10 @@ class TestConnectionTest:
         assert report.capability_report is not None
         assert report.capability_report[SourceCapability.DESCRIPTIONS].capable
         # see_system_activity is not granted, so usage is reported as not capable.
-        assert not report.capability_report[SourceCapability.USAGE_STATS].capable
+        usage = report.capability_report[SourceCapability.USAGE_STATS]
+        assert not usage.capable
+        assert usage.failure_reason is not None
+        assert "see_system_activity" in usage.failure_reason
 
     def test_authentication_failure_is_an_internal_failure(self) -> None:
         client = fake_client()
@@ -427,8 +383,10 @@ class TestConnectionTest:
 
 
 class TestQueryInputFields:
-    def test_dynamic_fields_filters_and_fields_become_input_fields(self) -> None:
-        source = make_source()
+    def test_dynamic_fields_filters_and_fields_become_input_fields(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        source = looker_source_factory(fake_client())
         assert QUERY_ELEMENT.query is not None
         fields = source._get_input_fields_from_query(QUERY_ELEMENT.query)
         by_name = {f.name: f for f in fields}
@@ -440,8 +398,10 @@ class TestQueryInputFields:
         assert by_name["orders.bucket"].view_field is not None
         assert by_name["orders.status"].model == "sales"
 
-    def test_unparseable_dynamic_fields_are_ignored(self) -> None:
-        source = make_source()
+    def test_unparseable_dynamic_fields_are_ignored(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        source = looker_source_factory(fake_client())
         fields = source._get_input_fields_from_query(
             Query(
                 model="sales", view="orders", fields=["orders.id"], dynamic_fields="{"
@@ -449,11 +409,18 @@ class TestQueryInputFields:
         )
         assert [f.name for f in fields] == ["orders.id"]
 
-    def test_no_query_yields_no_fields(self) -> None:
-        assert make_source()._get_input_fields_from_query(None) == []
+    def test_no_query_yields_no_fields(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        assert (
+            looker_source_factory(fake_client())._get_input_fields_from_query(None)
+            == []
+        )
 
-    def test_fields_without_view_prefix_are_reported(self) -> None:
-        source = make_source()
+    def test_fields_without_view_prefix_are_reported(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        source = looker_source_factory(fake_client())
         assert source._get_views_from_fields(["orders.id", "bare"]) == ["orders"]
         assert any(
             w.title == "Failed to Extract View Name from Field"
@@ -462,8 +429,10 @@ class TestQueryInputFields:
 
 
 class TestDashboardElements:
-    def test_look_backed_element_uses_look_title_folder_and_owner(self) -> None:
-        source = make_source()
+    def test_look_backed_element_uses_look_title_folder_and_owner(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        source = looker_source_factory(fake_client())
         element = source._get_looker_dashboard_element(LOOK_ELEMENT)
         assert element is not None
         assert element.title == "Look title"
@@ -476,9 +445,9 @@ class TestDashboardElements:
         assert ("sales", "orders") in source.reachable_explores
 
     def test_result_maker_element_collects_explores_from_query_and_filters(
-        self,
+        self, looker_source_factory: SourceFactory
     ) -> None:
-        source = make_source()
+        source = looker_source_factory(fake_client())
         element = source._get_looker_dashboard_element(RESULT_MAKER_ELEMENT)
         assert element is not None
         assert sorted((e.model_name, e.name) for e in element.upstream_explores) == [
@@ -488,15 +457,26 @@ class TestDashboardElements:
         assert element.input_fields is not None
         assert "invoices.date" in [f.name for f in element.input_fields]
 
-    def test_element_without_query_look_or_result_maker_is_dropped(self) -> None:
-        assert make_source()._get_looker_dashboard_element(TEXT_ELEMENT) is None
+    def test_element_without_query_look_or_result_maker_is_dropped(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        assert (
+            looker_source_factory(fake_client())._get_looker_dashboard_element(
+                TEXT_ELEMENT
+            )
+            is None
+        )
 
-    def test_element_without_id_is_rejected(self) -> None:
+    def test_element_without_id_is_rejected(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
         with pytest.raises(ValueError):
-            make_source()._get_looker_dashboard_element(DashboardElement(id=None))
+            looker_source_factory(fake_client())._get_looker_dashboard_element(
+                DashboardElement(id=None)
+            )
 
-    def test_chart_type_mapping(self) -> None:
-        source = make_source()
+    def test_chart_type_mapping(self, looker_source_factory: SourceFactory) -> None:
+        source = looker_source_factory(fake_client())
 
         def element(chart_type: Optional[str]) -> LookerDashboardElement:
             return LookerDashboardElement(
@@ -512,12 +492,18 @@ class TestDashboardElements:
         assert source._get_chart_type(element("looker_map")) is None
         assert source._get_chart_type(element("unknown_vis")) is None
         assert source._get_chart_type(element(None)) is None
-        assert len(source.reporter.infos) == 2
+        assert {i.title for i in source.reporter.infos} == {"Unrecognized Chart Type"}
 
 
 class TestGetWorkunits:
-    def test_dashboards_charts_folders_and_explores(self) -> None:
-        source = make_source(
+    def test_dashboards_charts_folders_and_explores(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        """One full run: deleted dashboards are included, personal ones and
+        pattern-denied ones are filtered, charts/embeds/containers/explores and
+        ownership are emitted and the reporter counters reflect all of it."""
+        source = looker_source_factory(
+            fake_client(),
             include_deleted=True,
             extract_embed_urls=True,
             skip_personal_folders=True,
@@ -536,21 +522,21 @@ class TestGetWorkunits:
         assert revenue.dashboardUrl == f"{BASE_URL}/dashboards/d-1"
         # Only `vis` elements become charts; the looker_line element is skipped.
         assert sorted(e.destinationUrn for e in revenue.chartEdges or []) == [
+            "urn:li:chart:(looker,dashboard_elements.e-look)",
             "urn:li:chart:(looker,dashboard_elements.e-query)",
-            "urn:li:chart:(looker,dashboard_elements.l-1)",
         ]
 
         charts = emitted.aspects(ChartInfoClass)
         assert charts["urn:li:chart:(looker,dashboard_elements.e-query)"][
             0
         ].chartUrl == (f"{BASE_URL}/x/slug-query")
-        assert charts["urn:li:chart:(looker,dashboard_elements.l-1)"][0].chartUrl == (
-            f"{BASE_URL}/looks/l-1"
-        )
+        assert charts["urn:li:chart:(looker,dashboard_elements.e-look)"][
+            0
+        ].chartUrl == (f"{BASE_URL}/looks/l-1")
         embeds = emitted.aspects(EmbedClass)
-        assert embeds["urn:li:chart:(looker,dashboard_elements.l-1)"][0].renderUrl == (
-            f"{BASE_URL}/embed/looks/l-1"
-        )
+        assert embeds["urn:li:chart:(looker,dashboard_elements.e-look)"][
+            0
+        ].renderUrl == (f"{BASE_URL}/embed/looks/l-1")
         assert "urn:li:chart:(looker,dashboard_elements.e-query)" not in embeds
         assert "urn:li:dashboard:(looker,dashboards.d-1)" in embeds
 
@@ -582,8 +568,12 @@ class TestGetWorkunits:
         # The user-id -> email platform resource is always emitted.
         assert any("platformResource" in wu.get_urn() for wu in emitted.workunits)
 
-    def test_used_explores_only_fetches_reachable_explores(self) -> None:
-        source = make_source()
+    def test_used_explores_only_fetches_reachable_explores(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        """With ``emit_used_explores_only`` (the default) only explores that a
+        dashboard element references are fetched and emitted."""
+        source = looker_source_factory(fake_client())
         emitted = run(source)
         assert emitted.urns(UpstreamLineageClass) == [
             "urn:li:dataset:(urn:li:dataPlatform:looker,finance.explore.invoices,PROD)",
@@ -591,8 +581,10 @@ class TestGetWorkunits:
         ]
         assert source.reporter.total_explores == 2
 
-    def test_explore_input_fields_are_hydrated_from_explore_schema(self) -> None:
-        emitted = run(make_source())
+    def test_explore_input_fields_are_hydrated_from_explore_schema(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        emitted = run(looker_source_factory(fake_client()))
         chart_fields = emitted.aspects(InputFieldsClass)[
             "urn:li:chart:(looker,dashboard_elements.e-query)"
         ][0]
@@ -607,31 +599,41 @@ class TestGetWorkunits:
             in paths
         )
 
-    def test_missing_owner_emails_everywhere_is_reported(self) -> None:
+    def test_missing_owner_emails_everywhere_is_reported(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        """When no Looker user carries an email, ownership cannot be resolved
+        for any dashboard and a single summary warning is raised."""
         client = fake_client()
         client.all_users.return_value = [User(id="u-1", email=None), User(id="u-2")]
         client.user.side_effect = lambda id_, fields=None, transport_options=None: User(
             id=id_, email=None
         )
-        source = make_source(client)
+        source = looker_source_factory(client)
         run(source)
         assert any(
             "Failed to extract owner emails" in (w.message or "")
             for w in source.reporter.warnings
         )
 
-    def test_folder_path_pattern_drops_dashboards(self) -> None:
-        source = make_source(folder_path_pattern={"deny": ["^Shared/Sales$"]})
+    def test_folder_path_pattern_drops_dashboards(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        source = looker_source_factory(
+            fake_client(), folder_path_pattern={"deny": ["^Shared/Sales$"]}
+        )
         emitted = run(source)
         assert "urn:li:dashboard:(looker,dashboards.d-1)" not in emitted.urns(
             DashboardInfoClass
         )
         assert "d-1" in list(source.reporter.filtered_dashboards)
 
-    def test_unfetchable_dashboard_is_skipped_with_warning(self) -> None:
+    def test_unfetchable_dashboard_is_skipped_with_warning(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
         client = fake_client()
         client.all_dashboards.return_value = [DashboardBase(id="missing")]
-        source = make_source(client)
+        source = looker_source_factory(client)
         emitted = run(source)
         assert emitted.urns(DashboardInfoClass) == []
         assert any(
@@ -639,15 +641,19 @@ class TestGetWorkunits:
             for w in source.reporter.warnings
         )
 
-    def test_dashboard_without_title_is_rejected(self) -> None:
-        source = make_source()
+    def test_dashboard_without_title_is_rejected(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        source = looker_source_factory(fake_client())
         with pytest.raises(ValueError):
             source._get_looker_dashboard(Dashboard(id="x", title=None))
 
 
 class TestUsageStatistics:
-    def test_usage_stats_emitted_for_dashboards_charts_and_explores(self) -> None:
-        source = make_source(extract_usage_history=True)
+    def test_usage_stats_emitted_for_dashboards_charts_and_explores(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        source = looker_source_factory(fake_client(), extract_usage_history=True)
         emitted = run(source)
 
         dashboard_usage = emitted.aspects(DashboardUsageStatisticsClass)[
@@ -662,13 +668,6 @@ class TestUsageStatistics:
         assert daily[0].userCounts is not None
         assert daily[0].userCounts[0].user == "urn:li:corpuser:one@example.com"
 
-        chart_usage = emitted.aspects(ChartUsageStatisticsClass)[
-            "urn:li:chart:(looker,dashboard_elements.l-1)"
-        ]
-        assert [a.viewsCount for a in chart_usage] == [4, 3]
-        assert chart_usage[1].userCounts is not None
-        assert chart_usage[1].userCounts[0].viewsCount == 3
-
         explore_usage = emitted.aspects(DatasetUsageStatisticsClass)[
             "urn:li:dataset:(urn:li:dataPlatform:looker,sales.explore.orders,PROD)"
         ]
@@ -681,9 +680,34 @@ class TestUsageStatistics:
             "orders.amount": 5,
         }
         assert "d-1" in source.reporter.dashboards_with_activity
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "extract_usage_stat keys look usage by look id and checks it against "
+            "chart URNs built from the dashboard element id, so usage for a "
+            "look-backed chart is dropped unless the two ids happen to coincide"
+        ),
+    )
+    def test_look_backed_chart_usage_lands_on_the_element_urn(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        source = looker_source_factory(fake_client(), extract_usage_history=True)
+        emitted = run(source)
+
+        chart_usage = emitted.aspects(ChartUsageStatisticsClass)[
+            "urn:li:chart:(looker,dashboard_elements.e-look)"
+        ]
+        assert [a.viewsCount for a in chart_usage] == [4, 3]
+        assert chart_usage[1].userCounts is not None
+        assert chart_usage[1].userCounts[0].viewsCount == 3
         assert "l-1" in source.reporter.charts_with_activity
 
-    def test_chart_usage_skipped_for_looks_not_ingested(self) -> None:
+    def test_chart_usage_skipped_for_looks_not_ingested(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        """Usage for a look that never became a chart (its element is not a
+        ``vis``) is not emitted and the look id is recorded as skipped."""
         client = fake_client()
         # The look is referenced by the dashboard but its element type is not a vis.
         client.dashboard.side_effect = None
@@ -704,15 +728,17 @@ class TestUsageStatistics:
             ],
         )
         client.all_dashboards.return_value = [DashboardBase(id="d-1")]
-        source = make_source(client, extract_usage_history=True)
+        source = looker_source_factory(client, extract_usage_history=True)
         emitted = run(source)
         assert emitted.urns(ChartUsageStatisticsClass) == []
         assert "l-1" in source.reporter.charts_skipped_for_usage
 
-    def test_usage_query_failure_leaves_absolute_stats_only(self) -> None:
+    def test_usage_query_failure_leaves_absolute_stats_only(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
         client = fake_client()
         client.run_inline_query.side_effect = SDKError("system activity disabled")
-        source = make_source(client, extract_usage_history=True)
+        source = looker_source_factory(client, extract_usage_history=True)
         emitted = run(source)
         dashboard_usage = emitted.aspects(DashboardUsageStatisticsClass)[
             "urn:li:dashboard:(looker,dashboards.d-1)"
@@ -753,8 +779,13 @@ class TestIndependentLooks:
         client.look.side_effect = look
         return client
 
-    def test_only_standalone_looks_with_queries_are_emitted(self) -> None:
-        source = make_source(
+    def test_only_standalone_looks_with_queries_are_emitted(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        """Independent looks: a look placed on an ingested dashboard, one
+        without a query, one in a personal folder and one the API cannot
+        return are all skipped; only the standalone look becomes a chart."""
+        source = looker_source_factory(
             self._client_with_looks(),
             extract_independent_looks=True,
             skip_personal_folders=True,
@@ -762,7 +793,7 @@ class TestIndependentLooks:
         )
         # l-1 is placed on the live dashboard, so it is not standalone.
         list(source.get_workunits_internal())
-        emitted = Emitted(source.extract_independent_looks())
+        emitted = EmittedWorkUnits(source.extract_independent_looks())
 
         assert emitted.urns(ChartInfoClass) == [
             "urn:li:chart:(looker,dashboard_elements.looks_l-2)"
@@ -781,19 +812,21 @@ class TestIndependentLooks:
         ][0]
         assert [o.owner for o in owners.owners] == ["urn:li:corpuser:one@example.com"]
 
-    def test_soft_deleted_looks_are_listed_when_include_deleted(self) -> None:
+    def test_soft_deleted_looks_are_listed_when_include_deleted(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
         client = self._client_with_looks()
         client.all_looks.return_value = []
         client.search_looks.return_value = [
             Look(id="l-9", title="Deleted", query_id="q9", folder=SALES)
         ]
-        source = make_source(
+        source = looker_source_factory(
             client,
             extract_independent_looks=True,
             include_deleted=True,
             stateful_ingestion={"enabled": True},
         )
-        emitted = Emitted(source.extract_independent_looks())
+        emitted = EmittedWorkUnits(source.extract_independent_looks())
         assert emitted.urns(ChartInfoClass) == [
             "urn:li:chart:(looker,dashboard_elements.looks_l-9)"
         ]
@@ -801,9 +834,11 @@ class TestIndependentLooks:
 
 
 class TestFolders:
-    def test_root_folder_container_has_no_ancestors(self) -> None:
-        source = make_source()
-        emitted = Emitted(
+    def test_root_folder_container_has_no_ancestors(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        source = looker_source_factory(fake_client())
+        emitted = EmittedWorkUnits(
             source._get_folder_and_ancestors_containers(
                 LookerFolder(id="f-sales", name="Sales", parent_id="f-shared")
             )
@@ -825,8 +860,12 @@ class TestFolders:
 
 
 class TestExploreLookup:
-    def test_explore_metadata_reflects_api_fields_joins_and_tags(self) -> None:
-        source = make_source()
+    def test_explore_metadata_reflects_api_fields_joins_and_tags(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        """Explore fields, joins (as upstream views), tags and the registry's
+        (model, explore) cache all come from one ``lookml_model_explore`` call."""
+        source = looker_source_factory(fake_client())
         looker_explore = source.explore_registry.get_explore("sales", "orders")
         assert looker_explore is not None
         assert looker_explore.project_name == "proj"
@@ -851,16 +890,20 @@ class TestExploreLookup:
             == hits_before + 1
         )
 
-    def test_missing_explore_returns_none(self) -> None:
+    def test_missing_explore_returns_none(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
         client = fake_client()
         client.lookml_model_explore.side_effect = SDKError(
             "<title>Looker Not Found (404)</title>"
         )
-        source = make_source(client)
+        source = looker_source_factory(client)
         assert source.explore_registry.get_explore("sales", "gone") is None
         assert source.fetch_one_explore("sales", "gone")[0] is None
 
-    def test_explore_without_project_name_is_reported(self) -> None:
+    def test_explore_without_project_name_is_reported(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
         client = fake_client()
         client.lookml_model_explore.side_effect = (
             lambda model, explore_name, fields=None, transport_options=None: (
@@ -872,18 +915,20 @@ class TestExploreLookup:
                 )
             )
         )
-        source = make_source(client)
+        source = looker_source_factory(client)
         assert source.explore_registry.get_explore("sales", "orders") is None
         assert any(w.title == "Unable to find Views" for w in source.reporter.warnings)
 
-    def test_explore_dataset_carries_lineage_schema_and_view_logic(self) -> None:
-        source = make_source(extract_embed_urls=True)
+    def test_explore_dataset_carries_lineage_schema_and_view_logic(
+        self, looker_source_factory: SourceFactory
+    ) -> None:
+        source = looker_source_factory(fake_client(), extract_embed_urls=True)
         looker_explore = source.explore_registry.get_explore("sales", "orders")
         assert looker_explore is not None
         dataset = looker_explore._to_metadata_events(
             source.source_config, source.reporter, BASE_URL, extract_embed_urls=True
         )
-        emitted = Emitted([dataset])
+        emitted = EmittedWorkUnits([dataset])
         urn = "urn:li:dataset:(urn:li:dataPlatform:looker,sales.explore.orders,PROD)"
         lineage = emitted.aspects(UpstreamLineageClass)[urn][0]
         assert sorted(u.dataset for u in lineage.upstreams) == [
@@ -903,10 +948,11 @@ class TestExploreLookup:
             and wu.metadata.aspectName == "viewProperties"
         ]
         assert len(view_props) == 1
-        assert "buyers" in view_props[0].viewLogic  # type: ignore[union-attr]
+        assert isinstance(view_props[0], ViewPropertiesClass)
+        assert "buyers" in view_props[0].viewLogic
 
-    def test_explore_browse_path(self) -> None:
-        source = make_source()
+    def test_explore_browse_path(self, looker_source_factory: SourceFactory) -> None:
+        source = looker_source_factory(fake_client())
         looker_explore = LookerExplore(name="orders", model_name="sales")
         assert looker_explore.get_explore_browse_path(source.source_config) == (
             "/Explore/sales"

@@ -833,6 +833,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             processed_value = self._process_message_part(
                 value, "value", topic, schema_metadata, is_key=False
             )
+            if value is not None and processed_value is None:
+                # The value could not be decoded (already counted as skipped). A
+                # sample holding only offset/timestamp would inflate the row
+                # count without contributing any field data.
+                return
 
             # Start with metadata
             sample = {
@@ -938,19 +943,22 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                 )
                             return None
 
-                    decoded = decode_kafka_message_value(
-                        data,
-                        topic,
-                        flatten_json_func=flatten_json,
-                        max_depth=self.source_config.profiling.nested_field_max_depth,
-                    )
-                    if decoded is None:
-                        # Binary/undecodable payload; skip rather than pollute the
-                        # profile with a synthetic field.
-                        with self._report_lock:
-                            self.report.profiling_samples_skipped += 1
-                        return None
-                    return decoded
+                # No usable Avro schema (none registered, inferred fields only, or
+                # a non-Avro type): decode as JSON/text so the profiler never sees
+                # raw bytes.
+                decoded = decode_kafka_message_value(
+                    data,
+                    topic,
+                    flatten_json_func=flatten_json,
+                    max_depth=self.source_config.profiling.nested_field_max_depth,
+                )
+                if decoded is None:
+                    # Binary/undecodable payload; skip rather than pollute the
+                    # profile with a synthetic field.
+                    with self._report_lock:
+                        self.report.profiling_samples_skipped += 1
+                    return None
+                return decoded
 
             except Exception as e:
                 # Skip the message rather than emitting a base64 blob, which would

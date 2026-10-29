@@ -1,5 +1,5 @@
-from typing import Dict, Iterator, List, Optional
-from unittest.mock import MagicMock, patch
+from typing import Dict, List, Optional
+from unittest.mock import patch
 
 import pytest
 from confluent_kafka.schema_registry.schema_registry_client import (
@@ -7,8 +7,6 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     SchemaRegistryClient,
 )
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kafka.kafka import KafkaSource
 from datahub.ingestion.source.kafka.kafka_constants import ResolutionMethod
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
@@ -26,9 +24,12 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
 )
-
-KAFKA_MODULE = "datahub.ingestion.source.kafka.kafka"
-REGISTRY_MODULE = "datahub.ingestion.source.confluent_schema_registry"
+from tests.unit.kafka.conftest import (
+    KAFKA_MODULE,
+    KafkaClientMocks,
+    SourceFactory,
+    emitted_aspects,
+)
 
 
 def _field(path: str) -> SchemaField:
@@ -54,28 +55,16 @@ def _unresolved() -> SchemaResolutionResult:
 
 
 @pytest.fixture
-def source() -> Iterator[KafkaSource]:
-    with (
-        patch(f"{KAFKA_MODULE}.confluent_kafka.Consumer", autospec=True) as consumer,
-        patch(f"{KAFKA_MODULE}.AdminClient", autospec=True),
-        patch(f"{REGISTRY_MODULE}.SchemaRegistryClient", autospec=True) as registry,
-    ):
-        registry.return_value.get_subjects.return_value = []
-        metadata = MagicMock()
-        metadata.topics = {"events": None}
-        consumer.return_value.list_topics.return_value = metadata
-        kafka_source = KafkaSource.create(
-            {
-                "connection": {"bootstrap": "localhost:9092"},
-                "schema_resolution": {"enabled": True},
-            },
-            PipelineContext(run_id="test"),
-        )
-        yield kafka_source
-        kafka_source.close()
+def source(
+    kafka_clients: KafkaClientMocks, make_kafka_source: SourceFactory
+) -> KafkaSource:
+    """One topic ("events") the registry knows nothing about, with resolution on."""
+    kafka_clients.set_topics(["events"])
+    return make_kafka_source({"schema_resolution": {"enabled": True}})
 
 
 def test_inferred_fields_are_emitted_for_schemaless_topics(source: KafkaSource) -> None:
+    """Without resolution the registry-less topic would get no schemaMetadata at all."""
     inferred = [_field("amount"), _field("customer.id")]
 
     def resolve(topics: List[str], is_key_schema: bool):  # type: ignore[no-untyped-def]
@@ -85,16 +74,8 @@ def test_inferred_fields_are_emitted_for_schemaless_topics(source: KafkaSource) 
 
     with patch(f"{KAFKA_MODULE}.KafkaSchemaResolver", autospec=True) as resolver_cls:
         resolver_cls.return_value.resolve_schemas_batch.side_effect = resolve
-        schema_aspects = [
-            wu.metadata.aspect
-            for wu in source.get_workunits()
-            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
-            and isinstance(wu.metadata.aspect, SchemaMetadataClass)
-        ]
+        [schema] = emitted_aspects(source, SchemaMetadataClass)
 
-    # The registry knows nothing about "events", so without resolution there
-    # would be no schemaMetadata at all.
-    [schema] = schema_aspects
     assert [f.fieldPath for f in schema.fields] == ["amount", "customer.id"]
     resolver_cls.return_value.resolve_schemas_batch.assert_any_call(
         ["events"], is_key_schema=False
@@ -102,6 +83,10 @@ def test_inferred_fields_are_emitted_for_schemaless_topics(source: KafkaSource) 
 
 
 def test_only_topics_without_registry_schema_are_resolved(source: KafkaSource) -> None:
+    """Registry-backed topics are untouched, resolved ones get their fields, keys
+    that could not be resolved get an empty placeholder so lookups don't
+    KeyError, and a second pass reuses the resolver (it caches sampled
+    messages and registry subjects) rather than building a new one."""
     registered = SchemaAndFields(schema=Schema('{"type":"string"}', "AVRO"))
     value_schemas: Dict[str, SchemaAndFields] = {
         "registered": registered,
@@ -121,15 +106,11 @@ def test_only_topics_without_registry_schema_are_resolved(source: KafkaSource) -
         source._resolve_missing_schemas(
             ["registered", "empty", "unknown"], value_schemas, key_schemas
         )
-        # A second pass must reuse the resolver (it caches sampled messages and
-        # registry subjects) rather than building a new one.
         source._resolve_missing_schemas(["unknown"], value_schemas, key_schemas)
 
     resolver_cls.assert_called_once()
     first_call = resolver_cls.return_value.resolve_schemas_batch.call_args_list[0]
     assert first_call.args[0] == ["empty", "unknown"]
-    # Registry-backed topics are untouched; resolved ones get their fields; keys
-    # that could not be resolved get an empty placeholder so lookups don't KeyError.
     assert value_schemas["registered"] is registered
     assert value_schemas["empty"].fields == resolved_fields
     assert value_schemas["unknown"].fields == resolved_fields
@@ -185,6 +166,8 @@ def _schema_metadata(fields: List[SchemaField]) -> SchemaMetadata:
 
 
 def test_base_registry_batch_falls_back_to_per_topic_lookups() -> None:
+    """The base class's batch default is per-topic lookups; a failing lookup
+    degrades that topic to schemaless instead of failing the batch."""
     fields = [_field("a")]
     registry = _MinimalRegistry(
         {"with_fields": _schema_metadata(fields), "no_fields": _schema_metadata([])}
@@ -197,7 +180,6 @@ def test_base_registry_batch_falls_back_to_per_topic_lookups() -> None:
     assert result["with_fields"].fields == fields
     assert result["no_fields"] == SchemaAndFields()
     assert result["missing"] == SchemaAndFields()
-    # A failing lookup degrades that topic to schemaless instead of failing the batch.
     assert result["broken"] == SchemaAndFields()
 
 

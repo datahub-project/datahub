@@ -9,9 +9,7 @@ import boto3
 import moto.s3
 import pytest
 import time_machine
-from boto3.session import Session
 from botocore.stub import Stubber
-from moto import mock_aws
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -28,54 +26,23 @@ from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.source import (
     Folder,
     S3Source,
-    TableData,
     partitioned_folder_comparator,
 )
 from datahub.metadata.schema_classes import ContainerPropertiesClass
+from tests.unit.s3.conftest import (
+    AWS_CONFIG,
+    make_s3_source,
+    make_s3_source_for_spec,
+    make_table_data,
+)
 
 logging.getLogger("boto3").setLevel(logging.INFO)
 logging.getLogger("botocore").setLevel(logging.INFO)
 logging.getLogger("s3transfer").setLevel(logging.INFO)
 
 
-@pytest.fixture(autouse=True)
-def s3():
-    with mock_aws():
-        conn = Session(
-            aws_access_key_id="test",
-            aws_secret_access_key="test",
-            region_name="us-east-1",
-        )
-        yield conn
-
-
-@pytest.fixture(autouse=True)
-def s3_client(s3):
-    yield s3.client("s3")
-
-
-@pytest.fixture(autouse=True)
-def s3_resource(s3):
-    yield s3.resource("s3")
-
-
-def _get_s3_source(path_spec_: PathSpec) -> S3Source:
-    return S3Source.create(
-        config_dict={
-            "path_spec": {
-                "include": path_spec_.include,
-                "table_name": path_spec_.table_name,
-                "emit_folders_only": path_spec_.emit_folders_only,
-                "exclude": path_spec_.exclude,
-                "include_hidden_folders": path_spec_.include_hidden_folders,
-            },
-            "aws_config": {
-                "aws_access_key_id": "test",
-                "aws_secret_access_key": "test",
-            },
-        },
-        ctx=PipelineContext(run_id="test-s3"),
-    )
+# Every test runs inside mock_aws so a stray listing can never reach real AWS.
+pytestmark = pytest.mark.usefixtures("s3")
 
 
 def test_partition_comparator_numeric_folder_name():
@@ -106,6 +73,13 @@ def test_partition_comparator_string_same_folder():
     folder1 = "myFolderA"
     folder2 = "myFolderA"
     assert partitioned_folder_comparator(folder1, folder2) == 0
+
+
+def test_partition_comparator_treats_equal_numbers_as_equal():
+    """Zero-padded and unpadded numeric partitions compare equal, so MAX/MIN_MAX
+    traversal does not treat "007" and "7" as different partitions."""
+    assert partitioned_folder_comparator("year=2024", "year=2024") == 0
+    assert partitioned_folder_comparator("007", "7") == 0
 
 
 def test_partition_comparator_with_numeric_partition():
@@ -330,7 +304,7 @@ def test_get_folder_info_returns_latest_file_in_each_folder(s3_resource):
         bucket.put_object(Key="my-folder/dir2/0001.csv")
 
     # act
-    res = _get_s3_source(path_spec).get_folder_info(
+    res = make_s3_source_for_spec(path_spec).get_folder_info(
         path_spec,
         "s3://my-bucket/my-folder",
     )
@@ -355,7 +329,7 @@ def test_get_folder_info_records_listing_instrumentation(s3_resource):
     bucket.put_object(Key="my-folder/dir1/0002.csv")
     bucket.put_object(Key="my-folder/dir2/0001.csv")
 
-    source = _get_s3_source(path_spec)
+    source = make_s3_source_for_spec(path_spec)
     list(source.get_folder_info(path_spec, "s3://my-bucket/my-folder"))
 
     assert source.report.objects_listed == 3
@@ -372,30 +346,14 @@ def test_ingest_table_records_schema_and_tagging_instrumentation(s3_resource):
     bucket.create()
     bucket.put_object(Key="my-folder/table1/data.csv", Body="a,b\n1,2\n3,4\n")
 
-    source = S3Source.create(
-        config_dict={
-            "path_spec": {
-                "include": path_spec.include,
-                "table_name": path_spec.table_name,
-            },
-            "aws_config": {
-                "aws_access_key_id": "test",
-                "aws_secret_access_key": "test",
-            },
-            "use_s3_object_tags": True,
-        },
-        ctx=PipelineContext(run_id="test-s3"),
+    source = make_s3_source(
+        {"include": path_spec.include, "table_name": path_spec.table_name},
+        aws_config=AWS_CONFIG,
+        use_s3_object_tags=True,
     )
 
-    full_path = "s3://my-bucket/my-folder/table1/data.csv"
-    table_data = TableData(
-        display_name="table1",
-        is_s3=True,
-        full_path=full_path,
-        timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
-        table_path=full_path,
-        size_in_bytes=12,
-        number_of_files=1,
+    table_data = make_table_data(
+        "s3://my-bucket/my-folder/table1/data.csv", display_name="table1"
     )
 
     list(source.ingest_table(table_data, path_spec))
@@ -422,33 +380,17 @@ def test_ingest_table_drops_schema_inferred_from_on_extraction_failure(s3_resour
     bucket.create()
     bucket.put_object(Key="my-folder/table1/data.csv", Body="a,b\n1,2\n3,4\n")
 
-    source = S3Source.create(
-        config_dict={
-            "path_spec": {
-                "include": path_spec.include,
-                "table_name": path_spec.table_name,
-            },
-            "aws_config": {
-                "aws_access_key_id": "test",
-                "aws_secret_access_key": "test",
-            },
-        },
-        ctx=PipelineContext(run_id="test-s3"),
+    source = make_s3_source(
+        {"include": path_spec.include, "table_name": path_spec.table_name},
+        aws_config=AWS_CONFIG,
     )
 
     # Simulate a read failure during schema inference while listing still works.
     get_fields_mock = Mock(side_effect=OSError("cannot read object"))
     source.get_fields = get_fields_mock  # type: ignore[method-assign]
 
-    full_path = "s3://my-bucket/my-folder/table1/data.csv"
-    table_data = TableData(
-        display_name="table1",
-        is_s3=True,
-        full_path=full_path,
-        timestamp=datetime(2020, 1, 1, tzinfo=timezone.utc),
-        table_path=full_path,
-        size_in_bytes=12,
-        number_of_files=1,
+    table_data = make_table_data(
+        "s3://my-bucket/my-folder/table1/data.csv", display_name="table1"
     )
 
     workunits = list(source.ingest_table(table_data, path_spec))
@@ -478,7 +420,7 @@ def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
     bucket.create()
     bucket.put_object(Key="my-folder/ignore/this/path/0001.csv")
 
-    s3_source = _get_s3_source(path_spec)
+    s3_source = make_s3_source_for_spec(path_spec)
 
     # act
     with patch(
@@ -518,7 +460,7 @@ def test_get_folder_info_returns_expected_folder(s3_resource):
         bucket.put_object(Key="my-folder/dir1/0002.csv", Body=" " * 150)
 
     # act
-    res = _get_s3_source(path_spec).get_folder_info(
+    res = make_s3_source_for_spec(path_spec).get_folder_info(
         path_spec,
         "s3://my-bucket/my-folder",
     )
@@ -551,7 +493,7 @@ def test_s3_emit_folders_only_emits_containers_no_datasets(s3_resource, s3_clien
     ]:
         s3_client.put_object(Bucket=bucket, Key=key, Body=b"x")
 
-    source = _get_s3_source(
+    source = make_s3_source_for_spec(
         PathSpec(
             include=f"s3://{bucket}/media/*/*/",
             emit_folders_only=True,
@@ -591,7 +533,7 @@ def test_s3_emit_folders_only_applies_exclude_and_hidden(s3_resource, s3_client)
     ]:
         s3_client.put_object(Bucket=bucket, Key=key, Body=b"x")
 
-    source = _get_s3_source(
+    source = make_s3_source_for_spec(
         PathSpec(
             include=f"s3://{bucket}/media/*/*/",
             emit_folders_only=True,
@@ -656,7 +598,7 @@ class TestResolveTemplatedFolders:
         """Test that paths without wildcards are returned as-is."""
         # arrange
         path_spec = PathSpec(include="s3://my-bucket/data/files/*.csv")
-        s3_source = _get_s3_source(path_spec)
+        s3_source = make_s3_source_for_spec(path_spec)
         bucket_name = "my-bucket"
         prefix = "data/files/"
 
@@ -672,7 +614,7 @@ class TestResolveTemplatedFolders:
         """Test resolution of a single wildcard in the path."""
         # arrange
         path_spec = PathSpec(include="s3://my-bucket/data/*/files/*.csv")
-        s3_source = _get_s3_source(path_spec)
+        s3_source = make_s3_source_for_spec(path_spec)
         bucket_name = "my-bucket"
         prefix = "data/*/files/"
 
@@ -696,7 +638,7 @@ class TestResolveTemplatedFolders:
         """Test resolution of nested wildcards in the path."""
         # arrange
         path_spec = PathSpec(include="s3://my-bucket/data/*/year=*/files/*.csv")
-        s3_source = _get_s3_source(path_spec)
+        s3_source = make_s3_source_for_spec(path_spec)
         bucket_name = "my-bucket"
         prefix = "data/*/year=*/files/"
 
@@ -732,7 +674,7 @@ class TestResolveTemplatedFolders:
         """Test handling when list_folders returns empty results."""
         # arrange
         path_spec = PathSpec(include="s3://my-bucket/data/*/files/*.csv")
-        s3_source = _get_s3_source(path_spec)
+        s3_source = make_s3_source_for_spec(path_spec)
         bucket_name = "my-bucket"
         prefix = "data/*/files/"
 
@@ -750,7 +692,7 @@ class TestResolveTemplatedFolders:
         """Test that path normalization handles slashes correctly."""
         # arrange
         path_spec = PathSpec(include="s3://my-bucket/data/*/files/*.csv")
-        s3_source = _get_s3_source(path_spec)
+        s3_source = make_s3_source_for_spec(path_spec)
         bucket_name = "my-bucket"
         prefix = "data/*/files/"
 
@@ -776,7 +718,7 @@ class TestResolveTemplatedFolders:
         """Test handling when remaining pattern starts with a slash."""
         # arrange
         path_spec = PathSpec(include="s3://my-bucket/data/*")
-        s3_source = _get_s3_source(path_spec)
+        s3_source = make_s3_source_for_spec(path_spec)
         bucket_name = "my-bucket"
         prefix = "data/*/subdir/"
 
@@ -800,7 +742,7 @@ class TestResolveTemplatedFolders:
         """Test complex nested pattern with multiple wildcards."""
         # arrange
         path_spec = PathSpec(include="s3://my-bucket/logs/*/region=*/day=*/*.json")
-        s3_source = _get_s3_source(path_spec)
+        s3_source = make_s3_source_for_spec(path_spec)
         bucket_name = "my-bucket"
         prefix = "logs/*/region=*/day=*/"
 
@@ -835,7 +777,7 @@ class TestResolveTemplatedFolders:
         """Test wildcard at the end of the path."""
         # arrange
         path_spec = PathSpec(include="s3://my-bucket/data/*")
-        s3_source = _get_s3_source(path_spec)
+        s3_source = make_s3_source_for_spec(path_spec)
         bucket_name = "my-bucket"
         prefix = "data/*"
 
@@ -856,7 +798,7 @@ class TestResolveTemplatedFolders:
         """Test resolution of a single wildcard in the bucket path."""
         # arrange
         path_spec = PathSpec(include="s3://*/data/")
-        s3_source = _get_s3_source(path_spec)
+        s3_source = make_s3_source_for_spec(path_spec)
 
         s3_client.create_bucket(Bucket="my-bucket")
         s3_client.create_bucket(Bucket="my-bucket-1")
@@ -872,7 +814,7 @@ class TestResolveTemplatedFolders:
         """Test wildcard at the end of the bucket path."""
         # arrange
         path_spec = PathSpec(include="s3://my-*/data/")
-        s3_source = _get_s3_source(path_spec)
+        s3_source = make_s3_source_for_spec(path_spec)
 
         s3_client.create_bucket(Bucket="my-bucket")
         s3_client.create_bucket(Bucket="my-bucket-1")

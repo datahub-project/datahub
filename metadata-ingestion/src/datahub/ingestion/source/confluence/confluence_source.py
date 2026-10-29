@@ -403,28 +403,6 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 cloud=False,
             )
 
-    def _is_space_allowed(self, space_key: str) -> bool:
-        """
-        Check if space is allowed by spaces.allow/spaces.deny lists.
-
-        Args:
-            space_key: Confluence space key
-
-        Returns:
-            True if space should be ingested, False otherwise
-        """
-        # If spaces.allow is specified, space must be in the list
-        if self.config._parsed_space_allow is not None:
-            if space_key not in self.config._parsed_space_allow:
-                return False
-
-        # If spaces.deny is specified, space must NOT be in the list
-        if self.config._parsed_space_deny is not None:
-            if space_key in self.config._parsed_space_deny:
-                return False
-
-        return True
-
     def _is_page_denied(self, page_id: str) -> bool:
         """
         Check if a page is explicitly excluded by the pages.deny list.

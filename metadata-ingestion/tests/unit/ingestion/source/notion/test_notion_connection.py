@@ -6,56 +6,26 @@ unstructured-ingest ``Pipeline`` are the only things mocked.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import List
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import CapabilityReport
-from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 from datahub.ingestion.source.notion.notion_source import NotionSource
-
-PAGE_ID = "2bffc6a6-4277-8024-97c9-d0f26faa4480"
-DB_ID = "abcdef01-2345-6789-0123-456789012345"
-EMBEDDING: Dict[str, Any] = {
-    "provider": "bedrock",
-    "model": "cohere.embed-english-v3",
-    "aws_region": "us-west-2",
-    "allow_local_embedding_config": True,
-}
-
-
-def _config_dict(**overrides: Any) -> Dict[str, Any]:
-    return {"api_key": "secret_test_key", "embedding": EMBEDDING, **overrides}
-
-
-def _make_source(**overrides: Any) -> NotionSource:
-    config = NotionSourceConfig.parse_obj(_config_dict(**overrides))
-    return NotionSource(config=config, ctx=PipelineContext(run_id="test"))
-
-
-@pytest.fixture
-def notion_client() -> Any:
-    """Mocked ``notion_client.Client`` whose search succeeds by default.
-
-    Also stubs the semantic-search capability check so test_connection stays
-    off the embedding provider / DataHub server.
-    """
-    with (
-        patch("notion_client.Client") as client_cls,
-        patch.object(
-            NotionSource,
-            "_test_semantic_search_capability",
-            return_value=CapabilityReport(capable=True),
-        ),
-    ):
-        client = client_cls.return_value
-        client.search.return_value = {"results": [{"object": "page", "id": PAGE_ID}]}
-        yield client
+from datahub.ingestion.source.unstructured.chunking_source import (
+    DocumentChunkingSource,
+)
+from tests.unit.ingestion.source.notion.conftest import (
+    DB_ID,
+    PAGE_ID,
+    make_notion_config,
+    make_notion_source,
+    notion_config_dict,
+)
 
 
 def test_connection_unparseable_config_is_internal_failure() -> None:
+    """A config that fails validation is an internal failure, not a connectivity one."""
     report = NotionSource.test_connection({"api_key": "", "page_ids": ["nope"]})
 
     assert report.internal_failure
@@ -65,9 +35,10 @@ def test_connection_unparseable_config_is_internal_failure() -> None:
 def test_connection_invalid_api_key_fails_basic_connectivity(
     notion_client: MagicMock,
 ) -> None:
+    """A rejected API key fails basic connectivity without probing capabilities."""
     notion_client.search.side_effect = Exception("401 unauthorized")
 
-    report = NotionSource.test_connection(_config_dict())
+    report = NotionSource.test_connection(notion_config_dict())
 
     assert report.basic_connectivity is not None
     assert not report.basic_connectivity.capable
@@ -78,10 +49,11 @@ def test_connection_invalid_api_key_fails_basic_connectivity(
 def test_connection_flags_inaccessible_configured_ids(
     notion_client: MagicMock,
 ) -> None:
+    """Only the ids the integration cannot retrieve are named in the access failure."""
     notion_client.pages.retrieve.side_effect = Exception("404 object_not_found")
 
     report = NotionSource.test_connection(
-        _config_dict(page_ids=[PAGE_ID], database_ids=[DB_ID])
+        notion_config_dict(page_ids=[PAGE_ID], database_ids=[DB_ID])
     )
 
     assert report.basic_connectivity is not None
@@ -97,8 +69,9 @@ def test_connection_flags_inaccessible_configured_ids(
 def test_connection_with_accessible_ids_reports_access_and_semantic_search(
     notion_client: MagicMock,
 ) -> None:
+    """Configured ids are probed individually and auto-discovery is not reported."""
     report = NotionSource.test_connection(
-        _config_dict(page_ids=[PAGE_ID], database_ids=[DB_ID])
+        notion_config_dict(page_ids=[PAGE_ID], database_ids=[DB_ID])
     )
 
     notion_client.pages.retrieve.assert_called_once_with(PAGE_ID)
@@ -112,7 +85,8 @@ def test_connection_with_accessible_ids_reports_access_and_semantic_search(
 def test_connection_without_ids_reports_auto_discovery(
     notion_client: MagicMock,
 ) -> None:
-    report = NotionSource.test_connection(_config_dict())
+    """With no ids configured, test_connection reports auto-discovery instead of access."""
+    report = NotionSource.test_connection(notion_config_dict())
 
     notion_client.pages.retrieve.assert_not_called()
     assert report.capability_report is not None
@@ -121,10 +95,13 @@ def test_connection_without_ids_reports_auto_discovery(
 
 
 def test_semantic_search_capability_reports_config_error_instead_of_raising() -> None:
-    config = NotionSourceConfig.parse_obj(_config_dict())
+    """An embedding-config lookup error becomes a failed capability with a mitigation."""
+    config = make_notion_config()
 
-    with patch(
-        "datahub.ingestion.source.unstructured.chunking_source.DocumentChunkingSource.resolve_embedding_config",
+    with patch.object(
+        DocumentChunkingSource,
+        "resolve_embedding_config",
+        autospec=True,
         side_effect=ValueError("semantic search is not enabled on the server"),
     ):
         report = NotionSource._test_semantic_search_capability(config)
@@ -137,7 +114,8 @@ def test_semantic_search_capability_reports_config_error_instead_of_raising() ->
 def test_validate_page_accessibility_lists_every_inaccessible_id(
     notion_client: MagicMock,
 ) -> None:
-    source = _make_source(page_ids=[PAGE_ID], database_ids=[DB_ID])
+    """All inaccessible ids are collected into one error rather than failing on the first."""
+    source = make_notion_source(page_ids=[PAGE_ID], database_ids=[DB_ID])
     notion_client.pages.retrieve.side_effect = Exception("404")
     notion_client.databases.retrieve.side_effect = Exception("403")
 
@@ -147,16 +125,23 @@ def test_validate_page_accessibility_lists_every_inaccessible_id(
     assert PAGE_ID in str(exc_info.value)
     assert DB_ID in str(exc_info.value)
 
-    # All accessible: no error.
-    notion_client.pages.retrieve.side_effect = None
-    notion_client.databases.retrieve.side_effect = None
+
+def test_validate_page_accessibility_passes_when_all_ids_resolve(
+    notion_client: MagicMock,
+) -> None:
+    source = make_notion_source(page_ids=[PAGE_ID], database_ids=[DB_ID])
+
     source._validate_page_accessibility([PAGE_ID], [DB_ID])
+
+    notion_client.pages.retrieve.assert_called_once_with(PAGE_ID)
+    notion_client.databases.retrieve.assert_called_once_with(DB_ID)
 
 
 def test_discover_all_accessible_pages_paginates_and_splits_by_type(
     notion_client: MagicMock,
 ) -> None:
-    source = _make_source()
+    """Discovery follows next_cursor across pages and ignores results without an id."""
+    source = make_notion_source()
     notion_client.search.side_effect = [
         {
             "results": [
@@ -190,7 +175,8 @@ def test_discover_all_accessible_pages_paginates_and_splits_by_type(
 def test_discover_all_accessible_pages_tolerates_untitled_results(
     notion_client: MagicMock,
 ) -> None:
-    source = _make_source()
+    """Untitled pages and databases must still be discovered, not abort the run."""
+    source = make_notion_source()
     notion_client.search.return_value = {
         "results": [
             {
@@ -210,51 +196,50 @@ def test_discover_all_accessible_pages_tolerates_untitled_results(
 
 
 def test_get_workunits_internal_reports_pipeline_failure() -> None:
-    source = _make_source(page_ids=[PAGE_ID])
+    """A pipeline crash is a report failure, not an exception, unless raise_on_error."""
+    source = make_notion_source(page_ids=[PAGE_ID])
 
     with patch.object(
-        source, "_run_unstructured_pipeline", side_effect=RuntimeError("boom")
+        source,
+        "_run_unstructured_pipeline",
+        autospec=True,
+        side_effect=RuntimeError("boom"),
     ):
         assert list(source.get_workunits_internal()) == []
 
-    assert len(source.report.failures) == 1
+    assert any(
+        failure.message == "Failed to run Unstructured pipeline"
+        for failure in source.report.failures
+    )
 
-    strict_source = _make_source(page_ids=[PAGE_ID], advanced={"raise_on_error": True})
+
+def test_get_workunits_internal_reraises_pipeline_failure_when_configured() -> None:
+    source = make_notion_source(page_ids=[PAGE_ID], advanced={"raise_on_error": True})
+
     with (
         patch.object(
-            strict_source,
+            source,
             "_run_unstructured_pipeline",
+            autospec=True,
             side_effect=RuntimeError("boom"),
         ),
         pytest.raises(RuntimeError),
     ):
-        list(strict_source.get_workunits_internal())
-
-
-@pytest.fixture
-def pipeline_patches() -> Any:
-    """Silence the global unstructured-ingest monkeypatches and the Pipeline."""
-    pytest.importorskip("unstructured_ingest")
-    with (
-        patch.object(NotionSource, "_monkeypatch_database_title_extraction"),
-        patch.object(NotionSource, "_monkeypatch_icon_dispatcher_unknown_types"),
-        patch.object(NotionSource, "_monkeypatch_notion_types_filter_unknown_fields"),
-        patch.object(NotionSource, "_warn_on_empty_original_synced_blocks"),
-        patch(
-            "unstructured_ingest.pipeline.pipeline.Pipeline.from_configs"
-        ) as from_configs,
-    ):
-        yield from_configs
+        list(source.get_workunits_internal())
 
 
 def test_run_pipeline_indexes_discovered_ids_when_none_configured(
     tmp_path: Path, pipeline_patches: MagicMock
 ) -> None:
-    source = _make_source(advanced={"work_dir": str(tmp_path / "work")})
+    """Without configured ids the indexer is built from the auto-discovered ones."""
+    source = make_notion_source(advanced={"work_dir": str(tmp_path / "work")})
     discovered: List[str] = ["discovered-page"]
 
     with patch.object(
-        source, "_discover_all_accessible_pages", return_value=(discovered, [DB_ID])
+        source,
+        "_discover_all_accessible_pages",
+        autospec=True,
+        return_value=(discovered, [DB_ID]),
     ):
         output_dir = source._run_unstructured_pipeline()
 
@@ -270,13 +255,14 @@ def test_run_pipeline_indexes_discovered_ids_when_none_configured(
 def test_run_pipeline_keeps_partial_output_when_pipeline_fails(
     tmp_path: Path, pipeline_patches: MagicMock
 ) -> None:
-    source = _make_source(
+    """A failed pipeline run must not wipe the output dir a retry can resume from."""
+    source = make_notion_source(
         page_ids=[PAGE_ID], advanced={"work_dir": str(tmp_path / "work")}
     )
     pipeline_patches.return_value.run.side_effect = RuntimeError("rate limited")
 
     with (
-        patch.object(source, "_validate_page_accessibility"),
+        patch.object(source, "_validate_page_accessibility", autospec=True),
         pytest.raises(RuntimeError),
     ):
         source._run_unstructured_pipeline()
@@ -284,5 +270,5 @@ def test_run_pipeline_keeps_partial_output_when_pipeline_fails(
     output_dir = tmp_path / "work" / "output"
     (output_dir / "partial.json").write_text("[]")
 
-    with patch.object(source, "_validate_page_accessibility"):
+    with patch.object(source, "_validate_page_accessibility", autospec=True):
         assert source._run_unstructured_pipeline() == output_dir

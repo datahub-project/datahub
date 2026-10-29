@@ -3,6 +3,7 @@ procedure and materialized view emission, V$SQL edge cases, profiling
 candidates and config validation, against stubbed SQLAlchemy objects."""
 
 import datetime
+from contextlib import ExitStack
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, Mock, patch
 
@@ -28,10 +29,16 @@ from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DataPlatformInstanceClass,
     DomainsClass,
-    QueryLanguageClass,
     ViewPropertiesClass,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+from tests.unit.conftest import (
+    aspects_of_type,
+    log_contexts,
+    log_titles,
+    single_aspect,
+)
+from tests.unit.sql_test_helpers import FakeResult, make_procedure
 
 
 def _source(**overrides: Any) -> OracleSource:
@@ -47,12 +54,8 @@ def _source(**overrides: Any) -> OracleSource:
     return OracleSource(OracleConfig.model_validate(base), PipelineContext(run_id="t"))
 
 
-def _aspects(workunits: List[MetadataWorkUnit], aspect_type: type) -> List[Any]:
-    return [
-        aspect
-        for aspect in (wu.get_aspect_of_type(aspect_type) for wu in workunits)
-        if aspect is not None
-    ]
+def _workunit(name: str) -> MagicMock:
+    return MagicMock(spec=MetadataWorkUnit, name=name)
 
 
 # --- inspectors ---
@@ -65,6 +68,9 @@ def _aspects(workunits: List[MetadataWorkUnit], aspect_type: type) -> List[Any]:
 def test_get_inspectors_wraps_the_inspector_only_in_dba_mode(
     mode: DataDictionaryMode, wrapped: bool
 ) -> None:
+    """DBA mode reads the DBA_* views through DataHub's own wrapper; ALL mode
+    keeps SQLAlchemy's inspector. Either way the CLOB/BLOB output handler is
+    attached to the engine ingestion reads from."""
     source = _source(data_dictionary_mode=mode.value)
     raw = MagicMock(name="inspector")
 
@@ -77,7 +83,6 @@ def test_get_inspectors_wraps_the_inspector_only_in_dba_mode(
     assert isinstance(inspector, OracleInspectorObjectWrapper) == wrapped
     if not wrapped:
         assert inspector is raw
-    # CLOB/BLOB output conversion is attached to every engine ingestion reads.
     listen.assert_called_once()
     assert listen.call_args.args[:2] == (raw.engine, "before_cursor_execute")
 
@@ -103,9 +108,11 @@ def test_clob_and_blob_columns_are_fetched_as_long_types() -> None:
 def test_schema_level_workunits_add_materialized_views_and_report_their_failure() -> (
     None
 ):
+    """Materialized views are appended to the base schema walk; losing them
+    (no SELECT on _MVIEWS) is a warning, not the end of the schema."""
     source = _source(include_materialized_views=True)
-    base_wu = MagicMock(name="base")
-    mview_wu = MagicMock(name="mview")
+    base_wu = _workunit("base")
+    mview_wu = _workunit("mview")
 
     with (
         patch.object(
@@ -127,18 +134,17 @@ def test_schema_level_workunits_add_materialized_views_and_report_their_failure(
             base_wu
         ]
 
-    assert len(source.report.warnings) == 1
-    assert "Materialized Views" in str(source.report.warnings[0])
+    assert "Failed to Ingest Materialized Views" in log_titles(source.report.warnings)
 
 
 def test_loop_stored_procedures_builds_containers_from_the_connection_database() -> (
     None
 ):
-    # urn_db_name only shapes dataset URNs; the procedure's container hierarchy
-    # must still hang off the database the connection actually reaches.
+    """urn_db_name only shapes dataset URNs; the procedure's container hierarchy
+    must still hang off the database the connection actually reaches."""
     source = _source(include_stored_procedures=True, urn_db_name="alias")
     procedure = Mock(spec=BaseProcedure)
-    done = MagicMock(name="done")
+    done = _workunit("done")
 
     with (
         patch.object(source, "get_db_name", return_value="orcl"),
@@ -153,27 +159,20 @@ def test_loop_stored_procedures_builds_containers_from_the_connection_database()
     process.assert_called_once_with([procedure], "orcl", "hr")
 
 
-def _procedure(**overrides: Any) -> BaseProcedure:
-    fields: Dict[str, Any] = {
-        "name": "load_audit",
-        "procedure_definition": (
-            "BEGIN INSERT INTO hr.audit_log SELECT * FROM hr.employees; END;"
-        ),
-        "created": None,
-        "last_altered": None,
-        "comment": None,
-        "argument_signature": None,
-        "return_type": None,
-        "language": QueryLanguageClass.SQL,
-        "extra_properties": None,
-    }
-    fields.update(overrides)
-    return BaseProcedure(**fields)
+def _audit_procedure(**overrides: Any) -> BaseProcedure:
+    return make_procedure(
+        name="load_audit",
+        definition="BEGIN INSERT INTO hr.audit_log SELECT * FROM hr.employees; END;",
+        **overrides,
+    )
 
 
 def test_catalog_dependencies_become_input_jobs_alongside_parsed_lineage() -> None:
+    """DBA_DEPENDENCIES names called procedures the SQL parser cannot see; they
+    join the parsed table lineage as input jobs, with overloaded names resolved
+    through the registry. Tables in the dependency list are left to the parser."""
     source = _source(include_stored_procedures=True)
-    procedure = _procedure(
+    procedure = _audit_procedure(
         extra_properties={
             "upstream_dependencies": "HR.HELPER (PROCEDURE), HR.EMPLOYEES (TABLE)"
         }
@@ -185,28 +184,27 @@ def test_catalog_dependencies_become_input_jobs_alongside_parsed_lineage() -> No
         )
     )
 
-    (lineage,) = _aspects(workunits, DataJobInputOutputClass)
+    lineage = single_aspect(workunits, DataJobInputOutputClass)
     assert lineage.inputDatasets == [
         "urn:li:dataset:(urn:li:dataPlatform:oracle,orcl.hr.employees,PROD)"
     ]
     assert lineage.outputDatasets == [
         "urn:li:dataset:(urn:li:dataPlatform:oracle,orcl.hr.audit_log,PROD)"
     ]
-    # The registry resolves an overloaded name to its identifier; tables are
-    # left to the SQL parser.
-    assert len(lineage.inputDatajobs) == 1
-    assert lineage.inputDatajobs[0].endswith(",helper_v2)")
+    input_jobs = lineage.inputDatajobs or []
+    assert len(input_jobs) == 1
+    assert input_jobs[0].endswith(",helper_v2)")
 
 
 def test_procedures_without_a_registry_get_no_input_jobs() -> None:
     source = _source(include_stored_procedures=True)
-    procedure = _procedure(
+    procedure = _audit_procedure(
         extra_properties={"upstream_dependencies": "HR.HELPER (PROCEDURE)"}
     )
 
     workunits = list(source._process_procedure(procedure, "hr", "orcl"))
 
-    (lineage,) = _aspects(workunits, DataJobInputOutputClass)
+    lineage = single_aspect(workunits, DataJobInputOutputClass)
     assert not lineage.inputDatajobs
 
 
@@ -217,10 +215,10 @@ def test_a_procedure_that_fails_to_emit_is_reported_not_raised() -> None:
         "datahub.ingestion.source.sql.oracle.generate_procedure_workunits",
         side_effect=RuntimeError("bad definition"),
     ):
-        assert list(source._process_procedure(_procedure(), "hr", "orcl")) == []
+        assert list(source._process_procedure(_audit_procedure(), "hr", "orcl")) == []
 
-    assert len(source.report.warnings) == 1
-    assert "orcl.hr.load_audit" in str(source.report.warnings[0])
+    assert "Failed to emit stored procedure" in log_titles(source.report.warnings)
+    assert "orcl.hr.load_audit" in log_contexts(source.report.warnings)
 
 
 # --- materialized views ---
@@ -232,7 +230,7 @@ def test_materialized_views_denied_by_view_pattern_are_dropped() -> None:
     )
     inspector = Mock(spec=OracleInspectorObjectWrapper)
     inspector.get_materialized_view_names.return_value = ["mv_secret", "mv_sales"]
-    processed = MagicMock(name="processed")
+    processed = _workunit("processed")
 
     with (
         patch.object(
@@ -252,6 +250,8 @@ def test_materialized_views_denied_by_view_pattern_are_dropped() -> None:
 
 
 def test_materialized_view_fallbacks_degrade_to_nothing_when_the_query_fails() -> None:
+    """The ALL_MVIEWS fallbacks (used with a plain SQLAlchemy inspector) swallow
+    a failed catalog read: no names, no definition, no exception."""
     source = _source()
     inspector = Mock()
     inspector.dialect.denormalize_name.side_effect = lambda x: x.upper()
@@ -270,13 +270,25 @@ def test_materialized_view_fallbacks_degrade_to_nothing_when_the_query_fails() -
     )
 
 
-def _mview_patches(source: OracleSource) -> List[Any]:
-    return [
-        patch.object(source, "get_table_properties", return_value=("desc", {}, None)),
-        patch.object(source, "_get_columns", return_value=[]),
-        patch.object(source, "add_table_to_schema_container", return_value=iter([])),
-        patch.object(source, "get_db_name", return_value="orcl"),
-    ]
+def _process_mview(source: OracleSource, inspector: Mock) -> List[MetadataWorkUnit]:
+    """Run _process_materialized_view for ``hr.mv_emp`` with the table-level
+    reflection (properties, columns, container, db name) stubbed out."""
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch.object(
+                source, "get_table_properties", return_value=("desc", {}, None)
+            )
+        )
+        stack.enter_context(patch.object(source, "_get_columns", return_value=[]))
+        stack.enter_context(
+            patch.object(source, "add_table_to_schema_container", return_value=iter([]))
+        )
+        stack.enter_context(patch.object(source, "get_db_name", return_value="orcl"))
+        return list(
+            source._process_materialized_view(
+                "hr.mv_emp", inspector, "hr", "mv_emp", source.config
+            )
+        )
 
 
 def test_materialized_view_from_the_dba_wrapper_carries_instance_and_domain() -> None:
@@ -289,28 +301,17 @@ def test_materialized_view_from_the_dba_wrapper_carries_instance_and_domain() ->
     inspector.get_materialized_view_definition.return_value = (
         "SELECT * FROM hr.employees"
     )
-    patches = _mview_patches(source)
-    for p in patches:
-        p.start()
-    try:
-        workunits = list(
-            source._process_materialized_view(
-                "hr.mv_emp", inspector, "hr", "mv_emp", source.config
-            )
-        )
-    finally:
-        for p in patches:
-            p.stop()
+
+    workunits = _process_mview(source, inspector)
 
     inspector.get_materialized_view_definition.assert_called_once_with(
         mview_name="mv_emp", schema="hr"
     )
-    (view_props,) = _aspects(workunits, ViewPropertiesClass)
+    view_props = single_aspect(workunits, ViewPropertiesClass)
     assert view_props.materialized
     assert view_props.viewLogic == "SELECT * FROM hr.employees"
-    assert _aspects(workunits, DataPlatformInstanceClass)
-    (domains,) = _aspects(workunits, DomainsClass)
-    assert domains.domains == ["urn:li:domain:people"]
+    assert aspects_of_type(workunits, DataPlatformInstanceClass)
+    assert single_aspect(workunits, DomainsClass).domains == ["urn:li:domain:people"]
     assert not source.report.warnings
 
 
@@ -328,14 +329,16 @@ def test_a_materialized_view_that_fails_is_reported_not_raised() -> None:
     )
 
     assert workunits == []
-    assert len(source.report.warnings) == 1
-    assert "hr.mv_emp" in str(source.report.warnings[0])
+    assert "Failed to Process Materialized View" in log_titles(source.report.warnings)
+    assert any("hr.mv_emp" in c for c in log_contexts(source.report.warnings))
 
 
 # --- V$SQL ---
 
 
 def test_vsql_prerequisite_check_names_unexpected_oracle_errors() -> None:
+    """Errors other than the known "no such view" / "no privilege" codes must
+    still surface their ORA code, so an operator can tell a TNS problem from a grant."""
     source = _source(include_query_usage=True)
     engine = Mock()
     engine.connect.side_effect = sqlalchemy.exc.DatabaseError(
@@ -354,6 +357,8 @@ def test_oracle_error_code_is_absent_from_non_oracle_errors() -> None:
 
 
 def test_vsql_first_load_time_accepts_both_oracle_formats() -> None:
+    """V$SQL.FIRST_LOAD_TIME is ``YYYY-MM-DD/HH24:MI:SS``; the space-separated
+    form also appears. Anything else leaves the query without a timestamp."""
     source = _source(include_query_usage=True)
 
     def row(sql_id: str, first_load_time: str) -> Dict[str, Any]:
@@ -366,11 +371,13 @@ def test_vsql_first_load_time_accepts_both_oracle_formats() -> None:
 
     engine = MagicMock()
     conn = engine.connect.return_value.__enter__.return_value
-    conn.execute.return_value.mappings.return_value = [
-        row("a", "2024-01-01/12:00:00"),
-        row("b", "2024-01-01 12:00:00"),
-        row("c", "yesterday"),
-    ]
+    conn.execute.return_value = FakeResult(
+        [
+            row("a", "2024-01-01/12:00:00"),
+            row("b", "2024-01-01 12:00:00"),
+            row("c", "yesterday"),
+        ]
+    )
 
     queries: List[ObservedQuery] = list(source._extract_queries_from_vsql(engine))
 
@@ -396,11 +403,12 @@ def test_metadata_engine_uses_the_recipe_url_and_options(
 
 
 def test_lineage_is_emitted_only_after_schemas_and_vsql_are_loaded() -> None:
-    # View definitions and V$SQL statements need the schema resolver populated
-    # before column lineage can resolve, so the aggregator must flush last.
+    """View definitions and V$SQL statements need the schema resolver populated
+    before column lineage can resolve, so the aggregator must flush last: the
+    parent's end-of-walk flush is deferred and V$SQL is read in between."""
     source = _source()
-    schema_wu = MagicMock(name="schema")
-    lineage_wu = MagicMock(name="lineage")
+    schema_wu = _workunit("schema")
+    lineage_wu = _workunit("lineage")
     order: List[str] = []
 
     def base_walk(*_: Any, **__: Any) -> Any:
@@ -440,6 +448,8 @@ def test_lineage_is_emitted_only_after_schemas_and_vsql_are_loaded() -> None:
 def test_profile_candidates_come_from_the_stats_filtered_catalog_query(
     mode: DataDictionaryMode, tables_view: str
 ) -> None:
+    """The row-limit guardrail is pushed into the catalog query (NUM_ROWS from
+    the data dictionary); tables without statistics stay candidates."""
     source = _source(
         data_dictionary_mode=mode.value,
         profiling={"enabled": True, "profile_table_row_limit": 1000},
@@ -448,10 +458,12 @@ def test_profile_candidates_come_from_the_stats_filtered_catalog_query(
     inspector.bind = Mock(spec=Connection)
     inspector.dialect.denormalize_name.side_effect = lambda x: x.upper()
     inspector.dialect.normalize_name.side_effect = lambda x: x.lower()
-    inspector.bind.execute.return_value = [
-        ("HR", "SMALL_TABLE", 10, None, 0.0),
-        ("HR", "UNANALYZED", None, None, 0.0),
-    ]
+    inspector.bind.execute.return_value = FakeResult(
+        [
+            ("HR", "SMALL_TABLE", 10, None, 0.0),
+            ("HR", "UNANALYZED", None, None, 0.0),
+        ]
+    )
 
     with patch.object(
         source,

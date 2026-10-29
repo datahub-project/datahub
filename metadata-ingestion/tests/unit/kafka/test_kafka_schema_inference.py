@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 from unittest.mock import Mock, patch
 
 import pytest
@@ -20,25 +20,7 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     StringTypeClass,
 )
-
-_INFERENCE_MODULE = "datahub.ingestion.source.kafka.kafka_schema_inference"
-
-
-class ScriptedConsumer:
-    """Yields a fixed sequence of poll results (then None), and records close()."""
-
-    def __init__(self, messages: List[object]) -> None:
-        self._messages = list(messages)
-        self.closed = False
-
-    def subscribe(self, topics: List[str]) -> None:
-        pass
-
-    def poll(self, timeout: float) -> object:
-        return self._messages.pop(0) if self._messages else None
-
-    def close(self) -> None:
-        self.closed = True
+from tests.unit.kafka.conftest import INFERENCE_MODULE, FakeMessage, ScriptedConsumer
 
 
 @pytest.fixture
@@ -161,19 +143,6 @@ class TestKafkaSchemaInference:
         assert len(result["topic2"]) == 2
         assert mock_infer.call_count == 2
 
-    def test_infer_schemas_batch_parallel(self, schema_inference):
-        schema_inference.max_workers = 2
-
-        with patch.object(schema_inference, "_infer_schemas_parallel") as mock_parallel:
-            mock_parallel.return_value = {
-                "topic1": [Mock(spec=SchemaField)],
-                "topic2": [Mock(spec=SchemaField), Mock(spec=SchemaField)],
-            }
-            result = schema_inference.infer_schemas_batch(["topic1", "topic2"])
-
-        mock_parallel.assert_called_once_with(["topic1", "topic2"])
-        assert len(result) == 2
-
     def testsample_topic_messages_hybrid_strategy(self, schema_inference):
         with patch.object(
             schema_inference, "_sample_messages_with_strategy"
@@ -220,7 +189,7 @@ class TestKafkaSchemaInference:
             report=report,
         )
         with patch(
-            "datahub.ingestion.source.kafka.kafka_schema_inference.Consumer",
+            f"{INFERENCE_MODULE}.Consumer",
             side_effect=OSError("broker down"),
         ):
             result = inference._sample_messages_with_strategy(
@@ -262,14 +231,9 @@ class TestKafkaSchemaInference:
             report=report,
         )
 
-        errored = Mock()
-        errored.error.return_value = "broker error"
-        undecodable = Mock()
-        undecodable.error.return_value = None
-        undecodable.value.return_value = b"not-json"
-        valid = Mock()
-        valid.error.return_value = None
-        valid.value.return_value = b'{"a": 1}'
+        errored = FakeMessage(None, error="broker error")
+        undecodable = FakeMessage(b"not-json")
+        valid = FakeMessage(b'{"a": 1}')
         scripted = ScriptedConsumer([None, errored, undecodable, valid])
 
         def fake_process(value: object) -> object:
@@ -278,9 +242,9 @@ class TestKafkaSchemaInference:
             return {"a": 1}
 
         with (
-            patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted),
+            patch(f"{INFERENCE_MODULE}.Consumer", return_value=scripted),
             patch(
-                f"{_INFERENCE_MODULE}.process_kafka_message_for_sampling",
+                f"{INFERENCE_MODULE}.process_kafka_message_for_sampling",
                 side_effect=fake_process,
             ),
         ):
@@ -303,15 +267,13 @@ class TestKafkaSchemaInference:
             report=report,
         )
 
-        undecodable = Mock()
-        undecodable.error.return_value = None
-        undecodable.value.return_value = b"not-json"
+        undecodable = FakeMessage(b"not-json")
         scripted = ScriptedConsumer([undecodable, undecodable])
 
         with (
-            patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted),
+            patch(f"{INFERENCE_MODULE}.Consumer", return_value=scripted),
             patch(
-                f"{_INFERENCE_MODULE}.process_kafka_message_for_sampling",
+                f"{INFERENCE_MODULE}.process_kafka_message_for_sampling",
                 side_effect=ValueError("undecodable"),
             ),
         ):
@@ -340,33 +302,9 @@ class TestKafkaSchemaInference:
         assert isinstance(result["nested.field3"], bool)
 
 
-class RecordingConsumer(ScriptedConsumer):
-    """ScriptedConsumer that also records poll timeouts and can fail subscribe()."""
-
-    def __init__(
-        self, messages: List[object], subscribe_error: Optional[Exception] = None
-    ) -> None:
-        super().__init__(messages)
-        self.poll_timeouts: List[float] = []
-        self._subscribe_error = subscribe_error
-
-    def subscribe(self, topics: List[str]) -> None:
-        if self._subscribe_error is not None:
-            raise self._subscribe_error
-
-    def poll(self, timeout: float) -> object:
-        self.poll_timeouts.append(timeout)
-        return super().poll(timeout)
-
-
-def _valid_message(payload: bytes) -> Mock:
-    msg = Mock()
-    msg.error.return_value = None
-    msg.value.return_value = payload
-    return msg
-
-
 def test_parallel_inference_isolates_topic_failures(fallback_config):
+    """One topic's sampling failure is reported and yields no fields; the other
+    topics in the same parallel batch are still inferred."""
     report = KafkaSourceReport()
     inference = KafkaSchemaInference(
         bootstrap_servers="localhost:9092",
@@ -390,17 +328,17 @@ def test_parallel_inference_isolates_topic_failures(fallback_config):
 
 
 def test_oauth_callback_config_polls_before_sampling(fallback_config):
-    # The OAuth callback only runs on poll(), so a sampling consumer built with
-    # oauth_cb must poll once before subscribing or the fetch fails auth.
+    """The OAuth callback only runs on poll(), so a sampling consumer built with
+    oauth_cb must poll once before subscribing or the fetch fails auth."""
     inference = KafkaSchemaInference(
         bootstrap_servers="localhost:9092",
         consumer_config={"oauth_cb": "tests.integration.kafka.oauth:create_token"},
         fallback_config=fallback_config,
         max_workers=1,
     )
-    scripted = RecordingConsumer([None, _valid_message(b'{"a": 1}')])
+    scripted = ScriptedConsumer([None, FakeMessage(b'{"a": 1}')])
 
-    with patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted):
+    with patch(f"{INFERENCE_MODULE}.Consumer", return_value=scripted):
         result = inference._sample_messages_with_strategy(
             "test-topic", OffsetResetStrategy.EARLIEST
         )
@@ -410,11 +348,9 @@ def test_oauth_callback_config_polls_before_sampling(fallback_config):
 
 
 def test_tombstone_messages_are_skipped(schema_inference):
-    tombstone = _valid_message(b"")
-    tombstone.value.return_value = None
-    scripted = RecordingConsumer([tombstone, _valid_message(b'{"a": 1}')])
+    scripted = ScriptedConsumer([FakeMessage(None), FakeMessage(b'{"a": 1}')])
 
-    with patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted):
+    with patch(f"{INFERENCE_MODULE}.Consumer", return_value=scripted):
         result = schema_inference._sample_messages_with_strategy(
             "test-topic", OffsetResetStrategy.EARLIEST
         )
@@ -431,9 +367,9 @@ def test_subscribe_failure_is_reported_and_consumer_closed(fallback_config):
         max_workers=1,
         report=report,
     )
-    scripted = RecordingConsumer([], subscribe_error=RuntimeError("unauthorized"))
+    scripted = ScriptedConsumer([], subscribe_error=RuntimeError("unauthorized"))
 
-    with patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted):
+    with patch(f"{INFERENCE_MODULE}.Consumer", return_value=scripted):
         result = inference._sample_messages_with_strategy(
             "test-topic", OffsetResetStrategy.EARLIEST
         )

@@ -1,11 +1,17 @@
+"""SnowflakeUsageExtractor: ACCESS_HISTORY rows to usage statistics and operations.
+
+Built on ``make_usage_extractor`` below, which mirrors ``make_lineage_extractor``
+in conftest.py: real config/report/filter/identifiers around a dispatching
+fake connection.
+"""
+
 import json
 from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional, Sequence, Union
-from unittest.mock import MagicMock
+from typing import Dict, List, Optional
+from unittest.mock import NonCallableMock, create_autospec
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakePermissionError,
 )
@@ -18,33 +24,28 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
 )
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantUsageRunSkipHandler,
+)
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     OperationClass,
     OperationTypeClass,
 )
+from tests.unit.snowflake.conftest import (
+    END,
+    START,
+    QueryHandler,
+    QueryResult,
+    as_mock,
+    fake_connection,
+    log_keys,
+    make_v2_config,
+)
 
-START = datetime(2022, 6, 6, tzinfo=timezone.utc)
-END = datetime(2022, 6, 8, tzinfo=timezone.utc)
 TABLE_1 = "test_db.test_schema.table_1"
 TABLE_2 = "test_db.test_schema.table_2"
 TABLE_3 = "test_db.test_schema.table_3"
-
-QueryResult = Union[Sequence[dict], Exception]
-QueryHandler = Callable[[str], QueryResult]
-
-
-def _as_mock(obj: object) -> MagicMock:
-    assert isinstance(obj, MagicMock)
-    return obj
-
-
-class _Cursor(list):
-    rownumber: Optional[int] = None
-
-    @property
-    def rowcount(self) -> int:
-        return len(self)
 
 
 def _is_usage_query(query: str) -> bool:
@@ -53,19 +54,6 @@ def _is_usage_query(query: str) -> bool:
 
 def _is_operations_query(query: str) -> bool:
     return "OBJECTS_MODIFIED" in query
-
-
-def _connection(handler: QueryHandler) -> MagicMock:
-    connection = MagicMock()
-
-    def query(sql: str) -> _Cursor:
-        result = handler(sql)
-        if isinstance(result, Exception):
-            raise result
-        return _Cursor(result)
-
-    connection.query.side_effect = query
-    return connection
 
 
 def _date_range_row() -> dict:
@@ -120,23 +108,26 @@ def _table_object(qualified_name: str, domain: str = "Table") -> dict:
     return {"objectDomain": domain, "objectName": qualified_name, "objectId": 1}
 
 
-def _make_extractor(
+def _skip_handler(skip: bool) -> NonCallableMock:
+    handler = create_autospec(RedundantUsageRunSkipHandler, instance=True)
+    handler.suggest_run_time_window.return_value = (START, END)
+    handler.should_skip_this_run.return_value = skip
+    return handler
+
+
+def make_usage_extractor(
     handler: QueryHandler,
     *,
     edition: SnowflakeEdition = SnowflakeEdition.ENTERPRISE,
-    skip_handler: Optional[MagicMock] = None,
+    skip_handler: Optional[NonCallableMock] = None,
     **config_overrides: object,
 ) -> SnowflakeUsageExtractor:
-    config = SnowflakeV2Config.model_validate(
-        {
-            "account_id": "test_account",
-            "username": "user",
-            "password": "pass",
+    config = make_v2_config(
+        **{
             "start_time": START,
             "end_time": END,
             "format_sql_queries": False,
-            # Pinned so the column-case sweep (DATAHUB_TEST_PRESERVE_COLUMN_CASE=1 in
-            # CI, see conftest.py) does not change the lowercased field paths asserted here.
+            # Pinned: these tests assert lowercased field paths in fieldCounts.
             "preserve_column_case": False,
             **config_overrides,
         }
@@ -146,7 +137,7 @@ def _make_extractor(
     return SnowflakeUsageExtractor(
         config=config,
         report=report,
-        connection=_connection(handler),
+        connection=fake_connection(handler),
         filter=SnowflakeFilter(filter_config=config, structured_reporter=report),
         identifiers=SnowflakeIdentifierBuilder(
             identifier_config=config, structured_reporter=report
@@ -162,11 +153,11 @@ def _dispatch(
 ) -> QueryHandler:
     def handler(query: str) -> QueryResult:
         if query == SnowflakeQuery.get_access_history_date_range():
-            return date_range if isinstance(date_range, Exception) else list(date_range)
+            return date_range
         if _is_usage_query(query):
-            return usage if isinstance(usage, Exception) else list(usage)
+            return usage
         if _is_operations_query(query):
-            return operations if isinstance(operations, Exception) else list(operations)
+            return operations
         raise AssertionError(f"Unexpected query: {query}")
 
     return handler
@@ -193,7 +184,9 @@ def _operations(workunits: List[MetadataWorkUnit]) -> Dict[str, OperationClass]:
 
 
 def test_access_history_row_is_aggregated_into_usage_statistics() -> None:
-    extractor = _make_extractor(
+    """One bucket row becomes one DatasetUsageStatistics aspect; discovered
+    datasets without rows still get an empty aspect for the bucket."""
+    extractor = make_usage_extractor(
         _dispatch(usage=[_usage_row("TEST_DB.TEST_SCHEMA.TABLE_1")])
     )
 
@@ -222,7 +215,7 @@ def test_access_history_row_is_aggregated_into_usage_statistics() -> None:
 
 
 def test_usage_rows_for_undiscovered_or_denied_datasets_are_skipped() -> None:
-    extractor = _make_extractor(
+    extractor = make_usage_extractor(
         _dispatch(
             usage=[
                 _usage_row("TEST_DB.TEST_SCHEMA.TABLE_1"),
@@ -248,7 +241,7 @@ def test_user_counts_fall_back_to_email_domain_and_honour_email_filter() -> None
     )
     row = _usage_row("TEST_DB.TEST_SCHEMA.TABLE_1", USER_COUNTS=user_counts)
 
-    with_domain = _make_extractor(
+    with_domain = make_usage_extractor(
         _dispatch(),
         email_domain="example.com",
         user_email_pattern={"deny": [".*@blocked\\.com"]},
@@ -264,7 +257,7 @@ def test_user_counts_fall_back_to_email_domain_and_honour_email_filter() -> None
 
     # Without a configured domain there is no email to attribute, so the user
     # is dropped rather than emitted with a bogus urn.
-    without_domain = _make_extractor(_dispatch())
+    without_domain = make_usage_extractor(_dispatch())
     wu = without_domain.build_usage_statistics_for_dataset(TABLE_1, row)
     assert wu is not None
     stats = wu.get_aspect_of_type(DatasetUsageStatisticsClass)
@@ -281,7 +274,7 @@ def test_top_queries_share_the_character_budget_or_are_omitted() -> None:
         "TEST_DB.TEST_SCHEMA.TABLE_1", TOP_SQL_QUERIES=json.dumps([long_query])
     )
 
-    budgeted = _make_extractor(
+    budgeted = make_usage_extractor(
         _dispatch(), top_n_queries=2, queries_character_limit=100
     )
     wu = budgeted.build_usage_statistics_for_dataset(TABLE_1, row)
@@ -292,7 +285,7 @@ def test_top_queries_share_the_character_budget_or_are_omitted() -> None:
     assert len(stats.topSqlQueries[0]) == 50
     assert stats.topSqlQueries[0].endswith(" ...")
 
-    disabled = _make_extractor(_dispatch(), include_top_n_queries=False)
+    disabled = make_usage_extractor(_dispatch(), include_top_n_queries=False)
     wu = disabled.build_usage_statistics_for_dataset(TABLE_1, row)
     assert wu is not None
     stats = wu.get_aspect_of_type(DatasetUsageStatisticsClass)
@@ -301,45 +294,47 @@ def test_top_queries_share_the_character_budget_or_are_omitted() -> None:
 
 
 def test_malformed_usage_row_is_reported_and_skipped() -> None:
-    extractor = _make_extractor(_dispatch())
+    extractor = make_usage_extractor(_dispatch())
     row = _usage_row("TEST_DB.TEST_SCHEMA.TABLE_1", USER_COUNTS="not json")
 
     assert extractor.build_usage_statistics_for_dataset(TABLE_1, row) is None
-    assert len(extractor.report.warnings) == 1
+    assert "Failed to parse usage statistics for dataset" in log_keys(
+        extractor.report.warnings
+    )
 
 
 def test_standard_edition_skips_usage_without_querying() -> None:
-    extractor = _make_extractor(_dispatch(), edition=SnowflakeEdition.STANDARD)
+    extractor = make_usage_extractor(_dispatch(), edition=SnowflakeEdition.STANDARD)
 
     assert list(extractor.get_usage_workunits([TABLE_1])) == []
-    _as_mock(extractor.connection).query.assert_not_called()
+    as_mock(extractor.connection).query.assert_not_called()
 
 
 def test_permission_error_on_date_range_aborts_usage_extraction() -> None:
-    extractor = _make_extractor(
+    extractor = make_usage_extractor(
         _dispatch(date_range=SnowflakePermissionError("not authorized"))
     )
 
     assert list(extractor.get_usage_workunits([TABLE_1])) == []
     # Not stateful, so the missing grant is a failure rather than a warning,
     # and neither the usage nor the operations query is attempted.
-    assert len(extractor.report.failures) == 1
-    assert _as_mock(extractor.connection).query.call_count == 1
+    assert "usage-permission-error" in log_keys(extractor.report.failures)
+    assert as_mock(extractor.connection).query.call_count == 1
 
 
 def test_empty_access_history_range_skips_usage_aggregation() -> None:
-    extractor = _make_extractor(
+    extractor = make_usage_extractor(
         _dispatch(date_range=[{"MIN_TIME": None, "MAX_TIME": None}])
     )
 
     assert list(extractor.get_usage_workunits([TABLE_1])) == []
     assert extractor.report.min_access_history_time is None
-    assert len(extractor.report.warnings) == 1
-    assert _as_mock(extractor.connection).query.call_count == 1
+    assert "Missing data for access_history" in log_keys(extractor.report.warnings)
+    assert as_mock(extractor.connection).query.call_count == 1
 
 
 def test_usage_query_failure_still_lets_operations_run() -> None:
-    extractor = _make_extractor(
+    extractor = make_usage_extractor(
         _dispatch(
             usage=RuntimeError("boom"),
             operations=[
@@ -350,7 +345,7 @@ def test_usage_query_failure_still_lets_operations_run() -> None:
 
     workunits = list(extractor.get_usage_workunits([TABLE_1]))
 
-    assert len(extractor.report.failures) == 1
+    assert "usage-statistics" in log_keys(extractor.report.failures)
     operations = _operations(workunits)
     assert list(operations) == [extractor.identifiers.gen_dataset_urn(TABLE_1)]
     assert operations[extractor.identifiers.gen_dataset_urn(TABLE_1)].operationType == (
@@ -370,7 +365,7 @@ def test_operation_aspects_only_for_discovered_modified_tables() -> None:
     truncate = _operation_row(
         "TRUNCATE_TABLE", [_table_object("TEST_DB.TEST_SCHEMA.TABLE_3")]
     )
-    extractor = _make_extractor(
+    extractor = make_usage_extractor(
         _dispatch(operations=[merge, truncate]), include_usage_stats=False
     )
 
@@ -399,7 +394,7 @@ def test_unparseable_history_rows_are_counted_not_fatal() -> None:
     bad_json = _operation_row("INSERT", [])
     bad_json["OBJECTS_MODIFIED"] = "{not json"
     good = _operation_row("INSERT", [_table_object("TEST_DB.TEST_SCHEMA.TABLE_1")])
-    extractor = _make_extractor(
+    extractor = make_usage_extractor(
         _dispatch(operations=[no_text, bad_json, good]), include_usage_stats=False
     )
 
@@ -412,19 +407,15 @@ def test_unparseable_history_rows_are_counted_not_fatal() -> None:
 
 
 def test_redundant_run_is_skipped_and_state_is_updated_otherwise() -> None:
-    skipping = MagicMock()
-    skipping.suggest_run_time_window.return_value = (START, END)
-    skipping.should_skip_this_run.return_value = True
-    extractor = _make_extractor(_dispatch(), skip_handler=skipping)
+    skipping = _skip_handler(skip=True)
+    extractor = make_usage_extractor(_dispatch(), skip_handler=skipping)
 
     assert list(extractor.get_usage_workunits([TABLE_1])) == []
-    _as_mock(extractor.connection).query.assert_not_called()
+    as_mock(extractor.connection).query.assert_not_called()
     skipping.update_state.assert_not_called()
 
-    running = MagicMock()
-    running.suggest_run_time_window.return_value = (START, END)
-    running.should_skip_this_run.return_value = False
-    extractor = _make_extractor(_dispatch(), skip_handler=running)
+    running = _skip_handler(skip=False)
+    extractor = make_usage_extractor(_dispatch(), skip_handler=running)
 
     list(extractor.get_usage_workunits([TABLE_1]))
 

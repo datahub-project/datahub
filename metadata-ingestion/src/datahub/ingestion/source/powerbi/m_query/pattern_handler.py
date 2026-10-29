@@ -1154,8 +1154,20 @@ class AmazonRedshiftLineage(AbstractLineage):
             )
             return Lineage.empty()
 
-        schema_name: str = accessor.items["Name"]
-        table_name: str = accessor.next.items["Name"]
+        schema_name = accessor.items.get("Name")
+        table_name = accessor.next.items.get("Name")
+        if not schema_name or not table_name:
+            # A navigation step without a Name key is not the schema/table
+            # shape this handler understands; report no lineage rather than
+            # letting a KeyError surface as an "Unknown M-Query Pattern".
+            logger.debug(
+                "Navigation steps for Redshift table %s lack a Name key"
+                " (schema=%r, table=%r) — skipping lineage",
+                self.table.full_name,
+                schema_name,
+                table_name,
+            )
+            return Lineage.empty()
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
@@ -1817,10 +1829,22 @@ class MSSqlMultiDatabaseLineage(AbstractLineage):
             return Lineage.empty()
 
         # Second is database name
-        db_name: str = accessor.items["Name"]
+        db_name = accessor.items.get("Name")
         # Third is schema name and table name
-        schema_name: str = accessor.next.items["Schema"]
-        table_name: str = accessor.next.items["Item"]
+        schema_name = accessor.next.items.get("Schema")
+        table_name = accessor.next.items.get("Item")
+        if not db_name or not schema_name or not table_name:
+            # Sql.Databases navigation is {[Name=db]} then {[Schema=..,Item=..]};
+            # anything else is not a table reference this handler can resolve.
+            logger.debug(
+                "Navigation steps for MSSQL table %s lack the expected keys"
+                " (db=%r, schema=%r, table=%r) — skipping lineage",
+                self.table.full_name,
+                db_name,
+                schema_name,
+                table_name,
+            )
+            return Lineage.empty()
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 

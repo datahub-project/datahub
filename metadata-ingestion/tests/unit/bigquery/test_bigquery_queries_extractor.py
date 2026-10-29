@@ -24,7 +24,7 @@ Security Tests:
 import re
 from datetime import datetime, timezone
 from typing import Dict, Iterator, List, Optional, Set, Tuple
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
 from pydantic import ValidationError
@@ -36,8 +36,12 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryQueriesExtractorReport,
+    BigQueryV2Report,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryProject
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    BigqueryProject,
+    BigQuerySchemaApi,
+)
 from datahub.ingestion.source.bigquery_v2.common import (
     BigQueryFilter,
     BigQueryIdentifierBuilder,
@@ -1779,18 +1783,17 @@ class TestTableClassification:
     def _extractor(
         self, discovered: Optional[Set[str]] = None
     ) -> BigQueryQueriesExtractor:
+        report = BigQueryV2Report()
         return BigQueryQueriesExtractor(
             connection=MagicMock(),
-            schema_api=MagicMock(),
+            schema_api=create_autospec(BigQuerySchemaApi, instance=True),
             config=BigQueryQueriesExtractorConfig(temp_table_dataset_prefix="_"),
-            structured_report=MagicMock(),
+            structured_report=report,
             filters=BigQueryFilter(
                 BigQueryFilterConfig(dataset_pattern={"deny": [".*denied.*"]}),
-                MagicMock(),
+                report,
             ),
-            identifiers=BigQueryIdentifierBuilder(
-                BigQueryIdentifierConfig(), MagicMock()
-            ),
+            identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), report),
             discovered_tables=discovered,
         )
 
@@ -1826,17 +1829,19 @@ class TestTableClassification:
 
 
 def test_unparseable_query_log_rows_are_reported_and_skipped() -> None:
-    report = MagicMock()
+    """One malformed JOBS row must not lose the rest of the region's query log."""
+    report = BigQueryV2Report()
+    connection = MagicMock()
     extractor = BigQueryQueriesExtractor(
-        connection=MagicMock(),
-        schema_api=MagicMock(),
+        connection=connection,
+        schema_api=create_autospec(BigQuerySchemaApi, instance=True),
         config=BigQueryQueriesExtractorConfig(),
         structured_report=report,
-        filters=BigQueryFilter(BigQueryFilterConfig(), MagicMock()),
-        identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), MagicMock()),
+        filters=BigQueryFilter(BigQueryFilterConfig(), report),
+        identifiers=BigQueryIdentifierBuilder(BigQueryIdentifierConfig(), report),
     )
     good = _job("select * from `my_dataset`.`a`")
-    extractor.connection.query.return_value = [good, object(), good]  # type: ignore[attr-defined]
+    connection.query.return_value = [good, object(), good]
     extractor.start_time, extractor.end_time = extractor._get_time_window()
 
     entries = list(
@@ -1846,4 +1851,4 @@ def test_unparseable_query_log_rows_are_reported_and_skipped() -> None:
     )
 
     assert len(entries) == 2
-    report.warning.assert_called_once()
+    assert "Error parsing query log row" in {w.message for w in report.warnings}

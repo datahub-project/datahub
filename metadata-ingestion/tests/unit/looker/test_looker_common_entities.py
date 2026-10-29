@@ -3,7 +3,7 @@ de-duplication, LookML `extends` resolution, tag definitions, the user
 registry and explore fetch failures."""
 
 import datetime
-from typing import Dict, List
+from typing import Callable, Dict, List, Optional
 from unittest import mock
 
 import pytest
@@ -29,7 +29,10 @@ from datahub.ingestion.source.looker.looker_config import (
     LookerDashboardSourceConfig,
     LookerViewNamingPattern,
 )
-from datahub.ingestion.source.looker.looker_dataclasses import ProjectInclude
+from datahub.ingestion.source.looker.looker_dataclasses import (
+    LookerViewFile,
+    ProjectInclude,
+)
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.looker.lookml_config import (
@@ -43,14 +46,20 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def _field(name: str, field_type: ViewFieldType, **kwargs: object) -> ViewField:
+def _field(
+    name: str,
+    field_type: ViewFieldType,
+    group_label: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+) -> ViewField:
     return ViewField(
         name=name,
         label="",
         type="string",
         description="",
         field_type=field_type,
-        **kwargs,  # type: ignore[arg-type]
+        group_label=group_label,
+        tags=tags or [],
     )
 
 
@@ -72,10 +81,15 @@ class TestExploreFromDict:
     def _loader(self, views_by_file: Dict[str, List[str]]) -> mock.MagicMock:
         loader = mock.MagicMock(spec=LookerViewFileLoader)
 
-        def load_viewfile(path: str, *args: object, **kwargs: object) -> mock.MagicMock:
-            viewfile = mock.MagicMock()
-            viewfile.views = [{"name": v} for v in views_by_file.get(path, [])]
-            return viewfile
+        def load_viewfile(path: str, *args: object, **kwargs: object) -> LookerViewFile:
+            return LookerViewFile(
+                absolute_file_path=path,
+                connection=None,
+                includes=[],
+                resolved_includes=[],
+                views=[{"name": v} for v in views_by_file.get(path, [])],
+                raw_file_content="",
+            )
 
         loader.load_viewfile.side_effect = load_viewfile
         return loader
@@ -83,6 +97,8 @@ class TestExploreFromDict:
     def test_extended_explore_inherits_upstream_views(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """``extends__all`` pulls in the base explore's ``from`` view and its
+        joins; an extended explore missing from the model is logged, not fatal."""
         includes = [ProjectInclude(BASE_PROJECT_NAME, "views.lkml")]
         model_explores = {
             "base": {
@@ -128,29 +144,28 @@ class TestExploreFromApiFailures:
         client.lookml_model_explore.side_effect = error
         return client
 
-    def _config(self) -> LookerDashboardSourceConfig:
-        return LookerDashboardSourceConfig.model_validate(
-            {
-                "base_url": "https://looker.example.com",
-                "client_id": "i",
-                "client_secret": "s",
-            }
-        )
+    @pytest.fixture
+    def config(
+        self, looker_config_factory: Callable[..., LookerDashboardSourceConfig]
+    ) -> LookerDashboardSourceConfig:
+        return looker_config_factory()
 
     def test_non_404_sdk_error_is_logged_not_raised(
-        self, caplog: pytest.LogCaptureFixture
+        self, caplog: pytest.LogCaptureFixture, config: LookerDashboardSourceConfig
     ) -> None:
         report = SourceReport()
         assert (
             LookerExplore.from_api(
-                "sales", "orders", self._client(SDKError("500")), report, self._config()
+                "sales", "orders", self._client(SDKError("500")), report, config
             )
             is None
         )
         assert "Failed to extract explore orders" in caplog.text
         assert not report.warnings
 
-    def test_deserialize_error_is_reported(self) -> None:
+    def test_deserialize_error_is_reported(
+        self, config: LookerDashboardSourceConfig
+    ) -> None:
         report = SourceReport()
         assert (
             LookerExplore.from_api(
@@ -158,7 +173,7 @@ class TestExploreFromApiFailures:
                 "orders",
                 self._client(DeserializeError("bad payload")),
                 report,
-                self._config(),
+                config,
             )
             is None
         )
@@ -241,13 +256,6 @@ class TestViewIdPaths:
 
 
 class TestUserRegistry:
-    @pytest.fixture(autouse=True)
-    def _fresh_user_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # LookerUserRegistry._user_cache is a class-level dict shared by every
-        # instance in the process, so ids seen by one test leak into the next
-        # under random ordering unless each test starts from an empty cache.
-        monkeypatch.setattr(LookerUserRegistry, "_user_cache", {})
-
     def _registry(self, known: List[User], lookup: object) -> LookerUserRegistry:
         api = mock.MagicMock(spec=LookerAPI)
         api.all_users.return_value = known
@@ -275,7 +283,18 @@ class TestUserRegistry:
         )
         mcps = list(registry.to_platform_resource(platform_instance=None))
         assert mcps
+        # Only users with an email make it into the id -> email mapping.
         assert registry.report.looker_user_count == 1
+
+    def test_user_cache_is_not_shared_between_registries(self) -> None:
+        """Regression: the user cache was a class-level dict, so users listed
+        by one ingestion run were served to every later registry in the process."""
+        self._registry(
+            [User(id="1", email="one@example.com")], lambda id_, user_fields: None
+        )
+        later = self._registry([], lambda id_, user_fields: None)
+
+        assert later.get_by_id("1") is None
 
     def test_user_urn_can_strip_email_domain(self) -> None:
         user = LookerUser("1", "one@example.com", None, None, None)

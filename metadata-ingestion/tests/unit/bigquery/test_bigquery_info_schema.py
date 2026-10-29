@@ -12,9 +12,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.info_schema import (
     InfoSchemaQueries,
 )
-from tests.unit.bigquery.test_bigquery_profiling import make_table
+from tests.unit.bigquery.conftest import PROFILING_PROJECT, make_table
 
-PROJECT = "test-project-123456"
+PROJECT = PROFILING_PROJECT
 SCHEMA = "ds"
 
 

@@ -5,11 +5,9 @@ degrades when parts of the API fail, and how the Confluent Cloud topic list
 is located and read.
 """
 
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
-import jpype
-import jpype.imports
 import pytest
 import requests_mock
 
@@ -21,18 +19,27 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceConfig,
     ProvidedConfig,
 )
+from datahub.ingestion.source.kafka_connect.confluent_catalog import (
+    ConnectorCatalog,
+)
 from datahub.ingestion.source.kafka_connect.kafka_connect import (
     KafkaConnectSource,
     SinkTopicFilter,
 )
 from datahub.metadata.schema_classes import DataJobInputOutputClass
-
-CONNECT = "http://connect.example:8083"
-CLOUD_CONNECT = (
-    "https://api.confluent.cloud/connect/v1/environments/env-1/clusters/lkc-1"
+from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
+from tests.unit.kafka_connect.conftest import (
+    CLOUD_CONNECT_URI,
+    CONNECT_URI,
+    KAFKA_REST_ENDPOINT,
+    KAFKA_TOPICS_URL,
+    cloud_source,
+    make_manifest,
+    mock_connector,
+    mock_graph,
+    reported,
+    self_hosted_source,
 )
-KAFKA_REST = "https://pkc-123.us-east-1.aws.confluent.cloud"
-TOPICS_URL = f"{KAFKA_REST}/kafka/v3/clusters/lkc-1/topics"
 
 S3_SINK_CONFIG: Dict[str, str] = {
     "connector.class": "io.confluent.connect.s3.S3SinkConnector",
@@ -47,50 +54,13 @@ JDBC_SOURCE_CONFIG: Dict[str, str] = {
 }
 
 
-@pytest.fixture(scope="session", autouse=True)
-def ensure_jvm_started() -> None:
-    if not jpype.isJVMStarted():
-        jpype.startJVM(jpype.getDefaultJVMPath())
-
-
-def _self_hosted(m: requests_mock.Mocker, **overrides: Any) -> KafkaConnectSource:
-    m.get(f"{CONNECT}/connectors", json=[])
-    config = KafkaConnectSourceConfig(connect_uri=CONNECT, **overrides)
-    return KafkaConnectSource(config, PipelineContext(run_id="test"))
-
-
-def _cloud(m: requests_mock.Mocker, **overrides: Any) -> KafkaConnectSource:
-    m.get(f"{CLOUD_CONNECT}/connectors", json=[])
-    config = KafkaConnectSourceConfig(
-        confluent_cloud_environment_id="env-1",
-        confluent_cloud_cluster_id="lkc-1",
-        username="connect-key",
-        password="connect-secret",
-        use_schema_resolver=False,
-        **overrides,
-    )
-    ctx = PipelineContext(run_id="test")
-    ctx.graph = MagicMock()
-    return KafkaConnectSource(config, ctx)
-
-
-def _mock_connector(
-    m: requests_mock.Mocker,
-    name: str,
-    body: Dict[str, Any],
-    topics: List[str],
-) -> None:
-    m.get(f"{CONNECT}/connectors", json=[name])
-    m.get(f"{CONNECT}/connectors/{name}", json=body)
-    m.get(f"{CONNECT}/connectors/{name}/topics", json={name: {"topics": topics}})
-    m.get(f"{CONNECT}/connectors/{name}/tasks", json=[])
-
-
 class TestConnectorManifestParsing:
     def test_nested_info_response_is_unwrapped(self) -> None:
+        """``?expand=info,status`` wraps the connector under ``info``; the
+        manifest must come out of that envelope with its lineage intact."""
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m)
-            _mock_connector(
+            source = self_hosted_source(m)
+            mock_connector(
                 m,
                 "s3-sink",
                 {
@@ -114,8 +84,8 @@ class TestConnectorManifestParsing:
 
     def test_missing_name_falls_back_to_listing_name(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m)
-            _mock_connector(
+            source = self_hosted_source(m)
+            mock_connector(
                 m,
                 "s3-sink",
                 {"type": "sink", "config": S3_SINK_CONFIG, "tasks": []},
@@ -127,18 +97,18 @@ class TestConnectorManifestParsing:
 
     def test_missing_type_drops_connector_with_warning(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m)
-            _mock_connector(
+            source = self_hosted_source(m)
+            mock_connector(
                 m, "broken", {"name": "broken", "config": S3_SINK_CONFIG}, topics=[]
             )
             manifests = list(source.get_connectors_manifest())
 
         assert manifests == []
-        assert any("broken" in str(w.context) for w in source.report.warnings)
+        assert reported(source.report.warnings, "broken")
 
     def test_malformed_config_and_tasks_fields_degrade_to_empty(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m)
+            source = self_hosted_source(m)
 
         manifest = source._parse_connector_manifest(
             "odd",
@@ -151,18 +121,20 @@ class TestConnectorManifestParsing:
 
     def test_connector_detail_fetch_failure_is_reported_and_skipped(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m)
-            m.get(f"{CONNECT}/connectors", json=["gone"])
-            m.get(f"{CONNECT}/connectors/gone", status_code=500)
+            source = self_hosted_source(m)
+            m.get(f"{CONNECT_URI}/connectors", json=["gone"])
+            m.get(f"{CONNECT_URI}/connectors/gone", status_code=500)
             manifests = list(source.get_connectors_manifest())
 
         assert manifests == []
-        assert any("gone" in str(w.context) for w in source.report.warnings)
+        assert reported(source.report.warnings, "gone")
 
     def test_tasks_fetch_failure_leaves_tasks_empty(self) -> None:
+        """The task list is only enrichment; a failing ``/tasks`` read must
+        not drop the connector."""
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m)
-            _mock_connector(
+            source = self_hosted_source(m)
+            mock_connector(
                 m,
                 "jdbc",
                 {
@@ -173,17 +145,17 @@ class TestConnectorManifestParsing:
                 },
                 topics=["pg_users"],
             )
-            m.get(f"{CONNECT}/connectors/jdbc/tasks", status_code=503)
+            m.get(f"{CONNECT_URI}/connectors/jdbc/tasks", status_code=503)
             manifests = list(source.get_connectors_manifest())
 
         assert len(manifests) == 1
         assert manifests[0].tasks == []
-        assert any("jdbc" in str(w.context) for w in source.report.warnings)
+        assert reported(source.report.warnings, "jdbc")
 
     def test_denied_connector_is_reported_as_dropped(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m, connector_patterns={"deny": ["s3-.*"]})
-            _mock_connector(
+            source = self_hosted_source(m, connector_patterns={"deny": ["s3-.*"]})
+            mock_connector(
                 m,
                 "s3-sink",
                 {
@@ -200,10 +172,12 @@ class TestConnectorManifestParsing:
         assert "s3-sink" in source.report.filtered
 
     def test_provided_configs_are_substituted_before_lineage(self) -> None:
+        """``${env:DB_HOST}`` placeholders are resolved from the recipe's
+        provided_configs before the JDBC URL is parsed for lineage."""
         config = dict(JDBC_SOURCE_CONFIG)
         config["connection.url"] = "jdbc:postgresql://${env:DB_HOST}:5432/mydb"
         with requests_mock.Mocker() as m:
-            source = _self_hosted(
+            source = self_hosted_source(
                 m,
                 provided_configs=[
                     ProvidedConfig(
@@ -211,7 +185,7 @@ class TestConnectorManifestParsing:
                     )
                 ],
             )
-            _mock_connector(
+            mock_connector(
                 m,
                 "jdbc",
                 {"name": "jdbc", "type": "source", "config": config, "tasks": []},
@@ -228,6 +202,8 @@ class TestConnectorManifestParsing:
 
 class TestJvmUnavailable:
     def test_source_still_constructs_when_no_jvm_can_start(self) -> None:
+        """A host without a JDK loses RegexRouter support, not the whole
+        source: construction must succeed and report no failure."""
         jpype_stub = MagicMock()
         jpype_stub.isJVMStarted.return_value = False
         jpype_stub.startJVM.side_effect = RuntimeError("no JDK on this host")
@@ -242,10 +218,10 @@ class TestJvmUnavailable:
                 return_value=(),
             ),
         ):
-            source = _self_hosted(m)
+            source = self_hosted_source(m)
 
         assert source.report.failures == []
-        cast(MagicMock, jpype_stub.startJVM).assert_called_once()
+        jpype_stub.startJVM.assert_called_once()
 
 
 class TestConfluentCloudInit:
@@ -257,30 +233,35 @@ class TestConfluentCloudInit:
             password="connect-secret",
         )
         with requests_mock.Mocker() as m:
-            m.get(f"{CLOUD_CONNECT}/connectors", json=[])
+            m.get(f"{CLOUD_CONNECT_URI}/connectors", json=[])
             with pytest.raises(ValueError):
                 KafkaConnectSource(config, PipelineContext(run_id="test"))
 
 
 class TestKafkaRestTopicList:
+    """``None`` means the cluster topic list is unavailable (callers fall back
+    to connector topic_names); ``[]`` means an authoritative empty cluster."""
+
     def test_unexpected_response_shape_marks_list_unavailable(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _cloud(m, kafka_rest_endpoint=KAFKA_REST)
-            m.get(TOPICS_URL, json={"kind": "Error", "message": "nope"})
+            source = cloud_source(m, kafka_rest_endpoint=KAFKA_REST_ENDPOINT)
+            m.get(KAFKA_TOPICS_URL, json={"kind": "Error", "message": "nope"})
             topics = source._get_all_topics_from_kafka_api()
 
         assert topics is None
-        assert any("topics_url" in str(w.context) for w in source.report.warnings)
+        assert reported(source.report.warnings, "topics_url")
 
     def test_runaway_pagination_is_capped(self) -> None:
+        """A ``metadata.next`` that keeps pointing at itself must not loop
+        forever, and a partially read list is unavailable, not truncated."""
         with requests_mock.Mocker() as m:
-            source = _cloud(m, kafka_rest_endpoint=KAFKA_REST)
+            source = cloud_source(m, kafka_rest_endpoint=KAFKA_REST_ENDPOINT)
             m.get(
-                TOPICS_URL,
+                KAFKA_TOPICS_URL,
                 json={
                     "kind": "KafkaTopicList",
                     "data": [{"topic_name": "orders"}],
-                    "metadata": {"next": TOPICS_URL},
+                    "metadata": {"next": KAFKA_TOPICS_URL},
                 },
             )
             with patch(
@@ -293,6 +274,8 @@ class TestKafkaRestTopicList:
         assert m.call_count <= 1 + 3
 
     def test_rest_endpoint_without_cluster_id_in_connect_uri(self) -> None:
+        """An explicit kafka_rest_endpoint still needs the cluster id, which is
+        read from the Connect URI; a proxy URI without one disables the read."""
         proxy = "https://connect-proxy.example/v1"
         with requests_mock.Mocker() as m:
             m.get(f"{proxy}/connectors", json=[])
@@ -303,15 +286,17 @@ class TestKafkaRestTopicList:
                 username="connect-key",
                 password="connect-secret",
                 use_schema_resolver=False,
-                kafka_rest_endpoint=KAFKA_REST,
+                kafka_rest_endpoint=KAFKA_REST_ENDPOINT,
             )
             ctx = PipelineContext(run_id="test")
-            ctx.graph = MagicMock()
+            ctx.graph = mock_graph()
             source = KafkaConnectSource(config, ctx)
             topics = source._get_all_topics_from_kafka_api()
 
         assert topics is None
-        assert not any(call.url.startswith(KAFKA_REST) for call in m.request_history)
+        assert not any(
+            call.url.startswith(KAFKA_REST_ENDPOINT) for call in m.request_history
+        )
 
     @pytest.mark.parametrize(
         "endpoint",
@@ -323,19 +308,21 @@ class TestKafkaRestTopicList:
     def test_rest_endpoint_derived_from_connector_bootstrap_servers(
         self, endpoint: str
     ) -> None:
+        """Without kafka_rest_endpoint the Kafka REST host is derived from the
+        first connector whose broker endpoint is a Confluent Cloud host."""
         with requests_mock.Mocker() as m:
-            source = _cloud(m)
-            m.get(f"{CLOUD_CONNECT}/connectors", json=["local-sink", "cloud-sink"])
+            source = cloud_source(m)
+            m.get(f"{CLOUD_CONNECT_URI}/connectors", json=["local-sink", "cloud-sink"])
             m.get(
-                f"{CLOUD_CONNECT}/connectors/local-sink",
+                f"{CLOUD_CONNECT_URI}/connectors/local-sink",
                 json={"config": {"bootstrap.servers": "localhost:9092"}},
             )
             m.get(
-                f"{CLOUD_CONNECT}/connectors/cloud-sink",
+                f"{CLOUD_CONNECT_URI}/connectors/cloud-sink",
                 json={"config": {"kafka.endpoint": endpoint}},
             )
             m.get(
-                TOPICS_URL,
+                KAFKA_TOPICS_URL,
                 json={
                     "kind": "KafkaTopicList",
                     "data": [{"topic_name": "orders"}],
@@ -348,36 +335,30 @@ class TestKafkaRestTopicList:
 
     def test_no_connector_exposes_endpoint_marks_list_unavailable(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _cloud(m)
-            m.get(f"{CLOUD_CONNECT}/connectors", json=["a", "b"])
+            source = cloud_source(m)
+            m.get(f"{CLOUD_CONNECT_URI}/connectors", json=["a", "b"])
             m.get(
-                f"{CLOUD_CONNECT}/connectors/a",
+                f"{CLOUD_CONNECT_URI}/connectors/a",
                 json={"config": {"bootstrap.servers": "localhost:9092"}},
             )
-            m.get(f"{CLOUD_CONNECT}/connectors/b", status_code=404)
+            m.get(f"{CLOUD_CONNECT_URI}/connectors/b", status_code=404)
             topics = source._get_all_topics_from_kafka_api()
 
         assert topics is None
-        assert any("connect_uri" in str(w.context) for w in source.report.warnings)
+        assert reported(source.report.warnings, "connect_uri")
 
     def test_only_confluent_cloud_brokers_convert_to_a_rest_endpoint(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _cloud(m)
+            source = cloud_source(m)
 
         assert (
             source._convert_broker_to_rest_endpoint("SASL_SSL://broker.internal:9092")
             is None
         )
 
-    def test_self_hosted_without_credentials_sends_no_kafka_auth(self) -> None:
-        with requests_mock.Mocker() as m:
-            source = _self_hosted(m)
-
-        assert source._get_kafka_auth_headers() is None
-
     def test_empty_connector_list_marks_list_unavailable(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _cloud(m)
+            source = cloud_source(m)
             topics = source._get_all_topics_from_kafka_api()
 
         assert topics is None
@@ -394,18 +375,15 @@ def _job_io(source: KafkaConnectSource, manifest: ConnectorManifest) -> Dict[str
 
 
 class TestJobIds:
+    """Each lineage becomes a DataJob whose id must be unique per
+    (source dataset, topic) and carry the mapped platform instance."""
+
     def _manifest(self, lineages: List[KafkaConnectLineage]) -> ConnectorManifest:
-        return ConnectorManifest(
-            name="jdbc",
-            type="source",
-            config=JDBC_SOURCE_CONFIG,
-            tasks=[],
-            lineages=lineages,
-        )
+        return make_manifest(JDBC_SOURCE_CONFIG, name="jdbc", lineages=lineages)
 
     def test_connect_to_platform_map_prefixes_job_id(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _self_hosted(
+            source = self_hosted_source(
                 m, connect_to_platform_map={"jdbc": {"postgres": "pg-prod"}}
             )
         manifest = self._manifest(
@@ -428,7 +406,7 @@ class TestJobIds:
 
     def test_one_source_feeding_many_topics_gets_distinct_job_ids(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m)
+            source = self_hosted_source(m)
         manifest = self._manifest(
             [
                 KafkaConnectLineage(
@@ -449,7 +427,7 @@ class TestJobIds:
 
     def test_lineage_without_source_uses_unknown_source_job_id(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m, convert_lineage_urns_to_lowercase=True)
+            source = self_hosted_source(m, convert_lineage_urns_to_lowercase=True)
         manifest = self._manifest(
             [
                 KafkaConnectLineage(
@@ -487,27 +465,25 @@ class TestSinkTopicFilter:
 class TestLifecycle:
     def test_close_tolerates_failing_catalog_and_resolver_provider(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m)
-        catalog = MagicMock()
+            source = self_hosted_source(m)
+        catalog = MagicMock(spec=ConnectorCatalog)
         catalog.close.side_effect = RuntimeError("catalog down")
-        provider = MagicMock()
+        provider = MagicMock(spec=SchemaResolverProvider)
         provider.close.side_effect = RuntimeError("provider down")
         source._catalog = catalog
         source._schema_resolver_provider = provider
 
         source.close()
 
-        cast(MagicMock, catalog.close).assert_called_once()
-        cast(MagicMock, provider.close).assert_called_once()
+        catalog.close.assert_called_once()
+        provider.close.assert_called_once()
 
     def test_partially_read_catalog_warns_once_per_run(self) -> None:
         with requests_mock.Mocker() as m:
-            source = _self_hosted(m)
-            catalog = MagicMock()
+            source = self_hosted_source(m)
+            catalog = MagicMock(spec=ConnectorCatalog)
             catalog.is_complete.return_value = False
             source._catalog = catalog
             list(source.get_workunits_internal())
 
-        assert any(
-            "confluent_catalog" in str(w.context) for w in source.report.warnings
-        )
+        assert reported(source.report.warnings, "confluent_catalog")

@@ -258,7 +258,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             missing = required - permissions
             test_report.capability_report[perm] = CapabilityReport(
                 capable=False,
-                error_message=f"Missing required permissions: {', '.join(missing)}",
+                failure_reason=f"Missing required permissions: {', '.join(missing)}",
             )
 
     @staticmethod
