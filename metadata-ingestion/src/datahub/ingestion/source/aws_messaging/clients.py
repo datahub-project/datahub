@@ -226,6 +226,7 @@ class LambdaClient:
             result_key="EventSourceMappings",
             report=self.report,
             api_label="lambda:ListEventSourceMappings",
+            optional=True,
         )
 
     def list_functions(self) -> Iterator[Dict[str, Any]]:
@@ -235,6 +236,7 @@ class LambdaClient:
             result_key="Functions",
             report=self.report,
             api_label="lambda:ListFunctions",
+            optional=True,
         )
 
     def list_async_destinations(self, function_name: str) -> Iterator[str]:
@@ -244,6 +246,7 @@ class LambdaClient:
             result_key="FunctionEventInvokeConfigs",
             report=self.report,
             api_label="lambda:ListFunctionEventInvokeConfigs",
+            optional=True,
             FunctionName=function_name,
         ):
             # Each config is for one version or alias; destinations hang off the
@@ -273,6 +276,7 @@ class EventBridgeClient:
                     pages_fetched=pages_fetched,
                     exc=e,
                     api_label="events:ListEventBuses",
+                    optional=True,
                 )
                 return
             pages_fetched += 1
@@ -290,6 +294,7 @@ class EventBridgeClient:
             result_key="Rules",
             report=self.report,
             api_label="events:ListRules",
+            optional=True,
             EventBusName=bus_name,
         )
 
@@ -300,6 +305,7 @@ class EventBridgeClient:
             result_key="Targets",
             report=self.report,
             api_label="events:ListTargetsByRule",
+            optional=True,
             Rule=rule_name,
             EventBusName=bus_name,
         ):
@@ -323,6 +329,7 @@ class PipesClient:
             result_key="Pipes",
             report=self.report,
             api_label="pipes:ListPipes",
+            optional=True,
         ):
             arn = parse_arn(item.get("Arn"))
             if arn is None or not item.get("Source") or not item.get("Target"):
