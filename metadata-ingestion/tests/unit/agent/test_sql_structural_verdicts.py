@@ -248,6 +248,59 @@ def test_a_pattern_that_filters_nothing_is_not_refused_for_being_spelled_oddly()
     assert _rows(result) == [("analytics", "analytics", True, None)]
 
 
+def test_a_deny_the_source_appended_does_not_cost_the_recipe_its_answer() -> None:
+    """A deny list filters, and is still blind to the container.
+
+    `validate_legacy_schema_pattern` appends `.*INFORMATION_SCHEMA$` to every
+    Snowflake recipe, including one that sets no filter of its own. Keying the
+    carve-out on "filters nothing" therefore refused a recipe the caller never
+    filtered, for want of a container that could not have changed its verdict:
+    a suffix anchored past a dot cannot reach back across one.
+    """
+    result = check_filters(
+        source_type="snowflake",
+        config_dict={
+            "account_id": "abc",
+            "username": "u",
+            "password": "p",
+            "warehouse": "w",
+            "role": "r",
+            "match_fully_qualified_names": True,
+        },
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["MY_SCHEMA"],
+    )
+    assert _rows(result) == [("MY_SCHEMA", "MY_SCHEMA", True, None)]
+
+
+def test_an_allow_anchored_past_the_dot_answers_where_a_qualified_one_refuses() -> None:
+    """The carve-out turns on whether the container could change the verdict,
+    not on whether the pattern filters.
+
+    `^.*_prod$` filters plenty and says the same thing about `ds_prod` in
+    every project, so it is answerable. `^p1\\.ds$` names a project, so the
+    one the caller did not give is exactly what decides it.
+    """
+    blind = check_filters(
+        source_type="bigquery",
+        config_dict={"dataset_pattern": {"allow": ["^.*_prod$"]}},
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["ds_prod"],
+    )
+    assert _rows(blind) == [("ds_prod", "ds_prod", True, None)]
+
+    with pytest.raises(ContainerUnknown):
+        check_filters(
+            source_type="bigquery",
+            config_dict={"dataset_pattern": {"allow": [r"^p1\\.ds$"]}},
+            kind=str(DatasetContainerSubTypes.SCHEMA),
+            parent_path=[],
+            names=["ds_prod"],
+        )
+
+
 def test_the_note_says_when_the_container_itself_is_filtered() -> None:
     """ "The verdict stands" is exact about the field deciding this kind, and
     was read as broader than that.

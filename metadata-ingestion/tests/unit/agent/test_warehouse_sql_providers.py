@@ -12,6 +12,7 @@ from typing import Callable, Dict, List, Optional
 
 import pytest
 from google.api_core.exceptions import Forbidden, Unauthorized
+from google.api_core.retry import Retry
 
 from datahub.ingestion.agent.probe_methods import ProbeMethodSpec
 from datahub.ingestion.source.bigquery_v2.bigquery_probe import BigQueryMetadataProbe
@@ -216,7 +217,11 @@ def test_bigquery_bounds_the_listing_on_both_sides() -> None:
     assert (
         client.kwargs["timeout"] == BigQueryMetadataProbe.query_budget.timeout_seconds
     )
-    assert client.kwargs["retry"] is not None
+    # The bound itself, not merely that some retry was passed: DEFAULT_RETRY
+    # is non-None too, and is the ten minutes this test exists to rule out.
+    retry = client.kwargs["retry"]
+    assert isinstance(retry, Retry)
+    assert retry.timeout == BigQueryMetadataProbe.query_budget.timeout_seconds
 
 
 def test_bigquery_truncates_before_sorting_not_after() -> None:
