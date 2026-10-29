@@ -23,7 +23,12 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -47,12 +52,18 @@ import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.retention.RetentionTestUtils;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -102,6 +113,8 @@ import org.testng.annotations.Test;
  */
 public class EbeanEntityServiceTest
     extends EntityServiceTest<EbeanAspectDao, EbeanRetentionService> {
+
+  private static final String NEWER_OWNER = "urn:li:entityFromNewerBuild:bot";
 
   /** Real retention service used to test policy resolution without spy stubbing. */
   private EbeanRetentionService<ChangeItemImpl> _realRetentionService;
@@ -972,5 +985,92 @@ public class EbeanEntityServiceTest
     // Shutdown all Database instances to prevent thread pool and connection leaks
     // This includes the "gma.heartBeat" thread and connection pools
     EbeanTestUtils.shutdownDatabaseFromAspectDao(_aspectDao);
+  }
+
+  @Test
+  public void testTolerantRollbackRestoresThePreviousVersionAsStored() {
+    // The restored version must keep the references only a newer version knows, which reads
+    // drop: the older row is deleted after the copy.
+    assertTrue(
+        rollBackOverStoredUnknownOwner("rb_tolerant", TolerantHandling.INSTANCE)
+            .contains(NEWER_OWNER));
+  }
+
+  @Test
+  public void testStrictRollbackRestoresThePreviousVersionAsBefore() {
+    // Strict reads drop nothing, so the stored row is restored as it was before tolerance. The
+    // change event for the restored row still fails strict validation afterwards, as before.
+    assertTrue(
+        rollBackOverStoredUnknownOwner("rb_strict", StrictHandling.INSTANCE).contains(NEWER_OWNER));
+  }
+
+  /**
+   * Run r1 stores ownership [alice, NEWER_OWNER] (as a newer version wrote it), run r2 writes
+   * [alice, bob] over it with tolerance on (strict handling rejects writing over such a row), and
+   * r2 is rolled back under {@code rollbackHandling}. Returns the latest stored ownership row.
+   */
+  private String rollBackOverStoredUnknownOwner(String name, UnknownDataHandling rollbackHandling) {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    Urn dataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive," + name + ",PROD)");
+    String run1 = name + "-r1";
+    String run2 = name + "-r2";
+    ingestOwnership(dataset, run1, "urn:li:corpuser:alice");
+    _aspectDao
+        .getServer()
+        .sqlUpdate(
+            "UPDATE metadata_aspect_v2 SET metadata = :metadata"
+                + " WHERE urn = :urn AND aspect = 'ownership' AND version = 0")
+        .setParameter(
+            "metadata",
+            "{\"owners\":[{\"owner\":\"urn:li:corpuser:alice\",\"type\":\"DATAOWNER\"},"
+                + "{\"owner\":\""
+                + NEWER_OWNER
+                + "\",\"type\":\"DATAOWNER\"}],"
+                + "\"lastModified\":{\"time\":0,\"actor\":\"urn:li:corpuser:datahub\"}}")
+        .setParameter("urn", dataset.toString())
+        .execute();
+    ingestOwnership(dataset, run2, "urn:li:corpuser:alice", "urn:li:corpuser:bob");
+
+    AspectRowSummary row = new AspectRowSummary();
+    row.setRunId(run2);
+    row.setAspectName("ownership");
+    row.setUrn(dataset.toString());
+    UnknownDataHandlings.use(rollbackHandling);
+    try {
+      _entityServiceImpl.rollbackRun(opContext, ImmutableList.of(row), run2, true);
+    } catch (ValidationException e) {
+      // Strict handling only: emitting the restored row's change event rejects the unknown urn.
+      assertTrue(rollbackHandling instanceof StrictHandling);
+    }
+
+    EntityAspect latest = _aspectDao.getAspect(opContext, dataset.toString(), "ownership", 0);
+    assertEquals(
+        _aspectDao.getVersionRange(opContext, dataset.toString(), "ownership").getSecond(), 0L);
+    return latest.getMetadata();
+  }
+
+  private void ingestOwnership(Urn dataset, String runId, String... owners) {
+    OwnerArray ownerArray = new OwnerArray();
+    for (String owner : owners) {
+      ownerArray.add(new Owner().setOwner(UrnUtils.getUrn(owner)).setType(OwnershipType.DATAOWNER));
+    }
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(dataset)
+                        .aspectName("ownership")
+                        .recordTemplate(
+                            new Ownership().setOwners(ownerArray).setLastModified(TEST_AUDIT_STAMP))
+                        .systemMetadata(
+                            AspectGenerationUtils.createSystemMetadata(1625792689, runId))
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
   }
 }

@@ -560,6 +560,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /**
+   * Puts back, in the version a rollback makes the latest, the references to entity types this
+   * version doesn't know (written by a newer version before a rollback), which reads drop: the
+   * older row is deleted after the copy, so they would be lost. The rest stays as read, so the
+   * restored record matches the system metadata copied with it (e.g. after a schema migration on
+   * read).
+   */
+  private static void restoreStoredReferences(
+      @Nonnull OperationContext opContext, @Nonnull final SystemAspect surviving) {
+    // Lazy: getDatabaseAspect() parses the stored row, which only tolerant handling needs.
+    handling()
+        .mergeStoredReferences(
+            surviving.getRecordTemplate(),
+            () -> surviving.getDatabaseAspect().map(SystemAspect::getRecordTemplate).orElse(null),
+            opContext.getEntityRegistry());
+  }
+
+  /**
    * Keeps the stored references to entity types this version doesn't know (written by a newer
    * version before a rollback), which reads drop, in the aspect being written, and rejects a write
    * that adds one; a typo stays a client error. Compared with the stored row as written, not the
@@ -4372,6 +4389,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       // aspect
                       // as a result we copy information from survivingAspect to latest and delete
                       // survivingAspect
+                      restoreStoredReferences(opContext, survivingAspect);
                       latest.setRecordTemplate(survivingAspect.getRecordTemplate());
                       latest.setSystemMetadata(survivingAspect.getSystemMetadata());
                       latest.setAuditStamp(survivingAspect.getAuditStamp());
