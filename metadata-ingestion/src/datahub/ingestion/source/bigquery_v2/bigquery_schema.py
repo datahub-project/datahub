@@ -59,19 +59,22 @@ logger: logging.Logger = logging.getLogger(__name__)
 _QUERY_RESULT_PROGRESS_SECONDS = 5
 
 
-def _iter_bigquery_results(rows: RowIterator, job_id: str) -> Iterator[Any]:
+def _iter_bigquery_results(
+    rows: RowIterator, job_id: str, total_rows: Optional[int]
+) -> Iterator[bigquery.Row]:
     """Yield query rows, logging page delivery separately from local consumption.
 
     ``QueryJob.result()`` only waits until the job is complete. The rows are
     pulled afterwards, one page per request, as this iterator advances.
     """
-    total_rows = getattr(rows, "total_rows", None)
     read = 0
     pages = 0
     completed = False
     last_progress = time.perf_counter()
     try:
-        for page in rows.pages:
+        # result() returns _EmptyRowIterator for dry runs and jobs without
+        # totalRows; it has no api_request, so reading .pages would raise.
+        for page in rows.pages if rows.api_request is not None else ():
             pages += 1
             logger.debug(
                 "BigQuery job %s returned page %s to DataHub (%s rows on this page, %s rows in the job)",
@@ -81,8 +84,8 @@ def _iter_bigquery_results(rows: RowIterator, job_id: str) -> Iterator[Any]:
                 total_rows if total_rows is not None else "unknown",
             )
             for row in page:
-                yield row
                 read += 1
+                yield row
                 now = time.perf_counter()
                 if now - last_progress >= _QUERY_RESULT_PROGRESS_SECONDS:
                     logger.debug(
@@ -417,7 +420,7 @@ class BigQuerySchemaApi:
 
     def get_query_result(
         self, query: str, location: Optional[str] = None
-    ) -> Iterator[Any]:
+    ) -> Iterator[bigquery.Row]:
         """Run a query and yield its rows.
 
         The return value is a plain iterator, not
@@ -451,13 +454,13 @@ class BigQuerySchemaApi:
         # BigQuery marks it complete; it does not download the rows.
         logger.debug("Submitted BigQuery job %s; waiting for completion", resp.job_id)
         rows = resp.result()
-        total_rows = getattr(rows, "total_rows", None)
+        total_rows = rows.total_rows
         logger.debug(
             "BigQuery job %s completed; results are ready to download (%s rows)",
             resp.job_id,
             total_rows if total_rows is not None else "unknown",
         )
-        return _iter_bigquery_results(rows, resp.job_id)
+        return _iter_bigquery_results(rows, resp.job_id, total_rows)
 
     @lru_cache(maxsize=1)
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
