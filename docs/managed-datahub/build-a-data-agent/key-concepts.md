@@ -80,15 +80,7 @@ The first two limit what the agent sees; the third guides where it looks.
 
 Usage, freshness, and ownership suggest which context is reliable. **Certification** states it. When someone your team authorizes certifies a table, metric, dashboard, or document, they vouch for it as the trusted source for the questions it covers, and DataHub passes that judgment to your agent.
 
-Every asset and document an agent finds carries a trust grade:
-
-| Grade         | What it means                                          | How the agent uses it                                                   |
-| ------------- | ------------------------------------------------------ | ----------------------------------------------------------------------- |
-| **Certified** | Someone your team authorized has vouched for it.       | Uses it as the primary basis for an answer when it covers the question. |
-| **Authored**  | A person wrote or curated it, but nobody certified it. | Relies on it, and says it's documented but not certified.               |
-| **Inferred**  | It was derived automatically.                          | Uses it only when nothing better covers the question, and says so.      |
-
-Certified context also ranks higher when your agent searches. Together, these separate the signal from the noise: your agent finds the sources your team vouches for first, builds its answer on them, and tells the user when it had to rely on something less certain.
+When DataHub returns context to your agent, it tells the agent which assets and documents are certified and which aren't. Certified context also ranks higher when your agent searches. Together, these separate the signal from the noise: your agent finds the sources your team vouches for first, builds its answer on them, and tells the user when it had to rely on uncertified context.
 
 Certify sparingly, starting with the tables and documents behind your evals. A certification means the most when it's rare. See [Certification](../../features/feature-guides/context/certification.md).
 

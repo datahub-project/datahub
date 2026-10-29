@@ -37,6 +37,15 @@ A certification applies to the whole asset. Columns, glossary terms, and domains
 
 _Screenshot: the certified seal on a dataset, with its hover card showing who certified it, when, and why._
 
+## Who can certify
+
+To certify an asset or document, or to remove its certification, you need the **Certify** privilege on that asset or document.
+
+- **Admins and Editors** can certify any asset by default.
+- **Anyone else,** including an asset's owners, needs an admin to grant them **Certify** in a [policy](../../../authorization/policies.md). A policy can grant it for all assets, or only for some, such as the assets in one domain, so the people responsible for an area certify what belongs to it.
+
+Permission to edit an asset doesn't include permission to certify it. This keeps certification a deliberate decision, made by the people your organization trusts to make it. A certification is always recorded under the name of the person who made it.
+
 ## Certifying assets and documents
 
 - **From an asset's page,** click the certify icon in the header, or choose **Certify** from the **⋮** menu. Add a note, and click **Certify**.
@@ -67,13 +76,7 @@ _Screenshot: the Certification page, listing certified assets._
 
 ## How AI agents use certification
 
-Every asset and document that DataHub returns to an agent carries a trust grade. Certification is the highest:
-
-| Grade         | What it means                                          | How the agent uses it                                                                         |
-| ------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| **Certified** | Someone your team authorized has vouched for it.       | Uses it as the primary basis for an answer when it covers the question.                       |
-| **Authored**  | A person wrote or curated it, but nobody certified it. | Relies on it, and says that it's documented but not certified.                                |
-| **Inferred**  | It was derived automatically.                          | Uses it only when nothing better covers the question, and says that the answer is unverified. |
+When DataHub returns assets and documents to an agent, it tells the agent which ones are certified. The agent builds its answers on certified sources first, and says so when an answer relies on context nobody has certified.
 
 This helps agents in the situations where trust matters most:
 
@@ -82,21 +85,37 @@ This helps agents in the situations where trust matters most:
 
 Certified assets and documents also rank higher when agents search, so the sources your team vouches for are the ones agents find first. See [Certification & Trust Ranking](../../../managed-datahub/build-a-data-agent/key-concepts.md#certification--trust-ranking).
 
-:::tip Certify sparingly
-A certification means the most when it's rare. Start with the handful of tables and documents behind your most important questions, such as the ones your [evals](./context-evals.md) cover, and certify more as they prove themselves.
-:::
-
 <p align="center">
   <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/certification-ask-datahub.png"/>
 </p>
 
 _Screenshot: Ask DataHub answering from a certified table, and saying that it's certified._
 
-## Who can certify
+## Using certification in agent responses
 
-Certifying and removing a certification require the **Certify** privilege, which Admins and Editors have by default. Owners can't certify their own assets unless an admin grants them the privilege, for example by adding it to a [policy](../../../authorization/policies.md) for asset owners. This keeps certification a deliberate decision, separate from editing.
+Agents use certification out of the box. To control exactly how your agent explains it in its answers, for example to always tell users whether an answer can be shared, add instructions that say how to interpret certification. Add them to a [custom agent's](../agents.md) instructions, or to a [skill](../../../dev-guides/agent-context/skills.md) your own agent uses.
 
-A certification is always recorded under the name of the person who made it.
+For example:
+
+```text
+## Qualifying responses through certification
+
+Each context document and data asset used in this flow is marked as either
+certified or uncertified. Certified assets are those that data team admins have
+explicitly identified as trustworthy.
+
+## Explaining uncertified sources in answers
+
+When a response depends on uncertified context documents or data assets,
+qualify the response clearly, and say that it should be reviewed before it is
+fully trusted or shared publicly, because it uses uncertified sources.
+
+## Explaining certified sources in answers
+
+When a response depends only on certified context documents and data assets,
+say that only certified sources were used to generate the answer, to help build
+trust with the users who rely on your answers.
+```
 
 ## API access
 
