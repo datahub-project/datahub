@@ -106,3 +106,7 @@ LINEAGE_RELATIONSHIP_PROPERTY = "relationship"
 GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
 
 S3_PREFIX_FILTER = "prefix"
+
+BUCKET_REGION_PARAMETER = "BucketRegion"
+# botocore 1.35.42 added ListBuckets' bucket-region filter (pagination came in 1.34.162).
+MIN_BOTOCORE_FOR_BUCKET_REGION = "1.35.42"
