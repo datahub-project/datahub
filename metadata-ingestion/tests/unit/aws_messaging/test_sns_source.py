@@ -5,9 +5,11 @@ from typing import Any, Dict, List, Set
 import pytest
 import time_machine
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.sink.file import write_metadata_file
+from datahub.ingestion.source.aws_messaging.clients import SnsClient
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.testing import mce_helpers
@@ -180,3 +182,17 @@ def test_test_connection(aws: None) -> None:
     report = SnsSource.test_connection(base_config())
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable
+
+
+def test_unreadable_topic_is_kept_out_of_stale_removal(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sns_client().create_topic(Name="flaky")
+    monkeypatch.setattr(SnsClient, "get_topic_attributes", lambda self, arn: None)
+    source = _run()
+    aspects = [
+        (wu.get_urn(), str(wu.metadata.aspectName), wu.is_primary_source)
+        for wu in source.get_workunits_internal()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    ]
+    assert aspects == [(urn("sns", "flaky"), "status", True)]

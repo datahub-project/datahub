@@ -1,5 +1,6 @@
 from typing import Iterable, Iterator, List, Optional
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -16,6 +17,7 @@ from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase, 
 from datahub.ingestion.source.aws_messaging.clients import SqsClient, TaggingClient
 from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
 from datahub.ingestion.source.aws_messaging.constants import (
+    QUEUE_URL_PATTERN,
     SQS_PLATFORM,
     AwsService,
     LineageRelationship,
@@ -28,9 +30,10 @@ from datahub.ingestion.source.aws_messaging.mapper import (
     queue_properties,
     tag_patch_workunits,
 )
-from datahub.ingestion.source.aws_messaging.models import SqsQueue
+from datahub.ingestion.source.aws_messaging.models import Arn, SqsQueue
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.metadata.schema_classes import StatusClass
 from datahub.sdk import Dataset
 
 
@@ -78,6 +81,8 @@ class SqsSource(AwsMessagingSourceBase):
         self.report = report
         self.queues: List[SqsQueue] = []
         self.registry = self.schema_registry(config.glue_schema_registry)
+        # Listed but unreadable this run: still in AWS, so kept out of stale removal.
+        self.unreadable_queue_urls: List[str] = []
         self.tagging = TaggingClient(
             config.make_client(self.session, AwsService.TAGGING), report
         )
@@ -94,6 +99,7 @@ class SqsSource(AwsMessagingSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.with_region_container(self._queue_workunits())
+        yield from self._keep_unreadable_queues()
         # Dead-letter targets are checked once every queue in the region is known.
         for queue in self.queues:
             self._add_dead_letter_edge(queue)
@@ -116,10 +122,12 @@ class SqsSource(AwsMessagingSourceBase):
             attributes = self.sqs.get_attributes(url)
             if attributes is None:
                 self.report.queues_failed.append(name)
+                self.unreadable_queue_urls.append(url)
                 continue
             arn = parse_arn(attributes.get(QueueAttribute.QUEUE_ARN))
             if arn is None:
                 self.report.queues_failed.append(name)
+                self.unreadable_queue_urls.append(url)
                 self.report.warning(
                     title="Queue has no readable ARN",
                     message="GetQueueAttributes returned no parseable QueueArn; the queue is skipped.",
@@ -166,6 +174,26 @@ class SqsSource(AwsMessagingSourceBase):
                 schema=schema,
             ).as_workunits()
             yield from tag_patch_workunits(urn, queue.tags)
+
+    def _keep_unreadable_queues(self) -> Iterable[MetadataWorkUnit]:
+        """A queue whose attributes couldn't be read (throttling, a transient
+        error) still exists. Writing only its Status registers it with stale-entity
+        removal without overwriting what an earlier run stored."""
+        for url in self.unreadable_queue_urls:
+            match = QUEUE_URL_PATTERN.search(url)
+            if match is None:
+                continue
+            arn = Arn(
+                partition="aws",
+                service=AwsService.SQS.value,
+                region=self.region,
+                account=match.group("account"),
+                resource=match.group("name"),
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=self.urns.queue_urn(arn),
+                aspect=StatusClass(removed=False),
+            ).as_workunit()
 
     def _add_dead_letter_edge(self, queue: SqsQueue) -> None:
         redrive = parse_redrive_policy(
