@@ -457,6 +457,7 @@ public class EntityRelationshipsResultResolver
                       isValidMembershipNeighbor(
                           seedUrn, direction, relationshipTypes, rel.getEntity()))
               .collect(Collectors.toList());
+      int invalidNeighborCount = result.neighborsOrEmpty().size() - relationships.size();
       if (filterByRelatedType) {
         // Filtering pages after the fetch, so fetch the full set (capped) and fail closed if it was
         // truncated, to keep filtered totals/pages accurate.
@@ -481,10 +482,9 @@ public class EntityRelationshipsResultResolver
         }
         // Raw edge total when available (keeps hover/search counts cheap); subtract inverted or invalid
         // orientation edges filtered from the fetched page, and fall back to deduped size if no hit.
-        int filteredCount = result.neighborsOrEmpty().size() - relationships.size();
         total =
             result instanceof MembershipNeighborResult.Hit hit
-                ? Math.max(0, hit.total() - filteredCount)
+                ? Math.max(0, hit.total() - invalidNeighborCount)
                 : relationships.size();
       }
     }
