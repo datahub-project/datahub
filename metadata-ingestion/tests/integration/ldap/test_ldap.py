@@ -52,6 +52,7 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             pytestconfig,
             output_path=tmp_path / "ldap_mces.json",
             golden_path=test_resources_dir / "ldap_mces_golden.json",
+            golden_mces_as_mcps=True,
         )
 
 
@@ -101,6 +102,7 @@ def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
             pytestconfig,
             output_path=tmp_path / "ldap_memberof_mces.json",
             golden_path=test_resources_dir / "ldap_memberof_mces_golden.json",
+            golden_mces_as_mcps=True,
         )
 
 
@@ -153,4 +155,5 @@ def test_ldap_ingest_with_email_as_username(
             pytestconfig,
             output_path=tmp_path / "ldap_mces.json",
             golden_path=test_resources_dir / "ldap_mces_golden.json",
+            golden_mces_as_mcps=True,
         )
