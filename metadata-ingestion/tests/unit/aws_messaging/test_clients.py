@@ -4,7 +4,7 @@ import boto3
 from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
-from datahub.ingestion.source.aws_messaging.clients import SqsClient
+from datahub.ingestion.source.aws_messaging.clients import SnsClient, SqsClient
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 
 QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789012/q{}"
@@ -72,6 +72,40 @@ def test_mid_pagination_failure_fails_the_run() -> None:
             QUEUE_URL.format(1)
         ]
     assert report.failures
+
+
+def test_subscriptions_are_listed_per_topic() -> None:
+    # ListSubscriptions only returns the caller's own subscriptions; the
+    # per-topic call also returns ones another account created on the topic.
+    topic = "arn:aws:sns:us-east-1:123456789012:events"
+    client = boto3.client(
+        "sns",
+        region_name="us-east-1",
+        aws_access_key_id="testing",
+        aws_secret_access_key="testing",
+    )
+    with Stubber(client) as stubber:
+        stubber.add_response(
+            "list_subscriptions_by_topic",
+            {
+                "Subscriptions": [
+                    {
+                        "SubscriptionArn": f"{topic}:sub-1",
+                        "TopicArn": topic,
+                        "Protocol": "sqs",
+                        "Endpoint": "arn:aws:sqs:us-east-1:210987654321:remote",
+                        "Owner": "210987654321",
+                    }
+                ]
+            },
+            {"TopicArn": topic},
+        )
+        subscriptions = list(
+            SnsClient(client, SqsSourceReport()).list_subscriptions(
+                topic, on_error=lambda: None
+            )
+        )
+    assert [s.owner for s in subscriptions] == ["210987654321"]
 
 
 def test_optional_listing_failure_is_only_a_warning() -> None:

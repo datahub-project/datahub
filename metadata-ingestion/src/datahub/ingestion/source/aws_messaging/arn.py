@@ -1,5 +1,6 @@
 import json
 from typing import Dict, Optional
+from urllib.parse import urlsplit
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -33,6 +34,11 @@ def parse_redrive_policy(value: Optional[str]) -> Optional[RedrivePolicy]:
         return RedrivePolicy.model_validate(json.loads(value))
     except ValueError:
         return None
+
+
+def endpoint_host(url: str) -> Optional[str]:
+    # Only the host is kept: query strings and paths can carry tokens.
+    return urlsplit(url).hostname or None
 
 
 class UrnBuilder:

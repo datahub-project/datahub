@@ -772,6 +772,7 @@ plugins: Dict[str, Set[str]] = {
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
     "sqs": aws_common,
+    "sns": aws_common,
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -1111,6 +1112,7 @@ base_dev_requirements = {
             "kafka",
             "kinesis",
             "sqs",
+            "sns",
             "datahub-rest",
             "datahub-lite",
             "duckdb",
@@ -1270,6 +1272,7 @@ entry_points = {
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
         "sqs = datahub.ingestion.source.aws_messaging.sqs_source:SqsSource",
+        "sns = datahub.ingestion.source.aws_messaging.sns_source:SnsSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",

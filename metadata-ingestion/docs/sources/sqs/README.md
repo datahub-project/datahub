@@ -2,7 +2,7 @@
 
 [Amazon SQS](https://aws.amazon.com/sqs/) is AWS's managed message queue service. Producers send messages to a queue, consumers poll it, and messages that keep failing move to a dead-letter queue.
 
-The `sqs` source plugin catalogs the queues of one AWS region as datasets, grouped in a region container, with queue settings as properties, AWS resource tags as DataHub tags, lineage from each queue to its dead-letter queue, and stateful deletion. Its companion, the `sns` source, catalogs SNS topics and adds topic-to-queue lineage; both build URNs the same way so their lineage joins.
+The `sqs` source plugin catalogs the queues of one AWS region as datasets, grouped in a region container, with queue settings as properties, AWS resource tags as DataHub tags, lineage from each queue to its dead-letter queue, and stateful deletion. Its companion, the [`sns` source](sns.md), catalogs SNS topics and adds topic-to-queue lineage; both build URNs the same way so their lineage joins.
 
 ## Concept Mapping
 

@@ -4,6 +4,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.constants import ALL_ATTRIBUTES
+from datahub.ingestion.source.aws_messaging.models import SnsSubscription
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 
 
@@ -15,6 +16,7 @@ def paginate(
     report: AwsMessagingReportBase,
     api_label: str,
     optional: bool = False,
+    on_error: Optional[Callable[[], None]] = None,
     **kwargs: Any,
 ) -> Iterator[Any]:
     # boto3 paginators raise from inside iteration, so the page count at the time
@@ -28,6 +30,8 @@ def paginate(
         report.report_listing_failure(
             pages_fetched=pages_fetched, exc=e, api_label=api_label, optional=optional
         )
+        if on_error is not None:
+            on_error()
 
 
 def call_or_warn(
@@ -58,7 +62,7 @@ class SqsClient:
         self._client = client
         self.report = report
 
-    def list_queue_urls(self) -> Iterator[str]:
+    def list_queue_urls(self, optional: bool = False) -> Iterator[str]:
         # ListQueues only returns a NextToken when MaxResults is set.
         yield from paginate(
             client=self._client,
@@ -66,6 +70,7 @@ class SqsClient:
             result_key="QueueUrls",
             report=self.report,
             api_label="sqs:ListQueues",
+            optional=optional,
             PaginationConfig={"PageSize": 1000},
         )
 
@@ -127,3 +132,84 @@ class TaggingClient:
             )
             return None
         return tags
+
+
+class SnsClient:
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
+        self._client = client
+        self.report = report
+
+    def list_topic_arns(self) -> Iterator[str]:
+        for topic in paginate(
+            client=self._client,
+            operation="list_topics",
+            result_key="Topics",
+            report=self.report,
+            api_label="sns:ListTopics",
+        ):
+            yield topic["TopicArn"]
+
+    def first_topic_arn(self) -> Optional[str]:
+        topics = self._client.list_topics().get("Topics") or []
+        return topics[0].get("TopicArn") if topics else None
+
+    def get_topic_attributes(self, arn: str) -> Optional[Dict[str, str]]:
+        response = call_or_warn(
+            call=lambda: self._client.get_topic_attributes(TopicArn=arn),
+            report=self.report,
+            api_label="sns:GetTopicAttributes",
+            context=f"topic={arn}",
+        )
+        return None if response is None else dict(response.get("Attributes") or {})
+
+    def get_tags(self, arn: str) -> Dict[str, str]:
+        response = call_or_warn(
+            call=lambda: self._client.list_tags_for_resource(ResourceArn=arn),
+            report=self.report,
+            api_label="sns:ListTagsForResource",
+            context=f"topic={arn}",
+        )
+        return tags_to_dict((response or {}).get("Tags") or [])
+
+    def list_subscriptions(
+        self, topic_arn: str, on_error: Callable[[], None]
+    ) -> Iterator[SnsSubscription]:
+        # Per topic, because ListSubscriptions only returns the caller's own
+        # subscriptions and misses ones other accounts created on our topics.
+        # SNS allows 30 of these calls per second.
+        for item in paginate(
+            client=self._client,
+            operation="list_subscriptions_by_topic",
+            result_key="Subscriptions",
+            report=self.report,
+            api_label="sns:ListSubscriptionsByTopic",
+            # Subscriptions only add properties and lineage, not datasets.
+            optional=True,
+            on_error=on_error,
+            TopicArn=topic_arn,
+        ):
+            yield SnsSubscription(
+                subscription_arn=item.get("SubscriptionArn", ""),
+                topic_arn=item.get("TopicArn", ""),
+                protocol=item.get("Protocol", ""),
+                endpoint=item.get("Endpoint", ""),
+                owner=item.get("Owner"),
+            )
+
+    def get_subscription_attributes(self, arn: str) -> Optional[Dict[str, str]]:
+        response = call_or_warn(
+            call=lambda: self._client.get_subscription_attributes(SubscriptionArn=arn),
+            report=self.report,
+            api_label="sns:GetSubscriptionAttributes",
+            context=f"subscription={arn}",
+        )
+        return None if response is None else dict(response.get("Attributes") or {})
+
+    def get_data_protection_policy(self, arn: str) -> Optional[str]:
+        response = call_or_warn(
+            call=lambda: self._client.get_data_protection_policy(ResourceArn=arn),
+            report=self.report,
+            api_label="sns:GetDataProtectionPolicy",
+            context=f"topic={arn}",
+        )
+        return (response or {}).get("DataProtectionPolicy") or None

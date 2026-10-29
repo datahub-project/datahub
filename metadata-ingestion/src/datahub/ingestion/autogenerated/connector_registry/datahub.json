@@ -4753,6 +4753,74 @@
       "platform_name": "Snowplow",
       "support_status": "BETA"
     },
+    "sns": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Region containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "SNS has no description",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "From AWS resource tags, added without removing UI tags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Opt-in, from data protection policy identifiers you map to existing terms",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Defaults to the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "SNS has no schema",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Topic to subscribed queue and to subscription dead-letter queue",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.aws_messaging.sns_source.SnsSource",
+      "platform_id": "sns",
+      "platform_name": "Amazon SNS",
+      "support_status": "ALPHA"
+    },
     "sql-queries": {
       "capabilities": [
         {

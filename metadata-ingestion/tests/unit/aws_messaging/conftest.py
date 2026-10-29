@@ -23,3 +23,7 @@ def base_config(**overrides: Any) -> Dict[str, Any]:
 
 def sqs_client() -> Any:
     return boto3.client("sqs", region_name=REGION)
+
+
+def sns_client() -> Any:
+    return boto3.client("sns", region_name=REGION)

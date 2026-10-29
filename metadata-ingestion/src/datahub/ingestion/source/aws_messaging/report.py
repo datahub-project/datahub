@@ -78,3 +78,12 @@ class SqsSourceReport(AwsMessagingReportBase):
     queues_scanned: int = 0
     filtered_queues: LossyList[str] = field(default_factory=LossyList)
     queues_failed: LossyList[str] = field(default_factory=LossyList)
+
+
+@dataclass
+class SnsSourceReport(AwsMessagingReportBase):
+    topics_scanned: int = 0
+    subscriptions_scanned: int = 0
+    subscription_attribute_calls: int = 0
+    filtered_topics: LossyList[str] = field(default_factory=LossyList)
+    topics_failed: LossyList[str] = field(default_factory=LossyList)
