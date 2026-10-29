@@ -13,6 +13,7 @@ from datahub.ingestion.source.aws_messaging.clients import CloudTrailLakeClient
 from datahub.ingestion.source.aws_messaging.config import CloudTrailProducersConfig
 from datahub.ingestion.source.aws_messaging.constants import (
     ASSUMED_ROLE_PATTERN,
+    AWS_REGION_PATTERN,
     OBSERVED_PRODUCERS_PROPERTY,
     PRODUCER_COLUMN,
     RESOURCE_COLUMN,
@@ -76,6 +77,12 @@ class ProducerLineage:
         assert (
             self.config.event_data_store is not None
         )  # checked by the config validator
+        # The region comes from the recipe or the AWS profile rather than the
+        # config schema, so it's checked here before it reaches the SQL.
+        if not AWS_REGION_PATTERN.match(self.resolver.region):
+            raise ValueError(
+                f"Not an AWS region, so it can't be used in the CloudTrail query: {self.resolver.region!r}"
+            )
         event_source, event_names, parameter = SEND_EVENTS[self.resolver.service]
         store_id = self.config.event_data_store.rsplit("/", 1)[-1]
         since = (now - timedelta(days=self.config.lookback_days)).strftime(

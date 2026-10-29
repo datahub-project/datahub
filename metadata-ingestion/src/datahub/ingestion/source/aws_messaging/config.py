@@ -9,7 +9,10 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.aws_messaging.constants import AwsService
+from datahub.ingestion.source.aws_messaging.constants import (
+    EVENT_DATA_STORE_PATTERN,
+    AwsService,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -142,6 +145,13 @@ class CloudTrailProducersConfig(ConfigModel):
     def require_event_data_store(self) -> "CloudTrailProducersConfig":
         if self.enabled and not self.event_data_store:
             raise ValueError("cloudtrail_producers.enabled needs event_data_store.")
+        if self.event_data_store and not EVENT_DATA_STORE_PATTERN.match(
+            self.event_data_store
+        ):
+            raise ValueError(
+                "cloudtrail_producers.event_data_store must be an event data store id "
+                "or an arn:aws:cloudtrail:<region>:<account>:eventdatastore/<id> ARN."
+            )
         return self
 
 

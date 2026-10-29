@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock
 
@@ -7,9 +8,13 @@ import pytest
 from botocore.stub import Stubber
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.aws_messaging.arn import UrnBuilder
 from datahub.ingestion.source.aws_messaging.clients import CloudTrailLakeClient
+from datahub.ingestion.source.aws_messaging.cloudtrail import ProducerLineage
 from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
+from datahub.ingestion.source.aws_messaging.constants import AwsService
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
+from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -253,3 +258,48 @@ def test_failed_query_keeps_previous_observed_producers(
             }
         ]
     ]
+
+
+@pytest.mark.parametrize(
+    "store",
+    [
+        "abc-123",
+        STORE,
+        "arn:aws-cn:cloudtrail:cn-north-1:123456789012:eventdatastore/x-1",
+    ],
+)
+def test_event_data_store_formats_accepted(store: str) -> None:
+    SqsSourceConfig.model_validate(
+        base_config(cloudtrail_producers={"enabled": True, "event_data_store": store})
+    )
+
+
+@pytest.mark.parametrize(
+    "store", ["abc' OR '1'='1", "eds; DROP", f"{STORE} --", "arn:aws:s3:::bucket"]
+)
+def test_event_data_store_that_could_change_the_query_is_rejected(store: str) -> None:
+    with pytest.raises(ValueError):
+        SqsSourceConfig.model_validate(
+            base_config(
+                cloudtrail_producers={"enabled": True, "event_data_store": store}
+            )
+        )
+
+
+def test_statement_rejects_a_region_that_is_not_an_aws_region() -> None:
+    config = SqsSourceConfig.model_validate(
+        base_config(cloudtrail_producers={"enabled": True, "event_data_store": STORE})
+    )
+    urns = UrnBuilder(env="PROD", account_id=ACCOUNT, platform_instance=ACCOUNT)
+    producers = ProducerLineage(
+        config=config.cloudtrail_producers,
+        report=SqsSourceReport(),
+        client=MagicMock(),
+        urns=urns,
+        resolver=ResourceResolver(
+            urns=urns, region="us-east-1' OR '1'='1", service=AwsService.SQS
+        ),
+        lambdas=None,
+    )
+    with pytest.raises(ValueError):
+        producers.statement(datetime(2026, 10, 28, tzinfo=timezone.utc))
