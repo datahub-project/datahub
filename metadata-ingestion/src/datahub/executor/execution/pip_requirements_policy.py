@@ -24,10 +24,10 @@ from datahub.executor.common.env_config import (
 )
 
 # Environment variables that steer uv and pip: package indexes, find-links,
-# constraint and config files, TLS trust. A recipe's extra_env_vars are applied to
-# the install step, so one of these could point every install, including an
-# allowlisted package, at another index. They belong in the executor's own
-# environment, set by its operator.
+# constraint and config files, TLS trust. The install step only sees the
+# executor's own environment, never a recipe's extra_env_vars, so these are
+# rejected in a recipe outright rather than silently ignored: they belong in the
+# executor's environment, set by its operator.
 _INSTALL_ENV_PREFIXES = ("UV_", "PIP_")
 
 # A PEP 508 extras identifier. Plugin names are spliced into ``acryl-datahub[<plugins>]``
@@ -51,7 +51,11 @@ def validate_plugin_names(names: Iterable[Optional[str]]) -> None:
 
 
 def validate_install_env_vars(extra_env_vars: Mapping[str, object]) -> None:
-    """Reject recipe env vars that would change how packages are installed."""
+    """Reject recipe env vars that are install settings.
+
+    They would have no effect, since the install step does not see a recipe's
+    env vars, so failing early points the author at the executor's environment.
+    """
     steering = [
         name
         for name in extra_env_vars
@@ -59,9 +63,9 @@ def validate_install_env_vars(extra_env_vars: Mapping[str, object]) -> None:
     ]
     if steering:
         raise ValueError(
-            f"extra_env_vars {steering} would change how the executor installs "
-            "packages (uv and pip settings such as package indexes) and are not "
-            "accepted in a recipe. Set them in the executor's environment instead."
+            f"extra_env_vars {steering} are package install settings (uv and pip "
+            "settings such as package indexes) and are not accepted in a recipe. "
+            "Set them in the executor's environment instead."
         )
 
 

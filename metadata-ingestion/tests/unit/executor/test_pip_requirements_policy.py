@@ -214,6 +214,45 @@ class TestSetupVenvEnforcesPolicy:
             self._run(config, tmp_path)
         assert not list(tmp_path.iterdir())
 
+    def test_recipe_env_vars_do_not_reach_install_commands(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # HOME / XDG_CONFIG_HOME decide where uv reads its config, including the
+        # package index the image was built with; a recipe must not move them.
+        monkeypatch.setenv(EXTRA_PIP_REQUIREMENTS_ALLOWLIST_ENV, "pandas")
+        monkeypatch.setenv("HOME", "/executor-home")
+        recipe_env = {
+            "HOME": str(tmp_path / "elsewhere"),
+            "XDG_CONFIG_HOME": str(tmp_path / "elsewhere"),
+            "MY_SOURCE_SETTING": "kept-for-the-run",
+        }
+        config = VenvConfig(
+            version="0.12.1",
+            main_plugin="snowflake",
+            extra_pip_requirements=["pandas"],
+            extra_env_vars=recipe_env,
+        )
+        runner = SubprocessRunner()
+        execute = AsyncMock(side_effect=_fake_uv)
+        with (
+            patch("datahub.executor.execution.runner._find_uv", return_value="uv"),
+            patch.object(runner, "execute", execute),
+        ):
+            reference = anyio.run(setup_venv, config, runner, tmp_path)
+
+        install_envs = [
+            call.kwargs["env"]
+            for call in execute.call_args_list
+            if "install" in call.args[0]
+        ]
+        assert install_envs
+        for env in install_envs:
+            assert env["HOME"] == "/executor-home"
+            assert "XDG_CONFIG_HOME" not in env
+            assert "MY_SOURCE_SETTING" not in env
+            assert env["VIRTUAL_ENV"].startswith(str(tmp_path))
+        assert reference.extra_envs() == recipe_env
+
     def test_caller_requirements_file_is_not_policed(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

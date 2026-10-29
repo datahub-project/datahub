@@ -584,11 +584,12 @@ async def setup_venv(
         [_find_uv(), "venv", "--python", sys.executable, str(venv_loc)]
     )
 
-    venv_env = {
-        **os.environ,
-        **venv_config.extra_env_vars,
-        "VIRTUAL_ENV": str(venv_loc),
-    }
+    # The install environment is the executor's own. A recipe's extra_env_vars are
+    # deliberately left out: variables such as HOME or XDG_CONFIG_HOME change where
+    # uv reads its config (and so which package index it uses), which would let a
+    # recipe resolve even an allowlisted package from a different index. They still
+    # reach the ingestion run through VenvReference.extra_envs().
+    venv_env = {**os.environ, "VIRTUAL_ENV": str(venv_loc)}
 
     version = venv_config.version
 
