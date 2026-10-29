@@ -157,6 +157,9 @@ export function selectReportNote({ mode, authMode, stubApi }) {
             'not authenticated routes. Deltas do not forecast a fleet p75.'
         );
     }
+    if (stubApi && authMode === 'stub') {
+        return 'Signed-in shell: no GMS. Recorded GraphQL for the home route. Deltas do not forecast a fleet p75.';
+    }
     if (stubApi) {
         return 'Boot-only: no GMS. Measures the unauthenticated /login eager-bundle path. Deltas do not forecast a fleet p75.';
     }

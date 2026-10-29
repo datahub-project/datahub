@@ -48,6 +48,11 @@ export function isAnonymousMode({ args = {}, cfg = {} } = {}) {
     return args['no-auth'] === 'true' || auth.mode === 'anonymous';
 }
 
+export function isStubSessionMode({ args = {}, cfg = {} } = {}) {
+    if (args['no-auth'] === 'true') return false;
+    return cfg.auth?.mode === 'stub';
+}
+
 export function resolveAccessToken({ args = {}, cfg = {}, env = process.env } = {}) {
     if (args.token) {
         throw new Error('Refusing --token because process arguments are observable. Use --token-env or DATAHUB_GMS_TOKEN.');
@@ -120,6 +125,20 @@ export function sessionBootstrapSource(actorUrn) {
             }
         } catch (e) {}
     `;
+}
+
+// The signed-in shell defaults these flags from localStorage before appConfig
+// returns. Pin them so the lab home route does not flip shells mid-load.
+export function stubSessionBootstrapSource(actorUrn) {
+    return (
+        sessionBootstrapSource(actorUrn) +
+        `
+        try {
+            localStorage.setItem('showHomePageRedesign', 'true');
+            localStorage.setItem('isNavBarRedesignEnabled', 'true');
+        } catch (e) {}
+    `
+    );
 }
 
 export function toPuppeteerCookie(c, fallbackDomain = 'localhost') {

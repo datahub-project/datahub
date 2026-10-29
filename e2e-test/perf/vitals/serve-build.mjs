@@ -22,6 +22,7 @@ import * as https from 'https';
 import * as path from 'path';
 import * as zlib from 'zlib';
 import { URL } from 'url';
+import { graphqlStubData } from './stub-graphql.mjs';
 
 // Compressible types the production Play server serves gzipped. We must gzip too
 // so Lighthouse/Lantern model the *gzip* transfer size on the wire — the whole
@@ -149,7 +150,42 @@ function proxyRequest(req, res, targetBase) {
  * @param {{distDir: string, port: number, targetBase: string, label?: string}} opts
  * @returns {Promise<{server: http.Server, port: number, close: () => Promise<void>}>}
  */
-export function startServer({ distDir, port, targetBase, label, stubApi }) {
+function isGraphqlPath(pathname) {
+    return pathname === '/api/v2/graphql' || pathname === '/api/graphql';
+}
+
+function readBody(req, limit = 1_000_000) {
+    return new Promise((resolve, reject) => {
+        const chunks = [];
+        let size = 0;
+        req.on('data', (chunk) => {
+            size += chunk.length;
+            if (size > limit) {
+                reject(new Error('request body too large'));
+                req.destroy();
+                return;
+            }
+            chunks.push(chunk);
+        });
+        req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        req.on('error', reject);
+    });
+}
+
+async function graphqlOperationName(req) {
+    const url = new URL(req.url, 'http://127.0.0.1');
+    const fromQuery = url.searchParams.get('operationName');
+    const raw = await readBody(req);
+    if (fromQuery) return fromQuery;
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw).operationName || null;
+    } catch {
+        return null;
+    }
+}
+
+export function startServer({ distDir, port, targetBase, label, stubApi, graphqlFixtures }) {
     const resolvedDist = path.resolve(distDir);
     if (!fs.existsSync(path.join(resolvedDist, 'index.html'))) {
         throw new Error(`No index.html under dist dir: ${resolvedDist}`);
@@ -185,10 +221,27 @@ export function startServer({ distDir, port, targetBase, label, stubApi }) {
     };
 
     const server = http.createServer((req, res) => {
+        handleRequest(req, res).catch((err) => {
+            if (!res.headersSent) res.writeHead(500, { 'content-type': 'text/plain' });
+            res.end(err && err.message ? err.message : 'stub error');
+        });
+    });
+
+    async function handleRequest(req, res) {
         const { pathname } = new URL(req.url, `http://localhost:${port}`);
 
         if (isProxied(pathname)) {
             const method = (req.method || 'GET').toUpperCase();
+            if (stub && graphqlFixtures && isGraphqlPath(pathname) && method === 'POST') {
+                const operationName = await graphqlOperationName(req);
+                const body = JSON.stringify({ data: graphqlStubData(operationName) });
+                res.writeHead(200, {
+                    'content-type': 'application/json; charset=utf-8',
+                    'cache-control': 'no-store',
+                });
+                res.end(body);
+                return;
+            }
             if (stub && isAuthenticatePath(pathname) && (method === 'GET' || method === 'HEAD')) {
                 const redirectUri = new URL(req.url, `http://localhost:${port}`).searchParams.get('redirect_uri');
                 const location = redirectUri
@@ -230,7 +283,7 @@ export function startServer({ distDir, port, targetBase, label, stubApi }) {
             res.writeHead(404);
             res.end('not found');
         });
-    });
+    }
 
     return new Promise((resolve, reject) => {
         server.once('error', reject);

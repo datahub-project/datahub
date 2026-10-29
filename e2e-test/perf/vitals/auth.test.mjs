@@ -7,6 +7,7 @@ import {
     decodeJwtPayload,
     extraHeadersForToken,
     isAnonymousMode,
+    isStubSessionMode,
     isAuthRejection,
     isSameOrigin,
     resolveAccessToken,
@@ -197,5 +198,13 @@ describe('buildSchedule', () => {
         const s = buildSchedule(2, 1, ['A']);
         assert.equal(s.filter((x) => x.build === 'B').length, 0);
         assert.equal(s.filter((x) => !x.warmup).length, 2);
+    });
+});
+
+describe('isStubSessionMode', () => {
+    it('is the signed-in lab session unless --no-auth is set', () => {
+        assert.equal(isStubSessionMode({ cfg: { auth: { mode: 'stub' } } }), true);
+        assert.equal(isStubSessionMode({ args: { 'no-auth': 'true' }, cfg: { auth: { mode: 'stub' } } }), false);
+        assert.equal(isStubSessionMode({ cfg: { auth: { mode: 'anonymous' } } }), false);
     });
 });

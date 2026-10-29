@@ -100,3 +100,58 @@ describe('startServer stub API', () => {
         assert.ok(Date.now() - started < 1000);
     });
 });
+
+describe('startServer signed-in GraphQL fixtures', () => {
+    let tmp;
+    let server;
+
+    before(async () => {
+        tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vitals-home-'));
+        fs.writeFileSync(path.join(tmp, 'index.html'), '<html><body>home</body></html>');
+        server = await startServer({
+            distDir: tmp,
+            port: 18183,
+            targetBase: 'stub',
+            label: 'home',
+            graphqlFixtures: true,
+        });
+    });
+
+    after(async () => {
+        if (server) await server.close();
+        fs.rmSync(tmp, { recursive: true, force: true });
+    });
+
+    it('returns a recorded getMe for the signed-in shell', async () => {
+        const resp = await fetch(`${loopbackOrigin(server.port)}/api/v2/graphql?operationName=getMe`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ operationName: 'getMe', query: '{ me { corpUser { urn } } }' }),
+        });
+        const body = await resp.json();
+        assert.equal(resp.status, 200);
+        assert.equal(body.data.me.corpUser.urn, 'urn:li:corpuser:boot');
+    });
+
+    it('reads the operation name from the body when the query string is absent', async () => {
+        const resp = await fetch(`${loopbackOrigin(server.port)}/api/v2/graphql`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ operationName: 'appConfig' }),
+        });
+        const body = await resp.json();
+        assert.equal(resp.status, 200);
+        assert.equal(body.data.appConfig.featureFlags.showHomePageRedesign, true);
+    });
+
+    it('answers an unknown operation with empty data instead of a 401', async () => {
+        const resp = await fetch(`${loopbackOrigin(server.port)}/api/v2/graphql?operationName=search`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: '{}',
+        });
+        const body = await resp.json();
+        assert.equal(resp.status, 200);
+        assert.deepEqual(body.data, {});
+    });
+});

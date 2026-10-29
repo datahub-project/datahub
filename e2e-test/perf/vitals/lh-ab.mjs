@@ -34,8 +34,10 @@
  *   # live SaaS / shared env (token from the environment, never committed):
  *   DATAHUB_GMS_TOKEN=… node lh-ab.mjs --config config.remote.json \
  *       --origin https://preview.example.com
- *   # CI boot-only (no GMS): two local dist/ trees, unauthenticated /login
+ *   # CI login pass (no GMS): two local dist/ trees, unauthenticated /login
  *   node lh-ab.mjs --config config.ci.json --no-auth --md-out results/report.md
+ *   # CI home pass: auth.mode "stub" serves recorded GraphQL for the signed-in shell.
+ *   # The PR comment runs both and folds them together: node run-ci-boot.mjs --mode pr
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -50,21 +52,22 @@ import {
     isAnonymousMode,
     isAuthRejection,
     isSameOrigin,
+    isStubSessionMode,
     resolveAccessToken,
     resolveTargets,
     sessionBootstrapSource,
+    stubSessionBootstrapSource,
     toPuppeteerCookie,
 } from './auth.mjs';
-import { resourceCategoryTypes } from './resource-summary.mjs';
+import { renderReport } from './comment.mjs';
 import {
-    METRIC_KEYS,
     aggregate,
     extractMetrics,
     medianBenchmarkIndex,
     reportRunner,
     selectReportNote,
 } from './report.mjs';
-import { measuredSampleNote } from './sample-size.mjs';
+import { attachVerdicts } from './verdict.mjs';
 import { loopbackOrigin, shouldStubBackend, startServer } from './serve-build.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -132,6 +135,19 @@ async function probeGraphql(origin, token) {
 
 async function resolveAuth({ cfg, args, cookieOrigin, graphqlOrigin }) {
     const authCfg = cfg.auth || {};
+    if (isStubSessionMode({ args, cfg })) {
+        const actorUrn = authCfg.actorUrn || 'urn:li:corpuser:boot';
+        process.stdout.write(`stub session: measuring the signed-in shell as ${actorUrn}\n`);
+        return {
+            cookies: cookiesForTokenAuth({ origin: cookieOrigin, actorUrn }),
+            extraHTTPHeaders: {},
+            sessionBootstrap: stubSessionBootstrapSource(actorUrn),
+            actorUrn,
+            tokenAuth: false,
+            stubSession: true,
+            authVerified: true,
+        };
+    }
     if (isAnonymousMode({ args, cfg })) {
         process.stdout.write('anonymous mode: measuring the unauthenticated boot path (/login)\n');
         return { cookies: [], extraHTTPHeaders: {}, sessionBootstrap: null, actorUrn: null, tokenAuth: false };
@@ -286,151 +302,6 @@ async function runOnce({ browser, cookies, extraHTTPHeaders, sessionBootstrap, o
     return { metrics, error, lighthouseVersion };
 }
 
-function fmt(v, key) {
-    if (v == null) return '—';
-    if (key === 'transferredBytes') return `${(v / 1024).toFixed(1)} KB`;
-    if (key === 'cls') return v.toFixed(4);
-    return `${Math.round(v)} ms`;
-}
-
-function fmtBytes(value) {
-    return value == null ? '—' : `${(value / 1024).toFixed(1)} KB`;
-}
-
-function appendResourceSummary(lines, data, isAb) {
-    lines.push('Resource transfer by type (p50):');
-    lines.push('');
-    if (isAb) {
-        lines.push('| type | A bytes | B bytes | Δ bytes | A requests | B requests |');
-        lines.push('| --- | ---: | ---: | ---: | ---: | ---: |');
-        for (const type of resourceCategoryTypes()) {
-            const a = data.A.resourceSummary?.[type];
-            const b = data.B.resourceSummary?.[type];
-            if (!a && !b) continue;
-            const aBytes = a?.transferSize.p50 ?? null;
-            const bBytes = b?.transferSize.p50 ?? null;
-            const delta = aBytes != null && bBytes != null ? bBytes - aBytes : null;
-            lines.push(
-                `| ${type} | ${fmtBytes(aBytes)} | ${fmtBytes(bBytes)} | ${fmtBytes(delta)} | ` +
-                    `${a?.requestCount.p50 ?? '—'} | ${b?.requestCount.p50 ?? '—'} |`,
-            );
-        }
-    } else {
-        const summary = data.A.resourceSummary;
-        const total = summary?.total?.transferSize.p50 ?? null;
-        lines.push('| type | bytes | % total | requests |');
-        lines.push('| --- | ---: | ---: | ---: |');
-        for (const type of resourceCategoryTypes()) {
-            const item = summary?.[type];
-            if (!item) continue;
-            const bytes = item.transferSize.p50;
-            const percent = total ? `${((bytes / total) * 100).toFixed(1)}%` : '—';
-            lines.push(`| ${type} | ${fmtBytes(bytes)} | ${percent} | ${item.requestCount.p50} |`);
-        }
-    }
-    lines.push('');
-}
-
-function toMarkdown(report) {
-    const lines = [];
-    const { versions } = report;
-    const builds = Object.keys(versions);
-    const isAb = builds.includes('A') && builds.includes('B');
-    if (isAb) {
-        lines.push(`### Web-vitals A/B — ${versions.A.label} (A) vs ${versions.B.label} (B)`);
-    } else {
-        lines.push(`### Web-vitals — ${versions.A.label}`);
-    }
-    lines.push('');
-    if (report.authVerified === false) {
-        lines.push(
-            '**Auth was not verified.** The access token was not confirmed by the server, so there is no comparison table.',
-        );
-        if (report.authWarning) {
-            lines.push('');
-            lines.push(report.authWarning);
-        }
-        return lines.join('\n');
-    }
-    const th = report.config.throttling;
-    lines.push(
-        `Lighthouse ${report.lighthouseVersion || '?'}, throttling **${th.method}** ` +
-            `(cpu ${th.throttling.cpuSlowdownMultiplier}x, rtt ${th.throttling.rttMs} ms, ` +
-            `${th.throttling.throughputKbps} kbps). Form factor: ${report.config.formFactor}. ` +
-            `Cache: ${report.config.cachePolicy}. target n=${report.config.runsPerBuild}/build, ` +
-            `${report.config.warmupRunsPerBuild} warm-up discarded` +
-            (isAb ? ', alternating A,B.' : '.'),
-    );
-    if (report.mode !== 'remote' && report.authMode === 'anonymous') {
-        lines.push('');
-        lines.push(
-            '**Boot-only (no GMS).** Unauthenticated login route — eager JS/CSS/font transfer and parse, not search/dataset payload. Do not treat as a fleet p75.',
-        );
-    }
-    const failedRuns = (report.raw_runs || []).filter((r) => r.error);
-    if (failedRuns.length) {
-        lines.push('');
-        lines.push(
-            `**${failedRuns.length}/${(report.raw_runs || []).length} runs failed** (excluded from p50). Dashes are missing data, not a zero-delta.`,
-        );
-        for (const r of failedRuns.slice(0, 10)) {
-            const tag = r.warmup ? 'warmup' : 'measured';
-            lines.push(`- \`${r.route}\` ${r.build} #${r.run} (${tag}): ${r.error}`);
-        }
-        lines.push('');
-    }
-    lines.push('');
-    for (const [route, data] of Object.entries(report.routes)) {
-        lines.push(`#### \`${route}\``);
-        lines.push('');
-        const counts = {};
-        for (const build of builds.filter((name) => name === 'A' || name === 'B')) {
-            counts[build] = data[build]?.sampleSize ?? 0;
-        }
-        const sample = measuredSampleNote(counts, report.config.runsPerBuild);
-        lines.push(sample.line);
-        if (sample.warning) {
-            lines.push('');
-            lines.push(sample.warning);
-        }
-        lines.push('');
-        if (isAb) {
-            lines.push('| metric | A p50 | B p50 | Δ p50 | Δ% | A p95 | B p95 |');
-            lines.push('| --- | ---: | ---: | ---: | ---: | ---: | ---: |');
-            for (const key of METRIC_KEYS) {
-                const c = data.comparison[key];
-                const dpct = c.delta_pct == null ? '—' : `${c.delta_pct >= 0 ? '+' : ''}${c.delta_pct.toFixed(1)}%`;
-                lines.push(
-                    `| ${key} | ${fmt(data.A[key].p50, key)} | ${fmt(data.B[key].p50, key)} | ` +
-                        `${fmt(c.delta, key)} | ${dpct} | ${fmt(data.A[key].p95, key)} | ${fmt(data.B[key].p95, key)} |`,
-                );
-            }
-        } else {
-            lines.push('| metric | p50 | p95 |');
-            lines.push('| --- | ---: | ---: |');
-            for (const key of METRIC_KEYS) {
-                lines.push(`| ${key} | ${fmt(data.A[key].p50, key)} | ${fmt(data.A[key].p95, key)} |`);
-            }
-        }
-        lines.push('');
-        appendResourceSummary(lines, data, isAb);
-        const ea = data.lcpElement.A;
-        lines.push(`LCP element A: \`${ea ? ea.selector : 'n/a'}\`${ea && ea.nodeLabel ? ` — ${ea.nodeLabel}` : ''}`);
-        if (isAb) {
-            const eb = data.lcpElement.B;
-            lines.push(
-                `LCP element B: \`${eb ? eb.selector : 'n/a'}\`${eb && eb.nodeLabel ? ` — ${eb.nodeLabel}` : ''}`,
-            );
-        }
-        lines.push('');
-    }
-    lines.push(
-        '_These numbers rank changes and gate regressions against the measured origin(s). ' +
-            'They do not sum across PRs and do not forecast any fleet-wide production number._',
-    );
-    return lines.join('\n');
-}
-
 async function main() {
     const args = parseArgs(process.argv.slice(2));
     const configPath = path.resolve(process.cwd(), args.config || path.join(__dirname, 'config.json'));
@@ -474,7 +345,9 @@ async function main() {
     const servers = {};
     let origins;
     const anonymous = isAnonymousMode({ args, cfg });
+    const stubSession = isStubSessionMode({ args, cfg });
     const stubApi = anonymous || shouldStubBackend(cfg.backendUrl);
+    const graphqlFixtures = stubSession && stubApi;
     if (targets.mode === 'remote') {
         origins = targets.origins;
         process.stdout.write(
@@ -487,6 +360,7 @@ async function main() {
             targetBase: cfg.backendUrl,
             label: cfg.builds.A.label,
             stubApi,
+            graphqlFixtures,
         });
         const served = [`A(${cfg.builds.A.label}) → :${servers.A.port}`];
         origins = { A: loopbackOrigin(servers.A.port) };
@@ -497,11 +371,17 @@ async function main() {
                 targetBase: cfg.backendUrl,
                 label: cfg.builds.B.label,
                 stubApi,
+                graphqlFixtures,
             });
             served.push(`B(${cfg.builds.B.label}) → :${servers.B.port}`);
             origins.B = loopbackOrigin(servers.B.port);
         }
-        process.stdout.write(served.join('   ') + (stubApi ? '  (boot-only, API stubbed)\n' : '\n'));
+        const stubNote = graphqlFixtures
+            ? '  (signed-in shell, GraphQL stubbed)\n'
+            : stubApi
+              ? '  (boot-only, API stubbed)\n'
+              : '\n';
+        process.stdout.write(served.join('   ') + stubNote);
     }
 
     const cookieOrigin = origins.A;
@@ -593,6 +473,7 @@ async function main() {
             formFactor: cfg.formFactor,
             viewport: cfg.viewport,
             throttling: { method, throttling },
+            routes: cfg.routes,
             ordering: isAb
                 ? 'alternating A,B,A,B (batched ordering is invalid — see README)'
                 : 'single origin, sequential runs',
@@ -613,18 +494,19 @@ async function main() {
             lcpElement: metrics.lcpElement ?? null,
             resourceSummary: metrics.resourceSummary ?? null,
         })),
-        authMode: anonymous ? 'anonymous' : 'authenticated',
+        authMode: anonymous ? 'anonymous' : stubSession ? 'stub' : 'authenticated',
         authVerified: auth.authVerified !== false,
         authWarning: auth.authWarning || null,
         runner: reportRunner(),
         benchmarkIndex: null,
         note: selectReportNote({
             mode: targets.mode,
-            authMode: anonymous ? 'anonymous' : 'authenticated',
+            authMode: anonymous ? 'anonymous' : stubSession ? 'stub' : 'authenticated',
             stubApi,
         }),
     };
     report.benchmarkIndex = medianBenchmarkIndex(report.raw_runs);
+    attachVerdicts(report);
 
     const outPath = path.resolve(
         process.cwd(),
@@ -632,7 +514,7 @@ async function main() {
     );
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
-    const markdown = toMarkdown(report);
+    const markdown = renderReport(report);
     process.stdout.write(`\nreport written: ${outPath}\n\n`);
     process.stdout.write(`${markdown}\n`);
     if (args['md-out'] && args['md-out'] !== 'true') {
