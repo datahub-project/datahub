@@ -29,10 +29,13 @@ RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 # can keep shipping a stale, vulnerable package set even after upstream fixes it (a
 # stale cache shipped setuptools 70.3.0 / CVE-2025-47273 at /usr/share/python-wheels/;
 # current Wolfi ships a fixed setuptools). Bump WOLFI_PKG_REFRESH to force a fresh
-# `apk add` whenever base packages need refreshing.
-ARG WOLFI_PKG_REFRESH=2026-08-31
+# `apk upgrade` + `apk add` whenever base packages need refreshing. `apk add` alone
+# never upgrades packages already installed (from wolfi-base or earlier steps), so
+# the upgrade keeps the whole OS package set current.
+ARG WOLFI_PKG_REFRESH=2026-10-27
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" && \
+    apk upgrade --no-cache --update-cache && \
     apk add --no-cache --update-cache \
     ca-certificates \
     python-${PYTHON_VERSION} \
@@ -56,6 +59,14 @@ RUN for f in /usr/bin/unix_chkpwd /usr/sbin/unix_chkpwd; do \
 RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
     ln -sf /usr/bin/python3 /usr/bin/python
 
+# OpenSSL 4 drops ssl.PROTOCOL_TLSv1. sitecustomize restores it for this
+# interpreter and every venv created from it, including bundled ingestion
+# venvs built later and `uv venv --python` subprocesses. A .pth copied into
+# venvs that already exist does not cover those.
+COPY ./docker/snippets/openssl4_ssl_compat.py /tmp/openssl4_ssl_compat.py
+RUN python3 -c 'import pathlib, shutil, sysconfig; dest = pathlib.Path(sysconfig.get_path("stdlib")) / "sitecustomize.py"; shutil.copyfile("/tmp/openssl4_ssl_compat.py", dest)' \
+ && rm /tmp/openssl4_ssl_compat.py
+
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "${PYTHON_VERSION}"
@@ -68,6 +79,8 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 # Use the system CA bundle. uv: https://github.com/astral-sh/uv/issues/1474
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+# gRPC ignores SSL_CERT_FILE and trusts its own bundled roots.pem by default.
+ENV GRPC_DEFAULT_SSL_ROOTS_FILE_PATH="/etc/ssl/certs/ca-certificates.crt"
 
 ARG UV_PROFILE=default
 ARG DEFAULT_INDEX_URL=""
@@ -86,12 +99,15 @@ FROM python-base AS ingestion-base-slim
 USER 0
 # cyrus-sasl-mit-* avoids Heimdal SASL (cyrus-sasl-libs resolves via provides:).
 # glibc-iconv: gconv modules required for msodbcsql18 iconv (without it, ODBC init fails with IM004).
+# libssl3: msodbcsql18 dlopens libssl.so.3. The RPM is installed with --nodeps, so
+# OpenSSL 3 must be declared here; it otherwise arrives only via libldap and rpm-sequoia.
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     apk add --no-cache --update-cache \
     openldap-2.6-dev \
     cyrus-sasl-mit-dev \
     cyrus-sasl-mit-libs \
     glibc-iconv \
+    libssl3 \
     krb5 \
     krb5-dev \
     krb5-libs \

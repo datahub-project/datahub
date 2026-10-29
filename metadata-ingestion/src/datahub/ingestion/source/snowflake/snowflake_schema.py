@@ -586,7 +586,7 @@ class SnowflakeStreamlitApp:
     owner: str
     database_name: str
     schema_name: str
-    title: str
+    title: Optional[str]
     comment: Optional[str]
     url_id: str
     owner_role_type: str

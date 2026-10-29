@@ -19,6 +19,9 @@ record DataHubFileInfo {
    * The original filename as uploaded by the user
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL"
   }
   originalFileName: string
@@ -62,7 +65,10 @@ record DataHubFileInfo {
     "entityTypes": [ "dataset", "chart", "container", "dashboard", "dataFlow", "dataJob", "glossaryTerm", "glossaryNode", "mlModel", "mlFeature", "notebook", "mlFeatureTable", "mlPrimaryKey", "mlModelGroup", "domain", "dataProduct", "businessAttribute", "document" ]
   }
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "copyToOther": true
+    }
   }
   referencedByAsset: optional Urn
   
@@ -74,21 +80,29 @@ record DataHubFileInfo {
     "entityTypes": ["schemaField"]
   }
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "copyToOther": true
+    }
   }
   schemaField: optional Urn
 
   /**
-   * Timestamp when this file was created and by whom
+   * Timestamp when this file was created and by whom.
+   * Search V3 does not index this stamp. The write is systemMetadata.aspectCreated,
+   * copied to _system.created.time and _system.created.actor.
    */
+  @deprecated = "Use systemMetadata.aspectCreated instead."
   @Searchable = {
     "/time": {
        "fieldType": "DATETIME",
-       "fieldName": "createdAt"
+       "fieldName": "createdAt",
+       "v3": { "enabled": false }
     },
     "/actor": {
       "fieldType": "URN",
-      "fieldName": "createdBy"
+      "fieldName": "createdBy",
+      "v3": { "enabled": false }
     }
   }
   created: AuditStamp

@@ -1,5 +1,5 @@
 import itertools
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from datahub.ingestion.agent.sql_gate import INFORMATION_SCHEMA, CatalogScope
 from datahub.ingestion.agent.sql_passthrough import (
@@ -11,6 +11,7 @@ from datahub.ingestion.agent.sql_passthrough import (
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
+from datahub.ingestion.source.common.gcp_errors import gcp_error_code
 
 # One GiB scanned. BigQuery bills by bytes read regardless of how few rows come
 # back, so max_results caps the page and this caps the bill -- generous for the
@@ -42,7 +43,13 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
     # text-bearing view Google adds arrives permitted. Naming what is allowed keeps
     # the default deny. The list is what BigQuery ingestion itself reads, minus
     # JOBS, so a probe can reproduce anything ingestion does.
+    #
+    # sqlglot parses `myds.INFORMATION_SCHEMA.TABLES` with the name slot
+    # `INFORMATION_SCHEMA.TABLES`, so the slot must be split to match. Safe
+    # here: a BigQuery identifier cannot contain a dot (inside backticks a dot
+    # still separates path parts).
     catalog_scope = CatalogScope(
+        split_dotted_identifiers=True,
         schemas=frozenset(),
         relations=frozenset(
             f"{INFORMATION_SCHEMA}.{view}"
@@ -81,6 +88,11 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
 
     def __exit__(self, *exc: object) -> None:
         self._client.close()
+
+    @staticmethod
+    def probe_error_code(exc: BaseException) -> Optional[str]:
+        """The HTTP status a google-api-core error carries ("HTTP 403")."""
+        return gcp_error_code(exc)
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         # lazy: the bigquery client library is only needed once a probe runs

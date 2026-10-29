@@ -63,7 +63,7 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
   private DataHubViewDefinition mapViewDefinition(
       @Nonnull final com.linkedin.view.DataHubViewDefinition definition) {
     final DataHubViewDefinition result = new DataHubViewDefinition();
-    result.setFilter(mapFilter(definition.getFilter()));
+    result.setFilter(mapFilter(definition.getFilter(), definition.getJson()));
     result.setEntityTypes(
         definition.getEntityTypes().stream()
             .map(EntityTypeMapper::getType)
@@ -73,14 +73,17 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
 
   @Nullable
   private DataHubViewFilter mapFilter(
-      @Nonnull final com.linkedin.metadata.query.filter.Filter filter) {
-    // This assumes that people DO NOT emit Views on their own, since we expect that the Filter
-    // structure is within
-    // a finite set of possibilities.
-    //
-    // If we find a View that was ingested manually and malformed, then we log that and return a
-    // default.
+      @Nonnull final com.linkedin.metadata.query.filter.Filter filter,
+      @Nullable final String json) {
     final DataHubViewFilter result = new DataHubViewFilter();
+
+    // For new views, return only json and don't reconstruct deprecated operator+filters
+    if (json != null) {
+      result.setJson(json);
+      return result;
+    }
+
+    // Fallback: reconstruct operator+filters from Filter object for old views
     if (filter.hasOr() && filter.getOr().size() == 1) {
       // Then we are looking at an AND with multiple sub conditions.
       result.setOperator(LogicalOperator.AND);
@@ -90,6 +93,7 @@ public class DataHubViewMapper implements ModelMapper<EntityResponse, DataHubVie
       // Then we are looking at an OR with a group of sub conditions.
       result.setFilters(mapOrFilters(filter.getOr()));
     }
+
     return result;
   }
 

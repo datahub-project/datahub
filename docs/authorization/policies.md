@@ -73,6 +73,33 @@ The associations in the list above are an _intersection_ or an _AND_ operation. 
 `1. resource type: dataset` and `3. resources tagged: 'myTag'`, it will apply to datasets that are tagged with tag 'myTag'.
 :::
 
+##### Match Conditions
+
+Each resource filter has a match condition that controls how its values are compared against the asset. You can set the condition for each filter in the policy builder UI, or through the `condition` field of a criterion in the API.
+
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies/policy-match-condition.png"/>
+</p>
+
+| Condition     | UI label    | The filter matches an asset when...                                                           |
+| ------------- | ----------- | --------------------------------------------------------------------------------------------- |
+| `EQUALS`      | Equals      | The asset has at least one of the selected values. This is the default.                       |
+| `NOT_EQUALS`  | Not Equals  | The asset has none of the selected values.                                                    |
+| `STARTS_WITH` | Starts With | At least one of the asset's values starts with the entered prefix (for example a URN prefix). |
+
+For example, a policy with resource type `Equals dataset` and domain `Not Equals Finance` applies to every dataset that is not in the Finance domain.
+
+Keep the following in mind when using conditions:
+
+- **Hierarchies are respected.** Domain and container filters compare against the asset's full parent chain. `Not Equals`
+  on a domain or container therefore also excludes assets in its nested child domains or containers.
+- **`Starts With` compares raw values.** For resource URNs, tags, domains, containers, and glossary terms, the prefix is
+  matched against the URN, for example `urn:li:tag:pii_` matches `urn:li:tag:pii_email` and `urn:li:tag:pii_phone`.
+- **Resource types do not offer `Starts With` in the UI.** The privileges you can choose depend on the selected resource
+  types, so a prefix would leave no privileges to select. Use `Equals` or `Not Equals` instead.
+- **Changing to or from `Starts With` clears the filter's values**, because a prefix and a list of selected assets are
+  not interchangeable. Switching between `Equals` and `Not Equals` keeps your selections.
+
 ##### Domain-Based Policy Targeting
 
 Policies can be targeted to assets based on **Domains**. This allows you to apply permissions to all assets within a specific business domain.
@@ -107,7 +134,7 @@ domain the new asset proposes). Both must agree.
 Create a **Metadata** policy (UI: **Settings → Permissions → Policies → Create Policy**, or GraphQL
 `createPolicy`). The domain allowlist is the policy **Resources → Domains** filter — not an unscoped
 “all resources” policy, and not `privilegeConstraints` (that experimental field is for tag
-sub-resources only).
+and structured-property sub-resources only).
 
 | Field                               | Value                                                                                                      |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -484,6 +511,7 @@ These privileges are for DataHub operators to access & manage the administrative
 | Manage Home Page Posts          | Allow actor to create and delete home page posts                                                                                                                                                                                      |
 | Manage Business Attribute       | Allow actor to create, update, delete Business Attribute                                                                                                                                                                              |
 | Manage Documentation Forms      | Allow actor to manage forms assigned to assets to assist in documentation efforts.                                                                                                                                                    |
+| Manage Documents                | Allow actor to view, create, edit, move, delete, and import any document.                                                                                                                                                             |
 | Manage Metadata Ingestion       | Allow actor to create, remove, and update Metadata Ingestion sources. Recipes run as Python on the ingestion executor — grant only to trusted operators. See [Ingestion executor security](../docker/ingestion-executor-security.md). |
 | Manage Features                 | Umbrella privilege to manage all features.                                                                                                                                                                                            |
 | View Analytics                  | Allow actor to view the DataHub analytics dashboard.                                                                                                                                                                                  |
@@ -553,6 +581,7 @@ These privileges are to view & modify any entity within DataHub.
 | Edit Description              | Allow actor to edit the description (documentation) of an entity.                                                                                                                                                                                                                                             |
 | Edit Links                    | Allow actor to edit links associated with an entity.                                                                                                                                                                                                                                                          |
 | Edit Status                   | Allow actor to edit the status of an entity (soft deleted or not).                                                                                                                                                                                                                                            |
+| Edit Lifecycle Stage          | Allow actor to set or clear the lifecycle stage of an entity, e.g. Draft or Published.                                                                                                                                                                                                                        |
 | Edit Domain                   | Allow actor to edit the Domain of an entity.                                                                                                                                                                                                                                                                  |
 | Edit Data Product             | Allow actor to add or remove Data Product membership **from an asset** (asset profile / `batchAddToDataProducts`, `batchRemoveFromDataProducts`, unset via `batchSetDataProduct`). Does not authorize editing a Data Product's `assets` list from the product page — see **Manage Data Products**.            |
 | Edit Deprecation              | Allow actor to edit the Deprecation status of an entity.                                                                                                                                                                                                                                                      |
@@ -593,6 +622,18 @@ These privileges are to view & modify any entity within DataHub.
 ### Derived authorization rules
 
 Some APIs authorize against **related** entities rather than only the URN in the request. These rules apply across GraphQL, Rest.li, and MCP ingestion (unless the change uses a system ingestion source).
+
+#### Documents
+
+| To...                   | You need                                                                   | Granted by default to           |
+| ----------------------- | -------------------------------------------------------------------------- | ------------------------------- |
+| Create a document       | **Edit Entity** or **Create Entity** on documents, or **Manage Documents** | Admins and Editors              |
+| Edit or move a document | **Edit Entity** on the document, or **Manage Documents**                   | Admins, Editors, and its owners |
+| Delete a document       | **Delete** on the document, or **Manage Documents**                        | Admins and its owners           |
+| Manage any document     | **Manage Documents**                                                       | Admins                          |
+
+Editors can create and edit documents but cannot delete documents they don't own. Document owners
+can always delete their own documents.
 
 #### Data Products
 
@@ -725,10 +766,12 @@ These privileges are not generalizable.
 
 Support for Policy Constraints based on entity sub-resources (tags, glossary terms, domains, containers, etc.) is currently in development and in an experimental phase.
 
-Currently the only supported sub-resources are tags. These are supported through an additional parameter in DataHubPolicyInfo which is currently only modifiable via API, there is no UI option to configure it. Specifically the
-option is `privilegeConstraints` which takes a `PolicyMatchFilter` within the existing `DataHubResourceFilter` for a policy. This works similarly to the existing resource filter, but instead of applying to the main entity being acted on
-it applies to the subResource targeted in the action. For example, if the policy specifies it is constrained to tags that equal `urn:li:tag:tag1` or `urn:li:tag:tag2` for `EDIT_DATASET_TAGS` privilege, then assuming no other policies match,
-a user would only be able to apply those tags to the dataset. This is also supported with the `NOT_EQUALS` condition for preventing certain tags from being added/removed. These policies apply by default in the UI and can be configured to apply
+Currently supported sub-resources are **tags** and **structured properties**. These are configured through the
+`privilegeConstraints` field in `DataHubPolicyInfo` (API-only; no UI option yet). The constraint applies to the
+sub-resource targeted by the action rather than the primary entity. For example, a policy constrained to
+`urn:li:structuredProperty:io.acryl.dataManagement.certifier` for the `EDIT_ENTITY_PROPERTIES` privilege lets a
+user set/change/remove only that structured property on matching assets. `NOT_EQUALS` is supported to block
+specific properties. These policies apply by default in the UI and can be configured to apply
 to API operations as well through the `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS` environment variable which should be applied globally (GMS, MCE Consumer, and DataHub Upgrade specifically), which is enabled by default.
 
 Example JSON of a policy with constraints:
@@ -762,6 +805,21 @@ Example JSON of a policy with constraints:
   "description": "",
   "state": "ACTIVE",
   "type": "METADATA"
+}
+```
+
+To constrain which structured properties a policy allows, target the structured-property URNs (the governing
+privilege here is `EDIT_ENTITY_PROPERTIES`):
+
+```json
+"privilegeConstraints": {
+  "criteria": [
+    {
+      "field": "URN",
+      "condition": "EQUALS",
+      "values": ["urn:li:structuredProperty:test1", "urn:li:structuredProperty:test2"]
+    }
+  ]
 }
 ```
 

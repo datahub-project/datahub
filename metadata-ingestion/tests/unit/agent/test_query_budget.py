@@ -7,20 +7,70 @@ pin the second ceiling, per connector, because only the connector knows which ki
 its driver can ask for.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
 import sqlalchemy
 
 from datahub.ingestion.agent.sql_passthrough import QueryBudget, SqlCatalogPassthrough
 from datahub.ingestion.source.bigquery_v2.bigquery_probe import BigQueryMetadataProbe
+from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.snowflake.snowflake_probe import SnowflakeMetadataProbe
-from datahub.ingestion.source.sql.sql_probe import (
-    applies_statement_timeout,
-    effective_budget,
-    engine_options,
-    install_statement_timeout,
+from datahub.ingestion.source.sql.cockroachdb import CockroachDBConfig
+from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.ingestion.source.sql.protocol_probe_settings import (
+    probe_url,
+    set_redshift_statement_timeout,
 )
+from datahub.ingestion.source.sql.sql_config import (
+    ProbeEngineSettings,
+    SQLCommonConfig,
+)
+from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
+from datahub.ingestion.source.sql.sqlalchemy_probe import (
+    enforced_budget,
+    probe_engine_options,
+)
+from tests.unit.agent._driver_capture import driver_connect_kwargs
+
+_CONFIG_FOR_DIALECT = {
+    "postgresql": PostgresConfig,
+    "cockroachdb": CockroachDBConfig,
+    "redshift": RedshiftConfig,
+    "mysql": MySQLConfig,
+}
+
+
+def _config_for(url: str, options: Optional[Dict[str, Any]] = None) -> SQLCommonConfig:
+    """The connector config whose recipe connects to `url`. A dialect with no
+    connector of its own goes through the generic source."""
+    extra: Dict[str, Any] = {"options": options} if options is not None else {}
+    config_cls = _CONFIG_FOR_DIALECT.get(url.split("://", 1)[0].split("+", 1)[0])
+    if config_cls is None:
+        return SQLAlchemyGenericConfig(platform="exotic", connect_uri=url, **extra)
+    return config_cls(host_port="h:1", sqlalchemy_uri=url, **extra)
+
+
+def _settings(url: str, budget: Optional[QueryBudget] = None) -> ProbeEngineSettings:
+    return _config_for(url).probe_engine_settings(
+        budget or QueryBudget(timeout_seconds=30)
+    )
+
+
+def _engine_options(
+    url: str, options: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    config = _config_for(url, options)
+    return probe_engine_options(
+        config, config.probe_engine_settings(QueryBudget(timeout_seconds=30))
+    )
+
+
+def _install_ceiling(url: str, engine: Any) -> None:
+    prepare = _settings(url).prepare
+    assert prepare is not None, f"no post-connect ceiling declared for {url}"
+    prepare(engine)
 
 
 def test_a_provider_that_declares_nothing_still_gets_a_ceiling():
@@ -192,17 +242,14 @@ def test_the_mysql_family_gets_no_connect_arg_because_mariadb_shares_its_scheme(
     to claim a ceiling it cannot show.
     """
 
-    class _Config:
-        def get_sql_alchemy_url(self) -> str:
-            return "mysql+pymysql://u:p@h/db"
-
-    options = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))
+    options = _engine_options("mysql+pymysql://h/db")
     assert "init_command" not in str(options.get("connect_args", {}))
 
     url = "mysql+pymysql://u:p@h/db"
-    assert not applies_statement_timeout(url, 30)
+    assert not _settings(url).timeout_applies
     assert (
-        effective_budget(url, QueryBudget(timeout_seconds=30)).timeout_seconds is None
+        enforced_budget(QueryBudget(timeout_seconds=30), _settings(url)).timeout_seconds
+        is None
     )
 
 
@@ -220,7 +267,7 @@ def test_the_attempt_is_still_installed_even_though_it_is_not_claimed(monkeypatc
         "listen",
         lambda target, name, fn: listened.append(name),
     )
-    install_statement_timeout(_FakeEngine(), "mysql+pymysql://u:p@h/db", 30)
+    _install_ceiling("mysql+pymysql://h/db", _FakeEngine())
     assert listened == ["connect"]
 
 
@@ -239,32 +286,23 @@ def test_the_sqlalchemy_family_gets_a_timeout_through_its_engine(
     Wiring this per connector would mean fifteen chances to forget.
     """
 
-    class _Config:
-        def get_sql_alchemy_url(self) -> str:
-            return url
-
-    options = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))
+    options = _engine_options(url)
     rendered = str(options.get("connect_args", {}))
     assert expected_fragment in rendered, f"no server-side timeout for {url}"
 
 
 def test_redshift_gets_no_connect_arg_because_its_driver_is_not_libpq():
-    """This list used to include redshift, and a live cluster refused every
-    probe connection: `TypeError: connect() got an unexpected keyword argument
+    """Given libpq's `options`, a live cluster refuses every probe
+    connection: `TypeError: connect() got an unexpected keyword argument
     'options'`.
 
     The `-c setting` string is libpq's, and Redshift's SQLAlchemy driver is
-    redshift+redshift_connector -- pure Python, never links libpq. The old test
-    passed because it asked about `redshift+psycopg2://`, a URL no config
-    produces; _scheme_of truncates at the `+`, so the fiction was invisible.
-    Hence the real scheme here.
+    redshift+redshift_connector -- pure Python, never links libpq. Asked with
+    the scheme a Redshift config produces: `redshift+psycopg2://` is a URL no
+    config produces, and _scheme_of truncates at the `+`.
     """
 
-    class _Config:
-        def get_sql_alchemy_url(self) -> str:
-            return "redshift+redshift_connector://u:p@h/db"
-
-    options = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))
+    options = _engine_options("redshift+redshift_connector://h/db")
     assert "options" not in options.get("connect_args", {})
 
 
@@ -273,8 +311,11 @@ def test_redshift_still_gets_a_ceiling_and_still_claims_it():
     ambiguity to survive -- statement_timeout is Redshift's one spelling -- so
     the statement is left to fail loudly and the budget may still report it."""
     url = "redshift+redshift_connector://u:p@h/db"
-    assert applies_statement_timeout(url, 30)
-    assert effective_budget(url, QueryBudget(timeout_seconds=30)).timeout_seconds == 30
+    assert _settings(url).timeout_applies
+    assert (
+        enforced_budget(QueryBudget(timeout_seconds=30), _settings(url)).timeout_seconds
+        == 30
+    )
 
 
 def test_redshift_sets_its_ceiling_outside_a_transaction(monkeypatch):
@@ -312,7 +353,7 @@ def test_redshift_sets_its_ceiling_outside_a_transaction(monkeypatch):
         "listen",
         lambda target, name, fn: listeners.append(fn),
     )
-    install_statement_timeout(object(), "redshift+redshift_connector://u:p@h/db", 30)
+    _install_ceiling("redshift+redshift_connector://h/db", object())
     connection = _Conn()
     listeners[0](connection, None)
 
@@ -361,7 +402,7 @@ def test_redshift_fails_closed_when_the_server_refuses_the_ceiling(monkeypatch):
         "listen",
         lambda target, name, fn: listeners.append(fn),
     )
-    install_statement_timeout(object(), "redshift+redshift_connector://u:p@h/db", 30)
+    _install_ceiling("redshift+redshift_connector://h/db", object())
     connection = _Conn()
 
     # Fails closed: the connection is not handed back as if it were bounded.
@@ -381,30 +422,28 @@ def test_a_dialect_with_no_known_timeout_knob_is_left_alone():
     opening a connection at all, which is a worse failure than an unbounded query.
     """
 
-    class _Config:
-        def get_sql_alchemy_url(self) -> str:
-            return "exotic+driver://u:p@h/db"
-
-    options = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))
+    options = _engine_options("exotic+driver://h/db")
     assert "connect_args" not in options or not options["connect_args"]
 
 
 def test_a_probe_reports_the_ceiling_it_actually_got_not_the_one_declared():
     """A declared ceiling nobody applies is worse than no ceiling: it reads as safe.
 
-    The default budget carries timeout_seconds=30, but only the dialects in
-    _TIMEOUT_CONNECT_ARGS have a knob to apply it through. On the rest the
+    The default budget carries timeout_seconds=30, but only some dialects
+    declare a knob that applies it. On the rest the
     effective budget has to say so, or `describe()` reports a limit that does not
     exist -- and an operator reading it concludes the probe is bounded when it is
     not.
     """
 
-    bounded = effective_budget("postgresql://u:p@h/db", QueryBudget(timeout_seconds=30))
+    bounded = enforced_budget(
+        QueryBudget(timeout_seconds=30), _settings("postgresql://h/db")
+    )
     assert bounded.timeout_seconds == 30
     assert "30s" in bounded.describe()
 
-    unbounded = effective_budget(
-        "exotic+driver://u:p@h/db", QueryBudget(timeout_seconds=30)
+    unbounded = enforced_budget(
+        QueryBudget(timeout_seconds=30), _settings("exotic+driver://h/db")
     )
     assert unbounded.timeout_seconds is None
     assert "no server-side ceiling" in unbounded.describe()
@@ -413,16 +452,10 @@ def test_a_probe_reports_the_ceiling_it_actually_got_not_the_one_declared():
 def test_the_engine_keeps_the_connector_s_own_options():
     """The budget is additive. A connector's ssl/connect_args must survive it."""
 
-    class _Config:
-        # `options`, like every config in this family -- a fake defining only
-        # get_options() modelled the probe's old behaviour rather than any real
-        # connector, so it passed while the probe read the wrong dict.
-        options = {"connect_args": {"sslmode": "require"}, "pool_size": 3}
-
-        def get_sql_alchemy_url(self) -> str:
-            return "postgresql://u:p@h/db"
-
-    options = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))
+    options = _engine_options(
+        "postgresql://h/db",
+        options={"connect_args": {"sslmode": "require"}, "pool_size": 3},
+    )
     assert options["pool_size"] == 3
     assert options["connect_args"]["sslmode"] == "require"
     assert "statement_timeout" in str(options["connect_args"])
@@ -447,7 +480,7 @@ def test_a_non_positive_ceiling_is_refused_at_construction():
 
 
 def test_the_probe_reads_the_option_dict_ingestion_reads():
-    """engine_options preferred get_options() over `options`.
+    """The probe's engine reads `options`, not get_options().
 
     Every SQLAlchemy engine ingestion builds passes `**config.options` --
     sql_common.get_inspectors, the profilers, athena, oracle, clickhouse, mysql,
@@ -469,7 +502,8 @@ def test_the_probe_reads_the_option_dict_ingestion_reads():
         }
     )
     assert config.get_options() == {"pool_size": 99}
-    assert engine_options(config) == {"pool_size": 7} == config.options
+    settings = config.probe_engine_settings(QueryBudget())
+    assert probe_engine_options(config, settings) == {"pool_size": 7} == config.options
 
 
 def test_no_config_in_the_sql_probe_family_diverges_on_its_option_source():
@@ -502,7 +536,7 @@ def test_no_config_in_the_sql_probe_family_diverges_on_its_option_source():
         checked += 1
         assert "options" in config_cls.model_fields, (
             f"{name}: in the SQL probe family but has no `options` field, so "
-            f"engine_options cannot read what ingestion reads"
+            f"probe_engine_options cannot read what ingestion reads"
         )
 
     # Guards the walk itself: a registry that stopped resolving would otherwise
@@ -511,32 +545,154 @@ def test_no_config_in_the_sql_probe_family_diverges_on_its_option_source():
 
 
 def test_a_recipes_own_libpq_options_survive_the_timeout():
-    """libpq packs every `-c setting` into one connect_arg, so assigning the
-    timeout there threw the recipe's own away -- a
-    `-c search_path=reporting,public` vanished and the probe then connected
-    with different session settings than ingestion. Verified by hand when
-    fixed and not by a test, which is how it stayed the only uncovered line
-    in the file."""
+    """libpq packs every `-c setting` into one connect_arg, so the timeout is
+    appended to the recipe's own: assigned, it would drop a
+    `-c search_path=reporting,public`, and the probe would connect with
+    different session settings than ingestion."""
 
-    class _Config:
-        options = {"connect_args": {"options": "-c search_path=reporting,public"}}
-
-        def get_sql_alchemy_url(self) -> str:
-            return "postgresql://u:p@h/db"
-
-    sent = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))[
-        "connect_args"
-    ]["options"]
+    sent = _engine_options(
+        "postgresql://h/db",
+        options={"connect_args": {"options": "-c search_path=reporting,public"}},
+    )["connect_args"]["options"]
     assert "search_path=reporting,public" in sent, "the recipe's setting was dropped"
     assert "statement_timeout=30000" in sent, "the ceiling was dropped"
 
 
 def test_the_timeout_stands_alone_when_the_recipe_asked_for_nothing():
-    class _Config:
-        def get_sql_alchemy_url(self) -> str:
-            return "postgresql://u:p@h/db"
-
-    sent = engine_options(_Config(), budget=QueryBudget(timeout_seconds=30))[
-        "connect_args"
-    ]["options"]
+    sent = _engine_options("postgresql://h/db")["connect_args"]["options"]
     assert sent == "-c statement_timeout=30000"
+
+
+@pytest.mark.parametrize(
+    "url, options",
+    [
+        ("postgresql+psycopg2://u:p@h:5432/db?options=-csearch_path%3Dmyschema", None),
+        (
+            "postgresql+psycopg2://u:p@h:5432/db",
+            {"connect_args": {"options": "-csearch_path=myschema"}},
+        ),
+        # connect_args override the URL's query in create_engine, so the
+        # URL's options never reach the driver on either engine.
+        (
+            "postgresql+psycopg2://u:p@h:5432/db?options=-csearch_path%3Durl_only",
+            {"connect_args": {"options": "-csearch_path=myschema"}},
+        ),
+    ],
+)
+def test_the_probe_sends_ingestions_libpq_options_and_then_its_ceiling(
+    url: str, options: Optional[Dict[str, Any]]
+) -> None:
+    config = _config_for(url, options)
+    ingestion = driver_connect_kwargs(config.get_sql_alchemy_url(), config.options)
+    probe = driver_connect_kwargs(probe_url(config), _engine_options(url, options))
+    assert ingestion["options"] == "-csearch_path=myschema"
+    assert probe["options"] == f"{ingestion['options']} -c statement_timeout=30000"
+
+
+def test_libpq_gets_a_connect_timeout_so_an_unreachable_host_fails_fast():
+    """libpq has no connect timeout of its own: a blackholed host held the
+    probe for the OS's TCP timeout, longer than an agent's tool call waits."""
+    url = "postgresql+psycopg2://u:p@h:5432/db"
+    config = _config_for(url)
+    sent = driver_connect_kwargs(probe_url(config), _engine_options(url))
+    assert 0 < int(sent["connect_timeout"]) <= 30
+
+
+def test_the_connect_timeout_is_no_longer_than_the_query_budget():
+    connect_args = _settings(
+        "postgresql://h/db", QueryBudget(timeout_seconds=3)
+    ).connect_args
+    assert connect_args["connect_timeout"] == 3
+
+
+@pytest.mark.parametrize(
+    "url, options",
+    [
+        ("postgresql+psycopg2://u:p@h:5432/db?connect_timeout=42", None),
+        (
+            "postgresql+psycopg2://u:p@h:5432/db",
+            {"connect_args": {"connect_timeout": 42}},
+        ),
+    ],
+)
+def test_a_recipes_own_connect_timeout_wins(
+    url: str, options: Optional[Dict[str, Any]]
+) -> None:
+    config = _config_for(url, options)
+    ingestion = driver_connect_kwargs(config.get_sql_alchemy_url(), config.options)
+    probe = driver_connect_kwargs(probe_url(config), _engine_options(url, options))
+    assert int(probe["connect_timeout"]) == 42
+    assert probe["connect_timeout"] == ingestion["connect_timeout"]
+
+
+@pytest.mark.parametrize(
+    "url", ["postgresql+pg8000://h/db", "cockroachdb+asyncpg://h/db"]
+)
+def test_a_postgres_driver_without_libpq_gets_no_libpq_keyword(url: str) -> None:
+    """connect_timeout and the `-c` options string are libpq's: pg8000 and
+    asyncpg refuse a keyword they do not know, so the probe could not
+    connect at all."""
+    settings = _settings(url)
+    assert "connect_timeout" not in settings.connect_args
+    assert "options" not in settings.connect_args
+    assert settings.timeout_applies is False
+
+
+@pytest.mark.parametrize("url", ["postgresql://h/db", "postgresql+psycopg://h/db"])
+def test_a_libpq_driver_gets_the_libpq_keywords(
+    url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("PGCONNECT_TIMEOUT", raising=False)
+    settings = _settings(url)
+    assert "connect_timeout" in settings.connect_args
+    assert "statement_timeout" in settings.connect_args["options"]
+    assert settings.timeout_applies is True
+
+
+def test_an_operators_pgconnect_timeout_wins(monkeypatch: pytest.MonkeyPatch) -> None:
+    # libpq reads PGCONNECT_TIMEOUT only when no connect_timeout is passed.
+    monkeypatch.setenv("PGCONNECT_TIMEOUT", "42")
+    connect_args = _settings(
+        "postgresql://h/db", QueryBudget(timeout_seconds=3)
+    ).connect_args
+    assert "connect_timeout" not in connect_args
+
+
+def test_redshift_ceiling_applies_to_a_raw_connection_and_restores_autocommit() -> None:
+    """The Redshift provider holds a bare redshift_connector connection rather
+    than an engine, so the ceiling has to be applicable without the engine
+    listener -- and must not leave the session's autocommit changed."""
+    seen: List[Tuple[str, bool]] = []
+
+    class _Conn:
+        def __init__(self, autocommit: bool, fail: bool = False) -> None:
+            self.autocommit = autocommit
+            self.fail = fail
+
+        def cursor(self) -> "_Cursor":
+            return _Cursor(self)
+
+    class _Cursor:
+        def __init__(self, conn: _Conn) -> None:
+            self._conn = conn
+
+        def execute(self, sql: str) -> None:
+            seen.append((sql, self._conn.autocommit))
+            if self._conn.fail:
+                raise RuntimeError("permission denied")
+
+        def close(self) -> None:
+            pass
+
+    for prior in (False, True):
+        seen.clear()
+        conn = _Conn(autocommit=prior)
+        set_redshift_statement_timeout(conn, 30)
+        assert seen == [("SET statement_timeout = 30000", True)]
+        assert conn.autocommit is prior
+
+    # Fails closed, and still hands the session back as it found it.
+    failing = _Conn(autocommit=False, fail=True)
+    with pytest.raises(RuntimeError):
+        set_redshift_statement_timeout(failing, 30)
+    assert failing.autocommit is False

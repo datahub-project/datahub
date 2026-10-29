@@ -80,6 +80,12 @@ public class KeyAspectEntityCountCache {
 
       if (tryClaimQuery(cacheKey, claimantId, staleBuildingMillis)) {
         try {
+          // The previous claimant can publish and release between the cache miss
+          // above and this claim. Loading again would run the query twice.
+          KeyAspectEntityCountResult published = getCachedResult(cacheKey);
+          if (published != null) {
+            return published.toBuilder().cacheHit(true).build();
+          }
           KeyAspectEntityCountResult loaded = loader.load();
           putCachedResult(cacheKey, loaded);
           return loaded.toBuilder().cacheHit(false).build();

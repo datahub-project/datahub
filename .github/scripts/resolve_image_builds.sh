@@ -28,6 +28,9 @@ set -euo pipefail
 
 : "${DOCKER_REGISTRY:=acryldata}"
 : "${QUICKSTART_TAG:=quickstart}"
+: "${SMOKE_BUILD_TASK:=}"
+: "${SMOKE_MODULES:=}"
+: "${PR_PUBLISH:=false}"
 
 # Gradle module | docker repo | compose version override | tag suffix.
 # Mirrors the module list of :docker:buildImagesQuickstart.
@@ -185,8 +188,27 @@ resolve_manifest_digest() {
   printf '%s\n' "${digest}"
 }
 
+# A smoke: label bakes one quickstart config's modules, not the whole six-image
+# set. SMOKE_MODULES is that list (from resolveQuickstartProfile). Images in it
+# are built even when the diff would not touch them, because the task bakes its
+# whole list and does not take -PbuildModules. Images outside it are reused
+# from quickstart when that tag resolves, and left unpinned when it does not:
+# marking them built would point compose at a PR tag this bake never publishes.
+# A publish label is the exception: that path runs buildImagesAll.
+if [[ -n "${SMOKE_BUILD_TASK}" && -z "${SMOKE_MODULES// }" ]]; then
+  echo "error: ${SMOKE_BUILD_TASK} has no module list; refusing to mark every image as built" >&2
+  exit 1
+fi
+
+smoke_constrained=false
+if [[ -n "${SMOKE_MODULES// }" && "${PR_PUBLISH}" != "true" ]]; then
+  smoke_constrained=true
+fi
+
 # Reasons to bake the whole set, checked before any per-image reasoning so the
 # log names the override rather than whichever rule also happened to match.
+# Ignored for images outside SMOKE_MODULES when a smoke task is selected: the
+# bake will not publish them.
 full_build_reason=""
 if [[ "${FULL_BUILD_LABEL}" == "true" ]]; then
   full_build_reason="the build-images label is set"
@@ -200,12 +222,6 @@ elif [[ "${PR_PUBLISH}" == "true" ]]; then
   # A publish label pushes this PR's images to the registry for people to pull,
   # so the set has to be complete and built from this PR's source.
   full_build_reason="a publish label is pushing this PR's images"
-elif [[ -n "${SMOKE_BUILD_TASK}" ]]; then
-  # A smoke: label picks a different compose profile. Everything is built, and
-  # the resolved-tag assertion in run-quickstart.sh skips repositories the
-  # selected profile does not run (e.g. quickstartPg has no MAE/MCE) while
-  # still checking the ones it does.
-  full_build_reason="a smoke: label selected the ${SMOKE_BUILD_TASK} build"
 elif ((${#changed_files[@]} == 0)); then
   # A pull request always changes something, so an empty list means the file
   # list never arrived. Reusing every image off the back of that would be the
@@ -230,7 +246,20 @@ for entry in "${IMAGES[@]}"; do
 
   decision="build"
   digest=""
-  if [[ -n "${full_build_reason}" ]]; then
+  if [[ "${smoke_constrained}" == "true" && " ${SMOKE_MODULES} " != *" ${module} "* ]]; then
+    if digest=$(resolve_manifest_digest "${DOCKER_REGISTRY}/${repo}" "${reuse_tag}"); then
+      decision="reuse"
+      why="not included in ${SMOKE_BUILD_TASK:-the smoke profile}"
+    else
+      # The selected profile does not run this image, and there is no quickstart
+      # digest to pin. Leaving it unpinned avoids pointing compose at a PR tag
+      # this bake never publishes.
+      decision="unpinned"
+      why="not included in ${SMOKE_BUILD_TASK:-the smoke profile}; ${reuse_tag} did not resolve, left unpinned"
+    fi
+  elif [[ "${smoke_constrained}" == "true" ]]; then
+    why="included in ${SMOKE_BUILD_TASK:-the smoke profile}"
+  elif [[ -n "${full_build_reason}" ]]; then
     why="${full_build_reason}"
   elif module_is_affected "${module}"; then
     why="affected by this diff"
@@ -248,6 +277,9 @@ for entry in "${IMAGES[@]}"; do
     build_repos+=("${repo}")
     summary+=("| \`${repo}\` | build | ${why} |")
     echo "build ${repo}: ${why}"
+  elif [[ "${decision}" == "unpinned" ]]; then
+    summary+=("| \`${repo}\` | unpinned | ${why} |")
+    echo "unpinned ${repo}: ${why}"
   else
     # Pin to the digest resolved above, not the bare floating tag: a run's
     # jobs pull images at different wall-clock times over a window that can

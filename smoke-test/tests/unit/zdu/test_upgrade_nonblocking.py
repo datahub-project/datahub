@@ -22,6 +22,7 @@ def config() -> ZDUTestConfig:
     cfg.sweep_timeout_s = 30
     cfg.reader_workers = 0
     cfg.writer_workers = 0
+    cfg.new_image_tag = "zdu-new-abc12345"
     return cfg
 
 
@@ -188,6 +189,34 @@ class TestUpgradeNonBlockingPhase:
             )
             assert compose_env["DATAHUB_TOKEN_SERVICE_SIGNING_KEY"] == "k"
             assert compose_env["DATAHUB_TOKEN_SERVICE_SALT"] == "s"
+
+    def test_compose_env_pins_upgrade_image_to_new_tag(
+        self, phase: UpgradeNonBlockingPhase, docker: MagicMock
+    ) -> None:
+        # Unpinned, system-update falls back to DATAHUB_VERSION (`head` in CI).
+        completed = SweepEvent(
+            state=SweepState.COMPLETED,
+            source="datahub-upgrade",
+            timestamp=__import__("datetime").datetime.utcnow(),
+            message="done",
+            total_migrated=0,
+        )
+        with patch.object(
+            UpgradeNonBlockingPhase, "_drain_nonblocking_queue", return_value=([], {})
+        ):
+            with patch(
+                "tests.zdu.framework.phases.upgrade_nonblocking.LogMonitor"
+            ) as mon_cls:
+                mon_cls.return_value.start.return_value = None
+                with patch.object(Queue, "get", return_value=completed):
+                    phase.run(TestContext())
+
+        calls = docker.run_upgrade_job.call_args_list
+        assert len(calls) >= 1
+        for call in calls:
+            assert call.kwargs["compose_env"]["DATAHUB_UPDATE_VERSION"] == (
+                "zdu-new-abc12345"
+            )
 
     def test_capture_result_skipped_when_mysql_returns_none(
         self,

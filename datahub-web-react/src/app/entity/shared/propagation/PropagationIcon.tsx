@@ -1,23 +1,17 @@
-import { ThunderboltFilled } from '@ant-design/icons';
+import { Lightning } from '@phosphor-icons/react/dist/csr/Lightning';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
-
-export const PropagateThunderbolt = styled(ThunderboltFilled)`
-    && {
-        color: #a7c7fa;
-    }
-    font-size: 16px;
+/** Resting state of the propagation indicator: muted until the row is hovered. */
+export const PropagateThunderbolt = styled(Lightning).attrs({ weight: 'fill', size: 16 })`
+    color: ${(props) => props.theme.colors.icon};
     &:hover {
-        color: ${REDESIGN_COLORS.BLUE};
+        color: ${(props) => props.theme.colors.iconInformation};
     }
     margin-right: 4px;
 `;
 
-export const PropagateThunderboltFilled = styled(ThunderboltFilled)`
-    && {
-        color: ${REDESIGN_COLORS.BLUE};
-    }
-    font-size: 16px;
+/** Emphasised variant used inside the propagation popover's own title. */
+export const PropagateThunderboltFilled = styled(Lightning).attrs({ weight: 'fill', size: 16 })`
+    color: ${(props) => props.theme.colors.iconInformation};
     margin-right: 4px;
 `;

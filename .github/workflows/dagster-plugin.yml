@@ -58,7 +58,7 @@ env:
 
 jobs:
   dagster-plugin:
-    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest' || 'ubuntu-latest' }}
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
     env:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
@@ -117,7 +117,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
   event-file:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Upload
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0

@@ -13,8 +13,10 @@ export const DatasetStatsSummarySubHeader = ({ properties }: { properties?: any 
 
     const maybeStatsSummary = dataset?.statsSummary as DatasetStatsSummaryObj;
 
-    const maybeLastProfile =
-        dataset?.datasetProfiles && dataset.datasetProfiles.length ? dataset.datasetProfiles[0] : undefined;
+    const latestFullTableProfile = dataset?.latestFullTableProfile?.[0];
+    const latestPartitionProfile = dataset?.latestPartitionProfile?.[0];
+
+    const maybeLastProfile = latestFullTableProfile || latestPartitionProfile || undefined;
 
     const rowCount = maybeLastProfile?.rowCount;
     const columnCount = maybeLastProfile?.columnCount;

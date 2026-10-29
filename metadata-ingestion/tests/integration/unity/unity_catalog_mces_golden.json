@@ -2702,7 +2702,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD),betStatusId)"
                     ],
-                    "transformOperation": "COPY: `bet`.`betStatusId` AS `betStatusId`",
+                    "transformOperation": "COPY: `bet`.`betstatusid` AS `betstatusid`",
                     "confidenceScore": 0.9
                 },
                 {
@@ -2714,7 +2714,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.view1,PROD),channelId)"
                     ],
-                    "transformOperation": "COPY: `bet`.`channelId` AS `channelId`",
+                    "transformOperation": "COPY: `bet`.`channelid` AS `channelid`",
                     "confidenceScore": 0.9
                 },
                 {

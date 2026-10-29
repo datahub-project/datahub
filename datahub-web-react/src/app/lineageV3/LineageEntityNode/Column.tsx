@@ -1,11 +1,12 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Spin, Typography } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
@@ -20,11 +21,14 @@ import { useAppConfig } from '@app/useAppConfig';
 
 import { EntityType, LineageDirection } from '@types';
 
-import LinkOut from '@images/link-out.svg?react';
-
 const HOVER_REQUEST_DELAY = 300;
 
-const LinkOutIcon = styled(LinkOut)``;
+const LinkOutIcon = styled(ArrowSquareOut)``;
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
 
 // Anchors the column's lineage controls, which render outside the node on either side
 const ColumnPositioner = styled.div`
@@ -110,9 +114,10 @@ const ColumnText = styled(Typography.Text)`
     }
 `;
 
-const StyledLoadingIndicator = styled(LoadingOutlined)`
+const StyledLoadingIndicator = styled(CircleNotch)`
     display: flex;
     font-size: inherit;
+    animation: ${spin} 1s linear infinite;
 `;
 
 type Props = LineageDisplayColumn & {

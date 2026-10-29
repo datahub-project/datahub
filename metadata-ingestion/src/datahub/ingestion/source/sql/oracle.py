@@ -14,6 +14,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Mapping,
     NoReturn,
     Optional,
     Tuple,
@@ -27,8 +28,9 @@ from unittest.mock import patch
 import oracledb
 import sqlalchemy.engine
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
-from sqlalchemy import create_engine, event, inspect, sql
+from sqlalchemy import create_engine, event, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
+from sqlalchemy.engine import RowMapping
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
@@ -66,6 +68,7 @@ from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     get_schema_metadata,
     make_sqlalchemy_type,
+    register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
@@ -395,12 +398,16 @@ VSQL_DML_COMMAND_TYPES = (
     OracleSQLCommandType.MERGE,
 )
 
+# sql_text is VARCHAR2(1000) and cuts long statements mid-token; sql_fulltext is the
+# CLOB holding the complete statement. The cheap VARCHAR2 column still drives the
+# V$SQL self-filter below.
 VSQL_USAGE_QUERY = (
     """
     SELECT * FROM (
-        SELECT 
+        SELECT
             sql_id,
             sql_text,
+            sql_fulltext,
             parsing_schema_name,
             executions,
             elapsed_time/1000000 as elapsed_seconds,
@@ -420,6 +427,16 @@ VSQL_USAGE_QUERY = (
     )
     WHERE ROWNUM <= :max_queries
 """
+)
+
+# sqlglot's Oracle dialect fails on an empty optimizer hint ("Failed to parse ' '
+# into Hint"), which ETL tools emit routinely. A hint is only meaningful right
+# after the statement verb, so only that position is matched and string literals
+# elsewhere in the statement are left alone.
+# Oracle also accepts the hint with no whitespace after the verb (INSERT/*+ */),
+# so the whitespace on both sides is optional and replaced by a single space.
+_EMPTY_HINT_PATTERN = re.compile(
+    r"\b(SELECT|INSERT|UPDATE|DELETE|MERGE)\s*/\*\+\s*\*/\s*", re.IGNORECASE
 )
 
 
@@ -535,9 +552,36 @@ extra_oracle_types = {
 }
 assert ischema_names
 
+# These types are only known to SQLAlchemy through the ischema_names patch in
+# get_workunits. Without a mapping, every such column logs "Unable to map column
+# types" and is emitted with an empty parsed type. XMLTYPE is stored and rendered
+# as text, matching the xml mapping in sql_types; the spatial object types are
+# structured, so they map to a record.
+for _oracle_type in extra_oracle_types:
+    register_custom_type(
+        _oracle_type,
+        models.StringTypeClass
+        if _oracle_type.__name__ == "XMLTYPE"
+        else models.RecordTypeClass,
+    )
+
 
 def _raise_err(exc: Exception) -> NoReturn:
     raise exc
+
+
+def _inspector_connection(inspector: Inspector) -> sqlalchemy.engine.Connection:
+    """Return the Connection backing an Inspector.
+
+    Inspector.bind is typed Engine | Connection, but the inspectors used here
+    are always created from a live Connection (see SQLAlchemySource.get_inspectors,
+    which does inspect(conn)). SQLAlchemy 2.0 removed Engine.execute, so narrow
+    the type to Connection for both mypy and to guarantee an executable bind.
+
+    Use cast rather than an isinstance assert so duck-typed connections (e.g. the
+    MagicMock-backed inspectors in the unit-style tests) are still accepted.
+    """
+    return cast(sqlalchemy.engine.Connection, inspector.bind)
 
 
 def output_type_handler(cursor, name, defaultType, size, precision, scale):
@@ -748,16 +792,30 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
 
         return url
 
+    def urn_database_name(self) -> Optional[str]:
+        """Database component of entity URNs, or None when URNs are two-part.
+
+        Single source of truth for everything that must agree with the crawl's
+        URNs: get_identifier, get_db_schema and the default_db handed to the SQL
+        parser. Note this is the recipe's value, not the name looked up in
+        Oracle (get_db_name); with service_name and no urn_db_name, URNs stay
+        two-part even though a database name could be detected.
+        """
+        if not self.add_database_name_to_urn:
+            return None
+        if self.database:
+            return self.database
+        if self.urn_db_name:
+            # get_db_name normalises via the dialect; replicate that here so
+            # entity URNs and lineage URNs share the same db casing.
+            return normalize_db_name(self.urn_db_name)
+        return None
+
     def get_identifier(self, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
-        if self.add_database_name_to_urn:
-            db = self.database
-            if not db and self.urn_db_name:
-                # get_db_name normalises via the dialect; replicate that here so
-                # entity URNs and lineage URNs share the same db casing.
-                db = normalize_db_name(self.urn_db_name)
-            if db:
-                return f"{db}.{regular}"
+        db = self.urn_database_name()
+        if db:
+            return f"{db}.{regular}"
         return regular
 
     @classmethod
@@ -824,9 +882,11 @@ class OracleInspectorObjectWrapper:
     def get_db_name(self) -> str:
         db_name = None
         try:
-            db_name = self._inspector_instance.bind.execute(
-                sql.text(DB_NAME_QUERY)
-            ).scalar()
+            db_name = (
+                _inspector_connection(self._inspector_instance)
+                .execute(sql.text(DB_NAME_QUERY))
+                .scalar()
+            )
             return str(db_name)
         except sqlalchemy.exc.DatabaseError as e:
             self.report.failure(
@@ -838,7 +898,7 @@ class OracleInspectorObjectWrapper:
             return ""
 
     def get_schema_names(self) -> List[str]:
-        cursor = self._inspector_instance.bind.execute(
+        cursor = _inspector_connection(self._inspector_instance).execute(
             sql.text("SELECT username FROM dba_users")
         )
 
@@ -865,7 +925,9 @@ class OracleInspectorObjectWrapper:
 
         sql_str += "OWNER = :owner AND IOT_NAME IS NULL "
 
-        cursor = self._inspector_instance.bind.execute(sql.text(sql_str), owner=schema)
+        cursor = _inspector_connection(self._inspector_instance).execute(
+            sql.text(sql_str), dict(owner=schema)
+        )
 
         return [
             self._inspector_instance.dialect.normalize_name(row[0])
@@ -881,7 +943,7 @@ class OracleInspectorObjectWrapper:
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
-        cursor = self._inspector_instance.bind.execute(
+        cursor = _inspector_connection(self._inspector_instance).execute(
             sql.text(DBA_VIEWS_QUERY),
             dict(owner=self._inspector_instance.dialect.denormalize_name(schema)),
         )
@@ -901,7 +963,7 @@ class OracleInspectorObjectWrapper:
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
-        cursor = self._inspector_instance.bind.execute(
+        cursor = _inspector_connection(self._inspector_instance).execute(
             sql.text(DBA_MVIEWS_QUERY),
             dict(owner=self._inspector_instance.dialect.denormalize_name(schema)),
         )
@@ -939,7 +1001,11 @@ class OracleInspectorObjectWrapper:
             params["owner"] = schema
             text += "\nAND owner = :owner"
 
-        rp = self._inspector_instance.bind.execute(sql.text(text), params).scalar()
+        rp = (
+            _inspector_connection(self._inspector_instance)
+            .execute(sql.text(text), params)
+            .scalar()
+        )
 
         return rp
 
@@ -1016,7 +1082,9 @@ class OracleInspectorObjectWrapper:
             "identity_cols": identity_cols,
         }
 
-        c = self._inspector_instance.bind.execute(sql.text(text), params)
+        c = _inspector_connection(self._inspector_instance).execute(
+            sql.text(text), params
+        )
 
         for row in c:
             colname = self._inspector_instance.dialect.normalize_name(row[0])
@@ -1036,12 +1104,12 @@ class OracleInspectorObjectWrapper:
                 if precision is None and scale == 0:
                     coltype = INTEGER()
                 else:
-                    coltype = ischema_names.get(coltype)(precision, scale)
+                    coltype = ischema_names[coltype](precision, scale)
             elif coltype == "FLOAT":
                 # TODO: support "precision" here as "binary_precision"
                 coltype = FLOAT()
             elif coltype in ("VARCHAR2", "NVARCHAR2", "CHAR", "NCHAR"):
-                coltype = ischema_names.get(coltype)(length)
+                coltype = ischema_names[coltype](length)
             elif "WITH TIME ZONE" in coltype:
                 coltype = TIMESTAMP(timezone=True)
             else:
@@ -1106,7 +1174,7 @@ class OracleInspectorObjectWrapper:
             AND owner = :schema_name
         """
 
-        c = self._inspector_instance.bind.execute(
+        c = _inspector_connection(self._inspector_instance).execute(
             sql.text(COMMENT_SQL),
             dict(table_name=denormalized_table_name, schema_name=schema),
         )
@@ -1175,8 +1243,10 @@ class OracleInspectorObjectWrapper:
 
         text += "\nORDER BY constraint_name, loc_pos"
 
-        rp = self._inspector_instance.bind.execute(sql.text(text), params)
-        return rp.fetchall()
+        rp = _inspector_connection(self._inspector_instance).execute(
+            sql.text(text), params
+        )
+        return list(rp.fetchall())
 
     def get_pk_constraint(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
@@ -1267,7 +1337,7 @@ class OracleInspectorObjectWrapper:
                 remote_table,
                 remote_column,
                 remote_owner,
-            ) = row[0:2] + tuple(
+            ) = tuple(row[0:2]) + tuple(
                 [self._inspector_instance.dialect.normalize_name(x) for x in row[2:6]]
             )
 
@@ -1339,7 +1409,11 @@ class OracleInspectorObjectWrapper:
             params["owner"] = schema
             text += "\nAND owner = :owner"
 
-        rp = self._inspector_instance.bind.execute(sql.text(text), params).scalar()
+        rp = (
+            _inspector_connection(self._inspector_instance)
+            .execute(sql.text(text), params)
+            .scalar()
+        )
 
         return rp
 
@@ -1463,6 +1537,10 @@ class OracleSourceReport(SQLSourceReport):
     SourceCapability.OPERATION_CAPTURE,
     "Optionally enabled via `include_query_usage` and `include_operational_stats`",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class OracleSource(SQLAlchemySource):
     """
     This plugin extracts the following:
@@ -1538,8 +1616,40 @@ class OracleSource(SQLAlchemySource):
                 not (self.config.include_tables and self.config.include_views)
                 and not self.config.lazy_schema_resolver
             ),
+            is_allowed_table=self._is_allowed_table,
         )
         self.report.sql_aggregator = self.aggregator.report
+
+    def _is_allowed_table(self, name: str) -> bool:
+        """Apply the recipe's schema/table filters to tables referenced by parsed SQL.
+
+        The aggregator calls this for every table the SQL parser resolves from
+        V$SQL statements and view definitions (procedure lineage has its own
+        parser and does not pass through here). Without this gate it emits
+        usage, operations and query subjects for tables the schema crawl never
+        visited, creating container-less datasets outside schema_pattern /
+        table_pattern. V$SQL's SQL-level system-schema exclusion only covers the
+        parsing schema, not the tables a statement references.
+
+        `name` is the URN name without platform instance, in the same shape
+        get_identifier produces, so get_db_schema is reused to split it rather
+        than re-implementing the add_database_name_to_urn branching.
+
+        Only the recipe patterns decide. Oracle system schemas are not rejected
+        here: the crawl ingests them when schema_pattern allows it, and lineage
+        on those entities must follow. Because the parser cannot tell tables
+        from views, a name passes when either table_pattern or view_pattern
+        allows it; a table denied by table_pattern is let back in by a
+        permissive view_pattern.
+        """
+        if "." not in name:
+            return False
+        _, schema = self.get_db_schema(name)
+        if not self.config.schema_pattern.allowed(schema):
+            return False
+        return self.config.table_pattern.allowed(
+            name
+        ) or self.config.view_pattern.allowed(name)
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -1580,9 +1690,11 @@ class OracleSource(SQLAlchemySource):
             else:
                 # For ALL mode (regular inspector), query directly
                 try:
-                    db_name_result = inspector.bind.execute(
-                        sql.text(DB_NAME_QUERY)
-                    ).scalar()
+                    db_name_result = (
+                        _inspector_connection(inspector)
+                        .execute(sql.text(DB_NAME_QUERY))
+                        .scalar()
+                    )
                     if db_name_result:
                         db_name = str(db_name_result)
                 except sqlalchemy.exc.DatabaseError as e:
@@ -1629,17 +1741,10 @@ class OracleSource(SQLAlchemySource):
                 if len(parts) >= 3:
                     return parts[-3], parts[-2]  # db, schema
                 elif len(parts) >= 2:
-                    # Identifier is missing the db component — fall back to config.
-                    # Using str(None) here would produce "None.schema.table" URNs.
-                    # Normalise urn_db_name the same way as get_identifier so that
-                    # view-lineage default_db matches entity URN db components.
-                    urn_db = (
-                        normalize_db_name(self.config.urn_db_name)
-                        if self.config.urn_db_name
-                        else None
-                    )
-                    db_name = self.config.database or urn_db or None
-                    return db_name, parts[-2]  # db (or None), schema
+                    # Identifier is missing the db component — fall back to the
+                    # recipe's database so view-lineage default_db matches entity
+                    # URN db components (None rather than "None.schema.table").
+                    return self.config.urn_database_name(), parts[-2]
             else:
                 if len(parts) >= 2:
                     return None, parts[-2]  # schema only; no db in URNs
@@ -1774,11 +1879,11 @@ class OracleSource(SQLAlchemySource):
         - "": Explicitly exclude database from URNs (two-tier: schema.table)
         - str: Use specific database name in URNs (three-tier: database.schema.table)
 
-        This ensures procedure lineage URNs match the URN format of tables/views.
+        This ensures procedure lineage URNs match the URN format of tables/views,
+        including the urn_db_name case, by deriving the database the same way
+        get_identifier does.
         """
-        if self.config.add_database_name_to_urn and self.config.database:
-            return self.config.database
-        return ""
+        return self.config.urn_database_name() or ""
 
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
@@ -2051,7 +2156,9 @@ class OracleSource(SQLAlchemySource):
         sql_config: OracleConfig,
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         """Loop through materialized views in the schema."""
-        if hasattr(inspector, "get_materialized_view_names"):
+        # isinstance, not hasattr: SA 2.0's Inspector has its own
+        # get_materialized_view_names, which doesn't exclude system schemas.
+        if isinstance(inspector, OracleInspectorObjectWrapper):
             mview_names = inspector.get_materialized_view_names(schema=schema)
         else:
             logger.info("Fallback for regular inspector")
@@ -2081,8 +2188,11 @@ class OracleSource(SQLAlchemySource):
     ) -> List[str]:
         """Fallback method to get materialized view names when using regular inspector."""
         try:
-            schema = inspector.dialect.denormalize_name(
-                schema or inspector.dialect.default_schema_name
+            schema_to_denormalize = schema or inspector.dialect.default_schema_name
+            schema = (
+                inspector.dialect.denormalize_name(schema_to_denormalize)
+                if schema_to_denormalize is not None
+                else None
             )
             tables_prefix = self.config.data_dictionary_mode.value
 
@@ -2119,15 +2229,18 @@ class OracleSource(SQLAlchemySource):
         """Process materialized view similar to regular view but with materialized flag."""
         try:
             # Get materialized view definition
-            if hasattr(inspector, "get_materialized_view_definition"):
-                mview_definition = inspector.get_materialized_view_definition(
+            if isinstance(inspector, OracleInspectorObjectWrapper):
+                found_definition = inspector.get_materialized_view_definition(
                     mview_name=mview, schema=schema
                 )
             else:
                 # Fallback for regular inspector
-                mview_definition = self._get_materialized_view_definition_fallback(
+                found_definition = self._get_materialized_view_definition_fallback(
                     inspector=inspector, mview_name=mview, schema=schema
                 )
+            # Like regular views: an unavailable definition is empty, not None
+            # (viewLogic and customProperties require strings).
+            mview_definition = found_definition or ""
 
             description, properties, location_urn = self.get_table_properties(
                 inspector=inspector, schema=schema, table=mview
@@ -2239,8 +2352,11 @@ class OracleSource(SQLAlchemySource):
         """Fallback method to get materialized view definition when using regular inspector."""
         try:
             denormalized_mview_name = inspector.dialect.denormalize_name(mview_name)
-            schema = inspector.dialect.denormalize_name(
-                schema or inspector.dialect.default_schema_name
+            schema_to_denormalize = schema or inspector.dialect.default_schema_name
+            schema = (
+                inspector.dialect.denormalize_name(schema_to_denormalize)
+                if schema_to_denormalize is not None
+                else None
             )
 
             tables_prefix = self.config.data_dictionary_mode.value
@@ -2254,7 +2370,11 @@ class OracleSource(SQLAlchemySource):
                 params["owner"] = schema
                 text += "\nAND owner = :owner"
 
-            result = inspector.bind.execute(sql.text(text), params).scalar()
+            result = (
+                _inspector_connection(inspector)
+                .execute(sql.text(text), params)
+                .scalar()
+            )
             return result
         except Exception as e:
             logger.warning(
@@ -2266,6 +2386,36 @@ class OracleSource(SQLAlchemySource):
         """Create a fresh engine for metadata queries."""
         url = self.config.get_sql_alchemy_url()
         return create_engine(url, **self.config.options)
+
+    def _vsql_query_text(self, row: Union[RowMapping, Mapping[str, Any]]) -> str:
+        """Return the complete statement text for a V$SQL row.
+
+        Prefers sql_fulltext and falls back to sql_text, which Oracle caps at
+        1000 characters. SQLAlchemy's Oracle dialect fetches the CLOB as a string
+        (auto_convert_lobs, on by default); when that is disabled a LOB object
+        arrives and is read here. A failed read falls back to sql_text with a
+        warning so one bad row cannot stop extraction for the whole run.
+
+        Empty optimizer hints are removed before parsing. The aggregator
+        reformats query text before storing it, so the stored text is never
+        byte-identical to what ran in any case.
+        """
+        text = row.get("sql_fulltext")
+        if text is not None and not isinstance(text, str):
+            try:
+                text = text.read()
+            except oracledb.DatabaseError as e:
+                self.report.warning(
+                    title="Could not read full SQL text from V$SQL",
+                    message="Falling back to sql_text, which Oracle caps at 1000 "
+                    "characters; longer statements may fail to parse.",
+                    context=f"sql_id={row.get('sql_id')}",
+                    exc=e,
+                )
+                text = None
+        if not text:
+            text = row.get("sql_text") or ""
+        return _EMPTY_HINT_PATTERN.sub(r"\1 ", text)
 
     def _check_vsql_prerequisites(
         self, engine: sqlalchemy.engine.Engine
@@ -2306,13 +2456,17 @@ class OracleSource(SQLAlchemySource):
 
         try:
             with engine.connect() as conn:
-                inspector = inspect(conn)
-                # Get database name once outside the loop since it doesn't change per row
-                db_name = self.get_db_name(inspector)
-                result = conn.execute(sql.text(VSQL_USAGE_QUERY), params)
+                # The parser fills a missing database from default_db, so it must
+                # be exactly the database component of entity URNs (None when they
+                # are two-part). Anything else, including the name detected via
+                # get_db_name, puts usage on a second, container-less set of URNs.
+                default_db = self.config.urn_database_name()
+                result = conn.execute(sql.text(VSQL_USAGE_QUERY), params).mappings()
 
                 for row in result:
-                    sql_text = row["sql_text"]
+                    sql_text = self._vsql_query_text(row)
+                    if not sql_text:
+                        continue
 
                     if self.config.query_exclude_patterns:
                         should_exclude = False
@@ -2345,7 +2499,7 @@ class OracleSource(SQLAlchemySource):
 
                     yield ObservedQuery(
                         query=sql_text,
-                        default_db=db_name,
+                        default_db=default_db,
                         default_schema=row["parsing_schema_name"],
                         timestamp=timestamp,
                         session_id=f"sql_id:{row['sql_id']}",
@@ -2454,7 +2608,7 @@ class OracleSource(SQLAlchemySource):
         # large tables known at stats collection time from profiling candidates.
         # If stats are not available (NULL), such tables are not filtered and are considered
         # as profiling candidates.
-        cursor = inspector.bind.execute(
+        cursor = _inspector_connection(inspector).execute(
             sql.text(
                 PROFILE_CANDIDATES_QUERY.format(tables_table_name=tables_table_name)
             ),

@@ -287,8 +287,7 @@ class ModeConfig(
             str(BIAssetSubTypes.MODE_QUERY),
         }
 
-    @classmethod
-    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """What contains each kind, outermost first: reports and datasets are
         fetched only for spaces space_pattern keeps, and queries only for the
         reports report_pattern keeps."""
@@ -636,6 +635,10 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 @capability(SourceCapability.LINEAGE_FINE, "Supported by default")
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class ModeSource(StatefulIngestionSourceBase):
     """
     Source that extracts reports and charts from Mode Analytics via REST API.

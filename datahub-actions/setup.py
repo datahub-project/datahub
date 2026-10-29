@@ -91,6 +91,8 @@ plugins: Dict[str, Set[str]] = {
     "term_propagation": set(),
     "snowflake_tag_propagation": {
         f"acryl-datahub[snowflake-slim]{_self_pin}",
+        # snowflake-slim doesn't carry acryl-datahub's SQLAlchemy pin; 2.1 is untested.
+        "sqlalchemy>=2.0.0,<2.1",
     },
     "doc_propagation": set(),
     "observability": {
@@ -103,7 +105,8 @@ plugins: Dict[str, Set[str]] = {
 mypy_stubs = {
     "types-pytz",
     "types-dataclasses",
-    "sqlalchemy-stubs",
+    # No sqlalchemy-stubs: they describe the 1.3 API and shadow SQLAlchemy 2.0's
+    # inline (PEP 561) types.
     "types-setuptools",
     "types-six",
     "types-python-dateutil",
@@ -122,8 +125,12 @@ base_dev_requirements = {
     *base_requirements,
     *framework_common,
     *mypy_stubs,
+    # snowflake_tag_propagation only declares snowflake-slim, which lacks deps that
+    # SnowflakeConfig's imports need (sqlglot, sqlparse). Tests need the full extra.
+    f"acryl-datahub[snowflake]{_self_pin}",
     "coverage>=5.1",
-    "pytest>=6.2.2",
+    # Cap matching metadata-ingestion.
+    "pytest>=6.2.2,<10.0.0",
     "pytest-cov>=2.8.1",
     "pytest-dependency>=0.5.1",
     "pytest-docker>=0.10.3",

@@ -130,7 +130,7 @@ public class PlatformEntityCountsTest {
     assertEquals(term.fieldName(), "_entityType");
     assertEquals(term.value(), "dataset");
     assertTrue(term.caseInsensitive());
-    assertEquals(platformAggField(request), "platform");
+    assertEquals(platformAggField(request), "platform.keyword");
   }
 
   @Test

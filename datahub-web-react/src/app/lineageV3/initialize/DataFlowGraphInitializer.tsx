@@ -2,9 +2,10 @@ import React, { useContext } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 
 import LineageDisplay from '@app/lineageV3/LineageDisplay';
-import { FetchStatus, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
+import { FetchStatus, LINEAGE_FILTER_PAGINATION, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
 import useFetchChildDataJobs from '@app/lineageV3/initialize/useFetchChildDataJobs';
 import useResetLineageGraph from '@app/lineageV3/initialize/useResetLineageGraph';
+import useSearchAcrossLineage from '@app/lineageV3/queries/useSearchAcrossLineage';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -25,13 +26,17 @@ export default function DataFlowGraphInitializer(props: Props) {
 }
 
 /**
- * Initialize lineage node context with all DataJobs part of the DataFlow.
+ * Initialize lineage node context with all DataJobs part of the DataFlow, and the DataFlow's own lineage.
  */
 function useInitializeNodes(urn: string, type: EntityType): boolean {
     const context = useContext(LineageNodesContext);
     useResetLineageGraph(context, urn, type, () => makeInitialNode(urn, type));
 
-    return useFetchChildDataJobs();
+    const childJobsInitialized = useFetchChildDataJobs();
+    const { processed: upstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Upstream);
+    const { processed: downstreamProcessed } = useSearchAcrossLineage(urn, type, context, LineageDirection.Downstream);
+
+    return childJobsInitialized && upstreamProcessed && downstreamProcessed;
 }
 
 function makeInitialNode(urn: string, type: EntityType): LineageEntity {
@@ -44,12 +49,12 @@ function makeInitialNode(urn: string, type: EntityType): LineageEntity {
             [LineageDirection.Downstream]: true,
         },
         fetchStatus: {
-            [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
-            [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+            [LineageDirection.Upstream]: FetchStatus.LOADING,
+            [LineageDirection.Downstream]: FetchStatus.LOADING,
         },
         filters: {
-            [LineageDirection.Upstream]: { facetFilters: new Map() },
-            [LineageDirection.Downstream]: { facetFilters: new Map() },
+            [LineageDirection.Upstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
+            [LineageDirection.Downstream]: { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() },
         },
     };
 }

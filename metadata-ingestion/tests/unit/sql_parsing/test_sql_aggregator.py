@@ -3,7 +3,7 @@ import functools
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -73,6 +73,21 @@ def make_basic_aggregator(store: bool = False) -> SqlParsingAggregator:
     )
 
     return aggregator
+
+
+def test_delete_is_not_counted_as_column_lineage_failure() -> None:
+    aggregator = make_basic_aggregator()
+
+    aggregator.add_observed_query(
+        ObservedQuery(
+            query="delete from foo where a = 1",
+            default_db="dev",
+            default_schema="public",
+        )
+    )
+
+    assert aggregator.report.num_observed_queries_failed == 0
+    assert aggregator.report.num_observed_queries_column_failed == 0
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2528,3 +2543,75 @@ def test_report_serializes_twice_without_raising():
 
         borrower.report.as_obj()
         borrower.report.as_obj()
+
+
+_DAG_A_LABELS = {"airflow-dag": "dag_a", "airflow-task": "task_a"}
+_DAG_B_LABELS = {"airflow-dag": "dag_b", "airflow-task": "task_b"}
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.parametrize(
+    "observed_labels,expected",
+    [
+        pytest.param([None, _DAG_A_LABELS], _DAG_A_LABELS, id="labels_added"),
+        pytest.param(
+            [_DAG_A_LABELS, _DAG_B_LABELS], _DAG_B_LABELS, id="latest_labels_win"
+        ),
+        pytest.param([_DAG_A_LABELS, None], {}, id="unlabeled_run_clears"),
+    ],
+)
+def test_query_custom_properties_from_latest_observation(
+    observed_labels: List[Optional[Dict[str, str]]], expected: Dict[str, str]
+) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    for i, labels in enumerate(observed_labels):
+        aggregator.add_observed_query(
+            ObservedQuery(
+                query="insert into my_db.my_schema.dst select a from my_db.my_schema.src",
+                timestamp=_ts(20 + i),
+                custom_properties=labels,
+            )
+        )
+
+    query_properties = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    ]
+    assert len(query_properties) == 1
+    assert query_properties[0].customProperties == expected
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_known_query_lineage_keeps_observed_custom_properties() -> None:
+    query = "insert into my_db.my_schema.dst select a from my_db.my_schema.src"
+    aggregator = SqlParsingAggregator(
+        platform="bigquery",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    aggregator.add_observed_query(
+        ObservedQuery(query=query, timestamp=_ts(20), custom_properties=_DAG_A_LABELS)
+    )
+    aggregator.add_known_query_lineage(
+        KnownQueryLineageInfo(
+            query_text=query,
+            downstream=DatasetUrn("bigquery", "my_db.my_schema.dst").urn(),
+            upstreams=[DatasetUrn("bigquery", "my_db.my_schema.src").urn()],
+        ),
+        merge_lineage=True,
+    )
+
+    query_properties = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp.aspect, QueryPropertiesClass)
+    ]
+    assert len(query_properties) == 1
+    assert query_properties[0].customProperties == _DAG_A_LABELS

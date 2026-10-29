@@ -1,0 +1,287 @@
+{
+  "metadata": {
+    "adapter_type": "duckdb",
+    "dbt_version": "1.12.6"
+  },
+  "nodes": {
+    "model.contract_fixture.dim_pairs": {
+      "alias": "dim_pairs",
+      "columns": {},
+      "config": {
+        "contract": {
+          "alias_types": true,
+          "enforced": false
+        },
+        "enabled": true,
+        "materialized": "table",
+        "tags": []
+      },
+      "constraints": [],
+      "contract": {
+        "alias_types": true,
+        "checksum": null,
+        "enforced": false
+      },
+      "database": "fixture",
+      "depends_on": {
+        "macros": [],
+        "nodes": []
+      },
+      "description": "",
+      "language": "sql",
+      "meta": {},
+      "name": "dim_pairs",
+      "original_file_path": "models/dim_pairs.sql",
+      "package_name": "contract_fixture",
+      "raw_code": "select 1 as x, 2 as y",
+      "resource_type": "model",
+      "schema": "main",
+      "tags": [],
+      "unique_id": "model.contract_fixture.dim_pairs"
+    },
+    "model.contract_fixture.orders": {
+      "alias": "orders",
+      "columns": {
+        "ID": {
+          "constraints": [
+            {
+              "expression": null,
+              "name": null,
+              "to": null,
+              "to_columns": [],
+              "type": "not_null",
+              "warn_unenforced": true,
+              "warn_unsupported": true
+            }
+          ],
+          "data_type": "integer",
+          "description": "",
+          "name": "ID"
+        },
+        "a_id": {
+          "constraints": [],
+          "data_type": "integer",
+          "description": "",
+          "name": "a_id"
+        },
+        "amount": {
+          "constraints": [
+            {
+              "expression": "amount >= 0",
+              "name": null,
+              "to": null,
+              "to_columns": [],
+              "type": "check",
+              "warn_unenforced": true,
+              "warn_unsupported": true
+            }
+          ],
+          "data_type": "integer",
+          "description": "",
+          "name": "amount"
+        },
+        "b_id": {
+          "constraints": [],
+          "data_type": "integer",
+          "description": "",
+          "name": "b_id"
+        },
+        "customer_id": {
+          "constraints": [
+            {
+              "expression": null,
+              "name": null,
+              "to": "source('raw', 'customers')",
+              "to_columns": [
+                "id"
+              ],
+              "type": "foreign_key",
+              "warn_unenforced": true,
+              "warn_unsupported": true
+            }
+          ],
+          "data_type": "integer",
+          "description": "",
+          "name": "customer_id"
+        }
+      },
+      "config": {
+        "contract": {
+          "alias_types": true,
+          "enforced": true
+        },
+        "enabled": true,
+        "materialized": "table",
+        "tags": []
+      },
+      "constraints": [
+        {
+          "columns": [
+            "id"
+          ],
+          "expression": null,
+          "name": null,
+          "to": null,
+          "to_columns": [],
+          "type": "primary_key",
+          "warn_unenforced": true,
+          "warn_unsupported": true
+        },
+        {
+          "columns": [
+            "b_id",
+            "a_id"
+          ],
+          "expression": null,
+          "name": null,
+          "to": "ref('dim_pairs')",
+          "to_columns": [
+            "y",
+            "x"
+          ],
+          "type": "foreign_key",
+          "warn_unenforced": true,
+          "warn_unsupported": true
+        }
+      ],
+      "contract": {
+        "alias_types": true,
+        "checksum": "b3fd3bd6dbece265e17ce3abebb95bbf773aba99382b8d00c3b07dd470598afd",
+        "enforced": true
+      },
+      "database": "fixture",
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "source.contract_fixture.raw.customers",
+          "model.contract_fixture.dim_pairs"
+        ]
+      },
+      "description": "",
+      "language": "sql",
+      "meta": {},
+      "name": "orders",
+      "original_file_path": "models/orders.sql",
+      "package_name": "contract_fixture",
+      "raw_code": "select 1 as ID, 1 as a_id, 2 as b_id, 1 as customer_id, 10 as amount",
+      "resource_type": "model",
+      "schema": "main",
+      "tags": [],
+      "unique_id": "model.contract_fixture.orders"
+    },
+    "test.contract_fixture.not_null_orders_ID.2c01be0ba6": {
+      "alias": "not_null_orders_ID",
+      "attached_node": "model.contract_fixture.orders",
+      "column_name": "ID",
+      "columns": {},
+      "config": {
+        "enabled": true,
+        "materialized": "test",
+        "tags": [],
+        "where": null
+      },
+      "contract": {
+        "alias_types": true,
+        "checksum": null,
+        "enforced": false
+      },
+      "database": "fixture",
+      "depends_on": {
+        "macros": [
+          "macro.dbt.test_not_null"
+        ],
+        "nodes": [
+          "model.contract_fixture.orders"
+        ]
+      },
+      "description": "",
+      "language": "sql",
+      "meta": {},
+      "name": "not_null_orders_ID",
+      "original_file_path": "models/schema.yml",
+      "package_name": "contract_fixture",
+      "raw_code": "{{ test_not_null(**_dbt_generic_test_kwargs) }}",
+      "resource_type": "test",
+      "schema": "main_dbt_test__audit",
+      "tags": [],
+      "test_metadata": {
+        "kwargs": {
+          "column_name": "ID",
+          "model": "{{ get_where_subquery(ref('orders')) }}"
+        },
+        "name": "not_null",
+        "namespace": null
+      },
+      "unique_id": "test.contract_fixture.not_null_orders_ID.2c01be0ba6"
+    },
+    "test.contract_fixture.relationships_orders_customer_id__id__source_raw_customers_.d0b0775a98": {
+      "alias": "relationships_orders_customer_id__id__source_raw_customers_",
+      "attached_node": "model.contract_fixture.orders",
+      "column_name": "customer_id",
+      "columns": {},
+      "config": {
+        "enabled": true,
+        "materialized": "test",
+        "tags": [],
+        "where": null
+      },
+      "contract": {
+        "alias_types": true,
+        "checksum": null,
+        "enforced": false
+      },
+      "database": "fixture",
+      "depends_on": {
+        "macros": [
+          "macro.dbt.test_relationships",
+          "macro.dbt.get_where_subquery"
+        ],
+        "nodes": [
+          "source.contract_fixture.raw.customers",
+          "model.contract_fixture.orders"
+        ]
+      },
+      "description": "",
+      "language": "sql",
+      "meta": {},
+      "name": "relationships_orders_customer_id__id__source_raw_customers_",
+      "original_file_path": "models/schema.yml",
+      "package_name": "contract_fixture",
+      "raw_code": "{{ test_relationships(**_dbt_generic_test_kwargs) }}",
+      "resource_type": "test",
+      "schema": "main_dbt_test__audit",
+      "tags": [],
+      "test_metadata": {
+        "kwargs": {
+          "column_name": "customer_id",
+          "field": "id",
+          "model": "{{ get_where_subquery(ref('orders')) }}",
+          "to": "source('raw', 'customers')"
+        },
+        "name": "relationships",
+        "namespace": null
+      },
+      "unique_id": "test.contract_fixture.relationships_orders_customer_id__id__source_raw_customers_.d0b0775a98"
+    }
+  },
+  "sources": {
+    "source.contract_fixture.raw.customers": {
+      "columns": {},
+      "config": {
+        "enabled": true
+      },
+      "database": "fixture",
+      "description": "",
+      "identifier": "customers_tbl",
+      "meta": {},
+      "name": "customers",
+      "original_file_path": "models/sources.yml",
+      "package_name": "contract_fixture",
+      "resource_type": "source",
+      "schema": "main",
+      "source_name": "raw",
+      "tags": [],
+      "unique_id": "source.contract_fixture.raw.customers"
+    }
+  }
+}

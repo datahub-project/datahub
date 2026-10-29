@@ -33,6 +33,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.view.DataHubViewDefinition;
 import com.linkedin.view.DataHubViewInfo;
@@ -117,7 +118,7 @@ public class AggregateAcrossEntitiesResolverTest {
         initMockEntityClient(
             ImmutableList.of(Constants.DATASET_ENTITY_NAME),
             "",
-            SearchUtils.combineFilters(baseFilter, viewFilter),
+            FilterUtils.combineFilters(baseFilter, viewFilter),
             0,
             0,
             null,
@@ -158,7 +159,7 @@ public class AggregateAcrossEntitiesResolverTest {
         ImmutableList.of(
             Constants.DATASET_ENTITY_NAME), // Verify that merged entity types were used.
         "",
-        SearchUtils.combineFilters(baseFilter, viewFilter), // Verify that merged filters were used.
+        FilterUtils.combineFilters(baseFilter, viewFilter), // Verify that merged filters were used.
         0,
         0,
         null);

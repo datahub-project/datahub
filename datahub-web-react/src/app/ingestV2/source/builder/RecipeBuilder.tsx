@@ -1,5 +1,6 @@
-import { CodeOutlined, FormOutlined } from '@ant-design/icons';
-import { Typography, message } from 'antd';
+import { Button, Heading, toast } from '@components';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { NotePencil } from '@phosphor-icons/react/dist/csr/NotePencil';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -14,7 +15,6 @@ import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
 import { SnowflakePasswordAuthDeprecationWarning } from '@app/sharedV2/ingestionSources/SnowflakePasswordAuthDeprecationWarning';
-import { Button } from '@src/alchemy-components';
 
 import { IngestionSource } from '@types';
 
@@ -42,10 +42,11 @@ const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     `}
 `;
 
-const Title = styled(Typography.Title)`
+const Title = styled.div`
     display: flex;
     align-items: center;
     justify-content: flex-start;
+    margin-bottom: 0;
 `;
 
 const ButtonsWrapper = styled.div`
@@ -107,7 +108,7 @@ function RecipeBuilder(props: Props) {
             const messageText = (e as any).parsedLine
                 ? t('recipeBuilder.fixLine', { line: (e as any).parsedLine })
                 : t('recipeBuilder.fixRecipe');
-            message.warn(t('recipeBuilder.invalidYaml', { messageText }));
+            toast.warning(t('recipeBuilder.invalidYaml', { messageText }));
         }
     }
 
@@ -120,8 +121,10 @@ function RecipeBuilder(props: Props) {
             {type === CSV && <CSVInfo />}
             {type === SNOWFLAKE && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
             <HeaderContainer>
-                <Title style={{ marginBottom: 0 }} level={5}>
-                    {t('recipeBuilder.detailsTitle', { displayName: sourceConfigs?.displayName ?? '' })}
+                <Title>
+                    <Heading type="h5" size="md" weight="bold">
+                        {t('recipeBuilder.detailsTitle', { displayName: sourceConfigs?.displayName ?? '' })}
+                    </Heading>
                 </Title>
                 <ButtonsWrapper>
                     <StyledButton
@@ -130,8 +133,9 @@ function RecipeBuilder(props: Props) {
                         $isSelected={isViewingForm}
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
+                        icon={{ icon: NotePencil }}
                     >
-                        <FormOutlined /> {t('recipeBuilder.formView')}
+                        {t('recipeBuilder.formView')}
                     </StyledButton>
                     <StyledButton
                         variant="text"
@@ -139,8 +143,9 @@ function RecipeBuilder(props: Props) {
                         $isSelected={!isViewingForm}
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
+                        icon={{ icon: Code }}
                     >
-                        <CodeOutlined /> {t('recipeBuilder.yamlView')}
+                        {t('recipeBuilder.yamlView')}
                     </StyledButton>
                 </ButtonsWrapper>
             </HeaderContainer>

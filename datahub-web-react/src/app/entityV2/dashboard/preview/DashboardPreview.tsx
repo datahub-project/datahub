@@ -10,7 +10,6 @@ import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
-    AccessLevel,
     BrowsePathV2,
     Container,
     DashboardStatsSummary,
@@ -34,7 +33,6 @@ export const DashboardPreview = ({
     name,
     subtype,
     description,
-    access,
     owners,
     tags,
     glossaryTerms,
@@ -66,7 +64,6 @@ export const DashboardPreview = ({
     name?: string;
     subtype?: string | null;
     description?: string | null;
-    access?: AccessLevel | null;
     owners?: Array<Owner> | null;
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
@@ -107,7 +104,6 @@ export const DashboardPreview = ({
             logoUrl={logoUrl || ''}
             platformInstanceId={platformInstanceId}
             platform={platform}
-            qualifier={access}
             owners={owners}
             tags={tags}
             container={container || undefined}

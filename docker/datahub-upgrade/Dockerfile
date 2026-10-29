@@ -44,6 +44,9 @@ FROM ${APP_ENV}-install AS final
 RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 USER datahub
 
+# application-upgrade.yaml holds health checks, the entity client, and cache defaults.
+# An explicit SPRING_PROFILES_ACTIVE still overrides this image default.
+ENV SPRING_PROFILES_ACTIVE=upgrade
 ENV OTEL_EXPORTER_OTLP_MAX_PAYLOAD_SIZE=4194304 \
     OTEL_EXPORTER_OTLP_HTTP_HTTP2_MAX_FRAME_SIZE=16777215 \
     OTEL_EXPORTER_OTLP_HTTP_COMPRESSION=gzip \

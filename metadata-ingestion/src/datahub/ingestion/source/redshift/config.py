@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Annotated, Any, Dict, FrozenSet, List, Optional
+from typing import Annotated, Any, Dict, FrozenSet, List, Optional, Tuple
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -15,18 +15,19 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.ingestion.agent.sql_gate import (
-    INFORMATION_SCHEMA,
-    CatalogScope,
-)
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, pattern_verdict
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import (
+    BasicSQLAlchemyConfig,
+    sql_structural_verdict,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -35,6 +36,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.Logger(__name__)
+
+
+# A view must pass view_pattern, then table_pattern (redshift.py
+# cache_tables_and_views, then _process_view).
+VIEW_FILTER_FIELDS: Tuple[str, ...] = ("view_pattern", "table_pattern")
 
 
 def dataset_name(database: str, schema: str, table: str) -> str:
@@ -323,60 +329,25 @@ class RedshiftConfig(
                 values["options"] = {"connect_args": values["extra_client_options"]}
         return values
 
+    def view_allowed(self, name: str) -> bool:
+        """Whether every pattern in VIEW_FILTER_FIELDS allows view `name`
+        (dataset_name's form)."""
+        return all(getattr(self, field).allowed(name) for field in VIEW_FILTER_FIELDS)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if ctx.kind == DatasetSubTypes.VIEW and ctx.structural is None:
+            for field in VIEW_FILTER_FIELDS:
+                verdict = pattern_verdict(self, field, ctx.target)
+                if not verdict.included:
+                    return verdict
+        return sql_structural_verdict(self, ctx)
+
     @classmethod
-    def probe_catalog_scope(cls) -> CatalogScope:
-        # pg_catalog is named relation by relation here, NOT allowed at schema
-        # level, because Redshift keeps executed SQL in that schema: stl_query
-        # (querytxt), stl_querytext (text) and svl_statementtext (text) sit right
-        # beside the svv_* metadata views.
-        #
-        # An earlier version of this declaration allowed the schema *and* listed
-        # relations, with a comment claiming the list was what kept the query-text
-        # tables out. It was not: permits_path short-circuits on a schema-level
-        # allow, so the list was dead code and all three were readable. Naming
-        # relations only works when the schema is not also allowed.
-        #
-        # The list is derived from redshift/query.py: every catalog relation
-        # ingestion reads for schema shape belongs here, so the probe can see
-        # what the recipe will see. Naming too few is its own failure -- the
-        # first cut omitted pg_database, which list_databases reads, so the
-        # probe could not answer a question ingestion answers routinely.
-        #
-        # Deliberately absent, and the reason each is:
-        #   stl_query, stl_querytext, svl_statementtext -- executed SQL, which
-        #     carries literal values out of users' queries.
-        #   pg_user, pg_user_info, svv_user_info, svl_user_info -- user names
-        #     rather than schema shape.
-        #   stl_insert/delete/scan/load_commits/unload_log,
-        #     svl_query_metrics_summary -- operational history feeding lineage
-        #     and usage, not shape a probe needs to report.
-        return CatalogScope(
-            schemas=frozenset({INFORMATION_SCHEMA}),
-            relations=frozenset(
-                {
-                    # svv_* metadata views
-                    "pg_catalog.svv_table_info",
-                    "pg_catalog.svv_all_schemas",
-                    "pg_catalog.svv_external_schemas",
-                    "pg_catalog.svv_external_tables",
-                    "pg_catalog.svv_external_columns",
-                    "pg_catalog.svv_redshift_databases",
-                    "pg_catalog.svv_redshift_schemas",
-                    "pg_catalog.svv_redshift_tables",
-                    "pg_catalog.svv_redshift_columns",
-                    "pg_catalog.svv_datashares",
-                    "pg_catalog.svv_mv_info",
-                    "pg_catalog.stv_mv_info",
-                    # Postgres-inherited catalog: names, columns, comments and
-                    # dependencies. No statement text in any of these.
-                    "pg_catalog.pg_database",
-                    "pg_catalog.pg_class",
-                    "pg_catalog.pg_class_info",
-                    "pg_catalog.pg_namespace",
-                    "pg_catalog.pg_attribute",
-                    "pg_catalog.pg_attrdef",
-                    "pg_catalog.pg_depend",
-                    "pg_catalog.pg_description",
-                }
-            ),
+    def probe_provider_class(cls) -> type:
+        # Not the inherited SqlAlchemyMetadataProbe: ingestion connects and
+        # enumerates through redshift_connector, not the Inspector.
+        from datahub.ingestion.source.redshift.redshift_probe import (
+            RedshiftMetadataProbe,
         )
+
+        return RedshiftMetadataProbe

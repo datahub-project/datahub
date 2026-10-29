@@ -14,6 +14,9 @@ from wcmatch import pathlib
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    DEFAULT_MAX_ZIP_ENTRY_SIZE,
+)
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 # hide annoying debug errors from py4j
@@ -29,12 +32,14 @@ SUPPORTED_FILE_TYPES: List[str] = [
     "avro",
 ]
 
-# These come from the smart_open library.
+# gz and bz2 come from the smart_open library (streamed, transparent decompression).
+# zip is read with zipfile; only the archive's first supported member is used.
 SUPPORTED_COMPRESSIONS: List[str] = [
     "gz",
     "bz2",
     # We have a monkeypatch on smart_open that aliases .gzip to .gz.
     "gzip",
+    "zip",
 ]
 
 java_to_python_mapping = {
@@ -106,7 +111,7 @@ class PathSpec(ConfigModel):
 
     default_extension: Optional[str] = Field(
         None,
-        description="For files without extension it will assume the specified file type. If it is not set the files without extensions will be skipped.",
+        description="Assume this file type for files where the format cannot be inferred from the file name. This includes files with no extension and files whose apparent extension (the part after the last dot) is not a recognised format (which can happen for file names whose stem contains dots, e.g. ``foo.bar.baz-<hash>.gz``). If unset, such files are skipped.",
     )
 
     table_name: Optional[str] = Field(
@@ -122,7 +127,18 @@ class PathSpec(ConfigModel):
 
     enable_compression: bool = Field(
         True,
-        description="Enable or disable processing compressed files. Currently .gz and .bz files are supported.",
+        description="Enable or disable processing compressed files. Supported formats: .gz, .bz2, and .zip. "
+        "For .zip archives, only the first file with a supported extension is read; archives containing "
+        "multiple files will emit a warning and process only the first matching entry.",
+    )
+
+    max_zip_entry_size: int = Field(
+        DEFAULT_MAX_ZIP_ENTRY_SIZE,
+        ge=1,
+        description="Maximum uncompressed size (in bytes) of a single entry read from a .zip archive. "
+        "Protects against zip-bomb archives that expand to far more than their compressed size and "
+        "could exhaust worker memory. Entries larger than this are skipped with a warning. "
+        "Defaults to 512 MiB.",
     )
 
     sample_files: bool = Field(
@@ -181,39 +197,104 @@ class PathSpec(ConfigModel):
 
         return False
 
-    def allowed(self, path: str, ignore_ext: bool = False) -> bool:
+    def rejection_reason(self, path: str, ignore_ext: bool = False) -> Optional[str]:
+        """The field of this path_spec that drops `path`, or None when it is kept.
+
+        `allowed` is defined as this returning None, so the probe's explanation of
+        a verdict and ingestion's verdict cannot disagree.
+        """
         if self.is_path_hidden(path) and not self.include_hidden_folders:
-            return False
+            return "include_hidden_folders"
 
         if not pathlib.PurePath(path).globmatch(
             self.glob_include, flags=pathlib.GLOBSTAR
         ):
-            return False
+            return "include"
 
         if self.exclude:
             for exclude_path in self.exclude:
                 if pathlib.PurePath(path).globmatch(
                     exclude_path, flags=pathlib.GLOBSTAR
                 ):
-                    return False
+                    return "exclude"
 
         table_name, _ = self.extract_table_name_and_path(path)
         if not self.tables_filter_pattern.allowed(table_name):
+            return "tables_filter_pattern"
+
+        if ignore_ext:
+            return None
+
+        # A glob like ``*`` with no explicit extension matches any file type.
+        if os.path.splitext(path)[1].strip(".").lower() == "*":
+            return None
+
+        fmt = self._recognised_format(path)
+        if fmt is not None:
+            # A recognised format: keep it only if this path_spec wants it.
+            return "file_types" if fmt not in self.file_types else None
+        if self.default_extension is None:
+            # No real format extension (empty, or a fake one from a dotted stem
+            # like ``foo.bar.baz-<hash>``) and no default to fall back on.
+            return "default_extension"
+        if self._is_disabled_compression(path):
+            # A compression suffix while ``enable_compression`` is off: the file
+            # can't be read as its inner format, so the ``default_extension``
+            # fallback must not admit it.
+            return "enable_compression"
+        return None
+
+    def allowed(self, path: str, ignore_ext: bool = False) -> bool:
+        return self.rejection_reason(path, ignore_ext=ignore_ext) is None
+
+    def _is_disabled_compression(self, path: str) -> bool:
+        """True if ``path`` ends in a compression suffix but compression is disabled.
+
+        Such a file cannot be decompressed to read its inner format, so it must not
+        be admitted via the ``default_extension`` fallback in ``allowed()``.
+        """
+        if self.enable_compression:
             return False
+        return os.path.splitext(path)[1].strip(".").lower() in SUPPORTED_COMPRESSIONS
 
-        ext = os.path.splitext(path)[1].strip(".")
+    def _recognised_format(self, path: str) -> Optional[str]:
+        """Return the file's format from its name (compression stripped), or None.
 
-        if not ignore_ext:
-            if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
-                ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".")
+        ``os.path.splitext`` / ``pathlib.suffix`` are purely lexical (everything
+        after the last dot), so file names whose stem contains dots (e.g.
+        ``foo.bar.baz-<hash>.gz``) produce a fake extension that is not a real file
+        format. We only return an extension if it matches one of the supported file
+        types; a compression suffix (e.g. ``.gz``) is stripped first so the inner
+        format is checked. This is the single rule shared by ``allowed()`` (file
+        selection) and ``resolve_format_extension()`` (parser selection), so the two
+        cannot drift.
+        """
+        ext = os.path.splitext(path)[1].strip(".").lower()
+        if self.enable_compression and ext in SUPPORTED_COMPRESSIONS:
+            ext = os.path.splitext(os.path.splitext(path)[0])[1].strip(".").lower()
+        return ext if ext in SUPPORTED_FILE_TYPES else None
 
-            if ext == "":
-                if self.default_extension is None:
-                    return False
-            elif ext != "*" and ext not in self.file_types:
-                return False
+    def resolve_format_extension(self, path: str) -> str:
+        """Resolve the format extension (e.g. ``.json``) for a file name.
 
-        return True
+        Returns the recognised format from the file name, falling back to
+        ``default_extension`` when the name has no recognised format, and ``""``
+        when neither is available so no inferrer is selected. Shared with
+        ``allowed()`` via ``_recognised_format`` so file selection and schema
+        inference agree on the format.
+
+        Behaviour:
+
+        * ``data.json``            -> ``.json``
+        * ``data.json.gz``         -> ``.json`` (compression stripped, inner kept)
+        * ``data.parquet.gz``      -> ``.parquet``
+        * ``data.gz``              -> ``default_extension`` if set, else ``""``
+        * ``data`` (no extension)  -> ``default_extension`` if set, else ``""``
+        * ``foo.bar.baz-<hash>.gz`` -> ``default_extension`` (was ``.baz-<hash>``)
+        * ``foo.bar.baz-<hash>``    -> ``default_extension`` (was ``.baz-<hash>``)
+        """
+        fmt = self._recognised_format(path) or self.default_extension
+        return f".{fmt.lower()}" if fmt else ""
 
     def dir_allowed(self, path: str) -> bool:
         if not path.endswith("/"):
@@ -255,22 +336,26 @@ class PathSpec(ConfigModel):
 
         return True
 
-    def folder_allowed(self, path: str) -> bool:
-        """Filter for folders-only traversal. Applies the folder-relevant rules —
-        hidden-folder skipping and `exclude` — but not the file-extension or table-name
-        checks in `allowed`/`dir_allowed`, since folders-only produces no files or datasets.
-        `is_path_hidden` inspects every path component and `exclude` globs match the full
-        path, so filtering a resolved leaf also drops hidden/excluded ancestors."""
+    def folder_rejection_reason(self, path: str) -> Optional[str]:
+        """As rejection_reason, for folders-only traversal (see folder_allowed)."""
         if self.is_path_hidden(path) and not self.include_hidden_folders:
-            return False
+            return "include_hidden_folders"
         if self.exclude:
             candidate = path.rstrip("/")
             for exclude_path in self.exclude:
                 if pathlib.PurePath(candidate).globmatch(
                     exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
                 ):
-                    return False
-        return True
+                    return "exclude"
+        return None
+
+    def folder_allowed(self, path: str) -> bool:
+        """Filter for folders-only traversal. Applies the folder-relevant rules —
+        hidden-folder skipping and `exclude` — but not the file-extension or table-name
+        checks in `allowed`/`dir_allowed`, since folders-only produces no files or datasets.
+        `is_path_hidden` inspects every path component and `exclude` globs match the full
+        path, so filtering a resolved leaf also drops hidden/excluded ancestors."""
+        return self.folder_rejection_reason(path) is None
 
     @classmethod
     def get_parsable_include(cls, include: str) -> str:

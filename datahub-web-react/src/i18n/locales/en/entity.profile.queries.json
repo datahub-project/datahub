@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "Copy the query",
-    "emptyQueries.noHighlightedQueries": "No highlighted queries yet",
     "queriesTab.addHighlightedQueryButton": "Add Highlighted Query",
     "queriesTab.addHighlightedQueryTooltip": "Add a highlighted query",
     "queriesTab.addUnauthorizedMessage": "You are not authorized to add Queries to this entity.",

@@ -48,7 +48,7 @@ public class AddLinkResolver implements DataFetcher<CompletableFuture<Boolean>> 
               context.getOperationContext(), linkUrl, targetUrn, _entityService);
           try {
 
-            log.debug("Adding Link. input: {}", input.toString());
+            log.debug("Adding Link. input: {}", input);
 
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
             LinkUtils.addLink(

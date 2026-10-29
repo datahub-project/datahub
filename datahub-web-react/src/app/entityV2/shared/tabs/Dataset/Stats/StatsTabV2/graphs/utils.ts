@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
-import { getTimeWindowStart } from '@src/app/shared/time/timeUtils';
+import { getTimeWindowStart } from '@src/app/sharedV2/time/timeUtils';
 import { DateInterval, TimeRange } from '@src/types.generated';
 import dayjs from '@utils/dayjs';
 

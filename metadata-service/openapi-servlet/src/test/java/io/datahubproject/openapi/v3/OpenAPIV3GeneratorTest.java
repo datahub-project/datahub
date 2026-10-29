@@ -36,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -808,6 +809,79 @@ public class OpenAPIV3GeneratorTest {
                 assertTrue(hasNull, schemaName + "." + propName + " oneOf must include null type");
               });
     }
+  }
+
+  @Test
+  public void testPegasusUnionWireFormat() {
+    Schema<?> values = schemaProperty("StructuredPropertyValueAssignment", "values");
+    assertEquals(values.getType(), "array", "values must stay an array");
+    Map<String, Schema<?>> valueMembers = unionMemberSchemas(values.getItems());
+    assertEquals(valueMembers.keySet(), Set.of("string", "double"));
+    assertEquals(valueMembers.get("string").getType(), "string");
+    assertEquals(valueMembers.get("double").getType(), "number");
+    assertEquals(valueMembers.get("double").getFormat(), "double");
+
+    Schema<?> cost = schemaProperty("Cost", "cost");
+    Map<String, Schema<?>> costMembers = unionMemberSchemas(cost);
+    assertEquals(costMembers.keySet(), Set.of("costId", "costCode"));
+    assertEquals(costMembers.get("costId").getType(), "number");
+    assertEquals(costMembers.get("costId").getFormat(), "double");
+    assertEquals(costMembers.get("costCode").getType(), "string");
+
+    Schema<?> hyperParameters = schemaProperty("MLModelProperties", "hyperParameters");
+    Map<String, Schema<?>> hyperMembers = unionMemberSchemas(mapValueSchema(hyperParameters));
+    assertEquals(hyperMembers.keySet(), Set.of("string", "int", "float", "double", "boolean"));
+    assertEquals(hyperMembers.get("string").getType(), "string");
+    assertEquals(hyperMembers.get("int").getType(), "integer");
+    assertEquals(hyperMembers.get("int").getFormat(), "int32");
+    assertEquals(hyperMembers.get("float").getType(), "number");
+    assertEquals(hyperMembers.get("float").getFormat(), "float");
+    assertEquals(hyperMembers.get("double").getType(), "number");
+    assertEquals(hyperMembers.get("double").getFormat(), "double");
+    assertEquals(hyperMembers.get("boolean").getType(), "boolean");
+  }
+
+  private Schema<?> schemaProperty(String schemaName, String propertyName) {
+    Schema<?> schema = openAPI.getComponents().getSchemas().get(schemaName);
+    assertNotNull(schema, schemaName + " schema must exist");
+    Map<String, Schema> properties = schema.getProperties();
+    assertNotNull(properties, schemaName + " must have properties");
+    Schema<?> property = properties.get(propertyName);
+    assertNotNull(property, schemaName + "." + propertyName + " must exist");
+    return property;
+  }
+
+  private Map<String, Schema<?>> unionMemberSchemas(Schema<?> oneOfSchema) {
+    assertNotNull(oneOfSchema, "union schema must exist");
+    assertNotNull(oneOfSchema.getOneOf(), "union schema must be oneOf");
+    Map<String, Schema<?>> members = new HashMap<>();
+    for (Schema<?> option : oneOfSchema.getOneOf()) {
+      if ("null".equals(option.getType())) {
+        continue;
+      }
+      assertEquals(option.getType(), "object", "each union member must be an object");
+      Map<String, Schema> properties = option.getProperties();
+      assertNotNull(properties, "each union member must have properties");
+      assertEquals(properties.size(), 1, "each union member must have exactly one property");
+      Map.Entry<String, Schema> entry = properties.entrySet().iterator().next();
+      members.put(entry.getKey(), entry.getValue());
+    }
+    return members;
+  }
+
+  private Schema<?> mapValueSchema(Schema<?> property) {
+    Schema<?> objectSchema = property;
+    if (property.getOneOf() != null) {
+      objectSchema =
+          property.getOneOf().stream()
+              .filter(schema -> schema.getAdditionalProperties() instanceof Schema)
+              .findFirst()
+              .orElse(null);
+    }
+    assertNotNull(objectSchema, "map schema must exist");
+    Object additional = objectSchema.getAdditionalProperties();
+    assertTrue(additional instanceof Schema, "map values must be a schema");
+    return (Schema<?>) additional;
   }
 
   private JsonSchema loadOpenAPI31Schema(JsonSchemaFactory schemaFactory) throws Exception {

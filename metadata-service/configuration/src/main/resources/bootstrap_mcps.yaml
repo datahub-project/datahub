@@ -13,7 +13,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/root-user.yaml"
 
     - name: data-platforms
-      version: v19
+      version: v20
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/data-platforms.yaml"
@@ -31,7 +31,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/ownership-types.yaml"
 
     - name: lifecycle-stages
-      version: v2
+      version: v3
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/lifecycle-stages.yaml"
@@ -53,6 +53,12 @@ bootstrap:
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/page-templates.yaml"
+
+    - name: search-templates
+      version: v10
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/search-templates.yaml"
 
     # Ingestion Recipes
     - name: ingestion-datahub-gc

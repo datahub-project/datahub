@@ -1,8 +1,16 @@
-from typing import Dict, List
+import pathlib
+import re
+from typing import Callable, Dict, List
 
 import pytest
 
-from datahub.ingestion.agent.recipe import scaffold, validate_recipe
+from datahub.cli.recipe_cli import resolve_probe_recipe
+from datahub.ingestion.agent.recipe import (
+    RecipeValidation,
+    scaffold,
+    validate_recipe,
+)
+from datahub.ingestion.agent.secrets import MappingResolver
 
 
 def _require_connector(source_type: str) -> None:
@@ -61,6 +69,92 @@ def test_validate_ref_secret_no_warning():
     warnings = result["warnings"]
     assert isinstance(warnings, list)
     assert not any("plaintext" in w.lower() for w in warnings)
+
+
+def _pg_with_password(password: str) -> Dict[str, object]:
+    return {
+        "source": {
+            "type": "postgres",
+            "config": {
+                "host_port": "h:5432",
+                "database": "d",
+                "username": "u",
+                "password": password,
+            },
+        }
+    }
+
+
+def test_a_reference_leading_the_value_is_not_a_plaintext_secret(monkeypatch):
+    """Ingestion resolves `$NAME` when it starts the value, so validate must
+    not tell the caller to move it into a ${REF}."""
+    _require_connector("postgres")
+    monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
+    result = validate_recipe(_pg_with_password("$PROBE_T_PG_PW"))
+    assert result == {"valid": True, "errors": [], "warnings": []}
+
+
+def test_a_dollar_inside_the_value_is_plaintext(monkeypatch):
+    """Ingestion leaves `pre-$NAME` as text, so it is the secret itself."""
+    _require_connector("postgres")
+    monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
+    result = validate_recipe(_pg_with_password("pre-$PROBE_T_PG_PW"))
+    assert result["valid"]
+    assert any("'password' contains" in w for w in result["warnings"])
+
+
+def _pg_with(extra: Dict[str, object]) -> Dict[str, object]:
+    recipe = _pg_with_password("${PROBE_T_PG_PW}")
+    source = recipe["source"]
+    assert isinstance(source, dict)
+    source["config"] = {**source["config"], **extra}
+    return recipe
+
+
+def _warnings_naming(result: RecipeValidation, path: str) -> List[str]:
+    return [w for w in result["warnings"] if f"'{path}'" in w]
+
+
+@pytest.mark.parametrize(
+    ("extra", "path"),
+    [
+        ({"host_port": "${gms.server}"}, "host_port"),
+        # Unbraced, which ingestion expands only at the start of a value.
+        ({"host_port": "$gms.server"}, "host_port"),
+        (
+            {"options": {"connect_args": {"application_name": "pre-${gms.server}"}}},
+            "options.connect_args.application_name",
+        ),
+        ({"schema_pattern": {"allow": ["${a.b}"]}}, "schema_pattern.allow[0]"),
+    ],
+)
+def test_a_reference_naming_a_dotted_path_is_warned_about_by_path(
+    monkeypatch: pytest.MonkeyPatch, extra: Dict[str, object], path: str
+) -> None:
+    """Ingestion reads `${gms.server}` as `${gms}` plus a modifier and
+    substitutes an empty string, so the caller is told where, never what."""
+    _require_connector("postgres")
+    monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
+    result = validate_recipe(_pg_with(extra))
+    named = _warnings_naming(result, path)
+    assert len(named) == 1, result["warnings"]
+    assert "gms.server" not in named[0]
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["${DATAHUB_GMS_URL}", "${PROBE_T_UNSET:-a.b}", "a.b", "x $gms.server"],
+)
+def test_no_dotted_path_warning_without_a_dotted_name(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    """A dot only in a default, or in literal text, reads as written."""
+    _require_connector("postgres")
+    monkeypatch.setenv("PROBE_T_PG_PW", "pw-from-env")
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://gms:8080")
+    monkeypatch.delenv("PROBE_T_UNSET", raising=False)
+    result = validate_recipe(_pg_with({"host_port": value}))
+    assert _warnings_naming(result, "host_port") == []
 
 
 def test_validate_bad_config_reports_errors():
@@ -130,7 +224,9 @@ def test_scaffold_does_not_overwrite_a_connectors_deny_defaults(source_type, fie
     )
     # And the connector's default really does carry denies worth keeping,
     # so the assertion above is protecting something.
-    model_field = config_class_for(source_type).model_fields[field]
+    config_cls = config_class_for(source_type)
+    assert config_cls is not None
+    model_field = config_cls.model_fields[field]
     default = model_field.get_default(call_default_factory=True)
     assert default.deny, f"{source_type}.{field} has no deny default"
 
@@ -290,20 +386,14 @@ def _kafka(consumer_config):
     }
 
 
-def _warnings_of(result: Dict[str, object]) -> List[str]:
-    got = result["warnings"]
-    assert isinstance(got, list)
-    return got
-
-
-def _nested_warnings(result: Dict[str, object]) -> List[str]:
-    return [w for w in _warnings_of(result) if "sit under" in w]
+def _nested_warnings(result: RecipeValidation) -> List[str]:
+    return [w for w in result["warnings"] if "sit under" in w]
 
 
 def test_a_correct_kafka_recipe_is_not_told_it_holds_a_plaintext_secret():
     """`sasl.mechanism: PLAIN` is a mechanism name, not a credential.
 
-    The detector reused _SENSITIVE_KEY_HINTS, which is a REDACTION denylist:
+    The detector reused SENSITIVE_KEY_HINTS, which is a REDACTION denylist:
     masking everything under a `sasl`-ish key is the right call on the way out,
     because over-masking is safe. Reading the same list as a classifier is not
     -- `sasl.mechanism` matches the `sasl` hint, so a recipe that correctly
@@ -311,18 +401,20 @@ def test_a_correct_kafka_recipe_is_not_told_it_holds_a_plaintext_secret():
     plaintext secret, and the only fix available to the author is to stop
     setting a mandatory field.
     """
+    _require_connector("kafka")
     result = validate_recipe(
         _kafka({"sasl.mechanism": "PLAIN", "sasl.password": "${KAFKA_PASSWORD}"})
     )
-    assert _nested_warnings(result) == [], _warnings_of(result)
+    assert _nested_warnings(result) == [], result["warnings"]
 
 
 def test_a_nested_plaintext_secret_is_still_reported():
     """The converse, so the narrowing cannot become "detect nothing"."""
+    _require_connector("kafka")
     result = validate_recipe(
         _kafka({"sasl.mechanism": "PLAIN", "sasl.password": _PLAINTEXT})
     )
-    assert len(_nested_warnings(result)) == 1, _warnings_of(result)
+    assert len(_nested_warnings(result)) == 1, result["warnings"]
     assert "1 plaintext secret" in _nested_warnings(result)[0]
 
 
@@ -346,9 +438,9 @@ def test_a_top_level_plaintext_secret_is_reported_once_not_twice():
             }
         }
     )
-    named = [w for w in _warnings_of(result) if "'password' contains" in w]
-    assert len(named) == 1, _warnings_of(result)
-    assert _nested_warnings(result) == [], _warnings_of(result)
+    named = [w for w in result["warnings"] if "'password' contains" in w]
+    assert len(named) == 1, result["warnings"]
+    assert _nested_warnings(result) == [], result["warnings"]
 
 
 def test_an_unreadable_datahubenv_does_not_crash_validate(tmp_path, monkeypatch):
@@ -391,3 +483,208 @@ def test_an_unreadable_datahubenv_does_not_crash_validate(tmp_path, monkeypatch)
     assert isinstance(errors, list)
     assert any("NO_SUCH_REF" in str(e) for e in errors), errors
     assert not any("yaml" in str(e).lower() for e in errors), errors
+
+
+def _git_info(deploy_key: str) -> Dict[str, object]:
+    return {"repo": "o/r", "deploy_key": deploy_key}
+
+
+@pytest.mark.parametrize(
+    "source_type, config, path",
+    [
+        (
+            "abs",
+            {"azure_config": {"connection_string": _PLAINTEXT}},
+            "azure_config.connection_string",
+        ),
+        (
+            "excel",
+            {"azure_config": {"connection_string": _PLAINTEXT}},
+            "azure_config.connection_string",
+        ),
+        ("lookml", {"git_info": _git_info(_PLAINTEXT)}, "git_info.deploy_key"),
+        (
+            "lookml",
+            {"project_dependencies": {"dep": _git_info(_PLAINTEXT)}},
+            "project_dependencies[dep].deploy_key",
+        ),
+        ("odcs", {"git_info": _git_info(_PLAINTEXT)}, "git_info.deploy_key"),
+        ("sqlmesh", {"git_info": _git_info(_PLAINTEXT)}, "git_info.deploy_key"),
+    ],
+)
+def test_a_plaintext_secret_in_a_nested_config_block_is_reported_by_path(
+    source_type: str, config: Dict[str, object], path: str
+) -> None:
+    """SecretStr fields in nested blocks, under keys no name hint matches: the
+    redactor masks them, so the warning that asks for a ${REF} has to see them
+    too, and say where they are."""
+    _require_connector(source_type)
+    result = validate_recipe({"source": {"type": source_type, "config": config}})
+    found = result["warnings"]
+    assert any(path in w and "plaintext secret" in w for w in found), found
+    assert not any(_PLAINTEXT in w for w in found)
+
+
+def test_a_referenced_secret_in_a_nested_config_block_is_not_reported() -> None:
+    _require_connector("lookml")
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "lookml",
+                "config": {"git_info": _git_info("${LOOKML_DEPLOY_KEY}")},
+            }
+        }
+    )
+    assert not any("git_info.deploy_key" in w for w in result["warnings"])
+
+
+@pytest.mark.parametrize(
+    "deploy_key",
+    [
+        _PLAINTEXT,
+        # A key on one line with escaped newlines, which deploy_key's validator
+        # rewrites into real ones: still the value the recipe spells.
+        _PLAINTEXT + "\\n" + _PLAINTEXT,
+    ],
+)
+def test_a_plaintext_secret_under_a_renamed_field_is_reported(deploy_key: str) -> None:
+    """github_info is renamed into git_info by validation, so only the
+    validated config holds its deploy_key under a SecretStr field."""
+    _require_connector("lookml")
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "github_info": _git_info(deploy_key),
+                    "connection_to_platform_map": {"c": "postgres"},
+                    "project_name": "p",
+                },
+            }
+        }
+    )
+    found = result["warnings"]
+    assert any(
+        "'git_info.deploy_key' contains a plaintext secret" in w for w in found
+    ), found
+    assert not any(_PLAINTEXT in w for w in found)
+
+
+_KEY_FILE_CONTENT = "held-in-a" + "-deploy-key-file"
+
+
+def _key_file_info(path: str) -> Dict[str, object]:
+    return {"repo": "o/r", "deploy_key_file": path}
+
+
+@pytest.mark.parametrize(
+    "source_type, config_for",
+    [
+        (
+            "lookml",
+            lambda key: {
+                "git_info": _key_file_info(key),
+                "connection_to_platform_map": {"c": "postgres"},
+                "project_name": "p",
+            },
+        ),
+        (
+            "lookml",
+            lambda key: {
+                "project_dependencies": {"dep": _key_file_info(key)},
+                "connection_to_platform_map": {"c": "postgres"},
+                "project_name": "p",
+                "base_folder": "/tmp",
+            },
+        ),
+        ("odcs", lambda key: {"path": "/tmp", "git_info": _key_file_info(key)}),
+        ("sqlmesh", lambda key: {"git_info": _key_file_info(key)}),
+    ],
+)
+def test_a_deploy_key_read_from_its_file_is_not_reported_as_plaintext(
+    source_type: str,
+    config_for: Callable[[str], Dict[str, object]],
+    tmp_path: pathlib.Path,
+) -> None:
+    """deploy_key_file is the recommended form. Its validator reads the key
+    into deploy_key, so the validated config holds a value the recipe never
+    spells: no plaintext to move into a ${REF}, though it is still masked."""
+    _require_connector(source_type)
+    key_file = tmp_path / "deploy_key"
+    key_file.write_text(_KEY_FILE_CONTENT)
+    recipe: Dict[str, object] = {
+        "source": {"type": source_type, "config": config_for(str(key_file))}
+    }
+
+    result = validate_recipe(recipe)
+
+    assert result["valid"], result
+    assert not any("plaintext" in w for w in result["warnings"]), result
+    _, _, secret_values = resolve_probe_recipe(recipe)
+    assert _KEY_FILE_CONTENT in secret_values
+
+
+def _renamed_lookml(**config: object) -> Dict[str, object]:
+    return {
+        "source": {
+            "type": "lookml",
+            "config": {
+                "connection_to_platform_map": {"c": "postgres"},
+                "project_name": "p",
+                **config,
+            },
+        }
+    }
+
+
+def test_a_reference_elsewhere_does_not_hide_a_plaintext_secret() -> None:
+    """A ${REF} under another key resolving to the same string does not make
+    the renamed field's literal any less plaintext, and the referenced path
+    is not the one reported."""
+    _require_connector("lookml")
+    result = validate_recipe(
+        _renamed_lookml(
+            github_info=_git_info(_PLAINTEXT),
+            project_dependencies={"dep": _git_info("${DEP_KEY}")},
+        ),
+        [MappingResolver({"DEP_KEY": _PLAINTEXT})],
+    )
+    found = result["warnings"]
+    assert any(
+        "'git_info.deploy_key' contains a plaintext secret" in w for w in found
+    ), found
+    assert not any("project_dependencies" in w for w in found), found
+
+
+def test_a_composed_reference_under_a_renamed_field_is_not_plaintext() -> None:
+    _require_connector("lookml")
+    result = validate_recipe(
+        _renamed_lookml(github_info=_git_info("${KEY_HEAD}${KEY_TAIL}")),
+        [MappingResolver({"KEY_HEAD": "abcd", "KEY_TAIL": "efgh"})],
+    )
+    assert not any("deploy_key" in w for w in result["warnings"])
+
+
+def test_each_suggested_environment_variable_is_named_once() -> None:
+    """Two dependency keys can spell one variable name; one variable bound to
+    two different deploy keys would hand one of them the wrong key."""
+    _require_connector("lookml")
+    result = validate_recipe(
+        {
+            "source": {
+                "type": "lookml",
+                "config": {
+                    "project_dependencies": {
+                        "foo.bar": _git_info(_PLAINTEXT + "-one"),
+                        "foo-bar": _git_info(_PLAINTEXT + "-two"),
+                    },
+                    "connection_to_platform_map": {"c": "postgres"},
+                    "project_name": "p",
+                    "base_folder": "/tmp",
+                },
+            }
+        }
+    )
+    exports = re.findall(r"export (\w+)=", " ".join(result["warnings"]))
+    assert len(exports) == 2, result["warnings"]
+    assert len(set(exports)) == 2, exports

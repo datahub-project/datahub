@@ -1,6 +1,7 @@
-import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined } from '@ant-design/icons';
-import { Popover, Tooltip } from '@components';
-import { Dropdown } from 'antd';
+import { Dropdown, Popover, Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -8,7 +9,7 @@ import styled from 'styled-components';
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
 import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
-import { Direction } from '@src/app/lineage/types';
+import { Direction } from '@src/app/lineageV3/types';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -114,7 +115,7 @@ export default function ManageLineageMenuForImpactAnalysis({
                               overlayStyle={isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
                           >
                               <MenuItemContent data-testid="edit-upstream-lineage">
-                                  <ArrowUpOutlined />
+                                  <ArrowUp size={14} />
                                   &nbsp;{t('manageLineage.editUpstream')}
                               </MenuItemContent>
                           </Popover>
@@ -135,7 +136,7 @@ export default function ManageLineageMenuForImpactAnalysis({
                               overlayStyle={isDownstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
                           >
                               <MenuItemContent data-testid="edit-downstream-lineage">
-                                  <ArrowDownOutlined />
+                                  <ArrowDown size={14} />
                                   &nbsp;{t('manageLineage.editDownstream')}
                               </MenuItemContent>
                           </Popover>
@@ -155,7 +156,7 @@ export default function ManageLineageMenuForImpactAnalysis({
                         menu={{ items }}
                         trigger={['click']}
                     >
-                        {menuIcon || <MoreOutlined style={{ fontSize: 18 }} />}
+                        {menuIcon || <DotsThreeVertical size={18} weight="bold" />}
                     </Dropdown>
                 </div>
             </Tooltip>

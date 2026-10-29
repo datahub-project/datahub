@@ -1,10 +1,8 @@
 import logging
-import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Protocol
 
 import jpype  # type: ignore[import-untyped]
-from jdk4py import JAVA_HOME
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.informix.config import InformixSourceConfig
@@ -25,6 +23,7 @@ from datahub.ingestion.source.informix.models import (
     InformixForeignKey,
     InformixTable,
 )
+from datahub.utilities.java_runtime import prepare_jvm_settings
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +95,8 @@ class InformixClient:
     def __init__(self, config: InformixSourceConfig) -> None:
         jars = resolve_driver_jars(config)
 
-        os.environ.setdefault("JAVA_HOME", str(JAVA_HOME))
-
         if not jpype.isJVMStarted():
-            jpype.startJVM(classpath=jars)
+            jpype.startJVM(*prepare_jvm_settings(), classpath=jars)
         else:
             for jar in jars:
                 jpype.addClassPath(jar)
