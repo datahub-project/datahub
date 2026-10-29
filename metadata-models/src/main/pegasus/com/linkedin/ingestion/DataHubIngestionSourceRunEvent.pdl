@@ -19,14 +19,21 @@ import com.linkedin.timeseries.TimeseriesAspectBase
 record DataHubIngestionSourceRunEvent includes TimeseriesAspectBase {
 
   /**
-   * The execution request (run) this event reports on.
+   * The execution request (run) this event reports on. Requests are cleaned up after a retention
+   * period, so the request may no longer exist.
    */
   @TimeseriesField = {}
+  @UrnValidation = {
+    "exist": false,
+    "strict": true,
+    "entityTypes": [ "dataHubExecutionRequest" ]
+  }
   executionRequest: Urn
 
   /**
    * Time at which the execution request was created, as epoch at UTC in milliseconds.
    */
+  @TimeseriesField = {}
   @Searchable = {
     "fieldName": "lastRunRequestedAtMillis",
     "fieldType": "DATETIME",
@@ -49,7 +56,8 @@ record DataHubIngestionSourceRunEvent includes TimeseriesAspectBase {
 
   /**
    * Request time of the source's most recent successful run as of this event: this run's
-   * requestedAtMillis on a SUCCESS event, otherwise carried over from the previous event.
+   * requestedAtMillis on a SUCCESS event, otherwise carried over from the previous event. A
+   * snapshot for the source's search document, so it is not indexed in the run history.
    */
   @Searchable = {
     "fieldName": "lastSuccessfulRunRequestedAtMillis",
@@ -60,7 +68,8 @@ record DataHubIngestionSourceRunEvent includes TimeseriesAspectBase {
 
   /**
    * Request time of the source's most recent FAILURE run as of this event: this run's
-   * requestedAtMillis on a FAILURE event, otherwise carried over from the previous event.
+   * requestedAtMillis on a FAILURE event, otherwise carried over from the previous event. A
+   * snapshot for the source's search document, so it is not indexed in the run history.
    */
   @Searchable = {
     "fieldName": "lastFailedRunRequestedAtMillis",

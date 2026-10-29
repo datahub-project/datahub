@@ -473,8 +473,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     }
     for (OrderedSearchFields.Update update : orderedUpdates) {
       if (fillTarget != null) {
-        elasticSearchService.applyScriptUpdateByIndexName(
-            opContext, fillTarget, docId, update.script(), update.params(), update.upsert());
+        applyOrderedUpdates(opContext, fillTarget, docId, List.of(update));
       } else {
         elasticSearchService.applyScriptUpdateBySearchGroup(
             opContext, indexKey, docId, update.script(), update.params(), update.upsert());
@@ -508,9 +507,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             ? mirrorIntoFillTarget(
                 opContext,
                 indexKey,
-                target ->
-                    elasticSearchService.upsertDocumentByIndexName(
-                        opContext, target, finalDocument, docId))
+                target -> {
+                  elasticSearchService.upsertDocumentByIndexName(
+                      opContext, target, finalDocument, docId);
+                  applyOrderedUpdates(opContext, target, docId, orderedUpdates);
+                })
             : Optional.empty();
 
     rollbackCopy(
@@ -519,15 +520,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         oldBackingIndex -> {
           elasticSearchService.upsertDocumentByIndexName(
               opContext, oldBackingIndex, finalDocument, docId);
-          for (OrderedSearchFields.Update update : orderedUpdates) {
-            elasticSearchService.applyScriptUpdateByIndexName(
-                opContext,
-                oldBackingIndex,
-                docId,
-                update.script(),
-                update.params(),
-                update.upsert());
-          }
+          applyOrderedUpdates(opContext, oldBackingIndex, docId, orderedUpdates);
           for (String runId : distinctRunIds) {
             elasticSearchService.appendRunIdByIndexName(
                 opContext, oldBackingIndex, docId, urn, runId);
@@ -550,7 +543,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     for (MCLItem event : events) {
       String aspectName = event.getAspectSpec().getName();
       if (!OrderedSearchFields.isOrdered(aspectName)
-          || event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE) {
+          || event.getChangeType() == ChangeType.DELETE) {
         continue;
       }
       ObjectNode eventDocument = JsonNodeFactory.instance.objectNode();
@@ -562,6 +555,17 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       OrderedSearchFields.split(aspectName, combinedDocument);
     }
     return updates;
+  }
+
+  private void applyOrderedUpdates(
+      @Nonnull OperationContext opContext,
+      @Nonnull String indexName,
+      @Nonnull String docId,
+      @Nonnull List<OrderedSearchFields.Update> updates) {
+    for (OrderedSearchFields.Update update : updates) {
+      elasticSearchService.applyScriptUpdateByIndexName(
+          opContext, indexName, docId, update.script(), update.params(), update.upsert());
+    }
   }
 
   /**
