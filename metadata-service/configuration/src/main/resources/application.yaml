@@ -1201,6 +1201,7 @@ elasticsearch:
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or Elasticsearch >= 8. Regardless of this flag's value, PIT will be created for sliced scrolls.
+    hideNonPrimarySiblings: ${ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS:false} # Hide non-primary dataset siblings from search, autocomplete and browse so a sibling group appears once. Needs the siblingsPrimary index field populated (reindex datasets after upgrading).
     # Defines the behavior of quoted searches, do they apply weights or exclude results
     exactMatch:
       exclusive: ${ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE:false} # if false will only apply weights, if true will exclude non-exact
@@ -2099,6 +2100,7 @@ featureFlags:
   entityHealthBatchLoadEnabled: ${ENTITY_HEALTH_BATCH_LOAD_ENABLED:true} # If enabled, the entity `health` field uses the batch DataLoader (batches incident, assertion-run and test-result fetches across a request); disable to revert to per-entity resolution
   datasetStatsSummaryBatchLoadEnabled: ${DATASET_STATS_SUMMARY_BATCH_LOAD_ENABLED:true} # If enabled, Dataset.statsSummary uses the batch aggregation DataLoader (batches usage aggregations across a request); disable to revert to per-dataset queries
   siblingsSearchBatchLoadEnabled: ${SIBLINGS_SEARCH_BATCH_LOAD_ENABLED:true} # If enabled, Dataset.siblingsSearch uses the batch DataLoader (one search per chunk of datasets instead of one per dataset); disable to revert to per-dataset searches
+  lineageCountOnlyEnabled: ${LINEAGE_COUNT_ONLY_ENABLED:false} # If enabled, lineage requests that select only totals (search cards, sidebars) are answered with a single count aggregation over the entity and its siblings instead of walking every sibling's edges
   entityExistsBatchLoadEnabled: ${ENTITY_EXISTS_BATCH_LOAD_ENABLED:true} # If enabled, the entity `exists` field uses the batch DataLoader (one primary-store read per request instead of one per row); disable to revert to per-entity reads
   parentNodesBatchLoadEnabled: ${PARENT_NODES_BATCH_LOAD_ENABLED:true} # If enabled, `parentNodes` uses the batch DataLoader (walks ancestors concurrently, then one batchGetV2 for all ancestors in the request); disable to revert to per-entity resolution
   parentContainersBatchLoadEnabled: ${PARENT_CONTAINERS_BATCH_LOAD_ENABLED:true} # If enabled, `parentContainers` uses the batch DataLoader (walks ancestors concurrently, then one batchGetV2 for all ancestors in the request); disable to revert to per-entity resolution
