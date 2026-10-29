@@ -74,20 +74,27 @@ def reconcile_spark_lineage(
         writes.append(output)
         reads.extend(inputs)
     # An intermediate table written by this notebook can be a later job's input.
-    sources_pool = reads + writes
+    run_pool = reads + writes
 
     narrowed: Dict[SparkTableRef, Set[SparkTableRef]] = {}
     for target, sources in code_lineage.items():
         outputs = _resolve(target, writes, normalize)
         if not outputs:
             continue
-        resolved_sources: List[SparkTableRef] = []
-        for source in sources:
-            resolved_sources.extend(_resolve(source, sources_pool, normalize))
         for output in outputs:
-            narrowed.setdefault(output, set()).update(
-                ref for ref in resolved_sources if ref != output
-            )
+            # The source text names a table, not its lakehouse. Look among the
+            # tables this output's plans read first: matching `orders` against
+            # the whole run would also pick up another lakehouse's `orders`,
+            # an edge no plan recorded.
+            output_pool = list(execution.get(output, ())) + writes
+            resolved: Set[SparkTableRef] = set()
+            for source in sources:
+                resolved.update(
+                    _resolve(source, output_pool, normalize)
+                    or _resolve(source, run_pool, normalize)
+                )
+            resolved.discard(output)
+            narrowed.setdefault(output, set()).update(resolved)
 
     reconciled = {output: set(inputs) for output, inputs in execution.items()}
     for output, inputs in narrowed.items():

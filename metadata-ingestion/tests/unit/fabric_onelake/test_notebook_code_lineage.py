@@ -312,3 +312,26 @@ def test_code_reconciliation_is_off_unless_enabled() -> None:
         workspace_id=WS, item_id=LH, table="products", schema="silver"
     )
     assert products.to_urn("PROD", None) in (io.inputDatasets or [])
+
+
+def test_reconcile_does_not_add_a_same_named_table_from_another_lakehouse() -> None:
+    other_lh = "44444444-4444-4444-4444-444444444444"
+    dim_user = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="dim_user", schema="gold"
+    )
+    other = SparkTableRef(workspace_id=WS, item_id=LH, table="other", schema="gold")
+    orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
+    other_orders = SparkTableRef(
+        workspace_id=WS, item_id=other_lh, table="orders", schema="silver"
+    )
+    execution = {dim_user: {orders}, other: {other_orders}}
+    code = {
+        CodeTable(table="dim_user", schema="gold"): {
+            CodeTable(table="orders", schema="silver")
+        }
+    }
+
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name)
+
+    assert reconciled[dim_user] == {orders}
+    assert reconciled[other] == {other_orders}
