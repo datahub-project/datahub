@@ -5,7 +5,7 @@ import os
 import os.path
 import platform
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
@@ -387,18 +387,44 @@ class SnowflakeV2Source(
             [] if secondary_roles_str == "" else secondary_roles_str.split(",")
         )
 
-        roles = [current_role] + secondary_roles
+        roles: List[str] = []
+        seen_roles: Set[str] = set()
 
+        def add_role(role_name: str, *, already_rendered: bool = False) -> None:
+            # Roles are tracked in their quoted form. current_role() and
+            # current_secondary_roles() report raw names while `show grants` reports
+            # them quoted, so without normalizing the same role would be visited
+            # once under each spelling.
+            quoted = SnowflakeIdentifierBuilder.get_quoted_identifier_for_role(
+                role_name, already_rendered=already_rendered
+            )
+            if quoted not in seen_roles:
+                seen_roles.add(quoted)
+                roles.append(quoted)
+
+        add_role(current_role)
+        for secondary_role in secondary_roles:
+            # Names are raw and joined by commas without quoting, so a role whose
+            # name contains a comma cannot be recovered here. Its fragments fail
+            # to resolve and are skipped below.
+            add_role(secondary_role)
         # PUBLIC role is automatically granted to every role
-        if "PUBLIC" not in roles:
-            roles.append("PUBLIC")
+        add_role("PUBLIC")
+
         i = 0
 
         while i < len(roles):
             role = roles[i]
             i = i + 1
-            # for some roles, quoting is necessary. for example test-role
-            cur = conn.query(f'show grants to role "{role}"')
+            try:
+                cur = conn.query(f"show grants to role {role}")
+            except Exception as e:
+                # A role hierarchy can be large, so one role we cannot inspect
+                # should not fail the whole capability check.
+                logger.warning(
+                    f"Skipping role {role} in capability check, failed to show its grants: {e}"
+                )
+                continue
             for row in cur:
                 privilege = SnowflakePrivilege(
                     privilege=row["privilege"],
@@ -458,12 +484,8 @@ class SnowflakeV2Source(
                     break
 
                 # Due to this, entire role hierarchy is considered
-                if (
-                    privilege.object_type == "ROLE"
-                    and privilege.privilege == "USAGE"
-                    and privilege.object_name not in roles
-                ):
-                    roles.append(privilege.object_name)
+                if privilege.object_type == "ROLE" and privilege.privilege == "USAGE":
+                    add_role(privilege.object_name, already_rendered=True)
 
         cur = conn.query("select current_warehouse()")
         current_warehouse = [row["CURRENT_WAREHOUSE()"] for row in cur][0]

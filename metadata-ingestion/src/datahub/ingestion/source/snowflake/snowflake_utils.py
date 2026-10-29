@@ -577,6 +577,28 @@ class SnowflakeIdentifierBuilder:
         return name.replace('"', '""')
 
     @staticmethod
+    def get_quoted_identifier_for_role(
+        role_name: str, *, already_rendered: bool = False
+    ) -> str:
+        """Quote a role name for use in SQL.
+
+        Set `already_rendered` for values that Snowflake itself rendered as SQL
+        identifiers, such as `show grants` output, which wraps a name in double
+        quotes only where the name requires it. Raw names - as reported by
+        current_role() and current_secondary_roles() - must always be quoted and
+        escaped: deciding from the string alone would misread a raw name whose own
+        first and last characters happen to be double quotes.
+        """
+        if (
+            already_rendered
+            and len(role_name) > 1
+            and role_name.startswith('"')
+            and role_name.endswith('"')
+        ):
+            return role_name
+        return f'"{SnowflakeIdentifierBuilder._escape_identifier(role_name)}"'
+
+    @staticmethod
     def get_quoted_identifier_for_database(db_name: str) -> str:
         db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
         return f'"{db_name}"'
