@@ -75,9 +75,8 @@ With `data_protection.enabled`, each topic's [message data protection](https://d
 
 - One region per recipe.
 - Schema metadata needs Glue Schema Registry and an explicit map; SNS itself doesn't store messages.
-- Lineage to queues excluded by the `sqs` recipe's `queue_pattern` is still written, because this source can't see that recipe's filters; the queue then appears with only its lineage.
+- Lineage to a queue that the `sqs` recipe's `queue_pattern` excludes is still written, because the queue exists and its URN follows from its ARN. This source doesn't read the `sqs` recipe's filters. The queue then appears in DataHub with only its lineage.
 - Subscriptions to HTTP, email and SMS endpoints are counted but not drawn as lineage.
-
 - Lambda functions, rules, pipes and event buses can be emitted by both the `sqs` and `sns` sources, so neither source soft-deletes them through stale-entity removal: one source dropping a function it no longer references would delete it while the other still does. A function, rule or pipe deleted in AWS stays in DataHub until removed there.
 - Producers that send from application code are not visible in these APIs, so many queues and topics have no upstream.
 
