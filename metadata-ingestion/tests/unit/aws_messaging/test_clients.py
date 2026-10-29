@@ -101,7 +101,9 @@ def test_subscriptions_are_listed_per_topic() -> None:
             {"TopicArn": topic},
         )
         subscriptions = list(
-            SnsClient(client, SqsSourceReport()).list_subscriptions(topic)
+            SnsClient(client, SqsSourceReport()).list_subscriptions(
+                topic, on_error=lambda: None
+            )
         )
     assert [s.owner for s in subscriptions] == ["210987654321"]
 

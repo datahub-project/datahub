@@ -16,6 +16,7 @@ def paginate(
     report: AwsMessagingReportBase,
     api_label: str,
     optional: bool = False,
+    on_error: Optional[Callable[[], None]] = None,
     **kwargs: Any,
 ) -> Iterator[Any]:
     # boto3 paginators raise from inside iteration, so the page count at the time
@@ -29,6 +30,8 @@ def paginate(
         report.report_listing_failure(
             pages_fetched=pages_fetched, exc=e, api_label=api_label, optional=optional
         )
+        if on_error is not None:
+            on_error()
 
 
 def call_or_warn(
@@ -168,7 +171,9 @@ class SnsClient:
         )
         return tags_to_dict((response or {}).get("Tags") or [])
 
-    def list_subscriptions(self, topic_arn: str) -> Iterator[SnsSubscription]:
+    def list_subscriptions(
+        self, topic_arn: str, on_error: Callable[[], None]
+    ) -> Iterator[SnsSubscription]:
         # Per topic, because ListSubscriptions only returns the caller's own
         # subscriptions and misses ones other accounts created on our topics.
         # SNS allows 30 of these calls per second.
@@ -180,6 +185,7 @@ class SnsClient:
             api_label="sns:ListSubscriptionsByTopic",
             # Subscriptions only add properties and lineage, not datasets.
             optional=True,
+            on_error=on_error,
             TopicArn=topic_arn,
         ):
             yield SnsSubscription(
@@ -190,14 +196,14 @@ class SnsClient:
                 owner=item.get("Owner"),
             )
 
-    def get_subscription_attributes(self, arn: str) -> Dict[str, str]:
+    def get_subscription_attributes(self, arn: str) -> Optional[Dict[str, str]]:
         response = call_or_warn(
             call=lambda: self._client.get_subscription_attributes(SubscriptionArn=arn),
             report=self.report,
             api_label="sns:GetSubscriptionAttributes",
             context=f"subscription={arn}",
         )
-        return dict((response or {}).get("Attributes") or {})
+        return None if response is None else dict(response.get("Attributes") or {})
 
     def get_data_protection_policy(self, arn: str) -> Optional[str]:
         response = call_or_warn(

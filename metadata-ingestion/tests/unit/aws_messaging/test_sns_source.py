@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Set
+from typing import Any, Callable, Dict, Iterator, List, Set
+from unittest.mock import MagicMock
 
 import pytest
 import time_machine
+from botocore.exceptions import ClientError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -12,7 +14,12 @@ from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws_messaging.clients import SnsClient
 from datahub.ingestion.source.aws_messaging.models import SnsSubscription
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    MetadataChangeProposalClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
 from datahub.testing import mce_helpers
 from tests.unit.aws_messaging.conftest import (
     ACCOUNT,
@@ -95,7 +102,9 @@ def test_golden(aws: None, pytestconfig: pytest.Config, tmp_path: Path) -> None:
         Endpoint="https://hooks.example.com/notify?token=secret",
     )
 
-    source = _run(topic_pattern={"deny": ["tmp-.*"]})
+    source = _run(
+        topic_pattern={"deny": ["tmp-.*"]}, include_subscription_attributes=True
+    )
     output = tmp_path / "sns_mces.json"
     write_metadata_file(output, [wu.metadata for wu in source.get_workunits()])
     mce_helpers.check_golden_file(
@@ -207,7 +216,9 @@ def test_placeholder_subscriptions_are_skipped(
     orders = create_queue("orders")
     topic = sns_client().create_topic(Name="order-events")["TopicArn"]
 
-    def placeholders(self: SnsClient, topic_arn: str) -> Iterator[SnsSubscription]:
+    def placeholders(
+        self: SnsClient, topic_arn: str, on_error: Callable[[], None]
+    ) -> Iterator[SnsSubscription]:
         for placeholder in ("PendingConfirmation", "Deleted"):
             yield SnsSubscription(
                 subscription_arn=placeholder,
@@ -228,3 +239,95 @@ def test_all_unreadable_topics_still_emit_the_region_container(
     monkeypatch.setattr(SnsClient, "get_topic_attributes", lambda self, arn: None)
     urns = {wu.get_urn() for wu in _run().get_workunits_internal()}
     assert any(urn.startswith("urn:li:container:") for urn in urns)
+
+
+def stale_graph(downstream: str, upstream: str, relationship: str) -> MagicMock:
+    graph = MagicMock()
+    graph.get_related_entities.side_effect = lambda urn, types, direction: (
+        [MagicMock(urn=downstream)] if urn == upstream else []
+    )
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(
+                dataset=upstream,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+                properties={"relationship": relationship},
+            )
+        ]
+    )
+    return graph
+
+
+def lineage_ops(source: SnsSource) -> Dict[str, List[Any]]:
+    result: Dict[str, List[Any]] = {}
+    for workunit in source.get_workunits_internal():
+        metadata = workunit.metadata
+        if (
+            isinstance(metadata, MetadataChangeProposalClass)
+            and metadata.aspectName == "upstreamLineage"
+        ):
+            assert metadata.entityUrn is not None and metadata.aspect is not None
+            result[metadata.entityUrn] = [
+                (op["op"], op["path"]) for op in json.loads(metadata.aspect.value)
+            ]
+    return result
+
+
+def _run_with_graph(graph: MagicMock, **overrides: Any) -> SnsSource:
+    return SnsSource.create(
+        base_config(**overrides), PipelineContext(run_id="sns-test", graph=graph)
+    )
+
+
+def test_removed_subscription_retracts_the_edge(aws: None) -> None:
+    create_queue("orders")
+    sns_client().create_topic(Name="order-events")
+    topic, queue = urn("sns", "order-events"), urn("sqs", "orders")
+    source = _run_with_graph(stale_graph(queue, topic, "subscription"))
+    assert lineage_ops(source) == {queue: [("remove", f"/upstreams/{topic}")]}
+
+
+def test_subscription_dead_letter_edge_kept_when_attributes_are_not_read(
+    aws: None,
+) -> None:
+    # With include_subscription_attributes off, the run can't tell whether a
+    # subscription still has its dead-letter queue.
+    create_queue("orders-dlq")
+    sns_client().create_topic(Name="order-events")
+    topic, dlq = urn("sns", "order-events"), urn("sqs", "orders-dlq")
+    graph = stale_graph(dlq, topic, "subscription_dead_letter")
+    assert lineage_ops(_run_with_graph(graph)) == {}
+    retracted = _run_with_graph(graph, include_subscription_attributes=True)
+    assert lineage_ops(retracted) == {dlq: [("remove", f"/upstreams/{topic}")]}
+
+
+def test_failed_subscription_listing_keeps_the_edges(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_queue("orders")
+    sns_client().create_topic(Name="order-events")
+    topic, queue = urn("sns", "order-events"), urn("sqs", "orders")
+
+    def throttled(
+        self: SnsClient, topic_arn: str, on_error: Callable[[], None]
+    ) -> Iterator[SnsSubscription]:
+        on_error()
+        yield from ()
+
+    monkeypatch.setattr(SnsClient, "list_subscriptions", throttled)
+    assert lineage_ops(_run_with_graph(stale_graph(queue, topic, "subscription"))) == {}
+
+
+def test_failed_account_probe_without_platform_instance_aborts(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sns_client().create_topic(Name="order-events")
+
+    def throttled(self: SnsClient) -> None:
+        raise ClientError(
+            {"Error": {"Code": "Throttling", "Message": "x"}}, "ListTopics"
+        )
+
+    monkeypatch.setattr(SnsClient, "first_topic_arn", throttled)
+    with pytest.raises(RuntimeError):
+        _run()

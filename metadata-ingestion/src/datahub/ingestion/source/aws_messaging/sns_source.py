@@ -1,6 +1,7 @@
+import functools
 import itertools
 from collections import defaultdict
-from typing import Dict, Iterable, Iterator, List, Optional
+from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Set
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -79,17 +80,9 @@ class SnsSource(AwsMessagingSourceBase):
 
     def __init__(self, config: SnsSourceConfig, ctx: PipelineContext):
         report = SnsSourceReport()
-        # The client is needed while the base class reads the account id.
-        self.sns = SnsClient(
-            config.make_client(config.aws_config.get_session(), AwsService.SNS), report
-        )
-        super().__init__(config, ctx, report)
         self.config = config
+        super().__init__(config, ctx, report)
         self.report = report
-        self.tagging = TaggingClient(
-            config.make_client(self.session, AwsService.TAGGING), report
-        )
-        self.sqs = SqsClient(config.make_client(self.session, AwsService.SQS), report)
         # Subscribed queues are owned by the sqs source; this tracks which local
         # ones exist so an edge never points at a queue that isn't there.
         self.queues = ResourceResolver(
@@ -99,6 +92,33 @@ class SnsSource(AwsMessagingSourceBase):
         self.subscriptions: Dict[str, List[SnsSubscription]] = defaultdict(list)
         # Listed but unreadable this run: still in AWS, so kept out of stale removal.
         self.unreadable_topics: List[Arn] = []
+        # Topics whose subscriptions (or their attributes) couldn't all be read, so
+        # their edges are unknown rather than gone.
+        self.incomplete_topics: Set[str] = set()
+
+    def create_clients(self) -> None:
+        self.sns = SnsClient(
+            self.config.make_client(self.session, AwsService.SNS), self.base_report
+        )
+        self.tagging = TaggingClient(
+            self.config.make_client(self.session, AwsService.TAGGING),
+            self.base_report,
+        )
+        self.sqs = SqsClient(
+            self.config.make_client(self.session, AwsService.SQS), self.base_report
+        )
+
+    def owned_relationships(self) -> FrozenSet[LineageRelationship]:
+        # Subscription dead-letter queues are only known when their attributes
+        # are read, so their edges are only retracted then.
+        if self.config.include_subscription_attributes:
+            return frozenset(
+                {
+                    LineageRelationship.SUBSCRIPTION,
+                    LineageRelationship.SUBSCRIPTION_DEAD_LETTER,
+                }
+            )
+        return frozenset({LineageRelationship.SUBSCRIPTION})
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SnsSource":
@@ -114,6 +134,8 @@ class SnsSource(AwsMessagingSourceBase):
         )
         for topic in self.topics:
             self._add_subscription_edges(topic)
+            if str(topic.arn) not in self.incomplete_topics:
+                self.lineage.complete.add(self.urns.topic_urn(topic.arn))
         yield from self.lineage.workunits()
 
     def _load_local_queues(self) -> None:
@@ -149,7 +171,10 @@ class SnsSource(AwsMessagingSourceBase):
                 self.report.topics_failed.append(arn.resource_name)
                 self.unreadable_topics.append(arn)
                 continue
-            for subscription in self.sns.list_subscriptions(topic_arn):
+            for subscription in self.sns.list_subscriptions(
+                topic_arn,
+                on_error=functools.partial(self.incomplete_topics.add, topic_arn),
+            ):
                 self.report.subscriptions_scanned += 1
                 self.subscriptions[topic_arn].append(subscription)
             if bulk_tags is None:
@@ -217,9 +242,13 @@ class SnsSource(AwsMessagingSourceBase):
                     topic_urn, subscription.endpoint, LineageRelationship.SUBSCRIPTION
                 )
             if self.config.include_subscription_attributes:
+                self.report.subscription_attribute_calls += 1
                 attributes = self.sns.get_subscription_attributes(
                     subscription.subscription_arn
                 )
+                if attributes is None:
+                    self.incomplete_topics.add(str(topic.arn))
+                    continue
                 redrive = parse_redrive_policy(
                     attributes.get(SubscriptionAttribute.REDRIVE_POLICY)
                 )

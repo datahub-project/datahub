@@ -116,10 +116,11 @@ class SnsSourceConfig(AwsMessagingConfigBase):
         description="Regex patterns on topic names to include.",
     )
     include_subscription_attributes: bool = Field(
-        default=True,
+        default=False,
         description=(
             "Call sns:GetSubscriptionAttributes for each subscription to read its "
-            "dead-letter queue. One call per subscription."
+            "dead-letter queue. One call per subscription, for every protocol, on "
+            "every run; subscription-to-queue edges need no extra calls."
         ),
     )
     data_protection: SnsDataProtectionConfig = Field(
