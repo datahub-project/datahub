@@ -4407,23 +4407,25 @@ def _schema_column_names(workunits: List[Any]) -> List[str]:
     return names
 
 
+def _presto_view_text(payload: Any) -> str:
+    encoded = base64.b64encode(json.dumps(payload).encode()).decode()
+    return f"/* Presto View: {encoded} */"
+
+
 @pytest.mark.parametrize(
-    "view_original_text, is_decode_failure",
+    "view_original_text",
     [
-        ("/* Presto View: not!valid!base64 */", True),
+        "/* Presto View: not!valid!base64 */",
         # A non-list `columns` must not raise out of the table loop and abort the run.
-        (
-            "/* Presto View: "
-            + base64.b64encode(
-                json.dumps({"originalSql": "SELECT 1", "columns": 5}).encode()
-            ).decode()
-            + " */",
-            False,
-        ),
+        _presto_view_text({"originalSql": "SELECT 1", "columns": 5}),
+        # Pathologically nested JSON raises RecursionError, which must not escape either.
+        "/* Presto View: "
+        + base64.b64encode(("[" * 100_000 + "]" * 100_000).encode()).decode()
+        + " */",
     ],
 )
 def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns(
-    view_original_text: str, is_decode_failure: bool
+    view_original_text: str,
 ) -> None:
     source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
     view = _placeholder_view("broken_view", view_original_text)
@@ -4439,8 +4441,37 @@ def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns
     ]
     assert len(placeholder_contexts) == 1
     assert placeholder_contexts[0].startswith("my_db.broken_view: ")
-    # The decode exception is kept so operators can see why decoding failed.
-    assert ("Error" in placeholder_contexts[0]) == is_decode_failure
+
+
+def test_glue_placeholder_view_recovered_columns_inherit_lake_formation_tags() -> None:
+    # Lake Formation can only tag columns Glue lists (here just `dummy`), so the
+    # realistic case is table/database tags propagating to the recovered columns.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "created_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        ),
+    )
+    parent_tags = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c"),
+    ]
+
+    schema = source._get_glue_schema_metadata(view, "events_view", None, parent_tags)
+    assert schema is not None
+    by_col = _column_tag_names_by_field(schema)
+
+    expected = {make_tag_urn("DataClassification:Sensitive")}
+    assert by_col == {"id": expected, "created_at": expected}
 
 
 @pytest.mark.parametrize(
@@ -4465,18 +4496,19 @@ def test_glue_placeholder_view_reports_columns_left_without_a_type() -> None:
     # A quoted row field name the Hive parser cannot read leaves that column
     # untyped; the view is still recovered, but the column is reported.
     source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
-    encoded = base64.b64encode(
-        json.dumps(
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
             {
                 "originalSql": "SELECT 1",
                 "columns": [
                     {"name": "id", "type": "bigint"},
+                    # Deliberate Hive parser failure: `(` in a struct field name.
                     {"name": "payload", "type": 'row("a(b" bigint)'},
                 ],
             }
-        ).encode()
-    ).decode()
-    view = _placeholder_view("events_view", f"/* Presto View: {encoded} */")
+        ),
+    )
 
     assert sorted(_schema_column_names(list(source._gen_table_wu(view)))) == [
         "id",

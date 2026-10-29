@@ -58,7 +58,12 @@ def test_decode_presto_view_raises_when_payload_not_object() -> None:
             'array(row(a bigint, "b c" timestamp(3) with time zone))',
             "array<struct<a:bigint,b c:timestamp>>",
         ),
-        ("row(bigint, varchar)", "string"),
+        ("real", "float"),
+        ("varbinary", "binary"),
+        # Anonymous row fields get positional names so the struct is kept.
+        ("row(bigint, varchar)", "struct<field0:bigint,field1:varchar>"),
+        # Commas inside a quoted field name are not separators.
+        ('row("a,b" bigint, c varchar)', "struct<a,b:bigint,c:varchar>"),
         # Types Hive has no equivalent for, and malformed input, fall back to string.
         ("interval day to second", "string"),
         ("hyperloglog", "string"),
@@ -67,6 +72,14 @@ def test_decode_presto_view_raises_when_payload_not_object() -> None:
 )
 def test_trino_type_to_hive_type(trino_type: str, hive_type: str) -> None:
     assert trino_type_to_hive_type(trino_type) == hive_type
+
+
+def test_trino_type_to_hive_type_caps_nesting_depth() -> None:
+    # Untrusted catalog data must not be able to exhaust the stack.
+    deeply_nested = "array(" * 2000 + "bigint" + ")" * 2000
+    hive_type = trino_type_to_hive_type(deeply_nested)
+    assert hive_type.startswith("array<")
+    assert "string" in hive_type
 
 
 def test_get_presto_view_columns_returns_validated_columns() -> None:

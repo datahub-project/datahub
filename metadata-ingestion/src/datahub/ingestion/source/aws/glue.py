@@ -3141,10 +3141,12 @@ class GlueSource(StatefulIngestionSourceBase):
             return None
 
         view_columns: Optional[List[PrestoViewColumn]] = None
-        decode_error: Optional[ValueError] = None
+        decode_error: Optional[Exception] = None
         try:
             definition = decode_presto_view(view_text)
-        except ValueError as e:
+        except (ValueError, RecursionError) as e:
+            # ValueError covers bad base64/JSON/Unicode; RecursionError covers
+            # pathologically nested JSON. Either must not escape the table loop.
             # Reported here as well as in _get_view_definition, because the
             # resource-link owner path reaches this method without it.
             decode_error = e

@@ -54,6 +54,7 @@ _HIVE_SCALAR_TYPES = frozenset(
     }
 )
 _FALLBACK_HIVE_TYPE = "string"
+_MAX_TYPE_NESTING_DEPTH = 64
 
 
 class PrestoViewDefinition(TypedDict, total=False):
@@ -131,16 +132,23 @@ def get_presto_view_columns(
 
 
 def _split_top_level(type_args: str) -> List[str]:
-    """Split ``type_args`` on commas that are not nested inside parentheses."""
+    """Split ``type_args`` on commas outside parentheses and double quotes.
+
+    Quoted row field names may contain commas or parentheses (``"a,b" bigint``),
+    which must not be treated as separators.
+    """
     parts: List[str] = []
     depth = 0
+    in_quotes = False
     current: List[str] = []
     for char in type_args:
-        if char == "(":
+        if char == '"':
+            in_quotes = not in_quotes
+        elif not in_quotes and char == "(":
             depth += 1
-        elif char == ")":
+        elif not in_quotes and char == ")":
             depth -= 1
-        if char == "," and depth == 0:
+        if char == "," and depth == 0 and not in_quotes:
             parts.append("".join(current).strip())
             current = []
         else:
@@ -159,6 +167,15 @@ def trino_type_to_hive_type(trino_type: str) -> str:
     represent are mapped to their nearest Hive type (dropping time zone and
     precision) or to ``string``, so the column is kept rather than lost.
     """
+    return _trino_type_to_hive_type(trino_type, depth=0)
+
+
+def _trino_type_to_hive_type(trino_type: str, depth: int) -> str:
+    # The payload is untrusted catalog data; cap nesting so a corrupt or crafted
+    # type cannot exhaust the stack and abort the ingestion run.
+    if depth > _MAX_TYPE_NESTING_DEPTH:
+        return _FALLBACK_HIVE_TYPE
+
     normalized = _TIME_ZONE_SUFFIX.sub("", trino_type.strip().lower())
     precision_match = _TYPE_PRECISION.match(normalized)
     if precision_match:
@@ -169,20 +186,24 @@ def trino_type_to_hive_type(trino_type: str) -> str:
         kind, type_args = parameterized.group(1), parameterized.group(2)
         args = _split_top_level(type_args)
         if kind == "array" and len(args) == 1:
-            return f"array<{trino_type_to_hive_type(args[0])}>"
+            return f"array<{_trino_type_to_hive_type(args[0], depth + 1)}>"
         if kind == "map" and len(args) == 2:
-            key_type = trino_type_to_hive_type(args[0])
-            value_type = trino_type_to_hive_type(args[1])
+            key_type = _trino_type_to_hive_type(args[0], depth + 1)
+            value_type = _trino_type_to_hive_type(args[1], depth + 1)
             return f"map<{key_type},{value_type}>"
         if kind == "row":
             struct_fields: List[str] = []
-            for arg in args:
+            for index, arg in enumerate(args):
                 row_field = _ROW_FIELD.match(arg)
-                if not row_field:
-                    # Anonymous row fields have no name; Hive structs require one.
-                    return _FALLBACK_HIVE_TYPE
-                field_name = row_field.group(1) or row_field.group(2)
-                field_type = trino_type_to_hive_type(row_field.group(3))
+                if row_field:
+                    field_name = row_field.group(1) or row_field.group(2)
+                    field_trino_type = row_field.group(3)
+                else:
+                    # Anonymous row fields (e.g. from `ROW(1, 'a')`) have no name,
+                    # but Hive structs require one; use a positional name.
+                    field_name = f"field{index}"
+                    field_trino_type = arg
+                field_type = _trino_type_to_hive_type(field_trino_type, depth + 1)
                 struct_fields.append(f"{field_name}:{field_type}")
             return f"struct<{','.join(struct_fields)}>"
         # Wrong number of array/map arguments: not a type we can translate.
