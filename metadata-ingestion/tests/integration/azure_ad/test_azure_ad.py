@@ -256,6 +256,7 @@ def test_azure_ad_source_default_configs(pytestconfig, mock_datahub_graph, tmp_p
         pytestconfig,
         output_path=tmp_path / "azure_ad_mces_default_config.json",
         golden_path=test_resources_dir / "azure_ad_mces_golden_default_config.json",
+        golden_mces_as_mcps=True,
     )
 
 
@@ -283,6 +284,7 @@ def test_azure_ad_source_empty_group_membership(
         pytestconfig,
         output_path=f"{tmp_path}/{output_file_name}",
         golden_path=test_resources_dir / "azure_ad_mces_no_groups_golden_mcp.json",
+        golden_mces_as_mcps=True,
     )
 
 
@@ -310,6 +312,7 @@ def test_azure_ad_source_nested_groups(pytestconfig, mock_datahub_graph, tmp_pat
         pytestconfig,
         output_path=f"{tmp_path}/{output_file_name}",
         golden_path=test_resources_dir / "azure_ad_mces_golden_nested_groups.json",
+        golden_mces_as_mcps=True,
     )
 
 
@@ -337,6 +340,7 @@ def test_azure_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_p
         pytestconfig,
         output_path=f"{tmp_path}/{output_file_name}",
         golden_path=test_resources_dir / "azure_ad_mces_golden_ingestion_disabled.json",
+        golden_mces_as_mcps=True,
     )
 
 
