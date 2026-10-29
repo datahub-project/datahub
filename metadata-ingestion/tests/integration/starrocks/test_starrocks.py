@@ -75,9 +75,8 @@ def test_starrocks_ingest(
     # Verify the output
     mce_helpers.check_golden_file(
         pytestconfig,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
         ignore_paths=ignore_paths,
         output_path=tmp_path / "starrocks_mces.json",
-        golden_path=test_resources_dir / "starrocks_mces_golden.json",
+        golden_path=test_resources_dir / "starrocks_golden.json",
     )
