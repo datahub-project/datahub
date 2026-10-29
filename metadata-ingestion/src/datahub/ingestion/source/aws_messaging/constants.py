@@ -4,6 +4,26 @@ from datahub.utilities.str_enum import StrEnum
 
 SQS_PLATFORM = "sqs"
 SNS_PLATFORM = "sns"
+LAMBDA_PLATFORM = "lambda"
+EVENTBRIDGE_PLATFORM = "eventbridge"
+EVENTBRIDGE_PIPES_PLATFORM = "eventbridge-pipes"
+# Owned by the kinesis source; only referenced here for SNS-to-Firehose lineage.
+FIREHOSE_PLATFORM = "kinesis-firehose"
+FIREHOSE_DELIVERY_JOB_ID = "delivery"
+
+# AWS console paths for the region containers; EventBridge's console lives under
+# `events`, not its platform name.
+CONSOLE_PATHS = {
+    SQS_PLATFORM: "sqs/v3/home",
+    SNS_PLATFORM: "sns/v3/home",
+    LAMBDA_PLATFORM: "lambda/home",
+    EVENTBRIDGE_PLATFORM: "events/home",
+    EVENTBRIDGE_PIPES_PLATFORM: "pipes/home",
+}
+
+LAMBDA_JOB_ID = "invoke"
+EVENTBRIDGE_RULE_JOB_ID = "route"
+EVENTBRIDGE_PIPE_JOB_ID = "pipe"
 
 
 class AwsService(StrEnum):
@@ -11,6 +31,9 @@ class AwsService(StrEnum):
     SNS = "sns"
     TAGGING = "resourcegroupstaggingapi"
     GLUE = "glue"
+    LAMBDA = "lambda"
+    EVENTS = "events"
+    PIPES = "pipes"
 
 
 QUEUE_URL_PATTERN = re.compile(r"/(?P<account>\d{12})/(?P<name>[^/?#]+)/?$")
@@ -85,3 +108,12 @@ LINEAGE_RELATIONSHIP_PROPERTY = "relationship"
 DOWNSTREAM_OF_RELATIONSHIP = "DownstreamOf"
 
 GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
+
+ACCESS_DENIED_CODES = frozenset({"AccessDenied", "AccessDeniedException"})
+
+
+class JobEdgeKind(StrEnum):
+    """DataHub relationship names for a job's input and output datasets."""
+
+    CONSUMES = "Consumes"
+    PRODUCES = "Produces"

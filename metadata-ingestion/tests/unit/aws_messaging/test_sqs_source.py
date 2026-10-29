@@ -177,7 +177,9 @@ def lineage_ops(source: SqsSource) -> Dict[str, List[Any]]:
 def stale_graph(downstream: str, upstream: str, relationship: str) -> MagicMock:
     graph = MagicMock()
     graph.get_related_entities.side_effect = lambda urn, types, direction: (
-        [MagicMock(urn=downstream)] if urn == upstream else []
+        [MagicMock(urn=downstream)]
+        if urn == upstream and "DownstreamOf" in types
+        else []
     )
     graph.get_aspect.return_value = UpstreamLineageClass(
         upstreams=[
@@ -218,7 +220,7 @@ def test_unreadable_queue_keeps_its_edges(
     monkeypatch.setattr(SqsClient, "get_attributes", lambda self, url: None)
     graph = stale_graph(queue_urn("orders-dlq"), queue_urn("orders"), "dead_letter")
     assert lineage_ops(_run_with_graph(graph)) == {}
-    graph.get_related_entities.assert_not_called()
+    graph.get_aspect.assert_not_called()
 
 
 def test_current_edge_is_not_retracted(aws: None) -> None:

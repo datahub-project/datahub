@@ -30,5 +30,15 @@ source:
       topic_schema_map: {}
       #   orders: "order-v1"
 
+    lineage:
+      lambda_functions: true
+      # One lambda:ListFunctionEventInvokeConfigs call per function in the region.
+      lambda_async_destinations: false
+      eventbridge_rules: true
+      eventbridge_pipes: true
+    # Off by default: the kinesis source drops this edge on each of its runs.
+    firehose_lineage: false
+    # kinesis_platform_instance: "prod-account"
+
     stateful_ingestion:
       enabled: true

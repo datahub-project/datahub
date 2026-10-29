@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
+from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -26,16 +26,17 @@ from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 
-def identity_field_lineage(
+def mapped_field_lineage(
     *,
     upstream_urn: str,
     upstream_schema: SchemaMetadataClass,
     downstream_urn: str,
     downstream_schema: SchemaMetadataClass,
+    upstream_path_for: Callable[[str], Optional[str]],
 ) -> List[FineGrainedLineageClass]:
-    """Field-to-field lineage for a hop that passes the message through unchanged:
-    every field present on both sides, matched case-insensitively on its simple
-    path."""
+    """Field-to-field lineage where each downstream field comes from one known
+    upstream path. Only fields present on both sides, matched case-insensitively
+    on the simple field path."""
     upstream_paths: Dict[str, str] = {}
     for upstream_field in upstream_schema.fields:
         path = get_simple_field_path_from_v2_field_path(upstream_field.fieldPath)
@@ -43,7 +44,8 @@ def identity_field_lineage(
     lineages: List[FineGrainedLineageClass] = []
     for downstream_field in downstream_schema.fields:
         path = get_simple_field_path_from_v2_field_path(downstream_field.fieldPath)
-        upstream_path = upstream_paths.get(path.lower())
+        source_path = upstream_path_for(path)
+        upstream_path = upstream_paths.get(source_path.lower()) if source_path else None
         if upstream_path is None:
             continue
         lineages.append(
@@ -55,6 +57,23 @@ def identity_field_lineage(
             )
         )
     return lineages
+
+
+def identity_field_lineage(
+    *,
+    upstream_urn: str,
+    upstream_schema: SchemaMetadataClass,
+    downstream_urn: str,
+    downstream_schema: SchemaMetadataClass,
+) -> List[FineGrainedLineageClass]:
+    """Lineage for a hop that passes the message through unchanged."""
+    return mapped_field_lineage(
+        upstream_urn=upstream_urn,
+        upstream_schema=upstream_schema,
+        downstream_urn=downstream_urn,
+        downstream_schema=downstream_schema,
+        upstream_path_for=lambda path: path,
+    )
 
 
 class SchemaLookup:

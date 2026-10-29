@@ -4811,7 +4811,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Topic to subscribed queue and to subscription dead-letter queue",
+          "description": "Subscribed queues and dead-letter queues, Lambda, Firehose, EventBridge rules and Pipes",
           "subtype_modifier": null,
           "supported": true
         },
@@ -5012,7 +5012,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Queue to dead-letter queue",
+          "description": "Dead-letter queues, Lambda triggers and destinations, EventBridge rules and Pipes",
           "subtype_modifier": null,
           "supported": true
         },

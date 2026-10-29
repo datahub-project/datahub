@@ -29,16 +29,37 @@ SNS stores opaque messages, so there is no schema by default. If producers regis
 
 Field-level lineage is only added where a message reaches the next hop unchanged, for fields present in both schemas (matched case-insensitively on the simple field path). Schemas come from Glue Schema Registry in the same run or from DataHub. Without a schema on both sides, the edge stays table-level. Most deployments have no schema on one side and see table-level lineage only. The report counts each skip reason under `column_lineage_skipped`.
 
-| Hop                                                 | Column lineage           | Why                                                                           |
-| --------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------- |
-| Queue to its dead-letter queue (`sqs`)              | Yes, field to same field | SQS moves the failed message itself                                           |
-| Topic to queue, raw message delivery (`sns`)        | Yes, field to same field | The queue receives the published message as is                                |
-| Topic to queue, without raw delivery (`sns`)        | No                       | SNS wraps the message in its JSON envelope                                    |
-| Topic to a subscription's dead-letter queue (`sns`) | No                       | AWS doesn't document whether that queue holds the raw message or the envelope |
+| Hop                                                                                                        | Column lineage                            | Why                                                                                               |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Queue to its dead-letter queue (`sqs`)                                                                     | Yes, field to same field                  | SQS moves the failed message itself                                                               |
+| Topic to queue, raw message delivery (`sns`)                                                               | Yes, field to same field                  | The queue receives the published message as is                                                    |
+| Topic to queue, without raw delivery (`sns`)                                                               | No                                        | SNS wraps the message in its JSON envelope                                                        |
+| Topic to a subscription's dead-letter queue (`sns`)                                                        | No                                        | AWS doesn't document whether that queue holds the raw message or the envelope                     |
+| Pipe from a queue whose input template only has `<$.body.path>` values                                     | Yes, each template key from its body path | Pipes decodes the SQS body and fills each key from one field                                      |
+| Pipe without an input template, with an enrichment step, or with literals or concatenation in the template | No                                        | Without a template the target gets the SQS record (message id, attributes, body), not the message |
+| Any hop through a Lambda function                                                                          | No                                        | The function can change anything                                                                  |
 
 `column_lineage` defaults to `glue_schema_registry.enabled` and needs `include_subscription_attributes` to see raw delivery. With it on, each raw-delivery subscription costs a DataHub lookup for any schema not read from Glue this run. Set it to `true` without Glue to use schemas already in DataHub, or `false` to turn it off.
 
 Field edges are retracted along with table-level ones (`remove_stale_lineage`): when a field is renamed or dropped, or a subscription turns raw delivery off, field edges from that upstream that this run no longer emits are removed.
+
+#### Lambda and EventBridge
+
+With the `lineage` options on (the default), the connector follows the services around its topics:
+
+| Edge                           | Read from                                                                                                                                |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Topic to Lambda function       | SNS subscription, protocol `lambda`                                                                                                      |
+| Lambda function to topic       | event source mapping `OnFailure` destination; asynchronous invocation destinations (`lineage.lambda_async_destinations`, off by default) |
+| Event bus to rule to topic     | `events:ListRules`, `events:ListTargetsByRule`                                                                                           |
+| Pipe from or to a topic        | `pipes:ListPipes`                                                                                                                        |
+| Topic to Firehose delivery job | SNS subscription, protocol `firehose` (`firehose_lineage`)                                                                               |
+
+- A Lambda function is a DataFlow (platform `lambda`) with one `invoke` DataJob, the shape the `kinesis` source uses for Firehose. Functions appear only when one of these edges involves one of the run's topics, and only for the recipe's own account and region.
+- A rule (platform `eventbridge`) is a DataFlow with one `route` DataJob from its event bus, emitted as an `Event Bus` dataset, to its targets. A pipe (platform `eventbridge-pipes`) is a DataFlow with one `pipe` DataJob from source to target. A rule or pipe that targets a function becomes an upstream job of that function.
+- The `sqs` and `sns` sources each add only the edges whose dataset end they own, as patches, so a rule targeting both a queue and a topic gets both outputs once both have run.
+- Some pipes also get field-level lineage; see the table below.
+- Topic-to-Firehose lineage is off by default (`firehose_lineage: false`). The delivery job belongs to the `kinesis` source, which rewrites the job's inputs and outputs on every run, so the topic edge disappears each time `kinesis` runs and comes back when `sns` runs. Turn it on only when the `sns` recipe always runs after the `kinesis` recipe. The edge is only added when the job already exists in DataHub, which needs a DataHub connection (the `datahub-rest` sink provides one). Set `kinesis_platform_instance` if that source's `platform_instance` isn't the account id.
 
 #### Tags and data protection
 
@@ -55,7 +76,10 @@ With `data_protection.enabled`, each topic's [message data protection](https://d
 - One region per recipe.
 - Schema metadata needs Glue Schema Registry and an explicit map; SNS itself doesn't store messages.
 - Lineage to a queue that the `sqs` recipe's `queue_pattern` excludes is still written, because the queue exists and its URN follows from its ARN. This source doesn't read the `sqs` recipe's filters. The queue then appears in DataHub with only its lineage.
-- Subscriptions to Lambda, Firehose and HTTP endpoints are counted but not yet drawn as lineage.
+- Subscriptions to HTTP, email and SMS endpoints are counted but not drawn as lineage.
+- Lambda functions, rules, pipes and event buses can be emitted by both the `sqs` and `sns` sources, so neither source soft-deletes them through stale-entity removal: one source dropping a function it no longer references would delete it while the other still does. A function, rule or pipe deleted in AWS stays in DataHub until removed there. Its edges to this source's topics are still removed on the next run (`remove_stale_lineage`), so it stops showing up in their lineage. Edges are only removed for a kind of resource that was read in full: a failed or turned-off listing keeps them, and Lambda output edges are only removed with `lineage.lambda_async_destinations` on, since some outputs come from those destinations.
+- The `lambda`, `eventbridge` and `eventbridge-pipes` region containers are shared with the other source in the same way.
+- Producers that send from application code are not visible in these APIs, so many queues and topics have no upstream.
 
 ### Troubleshooting
 

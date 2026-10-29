@@ -1,10 +1,15 @@
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
 from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.source.aws.aws_common import aws_error_code
+from datahub.ingestion.source.aws_messaging.arn import parse_arn
 from datahub.ingestion.source.aws_messaging.constants import ALL_ATTRIBUTES
-from datahub.ingestion.source.aws_messaging.models import SnsSubscription
+from datahub.ingestion.source.aws_messaging.models import (
+    EventBridgePipe,
+    RuleTarget,
+    SnsSubscription,
+)
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 
 
@@ -16,7 +21,7 @@ def paginate(
     report: AwsMessagingReportBase,
     api_label: str,
     optional: bool = False,
-    on_error: Optional[Callable[[], None]] = None,
+    on_error: Optional[Callable[[Union[ClientError, BotoCoreError]], None]] = None,
     **kwargs: Any,
 ) -> Iterator[Any]:
     # boto3 paginators raise from inside iteration, so the page count at the time
@@ -31,7 +36,7 @@ def paginate(
             pages_fetched=pages_fetched, exc=e, api_label=api_label, optional=optional
         )
         if on_error is not None:
-            on_error()
+            on_error(e)
 
 
 def call_or_warn(
@@ -172,7 +177,9 @@ class SnsClient:
         return tags_to_dict((response or {}).get("Tags") or [])
 
     def list_subscriptions(
-        self, topic_arn: str, on_error: Callable[[], None]
+        self,
+        topic_arn: str,
+        on_error: Callable[[Union[ClientError, BotoCoreError]], None],
     ) -> Iterator[SnsSubscription]:
         # Per topic, because ListSubscriptions only returns the caller's own
         # subscriptions and misses ones other accounts created on our topics.
@@ -213,3 +220,170 @@ class SnsClient:
             context=f"topic={arn}",
         )
         return (response or {}).get("DataProtectionPolicy") or None
+
+
+class LambdaClient:
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
+        self._client = client
+        self.report = report
+
+    def list_event_source_mappings(
+        self, on_error: Callable[[Union[ClientError, BotoCoreError]], None]
+    ) -> Iterator[Dict[str, Any]]:
+        yield from paginate(
+            client=self._client,
+            operation="list_event_source_mappings",
+            result_key="EventSourceMappings",
+            report=self.report,
+            api_label="lambda:ListEventSourceMappings",
+            optional=True,
+            on_error=on_error,
+        )
+
+    def list_functions(
+        self, on_error: Callable[[Union[ClientError, BotoCoreError]], None]
+    ) -> Iterator[Dict[str, Any]]:
+        yield from paginate(
+            client=self._client,
+            operation="list_functions",
+            result_key="Functions",
+            report=self.report,
+            api_label="lambda:ListFunctions",
+            optional=True,
+            on_error=on_error,
+        )
+
+    def list_async_destinations(
+        self,
+        function_name: str,
+        on_error: Callable[[Union[ClientError, BotoCoreError]], None],
+    ) -> Iterator[str]:
+        for item in paginate(
+            client=self._client,
+            operation="list_function_event_invoke_configs",
+            result_key="FunctionEventInvokeConfigs",
+            report=self.report,
+            api_label="lambda:ListFunctionEventInvokeConfigs",
+            optional=True,
+            on_error=on_error,
+            FunctionName=function_name,
+        ):
+            # Each config is for one version or alias; destinations hang off the
+            # unqualified function either way.
+            destinations = item.get("DestinationConfig") or {}
+            for outcome in ("OnSuccess", "OnFailure"):
+                destination = (destinations.get(outcome) or {}).get("Destination")
+                if destination:
+                    yield destination
+
+
+class EventBridgeClient:
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
+        self._client = client
+        self.report = report
+
+    def list_event_bus_arns(
+        self, on_error: Callable[[Union[ClientError, BotoCoreError]], None]
+    ) -> Iterator[str]:
+        # boto3 has no paginator for ListEventBuses.
+        token: Optional[str] = None
+        pages_fetched = 0
+        while True:
+            kwargs: Dict[str, Any] = {"NextToken": token} if token else {}
+            try:
+                response = self._client.list_event_buses(**kwargs)
+            except (ClientError, BotoCoreError) as e:
+                self.report.report_listing_failure(
+                    pages_fetched=pages_fetched,
+                    exc=e,
+                    api_label="events:ListEventBuses",
+                    optional=True,
+                )
+                on_error(e)
+                return
+            pages_fetched += 1
+            for bus in response.get("EventBuses") or []:
+                if bus.get("Arn"):
+                    yield bus["Arn"]
+            token = response.get("NextToken")
+            if not token:
+                return
+
+    def list_rules(
+        self,
+        bus_name: str,
+        on_error: Callable[[Union[ClientError, BotoCoreError]], None],
+    ) -> Iterator[Dict[str, Any]]:
+        yield from paginate(
+            client=self._client,
+            operation="list_rules",
+            result_key="Rules",
+            report=self.report,
+            api_label="events:ListRules",
+            optional=True,
+            on_error=on_error,
+            EventBusName=bus_name,
+        )
+
+    def list_targets(
+        self,
+        rule_name: str,
+        bus_name: str,
+        on_error: Callable[[Union[ClientError, BotoCoreError]], None],
+    ) -> Iterator[RuleTarget]:
+        for target in paginate(
+            client=self._client,
+            operation="list_targets_by_rule",
+            result_key="Targets",
+            report=self.report,
+            api_label="events:ListTargetsByRule",
+            optional=True,
+            on_error=on_error,
+            Rule=rule_name,
+            EventBusName=bus_name,
+        ):
+            if target.get("Arn"):
+                yield RuleTarget(arn=target["Arn"])
+
+
+class PipesClient:
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
+        self._client = client
+        self.report = report
+
+    def list_pipes(
+        self, on_error: Callable[[Union[ClientError, BotoCoreError]], None]
+    ) -> Iterator[EventBridgePipe]:
+        for item in paginate(
+            client=self._client,
+            operation="list_pipes",
+            result_key="Pipes",
+            report=self.report,
+            api_label="pipes:ListPipes",
+            optional=True,
+            on_error=on_error,
+        ):
+            arn = parse_arn(item.get("Arn"))
+            if arn is None or not item.get("Source") or not item.get("Target"):
+                continue
+            yield EventBridgePipe(
+                arn=arn,
+                name=item.get("Name") or arn.resource_name,
+                source=item["Source"],
+                target=item["Target"],
+                enrichment=item.get("Enrichment"),
+                state=item.get("CurrentState"),
+            )
+
+    def input_template(self, name: str) -> Optional[str]:
+        """The pipe's target input template, "" when it has none, or None if the
+        pipe can't be described."""
+        response = call_or_warn(
+            call=lambda: self._client.describe_pipe(Name=name),
+            report=self.report,
+            api_label="pipes:DescribePipe",
+            context=f"pipe={name}",
+        )
+        if response is None:
+            return None
+        return (response.get("TargetParameters") or {}).get("InputTemplate") or ""

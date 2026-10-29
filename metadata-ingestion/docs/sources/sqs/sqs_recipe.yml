@@ -29,5 +29,12 @@ source:
       queue_schema_map: {}
       #   orders: "order-v1"
 
+    lineage:
+      lambda_functions: true
+      # One lambda:ListFunctionEventInvokeConfigs call per function in the region.
+      lambda_async_destinations: false
+      eventbridge_rules: true
+      eventbridge_pipes: true
+
     stateful_ingestion:
       enabled: true

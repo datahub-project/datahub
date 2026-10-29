@@ -244,7 +244,9 @@ def test_all_unreadable_topics_still_emit_the_region_container(
 def stale_graph(downstream: str, upstream: str, relationship: str) -> MagicMock:
     graph = MagicMock()
     graph.get_related_entities.side_effect = lambda urn, types, direction: (
-        [MagicMock(urn=downstream)] if urn == upstream else []
+        [MagicMock(urn=downstream)]
+        if urn == upstream and "DownstreamOf" in types
+        else []
     )
     graph.get_aspect.return_value = UpstreamLineageClass(
         upstreams=[
@@ -309,9 +311,9 @@ def test_failed_subscription_listing_keeps_the_edges(
     topic, queue = urn("sns", "order-events"), urn("sqs", "orders")
 
     def throttled(
-        self: SnsClient, topic_arn: str, on_error: Callable[[], None]
+        self: SnsClient, topic_arn: str, on_error: Callable[[Any], None]
     ) -> Iterator[SnsSubscription]:
-        on_error()
+        on_error(ClientError({"Error": {"Code": "Throttling", "Message": "x"}}, "List"))
         yield from ()
 
     monkeypatch.setattr(SnsClient, "list_subscriptions", throttled)

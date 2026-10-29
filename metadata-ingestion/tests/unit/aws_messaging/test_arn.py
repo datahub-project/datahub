@@ -76,6 +76,16 @@ def test_urns_use_the_account_from_the_arn() -> None:
     )
 
 
+def test_event_bus_name_keeps_partner_path() -> None:
+    partner = parse_arn(
+        "arn:aws:events:us-east-1:123456789012:event-bus/aws.partner/example.com/1234/orders"
+    )
+    default = parse_arn("arn:aws:events:us-east-1:123456789012:event-bus/default")
+    assert partner is not None and default is not None
+    assert partner.event_bus_name == "aws.partner/example.com/1234/orders"
+    assert default.event_bus_name == "default"
+
+
 def test_unresolved_account_keeps_one_platform_instance() -> None:
     urns = UrnBuilder(env="PROD", account_id=None, platform_instance=None)
     arn = parse_arn("arn:aws:sqs:us-east-1:123456789012:orders")

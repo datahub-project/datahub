@@ -46,7 +46,10 @@ from datahub.sdk import Dataset
     SourceCapability.TAGS, "From AWS resource tags, added without removing UI tags"
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.LINEAGE_COARSE, "Queue to dead-letter queue")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Dead-letter queues, Lambda triggers and destinations, EventBridge rules and Pipes",
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Defaults to the AWS account id")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
@@ -114,6 +117,7 @@ class SqsSource(AwsMessagingSourceBase):
         # Dead-letter targets are checked once every queue in the region is known.
         for queue in self.queues:
             self._add_dead_letter_edge(queue)
+        yield from self.service_lineage_workunits()
         yield from self.lineage.workunits()
 
     def list_queues(self) -> Iterator[SqsQueue]:
