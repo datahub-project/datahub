@@ -79,8 +79,12 @@ export const TitleContainer = styled.div({
     display: 'flex',
     flexDirection: 'column',
     gap: 2,
-    width: '100%',
+    flex: '1 1 auto',
     minWidth: 0,
+});
+
+export const HeaderAction = styled.div({
+    flexShrink: 0,
 });
 
 export const Title = styled.div<{ $isEmpty?: boolean; $size?: CardSize }>(({ $isEmpty, $size = 'md', theme }) => ({
