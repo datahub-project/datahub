@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -64,6 +64,59 @@ class TestKafkaSchemaInference:
 
     def test_infer_schemas_batch_empty_topics(self, schema_inference):
         assert schema_inference.infer_schemas_batch([]) == {}
+
+    @pytest.mark.parametrize("max_workers", [1, 2])
+    @pytest.mark.parametrize(
+        "payload,field_name,native_type",
+        [
+            (b"order-1", "text_value", "string"),
+            (b'"order-1"', "json_value", "string"),
+            (b"42", "json_value", "long"),
+            (b"true", "json_value", "boolean"),
+            (b"\xff\xfe", "binary_data", "string"),
+            (None, None, None),
+        ],
+    )
+    def test_primitive_keys_with_hybrid_sampling(
+        self,
+        payload: Optional[bytes],
+        field_name: Optional[str],
+        native_type: Optional[str],
+        max_workers: int,
+    ) -> None:
+        inference = KafkaSchemaInference(
+            bootstrap_servers="localhost:9092",
+            consumer_config={},
+            fallback_config=SchemaResolutionFallback(
+                enabled=True, max_messages_per_topic=1, offset_reset_strategy="hybrid"
+            ),
+            max_workers=max_workers,
+        )
+        message = Mock()
+        message.error.return_value = None
+        message.key.return_value = payload
+        message.value.return_value = b'{"unrelated": 123}'
+        with patch(
+            f"{_INFERENCE_MODULE}.Consumer",
+            side_effect=lambda config: ScriptedConsumer(
+                [] if config["auto.offset.reset"] == "latest" else [message]
+            ),
+        ):
+            results = inference.infer_schemas_batch(
+                ["orders", "archived-orders"], is_key_schema=True
+            )
+
+        for fields in results.values():
+            if payload is None:
+                assert fields == []
+            else:
+                assert len(fields) == 1
+                assert fields[0].fieldPath == (
+                    f"[version=2.0].[key=True].[type={native_type}].{field_name}"
+                )
+                assert fields[0].isPartOfKey
+                assert fields[0].nativeDataType == native_type
+        message.value.assert_not_called()
 
     def test_extract_fields_from_samples(self, schema_inference):
         sample_messages = [
@@ -167,7 +220,7 @@ class TestKafkaSchemaInference:
             }
             result = schema_inference.infer_schemas_batch(["topic1", "topic2"])
 
-        mock_parallel.assert_called_once_with(["topic1", "topic2"])
+        mock_parallel.assert_called_once_with(["topic1", "topic2"], False)
         assert len(result) == 2
 
     def testsample_topic_messages_hybrid_strategy(self, schema_inference):
@@ -178,8 +231,10 @@ class TestKafkaSchemaInference:
             result = schema_inference.sample_topic_messages("test-topic")
 
         assert mock_sample.call_count == 2
-        mock_sample.assert_any_call("test-topic", "latest")
-        mock_sample.assert_any_call("test-topic", "earliest")
+        mock_sample.assert_any_call("test-topic", "latest", False, decode_messages=True)
+        mock_sample.assert_any_call(
+            "test-topic", "earliest", False, decode_messages=True
+        )
         assert result == [{"field": "value"}]
 
     def testsample_topic_messages_latest_strategy(self, schema_inference):
@@ -191,7 +246,9 @@ class TestKafkaSchemaInference:
             mock_sample.return_value = [{"field": "value"}]
             result = schema_inference.sample_topic_messages("test-topic")
 
-        mock_sample.assert_called_once_with("test-topic", "latest")
+        mock_sample.assert_called_once_with(
+            "test-topic", "latest", False, decode_messages=True
+        )
         assert result == [{"field": "value"}]
 
     def testsample_topic_messages_earliest_strategy(self, schema_inference):
@@ -203,7 +260,9 @@ class TestKafkaSchemaInference:
             mock_sample.return_value = [{"field": "value"}]
             result = schema_inference.sample_topic_messages("test-topic")
 
-        mock_sample.assert_called_once_with("test-topic", "earliest")
+        mock_sample.assert_called_once_with(
+            "test-topic", "earliest", False, decode_messages=True
+        )
         assert result == [{"field": "value"}]
 
     def test_consumer_creation_failure_is_reported(self, fallback_config):
