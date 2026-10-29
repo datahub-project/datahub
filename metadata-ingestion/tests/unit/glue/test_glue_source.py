@@ -210,11 +210,11 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
     [
-        (None, "glue_mces.json", "glue_mces_golden.json"),
+        (None, "glue.json", "glue_golden.json"),
         (
             "some_instance_name",
-            "glue_mces_platform_instance.json",
-            "glue_mces_platform_instance_golden.json",
+            "glue_platform_instance.json",
+            "glue_platform_instance_golden.json",
         ),
     ],
 )
@@ -314,7 +314,6 @@ def test_glue_ingest(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
     )
 
@@ -345,13 +344,12 @@ def test_glue_view_lineage_ingest(
         mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
         glue_stubber.assert_no_pending_responses()
 
-        write_metadata_file(tmp_path / "glue_views_mces.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_views.json", mce_objects)
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_views_mces.json",
-        golden_path=test_resources_dir / "glue_views_mces_golden.json",
-        golden_mces_as_mcps=True,
+        output_path=tmp_path / "glue_views.json",
+        golden_path=test_resources_dir / "glue_views_golden.json",
         fail_on_output_mces=True,
     )
 
@@ -1191,13 +1189,12 @@ def test_glue_ingest_cross_account_and_resource_links(
         mce_objects = [wu.metadata for wu in source.get_workunits()]
         glue_stubber.assert_no_pending_responses()
 
-        write_metadata_file(tmp_path / "glue_mces_cross_account.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_cross_account.json", mce_objects)
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_mces_cross_account.json",
-        golden_path=test_resources_dir / "glue_mces_cross_account_golden.json",
-        golden_mces_as_mcps=True,
+        output_path=tmp_path / "glue_cross_account.json",
+        golden_path=test_resources_dir / "glue_cross_account_golden.json",
         fail_on_output_mces=True,
     )
 
@@ -1912,7 +1909,7 @@ def test_get_databases_filters_by_catalog():
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
-    deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
+    deleted_actor_golden_mcs = "{}/glue_deleted_actor_golden.json".format(
         test_resources_dir
     )
 
@@ -1969,7 +1966,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             assert checkpoint1.state
 
             # Capture MCEs of second run to validate Status(removed=true)
-            deleted_mces_path = "{}/{}".format(tmp_path, "glue_deleted_mces.json")
+            deleted_mces_path = "{}/{}".format(tmp_path, "glue_deleted.json")
             pipeline_config_dict["sink"]["type"] = "file"
             pipeline_config_dict["sink"]["config"] = {"filename": deleted_mces_path}
 
@@ -1993,7 +1990,6 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 pytestconfig,
                 output_path=deleted_mces_path,
                 golden_path=deleted_actor_golden_mcs,
-                golden_mces_as_mcps=True,
                 fail_on_output_mces=True,
             )
 
@@ -2036,14 +2032,13 @@ def test_glue_with_delta_schema_ingest(
 
         assert glue_source_instance.get_report().num_dataset_valid_delta_schema == 1
 
-        write_metadata_file(tmp_path / "glue_delta_mces.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_delta.json", mce_objects)
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_delta_mces.json",
-        golden_path=test_resources_dir / "glue_delta_mces_golden.json",
-        golden_mces_as_mcps=True,
+        output_path=tmp_path / "glue_delta.json",
+        golden_path=test_resources_dir / "glue_delta_golden.json",
         fail_on_output_mces=True,
     )
 
@@ -2074,14 +2069,13 @@ def test_glue_with_malformed_delta_schema_ingest(
 
         assert glue_source_instance.get_report().num_dataset_invalid_delta_schema == 1
 
-        write_metadata_file(tmp_path / "glue_malformed_delta_mces.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_malformed_delta.json", mce_objects)
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_malformed_delta_mces.json",
-        golden_path=test_resources_dir / "glue_malformed_delta_mces_golden.json",
-        golden_mces_as_mcps=True,
+        output_path=tmp_path / "glue_malformed_delta.json",
+        golden_path=test_resources_dir / "glue_malformed_delta_golden.json",
         fail_on_output_mces=True,
     )
 
@@ -2089,7 +2083,7 @@ def test_glue_with_malformed_delta_schema_ingest(
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
     [
-        (None, "glue_mces.json", "glue_mces_golden_table_lineage.json"),
+        (None, "glue.json", "glue_golden_table_lineage.json"),
     ],
 )
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2191,7 +2185,6 @@ def test_glue_ingest_include_table_lineage(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
     )
 
@@ -2199,7 +2192,7 @@ def test_glue_ingest_include_table_lineage(
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
     [
-        (None, "glue_mces.json", "glue_mces_golden_table_column_lineage.json"),
+        (None, "glue.json", "glue_golden_table_column_lineage.json"),
     ],
 )
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2299,7 +2292,6 @@ def test_glue_ingest_include_column_lineage(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
     )
 
@@ -2310,8 +2302,8 @@ def test_glue_ingest_with_profiling(
     pytestconfig: pytest.Config,
 ) -> None:
     glue_source_instance = glue_source_with_profiling()
-    mce_file = "glue_mces.json"
-    mce_golden_file = "glue_mces_golden_profiling.json"
+    mce_file = "glue.json"
+    mce_golden_file = "glue_golden_profiling.json"
     with Stubber(glue_source_instance.glue_client) as glue_stubber:
         glue_stubber.add_response("get_databases", get_databases_response_profiling, {})
 
@@ -2338,7 +2330,6 @@ def test_glue_ingest_with_profiling(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
     )
 
@@ -2348,8 +2339,8 @@ def test_glue_ingest_with_profiling(
     [
         (
             None,
-            "glue_mces_lake_formation_tags.json",
-            "glue_mces_lake_formation_tags_golden.json",
+            "glue_lake_formation_tags.json",
+            "glue_lake_formation_tags_golden.json",
         ),
     ],
 )
@@ -2549,7 +2540,6 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
     )
 
