@@ -119,6 +119,8 @@ def test_okta_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path)
         pytestconfig,
         output_path=output_file_path,
         golden_path=f"{test_resources_dir}/okta_mces_golden_default_config.json",
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -145,6 +147,8 @@ def test_okta_source_ingest_groups_users(pytestconfig, mock_datahub_graph, tmp_p
         pytestconfig,
         output_path=output_file_path,
         golden_path=f"{test_resources_dir}/okta_mces_golden_ingest_groups_users.json",
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -170,6 +174,8 @@ def test_okta_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_pa
         pytestconfig,
         output_path=output_file_path,
         golden_path=f"{test_resources_dir}/okta_mces_golden_ingestion_disabled.json",
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -198,6 +204,8 @@ def test_okta_source_include_deprovisioned_suspended_users(
         pytestconfig,
         output_path=output_file_path,
         golden_path=f"{test_resources_dir}/okta_mces_golden_include_deprovisioned_suspended_users.json",
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -222,6 +230,8 @@ def test_okta_source_custom_user_name_regex(pytestconfig, mock_datahub_graph, tm
         pytestconfig,
         output_path=output_file_path,
         golden_path=f"{test_resources_dir}/okta_mces_golden_custom_user_name_regex.json",
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
