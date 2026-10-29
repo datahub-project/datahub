@@ -24,6 +24,7 @@ from typing import (
     List,
     Literal,
     MutableMapping,
+    NamedTuple,
     Optional,
     Set,
     Tuple,
@@ -1029,6 +1030,12 @@ def get_schema_foreign_keys(
     return foreign_keys
 
 
+class _ForeignKeyGroup(NamedTuple):
+    name: Any
+    referred_schema: str
+    referred_table: str
+
+
 def optimized_get_foreign_keys(self, connection, table_name, schema=None, **kw):
     """
     Overrides base class method
@@ -1039,21 +1046,23 @@ def optimized_get_foreign_keys(self, connection, table_name, schema=None, **kw):
     # Default value for 'usexviews' is False so use DBC.All_RI_ChildrenV by default
     res = self.get_schema_foreign_keys(connection, schema).get(table_name, [])
 
-    def grouper(fk_row):
-        return {
-            "name": fk_row.IndexName or fk_row.IndexID,  # ID if IndexName is None
-            "schema": fk_row.ParentDB,
-            "table": fk_row.ParentTable,
-        }
+    def grouper(fk_row: Any) -> _ForeignKeyGroup:
+        # groupby_unsorted uses this as a dict key, so it must be hashable. It used
+        # to return a dict, which raised "unhashable type: 'dict'" and dropped
+        # every table that has a foreign key.
+        return _ForeignKeyGroup(
+            name=fk_row.IndexName or fk_row.IndexID,  # ID if IndexName is None
+            referred_schema=fk_row.ParentDB,
+            referred_table=fk_row.ParentTable,
+        )
 
-    # TODO: Check if there's a better way
     fk_dicts = list()
-    for constraint_info, constraint_cols in groupby_unsorted(res, grouper):
-        fk_dict = {
-            "name": str(constraint_info["name"]),
+    for group, constraint_cols in groupby_unsorted(res, grouper):
+        fk_dict: Dict[str, Any] = {
+            "name": str(group.name),
             "constrained_columns": list(),
-            "referred_table": constraint_info["table"],
-            "referred_schema": constraint_info["schema"],
+            "referred_table": group.referred_table,
+            "referred_schema": group.referred_schema,
             "referred_columns": list(),
         }
 
