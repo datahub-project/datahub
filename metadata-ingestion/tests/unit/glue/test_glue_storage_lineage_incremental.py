@@ -109,14 +109,8 @@ def _assert_properties_patched(wus: List[MetadataWorkUnit]) -> None:
         wu.metadata
         for wu in wus
         if wu.get_urn() == DATASET_URN
-        and isinstance(
-            wu.metadata,
-            (models.MetadataChangeProposalClass, models.MetadataChangeEventClass),
-        )
-        and (
-            getattr(wu.metadata, "aspectName", None) == "datasetProperties"
-            or wu.get_aspect_of_type(models.DatasetPropertiesClass) is not None
-        )
+        and not isinstance(wu.metadata, models.MetadataChangeEventClass)
+        and wu.metadata.aspectName == "datasetProperties"
     ]
     assert len(properties_writes) == 1
     properties_patch = properties_writes[0]
