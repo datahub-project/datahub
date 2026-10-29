@@ -21,6 +21,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.extractor import schema_util
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
@@ -146,50 +147,58 @@ class HiveSource(TwoTierSQLAlchemySource):
         config = HiveConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """Generate workunits for tables and their storage lineage."""
-        for wu in super().get_workunits_internal():
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        # Storage lineage needs DatasetProperties (Location) and SchemaMetadata (columns);
+        # collect them by aspect type, since they may arrive in different work units.
+        dataset_props: Optional[DatasetPropertiesClass] = None
+        schema_metadata: Optional[SchemaMetadataClass] = None
+        for wu in super()._process_table(
+            dataset_name, inspector, schema, table, sql_config, data_reader
+        ):
             yield wu
-
-            if not isinstance(wu, MetadataWorkUnit):
+            if dataset_props is not None and schema_metadata is not None:
                 continue
-
-            # Get dataset URN and required aspects using workunit methods
-            try:
-                dataset_urn = wu.get_urn()
-            except (AttributeError, KeyError) as e:
-                logger.debug(f"Workunit {wu.id} does not have a URN: {e}")
-                continue
-
-            try:
+            if dataset_props is None:
                 dataset_props = wu.get_aspect_of_type(DatasetPropertiesClass)
+            if schema_metadata is None:
                 schema_metadata = wu.get_aspect_of_type(SchemaMetadataClass)
-            except (AttributeError, KeyError) as e:
-                logger.debug(f"Could not extract aspects from workunit {wu.id}: {e}")
-                continue
-
-            # Only proceed if we have the necessary properties for storage lineage
-            if not dataset_props or not dataset_props.customProperties:
-                continue
-
-            location = dataset_props.customProperties.get("Location")
-            if not location:
-                continue
-
-            table = {"StorageDescriptor": {"Location": location}}
-
-            try:
-                yield from self.storage_lineage.get_lineage_mcp(
-                    dataset_urn=dataset_urn,
-                    table=table,
-                    dataset_schema=schema_metadata,
+            if dataset_props is not None and schema_metadata is not None:
+                yield from self._gen_storage_lineage_workunits(
+                    wu.get_urn(), dataset_props, schema_metadata
                 )
-            except (ValueError, TypeError, KeyError) as e:
-                self.report.warning(
-                    message="Failed to generate storage lineage",
-                    context=dataset_urn,
-                    exc=e,
-                )
+
+    def _gen_storage_lineage_workunits(
+        self,
+        dataset_urn: str,
+        dataset_props: DatasetPropertiesClass,
+        schema_metadata: SchemaMetadataClass,
+    ) -> Iterable[MetadataWorkUnit]:
+        location = dataset_props.customProperties.get("Location")
+        if not location:
+            return
+
+        # An error stops storage lineage where it failed (storage dataset aspects may
+        # already be out); the table's other aspects still follow.
+        try:
+            yield from self.storage_lineage.get_lineage_mcp(
+                dataset_urn=dataset_urn,
+                table={"StorageDescriptor": {"Location": location}},
+                dataset_schema=schema_metadata,
+            )
+        except Exception as e:
+            self.report.warning(
+                message="Failed to generate storage lineage",
+                context=dataset_urn,
+                exc=e,
+            )
 
     def get_schema_names(self, inspector):
         if not isinstance(self.config, HiveConfig):
