@@ -3,7 +3,18 @@ import logging
 import re
 import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Type, TypeVar, cast
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Type,
+    TypeVar,
+    cast,
+)
 
 from sqlalchemy import text
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
@@ -152,6 +163,42 @@ class CommentScope:
 
 
 @dataclass(frozen=True)
+class CommentIndex(Generic[_CommentValue]):
+    """Comments by name, for a database's tables or one table's columns.
+
+    Doris 4.0.8+ keeps Iceberg and Paimon column names in their source case where
+    earlier versions lower-cased them (apache/doris#65094), so a reflected name may
+    differ in case from the one information_schema returns. Case-sensitive catalogs
+    can also hold names that differ only in case, so the fallback must never pick
+    between them.
+    """
+
+    # Every name information_schema returned, including those without a comment, so
+    # that an uncommented name is an exact hit rather than a miss that falls through
+    # to a case-insensitive sibling.
+    entries: Dict[str, Optional[_CommentValue]]
+    # Casefolded name to the single name that folds to it, or None when several do
+    # and the match would be a guess.
+    folded: Dict[str, Optional[str]]
+
+    @classmethod
+    def build(
+        cls, entries: Dict[str, Optional[_CommentValue]]
+    ) -> "CommentIndex[_CommentValue]":
+        folded: Dict[str, Optional[str]] = {}
+        for name in entries:
+            key = name.casefold()
+            folded[key] = None if key in folded else name
+        return cls(entries=entries, folded=folded)
+
+    def get(self, name: str) -> Optional[_CommentValue]:
+        if name in self.entries:
+            return self.entries[name]
+        match = self.folded.get(name.casefold())
+        return None if match is None else self.entries[match]
+
+
+@dataclass(frozen=True)
 class DescribeRow:
     name: str
     type_str: str
@@ -183,21 +230,6 @@ def _non_empty_comment(value: object) -> Optional[str]:
         return None
     comment = str(value)
     return comment if comment.strip() else None
-
-
-def _lookup_comment(
-    comments: Mapping[str, _CommentValue], name: str
-) -> Optional[_CommentValue]:
-    # Doris 4.0.8+ keeps external-catalog names in their source case where earlier
-    # versions lower-cased them, so DDL and information_schema can disagree on case.
-    # An exact match always wins over a case-insensitive one.
-    if name in comments:
-        return comments[name]
-    folded = name.casefold()
-    for key, value in comments.items():
-        if key.casefold() == folded:
-            return value
-    return None
 
 
 @functools.lru_cache(maxsize=None)
@@ -263,8 +295,10 @@ class DorisDialect(MySQLDialect_pymysql):
         # each table through its own Inspector, so a per-inspector cache would rerun
         # both database-wide queries for every profiled table. The dialect lives as
         # long as the engine, which DorisSource opens per database.
-        self._column_comment_cache: Dict[CommentScope, Dict[str, Dict[str, str]]] = {}
-        self._table_comment_cache: Dict[CommentScope, Dict[str, str]] = {}
+        self._column_comment_cache: Dict[
+            CommentScope, CommentIndex[CommentIndex[str]]
+        ] = {}
+        self._table_comment_cache: Dict[CommentScope, CommentIndex[str]] = {}
 
     def pop_reflection_fallbacks(self) -> Dict[str, ReflectionFallback]:
         fallbacks = self.reflection_fallbacks
@@ -369,16 +403,14 @@ class DorisDialect(MySQLDialect_pymysql):
 
         scope = self._comment_scope(connection, schema)
         if scope is not None:
-            table_comments = (
-                _lookup_comment(self._column_comments(connection, scope), table_name)
-                or {}
-            )
-            for col in columns:
-                # information_schema wins: it has the comment unescaped, and the DDL
-                # parse only ever recovers the rare single-quoted one.
-                comment = _lookup_comment(table_comments, col["name"])
-                if comment is not None:
-                    col["comment"] = comment
+            table_comments = self._column_comments(connection, scope).get(table_name)
+            if table_comments is not None:
+                for col in columns:
+                    # information_schema wins: it has the comment unescaped, and the
+                    # DDL parse only ever recovers the rare single-quoted one.
+                    comment = table_comments.get(col["name"])
+                    if comment is not None:
+                        col["comment"] = comment
 
         return columns
 
@@ -398,33 +430,40 @@ class DorisDialect(MySQLDialect_pymysql):
         if scope is None:
             return table_comment
 
-        comment = _lookup_comment(self._table_comments(connection, scope), table_name)
+        comment = self._table_comments(connection, scope).get(table_name)
         if comment is None:
             return table_comment
         return ReflectedTableComment(text=comment)
 
     def _column_comments(
         self, connection: Connection, scope: CommentScope
-    ) -> Dict[str, Dict[str, str]]:
+    ) -> CommentIndex[CommentIndex[str]]:
         if scope not in self._column_comment_cache:
-            comments: Dict[str, Dict[str, str]] = {}
+            tables: Dict[str, Dict[str, Optional[str]]] = {}
             for row in self._query_comments(connection, _COLUMN_COMMENTS_SQL, scope):
-                comment = _non_empty_comment(row[2])
-                if comment is not None:
-                    comments.setdefault(str(row[0]), {})[str(row[1])] = comment
-            self._column_comment_cache[scope] = comments
+                tables.setdefault(str(row[0]), {})[str(row[1])] = _non_empty_comment(
+                    row[2]
+                )
+            self._column_comment_cache[scope] = CommentIndex.build(
+                {
+                    table: CommentIndex.build(columns)
+                    for table, columns in tables.items()
+                }
+            )
         return self._column_comment_cache[scope]
 
     def _table_comments(
         self, connection: Connection, scope: CommentScope
-    ) -> Dict[str, str]:
+    ) -> CommentIndex[str]:
         if scope not in self._table_comment_cache:
-            comments: Dict[str, str] = {}
-            for row in self._query_comments(connection, _TABLE_COMMENTS_SQL, scope):
-                comment = _non_empty_comment(row[1])
-                if comment is not None:
-                    comments[str(row[0])] = comment
-            self._table_comment_cache[scope] = comments
+            self._table_comment_cache[scope] = CommentIndex.build(
+                {
+                    str(row[0]): _non_empty_comment(row[1])
+                    for row in self._query_comments(
+                        connection, _TABLE_COMMENTS_SQL, scope
+                    )
+                }
+            )
         return self._table_comment_cache[scope]
 
     def _query_comments(
@@ -453,7 +492,9 @@ class DorisDialect(MySQLDialect_pymysql):
                 raise
             # Comments are lost but the tables are not. The empty result is what gets
             # memoised, so a database whose lookup fails costs one failed query
-            # rather than one per table.
+            # rather than one per table. A raised bare-name query is not a miss, so
+            # the qualified form is not tried; the failure is keyed by the database
+            # either way, and the error text carries the name that was bound.
             self.comment_lookup_failures.setdefault(qualified_database, str(e))
             logger.info(
                 f"Reading comments from information_schema failed for "

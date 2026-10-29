@@ -1,6 +1,6 @@
 """Unit tests for Doris SQLAlchemy dialect."""
 
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from unittest.mock import Mock, patch
 
 import pytest
@@ -705,8 +705,11 @@ class TestDorisComments:
         "table_schema,expected_queries",
         [("my_db", 1), ("my_catalog.my_db", 2)],
     )
+    # The inspector passes the bare database name while the connection URL carries
+    # `catalog.database`, so the catalog has to come from the URL.
+    @pytest.mark.parametrize("schema", [None, "my_db"])
     def test_external_catalog_matches_bare_then_qualified_database_name(
-        self, mock_text, table_schema, expected_queries
+        self, mock_text, table_schema, expected_queries, schema
     ):
         """An external catalog's information_schema rows carry the bare database
         name, or `catalog.database` when show_full_dbname_in_info_schema_db is on.
@@ -719,7 +722,7 @@ class TestDorisComments:
             column_comment_rows=[("my_table", "col_a", "From the catalog")],
         )
 
-        columns = self._get_columns(dialect, mock_connection, "my_table")
+        columns = self._get_columns(dialect, mock_connection, "my_table", schema=schema)
 
         assert columns[0]["comment"] == "From the catalog"
         assert (
@@ -801,34 +804,90 @@ class TestDorisComments:
             "col_c": "Load time",
         }
 
-    def test_comment_names_match_case_insensitively_when_exact_match_misses(
-        self, mock_text
-    ):
-        """Newer Doris versions keep external-catalog names in their source case, so
-        DDL and information_schema may spell a name differently."""
+    def _comments_for(
+        self,
+        table_name: str,
+        column_comment_rows: Sequence[Sequence[Any]],
+        table_comment_rows: Sequence[Sequence[Any]],
+    ) -> Tuple[Dict[str, Optional[str]], Any]:
         dialect = DorisDialect()
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_db"
         mock_connection.execute.side_effect = _execute_by_query(
-            column_comment_rows=[
-                ("My_Table", "COL_A", "Case differs"),
-                ("My_Table", "col_b", "Exact"),
-                ("My_Table", "COL_B", "Case differs, loses to exact"),
-            ],
-            table_comment_rows=[("MY_TABLE", "Table comment")],
+            column_comment_rows=column_comment_rows,
+            table_comment_rows=table_comment_rows,
         )
         kw: Dict[str, Any] = {"schema": "my_db", "info_cache": {}}
 
         with patch.object(
             MySQLDialect, "get_table_comment", return_value={"text": None}
         ):
-            columns = self._get_columns(dialect, mock_connection, "my_table", **kw)
-            table_comment = dialect.get_table_comment(mock_connection, "my_table", **kw)
+            columns = self._get_columns(dialect, mock_connection, table_name, **kw)
+            table_comment = dialect.get_table_comment(mock_connection, table_name, **kw)
+        return {col["name"]: col["comment"] for col in columns}, table_comment
 
-        comments = {col["name"]: col["comment"] for col in columns}
+    def test_comment_names_match_case_insensitively_when_exact_match_misses(
+        self, mock_text
+    ):
+        """A reflected name may differ in case from information_schema's. An exact
+        match wins even when a case variant comes first."""
+        comments, table_comment = self._comments_for(
+            "my_table",
+            column_comment_rows=[
+                ("My_Table", "COL_A", "Case differs"),
+                ("My_Table", "COL_B", "Case differs, loses to exact"),
+                ("My_Table", "col_b", "Exact"),
+            ],
+            table_comment_rows=[("MY_TABLE", "Table comment")],
+        )
+
         assert comments["col_a"] == "Case differs"
         assert comments["col_b"] == "Exact"
         assert table_comment == {"text": "Table comment"}
+
+    def test_exact_table_name_wins_over_a_case_variant(self, mock_text):
+        comments, table_comment = self._comments_for(
+            "my_table",
+            column_comment_rows=[
+                ("MY_TABLE", "col_a", "Variant table"),
+                ("my_table", "col_a", "Exact table"),
+            ],
+            table_comment_rows=[("MY_TABLE", "Variant"), ("my_table", "Exact")],
+        )
+
+        assert comments["col_a"] == "Exact table"
+        assert table_comment == {"text": "Exact"}
+
+    def test_uncommented_name_does_not_borrow_a_case_variants_comment(self, mock_text):
+        """With case-sensitive names, an uncommented `my_table` next to a commented
+        `MY_TABLE` is a different table, not a case mismatch."""
+        comments, table_comment = self._comments_for(
+            "my_table",
+            column_comment_rows=[
+                ("my_table", "col_a", ""),
+                ("my_table", "col_b", ""),
+                ("my_table", "COL_B", "Belongs to COL_B"),
+                ("MY_TABLE", "col_a", "Belongs to MY_TABLE"),
+            ],
+            table_comment_rows=[("my_table", ""), ("MY_TABLE", "Belongs to MY_TABLE")],
+        )
+
+        assert comments["col_a"] is None
+        assert comments["col_b"] is None
+        assert table_comment == {"text": None}
+
+    def test_ambiguous_case_insensitive_match_resolves_to_nothing(self, mock_text):
+        comments, table_comment = self._comments_for(
+            "My_Table",
+            column_comment_rows=[
+                ("my_table", "col_a", "Lower"),
+                ("MY_TABLE", "col_a", "Upper"),
+            ],
+            table_comment_rows=[("my_table", "Lower"), ("MY_TABLE", "Upper")],
+        )
+
+        assert comments["col_a"] is None
+        assert table_comment == {"text": None}
 
     def test_failed_qualified_retry_keeps_columns_and_is_recorded(self, mock_text):
         dialect = DorisDialect()
@@ -840,7 +899,7 @@ class TestDorisComments:
             statement: str, params: Optional[Dict[str, Any]] = None
         ) -> List[Sequence[Any]]:
             if params == {"schema": "my_catalog.my_db"}:
-                raise SQLAlchemyError("Lost connection")
+                raise SQLAlchemyError("Access denied")
             return bare(statement, params)
 
         mock_connection.execute.side_effect = execute
@@ -850,7 +909,7 @@ class TestDorisComments:
         assert columns[2]["comment"] == "Parsed from DDL"
         failures = dialect.pop_comment_lookup_failures()
         assert list(failures) == ["my_catalog.my_db"]
-        assert "Lost connection" in failures["my_catalog.my_db"]
+        assert "Access denied" in failures["my_catalog.my_db"]
 
     def test_failed_lookup_keeps_columns_and_is_recorded_once(self, mock_text):
         """A missing information_schema grant costs descriptions, not tables, and

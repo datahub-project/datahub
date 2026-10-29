@@ -4,11 +4,9 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Table and Column Descriptions
 
-Table and column comments are read from `information_schema.TABLES` and `information_schema.COLUMNS`, with one query each per database, and ingested as dataset and field descriptions. They are not taken from `SHOW CREATE TABLE`: Doris writes comments there in double quotes, which the MySQL DDL parser does not read.
+Table and column comments are read from `information_schema.TABLES` and `information_schema.COLUMNS`, with one query each per database (two when an external catalog needs the retry below), and ingested as dataset and field descriptions. They are not taken from `SHOW CREATE TABLE`: Doris writes comments there in double quotes, which the MySQL DDL parser does not read.
 
-External catalogs (Paimon, Hive, Iceberg, …) are covered the same way. Each lookup filters on a single `TABLE_SCHEMA = '<database>'`, which Doris pushes down into the `information_schema` scan, so only the ingested database's remote schemas are loaded rather than every table in the catalog. When the global `show_full_dbname_in_info_schema_db` is enabled, rows are keyed by `catalog.database` instead, and the source retries with that name when the bare one returns nothing.
-
-Comments of tables in an external catalog need Doris 2.1 or later, where each catalog has its own `information_schema` ([apache/doris#28919](https://github.com/apache/doris/pull/28919)).
+External catalogs (Paimon, Hive, Iceberg, …) are covered the same way on Doris 2.1 and later, where each catalog has its own `information_schema` ([apache/doris#28919](https://github.com/apache/doris/pull/28919)). When the global `show_full_dbname_in_info_schema_db` is enabled, those rows are keyed by `catalog.database`, and the source retries with that name when the bare one returns nothing.
 
 #### Migration from MySQL Connector
 
@@ -35,7 +33,7 @@ Doris truncates `information_schema.COLUMNS.COLUMN_COMMENT` to `column_comment_l
 
 #### External catalog table comments
 
-Column comments of external-catalog tables are available on every Doris version with per-catalog `information_schema` (2.1 and later), but table comments depend on what Doris maps from the external system. Doris maps the Paimon table comment only from 3.1 onwards, so Paimon tables on Doris 2.1 and 3.0 are ingested with column descriptions but no table description. No configuration change is needed once Doris is upgraded.
+Column comments of external-catalog tables are available on every Doris version with per-catalog `information_schema` (2.1 and later), but table comments depend on what Doris maps from the external system. Doris maps the Paimon table comment only from 3.1 onwards ([apache/doris#53405](https://github.com/apache/doris/pull/53405)), so Paimon tables on Doris 2.1 and 3.0 are ingested with column descriptions but no table description. No configuration change is needed once Doris is upgraded.
 
 ### Troubleshooting
 
