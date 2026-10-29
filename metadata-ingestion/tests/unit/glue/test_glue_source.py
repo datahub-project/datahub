@@ -314,6 +314,8 @@ def test_glue_ingest(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -349,6 +351,8 @@ def test_glue_view_lineage_ingest(
         pytestconfig,
         output_path=tmp_path / "glue_views_mces.json",
         golden_path=test_resources_dir / "glue_views_mces_golden.json",
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -1193,6 +1197,8 @@ def test_glue_ingest_cross_account_and_resource_links(
         pytestconfig,
         output_path=tmp_path / "glue_mces_cross_account.json",
         golden_path=test_resources_dir / "glue_mces_cross_account_golden.json",
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -1305,10 +1311,10 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
 
     wus = list(source.get_workunits())
 
-    snapshot_urns = {
-        wu.metadata.proposedSnapshot.urn
+    dataset_urns = {
+        wu.get_urn()
         for wu in wus
-        if isinstance(wu.metadata, models.MetadataChangeEventClass)
+        if wu.get_aspect_of_type(models.DatasetPropertiesClass) is not None
     }
 
     events_urn = (
@@ -1327,10 +1333,10 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
     # (1) The mapping is consulted for the table's own CatalogId: tables are stamped with the mapped
     # "consumer_inst", not the source's own "ingestion_acct". owner_db is excluded by the pattern,
     # so it is never emitted as a dataset (it exists only as the lineage target).
-    assert events_urn in snapshot_urns
-    assert shared_events_urn in snapshot_urns
-    assert all("ingestion_acct" not in urn for urn in snapshot_urns)
-    assert all("owner_db" not in urn for urn in snapshot_urns)
+    assert events_urn in dataset_urns
+    assert shared_events_urn in dataset_urns
+    assert all("ingestion_acct" not in urn for urn in dataset_urns)
+    assert all("owner_db" not in urn for urn in dataset_urns)
 
     # (2) The resource link stitches back to the owner account's URN via TargetTable.CatalogId.
     upstreams = _upstream_lineage(wus, shared_events_urn)
@@ -1987,6 +1993,8 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 pytestconfig,
                 output_path=deleted_mces_path,
                 golden_path=deleted_actor_golden_mcs,
+                golden_mces_as_mcps=True,
+                fail_on_output_mces=True,
             )
 
             # Perform all assertions on the states. The deleted table should not be
@@ -2035,6 +2043,8 @@ def test_glue_with_delta_schema_ingest(
         pytestconfig,
         output_path=tmp_path / "glue_delta_mces.json",
         golden_path=test_resources_dir / "glue_delta_mces_golden.json",
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -2071,6 +2081,8 @@ def test_glue_with_malformed_delta_schema_ingest(
         pytestconfig,
         output_path=tmp_path / "glue_malformed_delta_mces.json",
         golden_path=test_resources_dir / "glue_malformed_delta_mces_golden.json",
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -2179,6 +2191,8 @@ def test_glue_ingest_include_table_lineage(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -2285,6 +2299,8 @@ def test_glue_ingest_include_column_lineage(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -2322,6 +2338,8 @@ def test_glue_ingest_with_profiling(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -2531,6 +2549,8 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -2580,12 +2600,10 @@ def test_no_lakeformation_extraction_when_disabled() -> None:
 
     source.lf_client.get_resource_lf_tags.assert_not_called()
     for wu in workunits:
-        mce = wu.metadata
-        if isinstance(mce, models.MetadataChangeEventClass):
-            for aspect in mce.proposedSnapshot.aspects:
-                assert not isinstance(aspect, models.GlobalTagsClass)
-                if isinstance(aspect, models.SchemaMetadataClass):
-                    assert all(f.globalTags is None for f in aspect.fields)
+        assert wu.get_aspect_of_type(models.GlobalTagsClass) is None
+        schema_metadata = wu.get_aspect_of_type(models.SchemaMetadataClass)
+        if schema_metadata is not None:
+            assert all(f.globalTags is None for f in schema_metadata.fields)
 
 
 def _resolved_table_tag_names(source: GlueSource, response: Dict[str, Any]) -> Set[str]:
@@ -3012,25 +3030,23 @@ def test_lf_tags_propagated_and_column_tagged_end_to_end() -> None:
             "get_tables", {"TableList": []}, {"DatabaseName": "empty-database"}
         )
 
-        mce_objects = [wu.metadata for wu in source.get_workunits()]
+        workunits = list(source.get_workunits())
 
     table_tags = None
     column_tag_fields = set()
-    for mce in mce_objects:
-        if not isinstance(mce, models.MetadataChangeEventClass):
+    for wu in workunits:
+        if "flights-database.avro" not in wu.get_urn():
             continue
-        snapshot = mce.proposedSnapshot
-        if "flights-database.avro" not in snapshot.urn:
-            continue
-        for aspect in snapshot.aspects:
-            if isinstance(aspect, models.GlobalTagsClass):
-                table_tags = {assoc.tag for assoc in aspect.tags}
-            if isinstance(aspect, models.SchemaMetadataClass):
-                for f in aspect.fields:
-                    if f.globalTags and any(
-                        t.tag == make_tag_urn("pii:true") for t in f.globalTags.tags
-                    ):
-                        column_tag_fields.add(f.fieldPath)
+        global_tags = wu.get_aspect_of_type(models.GlobalTagsClass)
+        if global_tags is not None:
+            table_tags = {assoc.tag for assoc in global_tags.tags}
+        schema_metadata = wu.get_aspect_of_type(models.SchemaMetadataClass)
+        if schema_metadata is not None:
+            for f in schema_metadata.fields:
+                if f.globalTags and any(
+                    t.tag == make_tag_urn("pii:true") for t in f.globalTags.tags
+                ):
+                    column_tag_fields.add(f.fieldPath)
 
     assert table_tags is not None, "flights-database.avro had no GlobalTags aspect"
     assert make_tag_urn("DataClassification:Sensitive") in table_tags
@@ -3877,22 +3893,12 @@ def test_incremental_properties_emits_patch_mcps(
         assert isinstance(patch_ops, list)
         assert all("op" in op and "path" in op for op in patch_ops)
 
-    # Verify that dataset MCEs do NOT contain DatasetProperties aspect
-    mce_wus = [
-        wu
-        for wu in workunits
-        if wu.metadata
-        and isinstance(wu.metadata, models.MetadataChangeEventClass)
-        and wu.metadata.proposedSnapshot
-    ]
-    for wu in mce_wus:
-        assert isinstance(wu.metadata, models.MetadataChangeEventClass)
-        snapshot = wu.metadata.proposedSnapshot
-        if snapshot and hasattr(snapshot, "aspects"):
-            for aspect in snapshot.aspects:
-                assert not isinstance(aspect, models.DatasetPropertiesClass), (
-                    "DatasetPropertiesClass should not be in MCE snapshot in PATCH mode"
-                )
+    # Verify that no work unit UPSERTs the DatasetProperties aspect
+    for wu in workunits:
+        assert not (
+            isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, models.DatasetPropertiesClass)
+        ), "DatasetPropertiesClass should not be UPSERTed in PATCH mode"
 
 
 # ── extract_column_parameters (structured properties) ─────────────────────────
