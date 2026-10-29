@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import Dict, Iterable, Iterator, List, Optional
 
 from datahub.emitter.mce_builder import make_term_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -40,10 +41,11 @@ from datahub.ingestion.source.aws_messaging.mapper import (
     topic_console_url,
     topic_properties,
 )
-from datahub.ingestion.source.aws_messaging.models import SnsSubscription, SnsTopic
+from datahub.ingestion.source.aws_messaging.models import Arn, SnsSubscription, SnsTopic
 from datahub.ingestion.source.aws_messaging.report import SnsSourceReport
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.metadata.schema_classes import StatusClass
 from datahub.sdk import Dataset
 
 
@@ -116,6 +118,8 @@ class SnsSource(AwsMessagingSourceBase):
             else None
         )
         self.subscriptions: Dict[str, List[SnsSubscription]] = defaultdict(list)
+        # Listed but unreadable this run: still in AWS, so kept out of stale removal.
+        self.unreadable_topics: List[Arn] = []
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SnsSource":
@@ -125,11 +129,9 @@ class SnsSource(AwsMessagingSourceBase):
         return self.sns.first_topic_arn()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        for subscription in self.sns.list_subscriptions():
-            self.report.subscriptions_scanned += 1
-            self.subscriptions[subscription.topic_arn].append(subscription)
         self._load_local_queues()
         yield from self.with_region_container(self._topic_workunits())
+        yield from self._keep_unreadable_topics()
         for topic in self.topics:
             self._add_subscription_edges(topic)
         yield from self.service_lineage_workunits()
@@ -164,7 +166,11 @@ class SnsSource(AwsMessagingSourceBase):
             attributes = self.sns.get_topic_attributes(topic_arn)
             if attributes is None:
                 self.report.topics_failed.append(arn.resource_name)
+                self.unreadable_topics.append(arn)
                 continue
+            for subscription in self.sns.list_subscriptions(topic_arn):
+                self.report.subscriptions_scanned += 1
+                self.subscriptions[topic_arn].append(subscription)
             if bulk_tags is None:
                 tags = self.sns.get_tags(topic_arn)
             else:
@@ -215,6 +221,15 @@ class SnsSource(AwsMessagingSourceBase):
                         )
             yield from tag_patch_workunits(urn, tags)
             yield from term_patch_workunits(urn, terms)
+
+    def _keep_unreadable_topics(self) -> Iterable[MetadataWorkUnit]:
+        # Status only: registers the topic as seen without overwriting what an
+        # earlier run stored.
+        for arn in self.unreadable_topics:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=self.urns.topic_urn(arn),
+                aspect=StatusClass(removed=False),
+            ).as_workunit()
 
     def _add_subscription_edges(self, topic: SnsTopic) -> None:
         topic_urn = self.urns.topic_urn(topic.arn)
