@@ -67,6 +67,17 @@ With the `lineage` options on (the default), the connector follows the services 
 
 Turn this on in only one of the `sqs` and `sns` recipes for an account unless some buckets notify queues and others notify topics: each source reads every bucket's notification configuration. When every bucket was read, an S3 edge whose notification was removed is removed on the next run (`remove_stale_lineage`); this reads the current lineage of each of the source's topics from DataHub.
 
+#### Producers from CloudTrail Lake
+
+Code that sends with the AWS SDK leaves no trace in any configuration API, so most topics have no upstream. If you log SQS and SNS data events to a [CloudTrail Lake](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake.html) event data store, set `cloudtrail_producers.enabled` and `cloudtrail_producers.event_data_store`. The connector runs one query per run over the last `lookback_days` of `Publish` and `PublishBatch` events and groups them by caller and topic.
+
+- A caller that is a Lambda function in the recipe's account and region becomes an upstream job of the topic. The match relies on Lambda naming the execution role session after the function. That convention has not yet been checked against a real trail for every runtime and invocation path, so treat these edges as best effort.
+- Any other caller (an ECS task or EC2 role, an IAM user) is listed by role ARN in the topic's `observed_producers` property, not drawn as lineage, because a role is not a DataHub entity.
+- The query only covers events in the recipe's region, and SQS targets are matched on the region and account in each queue URL, so a multi-region trail doesn't mix up same-named topics.
+- Give `event_data_store` as an ARN when the store is in another region: the query runs in the store's region. A store in another account must be shared with the ingestion role through its resource policy; the connector then queries it with the owner's account id.
+- If the query fails, the topic's existing `observed_producers` value is read back from DataHub and kept, which needs a DataHub connection (the `datahub-rest` sink provides one). Without one it is cleared until the next successful run, with a warning. If the query succeeds and no role sent to the topic in the lookback window, the value is removed. A Lambda producer edge that the window no longer shows is removed with the other stale Lambda output edges (`remove_stale_lineage`, with `lineage.lambda_async_destinations` on); a failed query keeps them.
+- CloudTrail Lake bills queries by data scanned, and data events must be enabled for the topics, which also costs. Both are off by default. Each run scans the whole `lookback_days` window (default 7), so a daily schedule scans each day about seven times; lower `lookback_days` to match the schedule if cost matters. With the feature on, each topic also costs one DataHub read of its `datasetProperties` to carry `observed_producers` over.
+
 #### Tags and data protection
 
 AWS resource tags become DataHub tags named `Key:Value` (or `Key` for an empty value), the same format as the `kinesis` and `sqs` sources. They are added to the topic rather than replacing its tags, so tags added in the DataHub UI stay; a tag removed in AWS stays in DataHub until removed there. Use the `extract_ownership_from_tags` transformer to turn an `owner` tag into ownership.

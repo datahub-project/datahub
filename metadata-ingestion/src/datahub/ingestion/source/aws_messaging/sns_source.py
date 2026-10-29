@@ -171,6 +171,7 @@ class SnsSource(AwsMessagingSourceBase):
             if str(topic.arn) not in self.incomplete_topics:
                 self.lineage.complete.add(self.urns.topic_urn(topic.arn))
         self.collect_s3_notifications()
+        yield from self.producer_workunits()
         yield from self.service_lineage_workunits()
         if self.firehose is not None:
             yield from self.firehose.workunits()
@@ -244,8 +245,9 @@ class SnsSource(AwsMessagingSourceBase):
                 subtype=DatasetSubTypes.TOPIC.value,
                 parent_container=self.region_key(),
                 external_url=topic_console_url(topic),
-                custom_properties=topic_properties(
-                    topic, self.subscriptions.get(str(topic.arn), [])
+                custom_properties=self.dataset_custom_properties(
+                    urn,
+                    topic_properties(topic, self.subscriptions.get(str(topic.arn), [])),
                 ),
                 domain=domain_for(topic.name, self.config.domain),
                 schema=schema,

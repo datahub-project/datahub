@@ -56,6 +56,17 @@ class LambdaLineage:
         self.region_key = region_key
         self.jobs = jobs
         self.functions: Dict[str, LambdaFunctionEdges] = {}
+        self._function_arns: Optional[Dict[str, str]] = None
+
+    def function_arns_by_name(self) -> Dict[str, str]:
+        if self._function_arns is None:
+            self._function_arns = {
+                function["FunctionName"]: function["FunctionArn"]
+                for function in self.client.list_functions(
+                    on_error=self._outputs_unknown
+                )
+            }
+        return self._function_arns
 
     def function(
         self, function_arn: str, context: str
@@ -131,16 +142,14 @@ class LambdaLineage:
             self._outputs_unknown(error)
             denied = aws_error_code(error) in ACCESS_DENIED_CODES
 
-        for function in self.client.list_functions(on_error=self._outputs_unknown):
+        for name, function_arn in self.function_arns_by_name().items():
             for destination in self.client.list_async_destinations(
-                function["FunctionName"], on_error=failed
+                name, on_error=failed
             ):
                 urn = self.resolver.urn(parse_arn(destination))
                 if urn is None:
                     continue
-                edges = self.function(
-                    function["FunctionArn"], "async invoke destination"
-                )
+                edges = self.function(function_arn, "async invoke destination")
                 if edges is not None:
                     edges.outputs.add(urn)
             if denied:

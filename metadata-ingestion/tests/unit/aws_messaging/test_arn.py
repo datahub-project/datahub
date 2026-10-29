@@ -5,6 +5,7 @@ from datahub.ingestion.source.aws_messaging.arn import (
     UrnBuilder,
     endpoint_host,
     parse_arn,
+    parse_queue_url,
     parse_redrive_policy,
 )
 
@@ -84,6 +85,39 @@ def test_event_bus_name_keeps_partner_path() -> None:
     assert partner is not None and default is not None
     assert partner.event_bus_name == "aws.partner/example.com/1234/orders"
     assert default.event_bus_name == "default"
+
+
+def test_parse_queue_url_reads_region_and_account() -> None:
+    cases = {
+        "https://sqs.eu-west-1.amazonaws.com/123456789012/orders": ("aws", "eu-west-1"),
+        "https://eu-west-1.queue.amazonaws.com/123456789012/orders": (
+            "aws",
+            "eu-west-1",
+        ),
+        "https://queue.amazonaws.com/123456789012/orders": ("aws", "us-east-1"),
+        "https://sqs.cn-north-1.amazonaws.com.cn/123456789012/orders": (
+            "aws-cn",
+            "cn-north-1",
+        ),
+        "https://sqs.us-gov-west-1.amazonaws.com/123456789012/orders": (
+            "aws-us-gov",
+            "us-gov-west-1",
+        ),
+    }
+    for url, (partition, region) in cases.items():
+        arn = parse_queue_url(url)
+        assert arn is not None, url
+        assert (arn.partition, arn.region, arn.account, arn.resource_name) == (
+            partition,
+            region,
+            "123456789012",
+            "orders",
+        )
+    # A VPC endpoint host doesn't say which region the queue is in.
+    assert (
+        parse_queue_url("https://vpce-1.sqs.example.internal/123456789012/orders")
+        is None
+    )
 
 
 def test_unresolved_account_keeps_one_platform_instance() -> None:

@@ -42,5 +42,10 @@ source:
     firehose_lineage: false
     # kinesis_platform_instance: "prod-account"
 
+    cloudtrail_producers:
+      enabled: false
+      # event_data_store: "arn:aws:cloudtrail:us-east-1:123456789012:eventdatastore/EXAMPLE"
+      # lookback_days: 7
+
     stateful_ingestion:
       enabled: true

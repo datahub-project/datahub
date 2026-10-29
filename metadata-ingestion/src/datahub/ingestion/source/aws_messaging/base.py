@@ -1,4 +1,4 @@
-from typing import Any, Callable, FrozenSet, Iterable, Optional
+from typing import Any, Callable, Dict, FrozenSet, Iterable, Optional, Set
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -9,11 +9,13 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
 from datahub.ingestion.source.aws_messaging.clients import (
+    CloudTrailLakeClient,
     EventBridgeClient,
     LambdaClient,
     PipesClient,
     S3NotificationClient,
 )
+from datahub.ingestion.source.aws_messaging.cloudtrail import ProducerLineage
 from datahub.ingestion.source.aws_messaging.config import (
     AwsMessagingConfigBase,
     GlueSchemaRegistryConfigBase,
@@ -23,6 +25,7 @@ from datahub.ingestion.source.aws_messaging.constants import (
     EVENTBRIDGE_PIPES_PLATFORM,
     EVENTBRIDGE_PLATFORM,
     LAMBDA_PLATFORM,
+    OBSERVED_PRODUCERS_PROPERTY,
     AwsService,
     JobEdgeKind,
     LineageRelationship,
@@ -52,6 +55,7 @@ from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 
 class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
@@ -100,6 +104,8 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             relationships=self.owned_relationships(),
         )
         self.schemas = SchemaLookup(ctx.graph)
+        # Datasets whose previous observed_producers this run carried over.
+        self.carried_producers: Set[str] = set()
         self.jobs = JobEdgeTracker(
             report=report,
             graph=ctx.graph if config.remove_stale_lineage else None,
@@ -146,6 +152,60 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             pipes_region_key=self.region_key(EVENTBRIDGE_PIPES_PLATFORM),
             jobs=self.jobs,
         )
+
+    def producer_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """CloudTrail producers. Runs before `service_lineage_workunits`, which
+        emits the Lambda jobs this adds outputs to."""
+        producers_config = self.base_config.cloudtrail_producers
+        if not producers_config.enabled:
+            return
+        producers = ProducerLineage(
+            config=producers_config,
+            report=self.base_report,
+            client=CloudTrailLakeClient(
+                self.base_config.make_client(
+                    self.session,
+                    AwsService.CLOUDTRAIL,
+                    # Lake queries run in the event data store's own region.
+                    region=self._event_data_store_region(),
+                ),
+                self.base_report,
+            ),
+            urns=self.urns,
+            resolver=self.resolver,
+            lambdas=self.lambdas,
+            graph=self.ctx.graph,
+        )
+        if producers.collect():
+            yield from producers.workunits(self.carried_producers)
+        else:
+            # Lambda outputs seen through CloudTrail are unknown this run.
+            self.jobs.mark_unknown(LAMBDA_PLATFORM, JobEdgeKind.PRODUCES)
+
+    def dataset_custom_properties(
+        self, urn: str, properties: Dict[str, str]
+    ) -> Dict[str, str]:
+        """Carry observed_producers over into this run's datasetProperties.
+
+        The value is read before the properties are written, so the full write
+        can't wipe it and a failed CloudTrail query leaves it in place; a
+        successful one replaces or removes it with a patch afterwards."""
+        if not self.base_config.cloudtrail_producers.enabled or self.ctx.graph is None:
+            return properties
+        existing = self.ctx.graph.get_aspect(urn, DatasetPropertiesClass)
+        previous = (
+            (existing.customProperties or {}).get(OBSERVED_PRODUCERS_PROPERTY)
+            if existing is not None
+            else None
+        )
+        if not previous:
+            return properties
+        self.carried_producers.add(urn)
+        return {**properties, OBSERVED_PRODUCERS_PROPERTY: previous}
+
+    def _event_data_store_region(self) -> Optional[str]:
+        store = parse_arn(self.base_config.cloudtrail_producers.event_data_store)
+        return store.region if store is not None and store.region else None
 
     def collect_s3_notifications(self) -> None:
         if not self.base_config.lineage.s3_notifications:

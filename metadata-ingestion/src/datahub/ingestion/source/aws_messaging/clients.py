@@ -1,3 +1,4 @@
+import time
 from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
 import botocore
@@ -9,7 +10,9 @@ from datahub.ingestion.source.aws_messaging.constants import (
     ALL_ATTRIBUTES,
     BUCKET_REGION_PARAMETER,
     MIN_BOTOCORE_FOR_BUCKET_REGION,
+    QUERY_POLL_SECONDS,
     S3_PREFIX_FILTER,
+    QueryStatus,
 )
 from datahub.ingestion.source.aws_messaging.models import (
     BucketNotification,
@@ -479,3 +482,73 @@ class S3NotificationClient:
                     )
                 )
         return notifications
+
+
+class CloudTrailLakeClient:
+    def __init__(self, client: Any, report: AwsMessagingReportBase):
+        self._client = client
+        self.report = report
+
+    def run_query(
+        self,
+        statement: str,
+        event_data_store: str,
+        timeout_seconds: int,
+        owner_account_id: Optional[str] = None,
+    ) -> Optional[List[Dict[str, str]]]:
+        """Rows as column-to-value dicts, or None if the query failed or timed out."""
+        try:
+            owner: Dict[str, str] = (
+                {"EventDataStoreOwnerAccountId": owner_account_id}
+                if owner_account_id
+                else {}
+            )
+            query_id = self._client.start_query(QueryStatement=statement, **owner)[
+                "QueryId"
+            ]
+            deadline = time.monotonic() + timeout_seconds
+            rows: List[Dict[str, str]] = []
+            token: Optional[str] = None
+            while True:
+                kwargs: Dict[str, Any] = {
+                    "EventDataStore": event_data_store,
+                    "QueryId": query_id,
+                    **owner,
+                }
+                if token:
+                    kwargs["NextToken"] = token
+                response = self._client.get_query_results(**kwargs)
+                status = response.get("QueryStatus")
+                if status in (QueryStatus.QUEUED, QueryStatus.RUNNING):
+                    if time.monotonic() > deadline:
+                        self.report.warning(
+                            title="CloudTrail Lake query timed out",
+                            message="No producer lineage this run; raise query_timeout_seconds.",
+                            context=f"query={query_id}",
+                        )
+                        return None
+                    time.sleep(QUERY_POLL_SECONDS)
+                    continue
+                if status != QueryStatus.FINISHED:
+                    self.report.warning(
+                        title="CloudTrail Lake query failed",
+                        message="No producer lineage this run.",
+                        context=f"query={query_id} status={status}: {response.get('ErrorMessage')}",
+                    )
+                    return None
+                for row in response.get("QueryResultRows") or []:
+                    merged: Dict[str, str] = {}
+                    for column in row:
+                        merged.update(column)
+                    rows.append(merged)
+                token = response.get("NextToken")
+                if not token:
+                    return rows
+        except (ClientError, BotoCoreError) as e:
+            self.report.warning(
+                title="CloudTrail Lake query failed",
+                message="No producer lineage this run.",
+                context=aws_error_code(e),
+                exc=e,
+            )
+            return None
