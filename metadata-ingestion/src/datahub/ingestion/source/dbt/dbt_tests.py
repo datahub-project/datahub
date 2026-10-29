@@ -634,12 +634,19 @@ def select_test_results_to_emit(
     out into an assertion notification. Emitting results in file order (rather than
     time order), or re-emitting superseded ones, produces spurious alerts.
     """
+    # Compare epoch seconds: run_results timestamps may or may not carry an offset,
+    # and comparing aware with naive datetimes raises TypeError.
     latest_by_invocation: Dict[str, DBTTestResult] = {}
     for result in test_results:
         existing = latest_by_invocation.get(result.invocation_id)
-        if existing is None or result.execution_time >= existing.execution_time:
+        if (
+            existing is None
+            or result.execution_time.timestamp() >= existing.execution_time.timestamp()
+        ):
             latest_by_invocation[result.invocation_id] = result
-    ordered = sorted(latest_by_invocation.values(), key=lambda r: r.execution_time)
+    ordered = sorted(
+        latest_by_invocation.values(), key=lambda r: r.execution_time.timestamp()
+    )
     return ordered[-1:] if latest_only else ordered
 
 

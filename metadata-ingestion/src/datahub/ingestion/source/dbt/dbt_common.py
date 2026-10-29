@@ -419,6 +419,10 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     node_emission_failures: int = 0
     node_emission_failures_list: LossyList[str] = field(default_factory=LossyList)
 
+    # Non-passing dbt test results skipped because a newer result for the same
+    # test was present (only_emit_latest_test_result).
+    num_superseded_test_failures_not_emitted: int = 0
+
     # Details on where column info comes from.
     nodes_with_catalog_columns: int = 0
     nodes_with_inferred_columns: int = 0
@@ -2821,7 +2825,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     node.test_results,
                     latest_only=self.config.only_emit_latest_test_result,
                 )
-                if self.config.entities_enabled.can_emit_test_results:
+                if (
+                    self.config.entities_enabled.can_emit_test_results
+                    and self.config.only_emit_latest_test_result
+                ):
                     self._report_superseded_non_passing_results(node, results_to_emit)
                 # In case a dbt test depends on multiple tables, we create separate assertions for each.
                 for upstream_node_name, upstream_urn in upstreams.items():
@@ -3076,7 +3083,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 test_result, self.config.test_warnings_are_errors
             ):
                 continue
-            self.report.info(
+            self.report.num_superseded_test_failures_not_emitted += 1
+            self.report.warning(
                 title="Superseded dbt test failures not emitted",
                 message="A newer result exists for these dbt tests, so older non-passing "
                 "results from other run_results files were not emitted. Set "

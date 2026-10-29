@@ -5524,3 +5524,28 @@ def test_select_test_results_to_emit_all_is_chronological_and_deduped() -> None:
     assert select_test_results_to_emit(
         [current, previous, previous_again], latest_only=False
     ) == [previous, current]
+
+
+def test_select_test_results_to_emit_mixes_offset_and_naive_timestamps() -> None:
+    # Older run_results may omit the UTC offset; mixing them with offset-aware
+    # timestamps must not raise.
+    current = _test_result("inv-current", "pass", day=3)
+    previous = DBTTestResult(
+        invocation_id="inv-previous",
+        status="fail",
+        execution_time=datetime(2026, 1, 1),
+        native_results={},
+    )
+    previous_again = DBTTestResult(
+        invocation_id="inv-previous",
+        status="fail",
+        execution_time=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        native_results={},
+    )
+
+    assert select_test_results_to_emit(
+        [current, previous, previous_again], latest_only=False
+    ) == [previous_again, current]
+    assert select_test_results_to_emit([previous, current], latest_only=True) == [
+        current
+    ]
