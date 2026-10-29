@@ -351,6 +351,37 @@ jobs:
           cat "$RUNNER_TEMP/eager-regression.md" >> "$GITHUB_STEP_SUMMARY"
       - name: Logged-in page budget
         run: node datahub-web-react/scripts/page-bundle-size.mjs --dist datahub-web-react/dist --check
+      # Nightly only: small JSON + inventory snapshot for bundle-budget-reassessment.yml.
+      # Keeps write permissions / PR creation out of this workflow and avoids a second frontend build.
+      - name: Bundle budget artifacts for reassessment
+        if: github.event_name == 'schedule'
+        run: |
+          mkdir -p "$RUNNER_TEMP/bundle-budget-artifacts"
+          cp datahub-web-react/dist/eager-budget-findings.json \
+            datahub-web-react/dist/page-budget-findings.json \
+            datahub-web-react/dist/eager-budget-report.json \
+            "$RUNNER_TEMP/bundle-budget-artifacts/"
+          node e2e-test/perf/vitals/bundle-inventory.mjs \
+            --dist datahub-web-react/dist \
+            --write-baseline "$RUNNER_TEMP/bundle-budget-artifacts/eager-budget-inventory-measured.json"
+          node e2e-test/perf/vitals/bundle-inventory.mjs \
+            --dist datahub-web-react/dist \
+            --baseline datahub-web-react/eager-budget-inventory.json \
+            --regression \
+            --top 20 \
+            --md-out "$RUNNER_TEMP/bundle-budget-artifacts/eager-regression.md"
+          {
+            echo "### Scheduled bundle budget snapshot"
+            echo ""
+            cat "$RUNNER_TEMP/bundle-budget-artifacts/eager-regression.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload bundle budget artifacts
+        if: github.event_name == 'schedule'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: bundle-budget-artifacts
+          retention-days: 7
+          path: ${{ runner.temp }}/bundle-budget-artifacts/
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload frontend build artifacts

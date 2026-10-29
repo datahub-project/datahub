@@ -29,8 +29,10 @@ Runs alternate A, B, A, B. A batched all-A-then-all-B loop lets host drift land 
 `frontend-build` runs `--regression` whenever the eager budget has soft or hard
 findings. That report diffs the fresh `dist/` against
 `datahub-web-react/eager-budget-inventory.json` and appends markdown to the job
-summary. The weekly `Bundle budget reassessment` workflow runs the same report
-on `master` and opens a PR only to ratchet baselines down.
+summary. On the nightly `schedule` run it also uploads a
+`bundle-budget-artifacts` snapshot; `Bundle budget reassessment` consumes that
+artifact (no second frontend build) and opens a PR only to ratchet baselines
+down.
 
 When you change `eager-budget.json`, refresh the inventory from the same build:
 

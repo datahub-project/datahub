@@ -66,12 +66,17 @@ baseline `page-budget.json`).
 findings run `e2e-test/perf/vitals/bundle-inventory.mjs --regression` against
 `eager-budget-inventory.json` and append the package/area table to the job summary.
 
-Catalog owns a recurring **bundle-budget chore** (`.github/workflows/bundle-budget-reassessment.yml`,
-Mondays): measure `master`, publish the inventory diff, **auto-PR only when baselines
-should ratchet down** (each field becomes `min(baseline, measured)` so a soft page bump
-within slack cannot ride along and raise the ceiling), and leave soft overages as a report
-(never auto-raise). Trim/optimize or raise the ceiling only in an explicit follow-up PR.
-Soft warnings on feature PRs are a signal for that chore, not a merge blocker.
+Catalog owns a recurring **bundle-budget chore**. Nightly `build & test` (`schedule`) already
+builds the frontend and runs the budget scripts; on that event it also uploads a small
+`bundle-budget-artifacts` artifact (findings JSON + measured inventory snapshot).
+`.github/workflows/bundle-budget-reassessment.yml` then runs via `workflow_run` (no second
+frontend build, no JDK/Gradle/yarn setup, write permissions stay out of main CI): classify
+the artifact, **auto-PR only when baselines should ratchet down** (each field becomes
+`min(baseline, measured)` so a soft page bump within slack cannot ride along and raise the
+ceiling), and leave soft overages as a report (never auto-raise). It skips when
+`chore/bundle-budget-ratchet` already has an open PR. Trim/optimize or raise the ceiling
+only in an explicit follow-up PR. Soft warnings on feature PRs are a signal for that chore,
+not a merge blocker.
 
 The chore workflow needs repo secret `BUNDLE_BUDGET_PR_TOKEN` (PAT or GitHub App token with
 `contents` + `pull-requests`) so the ratchet PR receives CI. Without it, Actions falls back
