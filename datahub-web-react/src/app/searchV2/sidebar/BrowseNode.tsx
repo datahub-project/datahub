@@ -1,7 +1,7 @@
 import { Loader } from '@components';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Typography } from 'antd';
-import React, { CSSProperties } from 'react';
+import React, { CSSProperties, useEffect, useRef } from 'react';
 import styled, { useTheme } from 'styled-components';
 
 import {
@@ -56,11 +56,21 @@ const BrowseNode = () => {
     const displayName = useBrowseDisplayName();
     const { trackSelectNodeEvent, trackToggleNodeEvent } = useSidebarAnalytics();
 
-    const { isOpen, isClosing, toggle } = useToggle({
+    const { isOpen, isClosing, toggle, toggleClose } = useToggle({
         initialValue: isBrowsePathPrefix && !isBrowsePathSelected,
         closeDelay: 250,
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'browse'),
     });
+
+    // Collapse after Clear all / browse deselect so the row doesn't keep looking selected.
+    const wasBrowseFiltered = useRef(isBrowsePathPrefix || isBrowsePathSelected);
+    useEffect(() => {
+        const isBrowseFiltered = isBrowsePathPrefix || isBrowsePathSelected;
+        if (wasBrowseFiltered.current && !isBrowseFiltered && isOpen) {
+            toggleClose();
+        }
+        wasBrowseFiltered.current = isBrowseFiltered;
+    }, [isBrowsePathPrefix, isBrowsePathSelected, isOpen, toggleClose]);
 
     const onClickTriangle = () => {
         if (count) toggle();

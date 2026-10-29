@@ -27,7 +27,13 @@ export default function useFilters(params: QueryString.ParsedQuery<string>): Arr
                     const fieldParts = fieldIndex.split(URL_PARAM_SEPARATOR);
                     const field = ifLegacyFieldNameTranslate(fieldParts[0]);
                     const negated = fieldParts[1] === 'true';
-                    const condition = fieldParts[2] || FilterOperator.Equal;
+                    const condition = (fieldParts[2] || FilterOperator.Equal) as FilterOperator;
+
+                    // EXISTS is valueless — the URL may carry a sentinel or be empty; always normalize to [].
+                    if (condition === FilterOperator.Exists) {
+                        return { field, condition, negated, values: [] };
+                    }
+
                     if (!value) return null;
 
                     if (Array.isArray(value)) {
