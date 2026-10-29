@@ -73,14 +73,20 @@ def test_collapsed_sharded_table_is_profiled_by_latest_shard_but_reports_totals(
             rows_count=365_000, size_in_bytes=365 * 2**29
         ),
     )
-    urn = profiler.dataset_urn_builder("test_project.test_dataset.events")
-    generated = MetadataChangeProposalWrapper(
-        entityUrn=urn,
-        aspect=DatasetProfileClass(timestampMillis=0, rowCount=1_000, sizeInBytes=1),
-    ).as_workunit()
+
+    # The collapsed name depends on process-wide sharded-suffix state, so emit the
+    # profile under whatever URN the request resolves to.
+    def generate_profile_workunits(requests, **kwargs):
+        (request,) = requests
+        yield MetadataChangeProposalWrapper(
+            entityUrn=profiler.dataset_urn_builder(request.pretty_name),
+            aspect=DatasetProfileClass(
+                timestampMillis=0, rowCount=1_000, sizeInBytes=1
+            ),
+        ).as_workunit()
 
     with patch.object(
-        profiler, "generate_profile_workunits", return_value=[generated]
+        profiler, "generate_profile_workunits", side_effect=generate_profile_workunits
     ) as generate:
         wus = list(profiler.get_workunits("test_project", {"test_dataset": [table]}))
 
