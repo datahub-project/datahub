@@ -1,4 +1,5 @@
 import json
+import re
 from types import SimpleNamespace
 from typing import Any, Dict, List, Tuple
 from unittest import mock
@@ -45,6 +46,7 @@ from tests.unit.looker.looker_probe_fixtures import (
     API_USER_EMAIL,
     CLIENT_ID,
     CLIENT_SECRET,
+    LIVE_DASHBOARDS,
     PERSONAL_FOLDER_NAME,
     fake_looker,
     http_error,
@@ -718,6 +720,42 @@ def _real_sdk(client: mock.MagicMock) -> methods40.Looker40SDK:
 
 
 _DASHBOARD_6_URL = "https://looker.example.com/api/4.0/dashboards/6"
+
+
+def _only_requested_fields(fields: str, item: Dict[str, Any]) -> Dict[str, Any]:
+    # Looker answers with just the fields asked for, nested ones included.
+    picked: Dict[str, Any] = {}
+    for name, nested in re.findall(r"(\w+)(?:\(([^)]*)\))?", fields):
+        if name not in item:
+            continue
+        value = item[name]
+        if nested and isinstance(value, dict):
+            value = {k: value[k] for k in nested.split(",") if k in value}
+        picked[name] = value
+    return picked
+
+
+def test_the_trace_reads_a_dashboard_listing_answered_with_only_its_fields(
+    requests_mock: Any,
+) -> None:
+    """The SDK's FolderBase requires `name`: a trace listing whose folder fields
+    leave it out fails to deserialize on every real Looker with foldered
+    dashboards, which the mocked client never shows."""
+    client = install(mock.MagicMock())
+    client.all_dashboards = _real_sdk(client).all_dashboards
+    full = json.loads(serialize.serialize40(api_model=LIVE_DASHBOARDS))
+    requests_mock.get(
+        "https://looker.example.com/api/4.0/dashboards",
+        json=lambda request, context: [
+            _only_requested_fields(request.qs["fields"][0], d) for d in full
+        ],
+    )
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method(
+            "looker", recipe(), "explores", {"model": "sales", "trace_charts": True}
+        )
+    used = {r["name"]: r["used"] for r in _rows(run)}
+    assert used["orders"] is True
 
 
 @pytest.mark.parametrize(
