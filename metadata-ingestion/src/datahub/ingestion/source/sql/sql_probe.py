@@ -286,7 +286,13 @@ def _hook_target(
     if not declares_qualifier(ctx.config):
         return None
     container = qualifying_container(ctx.config, [database] if database else [])
-    return qualified_table_target(container, schema, ctx.name, ctx.warn)
+    # Silenced here: `require_container` owns the message on this path, and
+    # saying both left the result carrying "the verdict stands" beside "pass
+    # the containing database/project to get the verdict ingestion actually
+    # makes". The hook path keeps its own warning, which is the connector's.
+    return qualified_table_target(
+        container, schema, ctx.name, warn=lambda _message: None
+    )
 
 
 def _overrides_filter_target(config: object) -> bool:

@@ -112,7 +112,10 @@ def _hint_container(config: object, kind: str) -> Tuple[Optional[str], Optional[
     "pass --parent" with an exit-1 defect report the caller cannot act on.
     """
     try:
-        return _container_kind_for(config, kind), _listing_command_for(config, kind)
+        container_kind = _container_kind_for(config, kind)
+        if container_kind is None:
+            return None, None
+        return container_kind, _listing_command_for(config, container_kind)
     except Exception:
         return None, None
 
@@ -128,35 +131,23 @@ def _container_kind_for(config: object, kind: str) -> Optional[str]:
     return str(ancestors[0])
 
 
-def _listing_command_for(config: object, kind: str) -> Optional[str]:
-    """A probe command that lists what contains a `kind`, or None.
+def _listing_command_for(config: object, container_kind: str) -> Optional[str]:
+    """A probe command that lists `container_kind`, or None.
 
-    Looked up by kind rather than named per connector, so a source that gains a
-    container listing earns the "run this first" sentence without the framework
-    learning its name. Lazy import: probe_methods imports this module.
+    Looked up by kind rather than named per connector, so a source that gains
+    a container listing earns the "run this first" sentence without the
+    framework learning its name. Lazy import: probe_methods imports this
+    module.
     """
     from datahub.ingestion.agent.probe_methods import (
-        config_hook,
         listing_command_for_kind,
         provider_class_for_config,
     )
 
-    ancestors_for = config_hook(config, "probe_ancestor_kinds")
-    ancestors = ancestors_for(kind=kind) if ancestors_for else None
-    # A hint only. A connector that returns an unusable shape loses the hint
-    # rather than turning the refusal into a defect report -- and nothing
-    # polices the shape on this path, because filter_check's check sits behind
-    # `if not parent_path: return None` and this runs precisely when there is
-    # no parent.
-    if not isinstance(ancestors, (list, tuple)) or not ancestors:
-        return None
-    # The outermost ancestor, not the nearest: the container being asked for is
-    # the one a Qualifier field pins (a database or project), and for a table
-    # the nearer ancestor -- its schema -- may already have come from --parent.
     provider_cls = provider_class_for_config(type(config))
     if provider_cls is None:
         return None
-    return listing_command_for_kind(config, provider_cls, str(ancestors[0]))
+    return listing_command_for_kind(config, provider_cls, container_kind)
 
 
 # An entry of the form `^?.*<literal>$`, where the literal carries no dot or
@@ -214,8 +205,6 @@ class ContainerNeed:
         # what is missing is the database ABOVE it. Not called "outermost":
         # a chain can have containers the source leaves out of it on purpose
         # (Unity's metastore), so this promises only the level, not the slot.
-        # Not "outermost": a source can leave a level out of its chain on
-        # purpose (Unity's metastore), so this promises the level, not the slot.
         naming = (
             f"the {wanted} as a --parent, before any already named"
             if wanted

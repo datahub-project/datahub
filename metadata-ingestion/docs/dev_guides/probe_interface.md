@@ -281,20 +281,20 @@ in `datahub.ingestion.agent.provider_helpers`; `mask_identity_columns` in
 and the `ProbeArgumentError` family in `datahub.ingestion.agent.verdicts`; `Filters`,
 `FiltersByRule`, `Enables` and `Qualifier` in `datahub.configuration.common`.
 
-| Helper                                                   | Use it for                                                                                                                   |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `ProbeProviderBase`                                      | `warnings`/`_warn`, `_open_once(key, opener, close=...)`, `_on_exit(close)`, and an `__exit__` closing all, last first       |
-| `resolve_name(arg, records, *, key, kind, ...)`          | a caller's name (or id, with `id_key`) to the listed record; exact, case-only misses hinted, ambiguity refused (exit 2)      |
-| `take(items, limit, *, keep=None)`                       | any listing with a limit: stops paging at the limit and closes the source                                                    |
-| `PersonalWithholding(is_personal=..., would_ingest=...)` | leaving out personal records: pass `.keep` to `take`, warn with `.count_text(stopped_early=...)`; `is_personal` fails closed |
-| `soft_listing(self._warn, 403, 404, context=...)`        | one sub-listing that may degrade: `return fetch()` inside the block, the fallback after it                                   |
-| `echoed(value)`                                          | a caller's argument or a listed name in a refusal: clipped and repr-quoted                                                   |
-| `mask_identity_columns(columns, rows)`                   | masking identity columns (`user_name`, `email`, grantees) in a result you admit                                              |
-| `pattern_verdict(config, field, target)`                 | the standard allow/deny check, for a `probe_verdict_override` that defers to a pattern                                       |
-| `Verdict.include()` / `Verdict.exclude(field)`           | a verdict, naming the field or rule that excluded it                                                                         |
-| `parent_required(ctx)`                                   | a `probe_match_target` that needs the container: warns and returns `True` when there is no `--parent`                        |
-| `require_container(container, *, pattern_field, ...)`    | a verdict that needs the container: the container, or `None` when the field filters nothing, else refuses                    |
-| `ancestors_in(chain, kind, leaves)`                      | implementing `probe_ancestor_kinds` from a container chain                                                                   |
+| Helper                                                   | Use it for                                                                                                                                     |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ProbeProviderBase`                                      | `warnings`/`_warn`, `_open_once(key, opener, close=...)`, `_on_exit(close)`, and an `__exit__` closing all, last first                         |
+| `resolve_name(arg, records, *, key, kind, ...)`          | a caller's name (or id, with `id_key`) to the listed record; exact, case-only misses hinted, ambiguity refused (exit 2)                        |
+| `take(items, limit, *, keep=None)`                       | any listing with a limit: stops paging at the limit and closes the source                                                                      |
+| `PersonalWithholding(is_personal=..., would_ingest=...)` | leaving out personal records: pass `.keep` to `take`, warn with `.count_text(stopped_early=...)`; `is_personal` fails closed                   |
+| `soft_listing(self._warn, 403, 404, context=...)`        | one sub-listing that may degrade: `return fetch()` inside the block, the fallback after it                                                     |
+| `echoed(value)`                                          | a caller's argument or a listed name in a refusal: clipped and repr-quoted                                                                     |
+| `mask_identity_columns(columns, rows)`                   | masking identity columns (`user_name`, `email`, grantees) in a result you admit                                                                |
+| `pattern_verdict(config, field, target)`                 | the standard allow/deny check, for a `probe_verdict_override` that defers to a pattern                                                         |
+| `Verdict.include()` / `Verdict.exclude(field)`           | a verdict, naming the field or rule that excluded it                                                                                           |
+| `parent_required(ctx)`                                   | a `probe_match_target` that needs the container: warns and returns `True` when there is no `--parent`                                          |
+| `require_container(container, *, pattern_field, ...)`    | a verdict that needs the container: the container, else `None` -- noting it, so `check_filters` refuses unless something else decides the name |
+| `ancestors_in(chain, kind, leaves)`                      | implementing `probe_ancestor_kinds` from a container chain                                                                                     |
 
 ```python
 @probe_method(kind="Report", parent_params=("workspace",), row_limit_param="limit")
@@ -623,10 +623,9 @@ config field that pins the container with `Qualifier()` (a list field qualifies 
 one value; `Qualifier(authoritative=True)` makes it beat `--parent`), or, where only the caller knows
 the container, return `qualified_table_target(database, schema, entity, warn)` from
 `probe_filter_target`, importing it from `source/sql/sql_probe_verdicts.py` inside the hook: a
-config module imports no probe framework at load, since ingestion would pay for it. Pass
-`config` and `pattern_field` (with `kind` and `pin_field`) to opt that call into the rule below;
-omit both and the old warn-and-degrade is kept, so an out-of-tree caller is unaffected. Passing one
-without the other is refused rather than half-applied. Override `probe_filter_target` too when your `Source` is not a
+config module imports no probe framework at load, since ingestion would pay for it. `None` when the
+container is unknown is what opts the kind into the rule above: `sql_probe` applies it with the
+pattern field the framework resolved for that kind, which this hook is not told. Override `probe_filter_target` too when your `Source` is not a
 `SQLAlchemySource` or its `get_identifier` reads state ingestion sets while walking. It is called by
 keyword, `database` included, and `warn` reports a less precise fallback. Which provider a connector
 brings is never read as a declaration.
