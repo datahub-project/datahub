@@ -248,6 +248,51 @@ def test_a_pattern_that_filters_nothing_is_not_refused_for_being_spelled_oddly()
     assert _rows(result) == [("analytics", "analytics", True, None)]
 
 
+def test_the_note_says_when_the_container_itself_is_filtered() -> None:
+    """ "The verdict stands" is exact about the field deciding this kind, and
+    was read as broader than that.
+
+    With a filtering `project_id_pattern` and no `--parent`, the dataset is
+    reported included -- correctly, since `dataset_pattern` filters nothing --
+    and naming a project then excludes it by a different field. The note now
+    says so, rather than leaving an assurance to cover a container nobody
+    named.
+    """
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={"project_id_pattern": {"allow": ["^prod-.*"]}},
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["analytics"],
+    )
+    assert result.results[0].included
+    assert any("project_id_pattern" in w for w in result.warnings), result.warnings
+
+    # And naming one really does flip it, which is what the clause warns of.
+    excluded = check_filters(
+        source_type="bigquery",
+        config_dict={"project_id_pattern": {"allow": ["^prod-.*"]}},
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=["dev-x"],
+        names=["analytics"],
+    )
+    assert excluded.results[0].excluded_by == "project_id_pattern"
+
+
+def test_the_note_stays_plain_when_nothing_filters_the_container() -> None:
+    """The common case the note exists for: a recipe with no filters at all
+    must not read as doubtful."""
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={},
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["analytics"],
+    )
+    assert len(result.warnings) == 1
+    assert "though" not in result.warnings[0]
+
+
 def test_a_single_pinned_project_still_needs_no_parent() -> None:
     """The Qualifier fallback must survive: one pinned project IS the
     container, so nothing is missing and nothing is said about it."""

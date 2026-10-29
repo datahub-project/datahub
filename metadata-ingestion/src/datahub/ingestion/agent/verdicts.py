@@ -161,6 +161,15 @@ _CONTAINER_BLIND = re.compile(r"\^?\.\*[A-Za-z0-9_\-]*\$")
 _MATCHES_ANYTHING = frozenset({".*", "^.*", ".*$", "^.*$", ".+", "^.+", ".+$", "^.+$"})
 
 
+def _admits_everything(pattern: Optional[AllowDenyPattern]) -> bool:
+    """Whether `pattern` keeps every name it is shown -- a different question
+    from container_blind, which asks whether a missing container changes the
+    answer. `.*_prod$` is blind to its container and still excludes plenty."""
+    if pattern is None:
+        return True
+    return not pattern.deny and any(a in _MATCHES_ANYTHING for a in pattern.allow)
+
+
 def container_blind(pattern: Optional[AllowDenyPattern]) -> bool:
     """Whether the missing container could change what `pattern` says.
 
@@ -235,6 +244,33 @@ class ContainerNeed:
         )
 
 
+def _container_filter_caveat(config: object, kind: str) -> str:
+    """A clause naming the container's own pattern, when it filters.
+
+    Said only then: a recipe with no filters at all is the common case this
+    note exists to keep answerable, and hedging it there would make every
+    unfiltered probe call read as doubtful.
+    """
+    from datahub.ingestion.agent.introspect import pattern_field_for_config
+
+    try:
+        container_kind = _container_kind_for(config, kind)
+        if container_kind is None:
+            return ""
+        field = pattern_field_for_config(config, container_kind)
+        if field is None or field == UNFILTERED:
+            return ""
+        if _admits_everything(pattern_at(config, field)):
+            return ""
+    except Exception:
+        # A hint on a warning; a connector defect must not replace the note.
+        return ""
+    return (
+        f" -- though `{field}` filters the {container_kind} itself, so naming "
+        f"one with --parent may still exclude this"
+    )
+
+
 def require_container(
     container: Optional[str],
     *,
@@ -256,10 +292,15 @@ def require_container(
     pattern = pattern_at(config, pattern_field) if pattern_field else None
     if container_blind(pattern):
         where = f"`{pattern_field}`" if pattern_field else "nothing here"
+        # The claim is about the field deciding THIS kind, and it is exact.
+        # The container has a pattern of its own, though, and naming one can
+        # exclude the lot -- so where that pattern filters, "the verdict
+        # stands" would carry more than it licenses.
+        caveat = _container_filter_caveat(config, kind)
         warn(
             f"no container was given, so `target` below is not qualified with "
             f"the container this source matches on ('{shape}'); the verdict "
-            f"stands because {where} cannot match one differently"
+            f"stands because {where} cannot match one differently{caveat}"
         )
         return None
     note(
