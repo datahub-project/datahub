@@ -52,6 +52,7 @@ export function LineChart({
     renderGradients: renderGradientsProp,
     toolbarVerticalCrosshairStyle: toolbarVerticalCrosshairStyleProp,
     renderTooltipGlyph: renderTooltipGlyphProp,
+    showSeriesGlyphs = true,
     showGlyphOnSingleDataPoint: showGlyphOnSingleDataPointProp,
     renderGlyphOnSingleDataPoint: renderGlyphOnSingleDataPointProp,
 
@@ -258,7 +259,7 @@ export function LineChart({
                                 snapTooltipToDatumY
                                 showVerticalCrosshair
                                 applyPositionStyle
-                                showSeriesGlyphs
+                                showSeriesGlyphs={showSeriesGlyphs}
                                 verticalCrosshairStyle={toolbarVerticalCrosshairStyle}
                                 renderGlyph={renderTooltipGlyph}
                                 unstyled
