@@ -68,4 +68,22 @@ public class SearchQualityV3OpenSearchTest extends SearchQualityV3TestBase {
   public void testJavaBuilderLongtailNdcg() throws Exception {
     super.testJavaBuilderLongtailNdcg();
   }
+
+  @Test
+  @Override
+  public void testSortProbes() throws Exception {
+    super.testSortProbes();
+  }
+
+  @Test
+  @Override
+  public void testFieldProbes() throws Exception {
+    super.testFieldProbes();
+  }
+
+  @Test
+  @Override
+  public void testAutocompleteProbes() throws Exception {
+    super.testAutocompleteProbes();
+  }
 }

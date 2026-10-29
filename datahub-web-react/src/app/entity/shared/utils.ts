@@ -1,7 +1,7 @@
 import i18next from 'i18next';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { Entity, EntityType, PropertyValue } from '@types';
 

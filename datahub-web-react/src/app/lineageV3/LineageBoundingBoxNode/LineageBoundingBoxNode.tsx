@@ -21,7 +21,7 @@ import {
 import HorizontalHandle from '@app/lineageV3/components/HorizontalHandle';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';

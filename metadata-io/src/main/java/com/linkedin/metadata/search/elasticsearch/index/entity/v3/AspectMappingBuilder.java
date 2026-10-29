@@ -12,10 +12,12 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -77,8 +79,9 @@ public class AspectMappingBuilder {
 
               addParsedUrnFields(aspectSpec, aspectFields, indexGroup);
 
-              if (!rootOnly) {
-                // Add system metadata to each aspect using the projector's serialized field name.
+              if (!rootOnly && hasSearchables(aspectSpec)) {
+                // System metadata copies into the root _system fields. An aspect with nothing
+                // searchable does not join the document, so it does not get this tree.
                 aspectFields.put(
                     V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, createSystemMetadataMapping());
               }
@@ -100,9 +103,19 @@ public class AspectMappingBuilder {
     return aspectsMappings;
   }
 
+  private static boolean hasSearchables(
+      @Nonnull com.linkedin.metadata.models.AspectSpec aspectSpec) {
+    return hasSpecs(aspectSpec.getSearchableFieldSpecs())
+        || hasSpecs(aspectSpec.getSearchableRefFieldSpecs());
+  }
+
+  private static boolean hasSpecs(@Nullable List<?> specs) {
+    return specs != null && !specs.isEmpty();
+  }
+
   /**
-   * One indexed keyword per URN field. {@code copy_to} follows the field's degree-qualified label,
-   * or {@code other} when the URN is included in full text and has no label.
+   * Parsed-name keyword for a URN that {@code copy_to}s a search label or {@code other}. A
+   * dedicated root does not get this field.
    */
   private static void addParsedUrnFields(
       @Nonnull com.linkedin.metadata.models.AspectSpec aspectSpec,
@@ -113,26 +126,34 @@ public class AspectMappingBuilder {
         continue;
       }
       String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
-      List<String> destinations = V3SearchFields.parsedNameDestinations(fieldSpec, indexGroup);
-      aspectFields.put(
-          V3SearchFields.parsedUrnField(fieldName),
-          V3SearchFields.parsedUrnKeywordMapping(
-              destinations,
-              destinations.isEmpty() && V3SearchFields.contributesFullTextUrn(fieldSpec)));
       List<String> fullUrnTargets = V3SearchFields.fullUrnCopyTargets(fieldSpec, indexGroup);
       if (!fullUrnTargets.isEmpty() && aspectFields.get(fieldName) instanceof Map) {
         @SuppressWarnings("unchecked")
         Map<String, Object> rawField = (Map<String, Object>) aspectFields.get(fieldName);
         rawField.put(COPY_TO, fullUrnTargets);
       }
+      if (!V3SearchFields.keepsAspectParsedName(fieldSpec, indexGroup)) {
+        continue;
+      }
+      List<String> destinations =
+          V3SearchFields.parsedNameDestinations(fieldSpec, indexGroup).stream()
+              .filter(
+                  destination -> !V3SearchFields.dedicatedParsedNameRoot(destination, indexGroup))
+              .toList();
+      aspectFields.put(
+          V3SearchFields.parsedUrnField(fieldName),
+          V3SearchFields.parsedUrnKeywordMapping(
+              destinations,
+              destinations.isEmpty() && V3SearchFields.contributesFullTextUrn(fieldSpec)));
     }
   }
 
   /**
    * The aspect boolean keeps the name the document writes and copies onto the degree's root name.
    * Degree 0 copies {@code hasDescription} onto {@code hasDescription}. Degree 1 copies it onto
-   * {@code hasDescription_1}. Only a true is written, so the root field never holds both true and
-   * false.
+   * {@code hasDescription_1}. A {@code v3.hasValuesFieldName} is an additional copy target, so
+   * {@code hasParentNode} also copies onto {@code hasParent}. Only a true is written, so the root
+   * field never holds both true and false.
    */
   private static void copySharedHasValues(
       @Nonnull SearchableFieldSpec fieldSpec, @Nonnull Map<String, Object> aspectFields) {
@@ -140,21 +161,38 @@ public class AspectMappingBuilder {
     if (!resolved.isV3Searchable() || resolved.indexedFieldName().isEmpty()) {
       return;
     }
-    resolved
-        .getHasValuesFieldName()
-        .ifPresent(
-            declaredName -> {
-              String rootName = resolved.indexedHasValuesFieldName().orElse(declaredName);
-              Map<String, Object> mapping = new HashMap<>();
-              mapping.put(TYPE, BOOLEAN_FIELD_TYPE);
-              mapping.put(COPY_TO, List.of(rootName));
-              aspectFields.put(declaredName, mapping);
-            });
+    Optional<String> declared = resolved.getHasValuesFieldName();
+    if (declared != null && declared.isPresent()) {
+      String rootName = resolved.indexedHasValuesFieldName().orElse(declared.get());
+      List<String> destinations = new ArrayList<>();
+      destinations.add(rootName);
+      SearchableAnnotation.sharedHasValuesName(resolved)
+          .filter(name -> !destinations.contains(name))
+          .ifPresent(destinations::add);
+      putHasValuesCopy(aspectFields, declared.get(), destinations);
+      return;
+    }
+    SearchableAnnotation.sharedHasValuesName(resolved)
+        .ifPresent(name -> putHasValuesCopy(aspectFields, name, List.of(name)));
+  }
+
+  private static void putHasValuesCopy(
+      @Nonnull Map<String, Object> aspectFields,
+      @Nonnull String fieldName,
+      @Nonnull List<String> destinations) {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put(TYPE, BOOLEAN_FIELD_TYPE);
+    mapping.put(COPY_TO, destinations);
+    aspectFields.put(fieldName, mapping);
   }
 
   /**
    * Creates the mapping structure for the _systemMetadata field that appears in each aspect. This
    * replaces the need for a dynamic template by explicitly defining the structure.
+   *
+   * <p>Only created and modified actor and time are mapped. They copy into the root {@code
+   * _system.created} and {@code _system.modified} fields and stay indexed here. Run ids, last
+   * observed, and impersonator stay in the aspect document and are not mapped.
    *
    * @return mapping configuration for _systemMetadata field
    */
@@ -163,70 +201,36 @@ public class AspectMappingBuilder {
     mapping.put(TYPE, "object");
 
     Map<String, Object> properties = new HashMap<>();
-
-    // lastObserved field
-    Map<String, Object> lastObserved = new HashMap<>();
-    lastObserved.put(TYPE, "date");
-    lastObserved.put("copy_to", List.of("_system.lastObserved"));
-    properties.put("lastObserved", lastObserved);
-
-    // runId field
-    Map<String, Object> runId = new HashMap<>();
-    runId.put(TYPE, "keyword");
-    runId.put("copy_to", List.of("_system.runId"));
-    properties.put("runId", runId);
-
-    // lastRunId field
-    Map<String, Object> lastRunId = new HashMap<>();
-    lastRunId.put(TYPE, "keyword");
-    lastRunId.put("copy_to", List.of("_system.lastRunId"));
-    properties.put("lastRunId", lastRunId);
-
-    // aspectCreated field
-    Map<String, Object> aspectCreated = new HashMap<>();
-    aspectCreated.put(TYPE, "object");
-    Map<String, Object> aspectCreatedProperties = new HashMap<>();
-
-    Map<String, Object> aspectCreatedTime = new HashMap<>();
-    aspectCreatedTime.put(TYPE, "date");
-    aspectCreatedTime.put("copy_to", List.of("_system.created.time"));
-    aspectCreatedProperties.put("time", aspectCreatedTime);
-
-    Map<String, Object> aspectCreatedActor = new HashMap<>();
-    aspectCreatedActor.put(TYPE, "keyword");
-    aspectCreatedActor.put("copy_to", List.of("_system.created.actor"));
-    aspectCreatedProperties.put("actor", aspectCreatedActor);
-
-    Map<String, Object> aspectCreatedImpersonator = new HashMap<>();
-    aspectCreatedImpersonator.put(TYPE, "keyword");
-    aspectCreatedProperties.put("impersonator", aspectCreatedImpersonator);
-
-    aspectCreated.put(PROPERTIES, aspectCreatedProperties);
-    properties.put("aspectCreated", aspectCreated);
-
-    // aspectModified field
-    Map<String, Object> aspectModified = new HashMap<>();
-    aspectModified.put(TYPE, "object");
-    Map<String, Object> aspectModifiedProperties = new HashMap<>();
-
-    Map<String, Object> aspectModifiedTime = new HashMap<>();
-    aspectModifiedTime.put(TYPE, "date");
-    aspectModifiedTime.put("copy_to", List.of("_system.modified.time"));
-    aspectModifiedProperties.put("time", aspectModifiedTime);
-
-    Map<String, Object> aspectModifiedActor = new HashMap<>();
-    aspectModifiedActor.put(TYPE, "keyword");
-    aspectModifiedActor.put("copy_to", List.of("_system.modified.actor"));
-    aspectModifiedProperties.put("actor", aspectModifiedActor);
-
-    Map<String, Object> aspectModifiedImpersonator = new HashMap<>();
-    aspectModifiedImpersonator.put(TYPE, "keyword");
-    aspectModifiedProperties.put("impersonator", aspectModifiedImpersonator);
-
-    aspectModified.put(PROPERTIES, aspectModifiedProperties);
-    properties.put("aspectModified", aspectModified);
+    properties.put("aspectCreated", auditStampMapping("_system.created"));
+    properties.put("aspectModified", auditStampMapping("_system.modified"));
 
     mapping.put(PROPERTIES, properties);
+    return mapping;
+  }
+
+  /** Actor and time for one audit stamp, copied into the matching root {@code _system} object. */
+  private static Map<String, Object> auditStampMapping(@Nonnull String rootPrefix) {
+    Map<String, Object> stamp = new HashMap<>();
+    stamp.put(TYPE, "object");
+    Map<String, Object> properties = new HashMap<>();
+    properties.put("time", indexedSystemField("date", rootPrefix + ".time"));
+    properties.put("actor", indexedSystemField("keyword", rootPrefix + ".actor"));
+    stamp.put(PROPERTIES, properties);
+    return stamp;
+  }
+
+  /**
+   * A system-metadata field that stays indexed under {@code _aspects}. Omitting {@code index} and
+   * {@code doc_values} leaves both on. {@code copy_to} fills a root {@code _system} field when one
+   * exists.
+   */
+  private static Map<String, Object> indexedSystemField(
+      @Nonnull String type, @Nullable String rootField) {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put(TYPE, type);
+    if (rootField != null) {
+      mapping.put("copy_to", List.of(rootField));
+    }
     return mapping;
   }
 }

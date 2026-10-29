@@ -104,6 +104,8 @@ public final class SearchTemplateFixtures {
     templates.setMaxRoutes(32);
     templates.setMaxRoutePatternLength(256);
     templates.setMaxRouteHops(5);
+    templates.setMaxRankingSignals(32);
+    templates.setMaxRankingWindow(1000);
   }
 
   public record Property(
@@ -131,12 +133,16 @@ public final class SearchTemplateFixtures {
     public EntityRegistry registry;
     public SearchRetriever searchRetriever;
 
+    public SearchTemplateCoordinator useRuntime(@Nullable SearchTemplateCoordinator coordinator) {
+      opContext = opContext.withSearchTemplateRuntime(coordinator);
+      return coordinator;
+    }
+
     public void setup() {
       definitions.clear();
       stored.clear();
       writtenAt.clear();
       properties.clear();
-      SearchTemplates.install(null);
       registry = TestOperationContexts.systemContextNoSearchAuthorization().getEntityRegistry();
       retriever = Mockito.mock(CachingAspectRetriever.class);
       searchRetriever = Mockito.mock(SearchRetriever.class);

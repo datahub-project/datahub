@@ -5,8 +5,8 @@ import React from 'react';
 import { Panel, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
 
-import LineageControlIcon from '@app/lineage/controls/LineageControlIcon';
 import { TRANSITION_DURATION_MS } from '@app/lineageV3/common';
+import LineageControlIcon from '@app/lineageV3/controls/LineageControlIcon';
 
 const StyledZoomButton = styled(Button).attrs({
     variant: 'outline',

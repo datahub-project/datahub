@@ -3,7 +3,7 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EditColumn } from '@app/entity/shared/tabs/Properties/Edit/EditColumn';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 
 // Presentational pieces are stubbed: this test pins EditColumn's own wiring (menu item ->
@@ -42,7 +42,7 @@ vi.mock('@src/graphql/structuredProperties.generated', () => ({
     useRemoveStructuredPropertiesMutation: () => [removeMock],
 }));
 
-vi.mock('@app/shared/handleGraphQLError', () => ({
+vi.mock('@app/sharedV2/handleGraphQLError', () => ({
     default: vi.fn(),
 }));
 

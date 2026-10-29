@@ -3,10 +3,10 @@ import { Redirect, Route, Switch, useLocation } from 'react-router-dom';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { SearchablePage as SearchablePageV2 } from '@app/searchV2/SearchablePage';
-import { NoPageFound } from '@app/shared/NoPageFound';
-import { SuspenseBlock } from '@app/shared/SuspenseBlock';
-import { lazyDefault, lazyNamed } from '@app/shared/lazyPage';
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
+import { NoPageFound } from '@app/sharedV2/NoPageFound';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
+import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import {
     useAppConfig,
     useBusinessAttributesFlag,

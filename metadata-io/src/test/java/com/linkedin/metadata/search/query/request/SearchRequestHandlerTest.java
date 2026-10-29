@@ -106,6 +106,7 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.opensearch.search.sort.FieldSortBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
@@ -854,6 +855,46 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
   }
 
+  @Test
+  public void testV3CriteriaAndSortsSelectTheCanonicalSharedField() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "createdAt", Condition.GREATER_THAN_OR_EQUAL_TO, "1")))));
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("dataset"),
+            V3_READ_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchSourceBuilder source =
+        handler
+            .getSearchRequest(
+                operationContext.withSearchFlags(
+                    flags -> flags.setFulltext(false).setSkipAggregates(true)),
+                "*",
+                filter,
+                List.of(new SortCriterion().setField("createdAt").setOrder(SortOrder.DESCENDING)),
+                0,
+                10,
+                List.of())
+            .source();
+    String query = source.query().toString();
+
+    assertTrue(query.contains("\"sourceCreatedAt\""), query);
+    assertTrue(query.contains("\"_entityType\""), query);
+    assertTrue(query.contains("\"dataset\""), query);
+    assertEquals(((FieldSortBuilder) source.sorts().get(0)).getFieldName(), "sourceCreatedAt");
+  }
+
   /**
    * Keyword conditions on an unindexed label are left out. A group with nothing left matches
    * nothing. Indexed siblings in the same AND stay.
@@ -1015,10 +1056,57 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testV3ContainOnKeywordLabelStaysOnKeyword() {
     String query = v3Filter(buildCriterion("fieldPaths", Condition.CONTAIN, "user_id"));
-    assertTrue(query.contains("name_1.keyword"), query);
+    assertTrue(query.contains("name_1"), query);
+    assertFalse(query.contains("name_1.keyword"), query);
     assertTrue(query.contains("wildcard"), query);
     assertTrue(query.contains("*user_id*"), query);
+    assertFalse(wildcardUsesCaseInsensitive(query), query);
     assertFalse(query.contains("description.text"), query);
+  }
+
+  @Test
+  public void testV3NameWildcardReadsLowercaseSubfield() {
+    String contain = v3Filter(buildCriterion("name", Condition.CONTAIN, "Orders"));
+    assertTrue(contain.contains("name.lowercase"), contain);
+    assertTrue(contain.contains("*orders*"), contain);
+    assertFalse(contain.contains("*Orders*"), contain);
+    assertFalse(wildcardUsesCaseInsensitive(contain), contain);
+    assertFalse(contain.contains("name.keyword"), contain);
+
+    String prefix = v3Filter(buildCriterion("name", Condition.START_WITH, "Ord"));
+    assertTrue(prefix.contains("name.lowercase"), prefix);
+    assertTrue(prefix.contains("ord*"), prefix);
+    assertFalse(prefix.contains("Ord*"), prefix);
+    assertFalse(wildcardUsesCaseInsensitive(prefix), prefix);
+
+    String suffix = v3Filter(buildCriterion("name", Condition.END_WITH, "ERS"));
+    assertTrue(suffix.contains("name.lowercase"), suffix);
+    assertTrue(suffix.contains("*ers"), suffix);
+    assertFalse(suffix.contains("*ERS"), suffix);
+    assertFalse(wildcardUsesCaseInsensitive(suffix), suffix);
+  }
+
+  /** The query type and the pattern key each contain {@code "wildcard"}. */
+  private static boolean wildcardUsesCaseInsensitive(String query) {
+    int from = 0;
+    while ((from = query.indexOf("\"wildcard\"", from)) >= 0) {
+      String window = query.substring(from, Math.min(query.length(), from + 220));
+      if (window.contains("case_insensitive")) {
+        return true;
+      }
+      from += "\"wildcard\"".length();
+    }
+    return false;
+  }
+
+  private static int count(String text, String needle) {
+    int found = 0;
+    int from = 0;
+    while ((from = text.indexOf(needle, from)) >= 0) {
+      found++;
+      from += needle.length();
+    }
+    return found;
   }
 
   @Test
@@ -1084,9 +1172,50 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 V3_READ_CONFIG.getEntityIndex(),
                 cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
             .toString();
-    assertTrue(unlabeledFalse.contains("\"hasRowCount\""), unlabeledFalse);
-    assertTrue(unlabeledFalse.contains("\"false\""), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("must_not"), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("exists"), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("\"field\" : \"rowCount\""), unlabeledFalse);
     assertFalse(unlabeledFalse.contains("\"field\" : \"hasRowCount\""), unlabeledFalse);
+
+    String unlabeledTrue =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion("hasRowCount", Condition.EQUAL, "true"))))),
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+            .toString();
+    assertTrue(unlabeledTrue.contains("exists"), unlabeledTrue);
+    assertTrue(unlabeledTrue.contains("\"field\" : \"rowCount\""), unlabeledTrue);
+    assertFalse(unlabeledTrue.contains("\"field\" : \"hasRowCount\""), unlabeledTrue);
+
+    String unlabeledContain =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion("hasRowCount", Condition.CONTAIN, "1"))))),
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+            .toString();
+    assertTrue(unlabeledContain.contains("must_not"), unlabeledContain);
+    assertTrue(unlabeledContain.contains("match_all"), unlabeledContain);
+    assertFalse(unlabeledContain.contains("rowCount"), unlabeledContain);
 
     SearchRequestHandler handler =
         SearchRequestHandler.getBuilder(
@@ -1096,6 +1225,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
+    String incidentCounts =
+        handler
+            .getAggregationRequest(operationContext, "hasActiveIncidents", null, 10)
+            .source()
+            .toString();
+    assertTrue(incidentCounts.contains("activeIncidents_urn"), incidentCounts);
+    assertTrue(incidentCounts.contains("exists"), incidentCounts);
+    assertFalse(incidentCounts.contains("\"field\" : \"hasActiveIncidents\""), incidentCounts);
     assertThrows(
         IllegalArgumentException.class,
         () -> handler.getAggregationRequest(operationContext, "description", null, 10));
@@ -1121,6 +1258,34 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 0,
                 10,
                 List.of()));
+    String sortedByRemovedBoolean =
+        handler
+            .getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(true)),
+                "*",
+                null,
+                List.of(new SortCriterion().setField("hasRowCount").setOrder(SortOrder.DESCENDING)),
+                0,
+                10,
+                List.of())
+            .source()
+            .toString();
+    assertTrue(sortedByRemovedBoolean.contains("\"rowCount\""), sortedByRemovedBoolean);
+    assertFalse(sortedByRemovedBoolean.contains("hasRowCount"), sortedByRemovedBoolean);
+    String sortedByLabel =
+        handler
+            .getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(true)),
+                "*",
+                null,
+                List.of(
+                    new SortCriterion().setField("hasDescription").setOrder(SortOrder.DESCENDING)),
+                0,
+                10,
+                List.of())
+            .source()
+            .toString();
+    assertTrue(sortedByLabel.contains("\"hasDescription\""), sortedByLabel);
   }
 
   private String v3Filter(Criterion... criteria) {
@@ -1230,7 +1395,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertFalse(query.contains(".delimited"), query);
     assertNull(v3.highlighter());
     Set<String> fetched = Set.of(v3.fetchSource().includes());
-    assertTrue(fetched.containsAll(Set.of("urn", "name", "description")), fetched.toString());
+    assertEquals(fetched, Set.of("urn"), fetched.toString());
     assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
     assertTrue(
         fetched.stream().noneMatch(field -> field.startsWith("_search")), fetched.toString());
@@ -1250,7 +1415,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         Set.of(getDatasetSearchSource(skipped, V3_READ_CONFIG, "test").fetchSource().includes()),
         Set.of("urn"));
 
-    // Naming a column array does not fetch it either
+    // Naming a column array or an aspect path does not fetch it. Selecting name fetches the
+    // stored fields copied into that shared field.
     OperationContext custom =
         operationContext.withSearchFlags(
             flags ->
@@ -1262,7 +1428,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                             List.of("name", "notSearched", "fieldPaths", "fieldDescriptions"))));
     assertEquals(
         Set.of(getDatasetSearchSource(custom, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name"));
+        Set.of("urn", "name", "id", "title"));
     // V2 highlight fields name subfields, which V3 reads from their root field
     OperationContext v2Subfields =
         operationContext.withSearchFlags(
@@ -1276,7 +1442,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(
         Set.of(
             getDatasetSearchSource(v2Subfields, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name", "description"));
+        Set.of("urn", "name", "id", "title", "description"));
 
     CustomSearchConfiguration highlightConfig =
         CustomSearchConfiguration.builder()
@@ -1299,8 +1465,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     FieldConfiguration.builder()
                         .highlightFields(HighlightFields.builder().enabled(false).build())
                         .build(),
-                    // As the bundled excludeColumnHighlight configuration writes it, which
-                    // changes nothing on V3, where the columns' arrays are never fetched
+                    // Remove against the empty default stays empty, so column arrays are not
+                    // fetched
                     "noColumns",
                     FieldConfiguration.builder()
                         .highlightFields(
@@ -1312,9 +1478,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     for (Map.Entry<String, Set<String>> expected :
         Map.of(
                 "names",
-                Set.of("urn", "name"),
+                Set.of("urn", "name", "id", "title"),
                 "subfields",
-                Set.of("urn", "name"),
+                Set.of("urn", "name", "id", "title"),
                 "off",
                 Set.of("urn"))
             .entrySet()) {
@@ -1342,8 +1508,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             getDatasetSearchSource(noColumns, V3_READ_CONFIG, highlightConfig, "test")
                 .fetchSource()
                 .includes());
-    assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
-    assertTrue(fetched.containsAll(Set.of("urn", "name", "description")), fetched.toString());
+    assertEquals(fetched, Set.of("urn"), fetched.toString());
 
     // A query of only stop words can match no field, so nothing is fetched for it
     OperationContext highlighting =
@@ -1356,8 +1521,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * Of other, V3 matched fields fetch only what names or tags an entity: a document's text,
-   * semantic text and custom properties are searched but never fetched, even when highlighting
+   * The default highlight set fetches no field values. Opting into {@code name} fetches it. A
+   * document's text, semantic text, and custom properties stay unfetched even when highlighting
    * names them.
    */
   @Test
@@ -1380,7 +1545,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     String query = source.query().toString();
     assertTrue(query.contains("other.text"), query);
     Set<String> fetched = Set.of(source.fetchSource().includes());
-    assertTrue(fetched.containsAll(Set.of("urn", "title")), fetched.toString());
+    assertEquals(fetched, Set.of("urn"), fetched.toString());
     assertTrue(Collections.disjoint(fetched, freeText), fetched.toString());
 
     OperationContext naming =
@@ -1390,15 +1555,17 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     .setFulltext(true)
                     .setSkipHighlighting(false)
                     .setCustomHighlightingFields(
-                        new StringArray(List.of("title", "text", "customProperties"))));
-    assertEquals(
+                        new StringArray(List.of("name", "text", "customProperties"))));
+    Set<String> highlighted =
         Set.of(
             handler
                 .getSearchRequest(naming, "runbook", null, null, 0, 10, List.of())
                 .source()
                 .fetchSource()
-                .includes()),
-        Set.of("urn", "title"));
+                .includes());
+    assertTrue(highlighted.contains("urn"), highlighted.toString());
+    assertTrue(highlighted.contains("name"), highlighted.toString());
+    assertTrue(Collections.disjoint(highlighted, freeText), highlighted.toString());
   }
 
   /**
@@ -1448,7 +1615,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     when(hits.getHits()).thenReturn(new SearchHit[] {hit});
     OperationContext highlighting =
         operationContext.withSearchFlags(
-            flags -> flags.setFulltext(true).setSkipHighlighting(false));
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipHighlighting(false)
+                    .setCustomHighlightingFields(new StringArray(List.of("name"))));
 
     MatchedFieldArray matched =
         handler

@@ -4,9 +4,6 @@ import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJEC
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.BROWSE_PATH_HIERARCHY_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.FIELDDATA;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_NORMALIZER;
-import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.NORMALIZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.PARTIAL_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SLASH_PATTERN_ANALYZER;
@@ -29,6 +26,7 @@ import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PrimitiveDataSchema;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
@@ -153,25 +151,20 @@ public class FieldTypeMapper {
   }
 
   /**
-   * Creates a mapping configuration for a keyword field.
+   * Creates a mapping configuration for a keyword field: the stored value as one exact term, with
+   * no normalizer and no {@code .keyword} multi-field. Filters, facets, sorts and exact matches all
+   * read this field.
    *
    * @return mapping configuration for keyword field
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeyword() {
-    Map<String, Object> mapping = new HashMap<>();
-    mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
-    mapping.put(FIELDS, Map.of(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE)));
-    return mapping;
+    return getMappingsForKeywordWithIgnoreAbove();
   }
 
   /**
    * Creates a keyword mapping guarded by a byte-safe {@code ignore_above} at the Lucene keyword
    * term limit. Delegates to {@link #getMappingsForKeywordWithIgnoreAbove(int)}.
-   *
-   * <p>Includes a {@code .keyword} multi-field so filters/facets that append {@code .keyword} (e.g.
-   * STRING/RICH_TEXT structured properties via {@code usesKeywordSubfield}) resolve.
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove() {
@@ -179,20 +172,17 @@ public class FieldTypeMapper {
   }
 
   /**
+   * A raw keyword: stored casing, no normalizer, no {@code .keyword} multi-field. A value over
+   * {@code ignore_above} stays in {@code _source} but is not indexed.
+   *
    * @param keywordMaxBytes Lucene keyword term limit in UTF-8 bytes (e.g. configured structured
    *     property max). Converted to a byte-safe character {@code ignore_above}.
    */
   @Nonnull
   public static Map<String, Object> getMappingsForKeywordWithIgnoreAbove(int keywordMaxBytes) {
-    int ignoreAbove = keywordIgnoreAboveForMaxBytes(keywordMaxBytes);
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
-    mapping.put(IGNORE_ABOVE, ignoreAbove);
-    // Subfield mirrors parent ignore_above so exact-match / aggregation queries on .keyword
-    // are protected from Lucene term-length failures on oversized values.
-    mapping.put(
-        FIELDS, Map.of(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE, IGNORE_ABOVE, ignoreAbove)));
+    mapping.put(IGNORE_ABOVE, keywordIgnoreAboveForMaxBytes(keywordMaxBytes));
     return mapping;
   }
 
@@ -319,8 +309,10 @@ public class FieldTypeMapper {
   }
 
   /**
-   * Maps the exact representation under {@code _aspects}. The V3 root controls whether the value is
-   * indexable, but label analyzer subfields never appear under an aspect.
+   * Maps the exact representation under {@code _aspects}. A field also projected to the document
+   * root leaves this copy unindexed unless {@code v3.source} turns index or doc values back on. A
+   * field that stays under {@code _aspects} follows the V3 root. Label analyzer subfields never
+   * appear under an aspect.
    */
   @Nonnull
   public static Map<String, Object> mappingForAspectRoot(
@@ -328,24 +320,71 @@ public class FieldTypeMapper {
     if (!root.isRoot()) {
       throw new IllegalArgumentException("mappingForAspectRoot requires the root entry");
     }
-    if ((root.getType() == FieldMapping.Type.KEYWORD || root.getType() == FieldMapping.Type.URN)
-        && !root.isIndex()) {
-      return unindexedKeyword(root.isDocValues());
-    }
+    SearchableAnnotation resolved = searchableFieldSpec.getSearchableAnnotation().resolvedForV3();
+    boolean index = resolved.aspectIndexed();
+    boolean docValues = resolved.aspectDocValues();
+    FieldType fieldType = resolved.getFieldType();
     switch (root.getType()) {
       case KEYWORD:
-        return searchableFieldSpec.getSearchableAnnotation().getFieldType() == FieldType.URN
-                || searchableFieldSpec.getSearchableAnnotation().getFieldType()
-                    == FieldType.URN_PARTIAL
-            ? getMappingsForUrn()
-            : keywordRoot(root);
+        if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
+          return urnAspectMapping(index, docValues);
+        }
+        return keywordRoot(FieldMapping.root(FieldMapping.Type.KEYWORD, index, docValues));
       case URN:
-        return getMappingsForUrn();
+        return urnAspectMapping(index, docValues);
+      case BOOLEAN:
+        return nativeAspectMapping(BOOLEAN_FIELD_TYPE, index, docValues);
+      case COUNT:
+        return nativeAspectMapping(
+            getElasticsearchTypeForCountField(searchableFieldSpec), index, docValues);
+      case DATETIME:
+        return nativeAspectMapping(DATE_FIELD_TYPE, index, docValues);
+      case DOUBLE:
+        return nativeAspectMapping(DOUBLE_FIELD_TYPE, index, docValues);
       case BROWSE_PATH_V2:
-        return getMappingsForKeywordWithIgnoreAbove();
+        if (!index) {
+          return unindexedKeyword(docValues);
+        }
+        Map<String, Object> browse = new HashMap<>(getMappingsForKeywordWithIgnoreAbove());
+        if (!docValues) {
+          browse.put("doc_values", false);
+        }
+        return browse;
       default:
-        return mappingForRoot(root, searchableFieldSpec);
+        return mappingForRoot(
+            FieldMapping.root(root.getType(), index, docValues), searchableFieldSpec);
     }
+  }
+
+  /** Exact URN keyword under {@code _aspects}. Unindexed copies keep {@code copy_to}. */
+  @Nonnull
+  private static Map<String, Object> urnAspectMapping(boolean index, boolean docValues) {
+    if (!index) {
+      return unindexedKeyword(docValues);
+    }
+    Map<String, Object> mapping = new HashMap<>(getMappingsForUrn());
+    if (!docValues) {
+      mapping.put("doc_values", false);
+    }
+    return mapping;
+  }
+
+  /**
+   * A native aspect value. Both flags true omit the keys so an unlabeled field matches the mapping
+   * it had before aspect-source defaults.
+   */
+  @Nonnull
+  private static Map<String, Object> nativeAspectMapping(
+      @Nonnull String type, boolean index, boolean docValues) {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put("type", type);
+    if (!index) {
+      mapping.put(ESUtils.INDEX, false);
+    }
+    if (!docValues) {
+      mapping.put("doc_values", false);
+    }
+    return mapping;
   }
 
   @Nonnull
@@ -446,8 +485,7 @@ public class FieldTypeMapper {
       case STRING:
       case RICH_TEXT:
         // ignore_above protects reindex from pre-existing values over the keyword limit;
-        // StructuredPropertiesValidator rejects new oversized writes. .keyword multi-field
-        // matches usesKeywordSubfield query/facet resolution.
+        // StructuredPropertiesValidator rejects new oversized writes.
         return getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
       case DATE:
         return Map.of("type", DATE_FIELD_TYPE);
@@ -504,20 +542,15 @@ public class FieldTypeMapper {
   }
 
   /**
-   * The root mapping of every text, word-gram and URN field: a normalized keyword, as V2 maps text
-   * roots, with a {@code .keyword} subfield that keeps the stored casing for filters, facets and
-   * sorts. Full-text search and autocomplete read the shared root fields (see {@link
-   * V3SearchFields}), whose analyzed subfields are merged onto this projection.
+   * The root mapping of every text, word-gram and URN field: a raw keyword with the stored casing,
+   * read by filters, facets and sorts. Full-text search and autocomplete read the shared root
+   * fields (see {@link V3SearchFields}), whose analyzed subfields are merged onto this projection.
    */
   @Nonnull
   private static Map<String, Object> getMappingsForSearchText() {
     Map<String, Object> mapping = new HashMap<>();
     mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
     mapping.put(IGNORE_ABOVE, KEYWORD_MAXLENGTH);
-    mapping.put(
-        FIELDS,
-        Map.of(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE, IGNORE_ABOVE, KEYWORD_MAXLENGTH)));
     return mapping;
   }
 

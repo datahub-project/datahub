@@ -29,6 +29,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
@@ -50,6 +51,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -141,6 +143,8 @@ public class V3SearchDocumentProjectorTest {
     assertTrue(datasetProjection.rootFields().path("urnName").isMissingNode());
     assertEquals(datasetProjection.rootFields().get("urn_name").asText(), "sales.orders");
     assertTrue(datasetProjection.rootFields().path("name").isMissingNode());
+    // glossaryTermKey keeps field name id, so the shared model retains that root.
+    assertEquals(datasetProjection.rootFields().get("id").asText(), "sales.orders");
 
     EntitySpec schemaField = registry.getEntitySpec("schemaField");
     SchemaFieldKey schemaFieldKey =
@@ -159,10 +163,8 @@ public class V3SearchDocumentProjectorTest {
 
     V3SearchDocumentProjector.ProjectedAspect fieldProjection =
         realProjector.projectAspect(opContext, event).orElseThrow();
-    assertEquals(
-        fieldProjection.aspectFields().get("parent__urn_name").get(0).asText(), "sales.orders");
-    assertEquals(fieldProjection.aspectFields().get("parent__urn_name").size(), 1);
-    assertTrue(fieldProjection.rootFields().get("parent").isNull());
+    assertFalse(fieldProjection.aspectFields().has("parent__urn_name"));
+    assertFalse(fieldProjection.rootFields().path("parent").isNull());
     assertEquals(fieldProjection.rootFields().get("urn_name").asText(), "order_id");
   }
 
@@ -336,11 +338,9 @@ public class V3SearchDocumentProjectorTest {
 
   @Test
   public void testSystemMetadataMappingMatchesProjectedFieldSpelling() {
-    when(entitySpec.getAspectSpecs()).thenReturn(java.util.List.of(aspectSpec));
-    when(aspectSpec.getSearchableFieldSpecs()).thenReturn(java.util.List.of());
+    EntitySpec dataset = opContext.getEntityRegistry().getEntitySpec("dataset");
 
-    Map<String, Object> mappings =
-        AspectMappingBuilder.createAspectMappings(entitySpec, null, null);
+    Map<String, Object> mappings = AspectMappingBuilder.createAspectMappings(dataset, null, null);
     @SuppressWarnings("unchecked")
     Map<String, Object> aspectMapping = (Map<String, Object>) mappings.get("datasetProperties");
     @SuppressWarnings("unchecked")
@@ -352,11 +352,53 @@ public class V3SearchDocumentProjectorTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> systemMetadataProperties =
         (Map<String, Object>) systemMetadata.get("properties");
-    @SuppressWarnings("unchecked")
-    Map<String, Object> runId = (Map<String, Object>) systemMetadataProperties.get("runId");
 
-    assertEquals(runId.get("copy_to"), List.of("_system.runId"));
     assertEquals(V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, "_systemMetadata");
+    assertEquals(Set.of("aspectCreated", "aspectModified"), systemMetadataProperties.keySet());
+    assertEquals(
+        Set.of("actor", "time"),
+        auditStampProperties(systemMetadataProperties, "aspectCreated").keySet());
+    assertEquals(
+        Set.of("actor", "time"),
+        auditStampProperties(systemMetadataProperties, "aspectModified").keySet());
+    assertIndexedSystemField(
+        systemMetadataProperties, "aspectCreated", "time", "date", "_system.created.time");
+    assertIndexedSystemField(
+        systemMetadataProperties, "aspectCreated", "actor", "keyword", "_system.created.actor");
+    assertIndexedSystemField(
+        systemMetadataProperties, "aspectModified", "time", "date", "_system.modified.time");
+    assertIndexedSystemField(
+        systemMetadataProperties, "aspectModified", "actor", "keyword", "_system.modified.actor");
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> auditStampProperties(
+      Map<String, Object> systemMetadataProperties, String stamp) {
+    return (Map<String, Object>)
+        ((Map<String, Object>) systemMetadataProperties.get(stamp)).get("properties");
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void assertIndexedSystemField(
+      Map<String, Object> systemMetadataProperties,
+      String field,
+      String property,
+      String type,
+      String rootField) {
+    Map<String, Object> mapping = (Map<String, Object>) systemMetadataProperties.get(field);
+    if (property != null) {
+      mapping =
+          (Map<String, Object>) ((Map<String, Object>) mapping.get("properties")).get(property);
+    }
+    String name = property == null ? field : field + "." + property;
+    assertEquals(mapping.get("type"), type, name);
+    assertFalse(mapping.containsKey("index"), name + " stays indexed under _aspects");
+    assertFalse(mapping.containsKey("doc_values"), name + " keeps doc values under _aspects");
+    if (rootField == null) {
+      assertFalse(mapping.containsKey("copy_to"), name);
+    } else {
+      assertEquals(mapping.get("copy_to"), List.of(rootField), name);
+    }
   }
 
   @Test
@@ -404,6 +446,27 @@ public class V3SearchDocumentProjectorTest {
     assertTrue(projected.rootFields().get("hasDescription").isNull());
     assertEquals(
         projected.aspectFields().get("editedDescription").asText(), "An edited description");
+  }
+
+  @Test
+  public void testProfileRowCountDoesNotProjectHasRowCount() throws Exception {
+    V3SearchDocumentProjector realProjector = realProjector();
+    EntityRegistry registry = opContext.getEntityRegistry();
+    EntitySpec dataset = registry.getEntitySpec("dataset");
+    AspectSpec profile = dataset.getAspectSpec("datasetProfile");
+    when(event.getEntitySpec()).thenReturn(dataset);
+    when(event.getAspectSpec()).thenReturn(profile);
+    when(event.getAspectName()).thenReturn(profile.getName());
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    DatasetProfile properties = new DatasetProfile().setTimestampMillis(1L).setRowCount(0L);
+    when(event.getRecordTemplate()).thenReturn(properties);
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        realProjector.projectAspect(opContext, event).orElseThrow();
+
+    assertFalse(projected.rootFields().has("hasRowCount"));
+    assertFalse(projected.aspectFields().has("hasRowCount"));
+    assertEquals(projected.rootFields().get("rowCount").asLong(), 0L);
   }
 
   @Test

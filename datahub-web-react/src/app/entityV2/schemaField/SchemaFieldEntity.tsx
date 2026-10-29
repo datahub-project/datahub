@@ -20,10 +20,10 @@ import {
 } from '@app/entityV2/shared/profileChunks';
 import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
 import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
-import { FetchedEntity } from '@app/lineage/types';
-import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
-import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
-import TabFullsizedContext from '@src/app/shared/TabFullsizedContext';
+import { FetchedEntity } from '@app/lineageV3/types';
+import { decodeSchemaField } from '@app/lineageV3/utils/columnLineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
+import TabFullsizedContext from '@src/app/sharedV2/TabFullsizedContext';
 
 import { useGetSchemaFieldQuery } from '@graphql/schemaField.generated';
 import { EntityType, SchemaFieldEntity as SchemaField, SearchResult } from '@types';

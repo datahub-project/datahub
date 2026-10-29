@@ -6,8 +6,8 @@ import styled from 'styled-components';
 import { useUndeprecateResource } from '@app/entityV2/shared/EntityDropdown/useUndeprecateResource';
 import DeprecationReplacement from '@app/entityV2/shared/components/styled/DeprecationReplacement';
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
-import { decommissionTimeToSeconds, toLocalDateString } from '@app/shared/time/timeUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { decommissionTimeToSeconds, toLocalDateString } from '@app/sharedV2/time/timeUtils';
 import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
 import dayjs from '@utils/dayjs';
 

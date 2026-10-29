@@ -19,7 +19,7 @@ import {
 } from '@app/ingest/source/builder/RecipeForm/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
 import { jsonToYaml } from '@app/ingest/source/utils';
-import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
+import { RequiredFieldForm } from '@app/sharedV2/form/RequiredFieldForm';
 
 import { useListSecretsQuery } from '@graphql/ingestion.generated';
 
