@@ -1,7 +1,7 @@
 import glob
 import logging
 import pathlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set
 
 from datahub.ingestion.source.looker.looker_connection import LookerConnectionDefinition
@@ -44,6 +44,8 @@ class LookerModel:
     includes: List[str]
     explores: List[dict]
     resolved_includes: List[ProjectInclude]
+    # Views declared in the model file itself. Only their refinements are used.
+    views: List[dict] = field(default_factory=list)
 
     @staticmethod
     def from_looker_dict(
@@ -101,6 +103,7 @@ class LookerModel:
             includes=includes,
             resolved_includes=resolved_includes,
             explores=explores,
+            views=looker_model_dict.get("views", []),
         )
 
     @staticmethod
