@@ -105,7 +105,7 @@ def test_okta_config():
 def test_okta_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
-    output_file_path = f"{tmp_path}/okta_mces_default_config.json"
+    output_file_path = f"{tmp_path}/okta_default_config.json"
 
     run_ingest(
         mock_datahub_graph=mock_datahub_graph,
@@ -118,8 +118,7 @@ def test_okta_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path)
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_file_path,
-        golden_path=f"{test_resources_dir}/okta_mces_golden_default_config.json",
-        golden_mces_as_mcps=True,
+        golden_path=f"{test_resources_dir}/okta_golden_default_config.json",
         fail_on_output_mces=True,
     )
 
@@ -128,7 +127,7 @@ def test_okta_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path)
 def test_okta_source_ingest_groups_users(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
-    output_file_path = f"{tmp_path}/okta_mces_ingest_groups_users.json"
+    output_file_path = f"{tmp_path}/okta_ingest_groups_users.json"
 
     new_recipe = default_recipe(output_file_path)
     new_recipe["source"]["config"]["ingest_users"] = False
@@ -146,8 +145,7 @@ def test_okta_source_ingest_groups_users(pytestconfig, mock_datahub_graph, tmp_p
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_file_path,
-        golden_path=f"{test_resources_dir}/okta_mces_golden_ingest_groups_users.json",
-        golden_mces_as_mcps=True,
+        golden_path=f"{test_resources_dir}/okta_golden_ingest_groups_users.json",
         fail_on_output_mces=True,
     )
 
@@ -156,7 +154,7 @@ def test_okta_source_ingest_groups_users(pytestconfig, mock_datahub_graph, tmp_p
 def test_okta_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
-    output_file_path = f"{tmp_path}/okta_mces_ingestion_disabled.json"
+    output_file_path = f"{tmp_path}/okta_ingestion_disabled.json"
     new_recipe = default_recipe(output_file_path)
     new_recipe["source"]["config"]["ingest_users"] = False
     new_recipe["source"]["config"]["ingest_groups"] = False
@@ -173,8 +171,7 @@ def test_okta_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_pa
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_file_path,
-        golden_path=f"{test_resources_dir}/okta_mces_golden_ingestion_disabled.json",
-        golden_mces_as_mcps=True,
+        golden_path=f"{test_resources_dir}/okta_golden_ingestion_disabled.json",
         fail_on_output_mces=True,
     )
 
@@ -185,9 +182,7 @@ def test_okta_source_include_deprovisioned_suspended_users(
 ):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
-    output_file_path = (
-        f"{tmp_path}/okta_mces_include_deprovisioned_suspended_users.json"
-    )
+    output_file_path = f"{tmp_path}/okta_include_deprovisioned_suspended_users.json"
     new_recipe = default_recipe(output_file_path)
     new_recipe["source"]["config"]["include_deprovisioned_users"] = True
     new_recipe["source"]["config"]["include_suspended_users"] = True
@@ -203,8 +198,7 @@ def test_okta_source_include_deprovisioned_suspended_users(
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_file_path,
-        golden_path=f"{test_resources_dir}/okta_mces_golden_include_deprovisioned_suspended_users.json",
-        golden_mces_as_mcps=True,
+        golden_path=f"{test_resources_dir}/okta_golden_include_deprovisioned_suspended_users.json",
         fail_on_output_mces=True,
     )
 
@@ -213,7 +207,7 @@ def test_okta_source_include_deprovisioned_suspended_users(
 def test_okta_source_custom_user_name_regex(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = pytestconfig.rootpath / "tests/integration/okta"
 
-    output_file_path = f"{tmp_path}/okta_mces_custom_user_name_regex.json"
+    output_file_path = f"{tmp_path}/okta_custom_user_name_regex.json"
     new_recipe = default_recipe(output_file_path)
     new_recipe["source"]["config"]["okta_profile_to_username_regex"] = "(.*)"
     new_recipe["source"]["config"]["okta_profile_to_group_name_regex"] = "(.*)"
@@ -229,8 +223,7 @@ def test_okta_source_custom_user_name_regex(pytestconfig, mock_datahub_graph, tm
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_file_path,
-        golden_path=f"{test_resources_dir}/okta_mces_golden_custom_user_name_regex.json",
-        golden_mces_as_mcps=True,
+        golden_path=f"{test_resources_dir}/okta_golden_custom_user_name_regex.json",
         fail_on_output_mces=True,
     )
 
