@@ -6,6 +6,7 @@ import pytest
 from datahub.ingestion.source.common.presto_view_decoder import (
     decode_presto_view,
     is_presto_view,
+    trino_type_to_hive_type,
 )
 
 
@@ -40,3 +41,24 @@ def test_decode_presto_view_raises_when_payload_not_object() -> None:
     encoded = base64.b64encode(json.dumps([1, 2, 3]).encode()).decode()
     with pytest.raises(ValueError):
         decode_presto_view(f"/* Presto View: {encoded} */")
+
+
+@pytest.mark.parametrize(
+    "trino_type, hive_type",
+    [
+        ("timestamp(3) with time zone", "timestamp"),
+        ("TIMESTAMP(6)", "timestamp"),
+        ("time(3) with time zone", "string"),
+        ("char(256)", "char(256)"),
+        ("integer", "int"),
+        ("decimal(10,2)", "decimal(10,2)"),
+        ("map(varchar, bigint)", "map<varchar,bigint>"),
+        (
+            'array(row(a bigint, "b c" timestamp(3) with time zone))',
+            "array<struct<a:bigint,b c:timestamp>>",
+        ),
+        ("row(bigint, varchar)", "string"),
+    ],
+)
+def test_trino_type_to_hive_type(trino_type: str, hive_type: str) -> None:
+    assert trino_type_to_hive_type(trino_type) == hive_type

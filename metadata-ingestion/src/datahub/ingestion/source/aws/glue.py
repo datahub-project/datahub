@@ -105,6 +105,7 @@ from datahub.ingestion.source.aws.tag_entities import (
 from datahub.ingestion.source.common.presto_view_decoder import (
     decode_presto_view,
     is_presto_view,
+    trino_type_to_hive_type,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -718,6 +719,8 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_resource_link_schema_from_datahub: int = 0
     num_resource_link_schema_from_glue: int = 0
     num_resource_link_schema_unresolved: int = 0
+    num_view_schema_from_view_definition: int = 0
+    num_view_placeholder_schema_unresolved: int = 0
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -819,6 +822,12 @@ class GlueSource(StatefulIngestionSourceBase):
     # Glue marks views (Athena/Presto or Spark/Hive views registered in the
     # catalog) with this TableType. Everything else is a table.
     _VIRTUAL_VIEW_TABLE_TYPE = "VIRTUAL_VIEW"
+
+    # When a view has an output column whose type Hive cannot represent (e.g.
+    # `timestamp with time zone`, `char(256)`), the engine writing the view to Glue
+    # replaces StorageDescriptor.Columns with a single column of this name. The real
+    # columns survive only in the encoded Presto view definition.
+    _PLACEHOLDER_VIEW_COLUMN_NAME = "dummy"
 
     # sqlglot dialects for the two kinds of Glue view SQL. Presto/Athena views are
     # Trino SQL; raw views are authored by Spark (Glue ETL/EMR) or Hive. sqlglot's
@@ -3039,6 +3048,17 @@ class GlueSource(StatefulIngestionSourceBase):
         schema = table["StorageDescriptor"]["Columns"]
         fields: List[SchemaField] = []
 
+        view_fields = self._get_placeholder_view_schema_fields(
+            table,
+            table_name,
+            column_tags,
+            column_parent_tags,
+            column_parent_origin,
+        )
+        if view_fields is not None:
+            fields.extend(view_fields)
+            schema = []
+
         # Process regular columns
         for field in schema:
             schema_fields = get_schema_fields_for_hive_column(
@@ -3084,6 +3104,82 @@ class GlueSource(StatefulIngestionSourceBase):
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
         )
+
+    def _get_placeholder_view_schema_fields(
+        self,
+        table: Dict,
+        table_name: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]],
+        column_parent_tags: Optional[List[LakeFormationTag]],
+        column_parent_origin: Optional[str],
+    ) -> Optional[List[SchemaField]]:
+        """Recover a view's columns from its Presto definition when Glue only holds
+        the ``dummy`` placeholder column.
+
+        Returns ``None`` when the table is not a view with a placeholder schema, or
+        when the real columns cannot be recovered, so the caller falls back to
+        ``StorageDescriptor.Columns``.
+        """
+        if table.get("TableType") != self._VIRTUAL_VIEW_TABLE_TYPE:
+            return None
+        columns = table["StorageDescriptor"].get("Columns") or []
+        if (
+            len(columns) != 1
+            or str(columns[0].get("Name", "")).lower()
+            != self._PLACEHOLDER_VIEW_COLUMN_NAME
+        ):
+            return None
+
+        view_columns: Optional[List[Dict[str, Any]]] = None
+        view_text = table.get("ViewOriginalText")
+        if isinstance(view_text, str) and is_presto_view(view_text):
+            try:
+                view_columns = decode_presto_view(view_text).get("columns")
+            except Exception:
+                # _get_view_definition reports the decode failure for this view.
+                view_columns = None
+
+        if not view_columns or not all(
+            isinstance(column, dict)
+            and isinstance(column.get("name"), str)
+            and column["name"]
+            and isinstance(column.get("type"), str)
+            and column["type"]
+            for column in view_columns
+        ):
+            self.report.num_view_placeholder_schema_unresolved += 1
+            self.report.warning(
+                title="View schema is a placeholder column",
+                message="Glue stores only a placeholder 'dummy' column for this view "
+                "because one of its output columns has a type Hive cannot represent, "
+                "and the real columns could not be read from the view definition.",
+                context=table_name,
+                log=False,
+            )
+            return None
+
+        fields: List[SchemaField] = []
+        for column in view_columns:
+            schema_fields = get_schema_fields_for_hive_column(
+                hive_column_name=column["name"],
+                hive_column_type=trino_type_to_hive_type(column["type"]),
+                default_nullable=True,
+            )
+            if schema_fields:
+                # Keep the engine's own type (e.g. `timestamp(3) with time zone`)
+                # rather than the Hive approximation used to build the field.
+                schema_fields[0].nativeDataType = column["type"]
+                self._apply_column_lf_tags(
+                    schema_fields,
+                    column["name"],
+                    column_tags,
+                    column_parent_tags,
+                    column_parent_origin,
+                )
+                fields.extend(schema_fields)
+
+        self.report.num_view_schema_from_view_definition += 1
+        return fields
 
     def _get_delta_schema_metadata(
         self,

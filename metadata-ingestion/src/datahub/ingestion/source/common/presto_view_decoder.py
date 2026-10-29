@@ -12,11 +12,30 @@ the decode logic lives here to avoid duplication.
 
 import base64
 import json
+import re
 from typing import Any, Dict, List, TypedDict, cast
 
 # Markers wrapping the base64-encoded payload of a Presto/Athena view.
 PRESTO_VIEW_PREFIX = "/* Presto View: "
 PRESTO_VIEW_SUFFIX = " */"
+
+_TIME_ZONE_SUFFIX = re.compile(r"\s+with\s+time\s+zone$")
+_TYPE_PRECISION = re.compile(r"^(timestamp|time)\s*\(\s*\d+\s*\)$")
+_PARAMETERIZED_TYPE = re.compile(r"^(array|map|row)\s*\((.*)\)$", re.DOTALL)
+# A named row field: a double-quoted or bare identifier followed by its type.
+_ROW_FIELD = re.compile(r'^(?:"([^"]+)"|(\w+))\s+(.+)$', re.DOTALL)
+
+# Trino scalar types whose name differs from the Hive equivalent, or that Hive
+# cannot represent at all (mapped to string so the column is kept, not dropped).
+_TRINO_TO_HIVE_SCALAR_TYPES: Dict[str, str] = {
+    "real": "float",
+    "integer": "int",
+    "varbinary": "binary",
+    "time": "string",
+    "json": "string",
+    "uuid": "string",
+    "ipaddress": "string",
+}
 
 
 class PrestoViewDefinition(TypedDict, total=False):
@@ -52,3 +71,63 @@ def decode_presto_view(view_text: str) -> PrestoViewDefinition:
     if not isinstance(payload, dict):
         raise ValueError("Presto view payload is not a JSON object")
     return cast(PrestoViewDefinition, payload)
+
+
+def _split_top_level(type_args: str) -> List[str]:
+    """Split ``type_args`` on commas that are not nested inside parentheses."""
+    parts: List[str] = []
+    depth = 0
+    current: List[str] = []
+    for char in type_args:
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        if char == "," and depth == 0:
+            parts.append("".join(current).strip())
+            current = []
+        else:
+            current.append(char)
+    parts.append("".join(current).strip())
+    return parts
+
+
+def trino_type_to_hive_type(trino_type: str) -> str:
+    """Convert a Trino type string (as stored in a Presto view's ``columns``) to
+    the closest Hive type string.
+
+    Presto view payloads describe columns with Trino types (``row(a bigint)``,
+    ``timestamp(3) with time zone``), while DataHub's Glue/Hive schema handling
+    parses Hive types (``struct<a:bigint>``, ``timestamp``). Types Hive cannot
+    represent are mapped to their nearest Hive type (dropping time zone and
+    precision) or to ``string``, so the column is kept rather than lost.
+    """
+    normalized = _TIME_ZONE_SUFFIX.sub("", trino_type.strip().lower())
+    precision_match = _TYPE_PRECISION.match(normalized)
+    if precision_match:
+        normalized = precision_match.group(1)
+
+    parameterized = _PARAMETERIZED_TYPE.match(normalized)
+    if parameterized:
+        kind, type_args = parameterized.group(1), parameterized.group(2)
+        args = _split_top_level(type_args)
+        if kind == "array" and len(args) == 1:
+            return f"array<{trino_type_to_hive_type(args[0])}>"
+        if kind == "map" and len(args) == 2:
+            key_type = trino_type_to_hive_type(args[0])
+            value_type = trino_type_to_hive_type(args[1])
+            return f"map<{key_type},{value_type}>"
+        if kind == "row":
+            struct_fields: List[str] = []
+            for arg in args:
+                row_field = _ROW_FIELD.match(arg)
+                if not row_field:
+                    # Anonymous row fields have no name; Hive structs require one.
+                    return "string"
+                field_name = row_field.group(1) or row_field.group(2)
+                field_type = trino_type_to_hive_type(row_field.group(3))
+                struct_fields.append(f"{field_name}:{field_type}")
+            return f"struct<{','.join(struct_fields)}>"
+        return "string"
+
+    return _TRINO_TO_HIVE_SCALAR_TYPES.get(normalized, normalized)

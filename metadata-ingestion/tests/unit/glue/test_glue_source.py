@@ -57,6 +57,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.testing import mce_helpers
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
@@ -4323,6 +4324,116 @@ def test_glue_view_lineage_links_view_to_upstream_table() -> None:
     }
     assert ("id", "id") in column_edges
     assert ("name", "name") in column_edges
+
+
+def test_glue_athena_view_with_dummy_placeholder_column_uses_view_columns() -> None:
+    # When an Athena view has an output column Hive cannot represent (e.g.
+    # `timestamp with time zone` from AT TIME ZONE, or char(>255)), Athena writes a
+    # single placeholder column named `dummy` into StorageDescriptor.Columns. The
+    # real output columns survive only in the encoded Presto view definition.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    original_sql = (
+        "SELECT id, created_at AT TIME ZONE 'US/Pacific' AS created_at "
+        "FROM my_db.events"
+    )
+    encoded = base64.b64encode(
+        json.dumps(
+            {
+                "originalSql": original_sql,
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "created_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        ).encode()
+    ).decode()
+    view = {
+        "Name": "events_view",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "ViewOriginalText": f"/* Presto View: {encoded} */",
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "dummy",
+                    "Type": "string",
+                    "Comment": "Unsupported type for column created_at",
+                }
+            ]
+        },
+    }
+
+    schema_metadatas = [
+        wu.get_aspect_of_type(models.SchemaMetadataClass)
+        for wu in source._gen_table_wu(view)
+    ]
+    found = [s for s in schema_metadatas if s is not None]
+
+    assert len(found) == 1
+    fields_by_name = {
+        get_simple_field_path_from_v2_field_path(f.fieldPath): f
+        for f in found[0].fields
+    }
+    assert set(fields_by_name) == {"id", "created_at"}
+    created_at = fields_by_name["created_at"]
+    assert isinstance(created_at.type.type, models.TimeTypeClass)
+    assert created_at.nativeDataType == "timestamp(3) with time zone"
+    assert source.report.num_view_schema_from_view_definition == 1
+
+
+def _placeholder_view(name: str, view_original_text: Optional[str]) -> Dict[str, Any]:
+    view: Dict[str, Any] = {
+        "Name": name,
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+    }
+    if view_original_text is not None:
+        view["ViewOriginalText"] = view_original_text
+    return view
+
+
+def _schema_column_names(workunits: List[Any]) -> List[str]:
+    names: List[str] = []
+    for wu in workunits:
+        schema = wu.get_aspect_of_type(models.SchemaMetadataClass)
+        if schema is not None:
+            names.extend(
+                get_simple_field_path_from_v2_field_path(f.fieldPath)
+                for f in schema.fields
+            )
+    return names
+
+
+def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns() -> (
+    None
+):
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view("broken_view", "/* Presto View: not!valid!base64 */")
+
+    assert _schema_column_names(list(source._gen_table_wu(view))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 1
+    assert source.report.num_view_schema_from_view_definition == 0
+    assert any(
+        w.title == "View schema is a placeholder column" for w in source.report.warnings
+    )
+
+
+def test_glue_table_with_column_named_dummy_is_not_treated_as_placeholder() -> None:
+    # Only views get the fallback; a real table column named `dummy` is kept as-is.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    table = {
+        "Name": "my_table",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "EXTERNAL_TABLE",
+        "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+    }
+
+    assert _schema_column_names(list(source._gen_table_wu(table))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 0
 
 
 def test_glue_view_lineage_disabled_creates_no_aggregator() -> None:
