@@ -42,6 +42,8 @@ def test_druid_ingest(
     # Verify the output
     mce_helpers.check_golden_file(
         pytestconfig,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
         output_path=output_path,
         golden_path=GOLDEN_FILES_DIR / "druid_mces.json",
         ignore_paths=[],
