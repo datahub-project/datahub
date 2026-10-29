@@ -1,5 +1,6 @@
 """Notebook source lineage, reconciled with the tables a Spark run actually touched."""
 
+from typing import Optional
 from unittest.mock import MagicMock
 
 from datahub.ingestion.source.fabric.common.models import FabricSparkSession
@@ -228,7 +229,12 @@ def test_reconcile_keeps_plan_sources_when_code_sources_do_not_resolve() -> None
     assert reconciled == execution
 
 
-def _emit_dim_user(*, reconcile_code: bool) -> DataJobInputOutputClass:
+def _emit_dim_user(
+    *,
+    reconcile_code: bool,
+    content: str = _NOTEBOOK,
+    report: Optional[FabricOneLakeSourceReport] = None,
+) -> DataJobInputOutputClass:
     orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
     customers = SparkTableRef(
         workspace_id=WS, item_id=LH, table="customers", schema="silver"
@@ -261,7 +267,7 @@ def _emit_dim_user(*, reconcile_code: bool) -> DataJobInputOutputClass:
         platform_instance=None,
         env="PROD",
         execution_history_days=30,
-        report=FabricOneLakeSourceReport(),
+        report=report or FabricOneLakeSourceReport(),
         client=client,
         known_table_urns=known,
         normalize_name=lambda name: name,
@@ -278,7 +284,7 @@ def _emit_dim_user(*, reconcile_code: bool) -> DataJobInputOutputClass:
                     display_name="pipeline",
                     description=None,
                     owner_user_principal_name=None,
-                    content=_NOTEBOOK,
+                    content=content,
                     language="python",
                 )
             ]
@@ -335,3 +341,21 @@ def test_reconcile_does_not_add_a_same_named_table_from_another_lakehouse() -> N
 
     assert reconciled[dim_user] == {orders}
     assert reconciled[other] == {other_orders}
+
+
+def test_code_lineage_failure_keeps_plan_lineage_and_warns() -> None:
+    # A long enough method chain makes the AST walk raise RecursionError.
+    content = (
+        'df = spark.read.table("silver.orders")\n'
+        "df = df" + '.withColumn("a", 1)' * 500 + "\n"
+        'df.write.save("Tables/gold/dim_user")\n'
+    )
+    report = FabricOneLakeSourceReport()
+
+    io = _emit_dim_user(reconcile_code=True, content=content, report=report)
+
+    products = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="products", schema="silver"
+    )
+    assert products.to_urn("PROD", None) in (io.inputDatasets or [])
+    assert [w.title for w in report.warnings] == ["Notebook Code Lineage Failed"]

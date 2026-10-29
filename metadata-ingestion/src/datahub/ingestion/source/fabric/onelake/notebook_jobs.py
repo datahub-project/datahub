@@ -300,12 +300,29 @@ class NotebookProcessEmitter:
         # Plans credit every earlier read to the next write. The notebook
         # source says which of those reads each write actually uses.
         if self._reconcile_code and nb.content and nb.language in (None, "python"):
-            code_lineage = extract_notebook_code_lineage(nb.content)
-            if code_lineage:
-                raw = reconcile_spark_lineage(code_lineage, raw, self._normalize_name)
-                logger.debug(
-                    "Reconciled notebook %s lineage from source text",
-                    nb.display_name,
+            # Reconciliation only narrows plan lineage, so any failure (for
+            # example RecursionError on a very long method chain) keeps the
+            # plan lineage rather than failing the notebook or the run.
+            try:
+                code_lineage = extract_notebook_code_lineage(nb.content)
+                if code_lineage:
+                    raw = reconcile_spark_lineage(
+                        code_lineage, raw, self._normalize_name
+                    )
+                    logger.debug(
+                        "Reconciled notebook %s lineage from source text",
+                        nb.display_name,
+                    )
+            except Exception as e:
+                self._report.warning(
+                    title="Notebook Code Lineage Failed",
+                    message=(
+                        "Could not read the notebook source to narrow its lineage. "
+                        "The Spark plan lineage is used unchanged."
+                    ),
+                    context=f"notebook={nb.display_name}",
+                    exc=e,
+                    log=False,
                 )
 
         known = self._known_table_urns
