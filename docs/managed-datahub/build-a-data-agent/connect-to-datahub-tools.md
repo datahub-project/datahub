@@ -10,7 +10,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 :::info Context add-on
-Scoped MCP servers and the SQL context tools are part of the DataHub Cloud **Context** add-on, currently in Public Beta.
+Scoped MCP servers and the SQL context tools are part of the DataHub Cloud **Context** add-on.
 :::
 
 Your agent, such as Claude, Cursor, a LangChain or CrewAI app, or a custom agent, gets DataHub's search and context tools. It decides what to look up in DataHub (tables, metrics, definitions, and past queries), then runs SQL through your warehouse's own MCP server.

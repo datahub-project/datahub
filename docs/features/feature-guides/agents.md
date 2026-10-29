@@ -4,8 +4,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-:::caution Public Beta
-Custom agents are part of the DataHub Cloud **Context** add-on and are in Public Beta.
+:::info Context add-on
+Custom agents are part of the DataHub Cloud **Context** add-on.
 :::
 
 **Agents** lets you create custom AI agents that can autonomously execute tasks against your metadata graph — on a schedule, in response to events, or on demand. Each agent can be configured with specific instructions, tools, plugins, and a scoped view of your data ecosystem.
@@ -163,7 +163,7 @@ You can also **Dismiss** a decision, which aborts the task run.
 ## FAQ
 
 **Can I use Agents without DataHub Cloud?**
-No. Agents are part of the DataHub Cloud Context add-on, currently in Public Beta.
+No. Agents are part of the DataHub Cloud Context add-on.
 
 **Can multiple tasks share the same agent?**
 Yes. An agent is a reusable persona — you can create as many tasks as you need, each with different instructions and triggers, all executed by the same agent.
