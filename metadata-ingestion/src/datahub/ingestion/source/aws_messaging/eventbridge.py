@@ -28,6 +28,7 @@ from datahub.ingestion.source.aws_messaging.mapper import (
     AwsRegionKey,
     non_empty,
     secondary,
+    shared_status,
 )
 from datahub.ingestion.source.aws_messaging.models import (
     Arn,
@@ -182,6 +183,7 @@ class EventBridgeLineage:
                         custom_properties={"arn": str(bus)},
                     ).as_workunits()
                 )
+                yield shared_status(bus_urn)
             flow_id = f"{self.urns.event_bus_id(bus)}.{rule.name}"
             rule_job = self._job_urn(
                 EVENTBRIDGE_PLATFORM, flow_id, EVENTBRIDGE_RULE_JOB_ID, bus

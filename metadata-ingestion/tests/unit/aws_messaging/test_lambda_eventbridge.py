@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import boto3
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase
 from datahub.ingestion.source.aws_messaging.clients import EventBridgeClient
@@ -23,6 +24,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StatusClass,
     StringTypeClass,
 )
 from tests.unit.aws_messaging.conftest import (
@@ -423,3 +425,33 @@ def test_partner_event_bus_keeps_its_full_name(
     bus_urn = f"urn:li:dataset:(urn:li:dataPlatform:eventbridge,{ACCOUNT}.{REGION}.{bus_name},PROD)"
     rule_job = f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.{bus_name}.new-orders,PROD),route)"
     assert edges[rule_job]["inputDatasetEdges"] == {bus_urn}
+
+
+def test_shared_entities_get_status(aws: None) -> None:
+    # Lambda jobs, rules, pipes and buses are non-primary, so the status
+    # processor skips them; the sources write Status themselves.
+    queue_arn = create_queue("orders")
+    boto3.client("lambda", region_name=REGION).create_event_source_mapping(
+        EventSourceArn=queue_arn, FunctionName=create_function("worker")
+    )
+    events = boto3.client("events", region_name=REGION)
+    events.put_rule(Name="new-orders", EventPattern=json.dumps({"source": ["shop"]}))
+    events.put_targets(Rule="new-orders", Targets=[{"Id": "q", "Arn": queue_arn}])
+    source = SqsSource.create(base_config(), PipelineContext(run_id="lineage"))
+    with_status = {
+        wu.get_urn()
+        for wu in source.get_workunits()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, StatusClass)
+    }
+    lambda_flow = f"urn:li:dataFlow:(lambda,{ACCOUNT}.{REGION}.worker,PROD)"
+    rule_flow = (
+        f"urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.default.new-orders,PROD)"
+    )
+    assert {
+        lambda_flow,
+        lambda_job("worker"),
+        rule_flow,
+        RULE_JOB,
+        BUS_URN,
+    } <= with_status

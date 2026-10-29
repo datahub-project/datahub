@@ -2,7 +2,7 @@ from typing import Iterable, List, Optional
 
 from datahub.emitter.mce_builder import make_data_job_urn
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws_messaging.mapper import secondary
+from datahub.ingestion.source.aws_messaging.mapper import secondary, shared_status
 from datahub.metadata.schema_classes import FineGrainedLineageClass
 from datahub.sdk import DataFlow, DataJob
 from datahub.specific.datajob import DataJobPatchBuilder
@@ -44,7 +44,9 @@ def shared_job_workunits(
     for lineage in fine_grained or []:
         patch.add_fine_grained_lineage(lineage)
     yield from secondary(flow.as_workunits())
+    yield shared_status(str(flow.urn))
     yield from secondary(job.as_workunits())
+    yield shared_status(str(job.urn))
     for mcp in patch.build():
         yield MetadataWorkUnit(
             id=f"{job.urn}-io-patch", mcp_raw=mcp, is_primary_source=False
