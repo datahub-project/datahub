@@ -13,6 +13,10 @@ const Container = styled.div`
     font-family: Mulish;
 `;
 
+const Description = styled.div`
+    margin-top: 8px;
+`;
+
 const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
@@ -47,6 +51,9 @@ const SyncedOrSharedTooltip = ({ type }: Props) => {
                     ? t('sidebar.syncedOrShared.tooltip.synchronizedHeader')
                     : t('sidebar.syncedOrShared.tooltip.sharedHeader')}
             </HeaderText>
+            {type === ActionType.SYNC && (
+                <Description>{t('sidebar.syncedOrShared.tooltip.synchronizedDescription')}</Description>
+            )}
             <Wrapper>
                 <ColoredContainer
                     $bgColor={theme.colors.bgSurfaceSuccess}
