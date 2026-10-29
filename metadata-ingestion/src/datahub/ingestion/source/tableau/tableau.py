@@ -168,12 +168,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     Upstream,
     UpstreamLineage,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    ChartSnapshot,
-    DashboardSnapshot,
-    DatasetSnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     NullTypeClass,
     OtherSchema,
@@ -195,6 +189,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
     SubTypesClass,
     ViewPropertiesClass,
+    _Aspect,
 )
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
@@ -2624,10 +2619,7 @@ class TableauSiteSource:
                 env=self.config.env,
             )
 
-            dataset_snapshot = DatasetSnapshot(
-                urn=csql_urn,
-                aspects=[self.get_data_platform_instance()],
-            )
+            aspects: List[_Aspect] = [self.get_data_platform_instance()]
             logger.debug(f"Processing custom sql = {csql}")
 
             datasource_name: Optional[str] = None
@@ -2658,7 +2650,7 @@ class TableauSiteSource:
                     yield from add_entity_to_container(
                         self.gen_workbook_key(workbook[c.ID]),
                         c.DATASET,
-                        dataset_snapshot.urn,
+                        csql_urn,
                     )
                 else:
                     project_luid = self._get_datasource_project_luid(datasource)
@@ -2672,7 +2664,7 @@ class TableauSiteSource:
                         yield from add_entity_to_container(
                             self.gen_project_key(project_luid),
                             c.DATASET,
-                            dataset_snapshot.urn,
+                            csql_urn,
                         )
                     else:
                         logger.debug(
@@ -2717,7 +2709,7 @@ class TableauSiteSource:
 
             schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
             if schema_metadata is not None:
-                dataset_snapshot.aspects.append(schema_metadata)
+                aspects.append(schema_metadata)
 
             if not (project and browse_path_name and datasource_name):
                 logger.debug(
@@ -2732,14 +2724,14 @@ class TableauSiteSource:
             browse_paths = BrowsePathsClass(
                 paths=[f"{self.dataset_browse_prefix}/{project}/{browse_path_name}"]
             )
-            dataset_snapshot.aspects.append(browse_paths)
+            aspects.append(browse_paths)
 
             dataset_properties = DatasetPropertiesClass(
                 name=datasource_name,
                 description=csql.get(c.DESCRIPTION),
             )
 
-            dataset_snapshot.aspects.append(dataset_properties)
+            aspects.append(dataset_properties)
 
             if csql.get(c.QUERY):
                 view_properties = ViewPropertiesClass(
@@ -2747,11 +2739,11 @@ class TableauSiteSource:
                     viewLanguage=c.SQL,
                     viewLogic=clean_query(csql[c.QUERY]),
                 )
-                dataset_snapshot.aspects.append(view_properties)
+                aspects.append(view_properties)
 
-            yield self.get_metadata_change_event(dataset_snapshot)
+            yield from self.gen_aspect_workunits(csql_urn, aspects)
             yield self.get_metadata_change_proposal(
-                dataset_snapshot.urn,
+                csql_urn,
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW, c.CUSTOM_SQL]),
             )
 
@@ -3381,11 +3373,13 @@ class TableauSiteSource:
             else None
         )
 
-    def get_metadata_change_event(
-        self, snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"]
-    ) -> MetadataWorkUnit:
-        mce = MetadataChangeEvent(proposedSnapshot=snap_shot)
-        return MetadataWorkUnit(id=snap_shot.urn, mce=mce)
+    def gen_aspect_workunits(
+        self, urn: str, aspects: List[_Aspect]
+    ) -> Iterable[MetadataWorkUnit]:
+        for aspect in aspects:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=aspect
+            ).as_workunit()
 
     def get_metadata_change_proposal(
         self,
@@ -3517,17 +3511,12 @@ class TableauSiteSource:
             initial_sql_upstreams = initial_sql.upstreams
             initial_sql_text = initial_sql.raw_sql
 
-        dataset_snapshot = DatasetSnapshot(
-            urn=datasource_urn,
-            aspects=[self.get_data_platform_instance()],
-        )
+        aspects: List[_Aspect] = [self.get_data_platform_instance()]
 
         # Tags
         if datasource_info and self.config.ingest_tags:
             tags = self.get_tags(datasource_info)
-            dataset_snapshot.aspects.append(
-                builder.make_global_tag_aspect_with_tag_list(tags)
-            )
+            aspects.append(builder.make_global_tag_aspect_with_tag_list(tags))
 
         # Browse path
         if browse_path and is_embedded_ds and workbook and workbook.get(c.NAME):
@@ -3539,7 +3528,7 @@ class TableauSiteSource:
             browse_paths = BrowsePathsClass(
                 paths=[f"{self.dataset_browse_prefix}/{browse_path}"]
             )
-            dataset_snapshot.aspects.append(browse_paths)
+            aspects.append(browse_paths)
 
         # Ownership
         owner_identifier = (
@@ -3549,7 +3538,7 @@ class TableauSiteSource:
         )
         owner = self._get_ownership(owner_identifier) if owner_identifier else None
         if owner is not None:
-            dataset_snapshot.aspects.append(owner)
+            aspects.append(owner)
 
         # Dataset properties
         dataset_props = DatasetPropertiesClass(
@@ -3566,7 +3555,7 @@ class TableauSiteSource:
                 ],
             ),
         )
-        dataset_snapshot.aspects.append(dataset_props)
+        aspects.append(dataset_props)
 
         if initial_sql_text and self.config.initial_sql_as_custom_property:
             if dataset_props.customProperties is None:
@@ -3586,11 +3575,11 @@ class TableauSiteSource:
             datasource.get(c.FIELDS, [])
         )
         if schema_metadata is not None:
-            dataset_snapshot.aspects.append(schema_metadata)
+            aspects.append(schema_metadata)
 
-        yield self.get_metadata_change_event(dataset_snapshot)
+        yield from self.gen_aspect_workunits(datasource_urn, aspects)
         yield self.get_metadata_change_proposal(
-            dataset_snapshot.urn,
+            datasource_urn,
             aspect=SubTypesClass(
                 typeNames=(
                     ["Embedded Data Source"]
@@ -3607,7 +3596,7 @@ class TableauSiteSource:
             yield from add_entity_to_container(
                 container_key,
                 c.DATASET,
-                dataset_snapshot.urn,
+                datasource_urn,
             )
 
     def get_custom_props_from_dict(self, obj: dict, keys: List[str]) -> Optional[dict]:
@@ -3752,10 +3741,7 @@ class TableauSiteSource:
             f"Emitting external table {database_table} tableau_columns {tableau_columns}"
         )
         dataset_urn = DatasetUrn.from_string(database_table.urn)
-        dataset_snapshot = DatasetSnapshot(
-            urn=str(dataset_urn),
-            aspects=[],
-        )
+        aspects: List[_Aspect] = []
         if database_table.paths:
             # Browse path
             browse_paths = BrowsePathsClass(
@@ -3764,7 +3750,7 @@ class TableauSiteSource:
                     for path in sorted(database_table.paths, key=lambda p: (len(p), p))
                 ]
             )
-            dataset_snapshot.aspects.append(browse_paths)
+            aspects.append(browse_paths)
         else:
             logger.debug(
                 f"Table {database_table.urn} has no browse path (likely external upstream table)"
@@ -3775,16 +3761,16 @@ class TableauSiteSource:
             tableau_columns, database_table.parsed_columns
         )
         if schema_metadata is not None:
-            dataset_snapshot.aspects.append(schema_metadata)
+            aspects.append(schema_metadata)
 
-        if not dataset_snapshot.aspects:
-            # This should only happen with ingest_tables_external enabled.
+        if not aspects:
+            # The key aspect is the only write that creates the entity.
             logger.warning(
                 f"Urn {database_table.urn} has no real aspects, adding a key aspect to ensure materialization"
             )
-            dataset_snapshot.aspects.append(dataset_urn.to_key_aspect())
+            aspects.append(dataset_urn.to_key_aspect())
 
-        yield self.get_metadata_change_event(dataset_snapshot)
+        yield from self.gen_aspect_workunits(str(dataset_urn), aspects)
 
     def get_schema_metadata_for_table(
         self,
@@ -3922,10 +3908,7 @@ class TableauSiteSource:
         sheet_urn: str = builder.make_chart_urn(
             self.platform, sheet[c.ID], self.config.platform_instance
         )
-        chart_snapshot = ChartSnapshot(
-            urn=sheet_urn,
-            aspects=[self.get_data_platform_instance()],
-        )
+        aspects: List[_Aspect] = [self.get_data_platform_instance()]
 
         creator: Optional[str] = None
         if workbook is not None and workbook.get(c.OWNER) is not None:
@@ -3982,8 +3965,7 @@ class TableauSiteSource:
             inputs=sorted(datasource_urn),
             customProperties=self.get_custom_props_from_dict(sheet, [c.LUID]),
         )
-        chart_snapshot.aspects.append(chart_info)
-        # chart_snapshot doesn't support the stat aspect as list element and hence need to emit MCP
+        aspects.append(chart_info)
 
         if self.config.extract_usage_stats:
             wu = self._get_chart_stat_wu(sheet, sheet_urn)
@@ -3992,7 +3974,7 @@ class TableauSiteSource:
 
         browse_paths = self.get_browse_paths_aspect(workbook)
         if browse_paths:
-            chart_snapshot.aspects.append(browse_paths)
+            aspects.append(browse_paths)
         else:
             logger.warning(
                 f"Could not set browse path for workbook {sheet[c.ID]}. Please check permissions."
@@ -4001,7 +3983,7 @@ class TableauSiteSource:
         # Ownership
         owner = self._get_ownership(creator)
         if owner is not None:
-            chart_snapshot.aspects.append(owner)
+            aspects.append(owner)
 
         #  Tags
         if self.config.ingest_tags:
@@ -4011,11 +3993,9 @@ class TableauSiteSource:
             ):
                 tags.extend(self.config.tags_for_hidden_assets)
 
-            chart_snapshot.aspects.append(
-                builder.make_global_tag_aspect_with_tag_list(tags)
-            )
+            aspects.append(builder.make_global_tag_aspect_with_tag_list(tags))
 
-        yield self.get_metadata_change_event(chart_snapshot)
+        yield from self.gen_aspect_workunits(sheet_urn, aspects)
         if sheet_external_url is not None and self.config.ingest_embed_url is True:
             yield self.new_work_unit(
                 self.new_embed_aspect_mcp(
@@ -4025,7 +4005,7 @@ class TableauSiteSource:
             )
         if workbook is not None:
             yield from add_entity_to_container(
-                self.gen_workbook_key(workbook[c.ID]), c.CHART, chart_snapshot.urn
+                self.gen_workbook_key(workbook[c.ID]), c.CHART, sheet_urn
             )
 
         if input_fields:
@@ -4265,10 +4245,7 @@ class TableauSiteSource:
         dashboard_urn: str = builder.make_dashboard_urn(
             self.platform, dashboard[c.ID], self.config.platform_instance
         )
-        dashboard_snapshot = DashboardSnapshot(
-            urn=dashboard_urn,
-            aspects=[self.get_data_platform_instance()],
-        )
+        aspects: List[_Aspect] = [self.get_data_platform_instance()]
 
         creator: Optional[str] = None
         if workbook is not None and workbook.get(c.OWNER) is not None:
@@ -4306,7 +4283,7 @@ class TableauSiteSource:
             ),
             customProperties=self.get_custom_props_from_dict(dashboard, [c.LUID]),
         )
-        dashboard_snapshot.aspects.append(dashboard_info_class)
+        aspects.append(dashboard_info_class)
 
         if self.config.ingest_tags:
             tags = self.get_tags(dashboard)
@@ -4315,19 +4292,16 @@ class TableauSiteSource:
             ):
                 tags.extend(self.config.tags_for_hidden_assets)
 
-            dashboard_snapshot.aspects.append(
-                builder.make_global_tag_aspect_with_tag_list(tags)
-            )
+            aspects.append(builder.make_global_tag_aspect_with_tag_list(tags))
 
         if self.config.extract_usage_stats:
-            # dashboard_snapshot doesn't support the stat aspect as list element and hence need to emit MetadataWorkUnit
             wu = self._get_dashboard_stat_wu(dashboard, dashboard_urn)
             if wu is not None:
                 yield wu
 
         browse_paths = self.get_browse_paths_aspect(workbook)
         if browse_paths:
-            dashboard_snapshot.aspects.append(browse_paths)
+            aspects.append(browse_paths)
         else:
             logger.warning(
                 f"Could not set browse path for dashboard {dashboard[c.ID]}. Please check permissions."
@@ -4336,9 +4310,9 @@ class TableauSiteSource:
         # Ownership
         owner = self._get_ownership(creator)
         if owner is not None:
-            dashboard_snapshot.aspects.append(owner)
+            aspects.append(owner)
 
-        yield self.get_metadata_change_event(dashboard_snapshot)
+        yield from self.gen_aspect_workunits(dashboard_urn, aspects)
         # Yield embed MCP
         if self.config.ingest_embed_url is True:
             yield self.new_work_unit(
@@ -4352,7 +4326,7 @@ class TableauSiteSource:
             yield from add_entity_to_container(
                 self.gen_workbook_key(workbook[c.ID]),
                 c.DASHBOARD,
-                dashboard_snapshot.urn,
+                dashboard_urn,
             )
 
     def get_browse_paths_aspect(
