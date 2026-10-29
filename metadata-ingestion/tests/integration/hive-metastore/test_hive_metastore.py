@@ -144,6 +144,7 @@ def test_hive_metastore_ingest(
             ignore_paths=ignore_paths,
             ignore_paths_v2=ignore_paths_v2,
             golden_mces_as_mcps=True,
+            fail_on_output_mces=True,
         )
 
 

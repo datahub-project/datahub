@@ -274,6 +274,7 @@ def test_ingest_default_catalog(
         ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -322,6 +323,7 @@ def test_ingest_spark_catalog(loaded_hms3, test_resources_dir, pytestconfig, tmp
         ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -372,6 +374,7 @@ def test_ingest_spark_catalog_with_catalog_ids(
         ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 

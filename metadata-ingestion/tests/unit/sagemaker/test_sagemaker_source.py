@@ -243,6 +243,7 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         output_path=tmp_path / "sagemaker_mces.json",
         golden_path=test_resources_dir / "sagemaker_mces_golden.json",
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 

@@ -137,4 +137,5 @@ def test_remote_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time)
             output_path=tmp_path / "remote_glossary_output.json",
             golden_path=test_resources_dir / "golden/remote_glossary_golden.json",
             golden_mces_as_mcps=True,
+            fail_on_output_mces=True,
         )

@@ -118,4 +118,5 @@ def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir, minio_run
         output_path=tmp_path / "delta_lake_minio_mces.json",
         golden_path=test_resources_dir / "delta_lake_minio_mces_golden.json",
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )

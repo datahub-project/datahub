@@ -46,6 +46,7 @@ def test_delta_lake(pytestconfig, source_file, tmp_path, mock_time):
         output_path=f"{tmp_path}/{source_file}",
         golden_path=f"{test_resources_dir}/golden_files/local/golden_mces_{source_file}",
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 

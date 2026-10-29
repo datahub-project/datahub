@@ -47,4 +47,5 @@ def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
         output_path=output_path,
         golden_path=test_resources_dir / "feast_repository_mces_golden.json",
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )

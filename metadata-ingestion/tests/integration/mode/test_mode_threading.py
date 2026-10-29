@@ -190,6 +190,7 @@ def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
             golden_path=test_resources_dir / "mode_mces_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
             golden_mces_as_mcps=True,
+            fail_on_output_mces=True,
         )
 
 
@@ -230,6 +231,7 @@ def test_mode_threaded_higher_thread_count(pytestconfig, tmp_path):
             golden_path=test_resources_dir / "mode_mces_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
             golden_mces_as_mcps=True,
+            fail_on_output_mces=True,
         )
 
 

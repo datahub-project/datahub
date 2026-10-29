@@ -68,6 +68,7 @@ def test_glossary_ingest(
         output_path=output_mces_path,
         golden_path=golden_mces_path,
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -100,6 +101,7 @@ def test_single_owner_types(
         output_path=output_mces_path,
         golden_path=golden_mces_path,
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -134,6 +136,7 @@ def test_multiple_owners_same_type(
         output_path=output_mces_path,
         golden_path=golden_mces_path,
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -168,6 +171,7 @@ def test_multiple_owners_different_types(
         output_path=output_mces_path,
         golden_path=golden_mces_path,
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -200,6 +204,7 @@ def test_custom_ownership_urns(
         output_path=output_mces_path,
         golden_path=golden_mces_path,
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -232,4 +237,5 @@ def test_url_cleaning(
         output_path=output_mces_path,
         golden_path=golden_mces_path,
         golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
