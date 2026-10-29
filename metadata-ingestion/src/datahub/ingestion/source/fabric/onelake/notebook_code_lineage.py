@@ -9,7 +9,8 @@ The source text names those tables even when the path is built at run time
 Commented-out cells are not real reads or writes. This module recovers that
 per-target source set. The caller keeps an edge only when the executed plans
 also saw the same source and target, so the resolved OneLake path still comes
-from the run.
+from the run. Outputs the source text does not account for keep their plan
+lineage.
 """
 
 import ast
@@ -57,10 +58,13 @@ def reconcile_spark_lineage(
     execution: Dict[SparkTableRef, Set[SparkTableRef]],
     normalize: Callable[[str], str],
 ) -> Dict[SparkTableRef, Set[SparkTableRef]]:
-    """Keep code edges whose source and target both appear in the executed plans.
+    """Narrow the executed plans' sources for each output the code accounts for.
 
-    Targets the current code does not write are dropped, and so are sources the
-    code does not use for that target. A table name is resolved to the
+    Every output the plans recorded is kept. Only an output the code writes
+    has its sources replaced, by the code's sources that the plans also saw.
+    The parser cannot see every write (``%%sql`` cells, ``spark.sql``, Delta
+    merges, names built in loops), so an output it misses keeps the plan's
+    sources instead of being dropped. A table name is resolved to the
     ``SparkTableRef`` the plans recorded, which carries the workspace and
     lakehouse the source text never spells out.
     """
@@ -72,23 +76,25 @@ def reconcile_spark_lineage(
     # An intermediate table written by this notebook can be a later job's input.
     sources_pool = reads + writes
 
-    reconciled: Dict[SparkTableRef, Set[SparkTableRef]] = {}
+    narrowed: Dict[SparkTableRef, Set[SparkTableRef]] = {}
     for target, sources in code_lineage.items():
         outputs = _resolve(target, writes, normalize)
         if not outputs:
-            continue
-        # A write whose dataframe lineage was not visible keeps the plan's own
-        # inputs. An empty source set must not wipe a real edge.
-        if not sources:
-            for output in outputs:
-                reconciled.setdefault(output, set()).update(execution.get(output, ()))
             continue
         resolved_sources: List[SparkTableRef] = []
         for source in sources:
             resolved_sources.extend(_resolve(source, sources_pool, normalize))
         for output in outputs:
-            inputs = reconciled.setdefault(output, set())
-            inputs.update(ref for ref in resolved_sources if ref != output)
+            narrowed.setdefault(output, set()).update(
+                ref for ref in resolved_sources if ref != output
+            )
+
+    reconciled = {output: set(inputs) for output, inputs in execution.items()}
+    for output, inputs in narrowed.items():
+        # No resolvable sources means the code's dataframe lineage was not
+        # visible, not that the write has no inputs. Keep the plan's.
+        if inputs:
+            reconciled[output] = inputs
     return reconciled
 
 

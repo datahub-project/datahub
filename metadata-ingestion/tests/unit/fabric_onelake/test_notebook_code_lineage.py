@@ -156,7 +156,76 @@ def test_reconcile_drops_plan_sources_the_code_does_not_use() -> None:
 
     assert inputs("dim_user") == {"orders", "customers"}
     assert inputs("dim_accounts") == {"orders"}
-    assert all(ref.table != "dim_products" for ref in reconciled)
+    # The current code no longer writes dim_products, but the run did. It keeps
+    # the plan's sources rather than disappearing.
+    assert inputs("dim_products") == {"products"}
+
+
+# A Python cell and a %%sql cell, as fabricGitSource stores them. The SQL cell
+# is comment lines to the Python parser, so only gold.dim_user is visible.
+_PYTHON_AND_SQL_NOTEBOOK = """
+orders = spark.read.format("delta").load("Tables/silver/orders")
+customers = spark.read.format("delta").load("Tables/silver/customers")
+users = orders.join(customers, "id", "left")
+users.write.format("delta").mode("overwrite").save("Tables/gold/dim_user")
+
+# MAGIC %%sql
+# MAGIC INSERT INTO gold.dim_accounts SELECT * FROM silver.orders
+"""
+
+
+def _gold(table: str) -> SparkTableRef:
+    return SparkTableRef(workspace_id=WS, item_id=LH, table=table, schema="gold")
+
+
+def test_reconcile_keeps_outputs_the_code_does_not_show() -> None:
+    execution = extract_spark_lineage(
+        [
+            _plan(
+                "Tables/gold/dim_user",
+                [
+                    "Tables/silver/orders/_delta_log/0.json",
+                    "Tables/silver/customers/_delta_log/0.json",
+                    "Tables/silver/products/_delta_log/0.json",
+                ],
+            ),
+            _plan(
+                "Tables/gold/dim_accounts",
+                [
+                    "Tables/silver/orders/_delta_log/0.json",
+                    "Tables/silver/products/_delta_log/0.json",
+                ],
+            ),
+        ]
+    )
+    code = extract_notebook_code_lineage(_PYTHON_AND_SQL_NOTEBOOK)
+    assert code is not None
+    assert set(code) == {CodeTable(table="dim_user", schema="gold")}
+
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name)
+
+    assert {ref.table for ref in reconciled[_gold("dim_user")]} == {
+        "orders",
+        "customers",
+    }
+    # Not narrowed, but not dropped either: the plan's sources stand.
+    assert reconciled[_gold("dim_accounts")] == execution[_gold("dim_accounts")]
+
+
+def test_reconcile_keeps_plan_sources_when_code_sources_do_not_resolve() -> None:
+    execution = extract_spark_lineage(
+        [_plan("Tables/gold/dim_user", ["Tables/silver/orders/_delta_log/0.json"])]
+    )
+    # The code names a source the plans never read, e.g. a table built in a loop.
+    code = {
+        CodeTable(table="dim_user", schema="gold"): {
+            CodeTable(table="staging_orders", schema="silver")
+        }
+    }
+
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name)
+
+    assert reconciled == execution
 
 
 def _emit_dim_user(*, reconcile_code: bool) -> DataJobInputOutputClass:

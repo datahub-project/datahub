@@ -302,16 +302,11 @@ class NotebookProcessEmitter:
         if self._reconcile_code and nb.content and nb.language in (None, "python"):
             code_lineage = extract_notebook_code_lineage(nb.content)
             if code_lineage:
-                reconciled = reconcile_spark_lineage(
-                    code_lineage, raw, self._normalize_name
+                raw = reconcile_spark_lineage(code_lineage, raw, self._normalize_name)
+                logger.debug(
+                    "Reconciled notebook %s lineage from source text",
+                    nb.display_name,
                 )
-                if reconciled:
-                    logger.debug(
-                        "Reconciled notebook %s lineage from source text (%s output table(s))",
-                        nb.display_name,
-                        len(reconciled),
-                    )
-                    raw = reconciled
 
         known = self._known_table_urns
         # Case/space variants of one output table normalize to a single URN and
