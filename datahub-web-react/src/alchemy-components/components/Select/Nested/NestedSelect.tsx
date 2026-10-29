@@ -1,7 +1,7 @@
-import { Dropdown } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Dropdown } from '@components/components/Dropdown';
 import { NestedOption } from '@components/components/Select/Nested/NestedOption';
 import { NestedSelectOption } from '@components/components/Select/Nested/types';
 import { filterNestedSelectOptions } from '@components/components/Select/Nested/utils';

@@ -40,13 +40,13 @@ import {
 } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useAddOwners } from '@app/sharedV2/owners/useAddOwners';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useUpdateOwners } from '@app/sharedV2/owners/useUpdateOwners';
 import useUrlParamsPagination from '@app/sharedV2/pagination/useUrlParamsPagination';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useQueryParamSortCriterion } from '@app/sharedV2/sorting/useQueryParamSortCriterion';
 import { PageRoutes } from '@conf/Global';
 
@@ -163,8 +163,12 @@ export const IngestionSourceList = ({
 
     const [query, setQuery] = useState<undefined | string>(redirectQueryInputs?.query);
     const [searchInput, setSearchInput] = useState(redirectQueryInputs?.query ?? '');
-    const previousSearchInput = usePrevious(searchInput);
     const searchInputRef = useRef<React.ElementRef<typeof SearchBar>>(null);
+    // Last search string we actually queried for. The debounce used to depend on
+    // usePrevious(searchInput). That value catches up on the next render, which resets
+    // the timer, so the callback that finally ran saw "no change" and skipped the fetch.
+    // A lazy route mounts in a burst of renders, which made that skip reliable.
+    const appliedSearchRef = useRef(searchInput);
 
     const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
@@ -217,14 +221,16 @@ export const IngestionSourceList = ({
     // Debounce the search query
     useDebounce(
         () => {
-            if (previousSearchInput !== undefined && previousSearchInput !== searchInput) {
-                setPage(1);
-                setQuery(searchInput);
-                setSearchQueryFromUrl(searchInput);
+            if (appliedSearchRef.current === searchInput) {
+                return;
             }
+            appliedSearchRef.current = searchInput;
+            setPage(1);
+            setQuery(searchInput);
+            setSearchQueryFromUrl(searchInput);
         },
         300,
-        [searchInput, previousSearchInput],
+        [searchInput],
     );
 
     // When source filter changes, reset page to 1

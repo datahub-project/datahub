@@ -23,6 +23,7 @@ public class DefaultEntitySpec implements EntitySpec {
   private final TyperefDataSchema _aspectTyperefSchema;
 
   private List<SearchableFieldSpec> _searchableFieldSpecs;
+  private volatile List<RelationshipFieldSpec> _relationshipFieldSpecs;
   private Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypeMap;
   private List<SearchableRefFieldSpec> _searchableRefFieldSpecs;
   private Map<PathSpec, String> searchableFieldPathMap;
@@ -104,6 +105,15 @@ public class DefaultEntitySpec implements EntitySpec {
     }
 
     return _searchableFieldSpecs;
+  }
+
+  @Override
+  public List<RelationshipFieldSpec> getRelationshipFieldSpecs() {
+    if (_relationshipFieldSpecs == null) {
+      _relationshipFieldSpecs = List.copyOf(EntitySpec.super.getRelationshipFieldSpecs());
+    }
+
+    return _relationshipFieldSpecs;
   }
 
   @Override

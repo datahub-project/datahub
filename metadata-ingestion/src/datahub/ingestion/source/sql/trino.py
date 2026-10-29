@@ -337,6 +337,10 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         SourceCapabilityModifier.VIEW,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class TrinoSource(SQLAlchemySource):
     """
     Extracts metadata and two distinct relations to connector datasets (e.g. Iceberg, Hive):

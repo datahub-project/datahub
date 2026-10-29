@@ -5,7 +5,7 @@ If a PDL aspect field is removed or renamed, then:
 - Blocking unless accompanied by deprecation + migration notes.
 - Title: "Deprecate PDL field instead of deleting"
 - Body: "Stored aspects may still carry the old field. Mark deprecated and keep
-  readers tolerant; document in `docs/how/updating-datahub.md` if breaking."
+  readers tolerant; document in `docs/how/breaking-changes.md` if breaking."
 
 If a new aspect field duplicates the entity URN key / id (e.g. `qualifiedName`
 mirroring the key), then:

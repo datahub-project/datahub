@@ -5,6 +5,14 @@ import { useRemoveRelationship } from '@app/previewV2/DefaultPreviewCard';
 
 import { EntityType } from '@types';
 
+const closedConfirm = () => ({
+    isOpen: false,
+    handleClose: () => {},
+    handleConfirm: () => {},
+    modalTitle: '',
+    modalText: '',
+});
+
 const mocks = vi.hoisted(() => ({
     pageEntityType: 'APPLICATION' as string,
     removeApplication: vi.fn(),
@@ -30,10 +38,10 @@ vi.mock('@app/entityV2/shared/PreviewContext', () => ({
 
 vi.mock('@app/previewV2/utils', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@app/previewV2/utils')>()),
-    useRemoveDomainAssets: () => ({ removeDomain: vi.fn() }),
-    useRemoveGlossaryTermAssets: () => ({ removeTerm: vi.fn() }),
-    useRemoveDataProductAssets: () => ({ removeDataProduct: vi.fn() }),
-    useRemoveApplicationAssets: () => ({ removeApplication: mocks.removeApplication }),
+    useRemoveDomainAssets: () => ({ removeDomain: vi.fn(), confirmState: closedConfirm() }),
+    useRemoveGlossaryTermAssets: () => ({ removeTerm: vi.fn(), confirmState: closedConfirm() }),
+    useRemoveDataProductAssets: () => ({ removeDataProduct: vi.fn(), confirmState: closedConfirm() }),
+    useRemoveApplicationAssets: () => ({ removeApplication: mocks.removeApplication, confirmState: closedConfirm() }),
 }));
 
 describe('useRemoveRelationship on an Application page', () => {

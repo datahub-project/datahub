@@ -6,6 +6,22 @@ import { describe, expect, it, vi } from 'vitest';
 import CreateGroupModal from '@app/identity/group/CreateGroupModal';
 import theme from '@src/alchemy-components/theme';
 
+// Mock alchemy toast
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components')>();
+    return {
+        ...actual,
+        toast: {
+            success: vi.fn(),
+            error: vi.fn(),
+            warning: vi.fn(),
+            info: vi.fn(),
+            loading: vi.fn(),
+            destroy: vi.fn(),
+        },
+    };
+});
+
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         t: (key: string) => key,
@@ -25,11 +41,11 @@ vi.mock('@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect', () => ({
     ActorsSearchSelect: () => null,
 }));
 
-vi.mock('@app/shared/textUtil', () => ({
+vi.mock('@app/sharedV2/textUtil', () => ({
     validateCustomUrnId: () => true,
 }));
 
-vi.mock('@app/shared/useEnterKeyListener', () => ({
+vi.mock('@app/sharedV2/useEnterKeyListener', () => ({
     useEnterKeyListener: () => {},
 }));
 
@@ -41,11 +57,6 @@ vi.mock('@graphql/group.generated', () => ({
 vi.mock('@graphql/mutations.generated', () => ({
     useAddOwnerMutation: () => [vi.fn()],
 }));
-
-vi.mock('antd', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('antd')>();
-    return { ...actual, message: { success: vi.fn(), error: vi.fn() } };
-});
 
 function wrap(ui: React.ReactElement) {
     return render(<ThemeProvider theme={theme as any}>{ui}</ThemeProvider>);

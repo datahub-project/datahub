@@ -13,7 +13,7 @@ import DataProductResult from '@app/entityV2/domain/DataProductsTab/DataProductR
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SearchBar } from '@app/search/SearchBar';
 import { DOMAINS_FILTER_NAME } from '@app/search/utils/constants';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
