@@ -9,6 +9,7 @@
     "calendarChart.weekday.wed": "Ke",
     "codeBlock.editorLabel": "Koodieditori",
     "codeBlock.format": "Muotoile",
+    "codeBlock.formatFailed": "SQL-muotoilijan lataaminen epäonnistui. Yritä uudelleen.",
     "codeBlock.formatInvalid": "Koodia ei voitu muotoilla. Tarkista, että se on kelvollinen.",
     "codeBlock.formatSuccess": "Muotoiltu",
     "codeBlock.languageSelectLabel": "Kieli",

@@ -670,24 +670,26 @@ upstream filter-chain changes continue to apply on upgrades.
 
 #### Search Configuration
 
-| Environment Variable                                    | Default              | Description                                    | Components |
-| ------------------------------------------------------- | -------------------- | ---------------------------------------------- | ---------- |
-| `ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE`              | `60`                 | Maximum term bucket size                       | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`             | `false`              | Only return exact matches when using quotes    | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`           | `true`               | Include prefix match in exact match results    | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`                | `16.0`               | Multiply by this number on true exact match    | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR`         | `1.1`                | Multiply by this number when prefix match      | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR`           | `0.0`                | Stacked boost multiplier when case mismatch    | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED`     | `true`               | Enable exact match on structured search        | GMS        |
-| `ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR`                   | `1.2`                | Boost multiplier when match on 2-gram tokens   | GMS        |
-| `ELASTICSEARCH_QUERY_THREE_GRAM_FACTOR`                 | `1.5`                | Boost multiplier when match on 3-gram tokens   | GMS        |
-| `ELASTICSEARCH_QUERY_FOUR_GRAM_FACTOR`                  | `1.8`                | Boost multiplier when match on 4-gram tokens   | GMS        |
-| `ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR`                | `0.5`                | Multiplier on Urn token match                  | GMS        |
-| `ELASTICSEARCH_QUERY_PARTIAL_FACTOR`                    | `0.4`                | Multiplier on possible non-Urn token match     | GMS        |
-| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED`             | `true`               | Enable search query and ranking customization  | GMS        |
-| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE`                | `search_config.yaml` | Location of search customization configuration | GMS        |
-| `ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT`       | `legacy`             | Default field configuration for search         | GMS        |
-| `ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT` | `legacy`             | Default field configuration for autocomplete   | GMS        |
+| Environment Variable                                    | Default              | Description                                     | Components |
+| ------------------------------------------------------- | -------------------- | ----------------------------------------------- | ---------- |
+| `ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE`              | `60`                 | Maximum term bucket size                        | GMS        |
+| `ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS`        | `false`              | Hide non-primary dataset siblings from search   | GMS        |
+| `LINEAGE_COUNT_ONLY_ENABLED`                            | `false`              | Count-only lineage requests use one aggregation | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`             | `false`              | Only return exact matches when using quotes     | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`           | `true`               | Include prefix match in exact match results     | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`                | `16.0`               | Multiply by this number on true exact match     | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR`         | `1.1`                | Multiply by this number when prefix match       | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR`           | `0.0`                | Stacked boost multiplier when case mismatch     | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED`     | `true`               | Enable exact match on structured search         | GMS        |
+| `ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR`                   | `1.2`                | Boost multiplier when match on 2-gram tokens    | GMS        |
+| `ELASTICSEARCH_QUERY_THREE_GRAM_FACTOR`                 | `1.5`                | Boost multiplier when match on 3-gram tokens    | GMS        |
+| `ELASTICSEARCH_QUERY_FOUR_GRAM_FACTOR`                  | `1.8`                | Boost multiplier when match on 4-gram tokens    | GMS        |
+| `ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR`                | `0.5`                | Multiplier on Urn token match                   | GMS        |
+| `ELASTICSEARCH_QUERY_PARTIAL_FACTOR`                    | `0.4`                | Multiplier on possible non-Urn token match      | GMS        |
+| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED`             | `true`               | Enable search query and ranking customization   | GMS        |
+| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE`                | `search_config.yaml` | Location of search customization configuration  | GMS        |
+| `ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT`       | `legacy`             | Default field configuration for search          | GMS        |
+| `ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT` | `legacy`             | Default field configuration for autocomplete    | GMS        |
 
 #### Graph Search Configuration
 
@@ -1005,7 +1007,7 @@ Reference Links:
 
 Reference Links:
 
-- **Updating DataHub**: [Updating DataHub Guide](../how/updating-datahub.md)
+- **Updating DataHub**: [Breaking Changes](../how/breaking-changes.md)
 
 ### Bootstrap Configuration
 
@@ -1117,7 +1119,7 @@ One-time upgrade step that grants `VIEW_ALL_QUERIES` to every existing policy th
 
 | Environment Variable                                          | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Components    |
 | ------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED`    | `false` | Enable the non-blocking system-update step that re-ingests dataset `schemaMetadata`/`status` to materialize schemaField key/aliases/status (and optionally backfill mirrored `domains`/`ownership` when those MCP flags are on). Turning a mirror flag off stops further mirroring and does **not** delete leftover field aspects. See [Updating DataHub](../how/updating-datahub.md).                                                                                                                                                                                                  | System Update |
+| `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED`    | `false` | Enable the non-blocking system-update step that re-ingests dataset `schemaMetadata`/`status` to materialize schemaField key/aliases/status (and optionally backfill mirrored `domains`/`ownership` when those MCP flags are on). Turning a mirror flag off stops further mirroring and does **not** delete leftover field aspects. See [Breaking Changes](../how/breaking-changes.md).                                                                                                                                                                                                  | System Update |
 | `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE` | `500`   | Schema fields from schema metadata batch size                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | System Update |
 | `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS`   | `1000`  | Schema fields from schema metadata delay                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | System Update |
 | `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT`      | `0`     | Schema fields from schema metadata limit (`0` = no limit)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | System Update |
