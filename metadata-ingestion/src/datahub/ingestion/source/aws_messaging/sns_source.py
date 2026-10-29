@@ -1,6 +1,6 @@
 import itertools
 from collections import defaultdict
-from typing import Dict, Iterable, Iterator, List, Optional
+from typing import Dict, Iterable, Iterator, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -105,6 +105,7 @@ class SnsSource(AwsMessagingSourceBase):
         )
         self.topics: List[SnsTopic] = []
         self.registry = self.schema_registry(config.glue_schema_registry)
+        self.column_lineage_pairs: Set[Tuple[str, str]] = set()
         self.subscriptions: Dict[str, List[SnsSubscription]] = defaultdict(list)
         # Listed but unreadable this run: still in AWS, so kept out of stale removal.
         self.unreadable_topics: List[Arn] = []
@@ -279,6 +280,11 @@ class SnsSource(AwsMessagingSourceBase):
         if attributes.get(SubscriptionAttribute.RAW_MESSAGE_DELIVERY) != TRUE_STRING:
             self.report.column_lineage_skipped["not raw message delivery"] += 1
             return
+        # A queue can subscribe to one topic several times (different filter
+        # policies, say); the field lineage is the same, so it's added once.
+        if (topic_urn, queue_urn) in self.column_lineage_pairs:
+            return
+        self.column_lineage_pairs.add((topic_urn, queue_urn))
         self.add_identity_column_lineage(topic_urn, queue_urn)
 
     def get_report(self) -> SnsSourceReport:
