@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
-"""Record a production frontend deployment for a master commit that did not rebuild.
+"""Record a Meticulous base deployment for a master commit that did not rebuild.
 
-Meticulous compares a pull request with a test run on the merge-base commit. That
-run is created only when the commit has a ``datahub-project-web-react (Production)``
-GitHub Deployment. Frontend Preview records one after it publishes to Cloudflare
-Pages, and it publishes only when the frontend changed. A backend-only master
-commit therefore has no deployment, and a PR branched from it is skipped with
-"no base test run was found".
+Meticulous compares a pull request with a test run on the merge-base commit. On
+this repo those runs are created from ``datahub-project-web-react (Preview)``
+deployments. Frontend Preview publishes, and records a deployment, only when the
+frontend changed. A backend-only master commit therefore has nothing Meticulous
+can use, and a pull request branched from it is skipped with "no base test run
+was found".
 
-The frontend bundle is unchanged, so the new deployment reuses the last successful
-Pages URL. ``auto_inactive`` stays false: marking the previous production
-deployment inactive would drop the base run for the commit that actually built it.
-
-The environment name must match the string recorded in
-``.github/workflows/react-cloudflare-pages.yml``.
+The frontend bundle is unchanged, so the new Preview deployment reuses the last
+non-transient Pages URL (a master publish, not a pull-request preview). It is
+non-transient so GitHub keeps it, and ``auto_inactive`` stays false so the
+commit that actually built the bundle keeps its deployment.
 """
 
 from __future__ import annotations
@@ -28,8 +26,14 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, Sequence
 
-# Keep in sync with ENVIRONMENT in react-cloudflare-pages.yml.
-PRODUCTION_ENVIRONMENT = "datahub-project-web-react (Production)"
+# Preview is the environment Meticulous actually records base runs from.
+# Production is where master publishes are recorded today; either can hold the
+# last long-lived Pages URL.
+RECORD_ENVIRONMENT = "datahub-project-web-react (Preview)"
+SOURCE_ENVIRONMENTS = (
+    "datahub-project-web-react (Preview)",
+    "datahub-project-web-react (Production)",
+)
 DEPLOYMENT_DESCRIPTION = "Cloudflare Pages"
 
 _MAX_DEPLOYMENTS = 100
@@ -97,15 +101,21 @@ def _sha(deployment: Mapping[str, Any]) -> str:
     return str(deployment.get("sha") or "").lower()
 
 
+def _long_lived(deployment: Mapping[str, Any], sha: str) -> bool:
+    """Master publishes are non-transient. Pull-request previews are not a base."""
+    return deployment.get("transient_environment") is False and _sha(deployment) != sha
+
+
 def record_inherited_deployment(
     client: DeploymentClient,
     *,
     repo: str,
     sha: str,
     environment: str,
+    source_environments: Sequence[str],
     log_url: str | None,
 ) -> RecordResult:
-    """Create a production deployment for ``sha`` pointing at the last Pages URL.
+    """Create a Preview deployment for ``sha`` pointing at the last master Pages URL.
 
     A successful deployment already on ``sha`` is left alone. A deployment that
     exists but never reached success gets a success status instead of a second
@@ -124,11 +134,16 @@ def record_inherited_deployment(
 
     existing_id = _deployment_id(existing[0]) if existing else None
 
+    candidates: list[Mapping[str, Any]] = []
+    for source_environment in source_environments:
+        for deployment in client.list_deployments(repo, environment=source_environment, sha=None):
+            if _long_lived(deployment, sha):
+                candidates.append(deployment)
+    candidates.sort(key=lambda deployment: str(deployment.get("created_at") or ""), reverse=True)
+
     source_id: int | None = None
     source_url: str | None = None
-    for deployment in client.list_deployments(repo, environment=environment, sha=None):
-        if _sha(deployment) == sha:
-            continue
+    for deployment in candidates:
         deployment_id = _deployment_id(deployment)
         url = success_environment_url(client.list_statuses(repo, deployment_id))
         if url:
@@ -138,7 +153,7 @@ def record_inherited_deployment(
 
     if source_id is None or source_url is None:
         raise NoPublishedDeploymentError(
-            f"No successful {environment!r} deployment with an https URL to reuse for {sha}"
+            f"No long-lived Pages deployment with an https URL to reuse for {sha}"
         )
 
     if existing_id is None:
@@ -151,7 +166,7 @@ def record_inherited_deployment(
                 "auto_merge": False,
                 "required_contexts": [],
                 "transient_environment": False,
-                "production_environment": True,
+                "production_environment": False,
                 # String, matching the create-deployment schema. Marks records that
                 # reuse a previous Pages URL so they can be told apart from a build.
                 "payload": json.dumps(
@@ -301,7 +316,7 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    environment = os.environ.get("DEPLOYMENT_ENVIRONMENT", PRODUCTION_ENVIRONMENT)
+    environment = os.environ.get("DEPLOYMENT_ENVIRONMENT", RECORD_ENVIRONMENT)
     client = UrllibDeploymentClient(
         token, os.environ.get("GITHUB_API_URL", "https://api.github.com")
     )
@@ -311,6 +326,7 @@ def main() -> int:
             repo=repo,
             sha=sha,
             environment=environment,
+            source_environments=SOURCE_ENVIRONMENTS,
             log_url=_log_url_from_env(),
         )
     except (GitHubAPIError, NoPublishedDeploymentError) as error:

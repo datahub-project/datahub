@@ -35,7 +35,6 @@ on:
       - "Python Build"
       - "Python Tests for github scripts"
       - "Quickstart Test"
-      - "Record inherited frontend deployment"
       - "Release Tests"
       - "Release Validation"
       - "spark smoke test"

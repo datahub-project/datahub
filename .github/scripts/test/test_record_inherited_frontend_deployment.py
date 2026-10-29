@@ -19,8 +19,21 @@ PAGES_URL = "https://abc123.datahub-project-web-react.pages.dev"
 OLDER_URL = "https://older.datahub-project-web-react.pages.dev"
 
 
-def _deployment(deployment_id: int, sha: str) -> dict[str, Any]:
-    return {"id": deployment_id, "sha": sha}
+def _deployment(
+    deployment_id: int,
+    sha: str,
+    *,
+    environment: str = inherited.SOURCE_ENVIRONMENTS[1],
+    transient: bool = False,
+    created_at: str = "2026-10-01T00:00:00Z",
+) -> dict[str, Any]:
+    return {
+        "id": deployment_id,
+        "sha": sha,
+        "environment": environment,
+        "transient_environment": transient,
+        "created_at": created_at,
+    }
 
 
 def _success(url: str) -> dict[str, Any]:
@@ -39,8 +52,7 @@ class FakeClient:
         self, repo: str, *, environment: str, sha: str | None
     ) -> list[dict[str, Any]]:
         assert repo == "acme/datahub"
-        assert environment == inherited.PRODUCTION_ENVIRONMENT
-        matched = self.deployments
+        matched = [item for item in self.deployments if item.get("environment") == environment]
         if sha is not None:
             matched = [item for item in matched if item["sha"].lower() == sha.lower()]
         return list(matched)
@@ -52,7 +64,13 @@ class FakeClient:
         self.created.append(dict(body))
         deployment_id = self._next_id
         self._next_id += 1
-        deployment = {"id": deployment_id, "sha": body["ref"]}
+        deployment = _deployment(
+            deployment_id,
+            str(body["ref"]),
+            environment=str(body["environment"]),
+            transient=bool(body["transient_environment"]),
+            created_at="2099-01-01T00:00:00Z",
+        )
         self.deployments.insert(0, deployment)
         return deployment
 
@@ -70,7 +88,8 @@ def _record(client: FakeClient, sha: str = "abc123") -> inherited.RecordResult:
         client,
         repo="acme/datahub",
         sha=sha,
-        environment=inherited.PRODUCTION_ENVIRONMENT,
+        environment=inherited.RECORD_ENVIRONMENT,
+        source_environments=inherited.SOURCE_ENVIRONMENTS,
         log_url="https://github.com/acme/datahub/actions/runs/7",
     )
 
@@ -78,10 +97,18 @@ def _record(client: FakeClient, sha: str = "abc123") -> inherited.RecordResult:
 def test_reuses_newest_successful_pages_url() -> None:
     client = FakeClient()
     client.deployments = [
-        _deployment(2, "bbbb"),
-        _deployment(1, "aaaa"),
+        _deployment(
+            3,
+            "prpr",
+            environment=inherited.RECORD_ENVIRONMENT,
+            transient=True,
+            created_at="2026-10-03T00:00:00Z",
+        ),
+        _deployment(2, "bbbb", created_at="2026-10-02T00:00:00Z"),
+        _deployment(1, "aaaa", created_at="2026-10-01T00:00:00Z"),
     ]
     client.statuses = {
+        3: [_success("https://pull-request.example")],
         2: [_success(PAGES_URL)],
         1: [_success(OLDER_URL)],
     }
@@ -94,12 +121,12 @@ def test_reuses_newest_successful_pages_url() -> None:
     assert client.created == [
         {
             "ref": "cccc",
-            "environment": inherited.PRODUCTION_ENVIRONMENT,
+            "environment": inherited.RECORD_ENVIRONMENT,
             "description": "Cloudflare Pages",
             "auto_merge": False,
             "required_contexts": [],
             "transient_environment": False,
-            "production_environment": True,
+            "production_environment": False,
             "payload": json.dumps({"inherited": True, "source_deployment_id": 2}),
         }
     ]
@@ -108,7 +135,7 @@ def test_reuses_newest_successful_pages_url() -> None:
             result.deployment_id,
             {
                 "state": "success",
-                "environment": inherited.PRODUCTION_ENVIRONMENT,
+                "environment": inherited.RECORD_ENVIRONMENT,
                 "environment_url": PAGES_URL,
                 "description": "Cloudflare Pages",
                 "auto_inactive": False,
@@ -134,7 +161,11 @@ def test_skips_inactive_newer_deployment() -> None:
 
 def test_does_not_reuse_current_sha_or_non_https_url() -> None:
     client = FakeClient()
-    client.deployments = [_deployment(5, "cccc"), _deployment(4, "bbbb"), _deployment(2, "aaaa")]
+    client.deployments = [
+        _deployment(5, "cccc", environment=inherited.RECORD_ENVIRONMENT),
+        _deployment(4, "bbbb"),
+        _deployment(2, "aaaa"),
+    ]
     client.statuses = {
         5: [{"state": "failure"}],
         4: [_success("http://insecure.example")],
@@ -152,7 +183,10 @@ def test_does_not_reuse_current_sha_or_non_https_url() -> None:
 
 def test_already_recorded_sha_is_left_alone() -> None:
     client = FakeClient()
-    client.deployments = [_deployment(9, "cccc"), _deployment(2, "aaaa")]
+    client.deployments = [
+        _deployment(9, "cccc", environment=inherited.RECORD_ENVIRONMENT),
+        _deployment(2, "aaaa"),
+    ]
     client.statuses = {9: [_success(PAGES_URL)], 2: [_success(OLDER_URL)]}
 
     result = _record(client, "cccc")
@@ -184,19 +218,20 @@ def test_success_url_ignores_older_success_once_latest_is_inactive() -> None:
 
 def test_environment_name_matches_frontend_preview_workflow() -> None:
     workflow = (REPO_ROOT / ".github/workflows/react-cloudflare-pages.yml").read_text()
-    assert f'ENVIRONMENT="{inherited.PRODUCTION_ENVIRONMENT}"' in workflow
+    assert f'ENVIRONMENT="{inherited.RECORD_ENVIRONMENT}"' in workflow
+    for environment in inherited.SOURCE_ENVIRONMENTS:
+        assert environment in workflow
 
 
-def test_inherited_workflow_records_only_when_frontend_did_not_change() -> None:
-    workflow = (
-        REPO_ROOT / ".github/workflows/record-inherited-frontend-deployment.yml"
-    ).read_text()
-    assert "frontend-change == 'false'" in workflow
-    assert "cancel-in-progress: false" in workflow
-    assert "github.sha" in workflow
+def test_inherited_record_stays_inside_frontend_preview() -> None:
+    workflow = (REPO_ROOT / ".github/workflows/react-cloudflare-pages.yml").read_text()
     assert "record_inherited_frontend_deployment.py" in workflow
+    assert "github.ref == 'refs/heads/master'" in workflow
+    assert "frontend-change == 'false'" in workflow
+    assert "needs.setup.outputs.frontend_change == 'true'" in workflow
+    assert not (REPO_ROOT / ".github/workflows/record-inherited-frontend-deployment.yml").exists()
     listed = (REPO_ROOT / ".github/workflows/post-workflow-actions.yml").read_text()
-    assert "Record inherited frontend deployment" in listed
+    assert "Record inherited frontend deployment" not in listed
 
 
 def test_list_deployments_encodes_environment_name(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -221,8 +256,8 @@ def test_list_deployments_encodes_environment_name(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(inherited.urllib.request, "urlopen", fake_urlopen)
     client = inherited.UrllibDeploymentClient("token", "https://api.github.com")
     assert client.list_deployments(
-        "acme/datahub", environment=inherited.PRODUCTION_ENVIRONMENT, sha=None
+        "acme/datahub",         environment=inherited.RECORD_ENVIRONMENT, sha=None
     ) == []
     assert captured["method"] == "GET"
-    assert "environment=datahub-project-web-react+%28Production%29" in captured["url"]
+    assert "environment=datahub-project-web-react+%28Preview%29" in captured["url"]
     assert "per_page=100" in captured["url"]
