@@ -16,7 +16,11 @@ from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.agent.declarations import declares_qualifier
 from datahub.ingestion.agent.sql_passthrough import CatalogRows
-from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    parent_required,
+    require_container,
+)
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -233,10 +237,42 @@ def _declared_target(
 ) -> Optional[str]:
     """The target the connector declares, or None to leave it to the
     get_identifier shim: an overridden probe_filter_target's answer, else a
-    Qualifier field's `container.schema.entity`, else None."""
+    Qualifier field's `container.schema.entity`, else None.
+
+    A connector that tried to qualify the name and returned None is where the
+    container rule is applied -- once, here, with the field the framework
+    resolved for this kind. The hook is not told the kind, so a connector
+    choosing the field itself judged Views against `table_pattern`.
+    """
+    answer = _hook_target(ctx, database, schema)
+    # Only when the connector TRIED to qualify and could not. A source that
+    # neither overrides the hook nor declares a Qualifier returns None to mean
+    # "no opinion" -- the shim then builds a perfectly good identifier, and
+    # refusing there would refuse every plain Postgres table.
+    tried = _overrides_filter_target(ctx.config) or declares_qualifier(ctx.config)
+    if answer is None and tried:
+        require_container(
+            qualifying_container(ctx.config, [database] if database else []),
+            config=ctx.config,
+            kind=ctx.kind,
+            pattern_field=ctx.pattern_field,
+            shape="<container>.<schema>.<entity>",
+            # Silenced: a hook answering None already reported its own degrade
+            # in its own words, and the Qualifier path warns through this call.
+            warn=(lambda _m: None)
+            if _overrides_filter_target(ctx.config)
+            else ctx.warn,
+            note=ctx.note_container,
+        )
+    return answer
+
+
+def _hook_target(
+    ctx: ClassifyContext, database: Optional[str], schema: str
+) -> Optional[str]:
+    """What the connector itself builds, before the container rule."""
     if _overrides_filter_target(ctx.config):
-        # getattr: test doubles may be a bare SimpleNamespace. An override
-        # answering None reported its own degrade, so no Qualifier is tried.
+        # getattr: test doubles may be a bare SimpleNamespace.
         hook = getattr(ctx.config, "probe_filter_target", None)
         if not callable(hook):
             return None
@@ -249,10 +285,14 @@ def _declared_target(
         return ""
     if not declares_qualifier(ctx.config):
         return None
-    # Resolved as at the Schema level, so an authoritative Qualifier beats
-    # --parent at both levels. An empty --parent names no database.
     container = qualifying_container(ctx.config, [database] if database else [])
-    return qualified_table_target(container, schema, ctx.name, ctx.warn)
+    # Silenced here: `require_container` owns the message on this path, and
+    # saying both left the result carrying "the verdict stands" beside "pass
+    # the containing database/project to get the verdict ingestion actually
+    # makes". The hook path keeps its own warning, which is the connector's.
+    return qualified_table_target(
+        container, schema, ctx.name, warn=lambda _message: None
+    )
 
 
 def _overrides_filter_target(config: object) -> bool:

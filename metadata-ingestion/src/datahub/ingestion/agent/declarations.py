@@ -173,6 +173,28 @@ def _duplicate_problems(
             )
 
 
+def _also_filters_problems(config_cls: type) -> Iterator[str]:
+    """`also_filters` names kinds this field is consulted for besides its own.
+
+    Naming its own kind says nothing, and a kind no field is primary for
+    leaves the probe with a field to consult and no field to tell a caller to
+    edit -- both are more likely a typo than an intention.
+    """
+    marked = _marked_fields(config_cls, Filters)
+    primary = {str(field.marker.kind) for field in marked}
+    for field in marked:
+        for kind in field.marker.also_filters:
+            where = f"{config_cls.__name__}.{field.path} declares also_filters"
+            if str(kind) == str(field.marker.kind):
+                yield f"{where} for its own kind {str(kind)!r}"
+            elif str(kind) not in primary:
+                yield (
+                    f"{where} for {str(kind)!r}, which no field on this config "
+                    f"is declared to filter; the probe would have a pattern to "
+                    f"consult and no field to tell a caller to edit"
+                )
+
+
 def _single_marker_problems(config_cls: type, marker_type: Type[_Marker]) -> List[str]:
     marked: List[MarkedField[_Marker]] = _marked_fields(config_cls, marker_type)
     return [
@@ -234,6 +256,7 @@ def marker_problems(config_cls: type) -> List[str]:
             else []
         ),
         *_single_marker_problems(config_cls, Filters),
+        *_also_filters_problems(config_cls),
         *_single_marker_problems(config_cls, Enables),
         *_single_marker_problems(config_cls, FiltersByRule),
         *_single_marker_problems(config_cls, Qualifier),
@@ -293,10 +316,37 @@ def declared_rule_filtered_kinds(config: object) -> Dict[str, str]:
     return dict(_declarations(_class_of(config)).rules)
 
 
+def also_filtering_fields(config: object, kind: str) -> Set[str]:
+    """Fields consulted for `kind` without being the field named after it.
+
+    `Filters(..., also_filters=[kind])` says a connector's verdict reaches
+    past the kind's own pattern -- Unity checks `table_pattern` for every
+    table-like kind, as its ingestion does. The container rule needs the whole
+    set, because a verdict resting on any container-dependent one of them is
+    a verdict that needed a container nobody gave.
+    """
+    return {
+        field.path
+        for field in _marked_fields(_class_of(config), Filters)
+        if kind in field.marker.also_filters
+    }
+
+
 def declares_qualifier(config: object) -> bool:
     """Whether any field carries Qualifier, whatever its value: a statement about
     the connector, where declared_qualifier() answers for one recipe."""
     return _declarations(_class_of(config)).qualifier is not None
+
+
+def qualifier_field(config: object) -> Optional[str]:
+    """The name of the Qualifier-marked field, or None.
+
+    What a refusal names when it cannot resolve the container: the recipe is
+    told to pin `project_ids` rather than some field the connector does not
+    have, without the framework knowing which connector it is talking about.
+    """
+    marked = _declarations(_class_of(config)).qualifier
+    return None if marked is None else marked.path
 
 
 def declared_qualifier(config: object) -> Tuple[Optional[str], bool]:
