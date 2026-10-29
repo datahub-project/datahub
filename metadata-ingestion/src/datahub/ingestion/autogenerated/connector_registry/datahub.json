@@ -4762,6 +4762,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Opt-in: topic to raw-delivery queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "SNS has no description",
           "subtype_modifier": null,
@@ -4799,9 +4805,9 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "SNS has no schema",
+          "description": "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",
@@ -4963,6 +4969,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Queue to dead-letter queue, when both have schemas",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "SQS has no description",
           "subtype_modifier": null,
@@ -4994,9 +5006,9 @@
         },
         {
           "capability": "SCHEMA_METADATA",
-          "description": "SQS has no schema",
+          "description": "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         },
         {
           "capability": "LINEAGE_COARSE",

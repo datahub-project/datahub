@@ -10,6 +10,7 @@ class AwsService(StrEnum):
     SQS = "sqs"
     SNS = "sns"
     TAGGING = "resourcegroupstaggingapi"
+    GLUE = "glue"
 
 
 QUEUE_URL_PATTERN = re.compile(r"/(?P<account>\d{12})/(?P<name>[^/?#]+)/?$")
@@ -65,6 +66,7 @@ class TopicAttribute(StrEnum):
 
 class SubscriptionAttribute(StrEnum):
     REDRIVE_POLICY = "RedrivePolicy"
+    RAW_MESSAGE_DELIVERY = "RawMessageDelivery"
 
 
 class EncryptionType(StrEnum):
@@ -81,3 +83,5 @@ class LineageRelationship(StrEnum):
 
 LINEAGE_RELATIONSHIP_PROPERTY = "relationship"
 DOWNSTREAM_OF_RELATIONSHIP = "DownstreamOf"
+
+GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"

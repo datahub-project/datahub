@@ -8,15 +8,25 @@ from datahub.ingestion.api.source import CapabilityReport, TestableSource
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
-from datahub.ingestion.source.aws_messaging.config import AwsMessagingConfigBase
+from datahub.ingestion.source.aws_messaging.config import (
+    AwsMessagingConfigBase,
+    GlueSchemaRegistryConfigBase,
+)
 from datahub.ingestion.source.aws_messaging.constants import (
     AwsService,
     LineageRelationship,
 )
-from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
+from datahub.ingestion.source.aws_messaging.lineage import (
+    DatasetLineageCollector,
+    SchemaLookup,
+    identity_field_lineage,
+)
 from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.ingestion.source.aws_messaging.schema_registry import (
+    MessagingSchemaRegistry,
+)
 from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -68,6 +78,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             graph=ctx.graph if config.remove_stale_lineage else None,
             relationships=self.owned_relationships(),
         )
+        self.schemas = SchemaLookup(ctx.graph)
 
     def owned_relationships(self) -> FrozenSet[LineageRelationship]:
         """Lineage relationships this source writes and reads in full each run.
@@ -79,6 +90,39 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         """Builds the AWS clients from self.session, once the region is known and
         before the account id is read through them."""
         raise NotImplementedError
+
+    def add_identity_column_lineage(
+        self, upstream_urn: str, downstream_urn: str
+    ) -> None:
+        """Field lineage for a hop that delivers the message unchanged, for fields
+        in both schemas. Without a schema on both sides the edge stays table-level."""
+        upstream_schema = self.schemas.get(upstream_urn)
+        downstream_schema = self.schemas.get(downstream_urn)
+        if upstream_schema is None or downstream_schema is None:
+            self.base_report.column_lineage_skipped["schema missing on one side"] += 1
+            return
+        lineages = identity_field_lineage(
+            upstream_urn=upstream_urn,
+            upstream_schema=upstream_schema,
+            downstream_urn=downstream_urn,
+            downstream_schema=downstream_schema,
+        )
+        if not lineages:
+            self.base_report.column_lineage_skipped["no fields in common"] += 1
+            return
+        self.lineage.add_fine_grained(downstream_urn, lineages)
+
+    def schema_registry(
+        self, config: GlueSchemaRegistryConfigBase
+    ) -> Optional[MessagingSchemaRegistry]:
+        if not config.enabled:
+            return None
+        return MessagingSchemaRegistry(
+            config=config,
+            glue_client=self.base_config.make_client(self.session, AwsService.GLUE),
+            platform=self.platform,
+            report=self.base_report,
+        )
 
     def first_resource_arn(self) -> Optional[str]:
         """One ARN of this service, used only to read the account id."""

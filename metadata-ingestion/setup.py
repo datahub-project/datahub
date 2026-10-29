@@ -771,6 +771,7 @@ plugins: Dict[str, Set[str]] = {
     # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
+    # Glue Schema Registry PROTOBUF schemas also need the kafka extra (grpc).
     "sqs": aws_common,
     "sns": aws_common,
     "ldap": {"python-ldap>=2.4,<4.0.0"},

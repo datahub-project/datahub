@@ -1,7 +1,7 @@
 import functools
 import itertools
 from collections import defaultdict
-from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Set
+from typing import Dict, FrozenSet, Iterable, Iterator, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -27,6 +27,7 @@ from datahub.ingestion.source.aws_messaging.config import SnsSourceConfig
 from datahub.ingestion.source.aws_messaging.constants import (
     QUEUE_URL_PATTERN,
     SNS_PLATFORM,
+    TRUE_STRING,
     AwsService,
     LineageRelationship,
     SubscriptionAttribute,
@@ -67,7 +68,14 @@ from datahub.sdk import Dataset
 @capability(SourceCapability.PLATFORM_INSTANCE, "Defaults to the AWS account id")
 @capability(SourceCapability.DELETION_DETECTION, "Via stateful ingestion")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-@capability(SourceCapability.SCHEMA_METADATA, "SNS has no schema", supported=False)
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Opt-in via `glue_schema_registry.enabled` (AWS Glue Schema Registry)",
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Opt-in: topic to raw-delivery queue, when both have schemas",
+)
 @capability(SourceCapability.DESCRIPTIONS, "SNS has no description", supported=False)
 class SnsSource(AwsMessagingSourceBase):
     """Catalogs Amazon SNS topics of one region as datasets on the `sns` platform,
@@ -89,6 +97,8 @@ class SnsSource(AwsMessagingSourceBase):
             urns=self.urns, region=self.region, service=AwsService.SQS
         )
         self.topics: List[SnsTopic] = []
+        self.registry = self.schema_registry(config.glue_schema_registry)
+        self.column_lineage_pairs: Set[Tuple[str, str]] = set()
         self.subscriptions: Dict[str, List[SnsSubscription]] = defaultdict(list)
         # Listed but unreadable this run: still in AWS, so kept out of stale removal.
         self.unreadable_topics: List[Arn] = []
@@ -189,6 +199,13 @@ class SnsSource(AwsMessagingSourceBase):
             self.topics.append(topic)
             self.resolver.add(topic.arn)
             urn = self.urns.topic_urn(topic.arn)
+            schema = (
+                self.registry.get_schema_metadata(topic.name)
+                if self.registry is not None
+                else None
+            )
+            if schema is not None:
+                self.schemas.fetched[urn] = schema
             self.lineage.owned.add(urn)
             yield from Dataset(
                 platform=SNS_PLATFORM,
@@ -203,6 +220,7 @@ class SnsSource(AwsMessagingSourceBase):
                     topic, self.subscriptions.get(str(topic.arn), [])
                 ),
                 domain=domain_for(topic.name, self.config.domain),
+                schema=schema,
             ).as_workunits()
             tags = dict(topic.tags)
             terms: List[str] = []
@@ -237,21 +255,21 @@ class SnsSource(AwsMessagingSourceBase):
             # of an ARN.
             if parse_arn(subscription.subscription_arn) is None:
                 continue
+            attributes = self._subscription_attributes(topic, subscription)
             if subscription.protocol == SubscriptionProtocol.SQS:
-                self._add_queue_edge(
+                queue_urn = self._add_queue_edge(
                     topic_urn, subscription.endpoint, LineageRelationship.SUBSCRIPTION
                 )
-            if self.config.include_subscription_attributes:
-                self.report.subscription_attribute_calls += 1
-                attributes = self.sns.get_subscription_attributes(
-                    subscription.subscription_arn
-                )
-                if attributes is None:
-                    self.incomplete_topics.add(str(topic.arn))
-                    continue
+                if queue_urn is not None and self.config.column_lineage:
+                    self._add_column_lineage(topic_urn, queue_urn, attributes)
+            if attributes:
                 redrive = parse_redrive_policy(
                     attributes.get(SubscriptionAttribute.REDRIVE_POLICY)
                 )
+                # Table-level only: the SNS dead-letter queue docs don't say whether
+                # the queue holds the raw message or the SNS envelope, or whether
+                # RawMessageDelivery changes that.
+                # https://docs.aws.amazon.com/sns/latest/dg/sns-dead-letter-queues.html
                 if redrive is not None:
                     self._add_queue_edge(
                         topic_urn,
@@ -259,9 +277,23 @@ class SnsSource(AwsMessagingSourceBase):
                         LineageRelationship.SUBSCRIPTION_DEAD_LETTER,
                     )
 
+    def _subscription_attributes(
+        self, topic: SnsTopic, subscription: SnsSubscription
+    ) -> Dict[str, str]:
+        if not self.config.include_subscription_attributes:
+            return {}
+        self.report.subscription_attribute_calls += 1
+        attributes = self.sns.get_subscription_attributes(subscription.subscription_arn)
+        if attributes is None:
+            # The subscription's dead-letter queue is unknown this run, so the
+            # topic's edges can't be checked for staleness.
+            self.incomplete_topics.add(str(topic.arn))
+            return {}
+        return attributes
+
     def _add_queue_edge(
         self, topic_urn: str, queue_arn: str, relationship: LineageRelationship
-    ) -> None:
+    ) -> Optional[str]:
         queue_urn = self.queues.urn(parse_arn(queue_arn))
         if queue_urn is None:
             self.report.report_edge_skipped(
@@ -269,10 +301,29 @@ class SnsSource(AwsMessagingSourceBase):
                 queue_arn,
                 "queue ARN unparseable or not found in this region",
             )
-            return
+            return None
         self.lineage.add(
             upstream=topic_urn, downstream=queue_urn, relationship=relationship
         )
+        return queue_urn
+
+    def _add_column_lineage(
+        self, topic_urn: str, queue_urn: str, attributes: Dict[str, str]
+    ) -> None:
+        if not self.config.include_subscription_attributes:
+            self.report.column_lineage_skipped["subscription attributes not read"] += 1
+            return
+        # Without raw delivery SNS wraps the message in its JSON envelope, so the
+        # queue's fields are not the topic's fields.
+        if attributes.get(SubscriptionAttribute.RAW_MESSAGE_DELIVERY) != TRUE_STRING:
+            self.report.column_lineage_skipped["not raw message delivery"] += 1
+            return
+        # A queue can subscribe to one topic several times (different filter
+        # policies, say); the field lineage is the same, so it's added once.
+        if (topic_urn, queue_urn) in self.column_lineage_pairs:
+            return
+        self.column_lineage_pairs.add((topic_urn, queue_urn))
+        self.add_identity_column_lineage(topic_urn, queue_urn)
 
     def get_report(self) -> SnsSourceReport:
         return self.report
