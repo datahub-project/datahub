@@ -11,7 +11,6 @@ a DataProcessInstance of every per-table job (or of the DataFlow when no
 per-table lineage was resolved).
 """
 
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -60,7 +59,6 @@ from datahub.sdk.entity import Entity
 
 OwnersFn = Callable[[Optional[str]], Optional[List[Tuple[CorpUserUrn, str]]]]
 
-logger = logging.getLogger(__name__)
 
 _PLATFORM = "fabric-onelake"
 
@@ -305,13 +303,27 @@ class NotebookProcessEmitter:
             # plan lineage rather than failing the notebook or the run.
             try:
                 code_lineage = extract_notebook_code_lineage(nb.content)
-                if code_lineage:
-                    raw = reconcile_spark_lineage(
+                if code_lineage is None:
+                    self._report.report_notebook_code_unparseable(nb.display_name)
+                elif code_lineage and raw:
+                    result = reconcile_spark_lineage(
                         code_lineage, raw, self._normalize_name
                     )
-                    logger.debug(
-                        "Reconciled notebook %s lineage from source text",
-                        nb.display_name,
+                    narrowed = sum(
+                        1
+                        for output in result.attributed
+                        if result.lineage[output] != raw[output]
+                    )
+                    not_attributed = sorted(
+                        f"{output.schema}.{output.table}"
+                        if output.schema
+                        else output.table
+                        for output in result.lineage
+                        if output not in result.attributed
+                    )
+                    raw = result.lineage
+                    self._report.report_notebook_code_reconciled(
+                        nb.display_name, narrowed, not_attributed
                     )
             except Exception as e:
                 self._report.warning(

@@ -166,7 +166,7 @@ def test_reconcile_drops_plan_sources_the_code_does_not_use() -> None:
     )
     code = extract_notebook_code_lineage(_NOTEBOOK)
     assert code is not None
-    reconciled = reconcile_spark_lineage(code, execution, lambda name: name)
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name).lineage
 
     def inputs(table: str) -> set[str]:
         output = SparkTableRef(workspace_id=WS, item_id=LH, table=table, schema="gold")
@@ -220,7 +220,7 @@ def test_reconcile_keeps_outputs_the_code_does_not_show() -> None:
     assert code is not None
     assert set(code) == {CodeTable(table="dim_user", schema="gold")}
 
-    reconciled = reconcile_spark_lineage(code, execution, lambda name: name)
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name).lineage
 
     assert {ref.table for ref in reconciled[_gold("dim_user")]} == {
         "orders",
@@ -241,7 +241,7 @@ def test_reconcile_keeps_plan_sources_when_code_sources_do_not_resolve() -> None
         }
     }
 
-    reconciled = reconcile_spark_lineage(code, execution, lambda name: name)
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name).lineage
 
     assert reconciled == execution
 
@@ -329,6 +329,38 @@ def test_emitter_uses_code_to_drop_unused_plan_sources() -> None:
     assert products.to_urn("PROD", None) not in (io.inputDatasets or [])
 
 
+def test_report_counts_narrowed_outputs() -> None:
+    report = FabricOneLakeSourceReport()
+    _emit_dim_user(reconcile_code=True, report=report)
+    assert report.notebook_code_reconciled == 1
+    assert report.notebook_code_outputs_narrowed == 1
+    assert report.notebook_code_outputs_not_attributed == 0
+
+
+def test_report_lists_outputs_the_code_does_not_attribute() -> None:
+    # The code writes a different table, so dim_user keeps its plan sources.
+    content = """
+orders = spark.read.format("delta").load("Tables/silver/orders")
+orders.write.format("delta").save("Tables/gold/dim_other")
+"""
+    report = FabricOneLakeSourceReport()
+    _emit_dim_user(reconcile_code=True, content=content, report=report)
+    assert report.notebook_code_reconciled == 1
+    assert report.notebook_code_outputs_narrowed == 0
+    assert report.notebook_code_outputs_not_attributed == 1
+    assert list(report.notebook_code_outputs_not_attributed_samples) == [
+        "pipeline: gold.dim_user"
+    ]
+
+
+def test_report_lists_unparseable_notebooks() -> None:
+    report = FabricOneLakeSourceReport()
+    io = _emit_dim_user(reconcile_code=True, content="def broken(:", report=report)
+    assert len(io.inputDatasets or []) == 3
+    assert list(report.notebook_code_unparseable) == ["pipeline"]
+    assert report.notebook_code_reconciled == 0
+
+
 def test_code_reconciliation_is_off_unless_enabled() -> None:
     io = _emit_dim_user(reconcile_code=False)
     products = SparkTableRef(
@@ -354,7 +386,7 @@ def test_reconcile_does_not_add_a_same_named_table_from_another_lakehouse() -> N
         }
     }
 
-    reconciled = reconcile_spark_lineage(code, execution, lambda name: name)
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name).lineage
 
     assert reconciled[dim_user] == {orders}
     assert reconciled[other] == {other_orders}
@@ -394,7 +426,7 @@ def test_reconcile_matches_names_case_insensitively() -> None:
     }
 
     # Identity normaliser, as when convert_urns_to_lowercase is off.
-    reconciled = reconcile_spark_lineage(code, execution, lambda name: name)
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name).lineage
 
     assert reconciled[dim_user] == {orders}
 

@@ -33,6 +33,14 @@ class CodeTable:
     schema: Optional[str] = None
 
 
+@dataclass
+class ReconciledLineage:
+    lineage: Dict[SparkTableRef, Set[SparkTableRef]]
+    # Outputs whose sources now come from the code. Every other output in
+    # ``lineage`` kept its plan sources because the code did not attribute it.
+    attributed: Set[SparkTableRef]
+
+
 def extract_notebook_code_lineage(
     source: str,
 ) -> Optional[Dict[CodeTable, Set[CodeTable]]]:
@@ -66,7 +74,7 @@ def reconcile_spark_lineage(
     code_lineage: Dict[CodeTable, Set[CodeTable]],
     execution: Dict[SparkTableRef, Set[SparkTableRef]],
     normalize: Callable[[str], str],
-) -> Dict[SparkTableRef, Set[SparkTableRef]]:
+) -> ReconciledLineage:
     """Narrow the executed plans' sources for each output the code accounts for.
 
     Every output the plans recorded is kept. Only an output the code writes
@@ -106,12 +114,14 @@ def reconcile_spark_lineage(
             narrowed.setdefault(output, set()).update(resolved)
 
     reconciled = {output: set(inputs) for output, inputs in execution.items()}
+    attributed: Set[SparkTableRef] = set()
     for output, inputs in narrowed.items():
         # No resolvable sources means the code's dataframe lineage was not
         # visible, not that the write has no inputs. Keep the plan's.
         if inputs:
             reconciled[output] = inputs
-    return reconciled
+            attributed.add(output)
+    return ReconciledLineage(lineage=reconciled, attributed=attributed)
 
 
 def _resolve(
