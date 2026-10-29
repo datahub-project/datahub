@@ -145,12 +145,14 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
         `project_id_pattern` is matched against, and the container
         `dataset_pattern` is qualified with.
 
-        With `project_ids` set these are exactly those ids and nothing is
-        called: ingestion reads those and no others, so listing the whole
-        credential's view would offer projects a run never touches. Otherwise
-        every project the credential can see, including ones
-        `project_id_pattern` would exclude -- a denied project is explained by
-        `probe filter`, not hidden here.
+        Three branches, one per shape ingestion itself takes. With
+        `project_ids` set these are exactly those ids and nothing is called:
+        ingestion reads those and no others, so listing the whole credential's
+        view would offer projects a run never touches. With `project_labels`
+        it is Resource Manager's label search, the API ingestion uses for that
+        recipe. With neither, every project the credential can see, including
+        ones `project_id_pattern` would exclude -- a denied project is
+        explained by `probe filter`, not hidden here.
         """
         pinned = list(getattr(self._config, "project_ids", None) or [])
         if pinned:
