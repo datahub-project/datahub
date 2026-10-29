@@ -14,6 +14,7 @@ from datahub.ingestion.source.kafka.kafka_config import (
 )
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.schema_resolution import KafkaSchemaResolver
+from datahub.metadata.schema_classes import NumberTypeClass, StringTypeClass
 
 
 class TestKafkaSchemaResolver:
@@ -379,7 +380,7 @@ class TestKafkaSchemaResolver:
 
     @pytest.mark.parametrize("is_key_schema", [False, True])
     @pytest.mark.parametrize("subject_prefix", ["", "orders-"])
-    def test_record_name_lookup_uses_raw_key_or_value(
+    def test_record_name_lookup_emits_key_or_value_fields(
         self, is_key_schema: bool, subject_prefix: str
     ) -> None:
         config = KafkaSourceConfig(
@@ -388,11 +389,11 @@ class TestKafkaSchemaResolver:
             )
         )
         key_schema = Schema(
-            schema_str='{"type":"record","name":"OrderKey","fields":[]}',
+            schema_str='{"type":"record","name":"OrderKey","fields":[{"name":"id","type":"string"}]}',
             schema_type="AVRO",
         )
         value_schema = Schema(
-            schema_str='{"type":"record","name":"OrderValue","fields":[]}',
+            schema_str='{"type":"record","name":"OrderValue","fields":[{"name":"id","type":"long"}]}',
             schema_type="AVRO",
         )
         schema_id = 1 if is_key_schema else 2
@@ -434,6 +435,30 @@ class TestKafkaSchemaResolver:
         )
         registry_client.get_schema.assert_called_once_with(schema_id)
         registry_client.get_latest_version.assert_called_once_with(subject)
+
+        with patch(
+            "datahub.ingestion.source.confluent_schema_registry.get_kafka_schema_registry_client",
+            return_value=registry_client,
+        ):
+            registry = ConfluentSchemaRegistry.create(config, KafkaSourceReport())
+        metadata = registry.build_schema_metadata_with_key(
+            topic="orders",
+            platform_urn="urn:li:dataPlatform:kafka",
+            value_schema=None if is_key_schema else result.schema,
+            value_fields=[] if is_key_schema else result.fields,
+            key_schema=result.schema if is_key_schema else None,
+            key_fields=result.fields if is_key_schema else [],
+        )
+
+        assert metadata is not None
+        assert len(metadata.fields) == 1
+        field = metadata.fields[0]
+        assert field.fieldPath.endswith(".id")
+        assert field.isPartOfKey == is_key_schema
+        assert ("[key=True]" in field.fieldPath) == is_key_schema
+        assert isinstance(
+            field.type.type, StringTypeClass if is_key_schema else NumberTypeClass
+        )
 
     def test_extract_record_name_from_message_schema_registry_format(
         self, schema_resolver, mock_schema_registry_client
