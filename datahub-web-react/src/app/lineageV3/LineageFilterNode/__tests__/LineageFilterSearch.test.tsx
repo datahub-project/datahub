@@ -13,7 +13,7 @@ vi.mock('@graphql/lineage.generated', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@graphql/lineage.generated')>()),
     useSearchAcrossLineageNamesQuery: vi.fn(() => ({ loading: false })),
 }));
-vi.mock('@app/lineage/utils/useGetLineageTimeParams', () => ({
+vi.mock('@app/lineageV3/utils/useGetLineageTimeParams', () => ({
     useGetLineageTimeParams: () => ({ startTimeMillis: undefined, endTimeMillis: undefined }),
 }));
 

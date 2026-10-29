@@ -11,7 +11,7 @@ const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.tab
 vi.mock('@app/entity/shared/EntityContext', () => ({
     useBaseEntity: () => ({ dataset: { urn: DATASET_URN } }),
 }));
-vi.mock('@app/lineage/utils/useGetLineageTimeParams', () => ({
+vi.mock('@app/lineageV3/utils/useGetLineageTimeParams', () => ({
     useGetDefaultLineageStartTimeMillis: () => undefined,
 }));
 vi.mock('@graphql/query.generated', () => ({
