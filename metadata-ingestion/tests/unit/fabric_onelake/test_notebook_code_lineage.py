@@ -3,6 +3,8 @@
 from typing import Optional
 from unittest.mock import MagicMock
 
+import pytest
+
 from datahub.ingestion.source.fabric.common.models import FabricSparkSession
 from datahub.ingestion.source.fabric.onelake.notebook_code_lineage import (
     CodeTable,
@@ -94,6 +96,24 @@ report = """
 orders = spark.read.format("delta").load("Tables/silver/orders")
 orders.write.format("delta").save("Tables/gold/dim_user")
 '''
+    lineage = extract_notebook_code_lineage(source)
+    assert lineage == {
+        CodeTable(table="dim_user", schema="gold"): {
+            CodeTable(table="orders", schema="silver")
+        }
+    }
+
+
+@pytest.mark.parametrize("method", ["saveAsTable", "insertInto"])
+def test_helper_that_writes_by_table_name_is_a_writer(method: str) -> None:
+    source = f"""
+def write_table(df, name):
+    df.write.mode("overwrite").{method}(name)
+
+orders = spark.read.table("silver.orders")
+customers = spark.read.table("silver.customers")
+write_table(orders, "gold.dim_user")
+"""
     lineage = extract_notebook_code_lineage(source)
     assert lineage == {
         CodeTable(table="dim_user", schema="gold"): {

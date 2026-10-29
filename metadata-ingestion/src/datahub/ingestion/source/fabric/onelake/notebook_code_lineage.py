@@ -24,6 +24,8 @@ from datahub.ingestion.source.fabric.onelake.notebook_spark_lineage import (
 
 logger = logging.getLogger(__name__)
 
+_WRITE_METHODS = frozenset({"save", "saveAsTable", "insertInto"})
+
 
 @dataclass(frozen=True)
 class CodeTable:
@@ -383,11 +385,7 @@ class _Extractor:
 
     def _record_save(self, call: ast.Call) -> None:
         func = call.func
-        if not isinstance(func, ast.Attribute) or func.attr not in {
-            "save",
-            "saveAsTable",
-            "insertInto",
-        }:
+        if not isinstance(func, ast.Attribute) or func.attr not in _WRITE_METHODS:
             return
         if not _chain_has(func.value, "write"):
             return
@@ -466,7 +464,7 @@ def _writer_params(
         if not isinstance(node, ast.Call) or not node.args:
             continue
         func = node.func
-        if not isinstance(func, ast.Attribute) or func.attr != "save":
+        if not isinstance(func, ast.Attribute) or func.attr not in _WRITE_METHODS:
             continue
         if not _chain_has(func.value, "write"):
             continue
