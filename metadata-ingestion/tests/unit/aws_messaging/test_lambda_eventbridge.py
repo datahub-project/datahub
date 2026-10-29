@@ -506,3 +506,19 @@ def test_lambda_listing_failure_does_not_fail_the_run() -> None:
         )
         assert list(LambdaClient(client, report).list_event_source_mappings()) == []
     assert report.warnings and not report.failures
+
+
+def test_scheduled_rule_has_no_event_bus_input(aws: None) -> None:
+    queue_arn = create_queue("orders")
+    events = boto3.client("events", region_name=REGION)
+    events.put_rule(Name="nightly", ScheduleExpression="rate(1 day)")
+    events.put_targets(Rule="nightly", Targets=[{"Id": "q", "Arn": queue_arn}])
+    nightly_job = f"urn:li:dataJob:(urn:li:dataFlow:(eventbridge,{ACCOUNT}.{REGION}.default.nightly,PROD),route)"
+    source = SqsSource.create(
+        base_config(lineage={"lambda_functions": False}),
+        PipelineContext(run_id="lineage"),
+    )
+    workunits = list(source.get_workunits())
+    assert job_edges(workunits) == {nightly_job: {"outputDatasetEdges": {QUEUE_URN}}}
+    # Only a scheduled rule uses the bus here, so the bus isn't emitted either.
+    assert BUS_URN not in {wu.get_urn() for wu in workunits}

@@ -84,6 +84,8 @@ class EventBridgeRule(BaseModel):
     name: str
     state: Optional[str] = None
     event_pattern: Optional[str] = None
+    # A scheduled rule (cron or rate) fires on its own; nothing on the bus feeds it.
+    schedule_expression: Optional[str] = None
     targets: List[RuleTarget] = Field(default_factory=list)
 
 

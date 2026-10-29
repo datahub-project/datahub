@@ -160,6 +160,7 @@ class EventBridgeLineage:
                     name=rule["Name"],
                     state=rule.get("State"),
                     event_pattern=rule.get("EventPattern"),
+                    schedule_expression=rule.get("ScheduleExpression"),
                     targets=targets,
                 )
 
@@ -169,7 +170,10 @@ class EventBridgeLineage:
             bus = rule.bus_arn
             instance = self.urns.instance_for(bus.account)
             bus_urn = self.urns.event_bus_urn(bus)
-            if bus_urn not in emitted_buses:
+            # A scheduled rule's events come from its schedule, not the bus, so
+            # it gets no bus input and no column lineage from the bus schema.
+            scheduled = rule.schedule_expression is not None
+            if not scheduled and bus_urn not in emitted_buses:
                 emitted_buses.add(bus_urn)
                 yield from secondary(
                     Dataset(
@@ -194,7 +198,7 @@ class EventBridgeLineage:
                 urn = self.resolver.urn(parse_arn(target.arn))
                 if urn:
                     outputs.append(urn)
-                    if self.config.column_lineage:
+                    if self.config.column_lineage and not scheduled:
                         fine_grained.extend(
                             self._rule_column_lineage(bus_urn, target, urn)
                         )
@@ -211,6 +215,7 @@ class EventBridgeLineage:
                         "event_bus": bus.event_bus_name,
                         "state": rule.state,
                         "event_pattern": rule.event_pattern,
+                        "schedule_expression": rule.schedule_expression,
                     }
                 ),
             )
@@ -224,7 +229,7 @@ class EventBridgeLineage:
             yield from shared_job_workunits(
                 flow=flow,
                 job=job,
-                inputs=[bus_urn],
+                inputs=[] if scheduled else [bus_urn],
                 outputs=outputs,
                 fine_grained=fine_grained,
             )
