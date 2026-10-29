@@ -87,7 +87,8 @@ public class MCLKafkaListener
   static void logSkippedAsUnknown(MetadataChangeLog event) {
     log.debug(
         "Skipping MCL unknown to the registry: {} {}",
-        event.getEntityUrn(),
+        // The raw string: reading the urn field parses it, which throws for a malformed one.
+        event.data().get("entityUrn"),
         event.hasAspectName() ? event.getAspectName() : null);
   }
 

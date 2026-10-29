@@ -175,6 +175,45 @@ public class MCLBatchKafkaListenerTest {
   }
 
   @Test
+  public void testConsumeBatchSkipsAnUnknownEventWithAMalformedUrnAndKeepsTheRest()
+      throws Exception {
+    // An unknown entity type whose urn can't be parsed is skipped on its own; logging the skip must
+    // not read the urn, which would throw out of the batch and lose the events polled with it.
+    MetadataChangeLog keptFirst = createTestMCL("datasetProperties", ChangeType.UPSERT);
+    // Raw data, as Kafka delivers it: the urn setter would cache a parsed urn.
+    MetadataChangeLog malformed = new MetadataChangeLog();
+    malformed.data().put("entityUrn", "urn:li:entityFromNewerBuild:(unbalanced");
+    malformed.setEntityType("entityFromNewerBuild");
+    malformed.setAspectName("datasetProperties");
+    malformed.setChangeType(ChangeType.UPSERT);
+    malformed.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
+    MetadataChangeLog keptLast = createTestMCL("ownership", ChangeType.UPSERT);
+
+    List<ConsumerRecord<String, GenericRecord>> records =
+        List.of(
+            createMockConsumerRecord(0), createMockConsumerRecord(1), createMockConsumerRecord(2));
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils
+          .when(() -> EventUtils.avroToPegasusMCL(any()))
+          .thenReturn(keptFirst)
+          .thenReturn(malformed)
+          .thenReturn(keptLast);
+
+      listener.consumeBatch(records);
+
+      verify(mockHook1)
+          .invokeBatch(
+              any(OperationContext.class),
+              argThat(
+                  events ->
+                      events.size() == 2
+                          && events.contains(keptFirst)
+                          && events.contains(keptLast)));
+    }
+  }
+
+  @Test
   public void testConsumeBatchFiltersWildcardDroppedAspects() throws Exception {
     MetadataChangeLog kept = createTestMCL("datasetProperties", ChangeType.UPSERT);
     MetadataChangeLog dropped = createTestMCL("status", ChangeType.UPSERT);
