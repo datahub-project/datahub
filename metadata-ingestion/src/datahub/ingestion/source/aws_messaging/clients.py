@@ -30,6 +30,7 @@ def paginate(
     result_key: str,
     report: AwsMessagingReportBase,
     api_label: str,
+    optional: bool = False,
     **kwargs: Any,
 ) -> Iterator[Any]:
     # boto3 paginators raise from inside iteration, so the page count at the time
@@ -41,7 +42,7 @@ def paginate(
             yield from page.get(result_key) or []
     except (ClientError, BotoCoreError) as e:
         report.report_listing_failure(
-            pages_fetched=pages_fetched, exc=e, api_label=api_label
+            pages_fetched=pages_fetched, exc=e, api_label=api_label, optional=optional
         )
 
 
@@ -73,7 +74,7 @@ class SqsClient:
         self._client = client
         self.report = report
 
-    def list_queue_urls(self) -> Iterator[str]:
+    def list_queue_urls(self, optional: bool = False) -> Iterator[str]:
         # ListQueues only returns a NextToken when MaxResults is set.
         yield from paginate(
             client=self._client,
@@ -81,6 +82,7 @@ class SqsClient:
             result_key="QueueUrls",
             report=self.report,
             api_label="sqs:ListQueues",
+            optional=optional,
             PaginationConfig={"PageSize": 1000},
         )
 
@@ -191,6 +193,8 @@ class SnsClient:
             result_key="Subscriptions",
             report=self.report,
             api_label="sns:ListSubscriptionsByTopic",
+            # Subscriptions only add properties and lineage, not datasets.
+            optional=True,
             TopicArn=topic_arn,
         ):
             yield SnsSubscription(
@@ -232,6 +236,7 @@ class LambdaClient:
             result_key="EventSourceMappings",
             report=self.report,
             api_label="lambda:ListEventSourceMappings",
+            optional=True,
         )
 
     def list_functions(self) -> Iterator[Dict[str, Any]]:
@@ -241,6 +246,7 @@ class LambdaClient:
             result_key="Functions",
             report=self.report,
             api_label="lambda:ListFunctions",
+            optional=True,
         )
 
     def list_async_destinations(self, function_name: str) -> Iterator[str]:
@@ -250,6 +256,7 @@ class LambdaClient:
             result_key="FunctionEventInvokeConfigs",
             report=self.report,
             api_label="lambda:ListFunctionEventInvokeConfigs",
+            optional=True,
             FunctionName=function_name,
         ):
             # Each config is for one version or alias; destinations hang off the
@@ -279,6 +286,7 @@ class EventBridgeClient:
                     pages_fetched=pages_fetched,
                     exc=e,
                     api_label="events:ListEventBuses",
+                    optional=True,
                 )
                 return
             pages_fetched += 1
@@ -296,6 +304,7 @@ class EventBridgeClient:
             result_key="Rules",
             report=self.report,
             api_label="events:ListRules",
+            optional=True,
             EventBusName=bus_name,
         )
 
@@ -306,6 +315,7 @@ class EventBridgeClient:
             result_key="Targets",
             report=self.report,
             api_label="events:ListTargetsByRule",
+            optional=True,
             Rule=rule_name,
             EventBusName=bus_name,
         ):
@@ -329,6 +339,7 @@ class PipesClient:
             result_key="Pipes",
             report=self.report,
             api_label="pipes:ListPipes",
+            optional=True,
         ):
             arn = parse_arn(item.get("Arn"))
             if arn is None or not item.get("Source") or not item.get("Target"):
@@ -386,6 +397,7 @@ class S3NotificationClient:
             result_key="Buckets",
             report=self.report,
             api_label="s3:ListAllMyBuckets",
+            optional=True,
             **kwargs,
         ):
             bucket_region = bucket.get("BucketRegion")

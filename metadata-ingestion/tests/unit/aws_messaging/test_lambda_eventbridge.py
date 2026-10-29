@@ -6,19 +6,25 @@ from unittest.mock import MagicMock
 
 import boto3
 import pytest
+from botocore.stub import Stubber
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging.base import AwsMessagingSourceBase
-from datahub.ingestion.source.aws_messaging.clients import EventBridgeClient
+from datahub.ingestion.source.aws_messaging.clients import (
+    EventBridgeClient,
+    LambdaClient,
+)
 from datahub.ingestion.source.aws_messaging.eventbridge import (
     event_path_prefix,
     template_field_map,
 )
 from datahub.ingestion.source.aws_messaging.models import RuleTarget
+from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
 from datahub.metadata.schema_classes import (
+    ContainerPropertiesClass,
     MetadataChangeProposalClass,
     OtherSchemaClass,
     SchemaFieldClass,
@@ -455,3 +461,48 @@ def test_shared_entities_get_status(aws: None) -> None:
         RULE_JOB,
         BUS_URN,
     } <= with_status
+
+
+def test_eventbridge_container_links_to_the_events_console(aws: None) -> None:
+    queue_arn = create_queue("orders")
+    events = boto3.client("events", region_name=REGION)
+    events.put_rule(Name="new-orders", EventPattern=json.dumps({"source": ["shop"]}))
+    events.put_targets(Rule="new-orders", Targets=[{"Id": "q", "Arn": queue_arn}])
+    source = SqsSource.create(
+        base_config(lineage={"lambda_functions": False}),
+        PipelineContext(run_id="lineage"),
+    )
+    urls = [
+        wu.metadata.aspect.externalUrl
+        for wu in source.get_workunits()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, ContainerPropertiesClass)
+    ]
+    assert (
+        f"https://{REGION}.console.aws.amazon.com/events/home?region={REGION}" in urls
+    )
+    assert (
+        f"https://{REGION}.console.aws.amazon.com/sqs/v3/home?region={REGION}" in urls
+    )
+
+
+def test_lambda_listing_failure_does_not_fail_the_run() -> None:
+    # Lambda lineage is optional: a mid-pagination failure there must not mark
+    # the run failed, which would stop stale removal of queues and topics.
+    client = boto3.client(
+        "lambda",
+        region_name=REGION,
+        aws_access_key_id="testing",
+        aws_secret_access_key="testing",
+    )
+    report = SqsSourceReport()
+    with Stubber(client) as stubber:
+        stubber.add_response(
+            "list_event_source_mappings",
+            {"EventSourceMappings": [], "NextMarker": "page-2"},
+        )
+        stubber.add_client_error(
+            "list_event_source_mappings", service_error_code="TooManyRequestsException"
+        )
+        assert list(LambdaClient(client, report).list_event_source_mappings()) == []
+    assert report.warnings and not report.failures

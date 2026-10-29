@@ -12,6 +12,14 @@ S3_PLATFORM = "s3"
 FIREHOSE_PLATFORM = "kinesis-firehose"
 FIREHOSE_DELIVERY_JOB_ID = "delivery"
 
+# AWS console paths for the region containers; EventBridge's console lives under
+# `events`, not its platform name.
+CONSOLE_PATHS = {
+    SQS_PLATFORM: "sqs/v3/home",
+    SNS_PLATFORM: "sns/v3/home",
+    EVENTBRIDGE_PLATFORM: "events/home",
+}
+
 LAMBDA_JOB_ID = "invoke"
 EVENTBRIDGE_RULE_JOB_ID = "route"
 EVENTBRIDGE_PIPE_JOB_ID = "pipe"
@@ -50,10 +58,6 @@ class SubscriptionProtocol(StrEnum):
 
 
 WEB_PROTOCOLS = frozenset({SubscriptionProtocol.HTTP, SubscriptionProtocol.HTTPS})
-
-# ListSubscriptions reports an unconfirmed subscription with this literal in
-# place of a subscription ARN.
-PENDING_CONFIRMATION = "PendingConfirmation"
 
 ALL_ATTRIBUTES = "All"
 TRUE_STRING = "true"

@@ -1,3 +1,4 @@
+import itertools
 from typing import Iterable, Iterator, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -102,8 +103,12 @@ class SqsSource(AwsMessagingSourceBase):
         return f"arn:aws:sqs:{self.base_config.aws_config.aws_region}:{match.group('account')}:{match.group('name')}"
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.with_region_container(self._queue_workunits())
-        yield from self._keep_unreadable_queues()
+        # Unreadable queues go through the container too: a run where every queue
+        # is unreadable must still emit the region container, or stale removal
+        # would delete it.
+        yield from self.with_region_container(
+            itertools.chain(self._queue_workunits(), self._keep_unreadable_queues())
+        )
         # Dead-letter targets are checked once every queue in the region is known.
         for queue in self.queues:
             self._add_dead_letter_edge(queue)
@@ -194,9 +199,12 @@ class SqsSource(AwsMessagingSourceBase):
                 account=match.group("account"),
                 resource=match.group("name"),
             )
+            urn = self.urns.queue_urn(arn)
+            # It exists, so dead-letter edges to it are kept.
+            self.resolver.add(arn)
+            self.lineage.owned.add(urn)
             yield MetadataChangeProposalWrapper(
-                entityUrn=self.urns.queue_urn(arn),
-                aspect=StatusClass(removed=False),
+                entityUrn=urn, aspect=StatusClass(removed=False)
             ).as_workunit()
 
     def _add_dead_letter_edge(self, queue: SqsQueue) -> None:
