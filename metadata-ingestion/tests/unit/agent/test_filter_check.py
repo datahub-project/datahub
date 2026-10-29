@@ -917,8 +917,11 @@ def test_a_switched_off_kind_outlives_a_container_that_cannot_be_judged():
 
 def test_a_container_that_cannot_be_judged_still_refuses_for_a_name_it_decides():
     """The other half: with nothing else to decide the name, the parent's
-    refusal is the answer and must still be raised."""
-    with pytest.raises(ContainerUnknown):
+    refusal is the answer and must still be raised -- carrying what the
+    connector said on the way, exactly as an unheld refusal does. Holding it
+    aside is a detail of the ordering, not a reason to answer with less.
+    """
+    with pytest.raises(ContainerUnknown) as refusal:
         check_filters(
             source_type="bigquery",
             config_dict={"dataset_pattern": {"allow": ["^analytics$"]}},
@@ -926,6 +929,7 @@ def test_a_container_that_cannot_be_judged_still_refuses_for_a_name_it_decides()
             parent_path=["analytics"],
             names=["v1"],
         )
+    assert "This source also reported" in str(refusal.value)
 
 
 def test_a_container_that_cannot_be_judged_refuses_for_what_is_inside_it():

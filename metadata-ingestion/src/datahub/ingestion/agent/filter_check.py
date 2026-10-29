@@ -590,7 +590,7 @@ def check_filters(
                     judged, resolution, kind, name, parent_path, name_attrs, warn
                 )
             )
-        except ProbeArgumentError as refusal:
+        except ContainerUnknown as refusal:
             if parent_excluded_by is None:
                 # Carried with it: a refusal replaces the result, so anything
                 # the connector said on the way -- Unity naming `catalogs`,
@@ -606,7 +606,9 @@ def check_filters(
                 )
             )
     if parent_refusal is not None and any(result.included for result in results):
-        raise parent_refusal
+        # Same context as the direct path above: holding the refusal must not
+        # cost it the connector's own hints.
+        raise _with_context(parent_refusal, warnings)
     if parent_excluded_by is not None:
         for result in results:
             result.included = False
