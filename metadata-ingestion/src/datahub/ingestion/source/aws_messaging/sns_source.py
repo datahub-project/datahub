@@ -116,6 +116,9 @@ class SnsSource(AwsMessagingSourceBase):
         yield from self.lineage.workunits()
 
     def _load_local_queues(self) -> None:
+        # Every queue that exists counts, not only those the sqs recipe's
+        # queue_pattern keeps: the subscription is real and the queue URN follows
+        # from its ARN, so the edge is right even if sqs doesn't ingest the queue.
         for url in self.sqs.list_queue_urls():
             match = QUEUE_URL_PATTERN.search(url)
             if match:
