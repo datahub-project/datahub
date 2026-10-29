@@ -6,6 +6,8 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 Table and column comments are read from `information_schema.TABLES` and `information_schema.COLUMNS`, with one query each per database, and ingested as dataset and field descriptions. They are not taken from `SHOW CREATE TABLE`: Doris writes comments there in double quotes, which the MySQL DDL parser does not read.
 
+Comments of tables in an external catalog need Doris 2.1 or later, where each catalog has its own `information_schema` ([apache/doris#28919](https://github.com/apache/doris/pull/28919)).
+
 #### Migration from MySQL Connector
 
 If you were previously ingesting Doris using the MySQL connector, switch to the dedicated Doris connector for better support:
@@ -27,7 +29,7 @@ One run ingests one catalog, so a view that reads from a table in a different Do
 
 #### Truncated column comments
 
-Doris truncates `information_schema.COLUMNS.COLUMN_COMMENT` when the FE setting `column_comment_length_limit` is greater than zero. Raise or unset it if long column descriptions arrive cut short.
+Doris truncates `information_schema.COLUMNS.COLUMN_COMMENT` to `column_comment_length_limit` characters when that FE configuration is greater than zero. It defaults to `-1`, which means no limit; raise it or set it back to `-1` if long column descriptions arrive cut short.
 
 ### Troubleshooting
 

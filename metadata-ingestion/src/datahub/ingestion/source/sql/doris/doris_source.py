@@ -269,6 +269,9 @@ class DorisSource(MySQLSource):
 
         self._session_catalog: Optional[str] = config.catalog
         self._catalog_detection_failed = False
+        # The metadata and profiling passes each open their own engine per database,
+        # so a failing comment lookup is recorded once by each; report it once.
+        self._databases_reported_without_comments: Set[str] = set()
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "DorisSource":
@@ -419,6 +422,9 @@ class DorisSource(MySQLSource):
             )
 
         for database, error in dialect.pop_comment_lookup_failures().items():
+            if database in self._databases_reported_without_comments:
+                continue
+            self._databases_reported_without_comments.add(database)
             self.report.databases_without_comments += 1
             self.report.warning(
                 title="Doris table and column comments unavailable",

@@ -540,6 +540,21 @@ class TestDorisSourceMethods:
         assert contexts.count("db2: Access denied") == 1
         assert all(dialect.comment_lookup_failures == {} for dialect in dialects)
 
+    def test_comment_lookup_failure_reported_once_across_passes(self):
+        """Profiling reflects every table again through a new engine, so the same
+        failed lookup is recorded a second time but must be reported once."""
+        config = DorisConfig(host_port="localhost:9030")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+
+        for _ in ("metadata", "profiling"):
+            dialect = DorisDialect()
+            dialect.comment_lookup_failures["db1"] = "Access denied"
+            conn = MagicMock()
+            conn.dialect = dialect
+            source._report_reflection_fallbacks(conn)
+
+        assert source.report.databases_without_comments == 1
+
     def test_get_inspectors_exception_handling(self):
         config = DorisConfig(host_port="localhost:9030")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)

@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 from sqlalchemy.dialects.mysql.base import MySQLDialect
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.sql import sqltypes
 
 from datahub.ingestion.source.sql.doris.doris_dialect import (
@@ -621,7 +621,9 @@ class TestDorisComments:
         assert dialect.comment_lookup_failures == {}
 
     def test_comments_are_fetched_once_per_database(self, mock_text):
-        """Two queries cover every table in a database, rather than two per table."""
+        """Two queries cover every table in a database, rather than two per table,
+        even when each table is reflected through its own Inspector as the profiler
+        does."""
         dialect = DorisDialect()
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_db"
@@ -632,15 +634,22 @@ class TestDorisComments:
             ],
             table_comment_rows=[("table_1", "Table one"), ("table_2", "Table two")],
         )
-        kw: Dict[str, Any] = {"schema": "my_db", "info_cache": {}}
 
         with patch.object(
             MySQLDialect, "get_table_comment", return_value={"text": None}
         ):
-            first = self._get_columns(dialect, mock_connection, "table_1", **kw)
-            second = self._get_columns(dialect, mock_connection, "table_2", **kw)
-            first_comment = dialect.get_table_comment(mock_connection, "table_1", **kw)
-            second_comment = dialect.get_table_comment(mock_connection, "table_2", **kw)
+            first = self._get_columns(
+                dialect, mock_connection, "table_1", schema="my_db", info_cache={}
+            )
+            second = self._get_columns(
+                dialect, mock_connection, "table_2", schema="my_db", info_cache={}
+            )
+            first_comment = dialect.get_table_comment(
+                mock_connection, "table_1", schema="my_db", info_cache={}
+            )
+            second_comment = dialect.get_table_comment(
+                mock_connection, "table_2", schema="my_db", info_cache={}
+            )
 
         assert first[0]["comment"] == "First"
         assert second[0]["comment"] == "Second"
@@ -723,4 +732,32 @@ class TestDorisComments:
         failures = dialect.pop_comment_lookup_failures()
         assert list(failures) == ["my_db"]
         assert "Access denied" in failures["my_db"]
+        assert dialect.comment_lookup_failures == {}
+
+    def test_dropped_connection_is_not_reported_as_missing_comments(self, mock_text):
+        """A disconnect fails every later statement too, so it must surface as
+        itself rather than as a database without comments."""
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_db"
+        describe = _execute_by_query()
+
+        def execute(
+            statement: str, params: Optional[Dict[str, Any]] = None
+        ) -> List[Sequence[Any]]:
+            if "information_schema" in statement:
+                raise OperationalError(
+                    statement,
+                    params,
+                    Exception("Lost connection"),
+                    connection_invalidated=True,
+                )
+            return describe(statement, params)
+
+        mock_connection.execute.side_effect = execute
+
+        with pytest.raises(OperationalError):
+            self._get_columns(
+                dialect, mock_connection, "my_table", schema="my_db", info_cache={}
+            )
         assert dialect.comment_lookup_failures == {}
