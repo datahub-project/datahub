@@ -879,28 +879,8 @@ public class ReindexConfig {
      */
     private static Pair<Long, Long> structuredPropertiesDiffCount(
         Map<String, Object> current, Map<String, Object> target) {
-      Set<String> currentStructuredProperties = new HashSet<>();
-      Set<String> targetStructuredProperties = new HashSet<>();
-
-      // add non-versioned property ids
-      currentStructuredProperties.addAll(
-          getOrDefault(
-                  current, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
-              .keySet()
-              .stream()
-              .filter(k -> !STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(k))
-              .collect(Collectors.toSet()));
-      targetStructuredProperties.addAll(
-          getOrDefault(
-                  target, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
-              .keySet()
-              .stream()
-              .filter(k -> !STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(k))
-              .collect(Collectors.toSet()));
-
-      // Extract versioned/typed property ids
-      currentStructuredProperties.addAll(getVersionedStructuredPropertyIds(current));
-      targetStructuredProperties.addAll(getVersionedStructuredPropertyIds(target));
+      Set<String> currentStructuredProperties = structuredPropertyFieldMappings(current).keySet();
+      Set<String> targetStructuredProperties = structuredPropertyFieldMappings(target).keySet();
 
       return Pair.of(
           currentStructuredProperties.stream()
@@ -1004,40 +984,44 @@ public class ReindexConfig {
     }
 
     /**
-     * Structured-property field ids to their mapping objects. Unversioned keys are the qualified
-     * name. Versioned fields are flattened the same way {@link #structuredPropertyFieldTypes}
-     * historically walked them.
+     * Structured-property field ids to their mapping objects, keyed the way the mappings builder
+     * names them: the sanitized qualified name, or {@code _versioned.<name>.<version>.<type>} for a
+     * versioned property. The builder emits a versioned field under that single dotted key, while
+     * Elasticsearch returns the same field as nested objects, so both shapes must resolve to the
+     * same id. Otherwise every versioned property looks removed on every system update and the
+     * index is rebuilt each time, and type and copy_to mismatches are never detected for it.
      */
     private static Map<String, Object> structuredPropertyFieldMappings(
         Map<String, Object> mappings) {
       Map<String, Object> fields = new LinkedHashMap<>();
-
-      Map<String, Object> structuredPropertyFields =
-          getOrDefault(
-              mappings, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"));
-
-      for (Map.Entry<String, Object> entry : structuredPropertyFields.entrySet()) {
-        if (STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(entry.getKey())) {
-          continue;
-        }
-        fields.put(entry.getKey(), entry.getValue());
-      }
-
-      Map<String, Object> versionedMappings =
-          getOrDefault(
-              mappings,
-              List.of(
-                  "properties",
-                  STRUCTURED_PROPERTY_MAPPING_FIELD,
-                  "properties",
-                  STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD,
-                  "properties"));
-
-      flattenStructuredPropertyMappings(
-              Map.entry(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, versionedMappings), 0)
-          .forEach(entry -> fields.put(entry.getKey(), entry.getValue()));
-
+      getOrDefault(mappings, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
+          .forEach((key, value) -> collectStructuredPropertyFields(key, value, fields));
       return fields;
+    }
+
+    /**
+     * Adds the field mapping at {@code path}, descending from {@code _versioned} through the name
+     * and version objects to the type-named field. Elasticsearch nests those objects under {@code
+     * properties}; an object with neither {@code properties} nor a {@code type} is descended
+     * directly. A field mapping (one with a {@code type}) is where the walk stops.
+     */
+    @SuppressWarnings("unchecked")
+    private static void collectStructuredPropertyFields(
+        String path, Object mapping, Map<String, Object> fields) {
+      if (!(mapping instanceof Map<?, ?> fieldMapping)) {
+        return;
+      }
+      Map<String, Object> children;
+      if (fieldMapping.get(PROPERTIES) instanceof Map<?, ?> nested) {
+        children = (Map<String, Object>) nested;
+      } else if (fieldMapping.get(TYPE) == null) {
+        children = (Map<String, Object>) fieldMapping;
+      } else {
+        fields.put(path, mapping);
+        return;
+      }
+      children.forEach(
+          (key, value) -> collectStructuredPropertyFields(path + "." + key, value, fields));
     }
 
     private static Set<String> extractCopyTo(@Nullable Object mapping) {
@@ -1061,30 +1045,6 @@ public class ReindexConfig {
         return values;
       }
       return Set.of();
-    }
-
-    /**
-     * Flatten nested versioned structured-property mappings down to field-mapping objects (maps
-     * that declare a scalar {@code type}), without descending into the {@code type} value itself.
-     */
-    private static Stream<Map.Entry<String, Object>> flattenStructuredPropertyMappings(
-        Map.Entry<String, Object> entry, int depth) {
-      if (entry.getValue() instanceof Map<?, ?> && depth < 5) {
-        Map<String, Object> nested = (Map<String, Object>) entry.getValue();
-        Object typeValue = nested.get(TYPE);
-        boolean hasScalarType = typeValue != null && !(typeValue instanceof Map);
-        boolean hasNestedProperties = nested.get(PROPERTIES) instanceof Map;
-        if (hasScalarType && !hasNestedProperties) {
-          return Stream.of(entry);
-        }
-        return nested.entrySet().stream()
-            .map(
-                e ->
-                    new AbstractMap.SimpleEntry<String, Object>(
-                        entry.getKey() + "." + e.getKey(), e.getValue()))
-            .flatMap(e -> flattenStructuredPropertyMappings(e, depth + 1));
-      }
-      return Stream.of(entry);
     }
 
     @Nullable
@@ -1320,29 +1280,6 @@ public class ReindexConfig {
         current.remove(pathParts[pathParts.length - 1]);
       }
     }
-
-    /**
-     * Given a mapping return a unique string for each version/typed structured property
-     *
-     * @param mappings Elastic mappings
-     * @return set of unique ids for each versioned/typed structured property
-     */
-    private static Set<String> getVersionedStructuredPropertyIds(Map<String, Object> mappings) {
-      Map<String, Object> versionedMappings =
-          getOrDefault(
-              mappings,
-              List.of(
-                  "properties",
-                  STRUCTURED_PROPERTY_MAPPING_FIELD,
-                  "properties",
-                  STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD,
-                  "properties"));
-
-      return flattenStructuredPropertyPath(
-              Map.entry(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, versionedMappings), 0)
-          .map(Map.Entry::getKey)
-          .collect(Collectors.toSet());
-    }
   }
 
   private static Map<String, Object> removeKeys(
@@ -1388,23 +1325,5 @@ public class ReindexConfig {
       }
     }
     return true;
-  }
-
-  /**
-   * Return a map with dot delimited path as keys
-   *
-   * @param entry for root map
-   * @return dot delimited key path map
-   */
-  private static Stream<Map.Entry<String, Object>> flattenStructuredPropertyPath(
-      Map.Entry<String, Object> entry, int depth) {
-    if (entry.getValue() instanceof Map<?, ?> && depth < 5) {
-      Map<String, Object> nested = (Map<String, Object>) entry.getValue();
-
-      return nested.entrySet().stream()
-          .map(e -> new AbstractMap.SimpleEntry(entry.getKey() + "." + e.getKey(), e.getValue()))
-          .flatMap(e -> flattenStructuredPropertyPath(e, depth + 1));
-    }
-    return Stream.of(entry);
   }
 }
