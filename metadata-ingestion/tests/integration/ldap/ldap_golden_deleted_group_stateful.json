@@ -1,17 +1,14 @@
 [
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpGroupSnapshot": {
-            "urn": "urn:li:corpGroup:HR Department",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "admins": [],
-                        "members": [],
-                        "groups": []
-                    }
-                }
-            ]
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:HR Department",
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+        "json": {
+            "admins": [],
+            "members": [],
+            "groups": []
         }
     },
     "systemMetadata": {
