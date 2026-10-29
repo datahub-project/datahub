@@ -15,6 +15,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.transform_operation import cap_transform_operation
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -254,7 +255,10 @@ def _get_lineage_mcp(
                 downstreams=fine_grained_lineage.downstreams,
                 downstreamType=fine_grained_lineage.downstreamType,
                 confidenceScore=fine_grained_lineage.confidenceScore,
-                transformOperation=fine_grained_lineage.transformOperation,
+                # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
+                transformOperation=cap_transform_operation(
+                    fine_grained_lineage.transformOperation
+                ),
             )
         )
 

@@ -21,8 +21,8 @@ import {
 } from '@app/onboarding/config/UsersOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
 import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListUsersQuery } from '@graphql/user.generated';

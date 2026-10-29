@@ -1,9 +1,9 @@
 import { useContext } from 'react';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import computeOrFilters from '@app/lineageV3/LineageFilterNode/computeOrFilters';
 import { LineageNodesContext, generateIgnoreAsHops } from '@app/lineageV3/common';
 import { DEFAULT_SEARCH_FLAGS } from '@app/lineageV3/queries/useSearchAcrossLineage';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { DEGREE_FILTER_NAME } from '@app/search/utils/constants';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 

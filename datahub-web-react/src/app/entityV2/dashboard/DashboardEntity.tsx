@@ -54,7 +54,7 @@ import { LOOKER_URN, MODE_URN } from '@app/ingest/source/builder/constants';
 import { matchedInputFieldRenderer } from '@app/search/matches/matchedInputFieldRenderer';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { MatchContext } from '@app/searchV2/matches/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { GetDashboardQuery, useGetDashboardQuery, useUpdateDashboardMutation } from '@graphql/dashboard.generated';
@@ -92,6 +92,7 @@ const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
  */
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,

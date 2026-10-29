@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { getMatchedFieldsForList } from '@app/search/context/SearchResultContext';
-import { PreviewSection } from '@app/shared/MatchesContext';
+import { PreviewSection } from '@app/sharedV2/MatchesContext';
 
 import { SearchResult } from '@types';
 

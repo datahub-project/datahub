@@ -18,7 +18,7 @@ import SearchPill, {
 } from '@app/previewV2/SearchPill';
 import { entityHasCapability, getHighlightedTag } from '@app/previewV2/utils';
 import { useMatchedFieldsForList } from '@app/search/context/SearchResultContext';
-import MatchesContext, { PreviewSection } from '@app/shared/MatchesContext';
+import MatchesContext, { PreviewSection } from '@app/sharedV2/MatchesContext';
 
 import { EntityPath, EntityType, GlobalTags, GlossaryTerms, LineageDirection, Owner } from '@types';
 

@@ -2448,7 +2448,7 @@ def test_sigma_ingest_data_models_extract_lineage_false(
 
     # DM element URNs embed the immutable ``dataModelId`` UUID (not the
     # mutable ``urlId``) per the URN-keying invariant documented in
-    # updating-datahub.md -- filter on the UUID so this is a real positive
+    # breaking-changes.md -- filter on the UUID so this is a real positive
     # assertion, not one that tautologically collapses to ``[]``.
     dm_uuid = "147a4d09-a686-4eea-b183-9b82aa0f7beb"
     element_schema_aspects = [

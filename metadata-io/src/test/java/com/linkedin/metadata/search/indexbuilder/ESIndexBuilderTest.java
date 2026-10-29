@@ -24,6 +24,7 @@ import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -1170,6 +1171,36 @@ public class ESIndexBuilderTest {
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
             any(RequestOptions.class));
+  }
+
+  @Test
+  void testApplyMappings_NeverSendsTheDocIdSchemeStamp() throws IOException {
+    // _meta.docIdScheme is provenance written at creation; a put-mapping onto an existing index
+    // must not relabel it as current (see V3DocumentIdScheme).
+    Map<String, Object> targetMappings = new HashMap<>(createTestMappings());
+    targetMappings.put(
+        V3DocumentIdScheme.META, Map.of(V3DocumentIdScheme.DOC_ID_SCHEME, "sha256-urn"));
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.isPureMappingsAddition()).thenReturn(true);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(targetMappings);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(AcknowledgedResponse.class));
+
+    indexBuilder.applyMappings(opContext, indexState, false);
+
+    ArgumentCaptor<PutMappingRequest> request = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class), request.capture(), any(RequestOptions.class));
+    String sent = request.getValue().source().utf8ToString();
+    Assert.assertFalse(
+        sent.contains(V3DocumentIdScheme.META), "put-mapping must not carry _meta: " + sent);
+    assertTrue(sent.contains("properties"));
   }
 
   @Test
@@ -2560,6 +2591,55 @@ public class ESIndexBuilderTest {
         result.completed(),
         "Completed-but-short must not be treated as success even after a catch-up resubmit");
     verify(searchClient, atLeastOnce())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * The ES task finishes right after a short count is read. That count must not be paired with the
+   * COMPLETED status and treated as dropped documents, which would resubmit a full reindex.
+   */
+  @Test
+  void testPollReindexCompletion_taskCompletesAfterShortCount_completesWithoutRetrigger()
+      throws Throwable {
+    setupPollReindexBuilder(0L, NUM_RETRIES);
+    // A resubmit must only be reachable through the completed-but-short path: neither the
+    // unresolved-task guard nor the no-progress timer may mask it.
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(false);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(60);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
+        .thenReturn("node1:100");
+
+    // Count call 1 is the pre-loop read; the task finishes right after count call 2.
+    AtomicInteger countCalls = new AtomicInteger();
+    GetTaskResponse task = mock(GetTaskResponse.class);
+    when(task.isCompleted()).thenAnswer(invocation -> countCalls.get() >= 2);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.of(task));
+
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion) {
+          @Override
+          protected Pair<Long, Long> getDocumentCounts(
+              OperationContext ctx, Callable<Long> expectedCountSupplier, String destinationIndex) {
+            return Pair.of(1000L, countCalls.incrementAndGet() <= 2 ? 900L : 1000L);
+          }
+        };
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertTrue(result.completed());
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1000L));
+    verify(searchClient, never())
         .submitReindexTask(
             any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
   }

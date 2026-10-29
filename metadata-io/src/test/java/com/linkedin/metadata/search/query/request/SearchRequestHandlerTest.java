@@ -63,6 +63,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
@@ -105,6 +106,7 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.FetchSourceContext;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.opensearch.search.sort.FieldSortBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
@@ -778,7 +780,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY)
             .toString();
-    assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
+    assertTrue(v3Filter.contains("platform_urn"), v3Filter);
     assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
 
     SearchRequestHandler v3Handler =
@@ -791,13 +793,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             TEST_SEARCH_SERVICE_CONFIG);
     String valueCounts =
         v3Handler.getAggregationRequest(operationContext, "platform", null, 10).source().toString();
-    assertTrue(valueCounts.contains("\"field\":\"platform.keyword\""), valueCounts);
+    assertTrue(valueCounts.contains("\"field\":\"platform_urn\""), valueCounts);
     String keywordValueCounts =
         v3Handler
             .getAggregationRequest(operationContext, "platform.keyword", null, 10)
             .source()
             .toString();
-    assertTrue(keywordValueCounts.contains("\"field\":\"platform.keyword\""), keywordValueCounts);
+    assertTrue(keywordValueCounts.contains("\"field\":\"platform_urn\""), keywordValueCounts);
   }
 
   /**
@@ -842,7 +844,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 new HashMap<>(),
                 QueryFilterRewriteChain.EMPTY)
             .toString();
-    assertTrue(v3Filter.contains("platform.keyword"), v3Filter);
+    assertTrue(v3Filter.contains("platform_urn"), v3Filter);
     assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
     // V3 stores the registry entity name in _entityType, a keyword field without a subfield
     assertTrue(v3Filter.contains("\"_entityType\""), v3Filter);
@@ -851,6 +853,46 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertFalse(v3Filter.contains("DATA_PRODUCT"), v3Filter);
     // The caller's filter is left as given
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
+  }
+
+  @Test
+  public void testV3CriteriaAndSortsSelectTheCanonicalSharedField() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "createdAt", Condition.GREATER_THAN_OR_EQUAL_TO, "1")))));
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("dataset"),
+            V3_READ_CONFIG,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchSourceBuilder source =
+        handler
+            .getSearchRequest(
+                operationContext.withSearchFlags(
+                    flags -> flags.setFulltext(false).setSkipAggregates(true)),
+                "*",
+                filter,
+                List.of(new SortCriterion().setField("createdAt").setOrder(SortOrder.DESCENDING)),
+                0,
+                10,
+                List.of())
+            .source();
+    String query = source.query().toString();
+
+    assertTrue(query.contains("\"sourceCreatedAt\""), query);
+    assertTrue(query.contains("\"_entityType\""), query);
+    assertTrue(query.contains("\"dataset\""), query);
+    assertEquals(((FieldSortBuilder) source.sorts().get(0)).getFieldName(), "sourceCreatedAt");
   }
 
   /**
@@ -891,7 +933,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         v3Or(
             buildCriterion("description", Condition.EQUAL, "daily revenue"),
             buildCriterion("platform", Condition.EQUAL, "urn:li:dataPlatform:hive"));
-    assertTrue(either.contains("platform.keyword"), either);
+    assertTrue(either.contains("platform_urn"), either);
     assertTrue(either.contains("urn:li:dataPlatform:hive"), either);
     assertFalse(either.contains("daily revenue"), either);
     assertMatchNone(either);
@@ -900,17 +942,49 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   /** Existence of an unindexed description is the shared hasDescription boolean. */
   @Test
   public void testV3UnindexedLabelExistenceUsesHasValuesField() {
-    for (String field : List.of("description", "editedDescription", "fieldDescriptions")) {
-      assertHasDescriptionExistence(v3Filter(buildExistsCriterion(field)), field, false);
-      assertHasDescriptionExistence(v3Filter(buildIsNullCriterion(field)), field, true);
-    }
+    assertHasValuesExistence(
+        v3Filter(buildExistsCriterion("description")), "description", "hasDescription", false);
+    assertHasValuesExistence(
+        v3Filter(buildIsNullCriterion("description")), "description", "hasDescription", true);
+    assertHasValuesExistence(
+        v3Filter(buildExistsCriterion("editedDescription")),
+        "editedDescription",
+        "hasDescription",
+        false);
+    assertHasValuesExistence(
+        v3Filter(buildIsNullCriterion("editedDescription")),
+        "editedDescription",
+        "hasDescription",
+        true);
+    assertHasValuesExistence(
+        v3Filter(buildExistsCriterion("fieldDescriptions")),
+        "fieldDescriptions",
+        "hasDescription_1",
+        false);
+    assertHasValuesExistence(
+        v3Filter(buildIsNullCriterion("fieldDescriptions")),
+        "fieldDescriptions",
+        "hasDescription_1",
+        true);
+    String editedExists =
+        v3Filter(
+            List.of("dataset", "businessAttribute"),
+            buildExistsCriterion("editedFieldDescriptions"));
+    assertHasValuesExistence(editedExists, "editedFieldDescriptions", "hasDescription", false);
+    assertTrue(editedExists.contains("\"field\" : \"hasDescription_1\""), editedExists);
+    String editedMissing =
+        v3Filter(
+            List.of("dataset", "businessAttribute"),
+            buildIsNullCriterion("editedFieldDescriptions"));
+    assertHasValuesExistence(editedMissing, "editedFieldDescriptions", "hasDescription", true);
+    assertTrue(editedMissing.contains("\"field\" : \"hasDescription_1\""), editedMissing);
   }
 
-  private static void assertHasDescriptionExistence(
-      String query, String sourceField, boolean missing) {
-    int fieldAt = query.indexOf("\"field\" : \"hasDescription\"");
+  private static void assertHasValuesExistence(
+      String query, String sourceField, String booleanField, boolean missing) {
+    int fieldAt = query.indexOf("\"field\" : \"" + booleanField + "\"");
     assertTrue(fieldAt > 0, sourceField + " " + query);
-    String around = query.substring(Math.max(0, fieldAt - 120), fieldAt);
+    String around = query.substring(Math.max(0, fieldAt - (missing ? 500 : 120)), fieldAt);
     assertTrue(around.contains("\"exists\""), sourceField + " " + around);
     if (missing) {
       assertTrue(around.contains("must_not"), sourceField + " " + around);
@@ -958,19 +1032,81 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     String fieldDescriptions =
         v3Filter(buildCriterion("fieldDescriptions", Condition.CONTAIN, "data warehouse"));
-    assertTrue(fieldDescriptions.contains("\"description.text\""), fieldDescriptions);
-    assertTrue(fieldDescriptions.contains("\"description.stemmed\""), fieldDescriptions);
+    assertTrue(fieldDescriptions.contains("\"description_1.text\""), fieldDescriptions);
+    assertTrue(fieldDescriptions.contains("\"description_1.stemmed\""), fieldDescriptions);
     assertTrue(fieldDescriptions.contains("\"fieldDescriptions\""), fieldDescriptions);
     assertFalse(fieldDescriptions.contains("wildcard"), fieldDescriptions);
+
+    String editedFieldDescriptions =
+        v3Filter(
+            List.of("dataset", "businessAttribute"),
+            buildCriterion("editedFieldDescriptions", Condition.CONTAIN, "data warehouse"));
+    assertTrue(editedFieldDescriptions.contains("\"description.text\""), editedFieldDescriptions);
+    assertTrue(
+        editedFieldDescriptions.contains("\"description.stemmed\""), editedFieldDescriptions);
+    assertTrue(editedFieldDescriptions.contains("\"description_1.text\""), editedFieldDescriptions);
+    assertTrue(
+        editedFieldDescriptions.contains("\"description_1.stemmed\""), editedFieldDescriptions);
+    assertFalse(
+        editedFieldDescriptions.contains("\"editedFieldDescriptions.text\""),
+        editedFieldDescriptions);
+    assertFalse(editedFieldDescriptions.contains("wildcard"), editedFieldDescriptions);
   }
 
   @Test
   public void testV3ContainOnKeywordLabelStaysOnKeyword() {
     String query = v3Filter(buildCriterion("fieldPaths", Condition.CONTAIN, "user_id"));
-    assertTrue(query.contains("columns.keyword"), query);
+    assertTrue(query.contains("name_1"), query);
+    assertFalse(query.contains("name_1.keyword"), query);
     assertTrue(query.contains("wildcard"), query);
     assertTrue(query.contains("*user_id*"), query);
+    assertFalse(wildcardUsesCaseInsensitive(query), query);
     assertFalse(query.contains("description.text"), query);
+  }
+
+  @Test
+  public void testV3NameWildcardReadsLowercaseSubfield() {
+    String contain = v3Filter(buildCriterion("name", Condition.CONTAIN, "Orders"));
+    assertTrue(contain.contains("name.lowercase"), contain);
+    assertTrue(contain.contains("*orders*"), contain);
+    assertFalse(contain.contains("*Orders*"), contain);
+    assertFalse(wildcardUsesCaseInsensitive(contain), contain);
+    assertFalse(contain.contains("name.keyword"), contain);
+
+    String prefix = v3Filter(buildCriterion("name", Condition.START_WITH, "Ord"));
+    assertTrue(prefix.contains("name.lowercase"), prefix);
+    assertTrue(prefix.contains("ord*"), prefix);
+    assertFalse(prefix.contains("Ord*"), prefix);
+    assertFalse(wildcardUsesCaseInsensitive(prefix), prefix);
+
+    String suffix = v3Filter(buildCriterion("name", Condition.END_WITH, "ERS"));
+    assertTrue(suffix.contains("name.lowercase"), suffix);
+    assertTrue(suffix.contains("*ers"), suffix);
+    assertFalse(suffix.contains("*ERS"), suffix);
+    assertFalse(wildcardUsesCaseInsensitive(suffix), suffix);
+  }
+
+  /** The query type and the pattern key each contain {@code "wildcard"}. */
+  private static boolean wildcardUsesCaseInsensitive(String query) {
+    int from = 0;
+    while ((from = query.indexOf("\"wildcard\"", from)) >= 0) {
+      String window = query.substring(from, Math.min(query.length(), from + 220));
+      if (window.contains("case_insensitive")) {
+        return true;
+      }
+      from += "\"wildcard\"".length();
+    }
+    return false;
+  }
+
+  private static int count(String text, String needle) {
+    int found = 0;
+    int from = 0;
+    while ((from = text.indexOf(needle, from)) >= 0) {
+      found++;
+      from += needle.length();
+    }
+    return found;
   }
 
   @Test
@@ -1015,7 +1151,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .toString();
     assertTrue(missingDescription.contains("must_not"), missingDescription);
     assertTrue(missingDescription.contains("exists"), missingDescription);
-    assertFalse(missingDescription.contains("\"value\" : false"), missingDescription);
+    // A term query names hasDescription as the field key. Other clauses can also carry
+    // a false value, so the check stays on this field.
+    assertFalse(missingDescription.contains("\"hasDescription\" :"), missingDescription);
+    assertFalse(missingDescription.contains("hasDescription.keyword"), missingDescription);
 
     String unlabeledFalse =
         SearchRequestHandler.getFilterQuery(
@@ -1033,9 +1172,50 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 V3_READ_CONFIG.getEntityIndex(),
                 cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
             .toString();
-    assertTrue(unlabeledFalse.contains("\"hasRowCount\""), unlabeledFalse);
-    assertTrue(unlabeledFalse.contains("\"false\""), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("must_not"), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("exists"), unlabeledFalse);
+    assertTrue(unlabeledFalse.contains("\"field\" : \"rowCount\""), unlabeledFalse);
     assertFalse(unlabeledFalse.contains("\"field\" : \"hasRowCount\""), unlabeledFalse);
+
+    String unlabeledTrue =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion("hasRowCount", Condition.EQUAL, "true"))))),
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+            .toString();
+    assertTrue(unlabeledTrue.contains("exists"), unlabeledTrue);
+    assertTrue(unlabeledTrue.contains("\"field\" : \"rowCount\""), unlabeledTrue);
+    assertFalse(unlabeledTrue.contains("\"field\" : \"hasRowCount\""), unlabeledTrue);
+
+    String unlabeledContain =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                new Filter()
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion()
+                                .setAnd(
+                                    new CriterionArray(
+                                        buildCriterion("hasRowCount", Condition.CONTAIN, "1"))))),
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                V3_READ_CONFIG.getEntityIndex(),
+                cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+            .toString();
+    assertTrue(unlabeledContain.contains("must_not"), unlabeledContain);
+    assertTrue(unlabeledContain.contains("match_all"), unlabeledContain);
+    assertFalse(unlabeledContain.contains("rowCount"), unlabeledContain);
 
     SearchRequestHandler handler =
         SearchRequestHandler.getBuilder(
@@ -1045,6 +1225,14 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
+    String incidentCounts =
+        handler
+            .getAggregationRequest(operationContext, "hasActiveIncidents", null, 10)
+            .source()
+            .toString();
+    assertTrue(incidentCounts.contains("activeIncidents_urn"), incidentCounts);
+    assertTrue(incidentCounts.contains("exists"), incidentCounts);
+    assertFalse(incidentCounts.contains("\"field\" : \"hasActiveIncidents\""), incidentCounts);
     assertThrows(
         IllegalArgumentException.class,
         () -> handler.getAggregationRequest(operationContext, "description", null, 10));
@@ -1070,9 +1258,54 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 0,
                 10,
                 List.of()));
+    String sortedByRemovedBoolean =
+        handler
+            .getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(true)),
+                "*",
+                null,
+                List.of(new SortCriterion().setField("hasRowCount").setOrder(SortOrder.DESCENDING)),
+                0,
+                10,
+                List.of())
+            .source()
+            .toString();
+    assertTrue(sortedByRemovedBoolean.contains("\"rowCount\""), sortedByRemovedBoolean);
+    assertFalse(sortedByRemovedBoolean.contains("hasRowCount"), sortedByRemovedBoolean);
+    String sortedByLabel =
+        handler
+            .getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(true)),
+                "*",
+                null,
+                List.of(
+                    new SortCriterion().setField("hasDescription").setOrder(SortOrder.DESCENDING)),
+                0,
+                10,
+                List.of())
+            .source()
+            .toString();
+    assertTrue(sortedByLabel.contains("\"hasDescription\""), sortedByLabel);
   }
 
   private String v3Filter(Criterion... criteria) {
+    return v3Filter(
+        List.of("dataset"), cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()), criteria);
+  }
+
+  private String v3Filter(List<String> entityTypes, Criterion... criteria) {
+    SearchFieldResolver resolver =
+        new SearchFieldResolver(
+            V3SearchFields.indexGroupSpecs(
+                operationContext.getEntityRegistry(),
+                entityTypes.stream()
+                    .map(operationContext.getEntityRegistry()::getEntitySpec)
+                    .toList()));
+    return v3Filter(entityTypes, resolver, criteria);
+  }
+
+  private String v3Filter(
+      List<String> entityTypes, SearchFieldResolver resolver, Criterion... criteria) {
     Filter filter =
         new Filter()
             .setOr(
@@ -1080,12 +1313,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     new ConjunctiveCriterion().setAnd(new CriterionArray(List.of(criteria)))));
     return SearchRequestHandler.getFilterQuery(
             operationContext,
-            List.of("dataset"),
+            entityTypes,
             filter,
             new HashMap<>(),
             QueryFilterRewriteChain.EMPTY,
             V3_READ_CONFIG.getEntityIndex(),
-            cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
+            resolver)
         .toString();
   }
 
@@ -1141,10 +1374,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * Deliberate V3 change: the full-text query reads the shared _search fields, and matched fields
-   * come from the fetched root values that feed them, so V3 sets no highlighter. The columns'
-   * arrays are searched but never fetched: a fetch cannot cut them short, so a dataset with
-   * thousands of fields would send all of them with every hit.
+   * Deliberate V3 change: the full-text query reads the shared fields, and matched fields come from
+   * the fetched root values that feed them, so V3 sets no highlighter. Column fields index as
+   * degree 1 and are not in an unqualified query, and their arrays are never fetched: a fetch
+   * cannot cut them short, so a dataset with thousands of fields would send all of them with every
+   * hit.
    */
   @Test
   public void testV3FullTextQueryReadsSharedFieldsWithoutFetchingColumnArrays() {
@@ -1155,13 +1389,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     String query = v3.query().toString();
     assertTrue(query.contains("name.text"), query);
-    assertTrue(query.contains("columns.text"), query);
-    assertTrue(query.contains("columns.stemmed"), query);
+    assertFalse(query.contains("name_1.text"), query);
+    assertFalse(query.contains("name_1.stemmed"), query);
     assertFalse(query.contains("_search."), query);
     assertFalse(query.contains(".delimited"), query);
     assertNull(v3.highlighter());
     Set<String> fetched = Set.of(v3.fetchSource().includes());
-    assertTrue(fetched.containsAll(Set.of("urn", "name", "description")), fetched.toString());
+    assertEquals(fetched, Set.of("urn"), fetched.toString());
     assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
     assertTrue(
         fetched.stream().noneMatch(field -> field.startsWith("_search")), fetched.toString());
@@ -1181,7 +1415,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         Set.of(getDatasetSearchSource(skipped, V3_READ_CONFIG, "test").fetchSource().includes()),
         Set.of("urn"));
 
-    // Naming a column array does not fetch it either
+    // Naming a column array or an aspect path does not fetch it. Selecting name fetches the
+    // stored fields copied into that shared field.
     OperationContext custom =
         operationContext.withSearchFlags(
             flags ->
@@ -1193,7 +1428,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                             List.of("name", "notSearched", "fieldPaths", "fieldDescriptions"))));
     assertEquals(
         Set.of(getDatasetSearchSource(custom, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name"));
+        Set.of("urn", "name", "id", "title"));
     // V2 highlight fields name subfields, which V3 reads from their root field
     OperationContext v2Subfields =
         operationContext.withSearchFlags(
@@ -1207,7 +1442,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(
         Set.of(
             getDatasetSearchSource(v2Subfields, V3_READ_CONFIG, "test").fetchSource().includes()),
-        Set.of("urn", "name", "description"));
+        Set.of("urn", "name", "id", "title", "description"));
 
     CustomSearchConfiguration highlightConfig =
         CustomSearchConfiguration.builder()
@@ -1230,8 +1465,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     FieldConfiguration.builder()
                         .highlightFields(HighlightFields.builder().enabled(false).build())
                         .build(),
-                    // As the bundled excludeColumnHighlight configuration writes it, which
-                    // changes nothing on V3, where the columns' arrays are never fetched
+                    // Remove against the empty default stays empty, so column arrays are not
+                    // fetched
                     "noColumns",
                     FieldConfiguration.builder()
                         .highlightFields(
@@ -1243,9 +1478,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     for (Map.Entry<String, Set<String>> expected :
         Map.of(
                 "names",
-                Set.of("urn", "name"),
+                Set.of("urn", "name", "id", "title"),
                 "subfields",
-                Set.of("urn", "name"),
+                Set.of("urn", "name", "id", "title"),
                 "off",
                 Set.of("urn"))
             .entrySet()) {
@@ -1273,8 +1508,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             getDatasetSearchSource(noColumns, V3_READ_CONFIG, highlightConfig, "test")
                 .fetchSource()
                 .includes());
-    assertTrue(Collections.disjoint(fetched, COLUMN_ARRAYS), fetched.toString());
-    assertTrue(fetched.containsAll(Set.of("urn", "name", "description")), fetched.toString());
+    assertEquals(fetched, Set.of("urn"), fetched.toString());
 
     // A query of only stop words can match no field, so nothing is fetched for it
     OperationContext highlighting =
@@ -1287,8 +1521,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
-   * Of other, V3 matched fields fetch only what names or tags an entity: a document's text,
-   * semantic text and custom properties are searched but never fetched, even when highlighting
+   * The default highlight set fetches no field values. Opting into {@code name} fetches it. A
+   * document's text, semantic text, and custom properties stay unfetched even when highlighting
    * names them.
    */
   @Test
@@ -1311,7 +1545,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     String query = source.query().toString();
     assertTrue(query.contains("other.text"), query);
     Set<String> fetched = Set.of(source.fetchSource().includes());
-    assertTrue(fetched.containsAll(Set.of("urn", "title")), fetched.toString());
+    assertEquals(fetched, Set.of("urn"), fetched.toString());
     assertTrue(Collections.disjoint(fetched, freeText), fetched.toString());
 
     OperationContext naming =
@@ -1321,15 +1555,17 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     .setFulltext(true)
                     .setSkipHighlighting(false)
                     .setCustomHighlightingFields(
-                        new StringArray(List.of("title", "text", "customProperties"))));
-    assertEquals(
+                        new StringArray(List.of("name", "text", "customProperties"))));
+    Set<String> highlighted =
         Set.of(
             handler
                 .getSearchRequest(naming, "runbook", null, null, 0, 10, List.of())
                 .source()
                 .fetchSource()
-                .includes()),
-        Set.of("urn", "title"));
+                .includes());
+    assertTrue(highlighted.contains("urn"), highlighted.toString());
+    assertTrue(highlighted.contains("name"), highlighted.toString());
+    assertTrue(Collections.disjoint(highlighted, freeText), highlighted.toString());
   }
 
   /**
@@ -1379,7 +1615,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     when(hits.getHits()).thenReturn(new SearchHit[] {hit});
     OperationContext highlighting =
         operationContext.withSearchFlags(
-            flags -> flags.setFulltext(true).setSkipHighlighting(false));
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSkipHighlighting(false)
+                    .setCustomHighlightingFields(new StringArray(List.of("name"))));
 
     MatchedFieldArray matched =
         handler
@@ -1572,7 +1812,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .put(
                 EntityType.CORP_USER,
                 Stream.concat(
-                        COMMON.stream(), Stream.of("skills", "teams", "ldap", "fullName", "email"))
+                        COMMON.stream(),
+                        Stream.of(
+                            "skills", "teams", "ldap", "fullName", "email", "slackDisplayName"))
                     .collect(Collectors.toSet()))
             .put(
                 EntityType.DOMAIN,

@@ -13,6 +13,9 @@ record SchemaFieldKey {
   * Parent associated with the schema field
   */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "URN",
   }
   parent: Urn

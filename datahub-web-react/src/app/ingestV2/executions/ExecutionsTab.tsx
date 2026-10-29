@@ -15,9 +15,9 @@ import useRollbackExecution from '@app/ingestV2/executions/hooks/useRollbackExec
 import { ExecutionRequestRecord } from '@app/ingestV2/executions/types';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
 import usePagination from '@app/sharedV2/pagination/usePagination';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 
 import { useListIngestionExecutionRequestsQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequest } from '@types';

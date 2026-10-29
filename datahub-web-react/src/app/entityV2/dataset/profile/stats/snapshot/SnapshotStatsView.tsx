@@ -4,7 +4,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import { Highlight } from '@app/analyticsDashboard/components/Highlight';
+import { Highlight } from '@app/analyticsDashboardV2/components/Highlight';
 import StatsSection from '@app/entityV2/dataset/profile/stats/StatsSection';
 
 import { DatasetProfile } from '@types';
