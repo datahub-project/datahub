@@ -5,6 +5,7 @@ import pytest
 
 from datahub.ingestion.source.common.presto_view_decoder import (
     decode_presto_view,
+    get_presto_view_columns,
     is_presto_view,
     trino_type_to_hive_type,
 )
@@ -62,3 +63,29 @@ def test_decode_presto_view_raises_when_payload_not_object() -> None:
 )
 def test_trino_type_to_hive_type(trino_type: str, hive_type: str) -> None:
     assert trino_type_to_hive_type(trino_type) == hive_type
+
+
+def test_get_presto_view_columns_returns_validated_columns() -> None:
+    definition = decode_presto_view(
+        _presto_envelope(
+            {"columns": [{"name": "id", "type": "bigint", "comment": "ignored"}]}
+        )
+    )
+    assert get_presto_view_columns(definition) == [{"name": "id", "type": "bigint"}]
+
+
+@pytest.mark.parametrize(
+    "columns",
+    [
+        None,
+        [],
+        5,
+        [{"name": "id"}],
+        [{"name": "", "type": "bigint"}],
+        [{"name": "id", "type": "bigint"}, "not-a-column"],
+    ],
+)
+def test_get_presto_view_columns_rejects_malformed_columns(columns: object) -> None:
+    payload = {} if columns is None else {"columns": columns}
+    definition = decode_presto_view(_presto_envelope(payload))
+    assert get_presto_view_columns(definition) is None

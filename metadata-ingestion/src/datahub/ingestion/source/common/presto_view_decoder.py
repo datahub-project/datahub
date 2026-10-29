@@ -13,7 +13,7 @@ the decode logic lives here to avoid duplication.
 import base64
 import json
 import re
-from typing import Any, Dict, List, TypedDict, cast
+from typing import Any, Dict, List, Optional, TypedDict, cast
 
 # Markers wrapping the base64-encoded payload of a Presto/Athena view.
 PRESTO_VIEW_PREFIX = "/* Presto View: "
@@ -47,7 +47,16 @@ class PrestoViewDefinition(TypedDict, total=False):
     """
 
     originalSql: str
+    # Raw, unvalidated JSON from the catalog; use get_presto_view_columns for
+    # validated access.
     columns: List[Dict[str, Any]]
+
+
+class PrestoViewColumn(TypedDict):
+    """A validated output column of a Presto/Athena view."""
+
+    name: str
+    type: str  # Trino type string, e.g. "timestamp(3) with time zone"
 
 
 def is_presto_view(view_text: str) -> bool:
@@ -71,6 +80,36 @@ def decode_presto_view(view_text: str) -> PrestoViewDefinition:
     if not isinstance(payload, dict):
         raise ValueError("Presto view payload is not a JSON object")
     return cast(PrestoViewDefinition, payload)
+
+
+def get_presto_view_columns(
+    definition: PrestoViewDefinition,
+) -> Optional[List[PrestoViewColumn]]:
+    """Return the view's output columns, or ``None`` when ``columns`` is missing,
+    empty, not a list, or has any entry without a non-empty string ``name`` and
+    ``type``.
+
+    All-or-nothing on purpose: a partial column list would present an incomplete
+    schema as if it were the whole view.
+    """
+    raw_columns = definition.get("columns")
+    if not isinstance(raw_columns, list) or not raw_columns:
+        return None
+    columns: List[PrestoViewColumn] = []
+    for raw_column in raw_columns:
+        if not isinstance(raw_column, dict):
+            return None
+        name = raw_column.get("name")
+        column_type = raw_column.get("type")
+        if not (
+            isinstance(name, str)
+            and name
+            and isinstance(column_type, str)
+            and column_type
+        ):
+            return None
+        columns.append(PrestoViewColumn(name=name, type=column_type))
+    return columns
 
 
 def _split_top_level(type_args: str) -> List[str]:

@@ -4407,11 +4407,23 @@ def _schema_column_names(workunits: List[Any]) -> List[str]:
     return names
 
 
-def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns() -> (
-    None
-):
+@pytest.mark.parametrize(
+    "view_original_text",
+    [
+        "/* Presto View: not!valid!base64 */",
+        # A non-list `columns` must not raise out of the table loop and abort the run.
+        "/* Presto View: "
+        + base64.b64encode(
+            json.dumps({"originalSql": "SELECT 1", "columns": 5}).encode()
+        ).decode()
+        + " */",
+    ],
+)
+def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns(
+    view_original_text: str,
+) -> None:
     source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
-    view = _placeholder_view("broken_view", "/* Presto View: not!valid!base64 */")
+    view = _placeholder_view("broken_view", view_original_text)
 
     assert _schema_column_names(list(source._gen_table_wu(view))) == ["dummy"]
     assert source.report.num_view_placeholder_schema_unresolved == 1

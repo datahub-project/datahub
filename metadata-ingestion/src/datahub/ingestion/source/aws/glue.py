@@ -103,7 +103,9 @@ from datahub.ingestion.source.aws.tag_entities import (
     LakeFormationTagPlatformResourceId,
 )
 from datahub.ingestion.source.common.presto_view_decoder import (
+    PrestoViewColumn,
     decode_presto_view,
+    get_presto_view_columns,
     is_presto_view,
     trino_type_to_hive_type,
 )
@@ -3130,23 +3132,16 @@ class GlueSource(StatefulIngestionSourceBase):
         ):
             return None
 
-        view_columns: Optional[List[Dict[str, Any]]] = None
+        view_columns: Optional[List[PrestoViewColumn]] = None
         view_text = table.get("ViewOriginalText")
         if isinstance(view_text, str) and is_presto_view(view_text):
             try:
-                view_columns = decode_presto_view(view_text).get("columns")
+                view_columns = get_presto_view_columns(decode_presto_view(view_text))
             except Exception:
                 # _get_view_definition reports the decode failure for this view.
                 view_columns = None
 
-        if not view_columns or not all(
-            isinstance(column, dict)
-            and isinstance(column.get("name"), str)
-            and column["name"]
-            and isinstance(column.get("type"), str)
-            and column["type"]
-            for column in view_columns
-        ):
+        if view_columns is None:
             self.report.num_view_placeholder_schema_unresolved += 1
             self.report.warning(
                 title="View schema is a placeholder column",
