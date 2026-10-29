@@ -142,7 +142,7 @@ public final class MatchedFields {
   /**
    * The same matches as {@link #find}, with the subfield, match kind, and query word. Shared {@code
    * copy_to} fields are not stored, so the subfield is inferred: an exact value or a prefix is the
-   * keyword subfield, and a stem or word match is the stemmed subfield.
+   * keyword root, and a stem or word match is the stemmed subfield.
    */
   @Nonnull
   public List<MatchEvidence> explain(
@@ -170,9 +170,7 @@ public final class MatchedFields {
         || field.endsWith(V3SearchFields.TEXT_SUFFIX)) {
       return field;
     }
-    return MatchEvidence.WORD.equals(mode)
-        ? field + V3SearchFields.STEMMED_SUFFIX
-        : field + ESUtils.KEYWORD_SUFFIX;
+    return MatchEvidence.WORD.equals(mode) ? field + V3SearchFields.STEMMED_SUFFIX : field;
   }
 
   /** The query token whose stem or prefix matched, or the whole query when none is found. */

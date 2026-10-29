@@ -10,6 +10,8 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
+import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
 import com.datahub.context.OperationFingerprint;
@@ -19,6 +21,7 @@ import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
@@ -35,6 +38,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.StructuredPropertyUrnIdentity;
@@ -83,6 +87,7 @@ import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
+import org.opensearch.index.query.WildcardQueryBuilder;
 import org.opensearch.search.builder.PointInTimeBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.slice.SliceBuilder;
@@ -122,6 +127,35 @@ public class ESUtils {
   public static final String HEADER_VALUE_DELIMITER = "|";
   public static final String REMOVED = "removed";
   public static final String LIFECYCLE_STAGE = "lifecycleStage";
+  public static final String SIBLINGS = "siblings";
+  public static final String HAS_SIBLINGS = "hasSiblings";
+  public static final String SIBLINGS_PRIMARY = "siblingsPrimary";
+  private static final String DATASET_URN_PREFIX = "urn:li:" + DATASET_ENTITY_NAME + ":";
+
+  /**
+   * Filter fields that every member of a sibling group matches alike, so non-primary siblings can
+   * still be hidden. Any other filter field turns hiding off.
+   *
+   * <p>{@code state}, {@code lifecycleStage} and {@code showInGlobalContext} are the document
+   * visibility defaults that GraphQL search adds to every request that includes documents (see
+   * DefaultEntityFiltersUtil in datahub-graphql-core). They are stripped from aggregations, so they
+   * never come from a user-selected facet, and datasets pass them alike.
+   */
+  private static final Set<String> SIBLING_HIDING_NEUTRAL_FIELDS =
+      Set.of(
+          INDEX_VIRTUAL_FIELD, "entity", REMOVED, "state", LIFECYCLE_STAGE, "showInGlobalContext");
+
+  /** A filter on any of these is a question about the sibling group itself; it is not narrowed. */
+  private static final Set<String> SIBLING_FIELDS =
+      Set.of(SIBLINGS, HAS_SIBLINGS, SIBLINGS_PRIMARY);
+
+  /** Presence checks select even when negated, so they never keep sibling hiding on. */
+  private static final Set<Condition> SIBLING_PRESENCE_CONDITIONS =
+      Set.of(Condition.IS_NULL, Condition.EXISTS);
+
+  private static final String ENTITY_SUB_TYPE_FILTER_FIELD =
+      INDEX_VIRTUAL_FIELD + AGGREGATION_SEPARATOR_CHAR + "typeNames";
+
   public static final String ALIAS_FIELD_TYPE = "alias";
   public static final String TYPE = "type";
   public static final String KEYWORD = "keyword";
@@ -431,9 +465,26 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    return buildFilterMap(
+        filter, isTimeseries, searchableFieldTypes, opContext, queryFilterRewriteChain, null);
+  }
+
+  @Nonnull
+  public static Map<String, Object> buildFilterMap(
+      @Nullable Filter filter,
+      boolean isTimeseries,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nullable SearchFieldResolver v3FieldResolver) {
     QueryBuilder qb =
         ESUtils.buildFilterQuery(
-            filter, isTimeseries, searchableFieldTypes, opContext, queryFilterRewriteChain);
+            filter,
+            isTimeseries,
+            searchableFieldTypes,
+            opContext,
+            queryFilterRewriteChain,
+            v3FieldResolver);
 
     // Optimize and preserve filtering semantics (considerScore=false for filters)
     qb = ESUtils.queryOptimize(qb, false);
@@ -666,6 +717,14 @@ public class ESUtils {
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nullable SearchFieldResolver v3FieldResolver) {
+    if (v3FieldResolver != null
+        && !criterion.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      Optional<String> unlabeledSource =
+          v3FieldResolver.unlabeledHasValuesSource(criterion.getField());
+      if (unlabeledSource.isPresent()) {
+        return unlabeledHasValuesQuery(v3FieldResolver, criterion, unlabeledSource.get());
+      }
+    }
     final boolean resolvedForV3 =
         v3FieldResolver != null
             && !criterion.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
@@ -680,7 +739,10 @@ public class ESUtils {
       }
       effectiveCriterion =
           buildCriterion(
-              v3FieldResolver.exactPath(criterion.getField(), Intent.CONTAIN),
+              lowercaseKeywordPath(
+                  v3FieldResolver,
+                  criterion.getField(),
+                  v3FieldResolver.exactPath(criterion.getField(), Intent.CONTAIN)),
               criterion.getCondition(),
               criterion.isNegated(),
               criterion.hasValues() ? criterion.getValues() : null);
@@ -693,7 +755,13 @@ public class ESUtils {
           final String lowercase = v3FieldResolver.lowercaseFullUrnPath(criterion.getField());
           if (!lowercase.isEmpty()) {
             path = lowercase;
+          } else {
+            path = lowercaseKeywordPath(v3FieldResolver, criterion.getField(), path);
           }
+        }
+        if (criterion.getCondition() == Condition.START_WITH
+            || criterion.getCondition() == Condition.END_WITH) {
+          path = lowercaseKeywordPath(v3FieldResolver, criterion.getField(), path);
         }
         effectiveCriterion =
             buildCriterion(
@@ -743,7 +811,8 @@ public class ESUtils {
           isTimeseries,
           searchableFieldTypes,
           opContext,
-          queryFilterRewriteChain);
+          queryFilterRewriteChain,
+          v3FieldResolver != null);
     }
 
     if (resolvedForV3 && isSharedHasValuesFalse(v3FieldResolver, criterion)) {
@@ -787,6 +856,70 @@ public class ESUtils {
         criterion.getCondition(),
         criterion.getField());
     return null;
+  }
+
+  /**
+   * A {@code has*} name with no {@code searchLabel} is not mapped. True and {@code EXISTS} match
+   * documents where the source field exists. False and {@code IS_NULL} match documents where it is
+   * missing. A contains, range, or any other condition is not a boolean check and is left out.
+   */
+  @Nullable
+  private static QueryBuilder unlabeledHasValuesQuery(
+      @Nonnull SearchFieldResolver resolver,
+      @Nonnull Criterion criterion,
+      @Nonnull String sourceField) {
+    Optional<Boolean> missing = unlabeledHasValuesMissing(criterion);
+    if (missing.isEmpty()) {
+      log.debug(
+          "Omitting Search V3 {} filter on {}: a removed has-field only answers presence",
+          criterion.getCondition(),
+          criterion.getField());
+      return null;
+    }
+    String path = resolver.exactPath(sourceField, Intent.FILTER);
+    boolean isMissing = missing.get();
+    if (criterion.isNegated()) {
+      isMissing = !isMissing;
+    }
+    QueryBuilder exists = QueryBuilders.existsQuery(path);
+    if (isMissing) {
+      return QueryBuilders.boolQuery().mustNot(exists).queryName(criterion.getField());
+    }
+    return QueryBuilders.boolQuery().must(exists).queryName(criterion.getField());
+  }
+
+  /** Empty when the condition is not a true/false presence check. */
+  private static Optional<Boolean> unlabeledHasValuesMissing(@Nonnull Criterion criterion) {
+    Condition condition = criterion.getCondition();
+    if (condition == Condition.IS_NULL) {
+      return Optional.of(true);
+    }
+    if (condition == Condition.EXISTS) {
+      return Optional.of(false);
+    }
+    if ((condition == Condition.EQUAL || condition == Condition.IEQUAL)
+        && criterion.hasValues()
+        && criterion.getValues().size() == 1) {
+      String value = criterion.getValues().get(0);
+      if ("true".equalsIgnoreCase(value)) {
+        return Optional.of(false);
+      }
+      if ("false".equalsIgnoreCase(value)) {
+        return Optional.of(true);
+      }
+    }
+    return Optional.empty();
+  }
+
+  /** Opted-in keyword. Contains, prefix, and suffix read the folded subfield. */
+  @Nonnull
+  private static String lowercaseKeywordPath(
+      @Nonnull SearchFieldResolver resolver, @Nonnull String requestedField, @Nonnull String path) {
+    if (resolver.hasLowercaseSubfield(requestedField)
+        && !path.endsWith("." + V3SearchFields.LOWERCASE)) {
+      return path + "." + V3SearchFields.LOWERCASE;
+    }
+    return path;
   }
 
   @Nonnull
@@ -930,9 +1063,15 @@ public class ESUtils {
     } else {
       sortCriteria = sortCriteria != null ? sortCriteria : Collections.emptyList();
       for (SortCriterion sortCriterion : sortCriteria) {
+        final String requestedField =
+            v3FieldResolver == null
+                ? sortCriterion.getField()
+                : v3FieldResolver
+                    .unlabeledHasValuesSource(sortCriterion.getField())
+                    .orElse(sortCriterion.getField());
         // urn is a synthetic keyword root on every entity index, not an annotated entity field.
         Optional<SearchableAnnotation.FieldType> fieldTypeForDefault =
-            DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD.equals(sortCriterion.getField())
+            DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD.equals(requestedField)
                 ? Optional.of(SearchableAnnotation.FieldType.KEYWORD)
                 : Optional.empty();
         for (EntitySpec entitySpec : entitySpecs) {
@@ -942,8 +1081,8 @@ public class ESUtils {
           List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
           for (SearchableFieldSpec fieldSpec : fieldSpecs) {
             SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation();
-            if (annotation.getFieldName().equals(sortCriterion.getField())
-                || annotation.getFieldNameAliases().contains(sortCriterion.getField())) {
+            if (annotation.getFieldName().equals(requestedField)
+                || annotation.getFieldNameAliases().contains(requestedField)) {
               fieldTypeForDefault = Optional.of(fieldSpec.getSearchableAnnotation().getFieldType());
               break;
             }
@@ -954,10 +1093,10 @@ public class ESUtils {
         }
         if (fieldTypeForDefault.isEmpty()
             && !entitySpecs.isEmpty()
-            && !StructuredPropertyUtils.isStructuredPropertyField(sortCriterion.getField())) {
+            && !StructuredPropertyUtils.isStructuredPropertyField(requestedField)) {
           log.warn(
               "Sort criterion field "
-                  + sortCriterion.getField()
+                  + requestedField
                   + " was not found in any entity spec to be searched");
         }
         final SortOrder esSortOrder =
@@ -966,9 +1105,7 @@ public class ESUtils {
                 : SortOrder.DESC;
         FieldSortBuilder sortBuilder =
             new FieldSortBuilder(
-                    v3FieldResolver != null && v3FieldResolver.contains(sortCriterion.getField())
-                        ? v3FieldResolver.exactPath(sortCriterion.getField(), Intent.SORT)
-                        : sortCriterion.getField())
+                    sortField(opContext, requestedField, aspectRetriever, v3FieldResolver))
                 .order(esSortOrder);
         if (fieldTypeForDefault.isPresent()) {
           String esFieldtype = getElasticTypeForFieldType(fieldTypeForDefault.get());
@@ -998,6 +1135,27 @@ public class ESUtils {
       searchSourceBuilder.sort(
           new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
     }
+  }
+
+  /**
+   * Field a sort reads. An entity field on Search V3 goes through {@link SearchFieldResolver}. A
+   * structured property is not an entity field, so it uses {@link #toV3KeywordField}, the same
+   * resolver filters and facets use: the keyword root the index maps, with a caller-supplied {@code
+   * .keyword} removed. V2 keeps the field the caller named.
+   */
+  @Nonnull
+  private static String sortField(
+      @Nullable OperationFingerprint opContext,
+      @Nonnull String field,
+      @Nullable AspectRetriever aspectRetriever,
+      @Nullable SearchFieldResolver v3FieldResolver) {
+    if (v3FieldResolver != null && v3FieldResolver.contains(field)) {
+      return v3FieldResolver.exactPath(field, Intent.SORT);
+    }
+    if (v3FieldResolver != null && StructuredPropertyUtils.isStructuredPropertyField(field)) {
+      return toV3KeywordField(opContext, field, aspectRetriever);
+    }
+    return field;
   }
 
   /**
@@ -1160,6 +1318,31 @@ public class ESUtils {
         : filterField + ESUtils.KEYWORD_SUFFIX;
   }
 
+  /**
+   * {@link #toKeywordField} for a Search V3 index. A V3 keyword root is the exact field, so this
+   * never appends {@code .keyword} and drops one the caller wrote for V2.
+   */
+  @Nonnull
+  public static String toV3KeywordField(
+      @Nullable final Object opContext,
+      @Nonnull final String filterField,
+      @Nullable final AspectRetriever aspectRetriever) {
+    return V3SearchFields.rootPath(toKeywordField(opContext, filterField, true, aspectRetriever));
+  }
+
+  /** {@link #toV3KeywordField} on a V3 index, otherwise {@link #toKeywordField}. */
+  @Nonnull
+  public static String toKeywordField(
+      @Nullable final Object opContext,
+      @Nonnull final String filterField,
+      final boolean skipKeywordSuffix,
+      @Nullable final AspectRetriever aspectRetriever,
+      final boolean v3Index) {
+    return v3Index
+        ? toV3KeywordField(opContext, filterField, aspectRetriever)
+        : toKeywordField(opContext, filterField, skipKeywordSuffix, aspectRetriever);
+  }
+
   public static RequestOptions buildReindexTaskRequestOptions(
       String version, String indexName, String tempIndexName) {
     return RequestOptions.DEFAULT.toBuilder()
@@ -1211,14 +1394,15 @@ public class ESUtils {
       final boolean isTimeseries,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
-      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      boolean v3Index) {
     final BoolQueryBuilder orQueryBuilder = new BoolQueryBuilder().minimumShouldMatch(1);
     for (String field : fields) {
       orQueryBuilder.should(
           getQueryBuilderFromCriterionForSingleField(
                   buildCriterion(
                       toKeywordField(
-                          opContext, field, isTimeseries, opContext.getAspectRetriever()),
+                          opContext, field, isTimeseries, opContext.getAspectRetriever(), v3Index),
                       criterion.getCondition(),
                       criterion.isNegated(),
                       criterion.getValues()),
@@ -1228,7 +1412,7 @@ public class ESUtils {
                   opContext,
                   queryFilterRewriteChain,
                   false,
-                  false)
+                  v3Index)
               .queryName(field));
     }
     return orQueryBuilder;
@@ -1355,7 +1539,8 @@ public class ESUtils {
                 isTimeseries,
                 opContext,
                 aspectRetriever,
-                resolvedForV3)
+                resolvedForV3,
+                v3Index)
             .queryName(queryName != null ? queryName : fieldName);
       } else if (condition == Condition.CONTAIN) {
         return buildContainsConditionFromCriterion(
@@ -1365,7 +1550,8 @@ public class ESUtils {
             isTimeseries,
             opContext,
             aspectRetriever,
-            resolvedForV3);
+            resolvedForV3,
+            v3Index);
       } else if (condition == Condition.START_WITH) {
         return buildStartsWithConditionFromCriterion(
             fieldName,
@@ -1374,7 +1560,8 @@ public class ESUtils {
             isTimeseries,
             opContext,
             aspectRetriever,
-            resolvedForV3);
+            resolvedForV3,
+            v3Index);
       } else if (condition == Condition.END_WITH) {
         return buildEndsWithConditionFromCriterion(
             fieldName,
@@ -1383,7 +1570,8 @@ public class ESUtils {
             isTimeseries,
             opContext,
             aspectRetriever,
-            resolvedForV3);
+            resolvedForV3,
+            v3Index);
       } else if (Set.of(ANCESTORS_INCL, DESCENDANTS_INCL, RELATED_INCL).contains(condition)) {
         enableCaseInsensitiveSearch = isCaseInsensitiveSearchEnabled(condition);
         return QueryFilterRewriterContext.builder()
@@ -1417,21 +1605,44 @@ public class ESUtils {
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
       String wildcardPattern,
-      boolean resolvedForV3) {
+      boolean resolvedForV3,
+      boolean v3Index) {
     BoolQueryBuilder boolQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    String name = queryName != null ? queryName : fieldName;
 
     for (String value : criterion.getValues()) {
-      boolQuery.should(
-          QueryBuilders.wildcardQuery(
-                  resolvedForV3
-                      ? fieldName
-                      : toKeywordField(
-                          opContext, criterion.getField(), isTimeseries, aspectRetriever),
-                  String.format(wildcardPattern, ESUtils.escapeReservedCharacters(value.trim())))
-              .queryName(queryName != null ? queryName : fieldName)
-              .caseInsensitive(true));
+      String field =
+          resolvedForV3
+              ? fieldName
+              : toKeywordField(
+                  opContext, criterion.getField(), isTimeseries, aspectRetriever, v3Index);
+      String raw = value.trim();
+      // v3.lowercase stores the keyword_normalizer token. A wildcard does not run it.
+      // case_insensitive wildcards fail the shard on OpenSearch 3, so a keyword without that
+      // subfield matches the written pattern and its lowercase form.
+      if (field.endsWith("." + V3SearchFields.LOWERCASE)) {
+        raw = keywordNormalize(raw);
+      }
+      String pattern = String.format(wildcardPattern, ESUtils.escapeReservedCharacters(raw));
+      if (v3Index) {
+        boolQuery.should(wildcard(field, pattern, name));
+        if (!field.endsWith("." + V3SearchFields.LOWERCASE)) {
+          String folded = pattern.toLowerCase(Locale.ROOT);
+          if (!folded.equals(pattern)) {
+            boolQuery.should(wildcard(field, folded, name));
+          }
+        }
+      } else {
+        boolQuery.should(wildcard(field, pattern, name).caseInsensitive(true));
+      }
     }
     return boolQuery;
+  }
+
+  @Nonnull
+  private static WildcardQueryBuilder wildcard(
+      @Nonnull String field, @Nonnull String pattern, @Nonnull String name) {
+    return QueryBuilders.wildcardQuery(field, pattern).queryName(name);
   }
 
   /**
@@ -1459,7 +1670,8 @@ public class ESUtils {
       final boolean isTimeseries,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
-      boolean resolvedForV3) {
+      boolean resolvedForV3,
+      boolean v3Index) {
     return buildWildcardQueryWithMultipleValues(
         fieldName,
         criterion,
@@ -1468,7 +1680,8 @@ public class ESUtils {
         opContext,
         aspectRetriever,
         "*%s*",
-        resolvedForV3);
+        resolvedForV3,
+        v3Index);
   }
 
   private static QueryBuilder buildStartsWithConditionFromCriterion(
@@ -1478,7 +1691,8 @@ public class ESUtils {
       final boolean isTimeseries,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
-      boolean resolvedForV3) {
+      boolean resolvedForV3,
+      boolean v3Index) {
     return buildWildcardQueryWithMultipleValues(
         fieldName,
         criterion,
@@ -1487,7 +1701,8 @@ public class ESUtils {
         opContext,
         aspectRetriever,
         "%s*",
-        resolvedForV3);
+        resolvedForV3,
+        v3Index);
   }
 
   private static QueryBuilder buildEndsWithConditionFromCriterion(
@@ -1497,7 +1712,8 @@ public class ESUtils {
       final boolean isTimeseries,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
-      boolean resolvedForV3) {
+      boolean resolvedForV3,
+      boolean v3Index) {
     return buildWildcardQueryWithMultipleValues(
         fieldName,
         criterion,
@@ -1506,7 +1722,8 @@ public class ESUtils {
         opContext,
         aspectRetriever,
         "*%s",
-        resolvedForV3);
+        resolvedForV3,
+        v3Index);
   }
 
   private static QueryBuilder buildEqualsConditionFromCriterion(
@@ -1570,7 +1787,8 @@ public class ESUtils {
       String keywordField =
           resolvedForV3
               ? fieldName
-              : toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever);
+              : toKeywordField(
+                  opContext, criterion.getField(), isTimeseries, aspectRetriever, v3Index);
       if (v3Index
           && !resolvedForV3
           && isStructuredPropertyUrnKeyword(
@@ -1595,7 +1813,8 @@ public class ESUtils {
                                       opContext,
                                       criterion.getField(),
                                       isTimeseries,
-                                      aspectRetriever),
+                                      aspectRetriever,
+                                      v3Index),
                               value.trim())
                           .caseInsensitive(true)));
       if (!boolQuery.should().isEmpty()) {
@@ -1607,7 +1826,8 @@ public class ESUtils {
     return QueryBuilders.termsQuery(
             resolvedForV3
                 ? fieldName
-                : toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
+                : toKeywordField(
+                    opContext, criterion.getField(), isTimeseries, aspectRetriever, v3Index),
             criterion.getValues())
         .queryName(fieldName);
   }
@@ -1658,7 +1878,8 @@ public class ESUtils {
       boolean isTimeseries,
       @Nullable final Object opContext,
       AspectRetriever aspectRetriever,
-      boolean resolvedForV3) {
+      boolean resolvedForV3,
+      boolean v3Index) {
     Set<String> fieldTypes =
         getFieldTypes(searchableFieldTypes, fieldName, criterion, opContext, aspectRetriever);
 
@@ -1682,7 +1903,7 @@ public class ESUtils {
       documentFieldName =
           resolvedForV3
               ? fieldName
-              : toKeywordField(opContext, fieldName, isTimeseries, aspectRetriever);
+              : toKeywordField(opContext, fieldName, isTimeseries, aspectRetriever, v3Index);
     }
 
     // Set up QueryBuilder based on condition
@@ -1758,9 +1979,113 @@ public class ESUtils {
         filter,
         filterQuery,
         opContext.getSearchContext().getSearchFlags(),
-        hiddenLifecycleStageUrns);
+        hiddenLifecycleStageUrns,
+        entityIndexConfiguration);
     EntityFilter.applyEntityTypeFilter(filterQuery, entityNames, entityIndexConfiguration);
     return filterQuery;
+  }
+
+  /**
+   * Hides non-primary members of dataset sibling groups so a group surfaces as one result. A no-op
+   * unless {@link SearchConfiguration#isHideNonPrimarySiblings()} is on.
+   *
+   * <p>Hiding applies only when no filter criterion selects: every criterion is on entity type
+   * (without a sub-type), the soft-delete flag or the document visibility defaults that search adds
+   * to every request, or is negated. Any selecting criterion turns it off, because the sibling that
+   * matches it may be the hidden one. For example, {@code platform=snowflake} matches only the
+   * Snowflake table, while its dbt primary is a different platform, so hiding the table would
+   * return nothing. Sub-types differ between members too (dbt "Model" vs "Table"). A negated
+   * criterion ("tag is not deprecated") only removes documents, so it keeps hiding on. It can still
+   * drop a group: when it excludes the primary but not another member, that member is hidden too. A
+   * negated presence check counts as selecting: a negated IS_NULL means "has a value" and a negated
+   * EXISTS means "does not exist", and siblings often differ on which fields they have. Filters
+   * from a view are merged into the request filter and follow the same rule. A filter on a siblings
+   * field (the sibling list on an entity page, the "has siblings" facet) is a question about the
+   * group itself and is likewise left alone. Because the hiding clause also applies to
+   * aggregations, the "has siblings" facet counts only primary members, while selecting it lists
+   * every member.
+   *
+   * <p>Only documents that carry {@code siblingsPrimary=false} are hidden, so documents indexed
+   * before the field existed stay visible. Each document carries only its own flag, so two cases
+   * hide a whole group:
+   *
+   * <ul>
+   *   <li>No member of the group is marked primary.
+   *   <li>The primary member is soft-deleted or hard-deleted. Its siblings keep {@code
+   *       siblingsPrimary=false}, so they are hidden while the primary no longer appears either.
+   * </ul>
+   *
+   * Groups must have exactly one live primary member for this to be safe.
+   */
+  @Nonnull
+  public static BoolQueryBuilder filterNonPrimarySiblings(
+      @Nullable final Filter filter,
+      @Nonnull final BoolQueryBuilder filterQuery,
+      @Nullable final SearchConfiguration searchConfiguration) {
+    if (searchConfiguration == null || !searchConfiguration.isHideNonPrimarySiblings()) {
+      return filterQuery;
+    }
+    if (filter != null && !allCriteriaAreNeutral(filter)) {
+      return filterQuery;
+    }
+    filterQuery.mustNot(
+        QueryBuilders.boolQuery()
+            .filter(QueryBuilders.prefixQuery("urn", DATASET_URN_PREFIX))
+            .filter(QueryBuilders.termQuery(HAS_SIBLINGS, true))
+            .filter(QueryBuilders.termQuery(SIBLINGS_PRIMARY, false)));
+    return filterQuery;
+  }
+
+  private static boolean allCriteriaAreNeutral(@Nonnull final Filter filter) {
+    if (filter.getOr() != null) {
+      for (ConjunctiveCriterion or : filter.getOr()) {
+        for (Criterion criterion : or.getAnd()) {
+          if (!isNeutralForSiblingHiding(criterion)) {
+            return false;
+          }
+        }
+      }
+    }
+    if (filter.getCriteria() != null) {
+      for (Criterion criterion : filter.getCriteria()) {
+        if (!isNeutralForSiblingHiding(criterion)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * True when hiding non-primary siblings cannot leave a hidden member as the group's only match: a
+   * criterion every member matches alike, or one that only excludes documents.
+   */
+  private static boolean isNeutralForSiblingHiding(@Nonnull final Criterion criterion) {
+    String field = criterion.getField();
+    if (field.endsWith(KEYWORD_SUFFIX)) {
+      field = field.substring(0, field.length() - KEYWORD_SUFFIX.length());
+    }
+    if (SIBLING_FIELDS.contains(field)) {
+      return false;
+    }
+    if (SIBLING_HIDING_NEUTRAL_FIELDS.contains(field)) {
+      return true;
+    }
+    // A negated criterion only removes documents, so it cannot make a hidden member the only
+    // match. Negated presence checks are the exception: a negated IS_NULL means "has a value"
+    // and a negated EXISTS means "does not exist". Both select, and siblings often differ on
+    // presence (a dbt model has a description, its warehouse table does not).
+    if (criterion.isNegated() && !SIBLING_PRESENCE_CONDITIONS.contains(criterion.getCondition())) {
+      return true;
+    }
+    if (ENTITY_SUB_TYPE_FILTER_FIELD.equals(field)) {
+      // The composite facet carries "dataset" or "dataset<sep>Table"; only the bare entity type is
+      // shared by all members.
+      return criterion.getValues() == null
+          || criterion.getValues().stream()
+              .noneMatch(value -> value.contains(AGGREGATION_SEPARATOR_CHAR));
+    }
+    return false;
   }
 
   /**
@@ -1778,7 +2103,8 @@ public class ESUtils {
       @Nullable Filter filter,
       @Nonnull BoolQueryBuilder filterQuery,
       @Nonnull SearchFlags searchFlags,
-      @Nonnull Set<String> hiddenLifecycleStageUrns) {
+      @Nonnull Set<String> hiddenLifecycleStageUrns,
+      @Nullable EntityIndexConfiguration entityIndexConfiguration) {
     boolean removedInOrFilter = false;
     boolean lifecycleStageInOrFilter = false;
     if (filter != null) {
@@ -1803,8 +2129,14 @@ public class ESUtils {
     if (!Boolean.TRUE.equals(searchFlags.isIncludeHiddenLifecycleStages())
         && !lifecycleStageInOrFilter
         && !hiddenLifecycleStageUrns.isEmpty()) {
+      // V3 stores the raw stage URN on the keyword root. V2 stores it on .keyword and normalizes
+      // the root, so a term on the root would not match the URN.
+      String stageField =
+          EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration)
+              ? LIFECYCLE_STAGE
+              : LIFECYCLE_STAGE + KEYWORD_SUFFIX;
       for (String stageUrn : hiddenLifecycleStageUrns) {
-        filterQuery.mustNot(QueryBuilders.termQuery(LIFECYCLE_STAGE + KEYWORD_SUFFIX, stageUrn));
+        filterQuery.mustNot(QueryBuilders.termQuery(stageField, stageUrn));
       }
     }
   }
