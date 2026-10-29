@@ -230,6 +230,7 @@
                             "view_definition": " SELECT sensor_data.location,\n    count(DISTINCT sensor_data.device_id) AS device_count,\n    avg(sensor_data.temperature) AS avg_temperature,\n    avg(sensor_data.humidity) AS avg_humidity\n   FROM sensor_data\n  WHERE (sensor_data.\"time\" > (now() - '1 day'::interval))\n  GROUP BY sensor_data.location;"
                         },
                         "name": "location_summary",
+                        "qualifiedName": "tsdb.analytics.location_summary",
                         "tags": []
                     }
                 },
@@ -525,6 +526,7 @@
                             "retention_period": "30 days"
                         },
                         "name": "sensor_data",
+                        "qualifiedName": "tsdb.public.sensor_data",
                         "tags": []
                     }
                 },
@@ -744,6 +746,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "regular_metrics",
+                        "qualifiedName": "tsdb.public.regular_metrics",
                         "tags": []
                     }
                 },
@@ -909,6 +912,7 @@
                             "retention_period": "14 days"
                         },
                         "name": "system_metrics",
+                        "qualifiedName": "tsdb.public.system_metrics",
                         "tags": []
                     }
                 },
@@ -1137,6 +1141,7 @@
                             "view_definition": " SELECT time_bucket('01:00:00'::interval, sensor_data.\"time\") AS hour,\n    sensor_data.device_id,\n    sensor_data.location,\n    avg(sensor_data.temperature) AS avg_temperature,\n    max(sensor_data.temperature) AS max_temperature,\n    min(sensor_data.temperature) AS min_temperature,\n    avg(sensor_data.humidity) AS avg_humidity,\n    avg(sensor_data.pressure) AS avg_pressure,\n    count(*) AS sample_count\n   FROM sensor_data\n  GROUP BY (time_bucket('01:00:00'::interval, sensor_data.\"time\")), sensor_data.device_id, sensor_data.location;"
                         },
                         "name": "sensor_hourly_avg",
+                        "qualifiedName": "tsdb.public.sensor_hourly_avg",
                         "tags": []
                     }
                 },
@@ -1419,6 +1424,7 @@
                             "view_definition": " SELECT time_bucket('1 day'::interval, system_metrics.\"time\") AS day,\n    system_metrics.host,\n    avg(system_metrics.cpu_usage) AS avg_cpu,\n    max(system_metrics.cpu_usage) AS max_cpu,\n    avg(system_metrics.memory_usage) AS avg_memory,\n    sum(system_metrics.disk_io) AS total_disk_io,\n    sum(system_metrics.network_io) AS total_network_io\n   FROM system_metrics\n  GROUP BY (time_bucket('1 day'::interval, system_metrics.\"time\")), system_metrics.host;"
                         },
                         "name": "system_daily_stats",
+                        "qualifiedName": "tsdb.public.system_daily_stats",
                         "tags": []
                     }
                 },
@@ -1677,6 +1683,7 @@
                             "view_definition": " SELECT time_bucket('01:00:00'::interval, s.\"time\") AS hour,\n    s.location,\n    count(DISTINCT s.device_id) AS unique_devices,\n    avg(s.temperature) AS avg_temp,\n    percentile_cont((0.5)::double precision) WITHIN GROUP (ORDER BY s.humidity) AS median_humidity\n   FROM sensor_data s\n  GROUP BY (time_bucket('01:00:00'::interval, s.\"time\")), s.location;"
                         },
                         "name": "device_location_hourly",
+                        "qualifiedName": "tsdb.public.device_location_hourly",
                         "tags": []
                     }
                 },
@@ -1905,6 +1912,7 @@
                             "view_definition": " SELECT h.hour,\n    h.location,\n    h.avg_temperature,\n    h.avg_humidity,\n    h.sample_count,\n        CASE\n            WHEN (h.avg_temperature > (25)::double precision) THEN 'Hot'::text\n            WHEN (h.avg_temperature < (15)::double precision) THEN 'Cold'::text\n            ELSE 'Moderate'::text\n        END AS temp_category\n   FROM sensor_hourly_avg h\n  WHERE (h.hour > (now() - '24:00:00'::interval));"
                         },
                         "name": "hourly_summary",
+                        "qualifiedName": "tsdb.public.hourly_summary",
                         "tags": []
                     }
                 },

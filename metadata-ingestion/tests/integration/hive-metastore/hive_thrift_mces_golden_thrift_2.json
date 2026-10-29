@@ -227,6 +227,11 @@
             },
             {
                 "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive.db1.array_struct_test"
+            },
+            {
+                "op": "add",
                 "path": "/description",
                 "value": "This table has array of structs"
             },
@@ -466,6 +471,11 @@
             },
             {
                 "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive.db1.map_test"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/totalSize",
                 "value": "0"
             },
@@ -657,6 +667,11 @@
                 "op": "add",
                 "path": "/name",
                 "value": "nested_struct_test"
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive.db1.nested_struct_test"
             },
             {
                 "op": "add",
@@ -898,6 +913,11 @@
             },
             {
                 "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive.db1.pokes"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
                 "value": "1774630894"
             },
@@ -1078,6 +1098,11 @@
                 "op": "add",
                 "path": "/name",
                 "value": "struct_test"
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive.db1.struct_test"
             },
             {
                 "op": "add",
@@ -1299,6 +1324,11 @@
             },
             {
                 "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive.db1.struct_test_view_materialized"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/totalSize",
                 "value": "0"
             },
@@ -1502,6 +1532,11 @@
             },
             {
                 "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive.db1._test_table_underscore"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/totalSize",
                 "value": "0"
             },
@@ -1689,6 +1724,11 @@
                 "op": "add",
                 "path": "/name",
                 "value": "union_test"
+            },
+            {
+                "op": "add",
+                "path": "/qualifiedName",
+                "value": "hive.db1.union_test"
             },
             {
                 "op": "add",
@@ -2023,6 +2063,7 @@
                             "is_view": "True"
                         },
                         "name": "array_struct_test_view",
+                        "qualifiedName": "hive.db1.array_struct_test_view",
                         "tags": []
                     }
                 },

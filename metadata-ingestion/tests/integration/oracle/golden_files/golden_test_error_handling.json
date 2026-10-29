@@ -227,6 +227,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "test1",
+                        "qualifiedName": "schema1.test1",
                         "description": "Some mock comment here ...",
                         "tags": []
                     }
@@ -349,6 +350,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "test2",
+                        "qualifiedName": "schema1.test2",
                         "description": "Some mock comment here ...",
                         "tags": []
                     }
@@ -474,6 +476,7 @@
                             "view_definition": "CREATE VIEW mock_view AS\n                                  SELECT\n                                      mock_column1,\n                                      mock_column2\n                                  FROM mock_table"
                         },
                         "name": "view1",
+                        "qualifiedName": "schema1.view1",
                         "description": "Some mock comment here ...",
                         "tags": []
                     }
@@ -724,6 +727,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "test3",
+                        "qualifiedName": "schema2.test3",
                         "description": "Some mock comment here ...",
                         "tags": []
                     }
@@ -846,6 +850,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "test4",
+                        "qualifiedName": "schema2.test4",
                         "description": "Some mock comment here ...",
                         "tags": []
                     }
@@ -971,6 +976,7 @@
                             "view_definition": "CREATE VIEW mock_view AS\n                                  SELECT\n                                      mock_column1,\n                                      mock_column2\n                                  FROM mock_table"
                         },
                         "name": "view1",
+                        "qualifiedName": "schema2.view1",
                         "description": "Some mock comment here ...",
                         "tags": []
                     }

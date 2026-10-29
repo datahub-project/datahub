@@ -1319,6 +1319,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "Products",
+                        "qualifiedName": "demodata.dbo.products",
                         "tags": []
                     }
                 },
@@ -1561,6 +1562,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "age_dist",
+                        "qualifiedName": "demodata.foo.age_dist",
                         "tags": []
                     }
                 },
@@ -1693,6 +1695,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "EphemeralItems",
+                        "qualifiedName": "demodata.foo.ephemeralitems",
                         "tags": []
                     }
                 },
@@ -1825,6 +1828,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "FinalItems",
+                        "qualifiedName": "demodata.foo.finalitems",
                         "tags": []
                     }
                 },
@@ -1957,6 +1961,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "Items",
+                        "qualifiedName": "demodata.foo.items",
                         "description": "Description for table Items of schema Foo.",
                         "tags": []
                     }
@@ -2090,6 +2095,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "Persons",
+                        "qualifiedName": "demodata.foo.persons",
                         "tags": []
                     }
                 },
@@ -2247,6 +2253,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "SalesReason",
+                        "qualifiedName": "demodata.foo.salesreason",
                         "tags": []
                     }
                 },
@@ -2406,6 +2413,7 @@
                             "view_definition": "CREATE VIEW Foo.PersonsView AS SELECT * FROM Foo.Persons;\n"
                         },
                         "name": "PersonsView",
+                        "qualifiedName": "demodata.foo.personsview",
                         "tags": []
                     }
                 },

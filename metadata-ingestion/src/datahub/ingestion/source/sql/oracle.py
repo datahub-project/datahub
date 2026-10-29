@@ -2294,6 +2294,7 @@ class OracleSource(SQLAlchemySource):
             # Create dataset properties
             dataset_properties = models.DatasetPropertiesClass(
                 name=mview,
+                qualifiedName=dataset_name,
                 description=description,
                 customProperties=properties,
             )

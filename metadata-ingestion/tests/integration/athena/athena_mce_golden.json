@@ -248,6 +248,7 @@
                             "view_definition": "CREATE VIEW \"test_schema\".test_view_1 AS\nSELECT *\nFROM\n  \"test_schema\".\"test_table\""
                         },
                         "name": "test_table",
+                        "qualifiedName": "test_schema.test_table",
                         "description": "Test table description",
                         "tags": []
                     }
@@ -490,6 +491,7 @@
                             "view_definition": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT employee_id, employee_name, skills\nFROM\n  \"test_schema\".\"test_view_1\""
                         },
                         "name": "test_view_1",
+                        "qualifiedName": "test_schema.test_view_1",
                         "description": "Test table description",
                         "tags": []
                     }
@@ -750,6 +752,7 @@
                             "view_definition": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT employee_id, employee_name, skills\nFROM\n  \"test_schema\".\"test_view_1\""
                         },
                         "name": "test_view_2",
+                        "qualifiedName": "test_schema.test_view_2",
                         "description": "Test table description",
                         "tags": []
                     }

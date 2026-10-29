@@ -236,6 +236,7 @@
                             "transient_lastddltime": "1790866212"
                         },
                         "name": "array_struct_test",
+                        "qualifiedName": "hivedb.db1.array_struct_test",
                         "description": "This table has array of structs",
                         "tags": []
                     }
@@ -520,6 +521,7 @@
                             "transient_lastddltime": "1790866216"
                         },
                         "name": "classification_test",
+                        "qualifiedName": "hivedb.db1.classification_test",
                         "tags": []
                     }
                 },
@@ -816,6 +818,7 @@
                             "transient_lastddltime": "1790866214"
                         },
                         "name": "map_test",
+                        "qualifiedName": "hivedb.db1.map_test",
                         "tags": []
                     }
                 },
@@ -1047,6 +1050,7 @@
                             "transient_lastddltime": "1790866214"
                         },
                         "name": "nested_struct_test",
+                        "qualifiedName": "hivedb.db1.nested_struct_test",
                         "tags": []
                     }
                 },
@@ -1359,6 +1363,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "pokes",
+                        "qualifiedName": "hivedb.db1.pokes",
                         "tags": []
                     }
                 },
@@ -1609,6 +1614,7 @@
                             "transient_lastddltime": "1790866210"
                         },
                         "name": "struct_test",
+                        "qualifiedName": "hivedb.db1.struct_test",
                         "tags": []
                     }
                 },
@@ -1883,6 +1889,7 @@
                             "transient_lastddltime": "1790866214"
                         },
                         "name": "struct_test_view_materialized",
+                        "qualifiedName": "hivedb.db1.struct_test_view_materialized",
                         "tags": []
                     }
                 },
@@ -2160,6 +2167,7 @@
                             "transient_lastddltime": "1790866210"
                         },
                         "name": "_test_table_underscore",
+                        "qualifiedName": "hivedb.db1._test_table_underscore",
                         "tags": []
                     }
                 },
@@ -2387,6 +2395,7 @@
                             "transient_lastddltime": "1790866214"
                         },
                         "name": "union_test",
+                        "qualifiedName": "hivedb.db1.union_test",
                         "tags": []
                     }
                 },
@@ -2752,6 +2761,7 @@
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\""
                         },
                         "name": "array_struct_test_view",
+                        "qualifiedName": "hivedb.db1.array_struct_test_view",
                         "tags": []
                     }
                 },

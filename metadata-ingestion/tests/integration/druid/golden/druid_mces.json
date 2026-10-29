@@ -356,6 +356,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "segments",
+                        "qualifiedName": "segments",
                         "description": "",
                         "tags": []
                     }
@@ -714,6 +715,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "server_segments",
+                        "qualifiedName": "server_segments",
                         "description": "",
                         "tags": []
                     }
@@ -868,6 +870,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "servers",
+                        "qualifiedName": "servers",
                         "description": "",
                         "tags": []
                     }
@@ -1118,6 +1121,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "supervisors",
+                        "qualifiedName": "supervisors",
                         "description": "",
                         "tags": []
                     }
@@ -1344,6 +1348,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "tasks",
+                        "qualifiedName": "tasks",
                         "description": "",
                         "tags": []
                     }

@@ -227,6 +227,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "book",
+                        "qualifiedName": "postgresqldb.librarydb.book",
                         "tags": []
                     }
                 },
@@ -543,6 +544,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "issue_history",
+                        "qualifiedName": "postgresqldb.librarydb.issue_history",
                         "tags": []
                     }
                 },
@@ -809,6 +811,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "member",
+                        "qualifiedName": "postgresqldb.librarydb.member",
                         "tags": []
                     }
                 },
@@ -1029,6 +1032,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "book_in_circulation",
+                        "qualifiedName": "postgresqldb.librarydb.book_in_circulation",
                         "tags": []
                     }
                 },

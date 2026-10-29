@@ -117,6 +117,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "analytics_data",
+                        "qualifiedName": "dorisdb.analytics_data",
                         "tags": []
                     }
                 },
@@ -317,6 +318,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "customers",
+                        "qualifiedName": "dorisdb.customers",
                         "tags": []
                     }
                 },
@@ -481,6 +483,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "orders",
+                        "qualifiedName": "dorisdb.orders",
                         "tags": []
                     }
                 },
@@ -660,6 +663,7 @@
                             "view_definition": "CREATE VIEW `customer_orders` AS SELECT \n    `dorisdb`.`c`.`customer_id`,\n    `dorisdb`.`c`.`customer_name`,\n    COUNT(`dorisdb`.`o`.`order_id`) as `order_count`,\n    SUM(`dorisdb`.`o`.`total_amount`) as `total_spent`\nFROM `dorisdb`.`customers` `c`\nLEFT JOIN `dorisdb`.`orders` `o` ON `dorisdb`.`c`.`customer_id` = `dorisdb`.`o`.`customer_id`\nGROUP BY `dorisdb`.`c`.`customer_id`, `dorisdb`.`c`.`customer_name`;"
                         },
                         "name": "customer_orders",
+                        "qualifiedName": "dorisdb.customer_orders",
                         "tags": []
                     }
                 },

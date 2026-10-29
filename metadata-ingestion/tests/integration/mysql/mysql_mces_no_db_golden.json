@@ -117,6 +117,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "employees",
+                        "qualifiedName": "dataCharmer.employees",
                         "tags": []
                     }
                 },
@@ -293,6 +294,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "salaries",
+                        "qualifiedName": "dataCharmer.salaries",
                         "tags": []
                     }
                 },
@@ -551,6 +553,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "metadata_aspect",
+                        "qualifiedName": "metagalaxy.metadata_aspect",
                         "tags": []
                     }
                 },
@@ -757,6 +760,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "metadata_index",
+                        "qualifiedName": "metagalaxy.metadata_index",
                         "description": "This is a table comment",
                         "tags": []
                     }
@@ -968,6 +972,7 @@
                             "view_definition": "CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `metadata_index_view` AS select `metadata_index`.`id` AS `id`,`metadata_index`.`urn` AS `urn`,`metadata_index`.`path` AS `path`,`metadata_index`.`doubleVal` AS `doubleVal` from `metadata_index`"
                         },
                         "name": "metadata_index_view",
+                        "qualifiedName": "metagalaxy.metadata_index_view",
                         "tags": []
                     }
                 },
@@ -1244,6 +1249,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "customers",
+                        "qualifiedName": "northwind.customers",
                         "tags": []
                     }
                 },
@@ -1420,6 +1426,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "orders",
+                        "qualifiedName": "northwind.orders",
                         "tags": []
                     }
                 },
@@ -1830,6 +1837,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "myset",
+                        "qualifiedName": "test_cases.myset",
                         "tags": []
                     }
                 },
@@ -1946,6 +1954,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
                         "name": "test_empty",
+                        "qualifiedName": "test_cases.test_empty",
                         "tags": []
                     }
                 },

@@ -515,6 +515,7 @@ class HiveMetadataProcessor:
                     urn=dataset_snapshot.urn
                 )
                 patch_builder.set_display_name(key.table)
+                patch_builder.set_qualified_name(dataset_name)
 
                 if table_description:
                     patch_builder.set_description(description=table_description)
@@ -531,6 +532,7 @@ class HiveMetadataProcessor:
             else:
                 dataset_properties = DatasetPropertiesClass(
                     name=key.table,
+                    qualifiedName=dataset_name,
                     description=table_description,
                     customProperties=properties,
                 )
@@ -719,6 +721,7 @@ class HiveMetadataProcessor:
             properties: Dict[str, str] = {"is_view": "True"}
             dataset_properties = DatasetPropertiesClass(
                 name=dataset.dataset_name.split(".")[-1],
+                qualifiedName=dataset.dataset_name,
                 description=None,
                 customProperties=properties,
             )
