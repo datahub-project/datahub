@@ -20,3 +20,22 @@ node lh-ab.mjs --config config.json --no-auth --out results/report.json --md-out
 ```
 
 Runs alternate A, B, A, B. A batched all-A-then-all-B loop lets host drift land on whichever build ran second. The comment is a lab delta for this runner, not a fleet p75.
+
+## Eager bundle inventory
+
+`bundle-inventory.mjs` attributes eager `index.html` JS (same set as
+`datahub-web-react/scripts/eager-budget.mjs`) to packages via source maps.
+
+`frontend-build` runs `--regression` whenever the eager budget has soft or hard
+findings. That report diffs the fresh `dist/` against
+`datahub-web-react/eager-budget-inventory.json` and appends markdown to the job
+summary. The weekly `Bundle budget reassessment` workflow runs the same report
+on `master` and opens a PR only to ratchet baselines down.
+
+When you change `eager-budget.json`, refresh the inventory from the same build:
+
+```bash
+node e2e-test/perf/vitals/bundle-inventory.mjs \
+  --dist datahub-web-react/dist \
+  --write-baseline datahub-web-react/eager-budget-inventory.json
+```

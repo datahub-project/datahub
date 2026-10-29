@@ -1,0 +1,150 @@
+name: Bundle budget reassessment
+
+# Catalog chore: measure master eager + page gzip, explain package deltas, and
+# open a PR only when baselines should ratchet down. Soft overages are reported
+# (never auto-raised). Hard cliffs / composition failures fail the job.
+# See datahub-web-react/AGENTS.md (Bundle size budgets).
+
+on:
+  schedule:
+    # Mondays 15:00 UTC — weekly pulse; skip merging when nothing moved.
+    - cron: "0 15 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bundle-budget-reassessment
+  cancel-in-progress: true
+
+jobs:
+  reassess:
+    if: github.repository == 'datahub-project/datahub'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out master
+        uses: actions/checkout@v5
+        with:
+          ref: master
+          # Need push + PR create against the default branch.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
+
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      - name: Build frontend
+        run: |
+          ./gradlew :datahub-web-react:build --max-workers="$(nproc)" \
+            -x :datahub-web-react:yarnTest
+
+      - name: Measure budgets
+        id: budgets
+        run: |
+          set +e
+          node datahub-web-react/scripts/eager-budget.mjs
+          eager=$?
+          node datahub-web-react/scripts/page-bundle-size.mjs --dist datahub-web-react/dist --check
+          page=$?
+          node datahub-web-react/scripts/bundle-budget-chore.mjs > "$RUNNER_TEMP/chore.json"
+          chore=$?
+          cat "$RUNNER_TEMP/chore.json"
+          decision=$(node -e "const s=require(process.argv[1]); process.stdout.write(s.decision)" "$RUNNER_TEMP/chore.json")
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
+          # Prefer the chore classifier; still fail closed on hard budget exits.
+          if [ "$chore" != "0" ] || [ "$eager" != "0" ] || [ "$page" != "0" ]; then
+            exit 1
+          fi
+
+      - name: Eager package regression report
+        if: always()
+        run: |
+          node e2e-test/perf/vitals/bundle-inventory.mjs \
+            --dist datahub-web-react/dist \
+            --baseline datahub-web-react/eager-budget-inventory.json \
+            --regression \
+            --top 20 \
+            --md-out "$RUNNER_TEMP/eager-regression.md"
+          {
+            echo "### Bundle budget reassessment"
+            echo ""
+            echo "Decision: \`${{ steps.budgets.outputs.decision }}\`"
+            echo ""
+            cat "$RUNNER_TEMP/eager-regression.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ratchet baselines down
+        if: steps.budgets.outputs.decision == 'ratchet-down'
+        run: |
+          node datahub-web-react/scripts/bundle-budget-chore.mjs --apply
+          node e2e-test/perf/vitals/bundle-inventory.mjs \
+            --dist datahub-web-react/dist \
+            --write-baseline datahub-web-react/eager-budget-inventory.json
+
+      - name: Open ratchet PR
+        if: steps.budgets.outputs.decision == 'ratchet-down'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="chore/bundle-budget-ratchet-$(date -u +%Y%m%d)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add datahub-web-react/eager-budget.json \
+            datahub-web-react/page-budget.json \
+            datahub-web-react/eager-budget-inventory.json
+          if git diff --cached --quiet; then
+            echo "Nothing to commit after ratchet."
+            exit 0
+          fi
+          git commit -m "$(cat <<'EOF'
+          chore(ui): ratchet frontend bundle budgets down to measured master
+
+          Scheduled reassessment found eager/page gzip under the committed
+          baselines past slack. Lower the ceilings and refresh the inventory
+          snapshot so wins stay locked.
+          EOF
+          )"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --title "chore(ui): ratchet frontend bundle budgets down" \
+            --body "$(cat <<'EOF'
+          ## Summary
+
+          Weekly bundle-budget reassessment found measured master gzip under the
+          committed baselines past slack. This PR only lowers
+          `eager-budget.json` / `page-budget.json` and refreshes
+          `eager-budget-inventory.json`.
+
+          Soft overages are never auto-raised — those need an explicit Catalog
+          chore PR (see `datahub-web-react/AGENTS.md`).
+
+          ## Checklist
+
+          - [x] Contributing Guideline / PR title format
+          - [x] Tests N/A (baseline JSON only)
+          - [x] Docs N/A
+          EOF
+          )" \
+            --base master \
+            --head "$BRANCH"

@@ -62,11 +62,24 @@ baseline `page-budget.json`).
 | Shrink past slack                                                                                                | Soft warn to ratchet the committed baseline down        |
 | Forbidden eager vendor chunk, eager `@mui/icons-material`, Phosphor over ceiling, missing baseline / gated route | Hard fail                                               |
 
-**Do not** bump the JSON baselines in every feature PR that soft-warns. Catalog owns a
-recurring **bundle-budget chore** (biweekly/monthly): measure `master`, report the delta,
-then either trim/optimize, ratchet down, or raise the baseline with an explicit
-acknowledgment in that chore PR. Soft warnings on feature PRs are a signal for the next
-chore, not a merge blocker.
+**Do not** bump the JSON baselines in every feature PR that soft-warns. Soft/hard eager
+findings run `e2e-test/perf/vitals/bundle-inventory.mjs --regression` against
+`eager-budget-inventory.json` and append the package/area table to the job summary.
+
+Catalog owns a recurring **bundle-budget chore** (`.github/workflows/bundle-budget-reassessment.yml`,
+Mondays): measure `master`, publish the inventory diff, **auto-PR only when baselines
+should ratchet down**, and leave soft overages as a report (never auto-raise). Trim/optimize
+or raise the ceiling only in an explicit follow-up PR. Soft warnings on feature PRs are a
+signal for that chore, not a merge blocker.
+
+When you intentionally change `eager-budget.json`, refresh the inventory from the same
+`dist/`:
+
+```bash
+node e2e-test/perf/vitals/bundle-inventory.mjs \
+  --dist datahub-web-react/dist \
+  --write-baseline datahub-web-react/eager-budget-inventory.json
+```
 
 ## File Structure
 

@@ -312,11 +312,42 @@ jobs:
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --max-workers="$(nproc)" \
             -x :datahub-web-react:yarnTest
-          node --test datahub-web-react/scripts/eager-budget.test.mjs datahub-web-react/scripts/page-bundle-size.test.mjs
-          node datahub-web-react/scripts/eager-budget.mjs
-          node datahub-web-react/scripts/page-bundle-size.mjs --dist datahub-web-react/dist --check
+          node --test datahub-web-react/scripts/eager-budget.test.mjs datahub-web-react/scripts/page-bundle-size.test.mjs \
+            e2e-test/perf/vitals/bundle-inventory.test.mjs
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Eager JS budget
+        id: eager-budget
+        run: |
+          set +e
+          node datahub-web-react/scripts/eager-budget.mjs
+          code=$?
+          if [ -f datahub-web-react/dist/eager-budget-findings.json ]; then
+            soft=$(node -e "const f=require('./datahub-web-react/dist/eager-budget-findings.json'); process.stdout.write(String(f.soft.length))")
+            hard=$(node -e "const f=require('./datahub-web-react/dist/eager-budget-findings.json'); process.stdout.write(String(f.hard.length))")
+            echo "soft=$soft" >> "$GITHUB_OUTPUT"
+            echo "hard=$hard" >> "$GITHUB_OUTPUT"
+            if [ "$soft" != "0" ] || [ "$hard" != "0" ]; then
+              echo "has_findings=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "has_findings=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "has_findings=false" >> "$GITHUB_OUTPUT"
+          fi
+          exit $code
+      - name: Explain eager JS regression
+        if: always() && steps.eager-budget.outputs.has_findings == 'true'
+        run: |
+          node e2e-test/perf/vitals/bundle-inventory.mjs \
+            --dist datahub-web-react/dist \
+            --baseline datahub-web-react/eager-budget-inventory.json \
+            --regression \
+            --top 20 \
+            --md-out "$RUNNER_TEMP/eager-regression.md"
+          cat "$RUNNER_TEMP/eager-regression.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Logged-in page budget
+        run: node datahub-web-react/scripts/page-bundle-size.mjs --dist datahub-web-react/dist --check
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload frontend build artifacts

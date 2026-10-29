@@ -374,6 +374,18 @@ function main() {
     const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
     const baseline = JSON.parse(fs.readFileSync(path.join(root, 'page-budget.json'), 'utf8'));
     const findings = evaluatePageBudget(measured, baseline);
+    fs.writeFileSync(
+        path.join(root, 'dist', 'page-budget-findings.json'),
+        `${JSON.stringify(
+            {
+                soft: findings.soft,
+                hard: findings.hard,
+                measured: { shell: measured.shell, search: measured.search },
+            },
+            null,
+            2,
+        )}\n`,
+    );
     printBudgetFindings(findings);
     const exitCode = budgetExitCode(false, findings);
     if (exitCode !== 0) {
