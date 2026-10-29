@@ -31,7 +31,8 @@ source:
 
     lineage:
       lambda_functions: true
-      lambda_async_destinations: true
+      # One lambda:ListFunctionEventInvokeConfigs call per function in the region.
+      lambda_async_destinations: false
       eventbridge_rules: true
       eventbridge_pipes: true
 

@@ -1,5 +1,5 @@
 import itertools
-from typing import Iterable, Iterator, List, Optional
+from typing import FrozenSet, Iterable, Iterator, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -73,24 +73,29 @@ class SqsSource(AwsMessagingSourceBase):
 
     def __init__(self, config: SqsSourceConfig, ctx: PipelineContext):
         report = SqsSourceReport()
-        # The client is needed while the base class reads the account id.
-        self.sqs = SqsClient(
-            config.make_client(config.aws_config.get_session(), AwsService.SQS), report
-        )
-        super().__init__(config, ctx, report)
         self.config = config
+        super().__init__(config, ctx, report)
         self.report = report
         self.queues: List[SqsQueue] = []
         self.registry = self.schema_registry(config.glue_schema_registry)
         # Listed but unreadable this run: still in AWS, so kept out of stale removal.
         self.unreadable_queue_urls: List[str] = []
+
+    def create_clients(self) -> None:
+        self.sqs = SqsClient(
+            self.config.make_client(self.session, AwsService.SQS), self.base_report
+        )
         self.tagging = TaggingClient(
-            config.make_client(self.session, AwsService.TAGGING), report
+            self.config.make_client(self.session, AwsService.TAGGING),
+            self.base_report,
         )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqsSource":
         return cls(SqsSourceConfig.model_validate(config_dict), ctx)
+
+    def owned_relationships(self) -> FrozenSet[LineageRelationship]:
+        return frozenset({LineageRelationship.DEAD_LETTER})
 
     def first_resource_arn(self) -> Optional[str]:
         # The queue URL carries the account id, so this needs only sqs:ListQueues.
@@ -161,6 +166,7 @@ class SqsSource(AwsMessagingSourceBase):
             if schema is not None:
                 self.schemas.fetched[urn] = schema
             self.lineage.owned.add(urn)
+            self.lineage.complete.add(urn)
             yield from Dataset(
                 platform=SQS_PLATFORM,
                 name=self.urns.resource_id(queue.arn),

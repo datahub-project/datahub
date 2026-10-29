@@ -13,7 +13,8 @@ source:
         - ".*"
 
     extract_tags: true
-    include_subscription_attributes: true
+    # One sns:GetSubscriptionAttributes call per subscription; reads subscription DLQs.
+    include_subscription_attributes: false
 
     data_protection:
       enabled: false
@@ -31,7 +32,8 @@ source:
 
     lineage:
       lambda_functions: true
-      lambda_async_destinations: true
+      # One lambda:ListFunctionEventInvokeConfigs call per function in the region.
+      lambda_async_destinations: false
       eventbridge_rules: true
       eventbridge_pipes: true
     # Off by default: the kinesis source drops this edge on each of its runs.

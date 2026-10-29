@@ -105,5 +105,15 @@ class LineageRelationship(StrEnum):
 
 
 LINEAGE_RELATIONSHIP_PROPERTY = "relationship"
+DOWNSTREAM_OF_RELATIONSHIP = "DownstreamOf"
 
 GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
+
+ACCESS_DENIED_CODES = frozenset({"AccessDenied", "AccessDeniedException"})
+
+
+class JobEdgeKind(StrEnum):
+    """DataHub relationship names for a job's input and output datasets."""
+
+    CONSUMES = "Consumes"
+    PRODUCES = "Produces"

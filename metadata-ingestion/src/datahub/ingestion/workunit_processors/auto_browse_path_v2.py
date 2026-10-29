@@ -185,15 +185,11 @@ class AutoBrowsePathV2Processor(WorkunitProcessor[AutoBrowsePathV2ProcessorRepor
                             )
                         ),
                     ).as_workunit()
-            elif (
-                any(wu.is_primary_source for wu in batch)
-                and urn not in emitted_urns
-                and (
-                    guess_entity_type(urn) == "container"
-                    or (
-                        self.platform_instance
-                        and guess_entity_type(urn) in ("dataFlow", "dataJob")
-                    )
+            elif urn not in emitted_urns and (
+                guess_entity_type(urn) == "container"
+                or (
+                    self.platform_instance
+                    and guess_entity_type(urn) in ("dataFlow", "dataJob")
                 )
             ):
                 # Emit a browse path for:

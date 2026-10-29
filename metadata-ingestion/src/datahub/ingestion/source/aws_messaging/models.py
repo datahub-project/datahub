@@ -74,9 +74,6 @@ class LambdaFunctionEdges(BaseModel):
 
 class RuleTarget(BaseModel):
     arn: str
-    input_path: Optional[str] = None
-    # A constant Input or an InputTransformer replaces the event.
-    reshaped: bool = False
 
 
 class EventBridgeRule(BaseModel):
