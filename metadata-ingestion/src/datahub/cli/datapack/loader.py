@@ -249,7 +249,9 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
             )
         click.echo("SHA256 verified.")
 
-    entries = _resolve_index_file(cache_path, pack, no_cache)
+    # The pack file was just re-downloaded, so its data files may have changed
+    # under the same names. Refetch them rather than reusing cached copies.
+    entries = _resolve_index_file(cache_path, pack, no_cache=True)
 
     # Save index version if present
     try:

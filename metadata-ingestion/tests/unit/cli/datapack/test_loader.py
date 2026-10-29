@@ -1140,6 +1140,57 @@ class TestIndexVersionCache:
             entries = download_pack(pack)
             assert len(entries) == 1
 
+    @staticmethod
+    def _seed_cache_at_version(
+        pack: DataPackInfo, child_url: str, version: str, child_content: str
+    ) -> pathlib.Path:
+        """Populate the cache as a client that loaded `version` earlier would have it."""
+        from datahub.cli.datapack.loader import _save_index_version
+
+        cached_index = _cached_path(pack)
+        cached_index.parent.mkdir(parents=True, exist_ok=True)
+        cached_index.write_text(
+            json.dumps({"version": version, "files": ["04-queries.json"]})
+        )
+        cached_child = cached_index.parent / f"{_cache_key(child_url)}.json"
+        cached_child.write_text(child_content)
+        _save_index_version(pack, version)
+        return cached_child
+
+    @pytest.mark.parametrize(
+        "remote_version, expected_content",
+        [
+            pytest.param("5", "new", id="version_changed_refetches_child"),
+            pytest.param("4", "old", id="version_unchanged_keeps_cached_child"),
+        ],
+    )
+    def test_child_file_fixed_under_same_name(
+        self, tmp_path: pathlib.Path, remote_version: str, expected_content: str
+    ) -> None:
+        """A data file republished under its old name reaches clients only on a version bump."""
+        remote = tmp_path / "remote"
+        remote.mkdir()
+        (remote / "index.json").write_text(
+            json.dumps({"version": remote_version, "files": ["04-queries.json"]})
+        )
+        (remote / "04-queries.json").write_text("new")
+
+        pack = DataPackInfo(
+            name="upgraded", description="t", url=f"file://{remote / 'index.json'}"
+        )
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
+            cached_child = self._seed_cache_at_version(
+                pack,
+                child_url=f"file://{remote / '04-queries.json'}",
+                version="4",
+                child_content="old",
+            )
+
+            entries = download_pack(pack)
+
+        assert [e.path for e in entries] == [cached_child]
+        assert cached_child.read_text() == expected_content
+
     def test_non_index_pack_unchanged(self, tmp_path: pathlib.Path) -> None:
         """Non-index packs (direct data files) use existing cache behavior."""
         source = tmp_path / "data.json"
