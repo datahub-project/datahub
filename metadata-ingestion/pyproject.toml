@@ -1077,6 +1077,11 @@ sqlalchemy = [
     "sqlparse>=0.6.0,<1.0.0",
 ]
 
+sqs = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+]
+
 starburst-trino-usage = [
     "cachetools<6.0.0",
     "greenlet<4.0.0",
@@ -1855,6 +1860,7 @@ json-schema = "datahub.ingestion.source.schema.json_schema:JsonSchemaSource"
 kafka = "datahub.ingestion.source.kafka.kafka:KafkaSource"
 kafka-connect = "datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource"
 kinesis = "datahub.ingestion.source.kinesis.kinesis:KinesisSource"
+sqs = "datahub.ingestion.source.aws_messaging.sqs_source:SqsSource"
 ldap = "datahub.ingestion.source.ldap:LDAPSource"
 looker = "datahub.ingestion.source.looker.looker_source:LookerDashboardSource"
 lookml = "datahub.ingestion.source.looker.lookml_source:LookMLSource"
