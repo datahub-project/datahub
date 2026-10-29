@@ -2843,17 +2843,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     }
 
                     if self.config.entities_enabled.can_emit_test_definitions:
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=assertion_urn,
-                            aspect=self._make_data_platform_instance_aspect(),
-                        )
-
+                        # assertionInfo goes first: servers authorize writes to an
+                        # assertion by the entity it asserts on, which is unknown
+                        # until assertionInfo is stored.
                         yield make_assertion_from_test(
                             custom_props,
                             node,
                             assertion_urn,
                             upstream_urn,
                             upstream_unique_ids=list(upstreams.keys()),
+                        )
+
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=assertion_urn,
+                            aspect=self._make_data_platform_instance_aspect(),
                         )
 
                         # Notes are skipped for the run when the server cannot store
@@ -3142,11 +3145,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         upstream_urn,
                     )
 
+                    # assertionInfo first; see create_test_entity_mcps.
+                    yield assertion_mcp
                     yield MetadataChangeProposalWrapper(
                         entityUrn=assertion_urn,
                         aspect=self._make_data_platform_instance_aspect(),
                     )
-                    yield assertion_mcp
 
                 if self.config.entities_enabled.can_emit_test_results:
                     yield make_assertion_result_from_freshness(
@@ -6080,14 +6084,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         assertion_urn: str,
         assertion_info: AssertionInfoClass,
     ) -> List[MetadataChangeProposalWrapper]:
+        # assertionInfo first; see create_test_entity_mcps.
         return [
             MetadataChangeProposalWrapper(
                 entityUrn=assertion_urn,
-                aspect=self._make_data_platform_instance_aspect(),
+                aspect=assertion_info,
             ),
             MetadataChangeProposalWrapper(
                 entityUrn=assertion_urn,
-                aspect=assertion_info,
+                aspect=self._make_data_platform_instance_aspect(),
             ),
         ]
 
