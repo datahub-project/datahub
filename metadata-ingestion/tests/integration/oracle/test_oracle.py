@@ -203,7 +203,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
     output_path = tmp_path / "oracle_mces.json"
     golden_path = (
         test_resources_dir
-        / f"golden_files/golden_mces_{config_file.replace('.yml', '.json')}"
+        / f"golden_files/golden_{config_file.replace('.yml', '.json')}"
     )
 
     # auditStamp.time comes from V$SQL LAST_ACTIVE_TIME, not Python's clock
@@ -220,7 +220,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
         output_filtered = filter_volatile_vsql_queries(output_data)
         golden_filtered = filter_volatile_vsql_queries(golden_data)
 
-        filtered_output_path = tmp_path / "oracle_mces_filtered.json"
+        filtered_output_path = tmp_path / "oracle_filtered.json"
         with open(filtered_output_path, "w") as f:
             json.dump(output_filtered, f, indent=4)
 
@@ -230,7 +230,6 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
 
         mce_helpers.check_golden_file(
             pytestconfig,
-            golden_mces_as_mcps=True,
             fail_on_output_mces=True,
             output_path=filtered_output_path,
             golden_path=filtered_golden_path,
@@ -239,7 +238,6 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
     else:
         mce_helpers.check_golden_file(
             pytestconfig,
-            golden_mces_as_mcps=True,
             fail_on_output_mces=True,
             output_path=output_path,
             golden_path=golden_path,
