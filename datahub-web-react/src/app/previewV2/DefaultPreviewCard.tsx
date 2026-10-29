@@ -391,7 +391,7 @@ export default function DefaultPreviewCard({
     );
 }
 
-function useRemoveRelationship(entityType: EntityType) {
+export function useRemoveRelationship(entityType: EntityType) {
     const { t } = useTranslation('entity.preview');
     const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
     const { showRemovalFromList, onRemove, removeText } = useSearchCardContext();
@@ -428,7 +428,12 @@ function useRemoveRelationship(entityType: EntityType) {
     if (pageEntityType === EntityType.Application) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn)),
-            removeButtonText: showRemovalFromList ? removeText || t('removeFromApplication') : null,
+            // A child Application is listed through its own parentApplication, not the applications
+            // aspect that removeApplication unsets, so it can't be removed from here.
+            removeButtonText:
+                showRemovalFromList && entityType !== EntityType.Application
+                    ? removeText || t('removeFromApplication')
+                    : null,
         };
     }
 
