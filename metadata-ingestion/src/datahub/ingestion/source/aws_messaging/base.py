@@ -12,6 +12,7 @@ from datahub.ingestion.source.aws_messaging.clients import (
     EventBridgeClient,
     LambdaClient,
     PipesClient,
+    S3NotificationClient,
 )
 from datahub.ingestion.source.aws_messaging.config import (
     AwsMessagingConfigBase,
@@ -41,6 +42,9 @@ from datahub.ingestion.source.aws_messaging.mapper import (
 )
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.ingestion.source.aws_messaging.s3_notifications import (
+    S3NotificationLineage,
+)
 from datahub.ingestion.source.aws_messaging.schema_registry import (
     MessagingSchemaRegistry,
 )
@@ -142,6 +146,28 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             pipes_region_key=self.region_key(EVENTBRIDGE_PIPES_PLATFORM),
             jobs=self.jobs,
         )
+
+    def collect_s3_notifications(self) -> None:
+        if not self.base_config.lineage.s3_notifications:
+            return
+        complete = S3NotificationLineage(
+            client=S3NotificationClient(
+                self.base_config.make_client(self.session, AwsService.S3),
+                self.base_report,
+            ),
+            resolver=self.resolver,
+            graph=self.ctx.graph,
+            env=self.base_config.env,
+            s3_platform_instance=self.base_config.s3_platform_instance,
+            s3_convert_urns_to_lowercase=self.base_config.s3_convert_urns_to_lowercase,
+            report=self.base_report,
+        ).collect(self.lineage)
+        if complete:
+            # An S3 edge's upstream isn't this source's, so it can only be
+            # checked from the queue or topic side.
+            self.lineage.downstream_relationships.add(
+                LineageRelationship.S3_NOTIFICATION.value
+            )
 
     def service_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Lambda functions, EventBridge rules and Pipes around this source's

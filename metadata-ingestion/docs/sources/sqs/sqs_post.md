@@ -48,6 +48,12 @@ Field-level lineage is only added where a message reaches the next hop unchanged
 
 Field edges are retracted along with table-level ones (`remove_stale_lineage`): when a field is renamed or dropped, or a subscription turns raw delivery off, field edges from that upstream that this run no longer emits are removed.
 
+#### S3 event notifications
+
+`lineage.s3_notifications` (off by default) reads each bucket's notification configuration and adds the bucket as an upstream of the queues it notifies. The `s3` source names datasets after a path_spec's table folder (`landing/incoming/orders` for `s3://landing/incoming/{table}/*.parquet`), while a notification only has a key prefix filter such as `incoming/`. So every S3 dataset already in DataHub whose name starts with `<bucket>/<prefix>` becomes an upstream, up to 100 per notification (a warning says when that cap is hit). A notification with no prefix links every dataset in the bucket. No S3 datasets are created, and soft-deleted ones are not linked. Run the `s3` source first and set `s3_platform_instance` and `s3_convert_urns_to_lowercase` to match its `platform_instance` and `convert_urns_to_lowercase`. This makes one `s3:GetBucketNotification` call per bucket in the recipe's region. Filtering buckets by region needs botocore 1.35.42 or later; with an older botocore the connector warns and reads every bucket's notification configuration.
+
+Turn this on in only one of the `sqs` and `sns` recipes for an account unless some buckets notify queues and others notify topics: each source reads every bucket's notification configuration. When every bucket was read, an S3 edge whose notification was removed is removed on the next run (`remove_stale_lineage`); this reads the current lineage of each of the source's queues from DataHub.
+
 #### Tags
 
 AWS resource tags become DataHub tags named `Key:Value` (or `Key` when the value is empty), the same format as the `kinesis` source. They are added to the queue rather than replacing its tags, so tags added in the DataHub UI stay. The flip side is that a tag removed in AWS stays in DataHub until removed there. To turn an `owner` tag into ownership, add the `extract_ownership_from_tags` transformer to the recipe.

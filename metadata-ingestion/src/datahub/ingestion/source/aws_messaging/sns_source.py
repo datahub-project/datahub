@@ -170,6 +170,7 @@ class SnsSource(AwsMessagingSourceBase):
             self._add_subscription_edges(topic)
             if str(topic.arn) not in self.incomplete_topics:
                 self.lineage.complete.add(self.urns.topic_urn(topic.arn))
+        self.collect_s3_notifications()
         yield from self.service_lineage_workunits()
         if self.firehose is not None:
             yield from self.firehose.workunits()
