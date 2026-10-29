@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -18,6 +19,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -60,6 +62,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.AfterMethod;
@@ -567,9 +570,11 @@ public class UpdateIndicesServiceTest {
   }
 
   @Test
-  public void testHandleChangeEvents_DropsEventsWhosePreviousValueIsFromANewerVersion() {
+  public void testHandleChangeEvents_IndexesTheNewValueWhenThePreviousIsFromANewerVersion()
+      throws Exception {
     // A change away from an owner type only a newer version defines: the new value is valid, the
-    // previous one fails validation here. The event is dropped and counted, not the batch failed.
+    // previous one fails validation here. The new value is indexed without the previous value, and
+    // the graph gets that previous value to diff against.
     com.linkedin.metadata.utils.metrics.MetricUtils metrics =
         mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
     OperationContext context = org.mockito.Mockito.spy(operationContext);
@@ -580,9 +585,63 @@ public class UpdateIndicesServiceTest {
 
     updateIndicesService.handleChangeEvents(context, List.of(previousFromNewerVersion, known));
 
+    ArgumentCaptor<MetadataChangeLog> indexed = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    ArgumentCaptor<RecordTemplate> previous = ArgumentCaptor.forClass(RecordTemplate.class);
+    verify(updateGraphIndicesService)
+        .handleChangeEventWithUnvalidatedPrevious(
+            eq(context), indexed.capture(), previous.capture());
+    assertFalse(indexed.getValue().hasPreviousAspectValue());
+    assertEquals(indexed.getValue().getAspect(), previousFromNewerVersion.getAspect());
+    assertEquals(
+        new Ownership(previous.getValue().data()).getOwners().get(0).data().get("type"),
+        "OWNER_TYPE_FROM_NEWER_BUILD");
     verify(updateGraphIndicesService).handleChangeEvent(context, known);
     verify(updateGraphIndicesService, never()).handleChangeEvent(context, previousFromNewerVersion);
-    verify(metrics).increment(UpdateIndicesService.class, "invalid_mcl_skipped", 1);
+    verify(searchDocumentTransformer, atLeastOnce())
+        .transformAspect(
+            eq(context),
+            eq(previousFromNewerVersion.getEntityUrn()),
+            argThat(aspect -> aspect instanceof Ownership),
+            any(AspectSpec.class),
+            eq(false),
+            any());
+    verify(metrics)
+        .increment(UpdateIndicesService.class, "mcl_previous_from_newer_version_omitted", 1);
+    verify(metrics, never()).increment(UpdateIndicesService.class, "invalid_mcl_skipped", 1);
+  }
+
+  @Test
+  public void testHandleChangeEvents_DeletesWhenThePreviousValueIsFromANewerVersion()
+      throws Exception {
+    // Deleting an aspect whose stored value holds an owner type only a newer version defines: the
+    // delete is indexed, and the graph gets the previous value to remove its edges.
+    MetadataChangeLog delete =
+        ownershipChangeAwayFromNewerOwnerType("prev.newer.delete").setChangeType(ChangeType.DELETE);
+    delete.removeAspect();
+
+    updateIndicesService.handleChangeEvents(operationContext, List.of(delete));
+
+    verify(updateGraphIndicesService)
+        .handleChangeEventWithUnvalidatedPrevious(
+            eq(operationContext),
+            argThat(
+                mcl -> mcl.getChangeType() == ChangeType.DELETE && !mcl.hasPreviousAspectValue()),
+            argThat(previous -> previous instanceof Ownership));
+    verify(searchDocumentTransformer, atLeastOnce())
+        .transformAspect(
+            eq(operationContext),
+            eq(delete.getEntityUrn()),
+            nullable(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(true),
+            any());
+    verify(systemMetadataService)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(delete.getEntityUrn().toString()),
+            eq(OWNERSHIP_ASPECT_NAME));
+    verify(updateGraphIndicesService, never())
+        .handleChangeEvent(any(OperationContext.class), any(MetadataChangeLog.class));
   }
 
   @Test
