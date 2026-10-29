@@ -169,6 +169,7 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
             output_path=f"{tmp_path}/mode_mces.json",
             golden_path=test_resources_dir / "mode_mces_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+            golden_mces_as_mcps=True,
         )
 
 

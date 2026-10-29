@@ -155,7 +155,7 @@ def make_thread_safe_session(*args: Any, **kwargs: Any) -> ThreadSafeMockSession
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
-    """Threaded execution (max_threads=2) produces the same MCEs as sequential."""
+    """Threaded execution (max_threads=2) produces the same work units as sequential."""
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
         side_effect=make_thread_safe_session,
@@ -189,6 +189,7 @@ def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
             output_path=f"{tmp_path}/mode_mces_threaded.json",
             golden_path=test_resources_dir / "mode_mces_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+            golden_mces_as_mcps=True,
         )
 
 
@@ -228,6 +229,7 @@ def test_mode_threaded_higher_thread_count(pytestconfig, tmp_path):
             output_path=f"{tmp_path}/mode_mces_threaded_high.json",
             golden_path=test_resources_dir / "mode_mces_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+            golden_mces_as_mcps=True,
         )
 
 
