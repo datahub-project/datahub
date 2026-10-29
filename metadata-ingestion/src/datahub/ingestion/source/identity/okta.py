@@ -348,7 +348,7 @@ class OktaSource(StatefulIngestionSourceBase):
     def _gen_entity_workunits(
         self, urn: str, wu_id_prefix: str, aspects: List[_Aspect]
     ) -> Iterable[MetadataWorkUnit]:
-        # Origin and Status keep as_workunit() IDs, which contain the URN even when
+        # Origin and Status use as_workunit() IDs, which contain the URN even when
         # mask_user_id/mask_group_id is set.
         for aspect in aspects:
             yield MetadataWorkUnit(

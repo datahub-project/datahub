@@ -8,6 +8,7 @@ import requests_mock as rm
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_chart_urn
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.superset import (
     SupersetConfig,
     SupersetSource,
@@ -701,6 +702,12 @@ class TestDatabaseAlias:
         assert "analytics.metrics" in urn
 
 
+def _dashboard_info_count(work_units: List[MetadataWorkUnit]) -> int:
+    return sum(
+        wu.get_aspect_of_type(DashboardInfoClass) is not None for wu in work_units
+    )
+
+
 def _build_source(
     requests_mock: rm.Mocker,
     *,
@@ -926,13 +933,9 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        ), "Dashboard must be ingested even when detail API fails"
+        assert _dashboard_info_count(work_units) == 1, (
+            "Dashboard must be ingested even when detail API fails"
+        )
         assert source.report.num_dashboards_detail_api_failures == 1
         assert source.report.num_dashboards_missing_position_json == 0
         assert source.report.num_dashboards_with_no_charts == 1
@@ -986,13 +989,7 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         assert source.report.num_dashboards_missing_position_json == 1
         assert source.report.num_dashboards_detail_api_failures == 0
         assert source.report.num_dashboards_invalid_position_json == 0
@@ -1018,13 +1015,7 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         assert source.report.num_dashboards_invalid_position_json == 1
         assert source.report.num_dashboards_with_no_charts == 1
         titles = {w.title for w in source.report.warnings}
@@ -1049,13 +1040,7 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         assert source.report.num_dashboards_missing_position_json == 1
         assert source.report.num_dashboards_invalid_position_json == 0
         assert source.report.num_dashboards_with_no_charts == 1
@@ -1083,13 +1068,7 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         assert source.report.num_dashboards_with_no_charts == 1
         assert source.report.num_dashboards_missing_position_json == 0
         assert source.report.num_dashboards_invalid_position_json == 0
@@ -1116,13 +1095,7 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         assert source.report.num_dashboards_missing_position_json == 0
         assert source.report.num_dashboards_with_no_charts == 0
 
@@ -1165,13 +1138,7 @@ class TestDashboardLineageDefensive:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         titles = {w.title for w in source.report.warnings}
         assert "Incomplete Ingestion" in titles
 
@@ -1245,13 +1212,7 @@ class TestChartsFallback:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         assert source.report.num_dashboards_recovered_via_charts_endpoint == 1
         assert source.report.num_dashboards_with_no_charts == 0
         assert source.report.num_dashboards_charts_api_failures == 0
@@ -1433,13 +1394,7 @@ class TestChartsFallback:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         assert source.report.num_dashboards_charts_api_failures == 1
         assert source.report.num_dashboards_recovered_via_charts_endpoint == 0
         assert source.report.num_dashboards_with_no_charts == 1
@@ -1576,13 +1531,7 @@ class TestChartsFallbackEdgeCases:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         # Chart 300 is unknown → unknown counter ticks AND warning emitted.
         assert source.report.num_dashboards_charts_unknown == 1
         titles = {w.title for w in source.report.warnings}
@@ -1643,13 +1592,7 @@ class TestChartsFallbackEdgeCases:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         assert source.report.num_dashboards_detail_api_failures == 1
         assert source.report.num_dashboards_charts_api_failures == 1
         assert source.report.num_dashboards_with_no_charts == 1
@@ -1698,13 +1641,7 @@ class TestChartsFallbackEdgeCases:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         assert source.report.num_dashboards_recovered_via_charts_endpoint == 0
         assert source.report.num_dashboards_with_no_charts == 1
         assert source.report.num_dashboards_charts_api_failures == 1
@@ -1731,13 +1668,7 @@ class TestChartsFallbackEdgeCases:
 
         work_units = list(source._process_dashboard(_list_api_dashboard(42)))
 
-        assert (
-            sum(
-                wu.get_aspect_of_type(DashboardInfoClass) is not None
-                for wu in work_units
-            )
-            == 1
-        )
+        assert _dashboard_info_count(work_units) == 1
         assert source.report.num_dashboards_with_no_charts == 1
         assert source.report.num_dashboards_charts_api_failures == 1
 

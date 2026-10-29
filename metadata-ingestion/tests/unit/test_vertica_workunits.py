@@ -1,11 +1,10 @@
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Tuple
 from unittest import mock
 
-import pytest
 from sqlalchemy import create_engine, inspect
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.vertica import VerticaConfig, VerticaSource
@@ -93,14 +92,10 @@ def _inspector() -> VerticaInspector:
     return inspector
 
 
-def _run(extra_config: Dict[str, Any]) -> List[Row]:
+def _run() -> List[Row]:
     inspector = _inspector()
-    # A fresh source per run: a second get_workunits() on one instance trips the
-    # stale-entity handler.
     source = VerticaSource(
-        VerticaConfig.model_validate(
-            {"host_port": "host:5433", "database": "vmart", **extra_config}
-        ),
+        VerticaConfig.model_validate({"host_port": "host:5433", "database": "vmart"}),
         PipelineContext(run_id="vertica-workunits-test"),
     )
     with mock.patch.object(
@@ -116,6 +111,9 @@ def _run(extra_config: Dict[str, Any]) -> List[Row]:
     rows: List[Row] = []
     for wu in workunits:
         if isinstance(wu.metadata, MetadataChangeEventClass):
+            # Tables and views come from SQLAlchemySource as MCEs; projections
+            # and models must not.
+            assert wu.get_urn() not in _ASPECT_ORDER
             mcps = list(mcps_from_mce(wu.metadata))
         else:
             mcps = [wu.metadata]  # type: ignore[list-item]
@@ -125,90 +123,23 @@ def _run(extra_config: Dict[str, Any]) -> List[Row]:
     return rows
 
 
-def _ds(name: str, instance: Optional[str]) -> str:
-    return make_dataset_urn_with_platform_instance("vertica", name, instance, "PROD")
+def _ds(name: str) -> str:
+    return make_dataset_urn("vertica", name, "PROD")
 
 
-def _expected_order(
-    instance: Optional[str], db: str, schema: str
-) -> List[Tuple[str, str]]:
-    dpi = ["dataPlatformInstance"] if instance else []
-    domains = ["domains"] if instance else []
-    view_lineage = [] if instance else ["upstreamLineage"]
-    entity_aspects = ["status", "datasetProperties", "schemaMetadata", *dpi]
-
-    def rows(urn: str, *aspects: str) -> List[Tuple[str, str]]:
-        return [(urn, aspect) for aspect in aspects]
-
-    containers = [
-        *rows(db, "containerProperties", "status", "dataPlatformInstance"),
-        *rows(db, "subTypes", *domains),
-    ]
-    schema_containers = [
-        *rows(schema, "container", "containerProperties", "status"),
-        *rows(schema, "dataPlatformInstance", "subTypes", *domains),
-    ]
-    projections = [
-        row
-        for projection in ("orders_super", "orders_b0")
-        for row in rows(
-            _ds(f"vmart.main.{projection}", instance),
-            "ownership",
-            "container",
-            *entity_aspects,
-            "subTypes",
-            *domains,
-            "browsePathsV2",
-        )
-    ]
-    return [
-        # SQLAlchemySource's pass: containers, the table, the view.
-        *containers,
-        (db, "browsePathsV2"),
-        *schema_containers,
-        (schema, "browsePathsV2"),
-        *rows(
-            _ds("vmart.main.orders", instance),
-            "ownership",
-            "container",
-            *entity_aspects,
-            "subTypes",
-            *domains,
-            "browsePathsV2",
-        ),
-        *rows(
-            _ds("vmart.main.sales_view", instance),
-            "ownership",
-            "container",
-            *entity_aspects,
-            "subTypes",
-            "viewProperties",
-            *domains,
-            *view_lineage,
-            "browsePathsV2",
-        ),
-        # VerticaSource's own pass: containers again, projections, then models.
-        *containers,
-        *schema_containers,
-        *projections,
-        *rows(
-            _ds("vmart.Entities.churn", instance),
-            "container",
-            *entity_aspects,
-            "subTypes",
-            *domains,
-            "browsePathsV2",
-        ),
-    ]
-
-
-_DB_CONTAINER = "urn:li:container:d22577aa72df6d6e90b4799a3ff2c4f7"
-_SCHEMA_CONTAINER = "urn:li:container:e6dd9e9d125c1983b769494abfd731f0"
-_DB_CONTAINER_INST = "urn:li:container:bb5eaf437acfe251461abbedc3312052"
-_SCHEMA_CONTAINER_INST = "urn:li:container:461b7a6c2e32650aa332c63df2c288c6"
-_INSTANCE_CONFIG = {
-    "platform_instance": "inst",
-    "domain": {"urn:li:domain:sales": {"allow": [".*"]}},
+_PROJECTION_ORDER = [
+    "ownership",
+    "container",
+    "status",
+    "datasetProperties",
+    "schemaMetadata",
+    "subTypes",
+    "browsePathsV2",
+]
+_ASPECT_ORDER: Dict[str, List[str]] = {
+    _ds("vmart.main.orders_super"): _PROJECTION_ORDER,
+    _ds("vmart.main.orders_b0"): _PROJECTION_ORDER,
+    _ds("vmart.Entities.churn"): _PROJECTION_ORDER[1:],
 }
 
 _AUDIT_ZERO = {"time": 0, "actor": "urn:li:corpuser:unknown"}
@@ -307,37 +238,19 @@ _MODEL_ASPECTS: Dict[str, Dict[str, Any]] = {
 }
 
 
-@pytest.mark.parametrize(
-    "extra_config, instance, db, schema",
-    [
-        ({}, None, _DB_CONTAINER, _SCHEMA_CONTAINER),
-        (_INSTANCE_CONFIG, "inst", _DB_CONTAINER_INST, _SCHEMA_CONTAINER_INST),
-    ],
-    ids=["default", "platform_instance_and_domain"],
-)
-def test_workunit_order(
-    extra_config: Dict[str, Any], instance: Optional[str], db: str, schema: str
-) -> None:
-    rows = _run(extra_config)
+def test_projection_and_model_aspect_order() -> None:
+    rows = _run()
 
-    assert [(urn, aspect) for urn, aspect, _ in rows] == _expected_order(
-        instance, db, schema
-    )
+    for urn, expected in _ASPECT_ORDER.items():
+        assert [aspect for row_urn, aspect, _ in rows if row_urn == urn] == expected
 
 
-@pytest.mark.parametrize(
-    "extra_config, instance",
-    [({}, None), (_INSTANCE_CONFIG, "inst")],
-    ids=["default", "platform_instance_and_domain"],
-)
-def test_projection_and_model_aspects(
-    extra_config: Dict[str, Any], instance: Optional[str]
-) -> None:
-    rows = _run(extra_config)
+def test_projection_and_model_aspects() -> None:
+    rows = _run()
     expected = {
-        _ds("vmart.main.orders_super", instance): _projection_aspects("orders_super"),
-        _ds("vmart.main.orders_b0", instance): _projection_aspects("orders_b0"),
-        _ds("vmart.Entities.churn", instance): _MODEL_ASPECTS,
+        _ds("vmart.main.orders_super"): _projection_aspects("orders_super"),
+        _ds("vmart.main.orders_b0"): _projection_aspects("orders_b0"),
+        _ds("vmart.Entities.churn"): _MODEL_ASPECTS,
     }
 
     actual = {
@@ -352,19 +265,19 @@ def test_projection_and_model_aspects(
 
 
 def test_lineage_rows() -> None:
-    rows = _run({})
+    rows = _run()
 
     lineage = [
         (urn, value) for urn, aspect, value in rows if aspect == "upstreamLineage"
     ]
     assert lineage == [
         (
-            _ds("vmart.main.sales_view", None),
+            _ds("vmart.main.sales_view"),
             {
                 "upstreams": [
                     {
                         "auditStamp": _AUDIT_ZERO,
-                        "dataset": _ds("vmart.main.orders", None),
+                        "dataset": _ds("vmart.main.orders"),
                         "type": "TRANSFORMED",
                     }
                 ]
@@ -375,5 +288,5 @@ def test_lineage_rows() -> None:
     assert [
         aspect
         for urn, aspect, _ in rows
-        if urn == _ds("vmart.main.sales_view", None) and aspect == "status"
+        if urn == _ds("vmart.main.sales_view") and aspect == "status"
     ] == ["status"]

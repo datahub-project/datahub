@@ -397,7 +397,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: VerticaInspector,
         schema: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         """
         this function loop through all the projection in the given schema.
         projection is just like table is introduced by vertica db to store data
@@ -409,10 +409,10 @@ class VerticaSource(SQLAlchemySource):
             sql_config (SQLCommonConfig): config
 
         Returns:
-            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
+            Iterable[MetadataWorkUnit]: [description]
 
         Yields:
-            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]: [description]
+            Iterator[Iterable[MetadataWorkUnit]]: [description]
         """
         projections_seen: Set[str] = set()
 
@@ -637,7 +637,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: VerticaInspector,
         schema: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         """
         This function is for iterating over the ml models in vertica db
 
@@ -647,10 +647,10 @@ class VerticaSource(SQLAlchemySource):
             sql_config (SQLCommonConfig): config
 
         Returns:
-            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
+            Iterable[MetadataWorkUnit]
 
         Yields:
-            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]:
+            Iterator[Iterable[MetadataWorkUnit]]:
         """
         models_seen: Set[str] = set()
         try:
