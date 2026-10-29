@@ -211,7 +211,8 @@ def test_bigquery_bounds_the_listing_on_both_sides() -> None:
     refusal points to."""
     client = FakeProjectsClient(["p1"])
     BigQueryMetadataProbe(client).projects(limit=5)
-    assert client.kwargs["max_results"] == 6
+    # As given: the framework already added its extra item before calling.
+    assert client.kwargs["max_results"] == 5
     assert (
         client.kwargs["timeout"] == BigQueryMetadataProbe.query_budget.timeout_seconds
     )
@@ -224,9 +225,19 @@ def test_bigquery_truncates_before_sorting_not_after() -> None:
     dropped whichever project sorted last, even one well inside the limit --
     and a different one as the limit moved."""
     client = FakeProjectsClient(["zeta", "alpha", "mike", "bravo", "charlie"])
-    assert BigQueryMetadataProbe(client).projects(limit=2) == ["zeta", "alpha", "mike"]
+    # limit=3 is what the framework passes for a caller's 2.
+    assert BigQueryMetadataProbe(client).projects(limit=3) == ["zeta", "alpha", "mike"]
     # Lazy: a bounded listing must not page the whole org to discard it.
     assert client.pulled == 3
+
+
+def test_bigquery_does_not_sort_a_page_that_exactly_fills_the_limit() -> None:
+    """The off-by-one that came with the double count: a page of exactly
+    `limit` items is the truncated case, since `limit` already includes the
+    framework's extra. Sorting it let the framework drop the alphabetically
+    last project rather than the extra one."""
+    client = FakeProjectsClient(["zeta", "alpha", "mike"])
+    assert BigQueryMetadataProbe(client).projects(limit=3) == ["zeta", "alpha", "mike"]
 
 
 def test_bigquery_sorts_a_complete_listing() -> None:
@@ -240,7 +251,7 @@ def test_bigquery_answers_for_the_recipe_not_for_the_credential() -> None:
     `--parent` on it would come back included with nothing said."""
     from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 
-    config = BigQueryV2Config.model_validate({"project_ids": ["p1", "p2"]})
+    config = BigQueryV2Config.model_validate({"project_ids": ["p2", "p1"]})
     client = FakeProjectsClient(["p1", "p2", "p3"])
     probe = BigQueryMetadataProbe(client, config)
     assert probe.projects() == ["p1", "p2"]

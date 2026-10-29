@@ -24,19 +24,19 @@ from datahub.ingestion.source.common.gcp_errors import (
 )
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
-
 # One GiB scanned. BigQuery bills by bytes read regardless of how few rows come
 # back, so max_results caps the page and this caps the bill -- generous for the
 # INFORMATION_SCHEMA reads a probe is for, and a hard stop on anything that
 # wanders into a full table scan.
+_MAX_BYTES_BILLED = 1024**3
+
+
 def _projects_retry(timeout: Optional[int]) -> Any:
     # lazy: the bigquery client library is only needed once a probe runs
     from google.cloud.bigquery.retry import DEFAULT_RETRY
 
     return DEFAULT_RETRY.with_timeout(timeout) if timeout else DEFAULT_RETRY
 
-
-_MAX_BYTES_BILLED = 1024**3
 
 # ErrorInfo reasons that mean "this credential may not see these projects" --
 # an expected answer for one scoped to named projects, which `project_ids`
@@ -158,7 +158,9 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
                 "`project_ids` is set, so these are the recipe's own projects; "
                 "the credential may see others, and ingestion would not read them"
             )
-            return sorted(pinned[:limit])
+            # Sorted before the cut, for the same reason: the framework drops
+            # the last item, so the order it drops from must be the final one.
+            return sorted(pinned)[:limit]
         if getattr(self._config, "project_labels", None):
             self._warn(
                 "`project_labels` is set, so ingestion narrows these by a label "
@@ -176,17 +178,18 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
             # DEFAULT_RETRY would otherwise keep retrying a read timeout for
             # ten minutes -- on the one command every refusal points to.
             pager = self._client.list_projects(
-                max_results=limit + 1,
+                max_results=limit,
                 timeout=timeout,
                 retry=_projects_retry(timeout),
             )
-            ids = [p.project_id for p in itertools.islice(pager, limit + 1)]
+            ids = [p.project_id for p in itertools.islice(pager, limit)]
         except Forbidden as exc:
             raise self._denied(exc) from exc
-        # Sorted only when complete. The framework asks for one item past the
-        # caller's limit and drops the last, so on a truncated listing that
-        # must be the extra item -- not whichever happens to sort last.
-        return sorted(ids) if len(ids) <= limit else ids
+        # Sorted only when complete. `limit` is already one past the caller's
+        # -- the framework asks for the extra item here and drops the last one
+        # itself -- so a full page may be truncated, and the item it drops has
+        # to be that extra one rather than whichever happens to sort last.
+        return sorted(ids) if len(ids) < limit else ids
 
     @staticmethod
     def _denied(exc: Forbidden) -> Exception:
