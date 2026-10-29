@@ -22,36 +22,27 @@ describe('DatasetEntity source merge in lineage', () => {
     const lineageUrn = (data: Dataset, flagValues: Partial<FeatureFlagsConfig>) =>
         entity.getOverridePropertiesFromEntity(data, flags(flagValues)).lineageUrn;
 
-    it.each([
-        ['dbt', 'hideDbtSourceInLineage'],
-        ['sqlmesh', 'hideSqlmeshSourceInLineage'],
-    ] as const)('merges a %s source into its warehouse table when %s is on', (platform, flag) => {
-        const source = dataset(platform, 'Source', warehouseTable);
+    it('merges a dbt source into its warehouse table when hideDbtSourceInLineage is on', () => {
+        const source = dataset('dbt', 'Source', warehouseTable);
 
-        expect(lineageUrn(source, { [flag]: true })).toBe(SNOWFLAKE_URN);
-        expect(lineageUrn(source, { [flag]: false })).toBeUndefined();
+        expect(lineageUrn(source, { hideDbtSourceInLineage: true })).toBe(SNOWFLAKE_URN);
+        expect(lineageUrn(source, { hideDbtSourceInLineage: false })).toBeUndefined();
     });
 
-    it("leaves each platform's sources to its own flag", () => {
+    it('never merges a SQLMesh source or model', () => {
         expect(
             lineageUrn(dataset('sqlmesh', 'Source', warehouseTable), { hideDbtSourceInLineage: true }),
         ).toBeUndefined();
         expect(
-            lineageUrn(dataset('dbt', 'Source', warehouseTable), { hideSqlmeshSourceInLineage: true }),
+            lineageUrn(dataset('sqlmesh', 'Model', warehouseTable), { hideDbtSourceInLineage: true }),
         ).toBeUndefined();
     });
 
-    it('never merges a SQLMesh model', () => {
-        expect(
-            lineageUrn(dataset('sqlmesh', 'Model', warehouseTable), { hideSqlmeshSourceInLineage: true }),
-        ).toBeUndefined();
-    });
-
-    it('shows the SQLMesh icon on a warehouse table whose SQLMesh source is merged into it', () => {
-        const table = dataset('snowflake', 'Table', dataset('sqlmesh', 'Source'));
-        const props = entity.getOverridePropertiesFromEntity(table, flags({ hideSqlmeshSourceInLineage: true }));
+    it('shows the dbt icon on a warehouse table whose dbt source is merged into it', () => {
+        const table = dataset('snowflake', 'Table', dataset('dbt', 'Source'));
+        const props = entity.getOverridePropertiesFromEntity(table, flags({ hideDbtSourceInLineage: true }));
 
         expect(props.lineageUrn).toBeUndefined();
-        expect(props.lineageSiblingIcon).toBe('sqlmesh.png');
+        expect(props.lineageSiblingIcon).toBe('dbt.png');
     });
 });
