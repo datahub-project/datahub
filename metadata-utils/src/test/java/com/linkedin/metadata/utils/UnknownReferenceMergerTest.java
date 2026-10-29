@@ -199,6 +199,50 @@ public class UnknownReferenceMergerTest {
   }
 
   @Test
+  public void testHiddenElementAlreadyInTheRequestIsNotAddedAgain() {
+    // A patch is applied to the stored row, so the request already holds the hidden owner, but
+    // rebuilt: a number parsed from the stored JSON as an Integer can be a Long there. It's the
+    // same element and must be kept once.
+    final Ownership stored = ownership(ALICE);
+    stored.getOwners().add(attributedOwner(BOT));
+    stored.getOwners().get(1).getAttribution().data().put("time", 0);
+    final Ownership request = ownership(ALICE);
+    request.getOwners().add(attributedOwner(BOT));
+    request.getOwners().add(new Owner().setOwner(CAROL).setType(OwnershipType.DATAOWNER));
+
+    final UnknownReferenceMerger.MergeResult result =
+        UnknownReferenceMerger.merge(request, stored, registry);
+
+    assertEquals(owners(request), List.of(ALICE, BOT, CAROL));
+    assertEquals(result.preserved(), 0);
+  }
+
+  @Test
+  public void testHiddenElementThatDiffersByValueIsStillPutBack() {
+    // Equal numbers of different Java types are the same value; different values are not.
+    final Ownership stored = ownership(ALICE);
+    stored.getOwners().add(attributedOwner(BOT));
+    final Ownership request = ownership(ALICE);
+    final Owner edited = attributedOwner(BOT);
+    edited.getAttribution().setTime(1L);
+    request.getOwners().add(edited);
+
+    UnknownReferenceMerger.merge(request, stored, registry);
+
+    assertEquals(owners(request), List.of(ALICE, BOT, BOT));
+  }
+
+  @Test
+  public void testValueComparisonHandlesEveryNumberKind() {
+    // Integer/Long and Float/Double holding the same value match; NaN matches NaN; others differ.
+    assertTrue(UnknownReferenceMerger.sameValue(0, 0L));
+    assertTrue(UnknownReferenceMerger.sameValue(0.1f, 0.1d));
+    assertTrue(UnknownReferenceMerger.sameValue(Double.NaN, Float.NaN));
+    assertFalse(UnknownReferenceMerger.sameValue(1, 2L));
+    assertFalse(UnknownReferenceMerger.sameValue(1, "1"));
+  }
+
+  @Test
   public void testWithoutAStoredAspectEveryUnknownReferenceIsAnAddition() {
     final UnknownReferenceMerger.MergeResult result =
         UnknownReferenceMerger.merge(ownership(ALICE, BOT), null, registry);
@@ -250,6 +294,13 @@ public class UnknownReferenceMergerTest {
     return new Ownership()
         .setOwners(ownerArray)
         .setLastModified(new AuditStamp().setTime(0L).setActor(ALICE));
+  }
+
+  private static Owner attributedOwner(final Urn owner) {
+    return new Owner()
+        .setOwner(owner)
+        .setType(OwnershipType.DATAOWNER)
+        .setAttribution(new MetadataAttribution().setTime(0L).setActor(ALICE));
   }
 
   private static IncidentInfo incident() {
