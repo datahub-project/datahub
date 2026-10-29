@@ -2603,7 +2603,10 @@ public class ESIndexBuilderTest {
   void testPollReindexCompletion_taskCompletesAfterShortCount_completesWithoutRetrigger()
       throws Throwable {
     setupPollReindexBuilder(0L, NUM_RETRIES);
-    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(true);
+    // A resubmit must only be reachable through the completed-but-short path: neither the
+    // unresolved-task guard nor the no-progress timer may mask it.
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(false);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(60);
     when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
     when(searchClient.submitReindexTask(
             any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
