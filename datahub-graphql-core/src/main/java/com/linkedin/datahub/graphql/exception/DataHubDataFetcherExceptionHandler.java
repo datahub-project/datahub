@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.exception;
 
 import com.datahub.util.exception.DatabaseTransactionConflictException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.graph.LineageTimeoutException;
 import graphql.PublicApi;
 import graphql.execution.DataFetcherExceptionHandler;
@@ -61,7 +63,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
           metadataValidationException.getValidationExceptionCollection(),
           metadataValidationException);
       // getMessage() may be the collection dump (payload and actor); only validator text goes out.
-      com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection collection =
+      ValidationExceptionCollection collection =
           metadataValidationException.getValidationExceptionCollection();
       String userFacingMessage =
           collection != null
@@ -71,11 +73,7 @@ public class DataHubDataFetcherExceptionHandler implements DataFetcherExceptionH
       String message = hasValidatorMessage ? userFacingMessage : DEFAULT_ERROR_MESSAGE;
       // Authorization failures are 403 without the marker, as in the OpenAPI handler.
       if (collection != null
-          && collection
-              .getSubTypes()
-              .contains(
-                  com.linkedin.metadata.aspect.plugins.validation.ValidationSubType
-                      .AUTHORIZATION)) {
+          && collection.getSubTypes().contains(ValidationSubType.AUTHORIZATION)) {
         return completedResult(message, DataHubGraphQLErrorCode.UNAUTHORIZED, path, sourceLocation);
       }
       return completedResult(

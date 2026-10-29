@@ -103,28 +103,23 @@ public class ValidationExceptionCollection
   }
 
   /**
-   * The validators' own messages, without the EntityAspect/collection wrapper that toString() adds
-   * for logging. Excludes FILTER-subtype messages, which describe aspects dropped as part of normal
-   * operation rather than user-correctable failures - the same exclusion {@link
-   * #hasFatalExceptions()} makes. May therefore be empty; callers own their fallback.
+   * Validator text only, safe to show users. Excludes FILTER messages, which describe aspects
+   * dropped during normal operation, so this may be empty.
    */
-  // Message for API/UI users: validator text only, safe to surface verbatim.
   public String getCollectiveMessage() {
     return collectMessages(false);
   }
 
   /**
-   * As {@link #getCollectiveMessage()} but retains FILTER-subtype text, for callers that would
-   * otherwise have nothing to report (a batch can be rejected on a filter alone).
+   * As {@link #getCollectiveMessage()}, plus FILTER text: a batch can be rejected on a filter
+   * alone.
    */
-  // Message for logs: may carry filter/infrastructure text that users must not see.
   public String getCollectiveMessageIncludingFiltered() {
     return collectMessages(true);
   }
 
   private String collectMessages(boolean includeFiltered) {
     return entrySet().stream()
-        // sort by entity/aspect, matching toString()'s ordering
         .sorted(Comparator.comparing(p -> p.getKey().toString()))
         .flatMap(e -> e.getValue().stream())
         .filter(e -> includeFiltered || !ValidationSubType.FILTER.equals(e.getSubType()))

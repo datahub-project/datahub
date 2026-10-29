@@ -61,7 +61,7 @@ def test_validator_rejection_message_propagates_cleanly(graph_client):
     ValidationExceptionCollection{EntityAspect:... Exceptions: [...]} dump that used to be
     thrown as the exception's message."""
     with pytest.raises(OperationalError) as excinfo:
-        create_property_with_id("test id with spaces", graph_client)
+        create_property_with_id(f"test id with spaces {unique_suffix()}", graph_client)
 
     message = excinfo.value.message
     assert "Urn ID cannot have spaces" in message, (

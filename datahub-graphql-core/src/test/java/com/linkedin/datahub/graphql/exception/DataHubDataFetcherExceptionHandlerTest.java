@@ -15,6 +15,8 @@ import graphql.execution.ResultPath;
 import graphql.language.SourceLocation;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -767,8 +769,8 @@ public class DataHubDataFetcherExceptionHandlerTest {
     // Resolvers wrap failures in "Failed to perform update against input ..." RuntimeExceptions
     // (graphql-java adds a CompletionException); the cause walk must classify them as unwrapped,
     // so resolvers need no rethrows or exception mapping of their own.
-    java.util.List<Exception> causes =
-        java.util.List.of(
+    List<Exception> causes =
+        List.of(
             new AuthorizationException("Unauthorized to perform this action."),
             new IllegalArgumentException("Invalid urn"),
             metadataValidation(
@@ -781,7 +783,7 @@ public class DataHubDataFetcherExceptionHandlerTest {
       DataHubGraphQLError direct = handle(cause);
       DataHubGraphQLError wrapped =
           handle(
-              new java.util.concurrent.CompletionException(
+              new CompletionException(
                   new RuntimeException("Failed to perform update against input {}", cause)));
       assertEquals(wrapped.getErrorCode(), direct.getErrorCode(), cause.toString());
       assertEquals(wrapped.getMessage(), direct.getMessage(), cause.toString());
