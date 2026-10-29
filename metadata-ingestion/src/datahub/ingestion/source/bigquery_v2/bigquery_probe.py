@@ -17,26 +17,44 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.common.gcp_errors import (
+    error_info_reason,
+    error_info_service,
     gcp_error_code,
     is_service_disabled,
 )
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
+
 # One GiB scanned. BigQuery bills by bytes read regardless of how few rows come
 # back, so max_results caps the page and this caps the bill -- generous for the
 # INFORMATION_SCHEMA reads a probe is for, and a hard stop on anything that
 # wanders into a full table scan.
+def _projects_retry(timeout: Optional[int]) -> Any:
+    # lazy: the bigquery client library is only needed once a probe runs
+    from google.cloud.bigquery.retry import DEFAULT_RETRY
+
+    return DEFAULT_RETRY.with_timeout(timeout) if timeout else DEFAULT_RETRY
+
+
 _MAX_BYTES_BILLED = 1024**3
 
-# A missing IAM permission: an expected answer for a credential scoped to
-# named projects, which `project_ids` exists to serve. 401 is deliberately
-# absent -- that is a failure to authenticate at all, not a permission the
-# recipe can route around, and the same credential is about to fail
-# everything else.
-_FORBIDDEN = "HTTP 403"
+# ErrorInfo reasons that mean "this credential may not see these projects" --
+# an expected answer for one scoped to named projects, which `project_ids`
+# exists to serve. A 403 for any other reason is not: `RATE_LIMIT_EXCEEDED`
+# on concurrent projects.list calls is transient and ingestion retries it, and
+# reporting it as an IAM gap sends the reader to change roles over a blip.
+# A legacy 403 carrying no ErrorInfo is treated as a denial, as it was before.
+_ACCESS_DENIED_REASONS = frozenset(
+    {
+        "IAM_PERMISSION_DENIED",
+        "USER_PROJECT_DENIED",
+        "ACCESS_TOKEN_SCOPE_INSUFFICIENT",
+        "ACCOUNT_STATE_INVALID",
+    }
+)
 
-# Resource Manager pages its walk, so a large org is many calls. Bounded
-# like every other kind-declaring listing in the framework.
+# bigquery.Client.list_projects pages GET /bigquery/v2/projects, so a large
+# org is many calls. Bounded like every other kind-declaring listing.
 _DEFAULT_PROJECT_LIMIT = 200
 
 
@@ -97,14 +115,19 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
     # bounds spend rather than just duration.
     query_budget = QueryBudget(timeout_seconds=30, max_bytes_billed=_MAX_BYTES_BILLED)
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: Any, config: Any = None) -> None:
         self._client = client
+        self._config = config
 
     @classmethod
     def for_config(cls, config: BigQueryConnectionConfig) -> "BigQueryMetadataProbe":
         """Reuse the connector's own client builder rather than a second SQLAlchemy
-        engine, so credentials resolve the way ingestion resolves them."""
-        return cls(config.get_bigquery_client())
+        engine, so credentials resolve the way ingestion resolves them.
+
+        The config travels too: `projects` has to answer for the recipe, not
+        for the credential, and a listing wider than what ingestion reads
+        would offer containers a run never touches."""
+        return cls(config.get_bigquery_client(), config)
 
     def __exit__(self, *exc: object) -> None:
         self._client.close()
@@ -118,46 +141,72 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
         kind=DatasetContainerSubTypes.BIGQUERY_PROJECT, row_limit_param="limit"
     )
     def projects(self, limit: int = _DEFAULT_PROJECT_LIMIT) -> List[str]:
-        """Projects this credential can see, which is the set ingestion starts
-        from when `project_ids` is unset.
+        """The projects this recipe would consider -- the string
+        `project_id_pattern` is matched against, and the container
+        `dataset_pattern` is qualified with.
 
-        The container every dataset and table is matched under: BigQuery
-        filters `dataset_pattern` on `<project>.<dataset>`, so `probe filter`
-        cannot judge a dataset until it knows which project, and this is where
-        that comes from.
-
-        Reported unfiltered: ingestion narrows this by `project_labels` and
-        `project_id_pattern`, and neither is applied here, so a project those
-        would drop is explained by `probe filter` rather than missing with no
-        explanation. Listing needs `resourcemanager.projects.list`, which is
-        exactly the permission `project_ids` exists for recipes that cannot
-        have it, so a refusal degrades to an empty list rather than failing.
+        With `project_ids` set these are exactly those ids and nothing is
+        called: ingestion reads those and no others, so listing the whole
+        credential's view would offer projects a run never touches. Otherwise
+        every project the credential can see, including ones
+        `project_id_pattern` would exclude -- a denied project is explained by
+        `probe filter`, not hidden here.
         """
+        pinned = list(getattr(self._config, "project_ids", None) or [])
+        if pinned:
+            self._warn(
+                "`project_ids` is set, so these are the recipe's own projects; "
+                "the credential may see others, and ingestion would not read them"
+            )
+            return sorted(pinned[:limit])
+        if getattr(self._config, "project_labels", None):
+            self._warn(
+                "`project_labels` is set, so ingestion narrows these by a label "
+                "search this listing does not run; projects without the labels "
+                "appear here and would not be ingested"
+            )
         with soft_listing(self._warn):
-            try:
-                return sorted(
-                    project.project_id
-                    for project in itertools.islice(self._client.list_projects(), limit)
-                )
-            except Exception as exc:
-                # google-api-core carries the status on `.code`, not the
-                # `.response.status_code` soft_listing duck-types on, so the
-                # mapping this provider declares does the translating.
-                if self.probe_error_code(exc) != _FORBIDDEN:
-                    raise
-                if isinstance(exc, Forbidden) and is_service_disabled(exc):
-                    raise ProbeSoftError(
-                        "listing projects needs the Cloud Resource Manager API, "
-                        "which is not enabled for this project; enable it, or "
-                        "set `project_ids` in the recipe to name the projects "
-                        "instead"
-                    ) from exc
-                raise ProbeSoftError(
-                    "listing projects needs `resourcemanager.projects.list`, "
-                    "which this credential does not have; set `project_ids` "
-                    "in the recipe to name the projects instead"
-                ) from exc
+            return self._listed_projects(limit)
         return []
+
+    def _listed_projects(self, limit: int) -> List[str]:
+        timeout = self.query_budget.timeout_seconds
+        try:
+            # Bounded on both sides: the client leaves `timeout` at None, and
+            # DEFAULT_RETRY would otherwise keep retrying a read timeout for
+            # ten minutes -- on the one command every refusal points to.
+            pager = self._client.list_projects(
+                max_results=limit + 1,
+                timeout=timeout,
+                retry=_projects_retry(timeout),
+            )
+            ids = [p.project_id for p in itertools.islice(pager, limit + 1)]
+        except Forbidden as exc:
+            raise self._denied(exc) from exc
+        # Sorted only when complete. The framework asks for one item past the
+        # caller's limit and drops the last, so on a truncated listing that
+        # must be the extra item -- not whichever happens to sort last.
+        return sorted(ids) if len(ids) <= limit else ids
+
+    @staticmethod
+    def _denied(exc: Forbidden) -> Exception:
+        """A 403 the recipe can act on, as a soft error, or the error itself."""
+        reason = error_info_reason(exc)
+        if is_service_disabled(exc):
+            service = error_info_service(exc) or "the API this call needs"
+            return ProbeSoftError(
+                f"listing projects needs {service}, which is not enabled for "
+                f"this project; enable it, or set `project_ids` in the recipe "
+                f"to name the projects instead"
+            )
+        if reason is None or reason in _ACCESS_DENIED_REASONS:
+            return ProbeSoftError(
+                "this credential may not list projects; set `project_ids` in "
+                "the recipe to name the projects instead"
+            )
+        # A 403 for some other reason -- a quota blip, say -- is not something
+        # `project_ids` fixes, and an empty list would read as "none exist".
+        return exc
 
     def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
         # lazy: the bigquery client library is only needed once a probe runs
