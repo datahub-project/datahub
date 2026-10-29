@@ -161,15 +161,7 @@ usage_common = {
 }
 
 sqlglot_lib = {
-    # We heavily monkeypatch sqlglot.
-    # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    # but no longer do.
-    # 28.0.0+ includes fix for SEMANTIC_VIEW parse infinite loop (https://github.com/tobymao/sqlglot/issues/6287).
-    # 29.0.1+ includes fixes for ClickHouse PRIMARY KEY tuple() (https://github.com/tobymao/sqlglot/issues/6989)
-    # and Snowflake SEMANTIC_VIEW dimensions with aliases (https://github.com/tobymao/sqlglot/issues/6993).
-    # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
-    # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
-    # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
+    # sqlglot monkeypatches live in datahub/sql_parsing/_sqlglot_patch.py.
     # sqlglot[c] ships mypyc-compiled extensions for performance, but the native
     # C lib has caused memory leaks in the past. Rather than dropping [c] from
     # the release when that happens, keep it here and set DATAHUB_SQLGLOT_DISABLE_C

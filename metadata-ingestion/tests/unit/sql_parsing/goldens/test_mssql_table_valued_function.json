@@ -1,0 +1,62 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "79db14166f90da9222cd33511d5f63c403439af412bcdb7ea29943e1a996f2b2",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.a,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.target,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.target,PROD)",
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.a,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[a].[id] AS [id]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.target,PROD)",
+                "column": "v",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[f].[v] AS [v]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.target,PROD)",
+                "column": "w",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[g].[w] AS [w]"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO dbo.target SELECT a.id, f.v, g.w FROM dbo.a AS a JOIN dbo.MY_FN(?) AS f ON a.id = f.id JOIN srv.db1.dbo.my_fn(?) AS g ON a.id = g.id"
+    }
+}

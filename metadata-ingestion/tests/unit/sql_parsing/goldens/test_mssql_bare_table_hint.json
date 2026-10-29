@@ -1,0 +1,74 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "afec8729d1f81f07dfe3bf8e41537e8ddd187b886445d65c674f01f320eee585",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.a,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,srv.db1.dbo.b,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.a,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[a].[id] AS [id]"
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "v",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,srv.db1.dbo.b,PROD)",
+                    "column": "v"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[b].[v] AS [v]"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.a,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,srv.db1.dbo.b,PROD)"
+            ],
+            "on_clause": "[a].[id] = [b].[id]",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,db1.dbo.a,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,srv.db1.dbo.b,PROD)",
+                    "column": "id"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT a.id, b.v FROM dbo.a AS a WITH (NOLOCK) JOIN srv.db1.dbo.b AS b WITH (NOLOCK) ON a.id = b.id"
+    }
+}

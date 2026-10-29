@@ -2312,6 +2312,34 @@ SELECT * FROM ML.PREDICT(MODEL `p.d.model`, TABLE `p.d.features`)
     )
 
 
+def test_mssql_table_valued_function_is_not_a_table() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO dbo.target
+SELECT a.id, f.v, g.w
+FROM dbo.a a
+JOIN dbo.my_fn(1) f ON a.id = f.id
+JOIN srv.db1.dbo.my_fn(2) g ON a.id = g.id
+""",
+        dialect="mssql",
+        default_db="db1",
+        default_schema="dbo",
+        expected_file=RESOURCE_DIR / "test_mssql_table_valued_function.json",
+    )
+
+
+def test_mssql_bare_table_hint_is_a_table() -> None:
+    assert_sql_result(
+        """\
+SELECT a.id, b.v FROM dbo.a (NOLOCK) a JOIN srv.db1.dbo.b (NOLOCK) b ON a.id = b.id
+""",
+        dialect="mssql",
+        default_db="db1",
+        default_schema="dbo",
+        expected_file=RESOURCE_DIR / "test_mssql_bare_table_hint.json",
+    )
+
+
 def test_clickhouse_dictget_in_materialized_view() -> None:
     # dictGet table in in_tables, TO table in out_tables (not in_tables).
     # Guards against operator precedence bug where `- modified` doesn't

@@ -113,7 +113,8 @@ def _restore_mssql_temp_table_prefix(
         dialect: The SQL dialect being used
 
     Returns:
-        The table name with # or ## prefix restored if needed (for MSSQL only)
+        The table name with # or ## prefix restored if needed (for MSSQL only),
+        or "" for a table-valued function.
     """
     # Only apply to MSSQL dialect
     if dialect is None or not is_dialect_instance(dialect, ["mssql"]):
@@ -123,12 +124,11 @@ def _restore_mssql_temp_table_prefix(
     if not hasattr(identifier, "args"):
         return table.name
 
-    # TODO: MSSQL table-valued functions still resolve to the function name
-    # here (ghost URNs). sqlglot's Table.name is "" when Table.this is a Func,
-    # but this reads the name off the function node. Once sqlglot parses bare
-    # hints like `dbo.t (NOLOCK)` as table hints
-    # (https://github.com/tobymao/sqlglot/issues/8468), return "" for a Func
-    # here and in the Dot branch of _table_name_from_sqlglot_table.
+    # A table-valued function like dbo.fn(1) has no dataset name; reading the
+    # function node's name would build a URN for a table that does not exist.
+    if isinstance(identifier, sqlglot.exp.Func):
+        return ""
+
     table_name = identifier.name if hasattr(identifier, "name") else table.name
 
     # Note: sqlglot v28+ uses "global_" instead of "global"
@@ -245,7 +245,8 @@ def _table_name_from_sqlglot_table(
                 final_part = f"#{final_part}"
 
         parts = [p.name for p in all_parts_exp[:-1]] + [final_part]
-        table_name = ".".join(parts)
+        # A function has no dataset name, in any dialect.
+        table_name = "" if isinstance(final_exp, sqlglot.exp.Func) else ".".join(parts)
     else:
         table_name = _restore_mssql_temp_table_prefix(table, dialect)
 
