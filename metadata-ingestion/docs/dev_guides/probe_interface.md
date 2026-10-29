@@ -500,6 +500,21 @@ field did not decide, and let through the inversion this rule exists to stop.
 A hook that cannot build its target returns `None` and reports its own
 degrade; `sql_probe` then applies this rule with the field it resolved.
 
+**Where the rule does not reach yet.** A Table or View judged with no
+`--parent` at all never gets here: `sql_probe._judged_on_identifier` ends at
+`parent_required`, so the bare name is judged and the inverted verdict still
+comes back -- which makes the command non-monotone on its headline source,
+since adding `--parent` earns a refusal and omitting it earns a wrong answer.
+The same holds where the get_identifier shim builds an incomplete identifier
+(a Postgres recipe with no `database`), for `bigquery-queries`,
+`snowflake-queries` and `snowflake-summary` tables, which declare no
+`probe_match_target`, for Unity Catalog's own Catalog and Schema kinds, and
+for MSSQL stored procedures. A connector whose `probe_verdict_override` judges
+a field other than the kind's own -- Unity consults `table_pattern` for every
+table-like kind -- answers before this rule can decline, so the inversion
+survives there too. Each is the same defect the rule removes elsewhere; they
+are listed rather than claimed.
+
 **Where the rule reaches.** Every SQL-family source, by either route: a
 config declaring `Qualifier()` (BigQuery, Redshift) through the shim, and a
 config overriding `probe_filter_target` (Snowflake, Unity Catalog, MSSQL)

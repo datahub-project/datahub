@@ -7,7 +7,7 @@ from sqlalchemy.engine.reflection import Inspector
 import datahub.ingestion.source.sql.sql_probe as sql_probe_module
 from datahub.configuration.common import Qualifier
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.verdicts import ClassifyContext, ProbeArgumentError
+from datahub.ingestion.agent.verdicts import ClassifyContext, ContainerUnknown
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -697,7 +697,7 @@ def test_a_filtering_table_pattern_without_its_container_refuses():
     excluded when ingestion looking at `p1.ds1.t1` would include it. Same
     inversion as the Schema level, one level down.
     """
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown) as refusal:
         check_filters(
             source_type="bigquery",
             config_dict={
@@ -725,7 +725,7 @@ def test_a_view_is_judged_against_view_pattern_not_table_pattern():
     exists to stop, surviving on a sibling kind. The framework resolves the
     deciding field per kind, so it is the one that decides here.
     """
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown) as refusal:
         check_filters(
             source_type="snowflake",
             config_dict={
@@ -765,7 +765,7 @@ def test_a_snowflake_table_pattern_without_its_database_refuses():
     Qualifier path, and has no config field naming a database -- a recipe
     spans several -- so --parent is the only way to qualify one.
     """
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown) as refusal:
         check_filters(
             source_type="snowflake",
             config_dict={
@@ -845,7 +845,7 @@ def test_a_schema_judged_without_its_container_refuses_rather_than_guessing(
     include it. A warning used to sit beside that verdict; the verdict is what
     gets read, so there is no longer a verdict for it to contradict.
     """
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown):
         check_filters(
             source_type=source_type,
             config_dict=config_dict,
@@ -853,7 +853,6 @@ def test_a_schema_judged_without_its_container_refuses_rather_than_guessing(
             parent_path=[],
             names=[name],
         )
-    assert "nothing here says which container to use" in str(refusal.value)
 
     # And it really was an inversion rather than a name excluded either way:
     # given the container, the same name is included and nothing warns.

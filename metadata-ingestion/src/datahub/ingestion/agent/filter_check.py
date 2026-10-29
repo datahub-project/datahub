@@ -415,6 +415,17 @@ def _warn_if_undeclared(
         )
 
 
+def _with_context(
+    refusal: ProbeArgumentError, warnings: Sequence[str]
+) -> ProbeArgumentError:
+    """`refusal` with what the connector already said appended."""
+    if not warnings:
+        return refusal
+    said = " ".join(warnings)
+    # Same type: the refusal's class is what tests and the error policy key on.
+    return type(refusal)(f"{refusal} This source also reported: {said}")
+
+
 def _judge_name(
     judged: _Judged,
     resolution: _Resolution,
@@ -556,9 +567,13 @@ def check_filters(
                     judged, resolution, kind, name, parent_path, name_attrs, warn
                 )
             )
-        except ProbeArgumentError:
+        except ProbeArgumentError as refusal:
             if parent_excluded_by is None:
-                raise
+                # Carried with it: a refusal replaces the result, so anything
+                # the connector said on the way -- Unity naming `catalogs`,
+                # MSSQL naming the database -- would otherwise be lost, and
+                # those are the hints a Qualifier field cannot supply.
+                raise _with_context(refusal, warnings) from None
             results.append(
                 FilterVerdict(
                     name=name,

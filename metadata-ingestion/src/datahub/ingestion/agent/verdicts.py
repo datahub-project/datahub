@@ -236,7 +236,7 @@ class ContainerNeed:
                 f"or narrow the recipe to one by pinning `{pin}`, which "
                 f"changes what it reads"
             )
-        return ProbeArgumentError(
+        return ContainerUnknown(
             f"this source matches `{self.pattern_field}` against the "
             f"qualified '{self.shape}', and nothing here says which container "
             f"to use. Judging the bare name against that pattern would report "
@@ -335,6 +335,15 @@ class ProbeArgumentError(ValueError):
     Text is shown by type only (agent.error_policy), so a plain ValueError
     keeps exit 2 but loses its message. After recorded read failures the call
     reports ProbeReadFailed (exit 3) instead.
+    """
+
+
+class ContainerUnknown(ProbeArgumentError):
+    """A verdict needed the container ingestion matches on, and nothing named
+    it. A type rather than a sentence, so a test can pin the refusal without
+    pinning its wording -- as SqlScopeError and ApiScopeError are. A
+    ProbeArgumentError, so exit 2 and every `except ProbeArgumentError` in the
+    framework cover it unchanged.
     """
 
 

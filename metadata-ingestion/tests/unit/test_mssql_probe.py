@@ -12,7 +12,7 @@ from datahub.ingestion.agent.probe_methods import list_probe_methods
 from datahub.ingestion.agent.recipe import validate_recipe
 from datahub.ingestion.agent.sql_gate import SqlScopeError, check_query_scope
 from datahub.ingestion.agent.sql_passthrough import QueryBudget
-from datahub.ingestion.agent.verdicts import ProbeArgumentError
+from datahub.ingestion.agent.verdicts import ContainerUnknown
 from datahub.ingestion.source.sql.mssql.mssql_probe import SqlServerMetadataProbe
 from datahub.ingestion.source.sql.mssql.source import (
     SQLServerConfig,
@@ -656,7 +656,7 @@ def test_multi_database_recipe_refuses_when_the_database_parent_is_missing() -> 
     `DemoData.dbo.orders` reports an exclusion ingestion does not make. It
     used to warn and answer anyway; the warning sat beside the wrong verdict.
     """
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown) as refusal:
         check_filters(
             source_type="mssql",
             config_dict={

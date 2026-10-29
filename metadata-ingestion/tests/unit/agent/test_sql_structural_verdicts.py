@@ -20,7 +20,7 @@ from datahub.ingestion.agent import filter_check
 from datahub.ingestion.agent.declarations import declared_kind_enablers
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.verdicts import (
-    ProbeArgumentError,
+    ContainerUnknown,
     Verdict,
     VerdictContext,
 )
@@ -53,8 +53,6 @@ _SF: Dict[str, object] = {
     "password": "p",
     "warehouse": "w",
 }
-# What a filtering pattern with no container now raises, rather than a verdict.
-_REFUSED = "nothing here says which container to use"
 
 
 _Row = Tuple[str, str, bool, Optional[str]]
@@ -176,7 +174,7 @@ def test_a_bigquery_dataset_is_not_reported_excluded_on_a_pattern_it_rewrote() -
     ingests. Every other BigQuery case in this file pins `project_ids`, which
     is why the default shape went unnoticed.
     """
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown) as refusal:
         check_filters(
             source_type="bigquery",
             config_dict={"dataset_pattern": {"allow": ["^analytics$"]}},
@@ -273,7 +271,7 @@ def test_a_qualified_source_with_no_container_refuses_rather_than_guessing() -> 
     `warnings` -- beside a flat `included: false` that a reader takes at face
     value. A verdict the command cannot stand behind is the failure it exists
     to prevent, so it now declines and says what to pass."""
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown) as refusal:
         check_filters(
             source_type="bigquery",
             config_dict={
@@ -284,7 +282,6 @@ def test_a_qualified_source_with_no_container_refuses_rather_than_guessing() -> 
             parent_path=[],
             names=["ds"],
         )
-    assert _REFUSED in str(refusal.value)
     assert "dataset_pattern" in str(refusal.value)
     assert "project_ids" in str(refusal.value)
 
@@ -312,7 +309,7 @@ def test_snowflake_summary_matches_schemas_the_way_snowflake_does() -> None:
 
     # Snowflake has no Qualifier field, so without --parent there is nothing
     # to qualify with and the qualified pattern cannot be judged at all.
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown):
         check_filters(
             source_type="snowflake-summary",
             config_dict=config,
@@ -320,7 +317,6 @@ def test_snowflake_summary_matches_schemas_the_way_snowflake_does() -> None:
             parent_path=[],
             names=["PUBLIC"],
         )
-    assert _REFUSED in str(refusal.value)
 
 
 class _PinnedPostgres(PostgresConfig):
@@ -437,7 +433,7 @@ def test_snowflake_queries_matches_schemas_on_the_qualified_name() -> None:
 
     # Snowflake has no Qualifier field, so without --parent there is nothing
     # to qualify with and the qualified pattern cannot be judged at all.
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown):
         check_filters(
             source_type="snowflake-queries",
             config_dict=config,
@@ -445,7 +441,6 @@ def test_snowflake_queries_matches_schemas_on_the_qualified_name() -> None:
             parent_path=[],
             names=["PUBLIC"],
         )
-    assert _REFUSED in str(refusal.value)
 
 
 def test_bigquery_queries_matches_datasets_on_the_qualified_name() -> None:

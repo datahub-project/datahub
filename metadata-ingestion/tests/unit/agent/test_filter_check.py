@@ -5,7 +5,7 @@ import pytest
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
-    ProbeArgumentError,
+    ContainerUnknown,
     ProbeInternalError,
     pattern_verdict,
 )
@@ -409,7 +409,7 @@ def test_an_override_that_cannot_answer_refuses():
     Drives check_filters rather than the removed per-connector override, for
     the reason given on the Redshift test above.
     """
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown) as refusal:
         check_filters(
             source_type="bigquery",
             config_dict={
@@ -900,7 +900,7 @@ def test_a_container_that_cannot_be_judged_refuses_for_what_is_inside_it():
     about the table while silently failing to judge its container would report
     a table ingestion may never reach.
     """
-    with pytest.raises(ProbeArgumentError) as refusal:
+    with pytest.raises(ContainerUnknown) as refusal:
         check_filters(
             source_type="bigquery",
             config_dict={"dataset_pattern": {"allow": ["^analytics$"]}},
@@ -922,7 +922,7 @@ def test_a_hypothetical_pattern_refuses_on_the_same_terms_as_the_recipe():
     "test the fix before you write it" would answer the question wrongly and
     the caller would write the wrong fix.
     """
-    with pytest.raises(ProbeArgumentError):
+    with pytest.raises(ContainerUnknown):
         check_filters(
             source_type="bigquery",
             config_dict={"dataset_pattern": {"allow": [".*"]}},
