@@ -16,6 +16,7 @@ class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
     account_id: Optional[str] = None
     region: Optional[str] = None
     lineage_edges_emitted: int = 0
+    lineage_edges_removed: int = 0
     # True when tag:GetResources was unavailable and tags were read per resource.
     tags_read_per_resource: bool = False
     schemas_attached: int = 0
@@ -23,6 +24,7 @@ class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
     schema_resolution_failures: LossyList[str] = field(default_factory=LossyList)
     schema_naming_convention_misses: LossyList[str] = field(default_factory=LossyList)
     column_lineage_edges_emitted: int = 0
+    column_lineage_edges_removed: int = 0
     # Reason -> count for edges that got table-level lineage only.
     column_lineage_skipped: Dict[str, int] = field(
         default_factory=lambda: defaultdict(int)
@@ -42,11 +44,12 @@ class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
         api_label: str,
         optional: bool = False,
     ) -> None:
-        # A first-page failure usually means the call isn't permitted, which is a
-        # valid setup. A later failure leaves the listing incomplete, and stateful
-        # ingestion would soft-delete everything past that point, so it fails.
         # Optional listings (lineage helpers, not the queues or topics themselves)
-        # only warn: a failure there mustn't block stale removal of the datasets.
+        # only warn: a denied helper is a valid setup, and a failure there mustn't
+        # block stale removal of the datasets. The primary listing is the source's
+        # reason to run, so any failure there fails the run: a denied first page
+        # would otherwise end green with nothing ingested, and a later failure
+        # leaves stateful ingestion soft-deleting everything past that point.
         code = aws_error_code(exc)
         if optional and pages_fetched > 0:
             self.warning(
@@ -55,10 +58,17 @@ class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
                 context=f"{api_label} returned {code} after {pages_fetched} page(s)",
                 exc=exc,
             )
-        elif pages_fetched == 0:
+        elif optional:
             self.warning(
                 title="Listing denied",
                 message="The listing call failed on its first page; this part is skipped.",
+                context=f"{api_label} returned {code}",
+                exc=exc,
+            )
+        elif pages_fetched == 0:
+            self.failure(
+                title="Listing denied",
+                message="The listing call failed on its first page, so nothing was ingested.",
                 context=f"{api_label} returned {code}",
                 exc=exc,
             )
@@ -85,5 +95,6 @@ class SqsSourceReport(AwsMessagingReportBase):
 class SnsSourceReport(AwsMessagingReportBase):
     topics_scanned: int = 0
     subscriptions_scanned: int = 0
+    subscription_attribute_calls: int = 0
     filtered_topics: LossyList[str] = field(default_factory=LossyList)
     topics_failed: LossyList[str] = field(default_factory=LossyList)

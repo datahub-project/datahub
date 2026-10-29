@@ -13,7 +13,8 @@ source:
         - ".*"
 
     extract_tags: true
-    include_subscription_attributes: true
+    # One sns:GetSubscriptionAttributes call per subscription; reads subscription DLQs.
+    include_subscription_attributes: false
 
     data_protection:
       enabled: false

@@ -82,5 +82,6 @@ class LineageRelationship(StrEnum):
 
 
 LINEAGE_RELATIONSHIP_PROPERTY = "relationship"
+DOWNSTREAM_OF_RELATIONSHIP = "DownstreamOf"
 
 GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"

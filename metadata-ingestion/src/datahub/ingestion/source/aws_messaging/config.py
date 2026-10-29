@@ -114,6 +114,16 @@ class AwsMessagingConfigBase(
             "account id. Accounts not listed use their account id."
         ),
     )
+    remove_stale_lineage: bool = Field(
+        default=True,
+        description=(
+            "Remove lineage edges this source wrote on an earlier run that no longer "
+            "exist in AWS, such as a removed redrive policy or subscription. Only "
+            "edges from resources this run read in full are removed. Needs a "
+            "DataHub graph connection (the datahub-rest sink or datahub_api); costs "
+            "one DataHub lookup per queue or topic."
+        ),
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
         description="Stateful ingestion configuration for stale entity removal.",
@@ -137,14 +147,23 @@ class SqsSourceConfig(AwsMessagingConfigBase):
         default_factory=QueueGlueSchemaRegistryConfig,
         description="Queue schemas from AWS Glue Schema Registry (off by default).",
     )
-    column_lineage: bool = Field(
-        default=True,
+    column_lineage: Optional[bool] = Field(
+        default=None,
         description=(
             "Add field-level lineage where a message passes through unchanged (queue "
             "to its dead-letter queue), for fields present in both schemas. Schemas "
-            "come from Glue Schema Registry in this run or from DataHub."
+            "come from Glue Schema Registry in this run or from DataHub, one DataHub "
+            "lookup per queue with a dead-letter queue. Defaults to "
+            "glue_schema_registry.enabled; set it to true to use schemas that are "
+            "already in DataHub without Glue."
         ),
     )
+
+    @pydantic.model_validator(mode="after")
+    def _default_column_lineage(self) -> "SqsSourceConfig":
+        if self.column_lineage is None:
+            self.column_lineage = self.glue_schema_registry.enabled
+        return self
 
 
 class SnsDataProtectionConfig(ConfigModel):
@@ -175,26 +194,35 @@ class SnsSourceConfig(AwsMessagingConfigBase):
         description="Regex patterns on topic names to include.",
     )
     include_subscription_attributes: bool = Field(
-        default=True,
+        default=False,
         description=(
             "Call sns:GetSubscriptionAttributes for each subscription to read its "
-            "dead-letter queue. One call per subscription."
+            "dead-letter queue. One call per subscription, for every protocol, on "
+            "every run; subscription-to-queue edges need no extra calls."
         ),
     )
     glue_schema_registry: TopicGlueSchemaRegistryConfig = Field(
         default_factory=TopicGlueSchemaRegistryConfig,
         description="Topic schemas from AWS Glue Schema Registry (off by default).",
     )
-    column_lineage: bool = Field(
-        default=True,
+    column_lineage: Optional[bool] = Field(
+        default=None,
         description=(
             "Add field-level lineage from a topic to a queue subscribed with raw "
             "message delivery, for fields present in both schemas. Needs "
             "include_subscription_attributes and schemas on both sides (from Glue "
-            "Schema Registry in this run, or already in DataHub)."
+            "Schema Registry in this run, or already in DataHub). Defaults to "
+            "glue_schema_registry.enabled; set it to true to use schemas that are "
+            "already in DataHub without Glue."
         ),
     )
     data_protection: SnsDataProtectionConfig = Field(
         default_factory=SnsDataProtectionConfig,
         description="SNS message data protection policies as tags or glossary terms.",
     )
+
+    @pydantic.model_validator(mode="after")
+    def _default_column_lineage(self) -> "SnsSourceConfig":
+        if self.column_lineage is None:
+            self.column_lineage = self.glue_schema_registry.enabled
+        return self

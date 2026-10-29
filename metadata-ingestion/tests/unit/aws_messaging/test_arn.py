@@ -96,3 +96,15 @@ def test_resource_id_follows_dataset_urn_lowercasing(
     assert UrnBuilder.resource_id(arn) == "us-east-1.orders"
     monkeypatch.setattr(mce_builder, "DATASET_URN_TO_LOWER", False)
     assert UrnBuilder.resource_id(arn) == "us-east-1.Orders"
+
+
+def test_own_account_ignores_the_instance_map() -> None:
+    # Mapping the recipe's own account must not split its datasets from their
+    # region container, which always uses platform_instance.
+    urns = UrnBuilder(
+        env="PROD",
+        account_id="123456789012",
+        platform_instance="prod",
+        account_platform_instance_map={"123456789012": "other"},
+    )
+    assert urns.instance_for("123456789012") == "prod"

@@ -171,7 +171,7 @@ def subscription_properties(
             "subscriber_protocols": ", ".join(
                 f"{protocol}={count}" for protocol, count in sorted(counts.items())
             ),
-            "https_endpoint_hosts": ", ".join(hosts),
+            "web_endpoint_hosts": ", ".join(hosts),
         }
     )
 
