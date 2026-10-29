@@ -24,6 +24,7 @@ import com.linkedin.datajob.EditableDataJobProperties;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -971,6 +972,7 @@ public class TimelineServiceImpl implements TimelineService {
             .getNextVersions(opContext, Map.of(urn.toString(), fullAspectNames), false)
             .get(urn.toString());
 
+    Map<String, EntityAspectIdentifier> previousVersionKeys = new HashMap<>();
     for (Map.Entry<String, TreeSet<EntityAspect>> aspectMinVersion : aspectRowSetMap.entrySet()) {
       TreeSet<EntityAspect> aspectSet = aspectMinVersion.getValue();
 
@@ -990,16 +992,20 @@ public class TimelineServiceImpl implements TimelineService {
           versionToGet =
               (oldestAspect.getVersion() == 0L) ? nextVersion - 1 : oldestAspect.getVersion() - 1;
         }
-        EntityAspect row =
-            _aspectDao.getAspect(
-                opContext, urn.toString(), aspectMinVersion.getKey(), versionToGet);
-        if (row != null) {
-          aspectRowSetMap.get(row.getAspect()).add(row);
-        } else {
-          aspectMinVersion.getValue().add(createSentinel(aspectMinVersion.getKey()));
-        }
+        previousVersionKeys.put(
+            aspectMinVersion.getKey(),
+            new EntityAspectIdentifier(urn.toString(), aspectMinVersion.getKey(), versionToGet));
       }
     }
+
+    // Fetch every lookback row in one query rather than one round trip per aspect
+    final Map<EntityAspectIdentifier, EntityAspect> previousVersions =
+        _aspectDao.batchGet(opContext, new HashSet<>(previousVersionKeys.values()), false);
+    previousVersionKeys.forEach(
+        (aspectName, key) -> {
+          EntityAspect row = previousVersions.get(key);
+          aspectRowSetMap.get(aspectName).add(row != null ? row : createSentinel(aspectName));
+        });
     return aspectRowSetMap;
   }
 

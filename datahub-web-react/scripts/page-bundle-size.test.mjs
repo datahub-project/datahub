@@ -181,24 +181,34 @@ test('module script is the entry when the manifest has no isEntry', () => {
 });
 
 test('page budget accepts shell and search within the slack', () => {
-    const errors = evaluatePageBudget({ shell: 1_000_000, search: 1_100_000 }, { shell: 1_000_000, search: 1_100_000 });
-    assert.deepEqual(errors, []);
+    const findings = evaluatePageBudget({ shell: 1_000_000, search: 1_100_000 }, { shell: 1_000_000, search: 1_100_000 });
+    assert.deepEqual(findings, { hard: [], soft: [] });
 });
 
-test('page budget fails when search grows past the slack', () => {
-    const errors = evaluatePageBudget({ shell: 1_000_000, search: 1_200_000 }, { shell: 1_000_000, search: 1_100_000 });
-    assert.equal(errors.length, 1);
-    assert.match(errors[0], /Logged-in search JS is 1200000 bytes gzip/);
+test('page budget soft-warns when search grows past the slack', () => {
+    // +20 KB on search: past slack, under 10% of 1.1 MB.
+    const findings = evaluatePageBudget({ shell: 1_000_000, search: 1_120_000 }, { shell: 1_000_000, search: 1_100_000 });
+    assert.equal(findings.hard.length, 0);
+    assert.equal(findings.soft.length, 1);
+    assert.match(findings.soft[0], /Logged-in search JS is 1120000 bytes gzip/);
 });
 
-test('page budget fails when the shell shrinks, so the ceiling must ratchet down', () => {
-    const errors = evaluatePageBudget({ shell: 800_000, search: 1_100_000 }, { shell: 1_000_000, search: 1_100_000 });
-    assert.match(errors[0], /Update datahub-web-react\/page-budget.json shell to 800000/);
+test('page budget fails when search grows past the 10% cliff', () => {
+    const findings = evaluatePageBudget({ shell: 1_000_000, search: 1_300_000 }, { shell: 1_000_000, search: 1_100_000 });
+    assert.equal(findings.soft.length, 0);
+    assert.equal(findings.hard.length, 1);
+    assert.match(findings.hard[0], /Logged-in search JS is 1300000 bytes gzip/);
+});
+
+test('page budget soft-warns when the shell shrinks so the ceiling can ratchet down', () => {
+    const findings = evaluatePageBudget({ shell: 800_000, search: 1_100_000 }, { shell: 1_000_000, search: 1_100_000 });
+    assert.equal(findings.hard.length, 0);
+    assert.match(findings.soft[0], /Update datahub-web-react\/page-budget.json shell to 800000/);
 });
 
 test('page budget fails closed when a gated route is missing', () => {
-    const errors = evaluatePageBudget({ shell: null, search: 1_100_000 }, { shell: 1_000_000, search: 1_100_000 });
-    assert.match(errors[0], /page-budget.json shell/);
+    const findings = evaluatePageBudget({ shell: null, search: 1_100_000 }, { shell: 1_000_000, search: 1_100_000 });
+    assert.match(findings.hard[0], /page-budget.json shell/);
 });
 
 test('comment table has four rows and n/a when a route is missing', () => {
