@@ -6,6 +6,7 @@ import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.OneofDescriptorProto;
+import com.google.protobuf.DescriptorProtos.SourceCodeInfo;
 import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.UnionType;
 import java.util.List;
@@ -142,5 +143,70 @@ public class ProtobufOneOfFieldTest {
     assertEquals(
         Set.of(test1, test2, test3),
         Stream.of(test1, test2, test3, test1Dup).collect(Collectors.toSet()));
+  }
+
+  @Test
+  public void oneOfCommentWithSiblingMessageHavingMoreOneofsTest() {
+    // Outer declares one oneof; its sibling Other declares two. Source locations for every
+    // top-level message share the same file, so Outer's comment lookup sees Other's oneof
+    // index 1 and must not resolve it against Outer.
+    OneofDescriptorProto outerChoice = OneofDescriptorProto.newBuilder().setName("choice").build();
+    FieldDescriptorProto outerField =
+        FieldDescriptorProto.newBuilder().setName("a").setOneofIndex(0).build();
+    DescriptorProto outer =
+        DescriptorProto.newBuilder()
+            .setName("Outer")
+            .addOneofDecl(outerChoice)
+            .addField(outerField)
+            .build();
+
+    OneofDescriptorProto otherFirst = OneofDescriptorProto.newBuilder().setName("first").build();
+    OneofDescriptorProto otherSecond = OneofDescriptorProto.newBuilder().setName("second").build();
+    FieldDescriptorProto otherField1 =
+        FieldDescriptorProto.newBuilder().setName("c").setOneofIndex(0).build();
+    FieldDescriptorProto otherField2 =
+        FieldDescriptorProto.newBuilder().setName("d").setOneofIndex(1).build();
+    DescriptorProto other =
+        DescriptorProto.newBuilder()
+            .setName("Other")
+            .addAllOneofDecl(List.of(otherFirst, otherSecond))
+            .addAllField(List.of(otherField1, otherField2))
+            .build();
+
+    FileDescriptorProto file =
+        FileDescriptorProto.newBuilder()
+            .setPackage("protobuf")
+            .addAllMessageType(List.of(outer, other))
+            .setSourceCodeInfo(
+                SourceCodeInfo.newBuilder()
+                    .addLocation(oneofLocation(0, 0, "Outer choice."))
+                    .addLocation(oneofLocation(1, 0, "Other first."))
+                    .addLocation(oneofLocation(1, 1, "Other second.")))
+            .build();
+
+    ProtobufOneOfField outerOneOf =
+        ProtobufOneOfField.oneOfBuilder()
+            .fieldProto(outerField)
+            .protobufMessage(ProtobufMessage.builder().fileProto(file).messageProto(outer).build())
+            .build();
+    ProtobufOneOfField otherSecondOneOf =
+        ProtobufOneOfField.oneOfBuilder()
+            .fieldProto(otherField2)
+            .protobufMessage(ProtobufMessage.builder().fileProto(file).messageProto(other).build())
+            .build();
+
+    assertEquals(outerOneOf.comment(), "Outer choice.");
+    assertEquals(otherSecondOneOf.comment(), "Other second.");
+  }
+
+  private static SourceCodeInfo.Location oneofLocation(
+      int messageIndex, int oneofIndex, String comment) {
+    return SourceCodeInfo.Location.newBuilder()
+        .addPath(FileDescriptorProto.MESSAGE_TYPE_FIELD_NUMBER)
+        .addPath(messageIndex)
+        .addPath(DescriptorProto.ONEOF_DECL_FIELD_NUMBER)
+        .addPath(oneofIndex)
+        .setLeadingComments(comment)
+        .build();
   }
 }

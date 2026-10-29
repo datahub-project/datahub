@@ -22,6 +22,7 @@ import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageCountResult;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
@@ -234,6 +235,17 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
         .setCount(count)
         .setTotal(lineageResponse.getTotal())
         .setPartial(lineageResponse.isPartial());
+  }
+
+  @Nonnull
+  @WithSpan
+  @Override
+  public LineageCountResult getLineageCount(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int sampleSize) {
+    return graphReadDAO.getLineageCount(opContext, entityUrns, lineageGraphFilters, sampleSize);
   }
 
   @Nonnull

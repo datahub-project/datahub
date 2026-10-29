@@ -85,7 +85,7 @@
               }
             }, {
               "term" : {
-                "name.keyword" : {
+                "name" : {
                   "boost" : 16.0,
                   "case_insensitive" : true,
                   "value" : "customer orders"
@@ -141,14 +141,14 @@
           }
         }, {
           "term" : {
-            "structuredProperties._versioned.contract_id.00000000000001.string.keyword" : {
+            "structuredProperties._versioned.contract_id.00000000000001.string" : {
               "boost" : 2.0,
               "value" : "customer orders"
             }
           }
         }, {
           "term" : {
-            "structuredProperties.certification_status.keyword" : {
+            "structuredProperties.certification_status" : {
               "boost" : 1.2,
               "value" : "customer orders"
             }
@@ -162,7 +162,7 @@
           }
         }, {
           "term" : {
-            "structuredProperties.summary_notes.keyword" : {
+            "structuredProperties.summary_notes" : {
               "boost" : 0.8,
               "value" : "customer orders"
             }

@@ -19,6 +19,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.metadata.schema_classes import DatasetProfileClass
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
@@ -239,12 +240,29 @@ WHERE
         if len(profile_requests) == 0:
             return
 
-        yield from self.generate_profile_workunits(
+        # A profile's rowCount and sizeInBytes describe the whole dataset. For a
+        # collapsed sharded table that is every shard, although only the latest shard
+        # is profiled, so eligibility and sampling above still use that shard's stats.
+        sharded_totals = {
+            self.dataset_urn_builder(
+                request.pretty_name
+            ): request.table.sharded_table_stats
+            for request in profile_requests
+            if isinstance(request.table, BigqueryTable)
+            and request.table.sharded_table_stats
+        }
+        for wu in self.generate_profile_workunits(
             profile_requests,
             max_workers=self.config.profiling.max_workers,
             platform=self.platform,
             profiler_args=self.get_profile_args(),
-        )
+        ):
+            totals = sharded_totals.get(wu.get_urn())
+            profile = wu.get_aspect_of_type(DatasetProfileClass)
+            if totals and profile:
+                profile.rowCount = totals.rows_count
+                profile.sizeInBytes = totals.size_in_bytes
+            yield wu
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         return BigqueryTableIdentifier(

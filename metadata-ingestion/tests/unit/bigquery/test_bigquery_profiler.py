@@ -6,6 +6,7 @@ import sqlglot
 from google.cloud import bigquery
 from sqlglot.expressions import PartitionedByProperty
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
@@ -15,6 +16,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryTable,
     PartitionInfo,
+    ShardedTableStats,
 )
 from datahub.ingestion.source.bigquery_v2.profiling.partition_discovery.discovery import (
     PartitionDiscovery,
@@ -30,6 +32,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_filter_expression,
     validate_sql_structure,
 )
+from datahub.metadata.schema_classes import DatasetProfileClass
 
 
 def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table():
@@ -50,6 +53,43 @@ def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table(
     )
 
     assert query == (None, None)
+
+
+def test_collapsed_sharded_table_is_profiled_by_latest_shard_but_reports_totals():
+    # Only the latest shard is profiled, so the size limit and sampling must use its
+    # stats; the emitted profile's rowCount / sizeInBytes describe every shard.
+    config = BigQueryV2Config.model_validate(
+        {"profiling": {"enabled": True, "profile_table_size_limit": 1}}
+    )
+    profiler = BigqueryProfiler(config=config, report=BigQueryV2Report())
+    table = BigqueryTable(
+        name="events_20250102",
+        comment=None,
+        rows_count=1_000,
+        size_in_bytes=2**29,
+        last_altered=datetime.now(timezone.utc),
+        created=datetime.now(timezone.utc),
+        sharded_table_stats=ShardedTableStats(
+            rows_count=365_000, size_in_bytes=365 * 2**29
+        ),
+    )
+    urn = profiler.dataset_urn_builder("test_project.test_dataset.events")
+    generated = MetadataChangeProposalWrapper(
+        entityUrn=urn,
+        aspect=DatasetProfileClass(timestampMillis=0, rowCount=1_000, sizeInBytes=1),
+    ).as_workunit()
+
+    with patch.object(
+        profiler, "generate_profile_workunits", return_value=[generated]
+    ) as generate:
+        wus = list(profiler.get_workunits("test_project", {"test_dataset": [table]}))
+
+    (request,) = generate.call_args.args[0]
+    assert not request.profile_table_level_only
+    assert request.batch_kwargs["row_count"] == 1_000
+    profile = wus[0].get_aspect_of_type(DatasetProfileClass)
+    assert profile is not None
+    assert (profile.rowCount, profile.sizeInBytes) == (365_000, 365 * 2**29)
 
 
 def test_get_batch_kwargs_includes_row_count():
