@@ -32,6 +32,8 @@ from datahub.ingestion.source.sqlmesh.sqlmesh_source import SqlmeshSource
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     DataPlatformInstanceClass,
+    GenericAspectClass,
+    MetadataChangeProposalClass,
     SiblingsClass,
     UpstreamLineageClass,
 )
@@ -483,6 +485,8 @@ def test_sqlmesh_event_count_and_coverage() -> None:
         f"Expected 3 warehouse lineage patches, got {len(warehouse_lineage_patches)}"
     )
     for wu in warehouse_lineage_patches:
+        assert isinstance(wu.metadata, MetadataChangeProposalClass)
+        assert isinstance(wu.metadata.aspect, GenericAspectClass)
         warehouse_urn = str(wu.metadata.entityUrn)
         sqlmesh_urn = warehouse_urn.replace(
             "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:sqlmesh"
