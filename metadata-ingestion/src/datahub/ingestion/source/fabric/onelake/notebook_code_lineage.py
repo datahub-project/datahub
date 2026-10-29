@@ -280,17 +280,6 @@ def _rooted_in_frame(expr: ast.AST, frames: Dict[str, Set[CodeTable]]) -> bool:
     return root is not None and root in frames
 
 
-def _references_frame(expr: ast.AST, frames: Dict[str, Set[CodeTable]]) -> bool:
-    if isinstance(expr, ast.Name):
-        return expr.id in frames
-    return any(_references_frame(child, frames) for child in ast.iter_child_nodes(expr))
-
-
-def _tail_has_tables(expr: ast.expr, env: Dict[str, str]) -> bool:
-    tail = _eval_tail(expr, env)
-    return tail is not None and "Tables" in tail
-
-
 class _Extractor:
     def __init__(self) -> None:
         self.lineage: Dict[CodeTable, Set[CodeTable]] = {}
@@ -403,24 +392,18 @@ class _Extractor:
         self, call: ast.Call
     ) -> Tuple[Optional[ast.expr], Optional[ast.expr]]:
         assert isinstance(call.func, ast.Name)
+        # Only helpers defined in this notebook that save a parameter count as
+        # writes. A call to an unknown function with a dataframe and a Tables
+        # path (validate(df, path), log_write(df, target)) is not evidence of a
+        # write, and an output the code misses keeps its plan lineage anyway.
         writer = self._writers.get(call.func.id)
-        if writer is not None:
-            df_name, path_name, df_index, path_index = writer
-            return (
-                _argument(call, df_name, df_index),
-                _argument(call, path_name, path_index),
-            )
-        df_expr: Optional[ast.expr] = None
-        path_expr: Optional[ast.expr] = None
-        candidates = list(call.args) + [kw.value for kw in call.keywords]
-        for arg in candidates:
-            if path_expr is None and _tail_has_tables(arg, self._strings):
-                path_expr = arg
-            elif df_expr is None and _references_frame(arg, self._frames):
-                df_expr = arg
-        if df_expr is None or path_expr is None:
+        if writer is None:
             return None, None
-        return df_expr, path_expr
+        df_name, path_name, df_index, path_index = writer
+        return (
+            _argument(call, df_name, df_index),
+            _argument(call, path_name, path_index),
+        )
 
     def _add_edge(self, target: CodeTable, df_expr: ast.expr) -> None:
         reads, produced = self._collect(df_expr)

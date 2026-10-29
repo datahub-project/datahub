@@ -394,3 +394,21 @@ merged.write.format("delta").save("Tables/Gold/Dim_User")
     assert lineage is not None
     sources = lineage[CodeTable(table="Dim_User", schema="Gold")]
     assert {(s.schema, s.table) for s in sources} == {("silver", "orders")}
+
+
+def test_unknown_helper_with_a_frame_and_tables_path_is_not_a_write() -> None:
+    lineage = extract_notebook_code_lineage(
+        """
+orders = spark.read.format("delta").load("Tables/silver/orders")
+products = spark.read.format("delta").load("Tables/silver/products")
+users = orders.select("id")
+validate(products, "Tables/gold/dim_user")
+log_write(products, "Tables/gold/dim_products")
+users.write.format("delta").save("Tables/gold/dim_user")
+"""
+    )
+    assert lineage is not None
+    assert set(lineage) == {CodeTable(table="dim_user", schema="gold")}
+    assert lineage[CodeTable(table="dim_user", schema="gold")] == {
+        CodeTable(table="orders", schema="silver")
+    }
