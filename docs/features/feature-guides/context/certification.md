@@ -105,7 +105,7 @@ You can also certify and remove certifications programmatically with the [DataHu
 ## FAQ
 
 **I don't see the certify icon or the Certification page.**
-You need the **Certify** privilege. The Certification page also requires the privilege across all assets; if you can certify only some assets, such as those in one domain, certify them from their pages. If nobody in your organization sees certification, ask your DataHub representative to enable it.
+You need the **Certify** privilege. The Certification page also requires the privilege across all assets; if you can certify only some assets, such as those in one domain, certify them from their pages.
 
 **Does a certification expire?**
 No. It stays until someone removes it.
