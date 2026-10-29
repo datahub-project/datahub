@@ -10,6 +10,7 @@ from datahub.ingestion.source.aws_messaging.constants import (
     AwsService,
 )
 from datahub.ingestion.source.aws_messaging.jobs import job_urn, shared_job_workunits
+from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey
 from datahub.ingestion.source.aws_messaging.models import LambdaFunctionEdges
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
@@ -35,12 +36,14 @@ class LambdaLineage:
         client: LambdaClient,
         urns: UrnBuilder,
         resolver: ResourceResolver,
+        region_key: AwsRegionKey,
     ):
         self.config = config
         self.report = report
         self.client = client
         self.urns = urns
         self.resolver = resolver
+        self.region_key = region_key
         self.functions: Dict[str, LambdaFunctionEdges] = {}
 
     def function(
@@ -124,6 +127,7 @@ class LambdaLineage:
                 subtype=DataFlowSubTypes.LAMBDA_FUNCTION.value,
                 external_url=console,
                 custom_properties={"arn": key},
+                parent_container=self.region_key,
             )
             job = DataJob(
                 name=LAMBDA_JOB_ID,

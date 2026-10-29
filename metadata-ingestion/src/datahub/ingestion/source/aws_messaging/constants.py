@@ -16,7 +16,9 @@ FIREHOSE_DELIVERY_JOB_ID = "delivery"
 CONSOLE_PATHS = {
     SQS_PLATFORM: "sqs/v3/home",
     SNS_PLATFORM: "sns/v3/home",
+    LAMBDA_PLATFORM: "lambda/home",
     EVENTBRIDGE_PLATFORM: "events/home",
+    EVENTBRIDGE_PIPES_PLATFORM: "pipes/home",
 }
 
 LAMBDA_JOB_ID = "invoke"
