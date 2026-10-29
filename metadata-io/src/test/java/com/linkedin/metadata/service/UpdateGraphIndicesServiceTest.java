@@ -2,9 +2,11 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.CONTAINER_ENTITY_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
@@ -12,6 +14,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -34,6 +37,7 @@ import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -380,6 +384,97 @@ public class UpdateGraphIndicesServiceTest {
             .setAspect(GenericRecordUtils.serializeAspect(ownership(alice, bot, carol))));
 
     verify(mockWriteDAO, never()).deleteDocument(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void testUnvalidatedPreviousIsDiffedWithoutRemovingTheNewerVersionsEdges() {
+    // The previous value holds an owner type only a newer version defines, so the event comes
+    // without it and the graph diffs against it as deserialized here: alice's edge is removed,
+    // carol's added, and the newer version's owner keeps its edge.
+    test.setGraphDiffMode(true);
+    Urn alice = UrnUtils.getUrn("urn:li:corpuser:alice");
+    Urn carol = UrnUtils.getUrn("urn:li:corpuser:carol");
+    Urn bot = UrnUtils.getUrn("urn:li:entityFromNewerBuild:bot1");
+
+    test.handleChangeEventWithUnvalidatedPrevious(
+        TEST_OP_CONTEXT,
+        ownershipEvent(ChangeType.UPSERT, ownership(carol, bot)),
+        withNewerOwnerType(ownership(alice, bot)));
+
+    ArgumentCaptor<String> removed = ArgumentCaptor.forClass(String.class);
+    verify(mockWriteDAO, atLeastOnce()).deleteDocument(eq(TEST_OP_CONTEXT), removed.capture());
+    ArgumentCaptor<String> written = ArgumentCaptor.forClass(String.class);
+    verify(mockWriteDAO, atLeastOnce())
+        .upsertDocument(eq(TEST_OP_CONTEXT), written.capture(), any());
+    assertEquals(removed.getAllValues(), List.of(ownedByDocId(alice)));
+    assertTrue(written.getAllValues().contains(ownedByDocId(carol)));
+    assertFalse(written.getAllValues().contains(ownedByDocId(alice)));
+    assertFalse(written.getAllValues().contains(ownedByDocId(bot)));
+    verify(mockWriteDAO, never())
+        .deleteByQuery(any(OperationContext.class), any(GraphFilters.class));
+  }
+
+  @Test
+  public void testUnreadablePreviousReplacesTheNewValuesEdges() {
+    // Even in diff mode, an upsert with no previous value to diff against replaces the edges of the
+    // new value's relationship types, so the edges of the value it replaced don't stay behind.
+    test.setGraphDiffMode(true);
+
+    test.handleChangeEventWithUnvalidatedPrevious(
+        TEST_OP_CONTEXT,
+        ownershipEvent(ChangeType.UPSERT, ownership(UrnUtils.getUrn("urn:li:corpuser:carol"))),
+        null);
+
+    verify(mockWriteDAO, times(1))
+        .deleteByQuery(
+            eq(TEST_OP_CONTEXT),
+            eq(
+                GraphFilters.from(
+                    createUrnFilter(TEST_URN),
+                    Set.of("OwnedBy", "ownershipType"),
+                    newRelationshipFilter(
+                        new Filter().setOr(new ConjunctiveCriterionArray()),
+                        RelationshipDirection.OUTGOING))));
+  }
+
+  @Test
+  public void testDeleteRemovesTheEdgesOfTheUnvalidatedPrevious() {
+    test.handleChangeEventWithUnvalidatedPrevious(
+        TEST_OP_CONTEXT,
+        ownershipEvent(ChangeType.DELETE, null),
+        withNewerOwnerType(ownership(UrnUtils.getUrn("urn:li:corpuser:alice"))));
+
+    verify(mockWriteDAO, times(1))
+        .deleteByQuery(
+            eq(TEST_OP_CONTEXT),
+            eq(
+                GraphFilters.from(
+                    createUrnFilter(TEST_URN),
+                    Set.of("OwnedBy", "ownershipType"),
+                    createRelationshipFilter(
+                        new Filter().setOr(new ConjunctiveCriterionArray()),
+                        RelationshipDirection.OUTGOING))));
+  }
+
+  private static MetadataChangeLog ownershipEvent(
+      final ChangeType changeType, final Ownership aspect) {
+    final MetadataChangeLog event =
+        new MetadataChangeLog()
+            .setChangeType(changeType)
+            .setEntityType("dataset")
+            .setEntityUrn(TEST_URN)
+            .setAspectName(Constants.OWNERSHIP_ASPECT_NAME);
+    return aspect == null ? event : event.setAspect(GenericRecordUtils.serializeAspect(aspect));
+  }
+
+  private static String ownedByDocId(final Urn owner) {
+    return new Edge(TEST_URN, owner, "OwnedBy", null, null, null, null, null).toDocId("md5");
+  }
+
+  /** The first owner gets an owner type only a newer version defines, as that version wrote it. */
+  private static Ownership withNewerOwnerType(final Ownership ownership) {
+    ownership.getOwners().get(0).data().put("type", "OWNER_TYPE_FROM_NEWER_BUILD");
+    return ownership;
   }
 
   private static Ownership ownership(final Urn... owners) {
