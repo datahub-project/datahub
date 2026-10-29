@@ -1,43 +1,11 @@
 import textwrap
-from typing import Dict, Optional
+from typing import Optional
 
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_NULL_PARTITION_ID,
     BQ_STREAMING_UNPARTITIONED_PARTITION_ID,
     BQ_UNPARTITIONED_PARTITION_ID,
 )
-
-# Collapses a date-sharded BigQuery table name (`events_20251121`, `events$20251121`,
-# `events20251121`) to its logical wildcard base so per-shard stats can be summed back onto
-# the single collapsed entity (see build_sharded_stats_clauses). The prefix group is
-# optional, mirroring the Python shard matcher (_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX /
-# extract_base_table_name in bigquery_audit.py):
-#   - `events_20250101` / `events20250101` -> `events`
-#   - date-only names (`20250101`, `20250102`) -> "" so they group together, matching the
-#     Python "dataset as a sharded table" collapse (extract_base_table_name falls back to
-#     the dataset name for these).
-#   - `orders120250101` (a digit, not a separator, before the date) does NOT match, so it
-#     stays a distinct table and is not merged into the `orders1` family's totals.
-# ponytail: when the character before the separator is a digit (e.g. `orders1_20250101`),
-# the captured base keeps the trailing `_`/`$` (-> `orders1_`) rather than Python's
-# rstrip("_") form (`orders1`). This base is only ever used internally as the GROUP BY /
-# join key and is applied identically to every shard of the family, so the rollup still
-# groups and sums the exact same shards - it just differs cosmetically from the Python
-# base string, which is never compared against it. Upgrade path: wrap in a second
-# REGEXP_REPLACE(..., r"[_$]+$", "") if exact base-string parity is ever required.
-SHARDED_TABLE_BASE_STRIP_REGEX = (
-    r"^((?:.*?\D)?)[_$]?(\d\d\d\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
-)
-
-
-def sharded_table_base_expr(column: str) -> str:
-    """SQL expression that reduces a shard name to its wildcard base.
-
-    Single source of truth for both the entity-grouping key and the rollup subqueries in
-    build_sharded_stats_clauses, so they can never drift apart and aggregate a different
-    set of shards than the collapse logic groups together.
-    """
-    return f'REGEXP_REPLACE({column}, r"{SHARDED_TABLE_BASE_STRIP_REGEX}", r"\\1")'
 
 
 class BigqueryTableType:
@@ -83,12 +51,12 @@ SELECT
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl,
-  {{row_count_select}} as row_count,
-  {{bytes_select}} as bytes,
+  ts.row_count as row_count,
+  ts.size_bytes as bytes,
   p.num_partitions,
   p.max_partition_id,
-  {{active_billable_select}} as active_billable_bytes,
-  {{long_term_billable_select}} as long_term_billable_bytes,
+  p.active_billable_bytes as active_billable_bytes,
+  IFNULL(p.long_term_billable_bytes, 0) as long_term_billable_bytes,
   REGEXP_EXTRACT(t.table_name, r"(?:(?:.+\\D)[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
   REGEXP_REPLACE(t.table_name, r"(?:[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
 
@@ -110,7 +78,7 @@ FROM
         `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
-    t.table_name = p.table_name{{shard_stats_join}}
+    t.table_name = p.table_name
 WHERE
   table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
@@ -136,12 +104,12 @@ SELECT
   tos.OPTION_VALUE as comment,
   t.is_insertable_into,
   t.ddl,
-  {{row_count_select}} as row_count,
-  {{bytes_select}} as bytes,
+  p.total_rows as row_count,
+  p.total_logical_bytes as bytes,
   p.num_partitions,
   p.max_partition_id,
-  {{active_billable_select}} as active_billable_bytes,
-  {{long_term_billable_select}} as long_term_billable_bytes,
+  p.active_billable_bytes as active_billable_bytes,
+  IFNULL(p.long_term_billable_bytes, 0) as long_term_billable_bytes,
   REGEXP_EXTRACT(t.table_name, r"(?:(?:.+\\D)[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$") as table_suffix,
   REGEXP_REPLACE(t.table_name, r"(?:[_$]?)(\\d\\d\\d\\d(?:0[1-9]|1[012])(?:0[1-9]|[12][0-9]|3[01]))$", "") as table_base
 
@@ -164,7 +132,7 @@ FROM
         `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.PARTITIONS
     group by
         table_name) as p on
-    t.table_name = p.table_name{{shard_stats_join}}
+    t.table_name = p.table_name
 WHERE
   table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
@@ -200,6 +168,24 @@ order by
   table_schema ASC,
   table_base ASC,
   table_suffix DESC
+"""
+
+    # Per-table stats for the shards of collapsed sharded tables, which are summed per
+    # family in Python. The table filter keeps each query within the 1000-table limit
+    # of INFORMATION_SCHEMA.PARTITIONS.
+    partition_stats_for_tables = """
+SELECT
+  table_name,
+  sum(total_rows) as total_rows,
+  sum(total_logical_bytes) as total_logical_bytes,
+  sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
+  sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes
+FROM
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
+WHERE
+  table_name in ({table_filter})
+GROUP BY
+  table_name
 """
 
     # Views keep last_altered / row_count / size_bytes from the legacy __TABLES__ construct.
@@ -417,111 +403,6 @@ join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc 
     and tc.constraint_schema = ccu.constraint_schema
     and tc.constraint_name = ccu.constraint_name
 """
-
-    @staticmethod
-    def build_sharded_stats_clauses(
-        project_id: str,
-        dataset_name: str,
-        use_legacy_table_stats: bool,
-        aggregate_sharded_stats: bool,
-    ) -> Dict[str, str]:
-        """Build the row_count / bytes / billable-bytes selects and the optional
-        shard-rollup join(s) for the stats query templates.
-
-        A collapsed date-sharded table (the default, legacy support on) is represented by
-        its latest shard alone, so its row_count / size / billable bytes would otherwise
-        reflect only that one shard. When aggregate_sharded_stats is set we LEFT JOIN a
-        per-base rollup that sums every shard's stats and COALESCE it over the latest
-        shard's own values. The `t.table_name != <base>` join condition leaves un-sharded
-        tables on their own per-table stats.
-
-        Row count and size come from __TABLES__ under use_legacy_table_stats and from
-        PARTITIONS otherwise, so the rollup `sh` mirrors that source. Billable bytes are
-        always sourced from PARTITIONS in both templates, so under legacy stats they are
-        summed by a second PARTITIONS rollup `shb`.
-        """
-        if use_legacy_table_stats:
-            own_rows, own_bytes = "ts.row_count", "ts.size_bytes"
-            source, name_col = "__TABLES__", "table_id"
-            src_rows, src_bytes = "row_count", "size_bytes"
-        else:
-            own_rows, own_bytes = "p.total_rows", "p.total_logical_bytes"
-            source, name_col = "INFORMATION_SCHEMA.PARTITIONS", "table_name"
-            src_rows, src_bytes = "total_rows", "total_logical_bytes"
-
-        own_active = "p.active_billable_bytes"
-        own_long_term = "IFNULL(p.long_term_billable_bytes, 0)"
-
-        if not aggregate_sharded_stats:
-            return {
-                "row_count_select": own_rows,
-                "bytes_select": own_bytes,
-                "active_billable_select": own_active,
-                "long_term_billable_select": own_long_term,
-                "shard_stats_join": "",
-            }
-
-        table_base = sharded_table_base_expr("t.table_name")
-        billable_rollup = (
-            "\n        sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes"
-            " else 0 end) as long_term_billable_bytes,"
-            "\n        sum(case when storage_tier = 'ACTIVE' then total_billable_bytes"
-            " else 0 end) as active_billable_bytes"
-        )
-
-        if use_legacy_table_stats:
-            # Row count / size are summed from __TABLES__; billable bytes come from a
-            # separate PARTITIONS rollup since __TABLES__ does not expose them.
-            billable_alias = "shb"
-            shard_stats_join = f"""
-  left join (
-    select
-        {sharded_table_base_expr(name_col)} as table_base,
-        sum({src_rows}) as total_rows,
-        sum({src_bytes}) as total_bytes
-    from
-        `{project_id}`.`{dataset_name}`.{source}
-    group by
-        table_base) as sh on
-    {table_base} = sh.table_base
-    and t.table_name != {table_base}
-  left join (
-    select
-        {sharded_table_base_expr("table_name")} as table_base,{billable_rollup}
-    from
-        `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
-    group by
-        table_base) as shb on
-    {table_base} = shb.table_base
-    and t.table_name != {table_base}"""
-        else:
-            # A single PARTITIONS rollup covers row count, size and billable bytes.
-            billable_alias = "sh"
-            shard_stats_join = f"""
-  left join (
-    select
-        {sharded_table_base_expr(name_col)} as table_base,
-        sum({src_rows}) as total_rows,
-        sum({src_bytes}) as total_bytes,{billable_rollup}
-    from
-        `{project_id}`.`{dataset_name}`.{source}
-    group by
-        table_base) as sh on
-    {table_base} = sh.table_base
-    and t.table_name != {table_base}"""
-
-        return {
-            "row_count_select": f"COALESCE(sh.total_rows, {own_rows})",
-            "bytes_select": f"COALESCE(sh.total_bytes, {own_bytes})",
-            "active_billable_select": (
-                f"COALESCE({billable_alias}.active_billable_bytes, {own_active})"
-            ),
-            "long_term_billable_select": (
-                f"IFNULL(COALESCE({billable_alias}.long_term_billable_bytes,"
-                " p.long_term_billable_bytes), 0)"
-            ),
-            "shard_stats_join": shard_stats_join,
-        }
 
 
 BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE = """

@@ -224,15 +224,14 @@ public class V3SearchQueryBuilderTest {
         find(query, ConstantScoreQueryBuilder.class).stream()
             .map(ConstantScoreQueryBuilder::innerQuery)
             .anyMatch(
-                inner ->
-                    inner instanceof TermQueryBuilder term
-                        && term.fieldName().equals("name.keyword")),
+                inner -> inner instanceof TermQueryBuilder term && term.fieldName().equals("name")),
         query.toString());
     Set<String> exact =
         find(query, TermQueryBuilder.class).stream()
             .map(TermQueryBuilder::fieldName)
             .collect(Collectors.toSet());
-    assertTrue(exact.containsAll(Set.of("name.keyword", "urn")), exact.toString());
+    assertTrue(exact.containsAll(Set.of("name", "urn")), exact.toString());
+    assertFalse(exact.contains("name.keyword"), exact.toString());
     assertFalse(exact.contains("urnName"), exact.toString());
     assertTrue(
         exact.stream().noneMatch(field -> field.toLowerCase().contains("description")),
@@ -570,7 +569,7 @@ public class V3SearchQueryBuilderTest {
     assertTrue(tags.contains("\"value\" : \"jose\""), tags);
     assertFalse(tags.contains("JOS"), tags);
 
-    String name = clause(query, "\"name.keyword\" :");
+    String name = clause(query, "\"name\" :");
     assertTrue(name.contains("\"value\" : \"JOS\u00c9\""), name);
   }
 
@@ -586,18 +585,103 @@ public class V3SearchQueryBuilderTest {
         builder(null)
             .buildQuery(OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "name:orders", true);
 
-    QueryStringQueryBuilder structured = only(find(query, QueryStringQueryBuilder.class));
-    assertEquals(structured.queryString(), "name:orders");
-    assertTrue(
-        structured.fields().keySet().containsAll(Set.of("name.text", "name")),
-        structured.fields().toString());
+    // name maps .lowercase, so an unquoted value is a normalized term on that subfield.
+    keywordTerm(query, "name.lowercase", "orders");
+    assertTrue(find(query, QueryStringQueryBuilder.class).isEmpty());
     assertTrue(find(query, SimpleQueryStringBuilder.class).isEmpty());
   }
 
+  /** A single wildcard on name reads the lowercase subfield. */
+  @Test
+  public void testStructuredQueryWildcardReadsLowercaseSubfield() {
+    QueryBuilder mixed =
+        builder(null)
+            .buildQuery(OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "name:Orders*", true);
+    List<WildcardQueryBuilder> wildcards = find(mixed, WildcardQueryBuilder.class);
+    assertEquals(wildcards.size(), 1, wildcards.toString());
+    assertEquals(wildcards.get(0).fieldName(), "name.lowercase");
+    assertEquals(wildcards.get(0).value(), "orders*");
+    assertFalse(wildcards.get(0).caseInsensitive());
+    assertTrue(find(mixed, QueryStringQueryBuilder.class).isEmpty());
+
+    List<WildcardQueryBuilder> lower =
+        find(
+            builder(null)
+                .buildQuery(OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "name:orders*", true),
+            WildcardQueryBuilder.class);
+    assertEquals(lower.size(), 1, lower.toString());
+    assertEquals(lower.get(0).fieldName(), "name.lowercase");
+    assertEquals(lower.get(0).value(), "orders*");
+    assertFalse(lower.get(0).caseInsensitive());
+
+    QueryStringQueryBuilder parsed =
+        only(
+            find(
+                builder(null)
+                    .buildQuery(OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "tags:Pii*", true),
+                QueryStringQueryBuilder.class));
+    assertEquals(parsed.queryString(), "tags:Pii*");
+
+    Set<String> description =
+        find(
+                builder(null)
+                    .buildQuery(
+                        OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "description:Orders*", true),
+                QueryStringQueryBuilder.class)
+            .stream()
+            .map(QueryStringQueryBuilder::queryString)
+            .collect(Collectors.toSet());
+    assertTrue(description.contains("description.text:Orders*"), description.toString());
+    assertTrue(description.contains("description.stemmed:Orders*"), description.toString());
+
+    QueryStringQueryBuilder grouped =
+        only(
+            find(
+                builder(null)
+                    .buildQuery(
+                        OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "name:(Orders*)", true),
+                QueryStringQueryBuilder.class));
+    assertEquals(grouped.queryString(), "name:(Orders*)");
+
+    QueryStringQueryBuilder boosted =
+        only(
+            find(
+                builder(null)
+                    .buildQuery(
+                        OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "name:Orders*^2", true),
+                QueryStringQueryBuilder.class));
+    assertEquals(boosted.queryString(), "name:Orders*^2");
+    assertTrue(
+        find(
+                builder(null)
+                    .buildQuery(
+                        OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "name:Orders*^2", true),
+                WildcardQueryBuilder.class)
+            .isEmpty());
+
+    QueryStringQueryBuilder fuzzy =
+        only(
+            find(
+                builder(null)
+                    .buildQuery(
+                        OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "name:Orders*~1", true),
+                QueryStringQueryBuilder.class));
+    assertEquals(fuzzy.queryString(), "name:Orders*~1");
+
+    QueryStringQueryBuilder termBoost =
+        only(
+            find(
+                builder(null)
+                    .buildQuery(
+                        OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "name:orders^2", true),
+                QueryStringQueryBuilder.class));
+    assertEquals(termBoost.queryString(), "name:orders^2");
+  }
+
   /**
-   * query_string ignores fields() when the text names a field. A fielded /q must run that field
-   * once: a shared field stays strict, and a property field stays lenient so an unmapped property
-   * cannot fail the strict clause.
+   * A fielded /q runs that field once. An unquoted value on a keyword root is one case-insensitive
+   * term. A property field stays one lenient query_string, so an unmapped property cannot fail a
+   * strict clause.
    */
   @Test
   public void testFieldedStructuredQueryDoesNotScoreTheNamedFieldTwice() {
@@ -606,25 +690,19 @@ public class V3SearchQueryBuilderTest {
         List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
     V3SearchQueryBuilder queryBuilder = builder(null);
 
-    List<QueryStringQueryBuilder> mixed =
-        queryStrings(queryBuilder.buildQuery(context, dataset, "orders AND name:foo", false));
-    assertEquals(mixed.size(), 3, mixed.toString());
+    QueryBuilder mixedQuery =
+        queryBuilder.buildQuery(context, dataset, "orders AND name:foo", false);
+    List<QueryStringQueryBuilder> mixed = queryStrings(mixedQuery);
+    assertEquals(mixed.size(), 2, mixed.toString());
     assertEquals(mixed.stream().filter(clause -> clause.queryString().equals("orders")).count(), 2);
-    assertEquals(
-        mixed.stream().filter(clause -> clause.queryString().equals("name:foo")).count(), 1);
-    assertNotEquals(
-        Boolean.TRUE,
-        mixed.stream()
-            .filter(clause -> clause.queryString().equals("name:foo"))
-            .findFirst()
-            .orElseThrow()
-            .lenient());
+    assertTrue(
+        mixed.stream().noneMatch(clause -> clause.queryString().startsWith("name:")),
+        mixed.toString());
+    keywordTerm(mixedQuery, "name.lowercase", "foo");
 
-    List<QueryStringQueryBuilder> named =
-        queryStrings(queryBuilder.buildQuery(context, dataset, "name:orders", false));
-    assertEquals(named.size(), 1, named.toString());
-    assertEquals(named.get(0).queryString(), "name:orders");
-    assertNotEquals(Boolean.TRUE, named.get(0).lenient());
+    QueryBuilder namedQuery = queryBuilder.buildQuery(context, dataset, "name:orders", false);
+    assertTrue(queryStrings(namedQuery).isEmpty(), queryStrings(namedQuery).toString());
+    keywordTerm(namedQuery, "name.lowercase", "orders");
 
     List<QueryStringQueryBuilder> property =
         queryStrings(
@@ -647,34 +725,27 @@ public class V3SearchQueryBuilderTest {
         queryBuilder.buildQuery(
             context, dataset, "name:orders AND structuredProperties.retentionPolicy:gold", false);
     List<QueryStringQueryBuilder> both = queryStrings(conjunctionQuery);
-    assertEquals(both.size(), 2, both.toString());
-    assertEquals(
-        both.stream().map(QueryStringQueryBuilder::queryString).collect(Collectors.toSet()),
-        Set.of("name:orders", "structuredProperties.retentionPolicy:gold"));
-    assertEquals(both.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(), 1);
+    assertEquals(both.size(), 1, both.toString());
+    assertEquals(both.get(0).queryString(), "structuredProperties.retentionPolicy:gold");
+    assertEquals(both.get(0).lenient(), Boolean.TRUE);
+    keywordTerm(conjunctionQuery, "name.lowercase", "orders");
     BoolQueryBuilder conjunction =
         find(conjunctionQuery, BoolQueryBuilder.class).stream()
             .filter(clause -> clause.must().size() == 2)
             .findFirst()
             .orElseThrow();
     assertEquals(
-        conjunction.must().stream()
-            .map(clause -> ((QueryStringQueryBuilder) clause).queryString())
-            .collect(Collectors.toSet()),
-        Set.of("name:orders", "structuredProperties.retentionPolicy:gold"));
+        conjunction.must().stream().map(QueryBuilder::getClass).collect(Collectors.toSet()),
+        Set.of(TermQueryBuilder.class, QueryStringQueryBuilder.class));
 
-    List<QueryStringQueryBuilder> either =
-        queryStrings(
-            queryBuilder.buildQuery(
-                context, dataset, "name:orders OR structuredProperties.hiddenLabel:gold", false));
-    assertEquals(either.size(), 2, either.toString());
-    assertEquals(
-        either.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(), 1);
-    assertTrue(
-        either.stream()
-            .filter(clause -> !Boolean.TRUE.equals(clause.lenient()))
-            .noneMatch(clause -> clause.queryString().contains("structuredProperties")),
-        either.toString());
+    QueryBuilder eitherQuery =
+        queryBuilder.buildQuery(
+            context, dataset, "name:orders OR structuredProperties.hiddenLabel:gold", false);
+    List<QueryStringQueryBuilder> either = queryStrings(eitherQuery);
+    assertEquals(either.size(), 1, either.toString());
+    assertEquals(either.get(0).queryString(), "structuredProperties.hiddenLabel:gold");
+    assertEquals(either.get(0).lenient(), Boolean.TRUE);
+    keywordTerm(eitherQuery, "name.lowercase", "orders");
 
     // The field applies to the whole group, so the group stays one clause and is lenient.
     List<QueryStringQueryBuilder> group =
@@ -767,7 +838,7 @@ public class V3SearchQueryBuilderTest {
                     .buildQuery(
                         OP_CONTEXT, DATASET, STRUCTURED_QUERY_PREFIX + "fieldPaths:user_id", true),
                 QueryStringQueryBuilder.class));
-    assertEquals(structured.queryString(), "name_1.keyword:user_id");
+    assertEquals(structured.queryString(), "name_1:user_id");
   }
 
   /** A space after the field colon is valid query-string syntax and must keep the split. */
@@ -778,11 +849,9 @@ public class V3SearchQueryBuilderTest {
         List.of(context.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME));
     V3SearchQueryBuilder queryBuilder = builder(null);
 
-    List<QueryStringQueryBuilder> named =
-        queryStrings(queryBuilder.buildQuery(context, dataset, "name: orders", false));
-    assertEquals(named.size(), 1, named.toString());
-    assertEquals(named.get(0).queryString(), "name: orders");
-    assertNotEquals(Boolean.TRUE, named.get(0).lenient());
+    QueryBuilder namedQuery = queryBuilder.buildQuery(context, dataset, "name: orders", false);
+    assertTrue(queryStrings(namedQuery).isEmpty(), queryStrings(namedQuery).toString());
+    keywordTerm(namedQuery, "name.lowercase", "orders");
 
     List<QueryStringQueryBuilder> quoted =
         queryStrings(queryBuilder.buildQuery(context, dataset, "name: \"foo\"", false));
@@ -798,18 +867,14 @@ public class V3SearchQueryBuilderTest {
     assertEquals(property.get(0).queryString(), "structuredProperties.retentionPolicy: gold");
     assertEquals(property.get(0).lenient(), Boolean.TRUE);
 
-    List<QueryStringQueryBuilder> both =
-        queryStrings(
-            queryBuilder.buildQuery(
-                context,
-                dataset,
-                "name: orders AND structuredProperties.retentionPolicy: gold",
-                false));
-    assertEquals(both.size(), 2, both.toString());
-    assertEquals(
-        both.stream().map(QueryStringQueryBuilder::queryString).collect(Collectors.toSet()),
-        Set.of("name: orders", "structuredProperties.retentionPolicy: gold"));
-    assertEquals(both.stream().filter(clause -> Boolean.TRUE.equals(clause.lenient())).count(), 1);
+    QueryBuilder bothQuery =
+        queryBuilder.buildQuery(
+            context, dataset, "name: orders AND structuredProperties.retentionPolicy: gold", false);
+    List<QueryStringQueryBuilder> both = queryStrings(bothQuery);
+    assertEquals(both.size(), 1, both.toString());
+    assertEquals(both.get(0).queryString(), "structuredProperties.retentionPolicy: gold");
+    assertEquals(both.get(0).lenient(), Boolean.TRUE);
+    keywordTerm(bothQuery, "name.lowercase", "orders");
   }
 
   @Test
@@ -956,8 +1021,7 @@ public class V3SearchQueryBuilderTest {
     assertFalse(names.contains("description.text"), names.toString());
     assertFalse(names.contains("other.text"), names.toString());
     assertFalse(names.contains("customProperties"), names.toString());
-    assertTrue(
-        termFields(configured, withFieldConfiguration("names"), DATASET).contains("name.keyword"));
+    assertTrue(termFields(configured, withFieldConfiguration("names"), DATASET).contains("name"));
 
     Set<String> other = simpleFields(configured, withFieldConfiguration("other"), DATASET);
     assertTrue(other.contains("other.text"), other.toString());
@@ -1291,6 +1355,18 @@ public class V3SearchQueryBuilderTest {
 
   private static List<QueryStringQueryBuilder> queryStrings(QueryBuilder query) {
     return find(query, QueryStringQueryBuilder.class);
+  }
+
+  /** Normalized term an opted-in keyword writes for an unquoted structured value. */
+  private static TermQueryBuilder keywordTerm(QueryBuilder query, String field, String value) {
+    return only(
+        find(query, TermQueryBuilder.class).stream()
+            .filter(
+                term ->
+                    field.equals(term.fieldName())
+                        && value.equals(term.value())
+                        && !term.caseInsensitive())
+            .toList());
   }
 
   private static <T> T only(List<T> found) {
