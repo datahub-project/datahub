@@ -113,7 +113,7 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir, reques
 @pytest.mark.parametrize(
     "config_file,golden_file",
     [
-        ("doris_to_file.yml", "doris_mces_golden.json"),
+        ("doris_to_file.yml", "doris_golden.json"),
         ("doris_profile.yml", "doris_profile_golden.json"),
         ("doris_multi_db.yml", "doris_multi_db_golden.json"),
     ],
@@ -143,7 +143,6 @@ def test_doris_ingest(
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
         output_path=tmp_path / "doris_mces.json",
         golden_path=test_resources_dir / golden_file,
