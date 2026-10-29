@@ -17,13 +17,10 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
-import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.ingestion.IngestionSourceRunEvents;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
-import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.LatestIngestionRuns;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -54,11 +51,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Import({
-  EntityRegistryFactory.class,
-  RestliEntityClientFactory.class,
-  EntitySearchServiceFactory.class
-})
+@Import({EntityRegistryFactory.class, RestliEntityClientFactory.class})
 public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
 
   // RESTATE is excluded so restore-indices replays of old runs do not rewrite the latest run.
@@ -67,29 +60,24 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
   private static final String FAILURE_METRIC = "ingestionSourceRunEvent_failure";
 
   private final SystemEntityClient systemEntityClient;
-  private final EntitySearchService entitySearchService;
   private final boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
 
   @Autowired
   public IngestionSourceRunEventHook(
       @Nonnull final SystemEntityClient systemEntityClient,
-      @Nonnull final EntitySearchService entitySearchService,
       @Nonnull @Value("${ingestionSourceRunEvents.hook.enabled:true}") Boolean isEnabled,
       @Nonnull @Value("${ingestionSourceRunEvents.hook.consumerGroupSuffix}")
           String consumerGroupSuffix) {
     this.systemEntityClient = systemEntityClient;
-    this.entitySearchService = entitySearchService;
     this.isEnabled = isEnabled;
     this.consumerGroupSuffix = consumerGroupSuffix;
   }
 
   @VisibleForTesting
   public IngestionSourceRunEventHook(
-      @Nonnull final SystemEntityClient systemEntityClient,
-      @Nonnull final EntitySearchService entitySearchService,
-      @Nonnull Boolean isEnabled) {
-    this(systemEntityClient, entitySearchService, isEnabled, "");
+      @Nonnull final SystemEntityClient systemEntityClient, @Nonnull Boolean isEnabled) {
+    this(systemEntityClient, isEnabled, "");
   }
 
   @Override
@@ -169,10 +157,9 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
 
   /**
    * MCLs for different runs of a source arrive on different partitions, so an older run's event can
-   * be processed after a newer run's. A run is only recorded while it is the source's newest: no
-   * event for a later request has been recorded and no later request is indexed. Both checks read
-   * search, so two runs of one source changing status within the index refresh interval can still
-   * race.
+   * be processed after a newer run's. Every status change is recorded; the source's search document
+   * only takes its last-run fields from the newest request, and its last success and failure times
+   * only move forward (see {@code OrderedSearchFields}).
    */
   private void record(@Nonnull OperationContext operationContext, @Nonnull List<RunChange> changes)
       throws Exception {
@@ -191,18 +178,6 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
         });
 
     Set<Urn> sourceUrns = existingSources(operationContext, sourceUrns(changes, inputs));
-    if (sourceUrns.isEmpty()) {
-      return;
-    }
-    Map<Urn, LatestIngestionRuns> latestRuns =
-        entitySearchService.getLatestIngestionRuns(operationContext, sourceUrns);
-    inputs.putAll(
-        executionRequestInputs(
-            operationContext,
-            latestRuns.values().stream()
-                .map(LatestIngestionRuns::getLatestRun)
-                .filter(urn -> !inputs.containsKey(urn))
-                .collect(Collectors.toSet())));
     Map<Urn, DataHubIngestionSourceRunEvent> latestEvents = new HashMap<>();
     for (Urn sourceUrn : sourceUrns) {
       latestEvents.put(sourceUrn, latestEvent(operationContext, sourceUrn));
@@ -214,21 +189,21 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
       if (sourceUrn == null || !sourceUrns.contains(sourceUrn)) {
         continue;
       }
-      DataHubIngestionSourceRunEvent latest = latestEvents.get(sourceUrn);
-      if (IngestionSourceRunEvents.isSupersededBy(input, latest)
-          || hasNewerRequest(change, input, latestRuns.get(sourceUrn), inputs)) {
-        continue;
-      }
       DataHubIngestionSourceRunEvent event =
           IngestionSourceRunEvents.buildEvent(
-              change.executionRequest(), input, change.result(), change.timestampMillis(), latest);
+              change.executionRequest(),
+              input,
+              change.result(),
+              change.timestampMillis(),
+              latestEvents.get(sourceUrn));
       try {
         systemEntityClient.ingestProposal(
             operationContext,
             AspectUtils.buildMetadataChangeProposal(
                 sourceUrn, INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, event),
             false);
-        // Later changes in this batch compare with this event; search does not have it yet.
+        // Later changes in this batch carry outcomes forward from this event; search does not
+        // have it yet.
         latestEvents.put(sourceUrn, event);
       } catch (Exception e) {
         failed(operationContext, 1);
@@ -251,22 +226,6 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
                 IngestionSourceRunEvents.ingestionSourceUrn(inputs.get(change.executionRequest())))
         .filter(Objects::nonNull)
         .collect(Collectors.toSet());
-  }
-
-  /**
-   * A request that was just created may not be indexed yet, so only a different, later request
-   * counts as newer.
-   */
-  private static boolean hasNewerRequest(
-      @Nonnull RunChange change,
-      @Nonnull ExecutionRequestInput input,
-      @Nullable LatestIngestionRuns latestRuns,
-      @Nonnull Map<Urn, ExecutionRequestInput> inputs) {
-    if (latestRuns == null || latestRuns.getLatestRun().equals(change.executionRequest())) {
-      return false;
-    }
-    ExecutionRequestInput newestInput = inputs.get(latestRuns.getLatestRun());
-    return newestInput != null && newestInput.getRequestedAt() > input.getRequestedAt();
   }
 
   @Nullable

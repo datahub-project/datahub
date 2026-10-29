@@ -31,8 +31,6 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceRunEvent;
-import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.LatestIngestionRuns;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -61,7 +59,6 @@ public class IngestionSourceRunEventHookTest {
   private final Set<Urn> sources = new HashSet<>();
   private OperationContext opContext;
   private SystemEntityClient client;
-  private EntitySearchService entitySearchService;
   private IngestionSourceRunEventHook hook;
 
   @BeforeMethod
@@ -70,11 +67,9 @@ public class IngestionSourceRunEventHookTest {
     sources.clear();
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     client = mock(SystemEntityClient.class);
-    entitySearchService = mock(EntitySearchService.class);
-    hook = new IngestionSourceRunEventHook(client, entitySearchService, true);
+    hook = new IngestionSourceRunEventHook(client, true);
     sources.add(SOURCE);
     inputs.put(RUN, input());
-    latestRequest(RUN);
     when(client.batchGetV2(any(OperationContext.class), any(), any()))
         .thenAnswer(
             invocation -> {
@@ -126,7 +121,6 @@ public class IngestionSourceRunEventHookTest {
             mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(), input())));
 
     verify(client, never()).batchGetV2(any(OperationContext.class), any(), any());
-    verify(entitySearchService, never()).getLatestIngestionRuns(any(), any());
     verify(client, never()).ingestProposal(any(), any(), anyBoolean());
   }
 
@@ -145,46 +139,29 @@ public class IngestionSourceRunEventHookTest {
                 result("FAILURE"),
                 result("RUNNING"))));
 
-    // One read for the results' inputs and one for the source; the newest request is in the batch.
+    // One read for the results' inputs and one for the source.
     verify(client, times(2)).batchGetV2(any(OperationContext.class), any(), any());
-    verify(entitySearchService, times(1)).getLatestIngestionRuns(any(), eq(Set.of(SOURCE)));
     verify(client, times(1))
         .getTimeseriesAspectValues(any(), any(), any(), any(), any(), any(), any(), any());
-    // The older run is checked against the event just written for the newer one.
-    assertEquals(emitted().getExecutionRequest(), RUN);
+    List<DataHubIngestionSourceRunEvent> events = allEmitted(2);
+    // The older run's failure carries the success just recorded for the newer run.
+    assertEquals(events.get(1).getRequestedAtMillis(), 50L);
+    assertEquals(events.get(1).getSuccessfulRunRequestedAtMillis(), Long.valueOf(100L));
+    assertEquals(events.get(1).getFailedRunRequestedAtMillis(), Long.valueOf(50L));
   }
 
   @Test
-  public void testOlderRunFinishingLateIsSkipped() throws Exception {
-    latestRequest(NEWER_RUN);
-    inputs.put(NEWER_RUN, input().setRequestedAt(200L));
+  public void testOlderRunFinishingLateIsRecorded() throws Exception {
+    // The index decides which run is the source's last; the outcome is still recorded.
+    latestEvent(event(200L, 200L));
 
     hook.invoke(
         opContext,
         mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS"), result("RUNNING")));
 
-    verify(client, never()).ingestProposal(any(), any(), anyBoolean());
-  }
-
-  @Test
-  public void testNewRequestNotYetIndexedIsRecorded() throws Exception {
-    // A request's input MCL can arrive before the request is searchable, so the newest indexed
-    // request is still the previous run.
-    latestRequest(NEWER_RUN);
-    inputs.put(NEWER_RUN, input().setRequestedAt(50L));
-
-    hook.invoke(opContext, mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(), null));
-
-    assertEquals(emitted().getStatus(), "PENDING");
-  }
-
-  @Test
-  public void testRequestOlderThanTheLatestEventIsSkipped() throws Exception {
-    latestEvent(event(200L, null));
-
-    hook.invoke(opContext, mcl(RUN, EXECUTION_REQUEST_INPUT_ASPECT_NAME, input(), null));
-
-    verify(client, never()).ingestProposal(any(), any(), anyBoolean());
+    DataHubIngestionSourceRunEvent event = emitted();
+    assertEquals(event.getRequestedAtMillis(), 100L);
+    assertEquals(event.getSuccessfulRunRequestedAtMillis(), Long.valueOf(200L));
   }
 
   @Test
@@ -242,6 +219,20 @@ public class IngestionSourceRunEventHookTest {
     verify(metricUtils).increment(eq(IngestionSourceRunEventHook.class), any(String.class), eq(1d));
   }
 
+  private List<DataHubIngestionSourceRunEvent> allEmitted(int count) throws Exception {
+    ArgumentCaptor<MetadataChangeProposal> captor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(client, times(count)).ingestProposal(any(), captor.capture(), eq(false));
+    return captor.getAllValues().stream()
+        .map(
+            proposal ->
+                GenericRecordUtils.deserializeAspect(
+                    proposal.getAspect().getValue(),
+                    proposal.getAspect().getContentType(),
+                    DataHubIngestionSourceRunEvent.class))
+        .toList();
+  }
+
   private DataHubIngestionSourceRunEvent emitted() throws Exception {
     ArgumentCaptor<MetadataChangeProposal> captor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
@@ -253,11 +244,6 @@ public class IngestionSourceRunEventHookTest {
         proposal.getAspect().getValue(),
         proposal.getAspect().getContentType(),
         DataHubIngestionSourceRunEvent.class);
-  }
-
-  private void latestRequest(Urn runUrn) {
-    when(entitySearchService.getLatestIngestionRuns(any(), any()))
-        .thenReturn(Map.of(SOURCE, new LatestIngestionRuns(runUrn, null, null)));
   }
 
   private void latestEvent(DataHubIngestionSourceRunEvent event) throws Exception {

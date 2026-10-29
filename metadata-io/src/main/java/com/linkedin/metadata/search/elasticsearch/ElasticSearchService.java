@@ -307,6 +307,29 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     return esWriteDAO.indexExists(opContext, indexName);
   }
 
+  /** Applies a script update to a document in the V2 index of the given entity. */
+  public void applyScriptUpdate(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    esWriteDAO.applyScriptUpdate(opContext, entityName, docId, scriptSource, scriptParams, upsert);
+  }
+
+  /** Applies a script update to a document in the V3 index for the given search group. */
+  public void applyScriptUpdateBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    esWriteDAO.applyScriptUpdateBySearchGroup(
+        opContext, searchGroup, docId, scriptSource, scriptParams, upsert);
+  }
+
   /**
    * Applies a script update to a document in a specific index. This method works directly with
    * index names, useful for applying script updates to semantic indices.

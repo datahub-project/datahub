@@ -18,6 +18,7 @@ import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappin
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.update.OrderedSearchFields;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.service.CatchUpBatchRebuilder;
@@ -461,12 +462,23 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       return List.of();
     }
 
+    List<OrderedSearchFields.Update> orderedUpdates =
+        orderedUpdates(opContext, events, combinedDocument);
     String finalDocument = combinedDocument.toString();
 
     if (fillTarget != null) {
       elasticSearchService.upsertDocumentByIndexName(opContext, fillTarget, finalDocument, docId);
     } else {
       elasticSearchService.upsertDocumentBySearchGroup(opContext, indexKey, finalDocument, docId);
+    }
+    for (OrderedSearchFields.Update update : orderedUpdates) {
+      if (fillTarget != null) {
+        elasticSearchService.applyScriptUpdateByIndexName(
+            opContext, fillTarget, docId, update.script(), update.params(), update.upsert());
+      } else {
+        elasticSearchService.applyScriptUpdateBySearchGroup(
+            opContext, indexKey, docId, update.script(), update.params(), update.upsert());
+      }
     }
     log.debug(
         "V3 upserted combined document for URN: {} to index key: {} with {} aspects",
@@ -507,12 +519,49 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         oldBackingIndex -> {
           elasticSearchService.upsertDocumentByIndexName(
               opContext, oldBackingIndex, finalDocument, docId);
+          for (OrderedSearchFields.Update update : orderedUpdates) {
+            elasticSearchService.applyScriptUpdateByIndexName(
+                opContext,
+                oldBackingIndex,
+                docId,
+                update.script(),
+                update.params(),
+                update.upsert());
+          }
           for (String runId : distinctRunIds) {
             elasticSearchService.appendRunIdByIndexName(
                 opContext, oldBackingIndex, docId, urn, runId);
           }
         });
     return mirrored.map(List::of).orElse(List.of());
+  }
+
+  /**
+   * Script updates for the batch's aspects whose fields only move forward, one per event in batch
+   * order. The combined document holds only the batch's last event for an aspect, which may be the
+   * older one, so those fields are removed from it and written by the scripts instead.
+   */
+  @Nonnull
+  private List<OrderedSearchFields.Update> orderedUpdates(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MCLItem> events,
+      @Nonnull ObjectNode combinedDocument) {
+    List<OrderedSearchFields.Update> updates = new ArrayList<>();
+    for (MCLItem event : events) {
+      String aspectName = event.getAspectSpec().getName();
+      if (!OrderedSearchFields.isOrdered(aspectName)
+          || event.getMetadataChangeLog().getChangeType() == ChangeType.DELETE) {
+        continue;
+      }
+      ObjectNode eventDocument = JsonNodeFactory.instance.objectNode();
+      searchDocumentProjector
+          .projectAspect(opContext, event, null)
+          .ifPresent(
+              projected -> searchDocumentProjector.applyProjection(eventDocument, projected));
+      OrderedSearchFields.split(aspectName, eventDocument).ifPresent(updates::add);
+      OrderedSearchFields.split(aspectName, combinedDocument);
+    }
+    return updates;
   }
 
   /**

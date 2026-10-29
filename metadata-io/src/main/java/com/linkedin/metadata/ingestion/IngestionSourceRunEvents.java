@@ -102,10 +102,4 @@ public final class IngestionSourceRunEvents {
   private static long later(@Nullable Long current, long requestedAt) {
     return current != null ? Math.max(current, requestedAt) : requestedAt;
   }
-
-  /** Whether the source already has an event for a run requested after this one. */
-  public static boolean isSupersededBy(
-      @Nonnull ExecutionRequestInput input, @Nullable DataHubIngestionSourceRunEvent latest) {
-    return latest != null && latest.getRequestedAtMillis() > input.getRequestedAt();
-  }
 }
