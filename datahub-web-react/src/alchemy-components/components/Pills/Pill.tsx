@@ -81,6 +81,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             onBlur,
             onPointerEnter,
             onPointerLeave,
+            ...rest
         },
         ref,
     ) => {
@@ -143,6 +144,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
 
         return (
             <PillContainer
+                {...pickDomAttributes(rest)}
                 ref={ref}
                 variant={variant}
                 color={color}
@@ -185,3 +187,9 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
         );
     },
 );
+
+function pickDomAttributes(props: object): Record<string, unknown> {
+    return Object.fromEntries(
+        Object.entries(props).filter(([key]) => key.startsWith('data-') || key.startsWith('aria-')),
+    );
+}
