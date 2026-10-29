@@ -118,7 +118,7 @@ export function Alert({
             <AlertHeader>
                 <AlertHeaderLeft>
                     <AlertIconWrapper $variant={variant}>{displayIcon}</AlertIconWrapper>
-                    <Text weight="semiBold" size="md">
+                    <Text weight="semiBold" size="md" type={typeof title === 'string' ? 'p' : 'div'}>
                         {title}
                     </Text>
                 </AlertHeaderLeft>
