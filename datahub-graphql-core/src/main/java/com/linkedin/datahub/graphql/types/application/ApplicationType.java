@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.application;
 import static com.linkedin.metadata.Constants.APPLICATION_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.APPLICATION_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.APPLICATION_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATA_PRODUCTS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
@@ -57,7 +58,8 @@ public class ApplicationType
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
-          STATUS_ASPECT_NAME);
+          STATUS_ASPECT_NAME,
+          DATA_PRODUCTS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override

@@ -92,10 +92,10 @@
         "field" : "description"
       }, {
         "boost" : 0.5,
-        "field" : "glossaryTerms"
+        "field" : "tags"
       }, {
         "boost" : 0.5,
-        "field" : "tags"
+        "field" : "glossaryTerms"
       } ]
     },
     "aiAgent" : {
