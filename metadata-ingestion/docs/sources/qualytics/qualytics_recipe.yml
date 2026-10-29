@@ -1,0 +1,149 @@
+# Qualytics -> DataHub ingestion recipe.
+#
+# Qualytics is single-tenant: one recipe covers exactly one Qualytics deployment. If
+# two deployments feed the same DataHub, give each its own recipe AND its own
+# platform_instance -- Qualytics object ids are per-deployment sequences and will
+# otherwise collide.
+
+# Required whenever stateful_ingestion is enabled below -- DataHub refuses to start
+# the pipeline without it. It is also the key the stale-entity checkpoint is stored
+# under, so it must stay stable for the life of the deployment: renaming it orphans
+# the previous checkpoint and the next run has no record of what it emitted before.
+# Give each Qualytics deployment its own name.
+pipeline_name: "qualytics-acme"
+
+source:
+  type: qualytics
+  config:
+    # ========================================================================
+    # Connection  (required)
+    # ========================================================================
+
+    # Include the /api suffix. Pointing at the bare origin is the most common
+    # mistake; --test-source-connection detects it and tells you the right URL.
+    base_url: "https://acme.qualytics.io/api"
+
+    # Create under Settings -> Tokens. A dedicated read-only service user is
+    # recommended. Never inline the value -- use an env var.
+    token: "${QUALYTICS_TOKEN}"
+
+    # ========================================================================
+    # Identity of THIS Qualytics deployment
+    # ========================================================================
+
+    # Namespaces everything this recipe emits. Required when more than one
+    # Qualytics deployment feeds this DataHub, because check ids are only unique
+    # within a deployment.
+    #
+    # NOTE: this is the *Qualytics* instance, not the warehouse's. The warehouse's
+    # platform instance is configured below.
+    platform_instance: "acme"
+    env: PROD
+
+    # ========================================================================
+    # Where the metadata should land
+    # ========================================================================
+    # Qualytics profiles tables your DataHub already knows about. Map each
+    # Qualytics datastore to the platform / instance / env its warehouse source
+    # used, so assertions and profiles attach to the existing dataset rather than
+    # a new one.
+    #
+    # Keys accept the datastore NAME or its numeric id. Names read better; ids
+    # survive a rename in Qualytics.
+    datastore_to_platform_map:
+      sales-warehouse:
+        platform: snowflake
+        platform_instance: prod-sf
+        env: PROD
+        # Per-datastore casing override. Casing is the single most common reason
+        # URNs fail to match. Unset, each platform follows its own DataHub source:
+        # Snowflake lowercases (its source does by default), everything else keeps
+        # case. Set it only if your warehouse recipe changed that default, and
+        # confirm against a real URN before trusting either:
+        #   datahub search "*" --where "platform = snowflake" --urns-only
+        # convert_urns_to_lowercase: false
+      "17": # keyed by datastore id
+        platform: s3
+        env: PROD
+
+    # Datastores absent from the map are resolved from their Qualytics connection
+    # type (postgresql -> postgres, sqlserver -> mssql, abfs -> abs, and so on).
+    # A connection type this build does not know is skipped with a warning.
+    # Set to false to ingest ONLY the datastores you have mapped explicitly.
+    infer_source_platform: true
+
+    # Applied to inferred datastores only. These describe the WAREHOUSE, not
+    # Qualytics. Leave unset if your warehouse sources did not use a platform
+    # instance, which is the common case.
+    # default_source_platform_instance: "prod-sf"
+    # default_source_env: PROD
+
+    # Leave this unset: the per-platform default described above is what a mixed
+    # Snowflake + Postgres estate needs. Setting it -- even to false -- forces one
+    # casing onto every datastore and switches that default off.
+    # convert_urns_to_lowercase: false
+
+    # ========================================================================
+    # Scope
+    # ========================================================================
+    datastore_pattern:
+      allow: [".*"]
+      deny: ["^scratch_.*"]
+    container_pattern:
+      allow: [".*"]
+
+    # ========================================================================
+    # What to emit
+    # ========================================================================
+
+    # Quality checks -> DataHub assertions.
+    emit_assertions: true
+
+    # Anomalies and check state -> assertion run events. Requires emit_assertions.
+    emit_assertion_results: true
+
+    # Window of anomaly history. Uses DataHub's standard time-window config, so it
+    # accepts an absolute timestamp or a relative string. Only failure *history* is
+    # affected -- the current pass/fail state of every check is always emitted.
+    # Widening this materially increases first-run cost on a large tenant.
+    assertion_results:
+      start_time: "-30 days"
+
+    # Container and field profiles -> dataset and field profiles.
+    emit_profiles: true
+
+    # Tags, ownership, lineage, incidents and Qualytics-native entities for
+    # computed containers are planned but not built, so there is deliberately no
+    # toggle for them yet -- a setting that silently does nothing is worse than an
+    # absent one. This connector does not emit incidents at all, which means the
+    # Qualytics-side push integration owns them with no configuration needed.
+
+    # ========================================================================
+    # Transport
+    # ========================================================================
+    page_size: 100 # Qualytics caps this at 100
+    timeout_sec: 30
+    max_retries: 3
+
+    # Prefer ca_cert_path over disabling verification on a private-CA deployment.
+    verify_ssl: true
+    # ca_cert_path: /etc/ssl/certs/corp-ca.pem
+
+    # Origin of the Qualytics web UI, for the deep links on emitted entities.
+    # Defaults to the origin of base_url, which is right unless the deployment
+    # serves its UI and API from different hosts.
+    # ui_base_url: "https://acme.qualytics.io"
+
+    # ========================================================================
+    # Stateful ingestion
+    # ========================================================================
+    # Soft-deletes assertions whose Qualytics checks have been removed.
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
+    # token: "${DATAHUB_TOKEN}"
