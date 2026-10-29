@@ -186,10 +186,9 @@ def test_db2_ingest(
     config_file = (test_resources_dir / config_filename).resolve()
     print(f"Config file: {config_file}")
 
-    output_path = str(tmp_path / (os.path.splitext(config_filename)[0] + "_mces.json"))
+    output_path = str(tmp_path / (os.path.splitext(config_filename)[0] + ".json"))
     golden_path = str(
-        test_resources_dir
-        / (os.path.splitext(config_filename)[0] + "_mces_golden.json")
+        test_resources_dir / (os.path.splitext(config_filename)[0] + "_golden.json")
     )
 
     source = yaml.safe_load(open(config_file))
@@ -218,7 +217,6 @@ def test_db2_ingest(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
         output_path=output_path,
         golden_path=golden_path,
