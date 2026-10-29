@@ -2,8 +2,8 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
-import { getPlatformName } from '@app/entity/shared/utils';
+import { ANTD_GRAY_V2 } from '@app/entityV2/shared/constants';
+import { getPlatformName } from '@app/entityV2/shared/utils';
 import ParentContainers from '@app/search/autoComplete/ParentContainers';
 import { SuggestionText } from '@app/search/autoComplete/styledComponents';
 import { getAutoCompleteEntityText } from '@app/search/autoComplete/utils';
@@ -77,7 +77,9 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
         platformsToShow
             ?.map(
                 (platform) =>
-                    getPlatformName(entityRegistry.getGenericEntityProperties(EntityType.DataPlatform, platform)) || '',
+                    getPlatformName(
+                        entityRegistry.getGenericEntityProperties(EntityType.DataPlatform, platform)?.platform,
+                    ) || '',
             )
             .filter(Boolean) ?? [];
 

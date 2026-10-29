@@ -6,10 +6,10 @@ import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { EmbeddedListSearchResults } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchResults';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { SearchBar } from '@app/search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';

@@ -1,5 +1,5 @@
 import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { CustomPropertiesEntry } from '@types';
 

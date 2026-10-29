@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 
-import { EntityContextType, GenericEntityProperties, UpdateEntityType } from '@app/entity/shared/types';
 import { shouldEntityBeTreatedAsPrimary, useIsSeparateSiblingsMode } from '@app/entityV2/shared/siblingUtils';
+import { EntityContextType, GenericEntityProperties, UpdateEntityType } from '@app/entityV2/shared/types';
 
 import { EntityType } from '@types';
 

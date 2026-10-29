@@ -2,9 +2,9 @@ import i18next from 'i18next';
 import { useEffect, useState } from 'react';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { GenericEntityUpdate } from '@app/entity/shared/types';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
+import { GenericEntityUpdate } from '@app/entityV2/shared/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { sanitizeRichText } from '@src/alchemy-components/components/Editor/utils';
 

@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 
-import { EntityAndType, GenericEntityProperties } from '@app/entity/shared/types';
+import { EntityAndType, GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { Entity } from '@types';
 

@@ -7,8 +7,8 @@ import values from 'lodash/values';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router-dom';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 

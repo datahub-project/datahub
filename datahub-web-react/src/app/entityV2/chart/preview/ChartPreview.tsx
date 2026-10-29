@@ -1,10 +1,10 @@
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { ChartStatsSummary as ChartStatsSummaryView } from '@app/entityV2/chart/shared/ChartStatsSummary';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { DashboardLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';

@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, PreviewType } from '@app/entityV2/Entity';
 import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
@@ -16,6 +15,7 @@ import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import ShortMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/ShortMarkdownViewer';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import ColoredBackgroundPlatformIconGroup from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
 import { CompactView } from '@app/previewV2/CompactView';

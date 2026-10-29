@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';

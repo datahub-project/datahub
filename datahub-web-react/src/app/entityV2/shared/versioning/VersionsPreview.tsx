@@ -6,9 +6,9 @@ import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { DrawerType } from '@app/entity/shared/types';
 import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
+import { DrawerType } from '@app/entityV2/shared/types';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

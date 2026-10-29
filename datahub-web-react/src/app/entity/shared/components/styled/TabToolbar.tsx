@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 export default styled.div`
     display: flex;

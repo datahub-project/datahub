@@ -3,8 +3,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 import ValueDescription from '@app/entityV2/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
+import { getStructuredPropertyValue } from '@app/entityV2/shared/utils';
 
 import { AllowedValue } from '@types';
 

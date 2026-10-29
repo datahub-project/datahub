@@ -5,7 +5,6 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { EntityAndType } from '@app/entity/shared/types';
 import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import EmbeddedListSearchHeader from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchHeader';
 import { EmbeddedListSearchResults } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchResults';
@@ -16,6 +15,7 @@ import {
     SearchResultsInterface,
 } from '@app/entityV2/shared/components/styled/search/types';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { DEGREE_FILTER_NAME, FIELD_PATHS_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { mergeFilterSets } from '@app/search/utils/filterUtils';

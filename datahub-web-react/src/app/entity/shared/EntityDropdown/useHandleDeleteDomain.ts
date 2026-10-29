@@ -2,7 +2,7 @@ import { useApolloClient } from '@apollo/client';
 
 import { useDomainsContext } from '@app/domain/DomainsContext';
 import { removeFromListDomainsCache } from '@app/domain/utils';
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 interface DeleteDomainProps {
     entityData: GenericEntityProperties;

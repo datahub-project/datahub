@@ -1,6 +1,6 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { LogicalModelColumnDraft } from '@app/entityV2/shared/logicalModels/logicalModels.types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { EntityType, SchemaFieldDataType } from '@types';
 

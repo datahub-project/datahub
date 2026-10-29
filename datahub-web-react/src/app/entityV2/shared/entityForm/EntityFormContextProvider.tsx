@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 
-import { EntityAndType, GenericEntityProperties } from '@app/entity/shared/types';
 import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import {
     getFormAssociation,
@@ -8,6 +7,7 @@ import {
 } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/utils';
 import { EntityFormContext, FormView } from '@app/entityV2/shared/entityForm/EntityFormContext';
 import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entityV2/shared/entityForm/constants';
+import { EntityAndType, GenericEntityProperties } from '@app/entityV2/shared/types';
 import usePrevious from '@app/sharedV2/usePrevious';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

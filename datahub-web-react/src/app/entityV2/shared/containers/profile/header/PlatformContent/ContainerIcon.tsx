@@ -3,8 +3,8 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { TYPE_ICON_CLASS_NAME, getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
 
 import { Container } from '@types';

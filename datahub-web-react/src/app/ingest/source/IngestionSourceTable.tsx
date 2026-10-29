@@ -4,7 +4,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     ActionsColumn,
     LastStatusColumn,

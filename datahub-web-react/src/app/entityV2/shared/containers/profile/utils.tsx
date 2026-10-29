@@ -4,7 +4,6 @@ import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import { ENTITY_TAB_NAME_REGEX_PATTERN } from '@app/entityV2/shared/containers/profile/entityData';
@@ -15,7 +14,13 @@ import {
     getBarsStatusFromPopularityTier,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { useExtraSidebarTabs } from '@app/entityV2/shared/containers/profile/useExtraSidebarTabs';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
+import {
+    EntitySidebarSection,
+    EntitySidebarTab,
+    EntityTab,
+    GenericEntityProperties,
+    TabContextType,
+} from '@app/entityV2/shared/types';
 import {
     ENTITY_PROFILE_DOMAINS_ID,
     ENTITY_PROFILE_GLOSSARY_TERMS_ID,

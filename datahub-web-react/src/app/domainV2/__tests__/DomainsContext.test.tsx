@@ -2,7 +2,7 @@ import { fireEvent, render } from '@testing-library/react';
 import React, { useState } from 'react';
 
 import { DomainsContext, UpdatedDomain, useDomainsContext } from '@app/domainV2/DomainsContext';
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { EntityType } from '@types';
 

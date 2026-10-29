@@ -9,12 +9,6 @@ import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUpdateDomainEntityDataOnChange as useUpdateDomainEntityDataOnChangeV2 } from '@app/domainV2/utils';
-import {
-    DrawerType,
-    EntitySubHeaderSection,
-    GenericEntityProperties,
-    GenericEntityUpdate,
-} from '@app/entity/shared/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
@@ -34,7 +28,16 @@ import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
+import {
+    DrawerType,
+    EntitySidebarSection,
+    EntitySidebarTab,
+    EntitySubHeaderSection,
+    EntityTab,
+    GenericEntityProperties,
+    GenericEntityUpdate,
+    TabContextType,
+} from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
 import useIsLineageMode from '@app/lineageV3/utils/useIsLineageMode';

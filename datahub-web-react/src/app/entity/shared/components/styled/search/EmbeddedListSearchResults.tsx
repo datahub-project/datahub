@@ -11,7 +11,7 @@ import {
     EntitySearchResults,
 } from '@app/entity/shared/components/styled/search/EntitySearchResults';
 import MatchingViewsLabel from '@app/entity/shared/components/styled/search/MatchingViewsLabel';
-import { EntityAndType } from '@app/entity/shared/types';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { combineSiblingsInSearchResults } from '@app/search/utils/combineSiblingsInSearchResults';
 import { UnionType } from '@app/search/utils/constants';

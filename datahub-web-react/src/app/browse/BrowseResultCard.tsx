@@ -5,7 +5,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { singularizeCollectionName } from '@app/entity/shared/utils';
+import { singularizeCollectionName } from '@app/entityV2/shared/utils';
 
 const styles = {
     row: { padding: 8 },

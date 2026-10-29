@@ -8,14 +8,14 @@ import { useUserContext } from '@app/context/useUserContext';
 import EmbeddedListSearchHeader from '@app/entity/shared/components/styled/search/EmbeddedListSearchHeader';
 import { EmbeddedListSearchResults } from '@app/entity/shared/components/styled/search/EmbeddedListSearchResults';
 import { EntityActionProps } from '@app/entity/shared/components/styled/search/EntitySearchResults';
-import { EntityAndType } from '@app/entity/shared/types';
-import { isListSubset } from '@app/entity/shared/utils';
 import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import {
     FilterSet,
     GetSearchResultsParams,
     SearchResultsInterface,
 } from '@app/entityV2/shared/components/styled/search/types';
+import { EntityAndType } from '@app/entityV2/shared/types';
+import { isListSubset } from '@app/entityV2/shared/utils';
 import { DEGREE_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { mergeFilterSets } from '@app/search/utils/filterUtils';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';

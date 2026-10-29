@@ -48,12 +48,6 @@ const COLOR_ENFORCEMENT_RULES = {
                         'Do not import the raw color palette. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`. See colorThemes/types.ts.',
                 },
                 {
-                    name: '@app/entity/shared/constants',
-                    importNames: ['ANTD_GRAY', 'ANTD_GRAY_V2', 'REDESIGN_COLORS'],
-                    message:
-                        'ANTD_GRAY / REDESIGN_COLORS are deprecated. Use semantic tokens via `props.theme.colors.*` or `useTheme().colors.*`.',
-                },
-                {
                     name: '@app/entityV2/shared/constants',
                     importNames: ['ANTD_GRAY', 'ANTD_GRAY_V2', 'REDESIGN_COLORS', 'LINEAGE_COLORS'],
                     message:

@@ -2,7 +2,7 @@ import type { Icon } from '@phosphor-icons/react';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { GlossaryEntityColorInput, resolveGlossaryEntityColor } from '@app/glossaryV2/colorUtils';
 import { ENTITY_INDEX_FILTER_NAME } from '@app/search/utils/constants';
 import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';

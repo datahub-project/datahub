@@ -3,13 +3,12 @@ import { Loader } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGetDataForProfile';
 import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
-import { TabContextType } from '@app/entityV2/shared/types';
+import { GenericEntityProperties, TabContextType } from '@app/entityV2/shared/types';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

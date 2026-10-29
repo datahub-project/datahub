@@ -3,8 +3,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { EntityAndType } from '@app/entity/shared/types';
 import { useInitializeSearchResultCards } from '@app/entityV2/shared/components/styled/search/useInitializeSearchResultCards';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import EmptySearchResults from '@app/searchV2/EmptySearchResults';
 import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContainer';

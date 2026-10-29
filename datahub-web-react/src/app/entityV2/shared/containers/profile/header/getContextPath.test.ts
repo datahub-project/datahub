@@ -1,5 +1,5 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { dataPlatform } from '@src/Mocks';
 
 import { EntityType, ParentApplicationsResult } from '@types';

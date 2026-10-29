@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getInitialValues } from '@app/entityV2/shared/entityForm/prompts/StructuredPropertyPrompt/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { FormPrompt, FormPromptType, SchemaField } from '@types';
 

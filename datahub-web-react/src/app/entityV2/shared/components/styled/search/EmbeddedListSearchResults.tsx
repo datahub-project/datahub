@@ -4,12 +4,12 @@ import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import {
     EntityActionProps,
     EntitySearchResults,
 } from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
 import MatchingViewsLabel from '@app/entityV2/shared/components/styled/search/MatchingViewsLabel';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { UnionType } from '@app/search/utils/constants';
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';

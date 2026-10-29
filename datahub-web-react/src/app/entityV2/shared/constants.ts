@@ -210,6 +210,14 @@ export const EMPTY_MESSAGES = {
             return i18next.t('entity.shared.emptyStates:emptyMessages.structuredProps.title');
         },
     },
+    businessAttributes: {
+        get title() {
+            return i18next.t('entity.profile.tabs:emptyTab.businessAttributes.title');
+        },
+        get description() {
+            return i18next.t('entity.profile.tabs:emptyTab.businessAttributes.description');
+        },
+    },
 };
 
 export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
@@ -297,4 +305,32 @@ export const ENTITY_TYPES_WITH_NEW_SUMMARY_TAB = [
     EntityType.Domain,
     EntityType.GlossaryNode,
     EntityType.GlossaryTerm,
+];
+
+export const ANTD_GRAY_V2 = {
+    1: '#F8F9Fa',
+    2: '#F3F5F6',
+    5: '#DDE0E4',
+    6: '#B2B8BD',
+    8: '#5E666E',
+    10: '#1B1E22',
+};
+
+const ELASTIC_MAX_COUNT = 10000;
+
+export const getElasticCappedTotalValueText = (count: number) => {
+    if (count === ELASTIC_MAX_COUNT) {
+        return `${ELASTIC_MAX_COUNT}+`;
+    }
+
+    return `${count}`;
+};
+
+/** Default actor URN used by the Python ingestion SDK when writing metadata. */
+export const INGESTION_ACTOR_URN = 'urn:li:corpuser:__ingestion';
+
+export const DEFAULT_SYSTEM_ACTOR_URNS = [
+    'urn:li:corpuser:__datahub_system',
+    'urn:li:corpuser:unknown',
+    INGESTION_ACTOR_URN,
 ];
