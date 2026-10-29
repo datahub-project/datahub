@@ -59,6 +59,10 @@ def test_decode_presto_view_raises_when_payload_not_object() -> None:
             "array<struct<a:bigint,b c:timestamp>>",
         ),
         ("row(bigint, varchar)", "string"),
+        # Types Hive has no equivalent for, and malformed input, fall back to string.
+        ("interval day to second", "string"),
+        ("hyperloglog", "string"),
+        ("row(a bigint", "string"),
     ],
 )
 def test_trino_type_to_hive_type(trino_type: str, hive_type: str) -> None:

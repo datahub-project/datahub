@@ -25,17 +25,35 @@ _PARAMETERIZED_TYPE = re.compile(r"^(array|map|row)\s*\((.*)\)$", re.DOTALL)
 # A named row field: a double-quoted or bare identifier followed by its type.
 _ROW_FIELD = re.compile(r'^(?:"([^"]+)"|(\w+))\s+(.+)$', re.DOTALL)
 
-# Trino scalar types whose name differs from the Hive equivalent, or that Hive
-# cannot represent at all (mapped to string so the column is kept, not dropped).
+# Trino scalar types whose name differs from the Hive equivalent.
 _TRINO_TO_HIVE_SCALAR_TYPES: Dict[str, str] = {
     "real": "float",
     "integer": "int",
     "varbinary": "binary",
-    "time": "string",
-    "json": "string",
-    "uuid": "string",
-    "ipaddress": "string",
 }
+# Hive scalar types (by base name, before any "(...)") that DataHub's Hive schema
+# parser understands. Any other Trino type (time, interval, json, uuid, ipaddress,
+# hyperloglog, ...) or malformed type string falls back to string, so the column
+# keeps a usable type instead of becoming untyped.
+_HIVE_SCALAR_TYPES = frozenset(
+    {
+        "boolean",
+        "tinyint",
+        "smallint",
+        "int",
+        "bigint",
+        "float",
+        "double",
+        "decimal",
+        "string",
+        "varchar",
+        "char",
+        "binary",
+        "date",
+        "timestamp",
+    }
+)
+_FALLBACK_HIVE_TYPE = "string"
 
 
 class PrestoViewDefinition(TypedDict, total=False):
@@ -162,11 +180,15 @@ def trino_type_to_hive_type(trino_type: str) -> str:
                 row_field = _ROW_FIELD.match(arg)
                 if not row_field:
                     # Anonymous row fields have no name; Hive structs require one.
-                    return "string"
+                    return _FALLBACK_HIVE_TYPE
                 field_name = row_field.group(1) or row_field.group(2)
                 field_type = trino_type_to_hive_type(row_field.group(3))
                 struct_fields.append(f"{field_name}:{field_type}")
             return f"struct<{','.join(struct_fields)}>"
-        return "string"
+        # Wrong number of array/map arguments: not a type we can translate.
+        return _FALLBACK_HIVE_TYPE
 
-    return _TRINO_TO_HIVE_SCALAR_TYPES.get(normalized, normalized)
+    hive_type = _TRINO_TO_HIVE_SCALAR_TYPES.get(normalized, normalized)
+    if hive_type.split("(", 1)[0].strip() not in _HIVE_SCALAR_TYPES:
+        return _FALLBACK_HIVE_TYPE
+    return hive_type

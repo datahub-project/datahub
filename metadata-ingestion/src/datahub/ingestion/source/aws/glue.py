@@ -152,6 +152,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     MetadataAttributionClass,
     MetadataChangeEventClass,
+    NullTypeClass,
     OperationClass,
     OperationTypeClass,
     OwnerClass,
@@ -723,6 +724,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_resource_link_schema_unresolved: int = 0
     num_view_schema_from_view_definition: int = 0
     num_view_placeholder_schema_unresolved: int = 0
+    num_view_columns_type_unresolved: int = 0
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -3132,24 +3134,24 @@ class GlueSource(StatefulIngestionSourceBase):
         ):
             return None
 
+        view_text = table.get("ViewOriginalText")
+        if not isinstance(view_text, str) or not is_presto_view(view_text):
+            # Only Presto/Athena writes the placeholder; a Spark/Hive view whose
+            # single column happens to be named `dummy` is a real column.
+            return None
+
         view_columns: Optional[List[PrestoViewColumn]] = None
         decode_error: Optional[ValueError] = None
-        view_text = table.get("ViewOriginalText")
-        if not isinstance(view_text, str) or not view_text:
-            reason = "view has no ViewOriginalText"
-        elif not is_presto_view(view_text):
-            reason = "view definition is not a Presto/Athena view"
+        try:
+            definition = decode_presto_view(view_text)
+        except ValueError as e:
+            # Reported here as well as in _get_view_definition, because the
+            # resource-link owner path reaches this method without it.
+            decode_error = e
+            reason = "view definition could not be decoded"
         else:
-            try:
-                definition = decode_presto_view(view_text)
-            except ValueError as e:
-                # Reported here as well as in _get_view_definition, because the
-                # resource-link owner path reaches this method without it.
-                decode_error = e
-                reason = "view definition could not be decoded"
-            else:
-                view_columns = get_presto_view_columns(definition)
-                reason = "view definition has no valid 'columns' list"
+            view_columns = get_presto_view_columns(definition)
+            reason = "view definition has no valid 'columns' list"
 
         if view_columns is None:
             self.report.num_view_placeholder_schema_unresolved += 1
@@ -3165,6 +3167,7 @@ class GlueSource(StatefulIngestionSourceBase):
             return None
 
         fields: List[SchemaField] = []
+        untyped_columns: List[str] = []
         for column in view_columns:
             schema_fields = get_schema_fields_for_hive_column(
                 hive_column_name=column["name"],
@@ -3172,6 +3175,11 @@ class GlueSource(StatefulIngestionSourceBase):
                 default_nullable=True,
             )
             if schema_fields:
+                # The Hive parser falls back to NullType instead of raising when it
+                # cannot read a type, so surface those columns rather than count
+                # the view as fully recovered.
+                if isinstance(schema_fields[0].type.type, NullTypeClass):
+                    untyped_columns.append(f"{column['name']} ({column['type']})")
                 # Keep the engine's own type (e.g. `timestamp(3) with time zone`)
                 # rather than the Hive approximation used to build the field.
                 schema_fields[0].nativeDataType = column["type"]
@@ -3184,6 +3192,15 @@ class GlueSource(StatefulIngestionSourceBase):
                 )
                 fields.extend(schema_fields)
 
+        if untyped_columns:
+            self.report.num_view_columns_type_unresolved += len(untyped_columns)
+            self.report.warning(
+                title="View column types could not be converted",
+                message="Some columns recovered from this view's definition have a "
+                "type DataHub could not convert, so they are ingested without a type.",
+                context=f"{table_name}: {', '.join(untyped_columns)}",
+                log=False,
+            )
         self.report.num_view_schema_from_view_definition += 1
         return fields
 

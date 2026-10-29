@@ -4410,8 +4410,6 @@ def _schema_column_names(workunits: List[Any]) -> List[str]:
 @pytest.mark.parametrize(
     "view_original_text, is_decode_failure",
     [
-        (None, False),
-        ("SELECT * FROM my_db.events", False),
         ("/* Presto View: not!valid!base64 */", True),
         # A non-list `columns` must not raise out of the table loop and abort the run.
         (
@@ -4425,7 +4423,7 @@ def _schema_column_names(workunits: List[Any]) -> List[str]:
     ],
 )
 def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns(
-    view_original_text: Optional[str], is_decode_failure: bool
+    view_original_text: str, is_decode_failure: bool
 ) -> None:
     source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
     view = _placeholder_view("broken_view", view_original_text)
@@ -4443,6 +4441,53 @@ def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns
     assert placeholder_contexts[0].startswith("my_db.broken_view: ")
     # The decode exception is kept so operators can see why decoding failed.
     assert ("Error" in placeholder_contexts[0]) == is_decode_failure
+
+
+@pytest.mark.parametrize(
+    "view_original_text", [None, "SELECT id AS dummy FROM my_db.events"]
+)
+def test_glue_non_presto_view_with_column_named_dummy_is_kept_without_warning(
+    view_original_text: Optional[str],
+) -> None:
+    # Only Presto/Athena writes the placeholder; a Spark/Hive view's single
+    # `dummy` column is real, so it is neither replaced nor reported.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view("spark_view", view_original_text)
+
+    assert _schema_column_names(list(source._gen_table_wu(view))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 0
+    assert not any(
+        w.title == "View schema is a placeholder column" for w in source.report.warnings
+    )
+
+
+def test_glue_placeholder_view_reports_columns_left_without_a_type() -> None:
+    # A quoted row field name the Hive parser cannot read leaves that column
+    # untyped; the view is still recovered, but the column is reported.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    encoded = base64.b64encode(
+        json.dumps(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "payload", "type": 'row("a(b" bigint)'},
+                ],
+            }
+        ).encode()
+    ).decode()
+    view = _placeholder_view("events_view", f"/* Presto View: {encoded} */")
+
+    assert sorted(_schema_column_names(list(source._gen_table_wu(view)))) == [
+        "id",
+        "payload",
+    ]
+    assert source.report.num_view_schema_from_view_definition == 1
+    assert source.report.num_view_columns_type_unresolved == 1
+    assert any(
+        w.title == "View column types could not be converted"
+        for w in source.report.warnings
+    )
 
 
 def test_glue_table_with_column_named_dummy_is_not_treated_as_placeholder() -> None:

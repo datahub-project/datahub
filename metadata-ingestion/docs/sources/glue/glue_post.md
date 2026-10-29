@@ -163,13 +163,17 @@ When a view has an output column whose type Hive cannot represent, such as `time
 (from `AT TIME ZONE`) or `char` longer than 255, Glue stores a single placeholder column named
 `dummy` for that view instead of its real columns. For Athena/Presto views, the connector reads the
 real columns and their types from the view definition instead, so the view shows its full schema and
-its column-level lineage connects to real columns. Column types Hive cannot represent are approximated (for example,
-`timestamp with time zone` is shown as a timestamp), and the original type is kept as the column's
-native type.
+its column-level lineage connects to real columns. Column types Hive cannot represent are approximated:
+`timestamp with time zone` is shown as a timestamp, and types with no Hive equivalent (such as
+`time`, `interval` or `json`) are shown as strings. The original type is kept as the column's native
+type. Spark and Hive views are not changed, so a real column named `dummy` in one of those views is
+kept as it is.
 
 The ingestion report counts these views in `num_view_schema_from_view_definition`. Views whose
 columns cannot be recovered keep the `dummy` column, are counted in
-`num_view_placeholder_schema_unresolved`, and produce a warning.
+`num_view_placeholder_schema_unresolved`, and produce a warning that says why. Recovered columns
+whose type still cannot be converted are ingested without a type, counted in
+`num_view_columns_type_unresolved`, and listed in a warning.
 
 #### Checking a recipe before ingesting
 
