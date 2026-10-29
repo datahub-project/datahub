@@ -16,8 +16,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128257,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128104,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -32,8 +32,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128257,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128104,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -48,8 +48,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128257,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128104,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -66,8 +66,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128257,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128104,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -82,8 +82,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128257,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128104,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -98,8 +98,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128297,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -121,8 +121,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128297,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -137,8 +137,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128297,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -153,8 +153,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128298,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -171,8 +171,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128298,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -192,14 +192,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128298,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128152,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,spark_catalog.test_db.users,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -208,14 +208,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128301,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128158,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,spark_catalog.test_db.users,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
     "changeType": "PATCH",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -253,95 +253,103 @@
         ]
     },
     "systemMetadata": {
-        "lastObserved": 1765966128301,
-        "runId": "hms3-spark-catalog-ids-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,spark_catalog.test_db.users,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "spark_catalog.test_db.users",
-                        "platform": "urn:li:dataPlatform:hive",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[type=long].user_id",
-                                "nullable": true,
-                                "description": "Spark user ID",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "bigint",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=string].username",
-                                "nullable": true,
-                                "description": "Spark username",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=boolean].active",
-                                "nullable": true,
-                                "description": "Is active",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                    }
-                                },
-                                "nativeDataType": "boolean",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1765966128301,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128158,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,spark_catalog.test_db.users,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128158,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "test_db.users",
+            "platform": "urn:li:dataPlatform:hive",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=long].user_id",
+                    "nullable": true,
+                    "description": "Spark user ID",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=string].username",
+                    "nullable": true,
+                    "description": "Spark username",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=boolean].active",
+                    "nullable": true,
+                    "description": "Is active",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1765966128158,
+        "runId": "hms3-spark-catalog-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -352,14 +360,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128301,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128159,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,spark_catalog.test_db.users,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -377,8 +385,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1765966128302,
-        "runId": "hms3-spark-catalog-ids-test",
+        "lastObserved": 1765966128159,
+        "runId": "hms3-spark-catalog-test",
         "lastRunId": "no-run-id-provided"
     }
 }
