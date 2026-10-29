@@ -1786,7 +1786,8 @@ systemUpdate:
     # Records one dataHubIngestionSourceRunEvent for each ingestion source with no recorded run,
     # from its latest run (carrying its latest successful and failed runs). New runs are recorded
     # by IngestionSourceRunEventHook. Each batch makes one execution request aggregation.
-    # Reprocess rewrites every source, including ones the hook has already recorded.
+    # Reprocess also checks sources the hook has already recorded, and writes only where the
+    # latest run is newer than the recorded one.
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_EVENTS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_SOURCE_RUN_EVENTS_BATCH_SIZE:500}
     reprocess:
@@ -2239,6 +2240,13 @@ cache:
           dataPlatformInfo: 86400 # 1 day
         dataPlatformInstance:
           dataPlatformInstanceKey: 300 # 5 min
+        # Read by IngestionSourceRunEventHook. Source info is only an existence check, and the
+        # run-event validator reads it again on write.
+        dataHubIngestionSource:
+          dataHubIngestionSourceInfo: 10
+        # Written when the request is created and not changed after.
+        dataHubExecutionRequest:
+          dataHubExecutionRequestInput: 300 # 5 min
 
 graphQL:
   graphiql:

@@ -53,6 +53,8 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -80,19 +82,44 @@ public class BackfillIngestionSourceRunEventsStepTest {
 
   private final Map<Urn, LatestIngestionRuns> latestRuns = new HashMap<>();
   private final Map<Urn, Map<String, RecordTemplate>> store = new HashMap<>();
+  private final Map<Urn, DataHubIngestionSourceRunEvent> recorded = new HashMap<>();
   private EntityService<?> entityService;
   private SearchService searchService;
   private EntitySearchService entitySearchService;
+  private TimeseriesAspectService timeseriesAspectService;
   private UpgradeContext context;
 
   @BeforeMethod
   public void setup() throws Exception {
     latestRuns.clear();
     store.clear();
+    recorded.clear();
     entityService = mock(EntityService.class);
     searchService = mock(SearchService.class);
     entitySearchService = mock(EntitySearchService.class);
+    timeseriesAspectService = mock(TimeseriesAspectService.class);
     context = mock(UpgradeContext.class);
+    when(timeseriesAspectService.getLatestTimeseriesAspectValues(
+            any(OperationContext.class), any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> sources = invocation.getArgument(1);
+              Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> result =
+                  new HashMap<>();
+              sources.stream()
+                  .filter(recorded::containsKey)
+                  .forEach(
+                      source ->
+                          result.put(
+                              source,
+                              Map.of(
+                                  INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME,
+                                  new com.linkedin.metadata.aspect.EnvelopedAspect()
+                                      .setAspect(
+                                          GenericRecordUtils.serializeAspect(
+                                              recorded.get(source))))));
+              return result;
+            });
     when(context.opContext()).thenReturn(OP_CONTEXT);
     when(entitySearchService.getLatestIngestionRuns(any(OperationContext.class), any()))
         .thenAnswer(
@@ -248,6 +275,25 @@ public class BackfillIngestionSourceRunEventsStepTest {
   }
 
   @Test
+  public void testSourceWithAnEqualOrNewerRecordedRunIsNotRewritten() {
+    // The hook can record a run after the scroll page was read; the backfill must not replace it.
+    source(SOURCE_A);
+    source(SOURCE_B);
+    run(LATEST_RUN, SOURCE_A, 300, "SUCCESS");
+    run(RUN_B, SOURCE_B, 300, "SUCCESS");
+    latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, LATEST_RUN, null));
+    latestRuns.put(SOURCE_B, new LatestIngestionRuns(RUN_B, RUN_B, null));
+    recorded.put(SOURCE_A, recordedEvent(LATEST_RUN, 300));
+    recorded.put(SOURCE_B, recordedEvent(RUN_B, 400));
+    stubScroll(page(null, SOURCE_A, SOURCE_B));
+
+    assertEquals(step(true).executable().apply(context).result(), DataHubUpgradeState.SUCCEEDED);
+
+    verify(entityService, never())
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
   public void testSkipRespectsMarkerAndReprocess() {
     when(entityService.exists(
             any(OperationContext.class),
@@ -262,7 +308,21 @@ public class BackfillIngestionSourceRunEventsStepTest {
 
   private BackfillIngestionSourceRunEventsStep step(boolean reprocessEnabled) {
     return new BackfillIngestionSourceRunEventsStep(
-        OP_CONTEXT, entityService, searchService, entitySearchService, reprocessEnabled, 500);
+        OP_CONTEXT,
+        entityService,
+        searchService,
+        entitySearchService,
+        timeseriesAspectService,
+        reprocessEnabled,
+        500);
+  }
+
+  private static DataHubIngestionSourceRunEvent recordedEvent(Urn runUrn, long requestedAt) {
+    return new DataHubIngestionSourceRunEvent()
+        .setTimestampMillis(requestedAt)
+        .setExecutionRequest(runUrn)
+        .setRequestedAtMillis(requestedAt)
+        .setStatus("SUCCESS");
   }
 
   private DataHubUpgradeState execute() {

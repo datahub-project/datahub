@@ -46,6 +46,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -176,6 +177,7 @@ public class NonBlockingConfigs {
       final EntityService<?> entityService,
       final SearchService searchService,
       @Qualifier("entitySearchService") final EntitySearchService entitySearchService,
+      final TimeseriesAspectService timeseriesAspectService,
       @Value("${systemUpdate.ingestionSourceRunEvents.enabled}") final boolean enabled,
       @Value("${systemUpdate.ingestionSourceRunEvents.reprocess.enabled}")
           final boolean reprocessEnabled,
@@ -185,6 +187,7 @@ public class NonBlockingConfigs {
         entityService,
         searchService,
         entitySearchService,
+        timeseriesAspectService,
         enabled,
         reprocessEnabled,
         batchSize);
