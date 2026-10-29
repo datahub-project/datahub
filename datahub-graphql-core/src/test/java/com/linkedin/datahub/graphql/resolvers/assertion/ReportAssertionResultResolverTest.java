@@ -44,6 +44,10 @@ public class ReportAssertionResultResolverTest {
           customAssertionUrl,
           new AssertionResultErrorInput(
               AssertionResultErrorType.UNKNOWN_ERROR, "an unknown error occurred"),
+          null,
+          null,
+          null,
+          null,
           null);
 
   private static final AssertionResultInput TEST_FAILURE_INPUT_WITH_SEVERITY =
@@ -53,7 +57,11 @@ public class ReportAssertionResultResolverTest {
           ImmutableList.of(new StringMapEntryInput("prop1", "value1")),
           customAssertionUrl,
           null,
-          AssertionResultSeverity.HIGH);
+          AssertionResultSeverity.HIGH,
+          null,
+          null,
+          null,
+          null);
 
   private static final AssertionResultInput TEST_SUCCESS_INPUT_WITH_SEVERITY =
       new AssertionResultInput(
@@ -62,7 +70,15 @@ public class ReportAssertionResultResolverTest {
           ImmutableList.of(new StringMapEntryInput("prop1", "value1")),
           customAssertionUrl,
           null,
-          AssertionResultSeverity.HIGH);
+          AssertionResultSeverity.HIGH,
+          null,
+          null,
+          null,
+          null);
+
+  private static final AssertionResultInput TEST_FAILURE_INPUT_WITH_NUMERIC_VALUES =
+      new AssertionResultInput(
+          0L, AssertionResultType.FAILURE, null, null, null, null, 42.5f, 1000L, 7L, 3L);
 
   private static final AssertionRunEvent TEST_ASSERTION_RUN_EVENT =
       new AssertionRunEvent()
@@ -235,6 +251,42 @@ public class ReportAssertionResultResolverTest {
             .setType(com.linkedin.assertion.AssertionResultType.SUCCESS)
             .setExternalUrl(customAssertionUrl)
             .setNativeResults(new StringMap(Map.of("prop1", "value1")));
+
+    Mockito.verify(mockedService, Mockito.times(1))
+        .addAssertionRunEvent(
+            any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN),
+            Mockito.eq(TEST_DATASET_URN),
+            Mockito.eq(0L),
+            Mockito.eq(expectedResult));
+  }
+
+  @Test
+  public void testReportAssertionResultWithNumericValues() throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    ReportAssertionResultResolver resolver = new ReportAssertionResultResolver(mockedService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ASSERTION_URN.toString());
+    Mockito.when(mockEnv.getArgument(Mockito.eq("result")))
+        .thenReturn(TEST_FAILURE_INPUT_WITH_NUMERIC_VALUES);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(
+            mockedService.getEntityUrnForAssertion(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(TEST_DATASET_URN);
+
+    resolver.get(mockEnv).get();
+
+    AssertionResult expectedResult =
+        new AssertionResult()
+            .setType(com.linkedin.assertion.AssertionResultType.FAILURE)
+            .setActualAggValue(42.5f)
+            .setRowCount(1000L)
+            .setUnexpectedCount(7L)
+            .setMissingCount(3L);
 
     Mockito.verify(mockedService, Mockito.times(1))
         .addAssertionRunEvent(

@@ -112,6 +112,10 @@ public class ReportAssertionResultResolver implements DataFetcher<CompletableFut
     if (assertionResult.getType() == AssertionResultType.FAILURE && input.getSeverity() != null) {
       assertionResult.setSeverity(AssertionResultSeverity.valueOf(input.getSeverity().toString()));
     }
+    assertionResult.setActualAggValue(input.getActualAggValue(), SetMode.IGNORE_NULL);
+    assertionResult.setRowCount(input.getRowCount(), SetMode.IGNORE_NULL);
+    assertionResult.setUnexpectedCount(input.getUnexpectedCount(), SetMode.IGNORE_NULL);
+    assertionResult.setMissingCount(input.getMissingCount(), SetMode.IGNORE_NULL);
     return assertionResult;
   }
 

@@ -242,6 +242,23 @@ The `type` field is used to communicate the latest health status of the assertio
 The `properties` field is used to provide additional key-value pair context that will be displayed alongside the result
 in DataHub's UI.
 
+You can also report the numeric values observed during the run with the optional `actualAggValue` (Float), `rowCount`,
+`unexpectedCount` and `missingCount` (Long) fields. For example:
+
+```graphql
+mutation reportAssertionResult {
+  reportAssertionResult(
+    urn: "urn:li:assertion:<your-new-assertion-id>"
+    result: {
+      type: FAILURE
+      actualAggValue: 0.12 # e.g. the observed null percentage
+      rowCount: 1000
+      unexpectedCount: 120
+    }
+  )
+}
+```
+
 The full list of supported error types include:
 
 - SOURCE_CONNECTION_ERROR
