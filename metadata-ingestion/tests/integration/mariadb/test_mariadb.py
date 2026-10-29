@@ -56,7 +56,7 @@ def mariadb_runner(docker_compose_runner, pytestconfig, test_resources_dir, requ
 @pytest.mark.parametrize(
     "config_file,golden_file",
     [
-        ("mariadb_to_file.yml", "mariadb_mces_golden.json"),
+        ("mariadb_to_file.yml", "mariadb_golden.json"),
     ],
 )
 @time_machine.travel(FROZEN_TIME)
@@ -82,7 +82,6 @@ def test_mariadb_ingest_no_db(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
         ignore_paths=ignore_paths,
         output_path=tmp_path / "mariadb_mces.json",
