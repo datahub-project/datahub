@@ -13,7 +13,8 @@ record GlossaryNodeKey {
 
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": true,
+      "lowercase": true
     },
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true
