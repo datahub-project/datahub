@@ -460,10 +460,18 @@ def test_a_field_consulted_for_another_kind_is_part_of_that_kinds_verdict():
     removes elsewhere. `Filters(..., also_filters=[...])` says which other
     fields a verdict may consult, so the question can be asked of all of them.
     """
+    # view_pattern spelled out, and allow-all. Leaving it unset let SQL's
+    # view_pattern_is_table_pattern_unless_specified copy table_pattern onto
+    # it, so the kind's OWN field was filtering and the refusal fired for the
+    # ordinary reason -- the test passed without ever reaching also_filters.
     with pytest.raises(ContainerUnknown):
         check_filters(
             source_type="unity-catalog",
-            config_dict={**_UC, "table_pattern": {"allow": [r"^mycat\.sch\.v1$"]}},
+            config_dict={
+                **_UC,
+                "table_pattern": {"allow": [r"^mycat\.sch\.v1$"]},
+                "view_pattern": {"allow": [".*"]},
+            },
             kind=str(DatasetSubTypes.VIEW),
             parent_path=["sch"],
             names=["v1"],
@@ -472,7 +480,11 @@ def test_a_field_consulted_for_another_kind_is_part_of_that_kinds_verdict():
     # Naming the catalog answers it, which is what the refusal asks for.
     answered = check_filters(
         source_type="unity-catalog",
-        config_dict={**_UC, "table_pattern": {"allow": [r"^mycat\.sch\.v1$"]}},
+        config_dict={
+            **_UC,
+            "table_pattern": {"allow": [r"^mycat\.sch\.v1$"]},
+            "view_pattern": {"allow": [".*"]},
+        },
         kind=str(DatasetSubTypes.VIEW),
         parent_path=["mycat", "sch"],
         names=["v1"],

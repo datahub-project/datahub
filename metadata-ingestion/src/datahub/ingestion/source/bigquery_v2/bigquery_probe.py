@@ -192,12 +192,11 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
             )
             ids = [project.id for project in found]
         except Forbidden as exc:
-            raise ProbeSoftError(
-                "searching projects by label needs "
-                "`resourcemanager.projects.list`, which this credential does "
-                "not have; ingestion needs it for this recipe too, so set "
-                "`project_ids` to name the projects instead"
-            ) from exc
+            # Through the same classifier as the unlabelled branch: a
+            # SERVICE_DISABLED names the API to enable, and a 403 for any
+            # other reason -- a quota blip on concurrent calls -- propagates
+            # rather than degrading to "no projects exist, change your IAM".
+            raise self._denied(exc, needs="`resourcemanager.projects.list`") from exc
         return sorted(ids) if len(ids) < limit else ids
 
     def _listed_projects(self, limit: int) -> List[str]:
@@ -221,8 +220,15 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
         return sorted(ids) if len(ids) < limit else ids
 
     @staticmethod
-    def _denied(exc: Forbidden) -> Exception:
-        """A 403 the recipe can act on, as a soft error, or the error itself."""
+    def _denied(
+        exc: Forbidden, needs: str = "permission to list projects"
+    ) -> Exception:
+        """A 403 the recipe can act on, as a soft error, or the error itself.
+
+        `needs` names the permission this particular call wants: the two
+        branches reach different APIs, so they are denied for different
+        grants.
+        """
         reason = error_info_reason(exc)
         if is_service_disabled(exc):
             service = error_info_service(exc) or "the API this call needs"
@@ -233,8 +239,8 @@ class BigQueryMetadataProbe(SqlCatalogPassthrough):
             )
         if reason is None or reason in _ACCESS_DENIED_REASONS:
             return ProbeSoftError(
-                "this credential may not list projects; set `project_ids` in "
-                "the recipe to name the projects instead"
+                f"this credential may not list projects ({needs}); set "
+                f"`project_ids` in the recipe to name the projects instead"
             )
         # A 403 for some other reason -- a quota blip, say -- is not something
         # `project_ids` fixes, and an empty list would read as "none exist".

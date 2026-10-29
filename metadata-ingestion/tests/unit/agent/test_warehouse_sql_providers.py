@@ -8,7 +8,7 @@ Both expose the query as a `sql` probe method whose `query` parameter the
 framework scope-checks before calling (see test_scoped_probe_methods).
 """
 
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import pytest
 from google.api_core.exceptions import Forbidden, Unauthorized
@@ -294,6 +294,52 @@ def test_bigquery_runs_the_label_search_ingestion_runs(
     assert searched["labels"] == frozenset({"env:prod"})
     # The credential's own view is not consulted on this branch.
     assert bq_client.pulled == 0
+
+
+def test_the_label_search_classifies_a_403_the_way_the_plain_listing_does(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Both branches reach an API that can refuse for several reasons, so both
+    have to tell them apart. The labelled one wrapped every `Forbidden` as a
+    missing IAM grant, so a disabled API or a quota blip came back as "no
+    projects exist, change your permissions"."""
+    import datahub.ingestion.source.common.gcp_project_filter as filter_module
+    from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+
+    config = BigQueryV2Config.model_validate({"project_labels": ["env:prod"]})
+    monkeypatch.setattr(
+        type(config), "get_projects_client", lambda _self: object(), raising=False
+    )
+
+    def _raising(error: Exception) -> Callable[..., object]:
+        def _search(labels: object, client: object = None) -> object:
+            raise error
+
+        return _search
+
+    # A quota blip is transient and ingestion retries it: it must not become
+    # an empty list at exit 0.
+    monkeypatch.setattr(
+        filter_module,
+        "iter_projects_by_labels",
+        _raising(_forbidden("RATE_LIMIT_EXCEEDED")),
+    )
+    with pytest.raises(Forbidden):
+        BigQueryMetadataProbe(FakeProjectsClient([]), config).projects()
+
+    # A disabled API names the API, not a role.
+    monkeypatch.setattr(
+        filter_module,
+        "iter_projects_by_labels",
+        _raising(
+            _forbidden(
+                "SERVICE_DISABLED", service="cloudresourcemanager.googleapis.com"
+            )
+        ),
+    )
+    probe = BigQueryMetadataProbe(FakeProjectsClient([]), config)
+    assert probe.projects() == []
+    assert any("cloudresourcemanager" in w for w in probe.warnings), probe.warnings
 
 
 def test_bigquery_projects_declares_the_kind_the_refusal_looks_up() -> None:

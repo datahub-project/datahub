@@ -16,7 +16,6 @@ from pydantic import BaseModel, ValidationError
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.declarations import (
-    also_filtering_fields,
     declared_kind_enablers,
     declared_rule_filtered_kinds,
 )
@@ -45,7 +44,6 @@ from datahub.ingestion.agent.verdicts import (
     ProbeInternalError,
     Verdict,
     VerdictContext,
-    container_blind,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -430,38 +428,19 @@ def _with_context(
 
 
 def _rests_on_the_container(
-    config: object,
-    kind: str,
-    decided: Optional[Verdict],
-    override: Optional[Verdict],
+    decided: Optional[Verdict], override: Optional[Verdict]
 ) -> bool:
     """Whether the verdict about to be returned needed the missing container.
 
-    Nothing decided it -- so the kind's own pattern will, on a target without
-    its container. Or the connector's override decided, and some field its
-    verdict may consult depends on one: Unity checks `table_pattern` for every
-    table-like kind, so a view it answers on `schema.view` is the same
-    inversion as any other, just reached through the override. A kind switch
-    is neither, since it excludes in every container.
+    A need is only recorded when some field a verdict for this kind may rest
+    on depends on the container, so the question left here is who decided.
+    Nothing did, and the kind's own pattern will judge a target without its
+    container. Or the connector's override did, and it may have consulted any
+    of those fields -- Unity checks `table_pattern` for every table-like kind
+    -- without saying which. A kind switch is neither: it excludes in every
+    container.
     """
-    if decided is None:
-        return True
-    if decided is not override:
-        return False
-    return any(
-        not container_blind(pattern_at(config, field))
-        for field in _deciding_fields(config, kind)
-    )
-
-
-def _deciding_fields(config: object, kind: str) -> Set[str]:
-    """Every pattern field a verdict for `kind` may consult: the field named
-    after it, and any declaring `also_filters` for it."""
-    fields = also_filtering_fields(config, kind)
-    own = pattern_field_for_config(config, kind)
-    if own is not None and own != UNFILTERED:
-        fields.add(own)
-    return fields
+    return decided is None or decided is override
 
 
 def _judge_name(
@@ -519,7 +498,7 @@ def _judge_name(
             f"for '{name}'"
         )
     decided = override or structural
-    if needed and _rests_on_the_container(config, kind, decided, override):
+    if needed and _rests_on_the_container(decided, override):
         # The name was judged on a target missing the container ingestion
         # matches on, and nothing decided it on other grounds. That is the
         # verdict ingestion does not make, so none is given.

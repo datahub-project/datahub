@@ -271,6 +271,25 @@ def _container_filter_caveat(config: object, kind: str) -> str:
     )
 
 
+def _container_decides(config: object, kind: str, pattern_field: Optional[str]) -> bool:
+    """Whether the missing container could change ANY field a verdict for
+    `kind` may rest on.
+
+    Not the kind's own field alone. A connector whose override reaches past it
+    -- `Filters(..., also_filters=[...])` says which -- can answer on a
+    container-dependent pattern while the kind's own filters nothing, and
+    asking only about the primary left exactly that case unrecorded: a Unity
+    view with an explicit allow-all `view_pattern` was judged on `schema.view`
+    against a `table_pattern` written for `catalog.schema.view`.
+    """
+    from datahub.ingestion.agent.declarations import also_filtering_fields
+
+    fields = also_filtering_fields(config, kind)
+    if pattern_field and pattern_field != UNFILTERED:
+        fields.add(pattern_field)
+    return any(not container_blind(pattern_at(config, field)) for field in fields)
+
+
 def require_container(
     container: Optional[str],
     *,
@@ -289,8 +308,7 @@ def require_container(
     """
     if container:
         return container
-    pattern = pattern_at(config, pattern_field) if pattern_field else None
-    if container_blind(pattern):
+    if not _container_decides(config, kind, pattern_field):
         where = f"`{pattern_field}`" if pattern_field else "nothing here"
         # The claim is about the field deciding THIS kind, and it is exact.
         # The container has a pattern of its own, though, and naming one can
