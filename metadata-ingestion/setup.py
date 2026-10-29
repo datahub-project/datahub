@@ -703,13 +703,16 @@ plugins: Dict[str, Set[str]] = {
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
-        "numpy<2",
+        # Scoped below 3.13: numpy 1.x has no 3.13 wheels and does not build there.
+        # On 3.13, cap at the next major for the same binary-compatibility reason.
+        'numpy<2; python_version < "3.13"',
+        'numpy<3; python_version >= "3.13"',
         *cachetools_lib,
     },
     "feast": {
         # 0.47 declares fastapi>=0.68 with no upper bound, so starlette>=1.3.1
         # can resolve. 0.34–0.46 pin a FastAPI that cannot take Starlette 1.3.
-        # feast>=0.48 requires numpy>=2, so numpy<2 below still caps feast at 0.47.
+        # feast>=0.48 requires numpy>=2, so numpy<2 below still caps feast at 0.47 on Python < 3.13.
         "feast>=0.47.0,<1",
         # feast pulls starlette via fastapi; same CVE floor as datahub-lite.
         "starlette>=1.3.1,<2.0.0",
@@ -718,7 +721,10 @@ plugins: Dict[str, Set[str]] = {
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
-        "numpy<2",
+        # Scoped below 3.13: numpy 1.x has no 3.13 wheels and does not build there.
+        # On 3.13, cap at the next major for the same binary-compatibility reason.
+        'numpy<2; python_version < "3.13"',
+        'numpy<3; python_version >= "3.13"',
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
@@ -765,6 +771,7 @@ plugins: Dict[str, Set[str]] = {
     # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
+    "langfuse": {"requests<3.0.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -1263,6 +1270,7 @@ entry_points = {
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
+        "langfuse = datahub.ingestion.source.langfuse.langfuse:LangfuseSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
@@ -1434,6 +1442,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

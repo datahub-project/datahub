@@ -1,4 +1,5 @@
 import dataclasses
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 from unittest import mock
@@ -48,6 +49,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
     parse_freshness_criteria,
+    select_test_results_to_emit,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -4866,7 +4868,7 @@ def test_dbt_meta_mapping_add_structured_property_model_level():
 
     aspects = source._generate_base_dbt_aspects(
         node,
-        mce_platform="dbt",
+        platform="dbt",
         meta_aspects=meta_aspects,
     )
 
@@ -4910,7 +4912,7 @@ def test_dbt_meta_mapping_add_structured_property_disabled_when_meta_mapping_off
     )
     aspects = source._generate_base_dbt_aspects(
         node,
-        mce_platform="dbt",
+        platform="dbt",
         meta_aspects={
             Constants.ADD_STRUCTURED_PROPERTY_OPERATION: pre_computed_sp_aspect,
         },
@@ -5128,7 +5130,7 @@ def test_dbt_column_meta_processed_once_per_column_across_schema_and_sp():
     ):
         source._generate_base_dbt_aspects(
             node,
-            mce_platform="dbt",
+            platform="dbt",
             meta_aspects={},
             column_meta_aspects=column_meta_aspects,
         )
@@ -5491,3 +5493,88 @@ def test_dbt_source_patching_dedupes_when_server_aspect_is_empty():
     )
 
     assert len(transformed) == 1
+
+
+def _test_result(invocation_id: str, status: str, day: int) -> DBTTestResult:
+    return DBTTestResult(
+        invocation_id=invocation_id,
+        status=status,
+        execution_time=datetime(2026, 1, day, tzinfo=timezone.utc),
+        native_results={},
+    )
+
+
+def test_select_test_results_to_emit_latest_only_ignores_file_order() -> None:
+    # Newest run_results file listed first: the superseded failure must not be
+    # emitted after (or at all alongside) the current pass.
+    current = _test_result("inv-current", "pass", day=2)
+    previous = _test_result("inv-previous", "fail", day=1)
+
+    assert select_test_results_to_emit([current, previous], latest_only=True) == [
+        current
+    ]
+    assert select_test_results_to_emit([], latest_only=True) == []
+
+
+def test_select_test_results_to_emit_all_is_chronological_and_deduped() -> None:
+    current = _test_result("inv-current", "pass", day=3)
+    previous = _test_result("inv-previous", "fail", day=1)
+    # Same invocation loaded twice, e.g. overlapping run_results globs.
+    previous_again = _test_result("inv-previous", "fail", day=1)
+
+    assert select_test_results_to_emit(
+        [current, previous, previous_again], latest_only=False
+    ) == [previous, current]
+
+
+def test_select_test_results_to_emit_mixes_offset_and_naive_timestamps() -> None:
+    # Older run_results may omit the UTC offset; mixing them with offset-aware
+    # timestamps must not raise.
+    current = _test_result("inv-current", "pass", day=3)
+    previous = DBTTestResult(
+        invocation_id="inv-previous",
+        status="fail",
+        execution_time=datetime(2026, 1, 1),
+        native_results={},
+    )
+    previous_again = DBTTestResult(
+        invocation_id="inv-previous",
+        status="fail",
+        execution_time=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        native_results={},
+    )
+
+    assert select_test_results_to_emit(
+        [current, previous, previous_again], latest_only=False
+    ) == [previous_again, current]
+    assert select_test_results_to_emit([previous, current], latest_only=True) == [
+        current
+    ]
+
+
+def test_select_test_results_to_emit_reads_offset_less_timestamps_as_utc(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # On a host west of UTC, reading 06:00 as local time would put it after 08:00Z.
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    time.tzset()
+    try:
+        build_failure = DBTTestResult(
+            invocation_id="inv-build",
+            status="fail",
+            execution_time=datetime(2026, 1, 1, 6, 0),
+            native_results={},
+        )
+        retry_pass = DBTTestResult(
+            invocation_id="inv-retry",
+            status="pass",
+            execution_time=datetime(2026, 1, 1, 8, 0, tzinfo=timezone.utc),
+            native_results={},
+        )
+
+        assert select_test_results_to_emit(
+            [retry_pass, build_failure], latest_only=True
+        ) == [retry_pass]
+    finally:
+        monkeypatch.undo()
+        time.tzset()

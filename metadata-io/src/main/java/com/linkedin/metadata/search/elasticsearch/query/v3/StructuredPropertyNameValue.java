@@ -78,9 +78,7 @@ public final class StructuredPropertyNameValue {
         continue;
       }
       disMax.add(
-          QueryBuilders.termQuery(
-                  span.definition.fieldPath() + StructuredPropertySubfields.KEYWORD_SUFFIX,
-                  remainder)
+          QueryBuilders.termQuery(span.definition.fieldPath(), remainder)
               .boost(weight)
               .queryName(SearchTemplateMatchReport.NAME_AND_VALUE));
       added++;

@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
@@ -22,6 +23,10 @@ import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
@@ -269,6 +274,22 @@ public class ESBrowseDAO {
   }
 
   /**
+   * The filter Browse v1 applies, rebuilt from its request map so sibling hiding sees the same
+   * criteria search does: each entry is an equality filter applied below.
+   */
+  @Nullable
+  private static Filter requestMapToFilter(@Nonnull final Map<String, List<String>> requestMap) {
+    if (requestMap.isEmpty()) {
+      return null;
+    }
+    final CriterionArray criteria = new CriterionArray();
+    requestMap.forEach(
+        (field, values) -> criteria.add(buildCriterion(field, Condition.EQUAL, values)));
+    return new Filter()
+        .setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criteria)));
+  }
+
+  /**
    * Builds query string.
    *
    * @param path the path which is being browsed
@@ -289,6 +310,8 @@ public class ESBrowseDAO {
 
     applyDefaultSearchFilters(
         opContext, List.of(entityName), null, queryBuilder, searchConfiguration.getEntityIndex());
+    ESUtils.filterNonPrimarySiblings(
+        requestMapToFilter(requestMap), queryBuilder, searchConfiguration.getSearch());
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH, path));

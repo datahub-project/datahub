@@ -2595,6 +2595,55 @@ public class ESIndexBuilderTest {
             any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
   }
 
+  /**
+   * The ES task finishes right after a short count is read. That count must not be paired with the
+   * COMPLETED status and treated as dropped documents, which would resubmit a full reindex.
+   */
+  @Test
+  void testPollReindexCompletion_taskCompletesAfterShortCount_completesWithoutRetrigger()
+      throws Throwable {
+    setupPollReindexBuilder(0L, NUM_RETRIES);
+    // A resubmit must only be reachable through the completed-but-short path: neither the
+    // unresolved-task guard nor the no-progress timer may mask it.
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(false);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(60);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
+        .thenReturn("node1:100");
+
+    // Count call 1 is the pre-loop read; the task finishes right after count call 2.
+    AtomicInteger countCalls = new AtomicInteger();
+    GetTaskResponse task = mock(GetTaskResponse.class);
+    when(task.isCompleted()).thenAnswer(invocation -> countCalls.get() >= 2);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.of(task));
+
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion) {
+          @Override
+          protected Pair<Long, Long> getDocumentCounts(
+              OperationContext ctx, Callable<Long> expectedCountSupplier, String destinationIndex) {
+            return Pair.of(1000L, countCalls.incrementAndGet() <= 2 ? 900L : 1000L);
+          }
+        };
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertTrue(result.completed());
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1000L));
+    verify(searchClient, never())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
   /** Counts match and the ES task reports completed — poll succeeds. */
   @Test
   void testPollReindexCompletion_countsMatchAndTaskCompleted_completes() throws Throwable {

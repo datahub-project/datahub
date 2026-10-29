@@ -3,6 +3,7 @@ package com.linkedin.metadata.resources.entity;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.fail;
 
 import com.datahub.authentication.Actor;
@@ -30,6 +31,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.IngestAspectsResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
+import com.linkedin.data.template.GetMode;
+import com.linkedin.metadata.entity.ebean.batch.AttributedActorHeaders;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -51,6 +54,7 @@ import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import mock.MockEntityRegistry;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -171,6 +175,45 @@ public class AspectResourceTest {
     verify(producer, times(5))
         .produceMetadataChangeLog(any(OperationContext.class), eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(producer);
+  }
+
+  private AuditStamp queueAndCaptureStamp(Actor caller) throws URISyntaxException {
+    reset(producer, aspectDao);
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "attributed", FabricType.PROD);
+    mcp.setEntityUrn(urn);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties().setName("name")));
+    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    AttributedActorHeaders.stamp(mcp, "urn:li:corpuser:alice");
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(caller);
+    aspectResource.ingestProposal(mcp, "true");
+
+    ArgumentCaptor<MCPItem> item = ArgumentCaptor.forClass(MCPItem.class);
+    verify(producer).produceMetadataChangeProposal(any(OperationContext.class), eq(urn), item.capture());
+    return item.getValue().getAuditStamp();
+  }
+
+  @Test
+  public void testSystemCallerHonorsAttributedActor() throws URISyntaxException {
+    Actor system = opContext.getSessionAuthentication().getActor();
+
+    AuditStamp stamp = queueAndCaptureStamp(system);
+
+    assertEquals(stamp.getActor().toString(), "urn:li:corpuser:alice");
+    assertEquals(stamp.getImpersonator().toString(), system.toUrnStr());
+  }
+
+  @Test
+  public void testUserCallerIgnoresAttributedActor() throws URISyntaxException {
+    AuditStamp stamp = queueAndCaptureStamp(new Actor(ActorType.USER, "bob"));
+
+    assertEquals(stamp.getActor().toString(), "urn:li:corpuser:bob");
+    assertNull(stamp.getImpersonator(GetMode.NULL));
   }
 
   @Test

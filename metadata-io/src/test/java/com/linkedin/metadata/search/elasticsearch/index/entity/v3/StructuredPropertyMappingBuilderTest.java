@@ -272,9 +272,8 @@ public class StructuredPropertyMappingBuilderTest {
       assertFalse(configured.containsKey("copy_to"), valueType);
       assertEquals(configured.get("type"), "keyword", valueType);
       assertAnalyzedSubfields(configured, valueType);
-      if (!"urn".equals(valueType)) {
-        assertTrue(analyzedSubfields(configured).contains("keyword"), configured.toString());
-      }
+      assertFalse(analyzedSubfields(configured).contains("keyword"), configured.toString());
+      assertFalse(configured.containsKey("normalizer"), configured.toString());
 
       // V3 ignores the V2 exclusion once a configuration is present
       Map<String, Object> excluded =
@@ -321,6 +320,24 @@ public class StructuredPropertyMappingBuilderTest {
     assertAnalyzedSubfields(
         (Map<String, Object>) placed.get("prop" + StructuredPropertyUrnIdentity.FIELD_SUFFIX),
         "urn");
+    Map<String, Object> filterOnly =
+        StructuredPropertyMappingBuilder.createStructuredPropertyMappings(
+            mockEntitySpec,
+            List.of(
+                Pair.of(UrnUtils.getUrn("urn:li:structuredProperty:prop"), propertyOfType("urn"))));
+    assertFalse(filterOnly.containsKey("prop" + StructuredPropertyUrnIdentity.FIELD_SUFFIX));
+    StructuredPropertyDefinition queryByDefaultOff =
+        propertyOfType("urn")
+            .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(false));
+    Map<String, Object> notFullText =
+        StructuredPropertyMappingBuilder.createStructuredPropertyMappings(
+            mockEntitySpec,
+            List.of(Pair.of(UrnUtils.getUrn("urn:li:structuredProperty:prop"), queryByDefaultOff)));
+    assertFalse(notFullText.containsKey("prop" + StructuredPropertyUrnIdentity.FIELD_SUFFIX));
+    assertFalse(
+        StructuredPropertyUrnIdentity.indexesParsedName(
+            queryByDefaultOff, List.of(mockEntitySpec)));
+    assertTrue(StructuredPropertyUrnIdentity.indexesParsedName(urn, List.of(mockEntitySpec)));
     for (String valueType : List.of("number", "date")) {
       Map<String, Object> configured =
           StructuredPropertyMappingBuilder.getMappingsForStructuredProperty(
