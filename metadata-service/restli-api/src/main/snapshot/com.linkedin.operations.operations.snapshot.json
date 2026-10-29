@@ -62,10 +62,7 @@
         "Searchable" : {
           "/*" : {
             "fieldType" : "TEXT",
-            "queryByDefault" : true,
-            "v3" : {
-              "queryByDefault" : true
-            }
+            "queryByDefault" : true
           }
         }
       } ]
@@ -102,7 +99,6 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -112,7 +108,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -134,7 +129,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -582,7 +576,7 @@
         "filterNameOverride" : "Platform",
         "v3" : {
           "copyToOther" : true,
-          "searchLabel" : "platform"
+          "queryByDefault" : false
         }
       }
     }, {
@@ -597,7 +591,7 @@
         "filterNameOverride" : "Platform Instance",
         "v3" : {
           "copyToOther" : true,
-          "searchLabel" : "platformInstance"
+          "queryByDefault" : false
         }
       }
     } ],
@@ -783,7 +777,6 @@
             "mappings" : [ {
               "type" : "URN"
             } ],
-            "queryByDefault" : true,
             "searchLabel" : "tags"
           }
         }
@@ -872,7 +865,6 @@
           "mappings" : [ {
             "type" : "URN"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "glossaryTerms"
         }
       }
@@ -1289,7 +1281,6 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -1299,7 +1290,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -1323,7 +1313,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -1489,7 +1478,6 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -1499,7 +1487,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -1524,7 +1511,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -1602,7 +1588,6 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -1612,7 +1597,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -1637,7 +1621,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -2086,7 +2069,6 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2096,7 +2078,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -2111,7 +2092,6 @@
         "enableAutocomplete" : true,
         "fieldType" : "WORD_GRAM",
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2121,7 +2101,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "qualifiedName"
         }
       }
@@ -2146,7 +2125,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -2327,7 +2305,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -2346,6 +2323,7 @@
         "hasValuesFieldName" : "hasParentNode",
         "v3" : {
           "hasValuesFieldName" : "hasParent",
+          "queryByDefault" : false,
           "searchLabel" : "parent"
         }
       }
@@ -2361,7 +2339,6 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2371,7 +2348,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -2381,10 +2357,7 @@
       "doc" : "Optional id for the GlossaryNode",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "TEXT_PARTIAL",
-        "v3" : {
-          "queryByDefault" : true
-        }
+        "fieldType" : "TEXT_PARTIAL"
       }
     } ],
     "Aspect" : {
@@ -2402,10 +2375,7 @@
       "doc" : "Optional id for the term",
       "optional" : true,
       "Searchable" : {
-        "fieldType" : "TEXT_PARTIAL",
-        "v3" : {
-          "queryByDefault" : true
-        }
+        "fieldType" : "TEXT_PARTIAL"
       }
     }, {
       "name" : "name",
@@ -2418,7 +2388,6 @@
         "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "WORD_GRAM",
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2428,7 +2397,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -2451,7 +2419,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -2470,6 +2437,7 @@
         "hasValuesFieldName" : "hasParentNode",
         "v3" : {
           "hasValuesFieldName" : "hasParent",
+          "queryByDefault" : false,
           "searchLabel" : "parent"
         }
       }
@@ -2520,7 +2488,6 @@
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : true,
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2530,7 +2497,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -2595,7 +2561,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "description"
         }
       }
@@ -2645,10 +2610,7 @@
       "default" : [ ],
       "Searchable" : {
         "/*" : {
-          "fieldType" : "TEXT",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "TEXT"
         }
       }
     }, {
@@ -2661,10 +2623,7 @@
       "default" : [ ],
       "Searchable" : {
         "/*" : {
-          "fieldType" : "TEXT",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "TEXT"
         }
       }
     }, {
@@ -2682,7 +2641,6 @@
         "fieldType" : "WORD_GRAM",
         "queryByDefault" : true,
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2692,7 +2650,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -2780,7 +2737,6 @@
         "fieldType" : "WORD_GRAM",
         "queryByDefault" : true,
         "v3" : {
-          "lowercase" : true,
           "mappings" : [ {
             "type" : "KEYWORD"
           }, {
@@ -2790,7 +2746,6 @@
             "subfield" : "stemmed",
             "type" : "STEMMED"
           } ],
-          "queryByDefault" : true,
           "searchLabel" : "name"
         }
       }
@@ -2801,10 +2756,7 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD",
-        "queryByDefault" : true,
-        "v3" : {
-          "queryByDefault" : true
-        }
+        "queryByDefault" : true
       }
     }, {
       "name" : "title",
@@ -2813,10 +2765,7 @@
       "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD",
-        "queryByDefault" : true,
-        "v3" : {
-          "queryByDefault" : true
-        }
+        "queryByDefault" : true
       }
     }, {
       "name" : "managerUrn",
@@ -2861,21 +2810,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldType" : "WORD_GRAM",
-        "queryByDefault" : true,
-        "v3" : {
-          "lowercase" : true,
-          "mappings" : [ {
-            "type" : "KEYWORD"
-          }, {
-            "subfield" : "text",
-            "type" : "TEXT"
-          }, {
-            "subfield" : "stemmed",
-            "type" : "STEMMED"
-          } ],
-          "queryByDefault" : true,
-          "searchLabel" : "name"
-        }
+        "queryByDefault" : true
       }
     }, {
       "name" : "countryCode",
@@ -2970,10 +2905,7 @@
         "Searchable" : {
           "boostScore" : 4.0,
           "fieldName" : "tool",
-          "fieldType" : "TEXT_PARTIAL",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "chartId",
@@ -2996,11 +2928,7 @@
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
           "fieldType" : "WORD_GRAM",
-          "queryByDefault" : true,
-          "v3" : {
-            "lowercase" : true,
-            "queryByDefault" : true
-          }
+          "queryByDefault" : true
         }
       } ],
       "Aspect" : {
@@ -3019,22 +2947,7 @@
           "boostScore" : 2.0,
           "enableAutocomplete" : true,
           "fieldName" : "ldap",
-          "fieldType" : "WORD_GRAM",
-          "v3" : {
-            "boostScore" : 10.0,
-            "lowercase" : true,
-            "mappings" : [ {
-              "type" : "KEYWORD"
-            }, {
-              "subfield" : "text",
-              "type" : "TEXT"
-            }, {
-              "subfield" : "stemmed",
-              "type" : "STEMMED"
-            } ],
-            "queryByDefault" : true,
-            "searchLabel" : "name"
-          }
+          "fieldType" : "WORD_GRAM"
         }
       } ],
       "Aspect" : {
@@ -3052,10 +2965,7 @@
         "Searchable" : {
           "boostScore" : 4.0,
           "fieldName" : "tool",
-          "fieldType" : "TEXT_PARTIAL",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "dashboardId",
@@ -3075,10 +2985,7 @@
         "type" : "string",
         "doc" : "Workflow manager like azkaban, airflow which orchestrates the flow",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "flowId",
@@ -3086,20 +2993,14 @@
         "doc" : "Unique Identifier of the data flow",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "WORD_GRAM",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "WORD_GRAM"
         }
       }, {
         "name" : "cluster",
         "type" : "string",
         "doc" : "Cluster where the flow is executed",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "TEXT_PARTIAL"
         }
       } ],
       "Aspect" : {
@@ -3129,10 +3030,7 @@
         "doc" : "Unique Identifier of the data job",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "WORD_GRAM",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "WORD_GRAM"
         }
       } ],
       "Aspect" : {
@@ -3313,7 +3211,6 @@
                 "queryByDefault" : "true",
                 "v3" : {
                   "degree" : 1,
-                  "lowercase" : true,
                   "mappings" : [ {
                     "type" : "KEYWORD"
                   }, {
@@ -3323,6 +3220,7 @@
                     "subfield" : "stemmed",
                     "type" : "STEMMED"
                   } ],
+                  "queryByDefault" : false,
                   "searchLabel" : "name"
                 }
               }
@@ -3362,6 +3260,7 @@
                     "subfield" : "stemmed",
                     "type" : "STEMMED"
                   } ],
+                  "queryByDefault" : false,
                   "searchLabel" : "description"
                 }
               }
@@ -3377,7 +3276,6 @@
                 "fieldType" : "TEXT",
                 "v3" : {
                   "degree" : 1,
-                  "lowercase" : true,
                   "mappings" : [ {
                     "type" : "KEYWORD"
                   }, {
@@ -3387,6 +3285,7 @@
                     "subfield" : "stemmed",
                     "type" : "STEMMED"
                   } ],
+                  "queryByDefault" : false,
                   "searchLabel" : "name"
                 }
               }
@@ -3551,6 +3450,7 @@
                     "mappings" : [ {
                       "type" : "URN"
                     } ],
+                    "queryByDefault" : false,
                     "searchLabel" : "tags"
                   }
                 }
@@ -3593,6 +3493,7 @@
                     "mappings" : [ {
                       "type" : "URN"
                     } ],
+                    "queryByDefault" : false,
                     "searchLabel" : "glossaryTerms"
                   }
                 }
@@ -3761,7 +3662,6 @@
                     "subfield" : "stemmed",
                     "type" : "STEMMED"
                   } ],
-                  "queryByDefault" : true,
                   "searchLabel" : "description"
                 }
               }
@@ -3800,7 +3700,6 @@
                     "mappings" : [ {
                       "type" : "URN"
                     } ],
-                    "queryByDefault" : true,
                     "searchLabel" : "tags"
                   }
                 }
@@ -3843,7 +3742,6 @@
                     "mappings" : [ {
                       "type" : "URN"
                     } ],
-                    "queryByDefault" : true,
                     "searchLabel" : "glossaryTerms"
                   }
                 }
@@ -3851,7 +3749,7 @@
             } ]
           }
         },
-        "doc" : "Client provided a list of fields from document schema. Descriptions, tags and glossary\nterms on these columns are one step from the entity, so they index as degree 1.\nThe field annotation opts those values into an unqualified query. This path sets\nv3.queryByDefault false so the column copy stays out.",
+        "doc" : "Client provided a list of fields from document schema. Descriptions, tags and glossary\nterms on these columns are one step from the entity, so they index as degree 1.",
         "Searchable" : {
           "/*/description" : {
             "v3" : {
@@ -3890,11 +3788,7 @@
         "type" : "string",
         "Searchable" : {
           "enableAutocomplete" : true,
-          "fieldType" : "WORD_GRAM",
-          "v3" : {
-            "lowercase" : true,
-            "queryByDefault" : true
-          }
+          "fieldType" : "WORD_GRAM"
         }
       } ],
       "Aspect" : {
@@ -3912,10 +3806,7 @@
         "Searchable" : {
           "enableAutocomplete" : true,
           "fieldName" : "id",
-          "fieldType" : "WORD_GRAM",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "WORD_GRAM"
         }
       } ],
       "Aspect" : {
@@ -3931,10 +3822,7 @@
         "type" : "string",
         "doc" : "Namespace for the feature",
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "name",
@@ -3946,7 +3834,6 @@
           "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "WORD_GRAM",
           "v3" : {
-            "lowercase" : true,
             "mappings" : [ {
               "type" : "KEYWORD"
             }, {
@@ -3956,7 +3843,6 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
-            "queryByDefault" : true,
             "searchLabel" : "name"
           }
         }
@@ -3990,7 +3876,6 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
-            "queryByDefault" : true,
             "searchLabel" : "description"
           }
         }
@@ -4043,7 +3928,6 @@
           "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "WORD_GRAM",
           "v3" : {
-            "lowercase" : true,
             "mappings" : [ {
               "type" : "KEYWORD"
             }, {
@@ -4053,7 +3937,6 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
-            "queryByDefault" : true,
             "searchLabel" : "name"
           }
         }
@@ -4377,7 +4260,6 @@
           "fieldType" : "WORD_GRAM",
           "queryByDefault" : true,
           "v3" : {
-            "lowercase" : true,
             "mappings" : [ {
               "type" : "KEYWORD"
             }, {
@@ -4387,7 +4269,6 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
-            "queryByDefault" : true,
             "searchLabel" : "name"
           }
         }
@@ -4412,7 +4293,6 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
-            "queryByDefault" : true,
             "searchLabel" : "description"
           }
         }
@@ -4469,10 +4349,7 @@
         "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
         "optional" : true,
         "Searchable" : {
-          "fieldType" : "TEXT_PARTIAL",
-          "v3" : {
-            "queryByDefault" : true
-          }
+          "fieldType" : "TEXT_PARTIAL"
         }
       }, {
         "name" : "hyperParameters",
@@ -4711,7 +4588,6 @@
           "fieldName" : "id",
           "fieldType" : "WORD_GRAM",
           "v3" : {
-            "lowercase" : true,
             "mappings" : [ {
               "type" : "KEYWORD"
             }, {
@@ -4721,7 +4597,6 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
-            "queryByDefault" : true,
             "searchLabel" : "name"
           }
         }
@@ -4744,7 +4619,6 @@
           "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "WORD_GRAM",
           "v3" : {
-            "lowercase" : true,
             "mappings" : [ {
               "type" : "KEYWORD"
             }, {
@@ -4754,7 +4628,6 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
-            "queryByDefault" : true,
             "searchLabel" : "name"
           }
         }
@@ -4777,7 +4650,6 @@
               "subfield" : "stemmed",
               "type" : "STEMMED"
             } ],
-            "queryByDefault" : true,
             "searchLabel" : "description"
           }
         }
