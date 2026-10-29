@@ -4,7 +4,6 @@ import React, { Dispatch, SetStateAction } from 'react';
 import { hashString } from '@components/components/Avatar/utils';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { DBT_URN } from '@app/ingestV2/source/builder/constants';
 import { LINEAGE_HANDLE_OFFSET } from '@app/lineageV3/lineageLayout';
 import { TRANSFORMATION_PLATFORM_URNS, isTransformationPlatform } from '@app/lineageV3/transformationPlatforms';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
