@@ -588,6 +588,12 @@ hex = [
     "sqlglot[c]==30.12.0",
 ]
 
+hightouch = [
+    "requests<3.0.0",
+    "sqlglot[c]==30.12.0",
+    "sqlparse>=0.6.0,<1.0.0",
+]
+
 hive = [
     "cachetools<6.0.0",
     "greenlet<4.0.0",
@@ -1930,6 +1936,7 @@ neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 odcs = "datahub.ingestion.source.odcs.odcs_source:ODCSSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
+hightouch = "datahub.ingestion.source.hightouch.hightouch:HightouchSource"
 timescaledb = "datahub.ingestion.source.sql.timescaledb:TimescaleDBSource"
 omni = "datahub.ingestion.source.omni.omni:OmniSource"
 pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"

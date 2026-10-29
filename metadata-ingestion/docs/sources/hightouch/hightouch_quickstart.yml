@@ -1,0 +1,10 @@
+source:
+  type: hightouch
+  config:
+    api_config:
+      api_key: "${HIGHTOUCH_API_KEY}"
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"
