@@ -19,9 +19,13 @@ from typing import Any, Dict, List, Optional, TypedDict, cast
 PRESTO_VIEW_PREFIX = "/* Presto View: "
 PRESTO_VIEW_SUFFIX = " */"
 
-_TIME_ZONE_SUFFIX = re.compile(r"\s+with\s+time\s+zone$")
-_TYPE_PRECISION = re.compile(r"^(timestamp|time)\s*\(\s*\d+\s*\)$")
-_PARAMETERIZED_TYPE = re.compile(r"^(array|map|row)\s*\((.*)\)$", re.DOTALL)
+# Type keywords are matched case-insensitively; the type string itself is not
+# lowercased up front, so quoted row field names keep their case.
+_TIME_ZONE_SUFFIX = re.compile(r"\s+with\s+time\s+zone$", re.IGNORECASE)
+_TYPE_PRECISION = re.compile(r"^(timestamp|time)\s*\(\s*\d+\s*\)$", re.IGNORECASE)
+_PARAMETERIZED_TYPE = re.compile(
+    r"^(array|map|row)\s*\((.*)\)$", re.DOTALL | re.IGNORECASE
+)
 # A named row field: a double-quoted or bare identifier followed by its type.
 _ROW_FIELD = re.compile(r'^(?:"([^"]+)"|(\w+))\s+(.+)$', re.DOTALL)
 # Trino types spelled with several words. An anonymous row field of one of these
@@ -30,7 +34,8 @@ _ROW_FIELD = re.compile(r'^(?:"([^"]+)"|(\w+))\s+(.+)$', re.DOTALL)
 _MULTI_WORD_TYPE = re.compile(
     r"^(?:interval\s+(?:year|month|day|hour|minute|second)"
     r"|(?:timestamp|time)\s+with"
-    r"|double\s+precision)\b"
+    r"|double\s+precision)\b",
+    re.IGNORECASE,
 )
 
 # Trino scalar types whose name differs from the Hive equivalent.
@@ -63,8 +68,9 @@ _HIVE_SCALAR_TYPES = frozenset(
 )
 _FALLBACK_HIVE_TYPE = "string"
 _MAX_TYPE_NESTING_DEPTH = 64
-# Real column types are far shorter. The regexes below are quadratic on long
-# whitespace runs, so a corrupt multi-kilobyte type could stall the run.
+# Real column types are far shorter. Together with collapsing whitespace runs,
+# this keeps the type regexes (quadratic on long whitespace runs) fast on corrupt
+# input, so a crafted type cannot stall the run.
 _MAX_TYPE_LENGTH = 4096
 
 
@@ -180,7 +186,9 @@ def trino_type_to_hive_type(trino_type: str) -> str:
     """
     if len(trino_type) > _MAX_TYPE_LENGTH:
         return _FALLBACK_HIVE_TYPE
-    return _trino_type_to_hive_type(trino_type, depth=0)
+    # Collapse whitespace runs once here; otherwise the time-zone regex re-scans
+    # long inner runs at every nesting level.
+    return _trino_type_to_hive_type(" ".join(trino_type.split()), depth=0)
 
 
 def _trino_type_to_hive_type(trino_type: str, depth: int) -> str:
@@ -189,14 +197,14 @@ def _trino_type_to_hive_type(trino_type: str, depth: int) -> str:
     if depth > _MAX_TYPE_NESTING_DEPTH:
         return _FALLBACK_HIVE_TYPE
 
-    normalized = _TIME_ZONE_SUFFIX.sub("", trino_type.strip().lower())
+    normalized = _TIME_ZONE_SUFFIX.sub("", trino_type.strip())
     precision_match = _TYPE_PRECISION.match(normalized)
     if precision_match:
         normalized = precision_match.group(1)
 
     parameterized = _PARAMETERIZED_TYPE.match(normalized)
     if parameterized:
-        kind, type_args = parameterized.group(1), parameterized.group(2)
+        kind, type_args = parameterized.group(1).lower(), parameterized.group(2)
         args = _split_top_level(type_args)
         if kind == "array" and len(args) == 1:
             return f"array<{_trino_type_to_hive_type(args[0], depth + 1)}>"
@@ -209,7 +217,9 @@ def _trino_type_to_hive_type(trino_type: str, depth: int) -> str:
             for index, arg in enumerate(args):
                 row_field = _ROW_FIELD.match(arg)
                 if row_field and not _MULTI_WORD_TYPE.match(arg):
-                    field_name = row_field.group(1) or row_field.group(2)
+                    # Trino folds unquoted identifiers to lowercase; quoted names
+                    # keep their case.
+                    field_name = row_field.group(1) or row_field.group(2).lower()
                     field_trino_type = row_field.group(3)
                 else:
                     # Anonymous row fields (e.g. from `ROW(1, 'a')`) have no name,
@@ -222,7 +232,8 @@ def _trino_type_to_hive_type(trino_type: str, depth: int) -> str:
         # Wrong number of array/map arguments: not a type we can translate.
         return _FALLBACK_HIVE_TYPE
 
-    hive_type = _TRINO_TO_HIVE_SCALAR_TYPES.get(normalized, normalized)
+    scalar_type = normalized.lower()
+    hive_type = _TRINO_TO_HIVE_SCALAR_TYPES.get(scalar_type, scalar_type)
     if hive_type.split("(", 1)[0].strip() not in _HIVE_SCALAR_TYPES:
         return _FALLBACK_HIVE_TYPE
     return hive_type

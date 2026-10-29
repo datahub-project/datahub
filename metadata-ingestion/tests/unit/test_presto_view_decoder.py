@@ -71,6 +71,12 @@ def test_decode_presto_view_raises_when_payload_not_object() -> None:
             "row(timestamp with time zone, bigint)",
             "struct<field0:timestamp,field1:bigint>",
         ),
+        ("row(double precision)", "struct<field0:string>"),
+        # Keywords match in any case; quoted field names keep their case, unquoted
+        # names are folded to lowercase as Trino does.
+        ('row("UserId" bigint, Name VARCHAR)', "struct<UserId:bigint,name:varchar>"),
+        ("TIMESTAMP(3) WITH TIME ZONE", "timestamp"),
+        ("ROW(INTERVAL DAY TO SECOND, BIGINT)", "struct<field0:string,field1:bigint>"),
         # Commas inside a quoted field name are not separators. Hive cannot parse
         # the resulting name; that column is reported as untyped downstream.
         ('row("a,b" bigint, c varchar)', "struct<a,b:bigint,c:varchar>"),
@@ -95,9 +101,9 @@ def test_trino_type_to_hive_type_caps_nesting_depth() -> None:
 
 
 def test_trino_type_to_hive_type_rejects_oversized_types() -> None:
-    # Long whitespace runs make the type regexes quadratic; oversized input is
-    # mapped straight to string instead of being parsed.
-    assert trino_type_to_hive_type("timestamp" + " " * 50_000 + "x") == "string"
+    # A valid type that only the length cap turns into string: without the cap
+    # this would parse as bigint.
+    assert trino_type_to_hive_type("bigint" + " " * 5000) == "string"
 
 
 def test_get_presto_view_columns_returns_validated_columns() -> None:
