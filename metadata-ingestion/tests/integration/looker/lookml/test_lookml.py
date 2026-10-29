@@ -105,6 +105,8 @@ def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=test_resources_dir / mce_out_file,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -142,6 +144,8 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -174,6 +178,8 @@ def test_lookml_refinement_include_order(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -373,6 +379,8 @@ def test_lookml_ingest_offline(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -420,6 +428,8 @@ def test_lookml_ingest_offline_with_model_deny(pytestconfig, tmp_path, mock_time
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -477,6 +487,8 @@ def test_lookml_ingest_offline_platform_instance(pytestconfig, tmp_path, mock_ti
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -570,6 +582,8 @@ def ingestion_test(
             pytestconfig,
             output_path=tmp_path / mce_out_file,
             golden_path=test_resources_dir / mce_out_file,
+            golden_mces_as_mcps=True,
+            fail_on_output_mces=True,
         )
 
 
@@ -626,6 +640,8 @@ def test_lookml_git_info(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -687,6 +703,8 @@ def test_reachable_views(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
     entity_urns = mce_helpers.get_entity_urns(tmp_path / mce_out)
@@ -897,6 +915,8 @@ def test_same_name_views_different_file_path(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out,
         golden_path=test_resources_dir / mce_out,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -944,6 +964,8 @@ def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -979,6 +1001,8 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -1005,6 +1029,8 @@ def test_view_to_view_lineage_and_lookml_constant(pytestconfig, tmp_path, mock_t
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -1250,6 +1276,8 @@ def test_field_tag_ingest(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -1277,6 +1305,8 @@ def test_drop_hive(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -1314,6 +1344,8 @@ def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 
@@ -1539,4 +1571,6 @@ FETCH NEXT 1 ROWS ONLY""",
         pytestconfig,
         output_path=tmp_path / mce_out_file,
         golden_path=golden_path,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
