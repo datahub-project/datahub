@@ -207,8 +207,9 @@ class SnsSource(AwsMessagingSourceBase):
                 subtype=DatasetSubTypes.TOPIC.value,
                 parent_container=self.region_key(),
                 external_url=topic_console_url(topic),
-                custom_properties=topic_properties(
-                    topic, self.subscriptions.get(str(topic.arn), [])
+                custom_properties=self.dataset_custom_properties(
+                    urn,
+                    topic_properties(topic, self.subscriptions.get(str(topic.arn), [])),
                 ),
                 domain=domain_for(topic.name, self.config.domain),
                 schema=schema,

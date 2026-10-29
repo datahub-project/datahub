@@ -7,6 +7,7 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder
 from datahub.ingestion.source.aws_messaging.clients import CloudTrailLakeClient
@@ -241,22 +242,21 @@ def test_failed_query_keeps_previous_observed_producers(
         ),
         PipelineContext(run_id="cloudtrail-test", graph=graph),
     )
-    patches = [
-        json.loads(wu.metadata.aspect.value)
-        for wu in source.get_workunits()
+    workunits = list(source.get_workunits())
+    upserted = [
+        wu.metadata.aspect.customProperties
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetPropertiesClass)
+    ]
+    # Read before this run's datasetProperties are written and folded into them,
+    # so nothing has to be patched back and nothing can race the upsert.
+    assert upserted[0]["observed_producers"] == previous
+    assert not [
+        wu
+        for wu in workunits
         if isinstance(wu.metadata, MetadataChangeProposalClass)
         and wu.metadata.aspectName == "datasetProperties"
-        and wu.metadata.aspect is not None
-    ]
-    # Written back after the full datasetProperties upsert, so it survives.
-    assert patches == [
-        [
-            {
-                "op": "add",
-                "path": "/customProperties/observed_producers",
-                "value": previous,
-            }
-        ]
     ]
 
 

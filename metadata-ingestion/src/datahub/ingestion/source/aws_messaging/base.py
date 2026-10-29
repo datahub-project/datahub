@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Dict, Iterable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -23,6 +23,7 @@ from datahub.ingestion.source.aws_messaging.config import (
 from datahub.ingestion.source.aws_messaging.constants import (
     CONSOLE_PATHS,
     EVENTBRIDGE_PLATFORM,
+    OBSERVED_PRODUCERS_PROPERTY,
     AwsService,
 )
 from datahub.ingestion.source.aws_messaging.eventbridge import EventBridgeLineage
@@ -45,6 +46,7 @@ from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 
 class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
@@ -139,10 +141,31 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             resolver=self.resolver,
             lambdas=self.lambdas,
             graph=self.ctx.graph,
-            owned=self.lineage.owned,
         )
         producers.collect()
         yield from producers.workunits()
+
+    def dataset_custom_properties(
+        self, urn: str, properties: Dict[str, str]
+    ) -> Dict[str, str]:
+        """Carry observed_producers over into this run's datasetProperties.
+
+        The value is read before the properties are written, so the full write
+        can't wipe it and a failed CloudTrail query leaves it in place; a
+        successful one replaces it with a patch afterwards."""
+        if not self.base_config.cloudtrail_producers.enabled or self.ctx.graph is None:
+            return properties
+        existing = self.ctx.graph.get_aspect(urn, DatasetPropertiesClass)
+        previous = (
+            (existing.customProperties or {}).get(OBSERVED_PRODUCERS_PROPERTY)
+            if existing is not None
+            else None
+        )
+        return (
+            {**properties, OBSERVED_PRODUCERS_PROPERTY: previous}
+            if previous
+            else properties
+        )
 
     def _event_data_store_region(self) -> Optional[str]:
         store = parse_arn(self.base_config.cloudtrail_producers.event_data_store)

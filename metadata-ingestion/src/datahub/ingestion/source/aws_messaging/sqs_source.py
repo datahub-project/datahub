@@ -172,7 +172,9 @@ class SqsSource(AwsMessagingSourceBase):
                 subtype=DatasetSubTypes.SQS_QUEUE.value,
                 parent_container=self.region_key(),
                 external_url=queue_console_url(queue),
-                custom_properties=queue_properties(queue),
+                custom_properties=self.dataset_custom_properties(
+                    urn, queue_properties(queue)
+                ),
                 created=epoch_seconds(
                     queue.attributes.get(QueueAttribute.CREATED_TIMESTAMP)
                 ),
