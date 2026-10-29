@@ -4418,7 +4418,8 @@ def _presto_view_text(payload: Any) -> str:
         "/* Presto View: not!valid!base64 */",
         # A non-list `columns` must not raise out of the table loop and abort the run.
         _presto_view_text({"originalSql": "SELECT 1", "columns": 5}),
-        # Pathologically nested JSON raises RecursionError, which must not escape either.
+        # Pathologically nested JSON can segfault json.loads on Python 3.12+; it must
+        # be rejected before parsing and must not escape either.
         "/* Presto View: "
         + base64.b64encode(("[" * 10_000 + "]" * 10_000).encode()).decode()
         + " */",

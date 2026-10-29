@@ -44,6 +44,21 @@ def test_decode_presto_view_raises_when_payload_not_object() -> None:
         decode_presto_view(f"/* Presto View: {encoded} */")
 
 
+def test_decode_presto_view_rejects_deeply_nested_payload_before_parsing() -> None:
+    # Deep nesting can segfault json.loads on Python 3.12+, so it must be
+    # rejected with a ValueError before the JSON is parsed.
+    deep = '{"columns": ' + "[" * 10_000 + "]" * 10_000 + "}"
+    encoded = base64.b64encode(deep.encode()).decode()
+    with pytest.raises(ValueError):
+        decode_presto_view(f"/* Presto View: {encoded} */")
+
+
+def test_decode_presto_view_ignores_brackets_inside_strings() -> None:
+    # Brackets in SQL text (e.g. array literals) are not JSON nesting.
+    payload = {"originalSql": "SELECT " + "[" * 200 + "1" + "]" * 200}
+    assert decode_presto_view(_presto_envelope(payload)) == payload
+
+
 @pytest.mark.parametrize(
     "trino_type, hive_type",
     [

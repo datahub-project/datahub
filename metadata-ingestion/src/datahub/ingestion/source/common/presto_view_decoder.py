@@ -68,6 +68,8 @@ _HIVE_SCALAR_TYPES = frozenset(
 )
 _FALLBACK_HIVE_TYPE = "string"
 _MAX_TYPE_NESTING_DEPTH = 64
+# Real Presto view payloads nest only a few levels (object -> columns -> column).
+_MAX_JSON_NESTING_DEPTH = 64
 # Real column types are far shorter. Together with collapsing whitespace runs,
 # this keeps the type regexes (quadratic on long whitespace runs) fast on corrupt
 # input, so a crafted type cannot stall the run.
@@ -100,19 +102,54 @@ def is_presto_view(view_text: str) -> bool:
     return view_text.startswith(PRESTO_VIEW_PREFIX)
 
 
+def _json_nesting_exceeds(text: str, limit: int) -> bool:
+    """Return True if JSON ``text`` nests arrays/objects deeper than ``limit``.
+
+    Brackets inside string literals are ignored. The text is not validated;
+    malformed JSON is left for ``json.loads`` to reject.
+    """
+    depth = 0
+    in_string = False
+    escaped = False
+    for char in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char in "[{":
+            depth += 1
+            if depth > limit:
+                return True
+        elif char in "]}":
+            depth -= 1
+    return False
+
+
 def decode_presto_view(view_text: str) -> PrestoViewDefinition:
     """Decode a Presto/Athena view envelope into its JSON payload.
 
     Expects text of the form ``/* Presto View: <base64> */`` and returns the parsed
     JSON object (typically with ``originalSql`` and ``columns`` keys).
 
-    Raises on malformed input (invalid base64, non-JSON, or a non-object payload).
-    Callers that want best-effort behaviour should catch the exception.
+    Raises ``ValueError`` on malformed input (invalid base64 or UTF-8, non-JSON,
+    nesting deeper than ``_MAX_JSON_NESTING_DEPTH``, or a non-object payload).
+    Callers that want best-effort behaviour should catch it.
     """
     encoded = view_text.split(PRESTO_VIEW_PREFIX, 1)[-1].rsplit(PRESTO_VIEW_SUFFIX, 1)[
         0
     ]
-    payload = json.loads(base64.b64decode(encoded))
+    text = base64.b64decode(encoded).decode("utf-8")
+    # json.loads can overflow the C stack and segfault the whole process on
+    # deeply nested input (seen on Python 3.12), which no except clause catches.
+    # The payload is untrusted catalog data, so reject deep nesting up front.
+    if _json_nesting_exceeds(text, _MAX_JSON_NESTING_DEPTH):
+        raise ValueError("Presto view payload is nested too deeply")
+    payload = json.loads(text)
     if not isinstance(payload, dict):
         raise ValueError("Presto view payload is not a JSON object")
     return cast(PrestoViewDefinition, payload)

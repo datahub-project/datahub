@@ -3144,11 +3144,11 @@ class GlueSource(StatefulIngestionSourceBase):
         decode_error: Optional[Exception] = None
         try:
             definition = decode_presto_view(view_text)
-        except (ValueError, RecursionError) as e:
-            # ValueError covers bad base64/JSON/Unicode; RecursionError covers
-            # pathologically nested JSON. Either must not escape the table loop.
-            # Reported here as well as in _get_view_definition, because the
-            # resource-link owner path reaches this method without it.
+        except ValueError as e:
+            # Covers bad base64/JSON/Unicode and over-nested payloads, which must
+            # not escape the table loop. Reported here as well as in
+            # _get_view_definition, because the resource-link owner path reaches
+            # this method without it.
             decode_error = e
             reason = "view definition could not be decoded"
         else:
