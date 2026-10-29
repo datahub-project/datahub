@@ -59,7 +59,7 @@ With the `lineage` options on (the default), the connector follows the services 
 
 #### S3 event notifications
 
-`lineage.s3_notifications` (off by default) reads each bucket's notification configuration and adds the bucket as an upstream of the topics it notifies. S3 datasets are named by bucket and path, while a notification only has a key prefix filter, so the connector looks for an existing S3 dataset named `<bucket>/<prefix>`, then `<bucket>`, and adds no edge if neither is in DataHub. Run the `s3` source first and set `s3_platform_instance` and `s3_convert_urns_to_lowercase` to match its `platform_instance` and `convert_urns_to_lowercase`. This makes one `s3:GetBucketNotification` call per bucket in the recipe's region.
+`lineage.s3_notifications` (off by default) reads each bucket's notification configuration and adds the bucket as an upstream of the topics it notifies. S3 datasets are named by bucket and path, while a notification only has a key prefix filter, so the connector looks for an existing S3 dataset named `<bucket>/<prefix>`, then `<bucket>`, and adds no edge if neither is in DataHub. Run the `s3` source first and set `s3_platform_instance` and `s3_convert_urns_to_lowercase` to match its `platform_instance` and `convert_urns_to_lowercase`. This makes one `s3:GetBucketNotification` call per bucket in the recipe's region. Filtering buckets by region needs botocore 1.35.42 or later; with an older botocore the connector warns and reads every bucket's notification configuration.
 
 #### Producers from CloudTrail Lake
 
@@ -86,9 +86,8 @@ With `data_protection.enabled`, each topic's [message data protection](https://d
 
 - One region per recipe.
 - Schema metadata needs Glue Schema Registry and an explicit map; SNS itself doesn't store messages.
-- Lineage to queues excluded by the `sqs` recipe's `queue_pattern` is still written, because this source can't see that recipe's filters; the queue then appears with only its lineage.
+- Lineage to a queue that the `sqs` recipe's `queue_pattern` excludes is still written, because the queue exists and its URN follows from its ARN. This source doesn't read the `sqs` recipe's filters. The queue then appears in DataHub with only its lineage.
 - Subscriptions to HTTP, email and SMS endpoints are counted but not drawn as lineage.
-
 - Lambda functions, rules, pipes and event buses can be emitted by both the `sqs` and `sns` sources, so neither source soft-deletes them through stale-entity removal: one source dropping a function it no longer references would delete it while the other still does. A function, rule or pipe deleted in AWS stays in DataHub until removed there.
 - Producers that send from application code are not visible in these APIs, so many queues and topics have no upstream.
 

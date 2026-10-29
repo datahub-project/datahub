@@ -134,3 +134,7 @@ QUEUE_URL_HOST_PATTERN = re.compile(
     r"\.amazonaws\.com(?P<china>\.cn)?$"
 )
 LEGACY_GLOBAL_QUEUE_REGION = "us-east-1"
+
+BUCKET_REGION_PARAMETER = "BucketRegion"
+# botocore 1.35.42 added ListBuckets' bucket-region filter (pagination came in 1.34.162).
+MIN_BOTOCORE_FOR_BUCKET_REGION = "1.35.42"

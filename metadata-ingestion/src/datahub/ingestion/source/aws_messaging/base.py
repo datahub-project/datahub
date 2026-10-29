@@ -257,7 +257,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
                 yield from gen_containers(
                     container_key=self.region_key(platform),
                     name=self.region,
-                    sub_types=[GenericContainerSubTypes.AWS_REGION.value],
+                    sub_types=[GenericContainerSubTypes.KINESIS_REGION.value],
                     external_url=(
                         f"https://{self.region}.console.aws.amazon.com/{platform}/v3/home"
                         f"?region={self.region}"

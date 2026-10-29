@@ -178,3 +178,24 @@ def test_bucket_listing_is_filtered_to_the_recipe_region() -> None:
             S3NotificationClient(client, SqsSourceReport()).list_bucket_names(REGION)
         )
     assert names == ["landing"]
+
+
+def test_old_botocore_lists_without_the_region_filter() -> None:
+    # Before botocore 1.35.42, ListBuckets has no BucketRegion parameter; sending it
+    # would fail validation and look like a denied listing.
+    client = MagicMock()
+    client.meta.service_model.operation_model.return_value.input_shape.members = {
+        "MaxBuckets": None,
+        "ContinuationToken": None,
+    }
+    client.get_paginator.return_value.paginate.return_value = [
+        {"Buckets": [{"Name": "landing"}, {"Name": "elsewhere"}]}
+    ]
+    report = SqsSourceReport()
+    names = list(S3NotificationClient(client, report).list_bucket_names(REGION))
+    assert names == ["landing", "elsewhere"]
+    client.get_paginator.return_value.paginate.assert_called_once_with(
+        PaginationConfig={"PageSize": 1000}
+    )
+    assert [w.title for w in report.warnings] == ["Bucket region filter unavailable"]
+    assert not report.failures

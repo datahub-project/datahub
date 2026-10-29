@@ -1,12 +1,15 @@
 import time
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
+import botocore
 from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import parse_arn
 from datahub.ingestion.source.aws_messaging.constants import (
     ALL_ATTRIBUTES,
+    BUCKET_REGION_PARAMETER,
+    MIN_BOTOCORE_FOR_BUCKET_REGION,
     QUERY_POLL_SECONDS,
     S3_PREFIX_FILTER,
     QueryStatus,
@@ -363,18 +366,37 @@ class S3NotificationClient:
         # so S3 filters to the recipe's region server-side. BucketRegion is only
         # returned when a filter or page size is sent, so the client-side check
         # below is a guard, not the filter.
+        kwargs: Dict[str, Any] = {"PaginationConfig": {"PageSize": 1000}}
+        if self._supports_region_filter():
+            kwargs["BucketRegion"] = region
+        else:
+            self.report.warning(
+                title="Bucket region filter unavailable",
+                message=(
+                    f"This botocore can't filter ListBuckets by region (needs botocore "
+                    f">= {MIN_BOTOCORE_FOR_BUCKET_REGION}), so every bucket's "
+                    "notification configuration is read. Upgrade botocore to skip "
+                    "buckets in other regions."
+                ),
+                context=f"botocore {botocore.__version__}",
+            )
         for bucket in paginate(
             client=self._client,
             operation="list_buckets",
             result_key="Buckets",
             report=self.report,
             api_label="s3:ListAllMyBuckets",
-            BucketRegion=region,
-            PaginationConfig={"PageSize": 1000},
+            **kwargs,
         ):
             bucket_region = bucket.get("BucketRegion")
             if bucket_region is None or bucket_region == region:
                 yield bucket["Name"]
+
+    def _supports_region_filter(self) -> bool:
+        # An older botocore would reject BucketRegion with a ParamValidationError,
+        # which the listing would report as a denied call.
+        operation = self._client.meta.service_model.operation_model("ListBuckets")
+        return BUCKET_REGION_PARAMETER in operation.input_shape.members
 
     def get_notifications(self, bucket: str) -> Iterator[BucketNotification]:
         response = call_or_warn(
