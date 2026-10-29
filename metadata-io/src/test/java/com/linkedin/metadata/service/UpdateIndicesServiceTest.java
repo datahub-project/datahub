@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -21,6 +22,10 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -559,6 +564,73 @@ public class UpdateIndicesServiceTest {
     expectThrows(
         ValidationException.class,
         () -> updateIndicesService.handleChangeEvents(operationContext, List.of(event)));
+  }
+
+  @Test
+  public void testHandleChangeEvents_DropsEventsWhosePreviousValueIsFromANewerVersion() {
+    // A change away from an owner type only a newer version defines: the new value is valid, the
+    // previous one fails validation here. The event is dropped and counted, not the batch failed.
+    com.linkedin.metadata.utils.metrics.MetricUtils metrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    OperationContext context = org.mockito.Mockito.spy(operationContext);
+    when(context.getMetricUtils()).thenReturn(java.util.Optional.of(metrics));
+    MetadataChangeLog previousFromNewerVersion =
+        ownershipChangeAwayFromNewerOwnerType("prev.newer");
+    MetadataChangeLog known = datasetPropertiesEvent("prev.known");
+
+    updateIndicesService.handleChangeEvents(context, List.of(previousFromNewerVersion, known));
+
+    verify(updateGraphIndicesService).handleChangeEvent(context, known);
+    verify(updateGraphIndicesService, never()).handleChangeEvent(context, previousFromNewerVersion);
+    verify(metrics).increment(UpdateIndicesService.class, "invalid_mcl_skipped", 1);
+  }
+
+  @Test
+  public void testHandleChangeEvents_StrictHandlingFailsWhenThePreviousValueIsFromANewerVersion() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    MetadataChangeLog event = ownershipChangeAwayFromNewerOwnerType("prev.strict");
+
+    expectThrows(
+        ValidationException.class,
+        () -> updateIndicesService.handleChangeEvents(operationContext, List.of(event)));
+  }
+
+  @Test
+  public void testHandleChangeEvents_InvalidNewValueStillFailsWhenThePreviousIsFromANewerVersion() {
+    // The previous value is the newer version's, but the new one is invalid for another reason:
+    // the event fails as before instead of being dropped.
+    Deprecation invalid = new Deprecation().setDeprecated(true).setNote("n");
+    invalid.data().put("actor", "not-a-urn");
+    MetadataChangeLog event =
+        datasetAspectEvent("prev.invalid.new", DEPRECATION_ASPECT_NAME, invalid)
+            .setPreviousAspectValue(
+                GenericRecordUtils.serializeAspect(
+                    new Deprecation()
+                        .setDeprecated(true)
+                        .setNote("moved")
+                        .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc"))));
+
+    expectThrows(
+        ValidationException.class,
+        () -> updateIndicesService.handleChangeEvents(operationContext, List.of(event)));
+  }
+
+  private static MetadataChangeLog ownershipChangeAwayFromNewerOwnerType(String name) {
+    Owner previousOwner =
+        new Owner().setOwner(UrnUtils.getUrn("urn:li:corpuser:alice")).setType(OwnershipType.NONE);
+    // An owner type this build doesn't define, as a newer version wrote it.
+    previousOwner.data().put("type", "OWNER_TYPE_FROM_NEWER_BUILD");
+    Ownership previous = new Ownership().setOwners(new OwnerArray(previousOwner));
+    Ownership current =
+        new Ownership()
+            .setOwners(
+                new OwnerArray(
+                    new Owner()
+                        .setOwner(UrnUtils.getUrn("urn:li:corpuser:alice"))
+                        .setType(OwnershipType.TECHNICAL_OWNER)));
+    return datasetAspectEvent(name, OWNERSHIP_ASPECT_NAME, current)
+        .setPreviousAspectValue(GenericRecordUtils.serializeAspect(previous))
+        .setPreviousSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
   }
 
   @Test

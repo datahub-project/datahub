@@ -26,6 +26,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -207,8 +208,9 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   /**
    * Builds an MCLItem. An event whose payload fails validation because a newer version wrote it
-   * (e.g. read after a rollback) is dropped on its own instead of failing the whole batch, and
-   * counted in {@link #INVALID_MCL_SKIPPED_METRIC}. Any other invalid payload fails as before.
+   * (e.g. read after a rollback), in its new or its previous value, is dropped on its own instead
+   * of failing the whole batch, and counted in {@link #INVALID_MCL_SKIPPED_METRIC}. Any other
+   * invalid payload fails as before.
    */
   @Nullable
   private static MCLItem buildValidMCLItem(
@@ -233,21 +235,62 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   private static boolean isFromNewerVersion(
-      @Nonnull final OperationContext opContext, @Nonnull final MetadataChangeLog event) {
+      @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     final EntityRegistry registry = opContext.getEntityRegistry();
     final AspectSpec aspectSpec =
         registry.findAspectSpec(event.getEntityType(), event.getAspectName()).orElse(null);
-    RecordTemplate aspect = null;
-    if (aspectSpec != null && event.hasAspect()) {
-      try {
-        aspect =
-            GenericRecordUtils.deserializeAspect(
-                event.getAspect().getValue(), event.getAspect().getContentType(), aspectSpec);
-      } catch (RuntimeException deserializationFailure) {
-        // Unreadable payloads aren't attributed to a newer version.
-      }
+    if (handling()
+        .isFromNewerVersion(
+            deserializeOrNull(event.hasAspect() ? event.getAspect() : null, aspectSpec),
+            event.getSystemMetadata(),
+            aspectSpec,
+            registry)) {
+      return true;
     }
-    return handling().isFromNewerVersion(aspect, event.getSystemMetadata(), aspectSpec, registry);
+    // The previous value can be the newer version's while the new one isn't (e.g. a change away
+    // from an enum value only that version defines). Blame it only when the new value is valid on
+    // its own, so an event whose new value is invalid for another reason still fails.
+    return event.hasPreviousAspectValue()
+        && handling()
+            .isFromNewerVersion(
+                deserializeOrNull(event.getPreviousAspectValue(), aspectSpec),
+                event.getPreviousSystemMetadata(),
+                aspectSpec,
+                registry)
+        && isValidWithoutPrevious(opContext, event);
+  }
+
+  @Nullable
+  private static RecordTemplate deserializeOrNull(
+      @Nullable final GenericAspect value, @Nullable final AspectSpec aspectSpec) {
+    if (value == null || aspectSpec == null) {
+      return null;
+    }
+    try {
+      return GenericRecordUtils.deserializeAspect(
+          value.getValue(), value.getContentType(), aspectSpec);
+    } catch (RuntimeException deserializationFailure) {
+      // Unreadable payloads aren't attributed to a newer version.
+      return null;
+    }
+  }
+
+  private static boolean isValidWithoutPrevious(
+      @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
+    final MetadataChangeLog withoutPrevious;
+    try {
+      withoutPrevious = event.copy();
+    } catch (CloneNotSupportedException e) {
+      return false;
+    }
+    withoutPrevious.removePreviousAspectValue();
+    withoutPrevious.removePreviousSystemMetadata();
+    try {
+      MCLItemImpl.builder().build(withoutPrevious, opContext.getAspectRetriever());
+      return true;
+    } catch (RuntimeException invalid) {
+      return false;
+    }
   }
 
   /**
