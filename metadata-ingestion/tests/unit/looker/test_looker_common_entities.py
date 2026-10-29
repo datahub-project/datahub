@@ -241,6 +241,13 @@ class TestViewIdPaths:
 
 
 class TestUserRegistry:
+    @pytest.fixture(autouse=True)
+    def _fresh_user_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # LookerUserRegistry._user_cache is a class-level dict shared by every
+        # instance in the process, so ids seen by one test leak into the next
+        # under random ordering unless each test starts from an empty cache.
+        monkeypatch.setattr(LookerUserRegistry, "_user_cache", {})
+
     def _registry(self, known: List[User], lookup: object) -> LookerUserRegistry:
         api = mock.MagicMock(spec=LookerAPI)
         api.all_users.return_value = known
