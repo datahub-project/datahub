@@ -71,7 +71,7 @@ class GenericContainerSubTypes(StrEnum):
 
     # Microsoft Fabric
     FABRIC_WORKSPACE = "Fabric Workspace"
-    # AWS region containers (kinesis, sqs, sns).
+    # AWS region containers (kinesis, sqs, sns, lambda, eventbridge, eventbridge-pipes).
     AWS_REGION = "Region"
 
 
