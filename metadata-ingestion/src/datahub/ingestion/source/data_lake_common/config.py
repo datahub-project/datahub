@@ -157,16 +157,12 @@ class DataLakeLineageProviderConfig(ConfigModel):
         return None
 
 
-# TODO: migrate all sources that expose `s3_lineage_config` (e.g. Redshift)
-# to use DataLakeLineageProviderConfig / DataLakeLineageProviderConfigBase
-# and remove these aliases once all callers are updated.
+# TODO: remove this alias once every source that exposes s3_lineage_config (e.g. Redshift) takes the data-lake config directly.
 class S3LineageProviderConfig(DataLakeLineageProviderConfig):
     """Alias of :class:`DataLakeLineageProviderConfig` kept for back-compat with sources (e.g. Redshift) that exposed ``s3_lineage_config``."""
 
 
-# TODO: migrate all sources that expose `s3_lineage_config` (e.g. Redshift)
-# to use DataLakeLineageProviderConfigBase and remove this alias once all
-# callers are updated.
+# TODO: remove this alias once every source that exposes s3_lineage_config (e.g. Redshift) takes the data-lake config directly.
 class S3DatasetLineageProviderConfigBase(ConfigModel):
     """Groups all s3 lineage config under a single ``s3_lineage_config`` property."""
 
