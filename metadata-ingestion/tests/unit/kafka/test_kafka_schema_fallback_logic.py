@@ -57,7 +57,7 @@ class TestKafkaSchemaFallbackIntegration:
             }
             result = schema_inference.infer_schemas_batch(["topic1", "topic2"])
 
-            mock_parallel.assert_called_once_with(["topic1", "topic2"])
+            mock_parallel.assert_called_once_with(["topic1", "topic2"], False)
             assert len(result) == 2
 
     def test_schema_inference_sequential_processing(self):
