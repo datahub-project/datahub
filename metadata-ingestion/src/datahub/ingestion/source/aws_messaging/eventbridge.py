@@ -116,6 +116,7 @@ class EventBridgeLineage:
         schemas: SchemaLookup,
         lambdas: Optional[LambdaLineage],
         region_key: AwsRegionKey,
+        pipes_region_key: AwsRegionKey,
     ):
         self.config = config
         self.report = report
@@ -126,6 +127,7 @@ class EventBridgeLineage:
         self.schemas = schemas
         self.lambdas = lambdas
         self.region_key = region_key
+        self.pipes_region_key = pipes_region_key
 
     def _job_urn(self, platform: str, flow_id: str, job_id: str, arn: Arn) -> str:
         return job_urn(
@@ -210,6 +212,7 @@ class EventBridgeLineage:
                 platform_instance=instance,
                 env=self.config.env,
                 subtype=DataFlowSubTypes.EVENTBRIDGE_RULE.value,
+                parent_container=self.region_key,
                 custom_properties=non_empty(
                     {
                         "event_bus": bus.event_bus_name,
@@ -300,6 +303,7 @@ class EventBridgeLineage:
             platform_instance=self.urns.instance_for(pipe.arn.account),
             env=self.config.env,
             subtype=DataFlowSubTypes.EVENTBRIDGE_PIPE.value,
+            parent_container=self.pipes_region_key,
             custom_properties=non_empty(
                 {
                     "arn": str(pipe.arn),
