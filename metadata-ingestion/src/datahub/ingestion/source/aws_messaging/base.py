@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, FrozenSet, Iterable, Optional, Set
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -27,15 +27,22 @@ from datahub.ingestion.source.aws_messaging.constants import (
     LAMBDA_PLATFORM,
     OBSERVED_PRODUCERS_PROPERTY,
     AwsService,
+    JobEdgeKind,
+    LineageRelationship,
 )
 from datahub.ingestion.source.aws_messaging.eventbridge import EventBridgeLineage
+from datahub.ingestion.source.aws_messaging.jobs import JobEdgeTracker
 from datahub.ingestion.source.aws_messaging.lambda_lineage import LambdaLineage
 from datahub.ingestion.source.aws_messaging.lineage import (
     DatasetLineageCollector,
     SchemaLookup,
     identity_field_lineage,
 )
-from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey, secondary
+from datahub.ingestion.source.aws_messaging.mapper import (
+    AwsRegionKey,
+    secondary,
+    shared_status,
+)
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
 from datahub.ingestion.source.aws_messaging.s3_notifications import (
@@ -76,6 +83,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             )
         self.region: str = config.aws_config.aws_region
         report.region = self.region
+        self.create_clients()
 
         account_id = self._resolve_account_id()
         report.account_id = account_id
@@ -90,8 +98,28 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         self.resolver = ResourceResolver(
             urns=self.urns, region=self.region, service=self.service
         )
-        self.lineage = DatasetLineageCollector(report)
+        self.lineage = DatasetLineageCollector(
+            report=report,
+            graph=ctx.graph if config.remove_stale_lineage else None,
+            relationships=self.owned_relationships(),
+        )
         self.schemas = SchemaLookup(ctx.graph)
+        # Datasets whose previous observed_producers this run carried over.
+        self.carried_producers: Set[str] = set()
+        self.jobs = JobEdgeTracker(
+            report=report,
+            graph=ctx.graph if config.remove_stale_lineage else None,
+        )
+        if not config.lineage.lambda_functions:
+            self.jobs.mark_unknown(
+                LAMBDA_PLATFORM, JobEdgeKind.CONSUMES, JobEdgeKind.PRODUCES
+            )
+        if not config.lineage.eventbridge_rules:
+            self.jobs.mark_unknown(EVENTBRIDGE_PLATFORM, JobEdgeKind.PRODUCES)
+        if not config.lineage.eventbridge_pipes:
+            self.jobs.mark_unknown(
+                EVENTBRIDGE_PIPES_PLATFORM, JobEdgeKind.CONSUMES, JobEdgeKind.PRODUCES
+            )
         self.lambdas: Optional[LambdaLineage] = (
             LambdaLineage(
                 config=config,
@@ -102,6 +130,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
                 urns=self.urns,
                 resolver=self.resolver,
                 region_key=self.region_key(LAMBDA_PLATFORM),
+                jobs=self.jobs,
             )
             if config.lineage.lambda_functions
             else None
@@ -121,6 +150,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             lambdas=self.lambdas,
             region_key=self.region_key(EVENTBRIDGE_PLATFORM),
             pipes_region_key=self.region_key(EVENTBRIDGE_PIPES_PLATFORM),
+            jobs=self.jobs,
         )
 
     def producer_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -146,8 +176,11 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             lambdas=self.lambdas,
             graph=self.ctx.graph,
         )
-        producers.collect()
-        yield from producers.workunits()
+        if producers.collect():
+            yield from producers.workunits(self.carried_producers)
+        else:
+            # Lambda outputs seen through CloudTrail are unknown this run.
+            self.jobs.mark_unknown(LAMBDA_PLATFORM, JobEdgeKind.PRODUCES)
 
     def dataset_custom_properties(
         self, urn: str, properties: Dict[str, str]
@@ -156,7 +189,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
 
         The value is read before the properties are written, so the full write
         can't wipe it and a failed CloudTrail query leaves it in place; a
-        successful one replaces it with a patch afterwards."""
+        successful one replaces or removes it with a patch afterwards."""
         if not self.base_config.cloudtrail_producers.enabled or self.ctx.graph is None:
             return properties
         existing = self.ctx.graph.get_aspect(urn, DatasetPropertiesClass)
@@ -165,11 +198,10 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             if existing is not None
             else None
         )
-        return (
-            {**properties, OBSERVED_PRODUCERS_PROPERTY: previous}
-            if previous
-            else properties
-        )
+        if not previous:
+            return properties
+        self.carried_producers.add(urn)
+        return {**properties, OBSERVED_PRODUCERS_PROPERTY: previous}
 
     def _event_data_store_region(self) -> Optional[str]:
         store = parse_arn(self.base_config.cloudtrail_producers.event_data_store)
@@ -178,7 +210,7 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
     def collect_s3_notifications(self) -> None:
         if not self.base_config.lineage.s3_notifications:
             return
-        S3NotificationLineage(
+        complete = S3NotificationLineage(
             client=S3NotificationClient(
                 self.base_config.make_client(self.session, AwsService.S3),
                 self.base_report,
@@ -190,6 +222,12 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             s3_convert_urns_to_lowercase=self.base_config.s3_convert_urns_to_lowercase,
             report=self.base_report,
         ).collect(self.lineage)
+        if complete:
+            # An S3 edge's upstream isn't this source's, so it can only be
+            # checked from the queue or topic side.
+            self.lineage.downstream_relationships.add(
+                LineageRelationship.S3_NOTIFICATION.value
+            )
 
     def service_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Lambda functions, EventBridge rules and Pipes around this source's
@@ -213,6 +251,18 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             yield from self.with_region_container(
                 secondary(self.lambdas.workunits()), LAMBDA_PLATFORM
             )
+        yield from self.jobs.stale_workunits(self.lineage.owned)
+
+    def owned_relationships(self) -> FrozenSet[LineageRelationship]:
+        """Lineage relationships this source writes and reads in full each run.
+        Stale edges of these types are retracted; edges the companion source
+        writes are left alone."""
+        raise NotImplementedError
+
+    def create_clients(self) -> None:
+        """Builds the AWS clients from self.session, once the region is known and
+        before the account id is read through them."""
+        raise NotImplementedError
 
     def add_identity_column_lineage(
         self, upstream_urn: str, downstream_urn: str
@@ -258,11 +308,21 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         try:
             arn = parse_arn(self.first_resource_arn())
         except (ClientError, BotoCoreError) as e:
+            if not self.base_config.platform_instance:
+                # The account id becomes the platform_instance, so carrying on
+                # without it would move every resource to a URN with no account
+                # and duplicate the catalog. The listing needs the same permission,
+                # so a failure here is transient or a broken setup, not a valid one.
+                raise RuntimeError(
+                    "Could not read a resource ARN to find the AWS account id "
+                    f"({aws_error_code(e)}). Re-run, or set platform_instance so URNs "
+                    "don't depend on it."
+                ) from e
             self.base_report.warning(
                 title="Account id not resolved",
                 message=(
-                    "Could not read a resource ARN to find the AWS account id. URNs "
-                    "will not include it; set platform_instance to tell accounts apart."
+                    "Could not read a resource ARN to find the AWS account id; "
+                    "the configured platform_instance is used."
                 ),
                 context=aws_error_code(e),
                 exc=e,
@@ -286,8 +346,9 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         first = True
         for workunit in workunits:
             if first:
-                yield from gen_containers(
-                    container_key=self.region_key(platform),
+                key = self.region_key(platform)
+                container = gen_containers(
+                    container_key=key,
                     name=self.region,
                     sub_types=[GenericContainerSubTypes.AWS_REGION.value],
                     external_url=(
@@ -295,6 +356,14 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
                         f"{CONSOLE_PATHS[platform]}?region={self.region}"
                     ),
                 )
+                if platform == self.platform:
+                    yield from container
+                else:
+                    # Both sources emit the lambda and eventbridge region
+                    # containers, so neither may soft-delete them when its own
+                    # run stops placing anything there.
+                    yield from secondary(container)
+                    yield shared_status(key.as_urn())
                 first = False
             yield workunit
 

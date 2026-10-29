@@ -109,10 +109,13 @@ class LineageRelationship(StrEnum):
 
 
 LINEAGE_RELATIONSHIP_PROPERTY = "relationship"
+DOWNSTREAM_OF_RELATIONSHIP = "DownstreamOf"
 
 GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
 
 S3_PREFIX_FILTER = "prefix"
+# Bucket-wide notifications on a big data lake would otherwise link thousands.
+MAX_S3_DATASETS_PER_NOTIFICATION = 100
 
 OBSERVED_PRODUCERS_PROPERTY = "observed_producers"
 
@@ -151,3 +154,12 @@ AWS_REGION_PATTERN = re.compile(r"^[a-z]{2}(?:-[a-z]+)+-\d+$")
 EVENT_DATA_STORE_PATTERN = re.compile(
     r"^(?:arn:aws[a-z-]*:cloudtrail:[a-z0-9-]+:\d{12}:eventdatastore/)?[A-Za-z0-9-]{1,128}$"
 )
+
+ACCESS_DENIED_CODES = frozenset({"AccessDenied", "AccessDeniedException"})
+
+
+class JobEdgeKind(StrEnum):
+    """DataHub relationship names for a job's input and output datasets."""
+
+    CONSUMES = "Consumes"
+    PRODUCES = "Produces"

@@ -101,7 +101,8 @@ class ProducerLineage:
         # same-named queues in other regions.
         return parse_queue_url(resource)
 
-    def collect(self, now: Optional[datetime] = None) -> None:
+    def collect(self, now: Optional[datetime] = None) -> bool:
+        """True when the query succeeded, so its rows are the whole lookback."""
         assert self.config.event_data_store is not None
         store = parse_arn(self.config.event_data_store)
         # An event data store shared from another account is queried with its
@@ -125,7 +126,7 @@ class ProducerLineage:
         )
         if rows is None:
             self._keep_previous_producers()
-            return
+            return False
         for row in rows:
             producer = row.get(PRODUCER_COLUMN)
             target = self._target_arn(row.get(RESOURCE_COLUMN) or "")
@@ -139,6 +140,7 @@ class ProducerLineage:
                 continue
             if not self._add_lambda_edge(producer, target_urn):
                 self.observed[target_urn].add(self._role_arn(producer))
+        return True
 
     def _keep_previous_producers(self) -> None:
         # The previous value is already in this run's datasetProperties (read
@@ -181,11 +183,19 @@ class ProducerLineage:
             f"arn:{partition}:iam::{match.group('account')}:role/{match.group('role')}"
         )
 
-    def workunits(self) -> Iterable[MetadataWorkUnit]:
-        for urn in sorted(self.observed):
-            producers = sorted(self.observed[urn])
-            self.report.producer_roles_recorded += len(producers)
+    def workunits(self, carried: Set[str]) -> Iterable[MetadataWorkUnit]:
+        """Writes this run's producers. `carried` are the datasets whose previous
+        value was copied into this run's datasetProperties; after a successful
+        query that saw no role sending to one, that value is removed."""
+        for urn in sorted(set(self.observed) | carried):
             patch = DatasetPatchBuilder(urn)
-            patch.add_custom_property(OBSERVED_PRODUCERS_PROPERTY, ", ".join(producers))
+            producers = sorted(self.observed.get(urn, ()))
+            if producers:
+                self.report.producer_roles_recorded += len(producers)
+                patch.add_custom_property(
+                    OBSERVED_PRODUCERS_PROPERTY, ", ".join(producers)
+                )
+            else:
+                patch.remove_custom_property(OBSERVED_PRODUCERS_PROPERTY)
             for mcp in patch.build():
                 yield MetadataWorkUnit(id=f"{urn}-observed-producers", mcp_raw=mcp)

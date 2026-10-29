@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -16,7 +17,6 @@ from datahub.ingestion.source.aws_messaging.clients import (
     LambdaClient,
 )
 from datahub.ingestion.source.aws_messaging.eventbridge import (
-    event_path_prefix,
     template_field_map,
 )
 from datahub.ingestion.source.aws_messaging.models import RuleTarget
@@ -133,13 +133,14 @@ def test_lambda_edges_are_split_by_owner(aws: None) -> None:
         DestinationConfig={"OnSuccess": {"Destination": topic_arn}},
     )
 
-    assert run(SqsSource) == {
+    async_on = {"lambda_async_destinations": True}
+    assert run(SqsSource, lineage=async_on) == {
         lambda_job("worker"): {
             "inputDatasetEdges": {QUEUE_URN},
             "outputDatasetEdges": {DLQ_URN},
         }
     }
-    assert run(SnsSource) == {
+    assert run(SnsSource, lineage=async_on) == {
         lambda_job("notifier"): {"inputDatasetEdges": {TOPIC_URN}},
         lambda_job("worker"): {"outputDatasetEdges": {TOPIC_URN}},
     }
@@ -277,7 +278,7 @@ def _pipe_source(enrichment: bool = False, template: Optional[str] = None) -> Sn
         }
     )
     return SnsSource.create(
-        base_config(lineage={"lambda_functions": False}),
+        base_config(lineage={"lambda_functions": False}, column_lineage=True),
         PipelineContext(run_id="lineage", graph=graph),
     )
 
@@ -344,61 +345,6 @@ def test_template_field_map(template: str, expected: Optional[Dict[str, str]]) -
     assert template_field_map(template) == expected
 
 
-def test_event_path_prefix() -> None:
-    assert event_path_prefix(None) == ""
-    assert event_path_prefix("$") == ""
-    assert event_path_prefix("$.detail") == "detail"
-    assert event_path_prefix("$.detail.items[0]") is None
-
-
-def _rule_source(**target: Any) -> SqsSource:
-    queue_arn = create_queue("orders")
-    events = boto3.client("events", region_name=REGION)
-    events.put_rule(Name="new-orders", EventPattern=json.dumps({"source": ["shop"]}))
-    events.put_targets(
-        Rule="new-orders", Targets=[{"Id": "q", "Arn": queue_arn, **target}]
-    )
-    graph = _graph(
-        {
-            BUS_URN: _schema("source", "detail.order_id", "detail.amount"),
-            QUEUE_URN: _schema("order_id", "AMOUNT", "unrelated"),
-        }
-    )
-    return SqsSource.create(
-        base_config(lineage={"lambda_functions": False}),
-        PipelineContext(run_id="lineage", graph=graph),
-    )
-
-
-def test_rule_input_path_maps_the_detail_subtree(aws: None) -> None:
-    edges = job_edges(list(_rule_source(InputPath="$.detail").get_workunits()))
-    assert _pairs(edges, RULE_JOB) == {
-        "detail.order_id -> order_id",
-        "detail.amount -> AMOUNT",
-    }
-
-
-def test_rule_without_input_path_maps_the_whole_event(aws: None) -> None:
-    edges = job_edges(list(_rule_source().get_workunits()))
-    # The queue has no top-level `source` field, and `order_id` is not top-level
-    # in the event, so nothing matches.
-    assert _pairs(edges, RULE_JOB) == set()
-
-
-def test_rule_with_input_transformer_is_skipped(aws: None) -> None:
-    source = _rule_source(
-        InputTransformer={
-            "InputPathsMap": {"id": "$.detail.order_id"},
-            "InputTemplate": '{"order_id": <id>}',
-        }
-    )
-    edges = job_edges(list(source.get_workunits()))
-    assert _pairs(edges, RULE_JOB) == set()
-    assert source.get_report().column_lineage_skipped == {
-        "rule target uses an input transformer or constant input": 1
-    }
-
-
 def test_partner_event_bus_keeps_its_full_name(
     aws: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -407,20 +353,24 @@ def test_partner_event_bus_keeps_its_full_name(
     queue_arn = create_queue("orders")
     seen_buses: List[str] = []
 
-    def list_rules(self: EventBridgeClient, bus: str) -> Iterator[Dict[str, Any]]:
+    def list_rules(
+        self: EventBridgeClient, bus: str, on_error: Any
+    ) -> Iterator[Dict[str, Any]]:
         seen_buses.append(bus)
         yield {"Name": "new-orders"}
 
     monkeypatch.setattr(
         EventBridgeClient,
         "list_event_bus_arns",
-        lambda self: iter([f"arn:aws:events:{REGION}:{ACCOUNT}:event-bus/{bus_name}"]),
+        lambda self, on_error: iter(
+            [f"arn:aws:events:{REGION}:{ACCOUNT}:event-bus/{bus_name}"]
+        ),
     )
     monkeypatch.setattr(EventBridgeClient, "list_rules", list_rules)
     monkeypatch.setattr(
         EventBridgeClient,
         "list_targets",
-        lambda self, rule, bus: iter([RuleTarget(arn=queue_arn)]),
+        lambda self, rule, bus, on_error: iter([RuleTarget(arn=queue_arn)]),
     )
 
     edges = run(
@@ -504,8 +454,13 @@ def test_lambda_listing_failure_does_not_fail_the_run() -> None:
         stubber.add_client_error(
             "list_event_source_mappings", service_error_code="TooManyRequestsException"
         )
-        assert list(LambdaClient(client, report).list_event_source_mappings()) == []
+        failures: List[Exception] = []
+        mappings = LambdaClient(client, report).list_event_source_mappings(
+            on_error=failures.append
+        )
+        assert list(mappings) == []
     assert report.warnings and not report.failures
+    assert len(failures) == 1
 
 
 def test_scheduled_rule_has_no_event_bus_input(aws: None) -> None:
@@ -522,3 +477,104 @@ def test_scheduled_rule_has_no_event_bus_input(aws: None) -> None:
     assert job_edges(workunits) == {nightly_job: {"outputDatasetEdges": {QUEUE_URN}}}
     # Only a scheduled rule uses the bus here, so the bus isn't emitted either.
     assert BUS_URN not in {wu.get_urn() for wu in workunits}
+
+
+def job_removals(workunits: List[Any]) -> Set[str]:
+    removed: Set[str] = set()
+    for workunit in workunits:
+        metadata = workunit.metadata
+        if (
+            isinstance(metadata, MetadataChangeProposalClass)
+            and metadata.aspectName == "dataJobInputOutput"
+        ):
+            assert metadata.aspect is not None
+            removed.update(
+                f"{metadata.entityUrn} {op['path']}"
+                for op in json.loads(metadata.aspect.value)
+                if op["op"] == "remove"
+            )
+    return removed
+
+
+def stale_rule_graph() -> MagicMock:
+    graph = MagicMock()
+    graph.get_related_entities.side_effect = lambda urn, types, direction: (
+        [MagicMock(urn=RULE_JOB, relationship_type="Produces")]
+        if urn == QUEUE_URN and "Produces" in types
+        else []
+    )
+    graph.get_schema_metadata.return_value = None
+    return graph
+
+
+def test_deleted_rule_target_edge_is_retracted(aws: None) -> None:
+    create_queue("orders")
+    source = SqsSource.create(
+        base_config(lineage={"lambda_functions": False}),
+        PipelineContext(run_id="lineage", graph=stale_rule_graph()),
+    )
+    workunits = list(source.get_workunits())
+    assert job_removals(workunits) == {
+        f"{RULE_JOB} /outputDatasetEdges/{QUEUE_URN.replace('/', '~1')}"
+    }
+    assert source.get_report().job_edges_removed == 1
+
+
+def test_rule_edges_kept_when_rules_are_not_read(aws: None) -> None:
+    create_queue("orders")
+    source = SqsSource.create(
+        base_config(lineage={"lambda_functions": False, "eventbridge_rules": False}),
+        PipelineContext(run_id="lineage", graph=stale_rule_graph()),
+    )
+    assert job_removals(list(source.get_workunits())) == set()
+
+
+def test_async_destinations_stop_after_access_denied(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_queue("orders")
+    create_function("first")
+    create_function("second")
+    calls: List[str] = []
+
+    def denied(self: LambdaClient, function_name: str, on_error: Any) -> Iterator[str]:
+        calls.append(function_name)
+        on_error(
+            ClientError(
+                {"Error": {"Code": "AccessDeniedException", "Message": "x"}}, "L"
+            )
+        )
+        yield from ()
+
+    monkeypatch.setattr(LambdaClient, "list_async_destinations", denied)
+    source = SqsSource.create(
+        base_config(lineage={"lambda_async_destinations": True}),
+        PipelineContext(run_id="lineage"),
+    )
+    list(source.get_workunits())
+    assert len(calls) == 1
+
+
+def test_other_platform_region_containers_are_shared(aws: None) -> None:
+    queue_arn = create_queue("orders")
+    events = boto3.client("events", region_name=REGION)
+    events.put_rule(Name="new-orders", EventPattern=json.dumps({"source": ["shop"]}))
+    events.put_targets(Rule="new-orders", Targets=[{"Id": "q", "Arn": queue_arn}])
+    source = SqsSource.create(
+        base_config(lineage={"lambda_functions": False}),
+        PipelineContext(run_id="lineage"),
+    )
+    primary_containers: Dict[str, bool] = {}
+    for wu in source.get_workunits_internal():
+        if wu.get_urn().startswith("urn:li:container:") and isinstance(
+            wu.metadata, MetadataChangeProposalWrapper
+        ):
+            if isinstance(wu.metadata.aspect, ContainerPropertiesClass):
+                primary_containers[
+                    wu.metadata.aspect.name
+                    + str(wu.metadata.aspect.customProperties.get("platform"))
+                ] = wu.is_primary_source
+    assert primary_containers == {
+        f"{REGION}sqs": True,
+        f"{REGION}eventbridge": False,
+    }

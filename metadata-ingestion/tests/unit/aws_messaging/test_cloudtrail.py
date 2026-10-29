@@ -260,6 +260,46 @@ def test_failed_query_keeps_previous_observed_producers(
     ]
 
 
+def test_successful_query_with_no_producers_clears_the_previous_value(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The query succeeded and saw nobody send to the queue, so the value
+    # carried into this run's datasetProperties is removed afterwards.
+    sqs_client().create_queue(QueueName="orders")
+    monkeypatch.setattr(
+        CloudTrailLakeClient, "run_query", lambda self, *args, **kwargs: []
+    )
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = None
+    graph.get_related_entities.return_value = []
+    graph.get_aspect.side_effect = lambda urn, aspect: (
+        DatasetPropertiesClass(
+            customProperties={
+                "observed_producers": f"arn:aws:iam::{ACCOUNT}:role/ecs-task"
+            }
+        )
+        if urn == QUEUE_URN and aspect is DatasetPropertiesClass
+        else None
+    )
+    source = SqsSource.create(
+        base_config(
+            cloudtrail_producers={"enabled": True, "event_data_store": STORE},
+            lineage={"lambda_functions": False},
+        ),
+        PipelineContext(run_id="cloudtrail-test", graph=graph),
+    )
+    patches = [
+        json.loads(wu.metadata.aspect.value)
+        for wu in source.get_workunits()
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "datasetProperties"
+        and wu.metadata.aspect is not None
+    ]
+    assert [(op["op"], op["path"]) for patch in patches for op in patch] == [
+        ("remove", "/customProperties/observed_producers")
+    ]
+
+
 @pytest.mark.parametrize(
     "store",
     [

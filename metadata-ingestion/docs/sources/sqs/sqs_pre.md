@@ -82,7 +82,7 @@ Credentials come from `aws_config` or the standard boto3 chain: environment vari
 
 `glue:GetSchemaVersion` is only needed with `glue_schema_registry.enabled`.
 
-`LambdaRead` is used with `lineage.lambda_functions` (`lambda:ListFunctions` and `lambda:ListFunctionEventInvokeConfigs` only with `lineage.lambda_async_destinations` too), and `EventBridgeRead` with `lineage.eventbridge_rules` or `lineage.eventbridge_pipes`. `pipes:DescribePipe` is only called for a pipe that could get column lineage.
+`LambdaRead` is used with `lineage.lambda_functions` (`lambda:ListFunctions` and `lambda:ListFunctionEventInvokeConfigs` only with `lineage.lambda_async_destinations` too), and `EventBridgeRead` with `lineage.eventbridge_rules` or `lineage.eventbridge_pipes`. `pipes:DescribePipe` is only called for a pipe that could get column lineage. `lineage.lambda_async_destinations` is off by default because it makes one `lambda:ListFunctionEventInvokeConfigs` call per function in the region, from both sources; it stops at the first `AccessDenied`, and so does the `events:ListTargetsByRule` loop.
 
 `S3NotificationsRead` is used only with `lineage.s3_notifications`. By default only the bucket owner can read a bucket's notification configuration.
 

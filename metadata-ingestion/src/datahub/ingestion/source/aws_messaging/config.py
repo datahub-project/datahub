@@ -87,10 +87,13 @@ class AwsMessagingLineageConfig(ConfigModel):
         ),
     )
     lambda_async_destinations: bool = Field(
-        default=True,
+        default=False,
         description=(
             "Read each function's asynchronous invocation destinations. One "
-            "lambda:ListFunctionEventInvokeConfigs call per function in the region."
+            "lambda:ListFunctionEventInvokeConfigs call per function in the region, "
+            "made by both the sqs and sns sources; stops at the first AccessDenied. "
+            "Stale Lambda output edges are only removed when this is on, since "
+            "without it the run can't tell which outputs still exist."
         ),
     )
     eventbridge_rules: bool = Field(
@@ -104,10 +107,12 @@ class AwsMessagingLineageConfig(ConfigModel):
     s3_notifications: bool = Field(
         default=False,
         description=(
-            "Add S3 buckets as upstreams of the queues or topics their event "
-            "notifications target. Reads every bucket's notification configuration "
-            "(one call per bucket) and only links an S3 dataset that already exists "
-            "in DataHub, so the run needs a DataHub graph connection."
+            "Add S3 datasets as upstreams of the queues or topics their bucket's "
+            "event notifications target: every S3 dataset already in DataHub under "
+            "the notification's bucket and key prefix, up to 100. Reads every "
+            "bucket's notification configuration (one call per bucket), so turn it "
+            "on in one of the sqs and sns recipes per account; needs a DataHub "
+            "graph connection."
         ),
     )
 
@@ -210,18 +215,30 @@ class AwsMessagingConfigBase(
         default_factory=CloudTrailProducersConfig,
         description="Producer lineage from CloudTrail Lake (off by default).",
     )
-    column_lineage: bool = Field(
-        default=True,
+    column_lineage: Optional[bool] = Field(
+        default=None,
         description=(
             "Add field-level lineage on hops that deliver the message unchanged or "
             "with a simple field mapping, for fields present in both schemas. See the "
             "docs for which hops qualify. Schemas come from Glue Schema Registry in "
-            "this run or from DataHub."
+            "this run or from DataHub, one DataHub lookup per hop for a schema not "
+            "read from Glue. Defaults to glue_schema_registry.enabled; set it to true "
+            "to use schemas that are already in DataHub without Glue."
         ),
     )
     lineage: AwsMessagingLineageConfig = Field(
         default_factory=AwsMessagingLineageConfig,
         description="Lineage through Lambda and EventBridge.",
+    )
+    remove_stale_lineage: bool = Field(
+        default=True,
+        description=(
+            "Remove lineage edges this source wrote on an earlier run that no longer "
+            "exist in AWS, such as a removed redrive policy or subscription. Only "
+            "edges from resources this run read in full are removed. Needs a "
+            "DataHub graph connection (the datahub-rest sink or datahub_api); costs "
+            "one DataHub lookup per queue or topic."
+        ),
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
@@ -249,6 +266,12 @@ class SqsSourceConfig(AwsMessagingConfigBase):
         default_factory=QueueGlueSchemaRegistryConfig,
         description="Queue schemas from AWS Glue Schema Registry (off by default).",
     )
+
+    @pydantic.model_validator(mode="after")
+    def _default_column_lineage(self) -> "SqsSourceConfig":
+        if self.column_lineage is None:
+            self.column_lineage = self.glue_schema_registry.enabled
+        return self
 
 
 class SnsDataProtectionConfig(ConfigModel):
@@ -279,10 +302,11 @@ class SnsSourceConfig(AwsMessagingConfigBase):
         description="Regex patterns on topic names to include.",
     )
     include_subscription_attributes: bool = Field(
-        default=True,
+        default=False,
         description=(
             "Call sns:GetSubscriptionAttributes for each subscription to read its "
-            "dead-letter queue. One call per subscription."
+            "dead-letter queue. One call per subscription, for every protocol, on "
+            "every run; subscription-to-queue edges need no extra calls."
         ),
     )
     glue_schema_registry: TopicGlueSchemaRegistryConfig = Field(
@@ -311,3 +335,9 @@ class SnsSourceConfig(AwsMessagingConfigBase):
         default_factory=SnsDataProtectionConfig,
         description="SNS message data protection policies as tags or glossary terms.",
     )
+
+    @pydantic.model_validator(mode="after")
+    def _default_column_lineage(self) -> "SnsSourceConfig":
+        if self.column_lineage is None:
+            self.column_lineage = self.glue_schema_registry.enabled
+        return self

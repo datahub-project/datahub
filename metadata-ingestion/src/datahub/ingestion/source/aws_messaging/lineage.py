@@ -1,10 +1,13 @@
 from collections import defaultdict
-from typing import Callable, Dict, Iterable, List, Optional, Set
+from dataclasses import dataclass, field
+from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.openapi import RelationshipDirection
 from datahub.ingestion.source.aws_messaging.constants import (
+    DOWNSTREAM_OF_RELATIONSHIP,
     LINEAGE_RELATIONSHIP_PROPERTY,
     LineageRelationship,
 )
@@ -16,7 +19,9 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     SchemaMetadataClass,
     UpstreamClass,
+    UpstreamLineageClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
@@ -89,21 +94,46 @@ class SchemaLookup:
         return self._from_graph[urn]
 
 
+@dataclass
+class StaleLineage:
+    edges: Dict[str, Set[str]] = field(default_factory=lambda: defaultdict(set))
+    fine_grained: Dict[str, List[FineGrainedLineageClass]] = field(
+        default_factory=lambda: defaultdict(list)
+    )
+
+
 class DatasetLineageCollector:
     """Gathers dataset-to-dataset edges and writes them as patches.
 
     A queue's upstreams come from both sources (its own redrive policy from sqs,
     subscriptions from sns) and possibly from other accounts' recipes, so a full
-    upstreamLineage write from any one of them would erase the rest."""
+    upstreamLineage write from any one of them would erase the rest. Stale edges
+    are removed one by one instead, and only those this source can vouch for: an
+    edge of one of its own relationship types, from an upstream it read in full."""
 
-    def __init__(self, report: AwsMessagingReportBase):
+    def __init__(
+        self,
+        *,
+        report: AwsMessagingReportBase,
+        graph: Optional[DataHubGraph],
+        relationships: FrozenSet[LineageRelationship],
+    ):
         self.report = report
+        self.graph = graph
+        self.relationships = {r.value for r in relationships}
         self._edges: Dict[str, Dict[str, LineageRelationship]] = defaultdict(dict)
         self._fine_grained: Dict[str, List[FineGrainedLineageClass]] = defaultdict(list)
         # Datasets this run emitted itself. Their patches stay primary: the status
         # processor treats a non-primary workunit as "status already handled", so a
         # non-primary patch would leave an owned queue without a Status aspect.
         self.owned: Set[str] = set()
+        # Upstreams whose outgoing edges this run read in full. An unreadable queue
+        # is owned but not complete: its edges are unknown, not gone.
+        self.complete: Set[str] = set()
+        # Relationships whose edges into owned datasets were all seen this run,
+        # checked from the downstream side because the upstream isn't this
+        # source's (an S3 dataset, say).
+        self.downstream_relationships: Set[str] = set()
 
     def add(
         self, *, upstream: str, downstream: str, relationship: LineageRelationship
@@ -118,7 +148,9 @@ class DatasetLineageCollector:
         self.report.column_lineage_edges_emitted += len(lineages)
 
     def workunits(self) -> Iterable[MetadataWorkUnit]:
-        for downstream in sorted(self._edges):
+        stale = self._stale_lineage()
+        downstreams = set(self._edges) | set(stale.edges) | set(stale.fine_grained)
+        for downstream in sorted(downstreams):
             patch = DatasetPatchBuilder(downstream)
             for upstream, relationship in sorted(self._edges[downstream].items()):
                 patch.add_upstream_lineage(
@@ -131,6 +163,12 @@ class DatasetLineageCollector:
                 self.report.lineage_edges_emitted += 1
             for fine_grained in self._fine_grained.get(downstream, []):
                 patch.add_fine_grained_lineage(fine_grained)
+            for upstream in sorted(stale.edges.get(downstream, ())):
+                patch.remove_upstream_lineage(upstream)
+                self.report.lineage_edges_removed += 1
+            for fine_grained in stale.fine_grained.get(downstream, []):
+                patch.remove_fine_grained_lineage(fine_grained)
+                self.report.column_lineage_edges_removed += 1
             for mcp in patch.build():
                 # A downstream this run didn't emit may be another account's queue;
                 # patching it must not make this source responsible for deleting it.
@@ -139,3 +177,128 @@ class DatasetLineageCollector:
                     mcp_raw=mcp,
                     is_primary_source=downstream in self.owned,
                 )
+
+    def _stale_lineage(self) -> StaleLineage:
+        """Edges in DataHub of a relationship this source writes, from a complete
+        upstream, that this run didn't see; and on such edges, field edges from
+        that upstream that this run didn't emit (a renamed or dropped field, or a
+        subscription that turned raw delivery off)."""
+        stale = StaleLineage()
+        if self.graph is None:
+            return stale
+        emitted_fields = {
+            (downstream_field, upstream_field)
+            for lineages in self._fine_grained.values()
+            for lineage in lineages
+            for downstream_field in lineage.downstreams or []
+            for upstream_field in lineage.upstreams or []
+        }
+        lineage_cache: Dict[str, Optional[UpstreamLineageClass]] = {}
+        for upstream in sorted(self.complete):
+            try:
+                for related in self.graph.get_related_entities(
+                    upstream,
+                    [DOWNSTREAM_OF_RELATIONSHIP],
+                    RelationshipDirection.INCOMING,
+                ):
+                    downstream = related.urn
+                    if downstream not in lineage_cache:
+                        lineage_cache[downstream] = self.graph.get_aspect(
+                            downstream, UpstreamLineageClass
+                        )
+                    lineage = lineage_cache[downstream]
+                    current = upstream in self._edges.get(downstream, {})
+                    if lineage is None or not (
+                        current or self._written_by_this_source(lineage, upstream)
+                    ):
+                        continue
+                    if not current:
+                        stale.edges[downstream].add(upstream)
+                    stale.fine_grained[downstream].extend(
+                        _stale_field_edges(lineage, upstream, emitted_fields)
+                    )
+            except Exception as e:
+                # Removal is best effort; leaving an edge in place is safe.
+                self.report.warning(
+                    title="Stale lineage not checked",
+                    message=(
+                        "Could not read existing lineage from DataHub; stale edges "
+                        "from this resource are kept this run."
+                    ),
+                    context=upstream,
+                    exc=e,
+                )
+        if self.downstream_relationships:
+            self._stale_into_owned(stale, lineage_cache)
+        return stale
+
+    def _stale_into_owned(
+        self,
+        stale: StaleLineage,
+        lineage_cache: Dict[str, Optional[UpstreamLineageClass]],
+    ) -> None:
+        assert self.graph is not None
+        for downstream in sorted(self.owned):
+            try:
+                if downstream not in lineage_cache:
+                    lineage_cache[downstream] = self.graph.get_aspect(
+                        downstream, UpstreamLineageClass
+                    )
+                lineage = lineage_cache[downstream]
+                for edge in lineage.upstreams if lineage else []:
+                    relationship = (edge.properties or {}).get(
+                        LINEAGE_RELATIONSHIP_PROPERTY
+                    )
+                    if (
+                        relationship in self.downstream_relationships
+                        and edge.dataset not in self._edges.get(downstream, {})
+                    ):
+                        stale.edges[downstream].add(edge.dataset)
+            except Exception as e:
+                self.report.warning(
+                    title="Stale lineage not checked",
+                    message=(
+                        "Could not read existing lineage from DataHub; stale edges "
+                        "into this resource are kept this run."
+                    ),
+                    context=downstream,
+                    exc=e,
+                )
+
+    def _written_by_this_source(
+        self, lineage: UpstreamLineageClass, upstream: str
+    ) -> bool:
+        return any(
+            edge.dataset == upstream
+            and (edge.properties or {}).get(LINEAGE_RELATIONSHIP_PROPERTY)
+            in self.relationships
+            for edge in lineage.upstreams
+        )
+
+
+def _stale_field_edges(
+    lineage: UpstreamLineageClass,
+    upstream: str,
+    emitted: Set[Tuple[str, str]],
+) -> List[FineGrainedLineageClass]:
+    stale: List[FineGrainedLineageClass] = []
+    for existing in lineage.fineGrainedLineages or []:
+        if len(existing.downstreams or []) != 1:
+            continue
+        downstream_field = (existing.downstreams or [])[0]
+        for upstream_field in existing.upstreams or []:
+            if (
+                SchemaFieldUrn.from_string(upstream_field).parent == upstream
+                and (downstream_field, upstream_field) not in emitted
+            ):
+                stale.append(
+                    FineGrainedLineageClass(
+                        upstreamType=existing.upstreamType,
+                        upstreams=[upstream_field],
+                        downstreamType=existing.downstreamType,
+                        downstreams=[downstream_field],
+                        transformOperation=existing.transformOperation,
+                        query=existing.query,
+                    )
+                )
+    return stale

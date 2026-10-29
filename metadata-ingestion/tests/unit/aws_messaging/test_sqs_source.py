@@ -13,9 +13,12 @@ from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws_messaging.clients import SqsClient
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
 from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
     DomainsClass,
     MetadataChangeProposalClass,
     StatusClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from datahub.testing import mce_helpers
 from tests.unit.aws_messaging.conftest import ACCOUNT, REGION, base_config, sqs_client
@@ -127,6 +130,107 @@ def test_explicit_platform_instance_wins(aws: None) -> None:
     create_queue("orders")
     urns = {wu.get_urn() for wu in _run(platform_instance="prod").get_workunits()}
     assert queue_urn("orders", instance="prod") in urns
+
+
+def test_failed_account_probe_without_platform_instance_aborts(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Carrying on would write every queue under a URN without the account id,
+    # duplicating the catalog.
+    create_queue("orders")
+
+    def throttled(self: SqsClient) -> Optional[str]:
+        raise ClientError(
+            {"Error": {"Code": "ThrottlingException", "Message": "x"}}, "ListQueues"
+        )
+
+    monkeypatch.setattr(SqsClient, "first_queue_url", throttled)
+    with pytest.raises(RuntimeError):
+        _run()
+    source = _run(platform_instance="prod")
+    assert source.get_report().warnings
+    urns = {wu.get_urn() for wu in source.get_workunits_internal()}
+    assert queue_urn("orders", instance="prod") in urns
+
+
+def _run_with_graph(graph: MagicMock, **overrides: Any) -> SqsSource:
+    return SqsSource.create(
+        base_config(**overrides), PipelineContext(run_id="sqs-test", graph=graph)
+    )
+
+
+def lineage_ops(source: SqsSource) -> Dict[str, List[Any]]:
+    result: Dict[str, List[Any]] = {}
+    for workunit in source.get_workunits_internal():
+        metadata = workunit.metadata
+        if (
+            isinstance(metadata, MetadataChangeProposalClass)
+            and metadata.aspectName == "upstreamLineage"
+        ):
+            assert metadata.entityUrn is not None and metadata.aspect is not None
+            result[metadata.entityUrn] = [
+                (op["op"], op["path"]) for op in json.loads(metadata.aspect.value)
+            ]
+    return result
+
+
+def stale_graph(downstream: str, upstream: str, relationship: str) -> MagicMock:
+    graph = MagicMock()
+    graph.get_related_entities.side_effect = lambda urn, types, direction: (
+        [MagicMock(urn=downstream)]
+        if urn == upstream and "DownstreamOf" in types
+        else []
+    )
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(
+                dataset=upstream,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+                properties={"relationship": relationship},
+            )
+        ]
+    )
+    return graph
+
+
+def test_removed_redrive_policy_retracts_the_edge(aws: None) -> None:
+    create_queue("orders-dlq")
+    create_queue("orders")
+    graph = stale_graph(queue_urn("orders-dlq"), queue_urn("orders"), "dead_letter")
+    source = _run_with_graph(graph)
+    assert lineage_ops(source) == {
+        queue_urn("orders-dlq"): [("remove", f"/upstreams/{queue_urn('orders')}")]
+    }
+    assert source.get_report().lineage_edges_removed == 1
+
+
+def test_edges_from_other_sources_are_not_retracted(aws: None) -> None:
+    # A subscription edge belongs to the sns source, so sqs leaves it alone.
+    create_queue("orders-dlq")
+    create_queue("orders")
+    graph = stale_graph(queue_urn("orders-dlq"), queue_urn("orders"), "subscription")
+    assert lineage_ops(_run_with_graph(graph)) == {}
+
+
+def test_unreadable_queue_keeps_its_edges(
+    aws: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    create_queue("orders-dlq")
+    create_queue("orders")
+    monkeypatch.setattr(SqsClient, "get_attributes", lambda self, url: None)
+    graph = stale_graph(queue_urn("orders-dlq"), queue_urn("orders"), "dead_letter")
+    assert lineage_ops(_run_with_graph(graph)) == {}
+    graph.get_aspect.assert_not_called()
+
+
+def test_current_edge_is_not_retracted(aws: None) -> None:
+    dlq_arn = create_queue("orders-dlq")
+    create_queue("orders", Attributes=redrive(dlq_arn))
+    graph = stale_graph(queue_urn("orders-dlq"), queue_urn("orders"), "dead_letter")
+    ops = lineage_ops(_run_with_graph(graph))
+    assert ops == {
+        queue_urn("orders-dlq"): [("add", f"/upstreams/{queue_urn('orders')}")]
+    }
 
 
 def aspect_names(source: SqsSource) -> List[str]:

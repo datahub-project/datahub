@@ -93,13 +93,12 @@ class UrnBuilder:
         self.account_platform_instance_map = account_platform_instance_map or {}
 
     def instance_for(self, account: str) -> Optional[str]:
-        if account in self.account_platform_instance_map:
-            return self.account_platform_instance_map[account]
-        # With no resolved account id, everything is treated as this recipe's, so
-        # datasets and the region container share one platform instance.
+        # This recipe's own account always uses its platform_instance, even if the
+        # map lists it, so datasets and the region container share one instance.
+        # With no resolved account id, everything is treated as this recipe's.
         if not account or not self.account_id or account == self.account_id:
             return self.platform_instance
-        return account
+        return self.account_platform_instance_map.get(account, account)
 
     @staticmethod
     def resource_id(arn: Arn) -> str:

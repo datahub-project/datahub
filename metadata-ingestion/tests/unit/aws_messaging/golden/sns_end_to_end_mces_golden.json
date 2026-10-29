@@ -383,6 +383,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:d11239748784fe229f005ca5b3a80e74",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d11239748784fe229f005ca5b3a80e74",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -627,6 +643,27 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD),route)",
     "changeType": "UPSERT",
@@ -758,6 +795,27 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge,123456789012.us-east-1.default.new-orders,PROD),route)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:664609deecffa93dc3df83e6f6729058",
     "changeType": "UPSERT",
@@ -833,6 +891,43 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:664609deecffa93dc3df83e6f6729058",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:664609deecffa93dc3df83e6f6729058",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(eventbridge-pipes,123456789012.us-east-1.orders-to-topic,PROD)",
     "changeType": "UPSERT",
@@ -864,27 +959,6 @@
             },
             "name": "orders-to-topic",
             "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1793188800000,
-        "runId": "sns-end-to-end",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:664609deecffa93dc3df83e6f6729058",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -960,6 +1034,27 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(eventbridge-pipes,123456789012.us-east-1.orders-to-topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1093,6 +1188,27 @@
     }
 },
 {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(eventbridge-pipes,123456789012.us-east-1.orders-to-topic,PROD),pipe)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:5d28e722aef4b9d6507d4222e0788e76",
     "changeType": "UPSERT",
@@ -1159,6 +1275,22 @@
             "typeNames": [
                 "Region"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5d28e722aef4b9d6507d4222e0788e76",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {
@@ -1302,6 +1434,27 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(lambda,123456789012.us-east-1.orders-worker,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(lambda,123456789012.us-east-1.orders-worker,PROD),invoke)",
     "changeType": "UPSERT",
@@ -1428,6 +1581,27 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(lambda,123456789012.us-east-1.orders-worker,PROD),invoke)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,123456789012.us-east-1.orders-archive,PROD),delivery)",
     "changeType": "PATCH",
     "aspectName": "dataJobInputOutput",
@@ -1441,6 +1615,27 @@
                 }
             }
         ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sns-end-to-end",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,123456789012.us-east-1.orders-archive,PROD),delivery)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sns,123456789012)"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1793188800000,
