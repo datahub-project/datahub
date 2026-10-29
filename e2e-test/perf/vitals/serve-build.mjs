@@ -22,7 +22,7 @@ import * as https from 'https';
 import * as path from 'path';
 import * as zlib from 'zlib';
 import { URL } from 'url';
-import { graphqlStubData } from './stub-graphql.mjs';
+import { graphqlStubData, hasGraphqlFixture } from './stub-graphql.mjs';
 
 // Compressible types the production Play server serves gzipped. We must gzip too
 // so Lighthouse/Lantern model the *gzip* transfer size on the wire — the whole
@@ -172,17 +172,21 @@ function readBody(req, limit = 1_000_000) {
     });
 }
 
-async function graphqlOperationName(req) {
+// A batched request carries a JSON array and expects an array of results back.
+async function graphqlOperations(req) {
     const url = new URL(req.url, 'http://127.0.0.1');
     const fromQuery = url.searchParams.get('operationName');
     const raw = await readBody(req);
-    if (fromQuery) return fromQuery;
-    if (!raw) return null;
+    let parsed = null;
     try {
-        return JSON.parse(raw).operationName || null;
+        parsed = raw ? JSON.parse(raw) : null;
     } catch {
-        return null;
+        parsed = null;
     }
+    if (Array.isArray(parsed)) {
+        return { batched: true, names: parsed.map((op) => (op && op.operationName) || null) };
+    }
+    return { batched: false, names: [fromQuery || (parsed && parsed.operationName) || null] };
 }
 
 export function startServer({ distDir, port, targetBase, label, stubApi, graphqlFixtures }) {
@@ -192,6 +196,7 @@ export function startServer({ distDir, port, targetBase, label, stubApi, graphql
     }
     const stub = stubApi === true || shouldStubBackend(targetBase);
     const indexHtml = renderIndexHtml(resolvedDist);
+    const unknownOperations = new Set();
 
     const sendHtml = (req, res) => {
         const headers = { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' };
@@ -233,8 +238,17 @@ export function startServer({ distDir, port, targetBase, label, stubApi, graphql
         if (isProxied(pathname)) {
             const method = (req.method || 'GET').toUpperCase();
             if (stub && graphqlFixtures && isGraphqlPath(pathname) && method === 'POST') {
-                const operationName = await graphqlOperationName(req);
-                const body = JSON.stringify({ data: graphqlStubData(operationName) });
+                const { batched, names } = await graphqlOperations(req);
+                for (const name of names) {
+                    if (hasGraphqlFixture(name)) continue;
+                    const key = name || '(unnamed)';
+                    if (!unknownOperations.has(key)) {
+                        process.stdout.write(`[${label}] no GraphQL fixture for ${key}; answering with empty data\n`);
+                    }
+                    unknownOperations.add(key);
+                }
+                const results = names.map((name) => ({ data: graphqlStubData(name) }));
+                const body = JSON.stringify(batched ? results : results[0]);
                 res.writeHead(200, {
                     'content-type': 'application/json; charset=utf-8',
                     'cache-control': 'no-store',
@@ -292,6 +306,7 @@ export function startServer({ distDir, port, targetBase, label, stubApi, graphql
                 server,
                 port,
                 label,
+                unknownGraphqlOperations: () => [...unknownOperations].sort(),
                 close: () =>
                     new Promise((r) => {
                         server.close(() => r());

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
     actorUrnFromToken,
+    bouncedToLogin,
     buildSchedule,
     cookiesForTokenAuth,
     decodeJwtPayload,
@@ -206,5 +207,18 @@ describe('isStubSessionMode', () => {
         assert.equal(isStubSessionMode({ cfg: { auth: { mode: 'stub' } } }), true);
         assert.equal(isStubSessionMode({ args: { 'no-auth': 'true' }, cfg: { auth: { mode: 'stub' } } }), false);
         assert.equal(isStubSessionMode({ cfg: { auth: { mode: 'anonymous' } } }), false);
+    });
+});
+
+describe('bouncedToLogin', () => {
+    it('flags a signed-in route that landed on /login', () => {
+        assert.equal(bouncedToLogin('/', 'http://127.0.0.1:8181/login?redirect_uri=%2F'), '/login');
+    });
+
+    it('accepts a route that stayed put or was meant to be /login', () => {
+        assert.equal(bouncedToLogin('/', 'http://127.0.0.1:8181/'), null);
+        assert.equal(bouncedToLogin('/search?query=x', 'http://127.0.0.1:8181/search?query=x'), null);
+        assert.equal(bouncedToLogin('/login', 'http://127.0.0.1:8181/login'), null);
+        assert.equal(bouncedToLogin('/', undefined), null);
     });
 });

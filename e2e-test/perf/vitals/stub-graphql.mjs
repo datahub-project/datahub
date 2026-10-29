@@ -179,6 +179,10 @@ const FIXTURES = {
     getEntityCounts: () => ({ getEntityCounts: { counts: [] } }),
 };
 
+export function hasGraphqlFixture(operationName) {
+    return Object.hasOwn(FIXTURES, operationName);
+}
+
 export function graphqlStubData(operationName) {
     const build = FIXTURES[operationName];
     return build ? build() : {};

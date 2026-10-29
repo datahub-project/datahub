@@ -127,6 +127,12 @@ describe('renderBootComment', () => {
         assert.doesNotMatch(body, /\| metric \|/);
         assert.doesNotMatch(body, /First paint and LCP are judged separately/);
     });
+
+    it('names GraphQL operations the home stub could not answer', () => {
+        const home = { ...mixedHome(), stubUnknownOperations: ['getNewBootQuery'] };
+        const body = renderBootComment({ login: noiseLogin(), home });
+        assert.match(body, /no recorded fixture.*`getNewBootQuery`/);
+    });
 });
 
 describe('renderReport', () => {

@@ -153,5 +153,19 @@ describe('startServer signed-in GraphQL fixtures', () => {
         const body = await resp.json();
         assert.equal(resp.status, 200);
         assert.deepEqual(body.data, {});
+        assert.ok(server.unknownGraphqlOperations().includes('search'));
+        assert.ok(!server.unknownGraphqlOperations().includes('getMe'));
+    });
+
+    it('answers a batched request with one result per operation', async () => {
+        const resp = await fetch(`${loopbackOrigin(server.port)}/api/v2/graphql`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify([{ operationName: 'getMe' }, { operationName: 'appConfig' }]),
+        });
+        const body = await resp.json();
+        assert.equal(body.length, 2);
+        assert.equal(body[0].data.me.corpUser.urn, 'urn:li:corpuser:boot');
+        assert.equal(body[1].data.appConfig.featureFlags.showHomePageRedesign, true);
     });
 });

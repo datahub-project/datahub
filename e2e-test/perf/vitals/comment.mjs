@@ -314,6 +314,15 @@ export function renderBootComment({ login, home, loginError, homeError }) {
     if (home) {
         if ((home.raw_runs || []).some((run) => run.error)) lines.push(...failedRunLines(home));
         for (const block of renderRouteBlocks(home)) lines.push(...block.lines);
+        const unknown = home.stubUnknownOperations || [];
+        if (unknown.length > 0) {
+            lines.push('');
+            lines.push(
+                `\`/\` asked for GraphQL operations with no recorded fixture, answered with empty data: ` +
+                    `${unknown.map((name) => `\`${name}\``).join(', ')}. ` +
+                    'Add them to `e2e-test/perf/vitals/stub-graphql.mjs` so the shell renders as it does signed in.',
+            );
+        }
     }
     return lines.join('\n').replace(/\n{3,}/g, '\n\n');
 }

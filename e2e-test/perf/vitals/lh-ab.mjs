@@ -46,6 +46,7 @@ import lighthouse from 'lighthouse';
 import puppeteer from 'puppeteer';
 import {
     actorUrnFromToken,
+    bouncedToLogin,
     buildSchedule,
     cookiesForTokenAuth,
     extraHeadersForToken,
@@ -293,6 +294,8 @@ async function runOnce({ browser, cookies, extraHTTPHeaders, sessionBootstrap, o
         lighthouseVersion = lhr.lighthouseVersion;
         const runtimeError = lhr.runtimeError && lhr.runtimeError.code !== 'NO_ERROR' ? lhr.runtimeError : null;
         if (runtimeError) throw new Error(`${runtimeError.code}: ${runtimeError.message}`);
+        const landed = bouncedToLogin(route.path, lhr.finalDisplayedUrl);
+        if (landed) throw new Error(`redirected to ${landed}; the session did not hold for ${route.path}`);
         metrics = extractMetrics(lhr);
     } catch (e) {
         error = String(e && e.message ? e.message : e);
@@ -404,6 +407,7 @@ async function main() {
     });
 
     const rawRuns = [];
+    const stubUnknownOperations = new Set();
     let lighthouseVersion = null;
     const schedule = buildSchedule(cfg.runsPerBuild, cfg.warmupRunsPerBuild, builds);
 
@@ -451,6 +455,9 @@ async function main() {
         }
     } finally {
         await browser.close();
+        for (const server of Object.values(servers)) {
+            for (const name of server.unknownGraphqlOperations()) stubUnknownOperations.add(name);
+        }
         if (servers.A) await servers.A.close();
         if (servers.B) await servers.B.close();
     }
@@ -497,6 +504,7 @@ async function main() {
         authMode: anonymous ? 'anonymous' : stubSession ? 'stub' : 'authenticated',
         authVerified: auth.authVerified !== false,
         authWarning: auth.authWarning || null,
+        stubUnknownOperations: graphqlFixtures ? [...stubUnknownOperations].sort() : [],
         runner: reportRunner(),
         benchmarkIndex: null,
         note: selectReportNote({

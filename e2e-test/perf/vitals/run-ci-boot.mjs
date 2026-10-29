@@ -113,6 +113,12 @@ function main() {
         fs.writeFileSync(path.join(results, 'ci-boot-comment.md'), `<!-- web-vitals-boot-ab -->\n${body}\n`);
     }
 
+    // Home does not gate the job, so surface its failure as a workflow annotation
+    // rather than only a line in the PR comment.
+    if (homeError || homeRc !== 0) {
+        process.stdout.write(`::warning title=Boot web vitals::home (/) run failed (exit ${homeRc})\n`);
+    }
+
     if (!login || loginRc !== 0) process.exit(loginRc || 1);
 }
 

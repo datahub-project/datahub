@@ -100,6 +100,21 @@ export function isAuthRejection(error) {
     return status === 401 || status === 403;
 }
 
+// A signed-in route that ends on /login measured the login page, not the route.
+// Returns the landing path in that case so the run can be failed, else null.
+export function bouncedToLogin(routePath, finalUrl) {
+    if (!finalUrl) return null;
+    let landed;
+    try {
+        landed = new URL(finalUrl).pathname;
+    } catch {
+        return null;
+    }
+    const requested = new URL(routePath, 'http://localhost').pathname;
+    const isLogin = (p) => p.toLowerCase() === '/login';
+    return isLogin(landed) && !isLogin(requested) ? landed : null;
+}
+
 export function isSameOrigin(requestUrl, pageOrigin) {
     try {
         return new URL(requestUrl).origin === new URL(pageOrigin).origin;
