@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Set, Type
+from typing import Any, Dict, Iterator, List, Set, Type
 from unittest.mock import MagicMock
 
 import boto3
@@ -11,7 +11,12 @@ from datahub.ingestion.source.aws_messaging.clients import S3NotificationClient
 from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    MetadataChangeProposalClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
 from tests.unit.aws_messaging.conftest import (
     ACCOUNT,
     REGION,
@@ -24,8 +29,13 @@ QUEUE_URN = f"urn:li:dataset:(urn:li:dataPlatform:sqs,{ACCOUNT}.{REGION}.uploads
 TOPIC_URN = (
     f"urn:li:dataset:(urn:li:dataPlatform:sns,{ACCOUNT}.{REGION}.uploads-topic,PROD)"
 )
-PREFIX_URN = "urn:li:dataset:(urn:li:dataPlatform:s3,landing/incoming,PROD)"
-BUCKET_URN = "urn:li:dataset:(urn:li:dataPlatform:s3,landing,PROD)"
+# Named the way the s3 source names them, after a path_spec's {table} folder:
+# s3://landing/incoming/{table}/*.parquet
+ORDERS_URN = "urn:li:dataset:(urn:li:dataPlatform:s3,landing/incoming/orders,PROD)"
+REFUNDS_URN = "urn:li:dataset:(urn:li:dataPlatform:s3,landing/incoming/refunds,PROD)"
+ARCHIVE_URN = "urn:li:dataset:(urn:li:dataPlatform:s3,landing/archive/orders,PROD)"
+OTHER_BUCKET_URN = "urn:li:dataset:(urn:li:dataPlatform:s3,landing-old/orders,PROD)"
+S3_DATASETS = [ORDERS_URN, REFUNDS_URN, ARCHIVE_URN, OTHER_BUCKET_URN]
 
 
 def _seed() -> None:
@@ -73,12 +83,25 @@ def upstreams(source: AwsMessagingSourceBase) -> Dict[str, Set[str]]:
     return result
 
 
+def search_graph(existing: List[str]) -> MagicMock:
+    """A graph whose URN-prefix search runs over `existing`."""
+    graph = MagicMock()
+
+    def get_urns_by_filter(**kwargs: Any) -> Iterator[str]:
+        prefix = kwargs["extraFilters"][0]["values"][0]
+        return iter(urn for urn in existing if urn.startswith(prefix))
+
+    graph.get_urns_by_filter.side_effect = get_urns_by_filter
+    graph.get_related_entities.return_value = []
+    graph.get_aspect.return_value = None
+    graph.get_schema_metadata.return_value = None
+    return graph
+
+
 def _source(
     source_class: Type[AwsMessagingSourceBase], existing: List[str], **lineage: Any
 ) -> AwsMessagingSourceBase:
-    graph = MagicMock()
-    graph.exists.side_effect = lambda urn: urn in existing
-    graph.get_schema_metadata.return_value = None
+    graph = search_graph(existing)
     return source_class.create(
         base_config(lineage={"lambda_functions": False, **lineage}),
         PipelineContext(run_id="s3-test", graph=graph),
@@ -87,13 +110,14 @@ def _source(
 
 def test_each_source_links_its_own_targets(aws: None) -> None:
     _seed()
-    existing = [PREFIX_URN, BUCKET_URN]
-    # The queue's notification has a prefix, so the prefix dataset wins.
-    assert upstreams(_source(SqsSource, existing, s3_notifications=True)) == {
-        QUEUE_URN: {PREFIX_URN}
+    # The queue's notification is on `incoming/`, so every table folder under
+    # it is an upstream. The topic's has no prefix, so the whole bucket is, but
+    # not a bucket whose name merely starts the same.
+    assert upstreams(_source(SqsSource, S3_DATASETS, s3_notifications=True)) == {
+        QUEUE_URN: {ORDERS_URN, REFUNDS_URN}
     }
-    assert upstreams(_source(SnsSource, existing, s3_notifications=True)) == {
-        TOPIC_URN: {BUCKET_URN}
+    assert upstreams(_source(SnsSource, S3_DATASETS, s3_notifications=True)) == {
+        TOPIC_URN: {ORDERS_URN, REFUNDS_URN, ARCHIVE_URN}
     }
 
 
@@ -106,7 +130,7 @@ def test_no_edge_without_a_matching_s3_dataset(aws: None) -> None:
 
 def test_off_by_default(aws: None) -> None:
     _seed()
-    source = _source(SqsSource, [PREFIX_URN, BUCKET_URN])
+    source = _source(SqsSource, S3_DATASETS)
     assert upstreams(source) == {}
     assert not source.base_report.lineage_edges_skipped
 
@@ -135,9 +159,7 @@ def test_lowercase_matches_the_s3_source_setting(aws: None) -> None:
         },
         SkipDestinationValidation=True,
     )
-    graph = MagicMock()
-    graph.exists.side_effect = lambda urn: urn == PREFIX_URN
-    graph.get_schema_metadata.return_value = None
+    graph = search_graph(S3_DATASETS)
 
     def source(lowercase: bool) -> AwsMessagingSourceBase:
         return SqsSource.create(
@@ -148,8 +170,8 @@ def test_lowercase_matches_the_s3_source_setting(aws: None) -> None:
             PipelineContext(run_id="s3-test", graph=graph),
         )
 
-    # The S3 source lowercased `landing/Incoming` to `landing/incoming`.
-    assert upstreams(source(lowercase=True)) == {QUEUE_URN: {PREFIX_URN}}
+    # The S3 source lowercased `landing/Incoming/...` to `landing/incoming/...`.
+    assert upstreams(source(lowercase=True)) == {QUEUE_URN: {ORDERS_URN, REFUNDS_URN}}
     assert upstreams(source(lowercase=False)) == {}
 
 
@@ -175,7 +197,9 @@ def test_bucket_listing_is_filtered_to_the_recipe_region() -> None:
             {"BucketRegion": REGION, "MaxBuckets": 1000, "ContinuationToken": "page-2"},
         )
         names = list(
-            S3NotificationClient(client, SqsSourceReport()).list_bucket_names(REGION)
+            S3NotificationClient(client, SqsSourceReport()).list_bucket_names(
+                REGION, on_error=lambda _error: None
+            )
         )
     assert names == ["landing"]
 
@@ -192,10 +216,52 @@ def test_old_botocore_lists_without_the_region_filter() -> None:
         {"Buckets": [{"Name": "landing"}, {"Name": "elsewhere"}]}
     ]
     report = SqsSourceReport()
-    names = list(S3NotificationClient(client, report).list_bucket_names(REGION))
+    names = list(
+        S3NotificationClient(client, report).list_bucket_names(
+            REGION, on_error=lambda _error: None
+        )
+    )
     assert names == ["landing", "elsewhere"]
     client.get_paginator.return_value.paginate.assert_called_once_with(
         PaginationConfig={"PageSize": 1000}
     )
     assert [w.title for w in report.warnings] == ["Bucket region filter unavailable"]
     assert not report.failures
+
+
+def test_removed_notification_retracts_the_s3_edge(aws: None) -> None:
+    sqs_client().create_queue(QueueName="uploads")
+    boto3.client("s3", region_name=REGION).create_bucket(Bucket="landing")
+    graph = search_graph(S3_DATASETS)
+    graph.get_aspect.side_effect = lambda urn, aspect: (
+        UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    dataset=ORDERS_URN,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    properties={"relationship": "s3_notification"},
+                ),
+                UpstreamClass(
+                    dataset=TOPIC_URN,
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    properties={"relationship": "subscription"},
+                ),
+            ]
+        )
+        if urn == QUEUE_URN
+        else None
+    )
+    source = SqsSource.create(
+        base_config(lineage={"lambda_functions": False, "s3_notifications": True}),
+        PipelineContext(run_id="s3-test", graph=graph),
+    )
+    ops = [
+        (op["op"], op["path"])
+        for wu in source.get_workunits()
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "upstreamLineage"
+        and wu.metadata.aspect is not None
+        for op in json.loads(wu.metadata.aspect.value)
+    ]
+    # The sns source's subscription edge is left alone.
+    assert ops == [("remove", "/upstreams/" + ORDERS_URN.replace("/", "~1"))]

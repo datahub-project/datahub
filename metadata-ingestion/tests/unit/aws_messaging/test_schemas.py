@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import boto3
 import pytest
 
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws_messaging import schema_registry
@@ -12,12 +13,18 @@ from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
 from datahub.ingestion.source.aws_messaging.sqs_source import SqsSource
 from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     MetadataChangeProposalClass,
     NumberTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 from tests.unit.aws_messaging.conftest import (
     ACCOUNT,
@@ -150,7 +157,8 @@ def _subscribe(raw: bool) -> SnsSource:
             glue_schema_registry={
                 "enabled": True,
                 "topic_schema_map": {"order-events": "order-v1"},
-            }
+            },
+            include_subscription_attributes=True,
         ),
         PipelineContext(run_id="schemas-test", graph=graph),
     )
@@ -214,6 +222,48 @@ def test_dead_letter_queue_gets_identity_field_lineage(aws: None) -> None:
     assert len(lineage) == 2
     assert all(f"({DLQ_URN}," in op["path"] for op in lineage)
     assert source.get_report().column_lineage_edges_emitted == 2
+
+
+def test_renamed_field_edge_is_retracted(aws: None) -> None:
+    # An earlier run linked a field the schemas no longer share; this run's
+    # field edges stay and the old one is removed.
+    source = _dead_letter_source()
+    old_field = FineGrainedLineageClass(
+        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+        upstreams=[make_schema_field_urn(QUEUE_URN, "old_id")],
+        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+        downstreams=[make_schema_field_urn(DLQ_URN, "old_id")],
+    )
+    graph = source.lineage.graph
+    assert isinstance(graph, MagicMock)
+    graph.get_related_entities.side_effect = lambda urn, types, direction: (
+        [MagicMock(urn=DLQ_URN)] if urn == QUEUE_URN else []
+    )
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[
+            UpstreamClass(
+                dataset=QUEUE_URN,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+                properties={"relationship": "dead_letter"},
+            )
+        ],
+        fineGrainedLineages=[old_field],
+    )
+    ops = fine_grained(list(source.get_workunits()))
+    removed = [op["path"] for op in ops if op["op"] == "remove"]
+    assert len(removed) == 1 and removed[0].endswith(
+        make_schema_field_urn(QUEUE_URN, "old_id")
+    )
+    assert len([op for op in ops if op["op"] == "add"]) == 2
+    assert source.get_report().column_lineage_edges_removed == 1
+
+
+def test_column_lineage_defaults_to_the_glue_setting() -> None:
+    assert not SqsSourceConfig.model_validate(base_config()).column_lineage
+    enabled = SqsSourceConfig.model_validate(
+        base_config(glue_schema_registry={"enabled": True})
+    )
+    assert enabled.column_lineage
 
 
 def test_dead_letter_column_lineage_can_be_turned_off(aws: None) -> None:

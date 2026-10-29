@@ -108,11 +108,23 @@ class LineageRelationship(StrEnum):
 
 
 LINEAGE_RELATIONSHIP_PROPERTY = "relationship"
+DOWNSTREAM_OF_RELATIONSHIP = "DownstreamOf"
 
 GLUE_ENTITY_NOT_FOUND = "EntityNotFoundException"
 
 S3_PREFIX_FILTER = "prefix"
+# Bucket-wide notifications on a big data lake would otherwise link thousands.
+MAX_S3_DATASETS_PER_NOTIFICATION = 100
 
 BUCKET_REGION_PARAMETER = "BucketRegion"
 # botocore 1.35.42 added ListBuckets' bucket-region filter (pagination came in 1.34.162).
 MIN_BOTOCORE_FOR_BUCKET_REGION = "1.35.42"
+
+ACCESS_DENIED_CODES = frozenset({"AccessDenied", "AccessDeniedException"})
+
+
+class JobEdgeKind(StrEnum):
+    """DataHub relationship names for a job's input and output datasets."""
+
+    CONSUMES = "Consumes"
+    PRODUCES = "Produces"

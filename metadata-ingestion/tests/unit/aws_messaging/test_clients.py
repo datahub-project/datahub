@@ -38,12 +38,23 @@ def test_list_queues_follows_next_token() -> None:
     assert not report.failures
 
 
-def test_first_page_denial_is_a_warning() -> None:
+def test_first_page_denial_of_the_queue_listing_fails_the_run() -> None:
+    # Listing queues is the source's whole job, so a denied first page must not
+    # end as a green run with nothing ingested.
     client = _sqs()
     report = SqsSourceReport()
     with Stubber(client) as stubber:
         stubber.add_client_error("list_queues", service_error_code="AccessDenied")
         assert list(SqsClient(client, report).list_queue_urls()) == []
+    assert report.failures
+
+
+def test_optional_first_page_denial_is_a_warning() -> None:
+    report = SqsSourceReport()
+    error = ClientError({"Error": {"Code": "AccessDenied", "Message": "x"}}, "ListX")
+    report.report_listing_failure(
+        pages_fetched=0, exc=error, api_label="x:ListX", optional=True
+    )
     assert report.warnings and not report.failures
 
 
@@ -90,7 +101,9 @@ def test_subscriptions_are_listed_per_topic() -> None:
             {"TopicArn": topic},
         )
         subscriptions = list(
-            SnsClient(client, SqsSourceReport()).list_subscriptions(topic)
+            SnsClient(client, SqsSourceReport()).list_subscriptions(
+                topic, on_error=lambda _error: None
+            )
         )
     assert [s.owner for s in subscriptions] == ["210987654321"]
 

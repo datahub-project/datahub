@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
 import botocore
 from botocore.exceptions import BotoCoreError, ClientError
@@ -28,6 +28,7 @@ def paginate(
     report: AwsMessagingReportBase,
     api_label: str,
     optional: bool = False,
+    on_error: Optional[Callable[[Union[ClientError, BotoCoreError]], None]] = None,
     **kwargs: Any,
 ) -> Iterator[Any]:
     # boto3 paginators raise from inside iteration, so the page count at the time
@@ -41,6 +42,8 @@ def paginate(
         report.report_listing_failure(
             pages_fetched=pages_fetched, exc=e, api_label=api_label, optional=optional
         )
+        if on_error is not None:
+            on_error(e)
 
 
 def call_or_warn(
@@ -180,7 +183,11 @@ class SnsClient:
         )
         return tags_to_dict((response or {}).get("Tags") or [])
 
-    def list_subscriptions(self, topic_arn: str) -> Iterator[SnsSubscription]:
+    def list_subscriptions(
+        self,
+        topic_arn: str,
+        on_error: Callable[[Union[ClientError, BotoCoreError]], None],
+    ) -> Iterator[SnsSubscription]:
         # Per topic, because ListSubscriptions only returns the caller's own
         # subscriptions and misses ones other accounts created on our topics.
         # SNS allows 30 of these calls per second.
@@ -192,6 +199,7 @@ class SnsClient:
             api_label="sns:ListSubscriptionsByTopic",
             # Subscriptions only add properties and lineage, not datasets.
             optional=True,
+            on_error=on_error,
             TopicArn=topic_arn,
         ):
             yield SnsSubscription(
@@ -202,14 +210,14 @@ class SnsClient:
                 owner=item.get("Owner"),
             )
 
-    def get_subscription_attributes(self, arn: str) -> Dict[str, str]:
+    def get_subscription_attributes(self, arn: str) -> Optional[Dict[str, str]]:
         response = call_or_warn(
             call=lambda: self._client.get_subscription_attributes(SubscriptionArn=arn),
             report=self.report,
             api_label="sns:GetSubscriptionAttributes",
             context=f"subscription={arn}",
         )
-        return dict((response or {}).get("Attributes") or {})
+        return None if response is None else dict(response.get("Attributes") or {})
 
     def get_data_protection_policy(self, arn: str) -> Optional[str]:
         response = call_or_warn(
@@ -226,7 +234,9 @@ class LambdaClient:
         self._client = client
         self.report = report
 
-    def list_event_source_mappings(self) -> Iterator[Dict[str, Any]]:
+    def list_event_source_mappings(
+        self, on_error: Callable[[Union[ClientError, BotoCoreError]], None]
+    ) -> Iterator[Dict[str, Any]]:
         yield from paginate(
             client=self._client,
             operation="list_event_source_mappings",
@@ -234,9 +244,12 @@ class LambdaClient:
             report=self.report,
             api_label="lambda:ListEventSourceMappings",
             optional=True,
+            on_error=on_error,
         )
 
-    def list_functions(self) -> Iterator[Dict[str, Any]]:
+    def list_functions(
+        self, on_error: Callable[[Union[ClientError, BotoCoreError]], None]
+    ) -> Iterator[Dict[str, Any]]:
         yield from paginate(
             client=self._client,
             operation="list_functions",
@@ -244,9 +257,14 @@ class LambdaClient:
             report=self.report,
             api_label="lambda:ListFunctions",
             optional=True,
+            on_error=on_error,
         )
 
-    def list_async_destinations(self, function_name: str) -> Iterator[str]:
+    def list_async_destinations(
+        self,
+        function_name: str,
+        on_error: Callable[[Union[ClientError, BotoCoreError]], None],
+    ) -> Iterator[str]:
         for item in paginate(
             client=self._client,
             operation="list_function_event_invoke_configs",
@@ -254,6 +272,7 @@ class LambdaClient:
             report=self.report,
             api_label="lambda:ListFunctionEventInvokeConfigs",
             optional=True,
+            on_error=on_error,
             FunctionName=function_name,
         ):
             # Each config is for one version or alias; destinations hang off the
@@ -270,7 +289,9 @@ class EventBridgeClient:
         self._client = client
         self.report = report
 
-    def list_event_bus_arns(self) -> Iterator[str]:
+    def list_event_bus_arns(
+        self, on_error: Callable[[Union[ClientError, BotoCoreError]], None]
+    ) -> Iterator[str]:
         # boto3 has no paginator for ListEventBuses.
         token: Optional[str] = None
         pages_fetched = 0
@@ -285,6 +306,7 @@ class EventBridgeClient:
                     api_label="events:ListEventBuses",
                     optional=True,
                 )
+                on_error(e)
                 return
             pages_fetched += 1
             for bus in response.get("EventBuses") or []:
@@ -294,7 +316,11 @@ class EventBridgeClient:
             if not token:
                 return
 
-    def list_rules(self, bus_name: str) -> Iterator[Dict[str, Any]]:
+    def list_rules(
+        self,
+        bus_name: str,
+        on_error: Callable[[Union[ClientError, BotoCoreError]], None],
+    ) -> Iterator[Dict[str, Any]]:
         yield from paginate(
             client=self._client,
             operation="list_rules",
@@ -302,10 +328,16 @@ class EventBridgeClient:
             report=self.report,
             api_label="events:ListRules",
             optional=True,
+            on_error=on_error,
             EventBusName=bus_name,
         )
 
-    def list_targets(self, rule_name: str, bus_name: str) -> Iterator[RuleTarget]:
+    def list_targets(
+        self,
+        rule_name: str,
+        bus_name: str,
+        on_error: Callable[[Union[ClientError, BotoCoreError]], None],
+    ) -> Iterator[RuleTarget]:
         for target in paginate(
             client=self._client,
             operation="list_targets_by_rule",
@@ -313,15 +345,12 @@ class EventBridgeClient:
             report=self.report,
             api_label="events:ListTargetsByRule",
             optional=True,
+            on_error=on_error,
             Rule=rule_name,
             EventBusName=bus_name,
         ):
             if target.get("Arn"):
-                yield RuleTarget(
-                    arn=target["Arn"],
-                    input_path=target.get("InputPath"),
-                    reshaped="Input" in target or "InputTransformer" in target,
-                )
+                yield RuleTarget(arn=target["Arn"])
 
 
 class PipesClient:
@@ -329,7 +358,9 @@ class PipesClient:
         self._client = client
         self.report = report
 
-    def list_pipes(self) -> Iterator[EventBridgePipe]:
+    def list_pipes(
+        self, on_error: Callable[[Union[ClientError, BotoCoreError]], None]
+    ) -> Iterator[EventBridgePipe]:
         for item in paginate(
             client=self._client,
             operation="list_pipes",
@@ -337,6 +368,7 @@ class PipesClient:
             report=self.report,
             api_label="pipes:ListPipes",
             optional=True,
+            on_error=on_error,
         ):
             arn = parse_arn(item.get("Arn"))
             if arn is None or not item.get("Source") or not item.get("Target"):
@@ -369,7 +401,11 @@ class S3NotificationClient:
         self._client = client
         self.report = report
 
-    def list_bucket_names(self, region: str) -> Iterator[str]:
+    def list_bucket_names(
+        self,
+        region: str,
+        on_error: Callable[[Union[ClientError, BotoCoreError]], None],
+    ) -> Iterator[str]:
         # Notifications only target queues and topics in the bucket's own region,
         # so S3 filters to the recipe's region server-side. BucketRegion is only
         # returned when a filter or page size is sent, so the client-side check
@@ -395,6 +431,7 @@ class S3NotificationClient:
             report=self.report,
             api_label="s3:ListAllMyBuckets",
             optional=True,
+            on_error=on_error,
             **kwargs,
         ):
             bucket_region = bucket.get("BucketRegion")
@@ -407,7 +444,8 @@ class S3NotificationClient:
         operation = self._client.meta.service_model.operation_model("ListBuckets")
         return BUCKET_REGION_PARAMETER in operation.input_shape.members
 
-    def get_notifications(self, bucket: str) -> Iterator[BucketNotification]:
+    def get_notifications(self, bucket: str) -> Optional[List[BucketNotification]]:
+        """The bucket's queue and topic notifications, or None if they can't be read."""
         response = call_or_warn(
             call=lambda: self._client.get_bucket_notification_configuration(
                 Bucket=bucket
@@ -417,7 +455,8 @@ class S3NotificationClient:
             context=f"bucket={bucket}",
         )
         if response is None:
-            return
+            return None
+        notifications: List[BucketNotification] = []
         for key, arn_field in (
             ("TopicConfigurations", "TopicArn"),
             ("QueueConfigurations", "QueueArn"),
@@ -434,6 +473,9 @@ class S3NotificationClient:
                     ),
                     None,
                 )
-                yield BucketNotification(
-                    bucket=bucket, target_arn=item[arn_field], prefix=prefix
+                notifications.append(
+                    BucketNotification(
+                        bucket=bucket, target_arn=item[arn_field], prefix=prefix
+                    )
                 )
+        return notifications

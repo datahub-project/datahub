@@ -121,7 +121,7 @@
         "json": {
             "customProperties": {
                 "subscriber_protocols": "email=1, https=1, sqs=1",
-                "https_endpoint_hosts": "hooks.example.com",
+                "web_endpoint_hosts": "hooks.example.com",
                 "arn": "arn:aws:sns:us-east-1:123456789012:order-events",
                 "display_name": "Orders",
                 "fifo": "false",

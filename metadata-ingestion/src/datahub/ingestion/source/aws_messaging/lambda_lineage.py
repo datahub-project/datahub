@@ -1,15 +1,24 @@
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Union
+
+from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
 from datahub.ingestion.source.aws_messaging.clients import LambdaClient
 from datahub.ingestion.source.aws_messaging.config import AwsMessagingConfigBase
 from datahub.ingestion.source.aws_messaging.constants import (
+    ACCESS_DENIED_CODES,
     LAMBDA_JOB_ID,
     LAMBDA_PLATFORM,
     AwsService,
+    JobEdgeKind,
 )
-from datahub.ingestion.source.aws_messaging.jobs import job_urn, shared_job_workunits
+from datahub.ingestion.source.aws_messaging.jobs import (
+    JobEdgeTracker,
+    job_urn,
+    shared_job_workunits,
+)
 from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey
 from datahub.ingestion.source.aws_messaging.models import LambdaFunctionEdges
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
@@ -37,6 +46,7 @@ class LambdaLineage:
         urns: UrnBuilder,
         resolver: ResourceResolver,
         region_key: AwsRegionKey,
+        jobs: JobEdgeTracker,
     ):
         self.config = config
         self.report = report
@@ -44,6 +54,7 @@ class LambdaLineage:
         self.urns = urns
         self.resolver = resolver
         self.region_key = region_key
+        self.jobs = jobs
         self.functions: Dict[str, LambdaFunctionEdges] = {}
 
     def function(
@@ -78,8 +89,18 @@ class LambdaLineage:
             instance=self.urns.instance_for(edges.arn.account),
         )
 
+    def _edges_unknown(self, _error: Union[ClientError, BotoCoreError]) -> None:
+        self.jobs.mark_unknown(
+            LAMBDA_PLATFORM, JobEdgeKind.CONSUMES, JobEdgeKind.PRODUCES
+        )
+
+    def _outputs_unknown(self, _error: Union[ClientError, BotoCoreError]) -> None:
+        self.jobs.mark_unknown(LAMBDA_PLATFORM, JobEdgeKind.PRODUCES)
+
     def collect(self) -> None:
-        for mapping in self.client.list_event_source_mappings():
+        for mapping in self.client.list_event_source_mappings(
+            on_error=self._edges_unknown
+        ):
             source_urn = self.resolver.urn(parse_arn(mapping.get("EventSourceArn")))
             failure = (
                 (mapping.get("DestinationConfig") or {}).get("OnFailure") or {}
@@ -97,18 +118,43 @@ class LambdaLineage:
             if failure_urn:
                 edges.outputs.add(failure_urn)
         if self.config.lineage.lambda_async_destinations:
-            for function in self.client.list_functions():
-                for destination in self.client.list_async_destinations(
-                    function["FunctionName"]
-                ):
-                    urn = self.resolver.urn(parse_arn(destination))
-                    if urn is None:
-                        continue
-                    edges = self.function(
-                        function["FunctionArn"], "async invoke destination"
-                    )
-                    if edges is not None:
-                        edges.outputs.add(urn)
+            self._collect_async_destinations()
+        else:
+            # Outputs also come from async destinations, which weren't read.
+            self.jobs.mark_unknown(LAMBDA_PLATFORM, JobEdgeKind.PRODUCES)
+
+    def _collect_async_destinations(self) -> None:
+        denied = False
+
+        def failed(error: Union[ClientError, BotoCoreError]) -> None:
+            nonlocal denied
+            self._outputs_unknown(error)
+            denied = aws_error_code(error) in ACCESS_DENIED_CODES
+
+        for function in self.client.list_functions(on_error=self._outputs_unknown):
+            for destination in self.client.list_async_destinations(
+                function["FunctionName"], on_error=failed
+            ):
+                urn = self.resolver.urn(parse_arn(destination))
+                if urn is None:
+                    continue
+                edges = self.function(
+                    function["FunctionArn"], "async invoke destination"
+                )
+                if edges is not None:
+                    edges.outputs.add(urn)
+            if denied:
+                # The permission applies to every function, so asking for the
+                # rest would only repeat the same denial once per function.
+                self.report.warning(
+                    title="Async destinations not read",
+                    message=(
+                        "lambda:ListFunctionEventInvokeConfigs was denied, so no "
+                        "further functions were checked. Grant it or turn off "
+                        "lineage.lambda_async_destinations."
+                    ),
+                )
+                return
 
     def workunits(self) -> Iterable[MetadataWorkUnit]:
         for key in sorted(self.functions):
@@ -137,6 +183,7 @@ class LambdaLineage:
                 external_url=console,
             )
             self.report.lambda_functions_emitted += 1
+            self.jobs.record(str(job.urn), inputs=edges.inputs, outputs=edges.outputs)
             yield from shared_job_workunits(
                 flow=flow,
                 job=job,

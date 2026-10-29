@@ -1,8 +1,11 @@
 import json
 import re
-from typing import Callable, Dict, Iterable, List, Optional, Set
+from typing import Callable, Dict, Iterable, List, Optional, Set, Union
+
+from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
 from datahub.ingestion.source.aws_messaging.clients import (
     EventBridgeClient,
@@ -10,6 +13,7 @@ from datahub.ingestion.source.aws_messaging.clients import (
 )
 from datahub.ingestion.source.aws_messaging.config import AwsMessagingConfigBase
 from datahub.ingestion.source.aws_messaging.constants import (
+    ACCESS_DENIED_CODES,
     EVENTBRIDGE_PIPE_JOB_ID,
     EVENTBRIDGE_PIPES_PLATFORM,
     EVENTBRIDGE_PLATFORM,
@@ -17,8 +21,13 @@ from datahub.ingestion.source.aws_messaging.constants import (
     SNS_PLATFORM,
     SQS_PLATFORM,
     AwsService,
+    JobEdgeKind,
 )
-from datahub.ingestion.source.aws_messaging.jobs import job_urn, shared_job_workunits
+from datahub.ingestion.source.aws_messaging.jobs import (
+    JobEdgeTracker,
+    job_urn,
+    shared_job_workunits,
+)
 from datahub.ingestion.source.aws_messaging.lambda_lineage import LambdaLineage
 from datahub.ingestion.source.aws_messaging.lineage import (
     SchemaLookup,
@@ -34,7 +43,6 @@ from datahub.ingestion.source.aws_messaging.models import (
     Arn,
     EventBridgePipe,
     EventBridgeRule,
-    RuleTarget,
 )
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
@@ -52,20 +60,9 @@ MESSAGING_PLATFORMS: Dict[str, str] = {
 }
 
 
-SIMPLE_JSON_PATH = re.compile(r"^\$(?:\.[A-Za-z0-9_-]+)*$")
 # A template placeholder Pipes fills from the decoded SQS message body.
 BODY_PLACEHOLDER = re.compile(r"^<\$\.body((?:\.[A-Za-z0-9_-]+)+)>$")
 UNQUOTED_PLACEHOLDER = re.compile(r'(?<!")(<\$[^<>"]*>)(?!")')
-
-
-def event_path_prefix(input_path: Optional[str]) -> Optional[str]:
-    """`$.detail` -> `detail`, no InputPath -> "", anything with brackets,
-    wildcards or filters -> None."""
-    if not input_path or input_path == "$":
-        return ""
-    if not SIMPLE_JSON_PATH.match(input_path):
-        return None
-    return input_path[2:]
 
 
 def template_field_map(template: str) -> Optional[Dict[str, str]]:
@@ -117,6 +114,7 @@ class EventBridgeLineage:
         lambdas: Optional[LambdaLineage],
         region_key: AwsRegionKey,
         pipes_region_key: AwsRegionKey,
+        jobs: JobEdgeTracker,
     ):
         self.config = config
         self.report = report
@@ -128,6 +126,7 @@ class EventBridgeLineage:
         self.lambdas = lambdas
         self.region_key = region_key
         self.pipes_region_key = pipes_region_key
+        self.jobs = jobs
 
     def _job_urn(self, platform: str, flow_id: str, job_id: str, arn: Arn) -> str:
         return job_urn(
@@ -146,15 +145,48 @@ class EventBridgeLineage:
         if edges is not None:
             edges.input_jobs.add(upstream_job)
 
+    def _rule_outputs_unknown(self, _error: Union[ClientError, BotoCoreError]) -> None:
+        self.jobs.mark_unknown(EVENTBRIDGE_PLATFORM, JobEdgeKind.PRODUCES)
+
+    def _pipe_edges_unknown(self, _error: Union[ClientError, BotoCoreError]) -> None:
+        self.jobs.mark_unknown(
+            EVENTBRIDGE_PIPES_PLATFORM, JobEdgeKind.CONSUMES, JobEdgeKind.PRODUCES
+        )
+
     def list_rules(self) -> Iterable[EventBridgeRule]:
-        for bus_arn in self.events.list_event_bus_arns():
+        denied = False
+
+        def targets_failed(error: Union[ClientError, BotoCoreError]) -> None:
+            nonlocal denied
+            self._rule_outputs_unknown(error)
+            denied = aws_error_code(error) in ACCESS_DENIED_CODES
+
+        for bus_arn in self.events.list_event_bus_arns(
+            on_error=self._rule_outputs_unknown
+        ):
             bus = parse_arn(bus_arn)
             if bus is None:
                 continue
-            for rule in self.events.list_rules(bus.event_bus_name):
+            for rule in self.events.list_rules(
+                bus.event_bus_name, on_error=self._rule_outputs_unknown
+            ):
                 targets = list(
-                    self.events.list_targets(rule["Name"], bus.event_bus_name)
+                    self.events.list_targets(
+                        rule["Name"], bus.event_bus_name, on_error=targets_failed
+                    )
                 )
+                if denied:
+                    # Without targets no rule can be tied to a queue or topic,
+                    # and every further call would be denied the same way.
+                    self.report.warning(
+                        title="EventBridge rules not read",
+                        message=(
+                            "events:ListTargetsByRule was denied, so no further "
+                            "rules were checked. Grant it or turn off "
+                            "lineage.eventbridge_rules."
+                        ),
+                    )
+                    return
                 if not any(self.resolver.urn(parse_arn(t.arn)) for t in targets):
                     continue
                 yield EventBridgeRule(
@@ -173,7 +205,7 @@ class EventBridgeLineage:
             instance = self.urns.instance_for(bus.account)
             bus_urn = self.urns.event_bus_urn(bus)
             # A scheduled rule's events come from its schedule, not the bus, so
-            # it gets no bus input and no column lineage from the bus schema.
+            # it gets no bus input.
             scheduled = rule.schedule_expression is not None
             if not scheduled and bus_urn not in emitted_buses:
                 emitted_buses.add(bus_urn)
@@ -195,15 +227,10 @@ class EventBridgeLineage:
                 EVENTBRIDGE_PLATFORM, flow_id, EVENTBRIDGE_RULE_JOB_ID, bus
             )
             outputs: List[str] = []
-            fine_grained: List[FineGrainedLineageClass] = []
             for target in sorted(rule.targets, key=lambda t: t.arn):
                 urn = self.resolver.urn(parse_arn(target.arn))
                 if urn:
                     outputs.append(urn)
-                    if self.config.column_lineage and not scheduled:
-                        fine_grained.extend(
-                            self._rule_column_lineage(bus_urn, target, urn)
-                        )
                 self._link_lambda(target.arn, rule_job)
             flow = DataFlow(
                 platform=EVENTBRIDGE_PLATFORM,
@@ -229,32 +256,13 @@ class EventBridgeLineage:
                 subtype=DataJobSubTypes.EVENTBRIDGE_ROUTE.value,
             )
             self.report.eventbridge_rules_emitted += 1
+            self.jobs.record(rule_job, outputs=outputs)
             yield from shared_job_workunits(
                 flow=flow,
                 job=job,
                 inputs=[] if scheduled else [bus_urn],
                 outputs=outputs,
-                fine_grained=fine_grained,
             )
-
-    def _rule_column_lineage(
-        self, bus_urn: str, target: RuleTarget, target_urn: str
-    ) -> List[FineGrainedLineageClass]:
-        """The target gets the whole event, or the subtree at InputPath, unless the
-        rule replaces it with a constant or an input transformer. The upstream
-        schema is the event bus dataset's schema in DataHub."""
-        if target.reshaped:
-            self._skip("rule target uses an input transformer or constant input")
-            return []
-        prefix = event_path_prefix(target.input_path)
-        if prefix is None:
-            self._skip("rule target InputPath is not a simple path")
-            return []
-        return self._mapped(
-            bus_urn,
-            target_urn,
-            lambda path: f"{prefix}.{path}" if prefix else path,
-        )
 
     def _skip(self, reason: str) -> None:
         self.report.column_lineage_skipped[reason] += 1
@@ -283,7 +291,7 @@ class EventBridgeLineage:
         return lineages
 
     def pipe_workunits(self) -> Iterable[MetadataWorkUnit]:
-        for pipe in self.pipes.list_pipes():
+        for pipe in self.pipes.list_pipes(on_error=self._pipe_edges_unknown):
             yield from self._pipe_workunits(pipe)
 
     def _pipe_workunits(self, pipe: EventBridgePipe) -> Iterable[MetadataWorkUnit]:
@@ -321,6 +329,11 @@ class EventBridgeLineage:
             subtype=DataJobSubTypes.EVENTBRIDGE_PIPE_STEP.value,
         )
         self.report.eventbridge_pipes_emitted += 1
+        self.jobs.record(
+            pipe_job,
+            inputs=[source_urn] if source_urn else [],
+            outputs=[target_urn] if target_urn else [],
+        )
         yield from shared_job_workunits(
             flow=flow,
             job=job,

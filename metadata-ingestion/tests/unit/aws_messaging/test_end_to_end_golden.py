@@ -9,6 +9,7 @@ import boto3
 import pytest
 import time_machine
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws_messaging.sns_source import SnsSource
@@ -165,7 +166,8 @@ def _seed() -> Dict[str, str]:
         SchemaDefinition=json.dumps(ORDER_SCHEMA),
     )
     return {
-        "bucket": f"urn:li:dataset:(urn:li:dataPlatform:s3,{BUCKET_NAME},PROD)",
+        # A table folder the s3 source would emit for s3://bucket/{table}/*.
+        "bucket": f"urn:li:dataset:(urn:li:dataPlatform:s3,{BUCKET_NAME}/orders,PROD)",
         "firehose": (
             "urn:li:dataJob:(urn:li:dataFlow:(kinesis-firehose,"
             f"{ACCOUNT}.{REGION}.{STREAM_NAME},PROD),delivery)"
@@ -178,6 +180,13 @@ def _graph(
 ) -> MagicMock:
     graph = MagicMock()
     graph.exists.side_effect = lambda urn: urn in existing.values()
+    graph.get_urns_by_filter.side_effect = lambda **kwargs: iter(
+        urn
+        for urn in existing.values()
+        if urn.startswith(kwargs["extraFilters"][0]["values"][0])
+    )
+    graph.get_related_entities.return_value = []
+    graph.get_aspect.return_value = None
     graph.get_schema_metadata.side_effect = schemas.get
     return graph
 
@@ -190,7 +199,8 @@ def _queue_schemas(existing: Dict[str, str]) -> Dict[str, SchemaMetadataClass]:
     return {
         workunit.get_urn(): workunit.metadata.aspect
         for workunit in source.get_workunits()
-        if isinstance(workunit.metadata.aspect, SchemaMetadataClass)
+        if isinstance(workunit.metadata, MetadataChangeProposalWrapper)
+        and isinstance(workunit.metadata.aspect, SchemaMetadataClass)
     }
 
 
@@ -200,7 +210,7 @@ def _sqs_config() -> Dict[str, Any]:
             "enabled": True,
             "queue_schema_map": {QUEUE_NAME: SCHEMA_NAME, DLQ_NAME: SCHEMA_NAME},
         },
-        lineage={"s3_notifications": True},
+        lineage={"s3_notifications": True, "lambda_async_destinations": True},
     )
 
 
@@ -211,7 +221,8 @@ def _sns_config() -> Dict[str, Any]:
             "enabled": True,
             "topic_schema_map": {TOPIC_NAME: SCHEMA_NAME},
         },
-        lineage={"s3_notifications": True},
+        include_subscription_attributes=True,
+        lineage={"s3_notifications": True, "lambda_async_destinations": True},
     )
 
 

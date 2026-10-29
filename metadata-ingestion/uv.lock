@@ -1523,9 +1523,6 @@ snowplow = [
 sns = [
     { name = "boto3" },
     { name = "botocore" },
-    { name = "grpcio" },
-    { name = "grpcio-tools" },
-    { name = "networkx" },
 ]
 sql-parser = [
     { name = "sqlglot", extra = ["c"] },
@@ -1547,9 +1544,6 @@ sqlalchemy = [
 sqs = [
     { name = "boto3" },
     { name = "botocore" },
-    { name = "grpcio" },
-    { name = "grpcio-tools" },
-    { name = "networkx" },
 ]
 starburst-trino-usage = [
     { name = "cachetools" },
@@ -2140,15 +2134,11 @@ requires-dist = [
     { name = "grpcio", marker = "extra == 'docs'", specifier = ">=1.84.0,<2.0.0" },
     { name = "grpcio", marker = "extra == 'kafka'", specifier = ">=1.84.0,<2.0.0" },
     { name = "grpcio", marker = "extra == 'kinesis'", specifier = ">=1.84.0,<2.0.0" },
-    { name = "grpcio", marker = "extra == 'sns'", specifier = ">=1.84.0,<2.0.0" },
-    { name = "grpcio", marker = "extra == 'sqs'", specifier = ">=1.84.0,<2.0.0" },
     { name = "grpcio-tools", marker = "extra == 'all'", specifier = ">=1.44.0,<2.0.0" },
     { name = "grpcio-tools", marker = "extra == 'dev'", specifier = ">=1.44.0,<2.0.0" },
     { name = "grpcio-tools", marker = "extra == 'docs'", specifier = ">=1.44.0,<2.0.0" },
     { name = "grpcio-tools", marker = "extra == 'kafka'", specifier = ">=1.44.0,<2.0.0" },
     { name = "grpcio-tools", marker = "extra == 'kinesis'", specifier = ">=1.44.0,<2.0.0" },
-    { name = "grpcio-tools", marker = "extra == 'sns'", specifier = ">=1.44.0,<2.0.0" },
-    { name = "grpcio-tools", marker = "extra == 'sqs'", specifier = ">=1.44.0,<2.0.0" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64' and extra == 'all'", specifier = ">=2.11.20,<3.0.0" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64' and extra == 'hana'", specifier = ">=2.11.20,<3.0.0" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64' and extra == 'integration-tests'", specifier = ">=2.11.20,<3.0.0" },
@@ -2279,8 +2269,6 @@ requires-dist = [
     { name = "networkx", marker = "extra == 'docs'", specifier = ">=2.6.2,<4.0.0" },
     { name = "networkx", marker = "extra == 'kafka'", specifier = ">=2.6.2,<4.0.0" },
     { name = "networkx", marker = "extra == 'kinesis'", specifier = ">=2.6.2,<4.0.0" },
-    { name = "networkx", marker = "extra == 'sns'", specifier = ">=2.6.2,<4.0.0" },
-    { name = "networkx", marker = "extra == 'sqs'", specifier = ">=2.6.2,<4.0.0" },
     { name = "nltk", marker = "extra == 'confluence'", specifier = "!=3.10.1" },
     { name = "nltk", marker = "extra == 'datahub-documents'", specifier = "!=3.10.1" },
     { name = "nltk", marker = "extra == 'dev'", specifier = "!=3.10.1" },
