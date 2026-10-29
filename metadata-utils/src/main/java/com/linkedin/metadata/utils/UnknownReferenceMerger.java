@@ -1,5 +1,6 @@
 package com.linkedin.metadata.utils;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.ArrayDataSchema;
@@ -10,8 +11,10 @@ import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -69,6 +72,54 @@ public final class UnknownReferenceMerger {
     final Merge merge = new Merge(entityRegistry);
     merge.merge(request.data(), stored.data(), request.schema());
     return new MergeResult(merge.preserved, Set.of());
+  }
+
+  /**
+   * The index of the first request element equal in value to {@code element}, or -1. The stored row
+   * is parsed from JSON and the request may have been rebuilt (e.g. by a patch template), so the
+   * same number can be an Integer on one side and a Long on the other; {@code equals} would treat
+   * them as different and keep a hidden element twice.
+   */
+  private static int indexOfValue(@Nonnull final DataList request, @Nonnull final Object element) {
+    for (int i = 0; i < request.size(); i++) {
+      if (sameValue(request.get(i), element)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  @VisibleForTesting
+  static boolean sameValue(@Nullable final Object a, @Nullable final Object b) {
+    if (a instanceof Number x && b instanceof Number y) {
+      if (!Double.isFinite(x.doubleValue()) || !Double.isFinite(y.doubleValue())) {
+        return Double.compare(x.doubleValue(), y.doubleValue()) == 0;
+      }
+      return new BigDecimal(x.toString()).compareTo(new BigDecimal(y.toString())) == 0;
+    }
+    if (a instanceof DataMap x && b instanceof DataMap y) {
+      if (!x.keySet().equals(y.keySet())) {
+        return false;
+      }
+      for (Map.Entry<String, Object> entry : x.entrySet()) {
+        if (!sameValue(entry.getValue(), y.get(entry.getKey()))) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (a instanceof DataList x && b instanceof DataList y) {
+      if (x.size() != y.size()) {
+        return false;
+      }
+      for (int i = 0; i < x.size(); i++) {
+        if (!sameValue(x.get(i), y.get(i))) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return Objects.equals(a, b);
   }
 
   private static final class Merge {
@@ -166,14 +217,14 @@ public final class UnknownReferenceMerger {
         if (UnknownEntityUrnStripper.wouldRemove(element, items, entityRegistry)) {
           // Readers never saw it, so the client can't have meant to remove it: put it back at its
           // stored position.
-          if (!request.contains(element)) {
+          if (indexOfValue(request, element) < 0) {
             request.add(Math.min(i, request.size()), UnknownEntityUrnStripper.copyOf(element));
             preserved++;
           }
         } else {
           // Readers saw it without its unknown references; if the client kept it, keep them too.
           final Object seen = UnknownEntityUrnStripper.strippedCopy(element, items, entityRegistry);
-          int index = request.indexOf(seen);
+          int index = indexOfValue(request, seen);
           if (index < 0) {
             // The client may have edited fields of the element it saw (e.g. an owner's type).
             index = indexBySeenUrns(request, stored, seen, items);
