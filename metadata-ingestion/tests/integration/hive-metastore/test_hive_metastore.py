@@ -143,6 +143,7 @@ def test_hive_metastore_ingest(
             / f"hive_metastore_mces_golden{test_suffix}.json",
             ignore_paths=ignore_paths,
             ignore_paths_v2=ignore_paths_v2,
+            golden_mces_as_mcps=True,
         )
 
 

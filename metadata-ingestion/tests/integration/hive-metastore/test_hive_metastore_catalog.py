@@ -273,6 +273,7 @@ def test_ingest_default_catalog(
         / f"hms3/{mce_out_file.replace('.json', '_golden.json')}",
         ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
+        golden_mces_as_mcps=True,
     )
 
 
@@ -320,6 +321,7 @@ def test_ingest_spark_catalog(loaded_hms3, test_resources_dir, pytestconfig, tmp
         / f"hms3/{mce_out_file.replace('.json', '_golden.json')}",
         ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
+        golden_mces_as_mcps=True,
     )
 
 
@@ -369,6 +371,7 @@ def test_ingest_spark_catalog_with_catalog_ids(
         / f"hms3/{mce_out_file.replace('.json', '_golden.json')}",
         ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
+        golden_mces_as_mcps=True,
     )
 
 

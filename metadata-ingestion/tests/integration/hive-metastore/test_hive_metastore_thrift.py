@@ -142,6 +142,7 @@ def test_hive_thrift_ingest(
         output_path=events_file,
         golden_path=test_resources_dir / f"hive_thrift_mces_golden{test_suffix}.json",
         ignore_paths_v2=ignore_paths_v2,
+        golden_mces_as_mcps=True,
     )
 
 
