@@ -90,4 +90,6 @@ def test_vertica_ingest_with_db(vertica_runner, pytestconfig, tmp_path):
         ignore_paths=ignore_paths,
         output_path=tmp_path / "vertica.json",
         golden_path=test_resources_dir / "vertica_mces_with_db_golden.json",
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )

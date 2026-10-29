@@ -43,8 +43,6 @@ from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.ingestion.source.sql.vertica_inspector import VerticaInspector
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
@@ -319,10 +317,6 @@ class VerticaSource(SQLAlchemySource):
                             self.config.env,
                         )
 
-                        dataset_snapshot = DatasetSnapshot(
-                            urn=dataset_urn, aspects=[StatusClass(removed=False)]
-                        )
-
                         lineage_info = self._get_upstream_lineage_info(
                             dataset_urn,
                             _as_vertica_inspector(inspector),
@@ -333,7 +327,7 @@ class VerticaSource(SQLAlchemySource):
                         if lineage_info is not None:
                             # upstream_column_props = []
                             yield MetadataChangeProposalWrapper(
-                                entityUrn=dataset_snapshot.urn,
+                                entityUrn=dataset_urn,
                                 aspect=lineage_info,
                             ).as_workunit()
 
@@ -460,17 +454,13 @@ class VerticaSource(SQLAlchemySource):
                             self.config.env,
                         )
 
-                        dataset_snapshot = DatasetSnapshot(
-                            urn=dataset_urn, aspects=[StatusClass(removed=False)]
-                        )
-
                         lineage_info = self._get_upstream_lineage_info_projection(
                             dataset_urn, inspector, projection, schema
                         )
 
                         if lineage_info is not None:
                             yield MetadataChangeProposalWrapper(
-                                entityUrn=dataset_snapshot.urn, aspect=lineage_info
+                                entityUrn=dataset_urn, aspect=lineage_info
                             ).as_workunit()
 
                     except Exception as e:
@@ -497,17 +487,13 @@ class VerticaSource(SQLAlchemySource):
         schema: str,
         projection: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         columns = inspector.get_projection_columns(projection, schema)
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
             self.config.platform_instance,
             self.config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[StatusClass(removed=False)],
         )
         description, properties, location_urn = self.get_projection_properties(
             inspector, schema, projection
@@ -518,7 +504,6 @@ class VerticaSource(SQLAlchemySource):
             description=description,
             customProperties=properties,
         )
-        dataset_snapshot.aspects.append(dataset_properties)
 
         projection_owner = inspector.get_projection_owner(projection, schema)
         yield from add_owner_to_entity_wu(
@@ -546,11 +531,14 @@ class VerticaSource(SQLAlchemySource):
             foreign_keys,
             schema_fields,
         )
-        dataset_snapshot.aspects.append(schema_metadata)
         db_name = self.get_db_name(inspector)
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        yield SqlWorkUnit(id=dataset_name, mce=mce)
+        # Between the container and DataPlatformInstance/SubTypes, the same per-entity
+        # order as tables and views.
+        for aspect in (StatusClass(removed=False), dataset_properties, schema_metadata):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=aspect
+            ).as_workunit()
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
@@ -712,7 +700,7 @@ class VerticaSource(SQLAlchemySource):
         schema: str,
         table: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         """
         To fetch ml models related information of ml_model from vertica db
         Args:
@@ -723,7 +711,7 @@ class VerticaSource(SQLAlchemySource):
             sql_config (SQLCommonConfig)
 
         Returns:
-            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
+            Iterable[MetadataWorkUnit]: [description]
         """
         columns: List[Dict[Any, Any]] = []
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -731,10 +719,6 @@ class VerticaSource(SQLAlchemySource):
             dataset_name,
             self.config.platform_instance,
             self.config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[StatusClass(removed=False)],
         )
         description, properties, location = self.get_model_properties(
             inspector, schema, table
@@ -745,7 +729,6 @@ class VerticaSource(SQLAlchemySource):
             description=description,
             customProperties=properties,
         )
-        dataset_snapshot.aspects.append(dataset_properties)
 
         schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
 
@@ -757,12 +740,15 @@ class VerticaSource(SQLAlchemySource):
             schema_fields,  # type: ignore
         )
 
-        dataset_snapshot.aspects.append(schema_metadata)
         db_name = self.get_db_name(inspector)
 
         yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        yield SqlWorkUnit(id=dataset_name, mce=mce)
+        # Between the container and DataPlatformInstance/SubTypes, the same per-entity
+        # order as tables and views.
+        for aspect in (StatusClass(removed=False), dataset_properties, schema_metadata):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=aspect
+            ).as_workunit()
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
