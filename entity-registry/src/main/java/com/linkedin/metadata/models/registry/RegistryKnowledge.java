@@ -1,9 +1,15 @@
 package com.linkedin.metadata.models.registry;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.SystemMetadata;
 import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Optional;
+import java.util.function.Predicate;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -86,27 +92,66 @@ public final class RegistryKnowledge {
   }
 
   /**
-   * True if the urn's entity type, or the entity type of any urn in its key (e.g. the monitored
-   * entity in {@code urn:li:monitor:(urn:li:dataset:(...),id)}), is not in the registry. Use it for
-   * references, where an entity that can't be resolved can't be shown or linked either.
+   * True if the urn's entity type, or that of a urn its key holds in a urn-typed key field (e.g.
+   * the monitored entity in {@code urn:li:monitor:(urn:li:dataset:(...),id)}), is not in the
+   * registry. Use it for references, where an entity that can't be resolved can't be shown or
+   * linked either.
+   *
+   * <p>Only key fields the key aspect types as a urn are references, as in key validation: a string
+   * field that merely holds urn-shaped text (e.g. a dataset name) is not. A nested type the
+   * registry doesn't know counts only when {@code newerVersionType} accepts it, so a nested type no
+   * newer version registered (e.g. a typo) is left to validation, as an outer one is.
    */
   public static boolean referencesUnknownEntityType(
-      @Nonnull final EntityRegistry registry, @Nonnull final Urn urn) {
-    if (registry.findEntitySpec(urn.getEntityType()).isEmpty()) {
-      return true;
+      @Nonnull final EntityRegistry registry,
+      @Nonnull final Urn urn,
+      @Nonnull final Predicate<String> newerVersionType) {
+    return registry
+        .findEntitySpec(urn.getEntityType())
+        .map(entitySpec -> nestsUnknownEntityType(registry, urn, entitySpec, newerVersionType))
+        .orElse(true);
+  }
+
+  private static boolean nestsUnknownEntityType(
+      @Nonnull final EntityRegistry registry,
+      @Nonnull final Urn urn,
+      @Nonnull final EntitySpec entitySpec,
+      @Nonnull final Predicate<String> newerVersionType) {
+    final List<RecordDataSchema.Field> keyFields =
+        entitySpec.getKeyAspectSpec().getPegasusSchema().getFields();
+    final List<String> parts = urn.getEntityKey().getParts();
+    // A key that doesn't match its schema is malformed; validation reports it.
+    if (parts.size() != keyFields.size()) {
+      return false;
     }
-    for (String part : urn.getEntityKey().getParts()) {
-      if (part.startsWith(URN_PREFIX)) {
-        try {
-          if (referencesUnknownEntityType(registry, Urn.createFromString(part))) {
-            return true;
-          }
-        } catch (URISyntaxException e) {
-          // A key part that merely looks like an urn is not a reference.
-        }
+    for (int i = 0; i < parts.size(); i++) {
+      if (!isUrnTyped(keyFields.get(i)) || !parts.get(i).startsWith(URN_PREFIX)) {
+        continue;
+      }
+      final Urn nested;
+      try {
+        nested = Urn.createFromString(parts.get(i));
+      } catch (URISyntaxException e) {
+        // Malformed; validation reports it.
+        continue;
+      }
+      final Optional<EntitySpec> nestedSpec = registry.findEntitySpec(nested.getEntityType());
+      if (nestedSpec.isEmpty()
+          ? newerVersionType.test(nested.getEntityType())
+          : nestsUnknownEntityType(registry, nested, nestedSpec.get(), newerVersionType)) {
+        return true;
       }
     }
     return false;
+  }
+
+  /**
+   * A urn typeref (e.g. {@code Urn}, {@code DatasetUrn}), as {@code EntityRegistryUrnValidator}
+   * reads it.
+   */
+  private static boolean isUrnTyped(@Nonnull final RecordDataSchema.Field field) {
+    return field.getType() instanceof TyperefDataSchema
+        && ((TyperefDataSchema) field.getType()).getName().endsWith("Urn");
   }
 
   /**

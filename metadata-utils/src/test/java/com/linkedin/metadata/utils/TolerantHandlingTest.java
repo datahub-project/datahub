@@ -16,6 +16,9 @@ import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -41,11 +44,14 @@ public class TolerantHandlingTest {
   public void setUp() {
     UnknownDataGuard.resetLogWindows();
     status = mock(AspectSpec.class);
-    EntitySpec dataset = mock(EntitySpec.class);
+    EntitySpec dataset = withKey(mock(EntitySpec.class), new DatasetKey().schema());
     when(dataset.getAspectSpec("status")).thenReturn(status);
+    EntitySpec schemaField = withKey(mock(EntitySpec.class), new SchemaFieldKey().schema());
+    when(schemaField.getAspectSpec("status")).thenReturn(status);
     registry = mock(EntityRegistry.class);
     when(registry.findEntitySpec(anyString())).thenReturn(Optional.empty());
     when(registry.findEntitySpec("dataset")).thenReturn(Optional.of(dataset));
+    when(registry.findEntitySpec("schemaField")).thenReturn(Optional.of(schemaField));
     when(registry.findAspectSpec(anyString(), anyString())).thenCallRealMethod();
   }
 
@@ -66,7 +72,7 @@ public class TolerantHandlingTest {
             site,
             registry,
             Optional.empty(),
-            UrnUtils.getUrn("urn:li:dataset:(urn:li:entityFromNewerBuild:x,col)"),
+            UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)"),
             "dataset",
             "status"));
   }
@@ -89,7 +95,7 @@ public class TolerantHandlingTest {
     assertFalse(handling.isUnknownUrn(registry, "urn:li:dataset:x", "status"));
     assertTrue(
         handling.referencesUnknownEntityType(
-            registry, UrnUtils.getUrn("urn:li:dataset:(urn:li:entityFromNewerBuild:x,col)")));
+            registry, UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)")));
     assertTrue(handling.toleratesUnknownEntityAspect());
     assertTrue(handling.toleratesUnknownEnum());
   }
@@ -100,7 +106,7 @@ public class TolerantHandlingTest {
     for (String urn :
         new String[] {
           "urn:li:entityFromNewerBuild:x",
-          "urn:li:dataset:(urn:li:entityFromNewerBuild:x,col)",
+          "urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)",
           "urn:li:dataset:x"
         }) {
       assertEquals(
@@ -176,6 +182,27 @@ public class TolerantHandlingTest {
     assertTrue(entityAspectOnly.toleratesUnknownData());
   }
 
+  @Test
+  public void testNestedKeyReferencesFollowTheKeySchemaAndTheNewerVersionsTypes() {
+    UnknownDataHandling rows = TolerantHandling.of(true, true, "entityFromNewerBuild"::equals);
+
+    // A newer version's type in a urn-typed key field (schemaField.parent): its row is skipped.
+    String newerParent = "urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)";
+    assertTrue(rows.isUnknownUrn(registry, newerParent, "status"));
+    assertFalse(rows.admitUrn(site, registry, Optional.empty(), newerParent, "status"));
+
+    // Urn-shaped text in a string key field (datasetKey.name) is not a reference.
+    String urnShapedName =
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,urn:li:entityFromNewerBuild:x,PROD)";
+    assertFalse(rows.isUnknownUrn(registry, urnShapedName, "status"));
+    assertTrue(rows.admitUrn(site, registry, Optional.empty(), urnShapedName, "status"));
+
+    // A nested type no newer version registered (e.g. a typo) is left to validation.
+    String typoParent = "urn:li:schemaField:(urn:li:datsaet:x,col)";
+    assertFalse(rows.isUnknownUrn(registry, typoParent, "status"));
+    assertTrue(rows.admitUrn(site, registry, Optional.empty(), typoParent, "status"));
+  }
+
   private Ownership ownership(final String owner) {
     when(registry.findEntitySpec("corpuser")).thenReturn(Optional.of(mock(EntitySpec.class)));
     return new Ownership()
@@ -208,5 +235,12 @@ public class TolerantHandlingTest {
     // Unknown aspects of known types are still tolerated.
     assertFalse(
         rows.admit(site, registry, Optional.empty(), "dataset", "aspectFromNewerBuild", "urn"));
+  }
+
+  private static EntitySpec withKey(EntitySpec entitySpec, RecordDataSchema keySchema) {
+    AspectSpec key = mock(AspectSpec.class);
+    when(key.getPegasusSchema()).thenReturn(keySchema);
+    when(entitySpec.getKeyAspectSpec()).thenReturn(key);
+    return entitySpec;
   }
 }

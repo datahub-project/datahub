@@ -13,6 +13,9 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.RecordDataSchema;
+import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -20,12 +23,15 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 import org.slf4j.Logger;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class UnknownDataGuardTest {
+
+  private static final Predicate<String> ANY_TYPE = entityType -> true;
 
   private EntityRegistry registry;
   private MetricUtils metricUtils;
@@ -46,7 +52,7 @@ public class UnknownDataGuardTest {
   @BeforeMethod
   public void setUp() {
     UnknownDataGuard.resetLogWindows();
-    EntitySpec dataset = mock(EntitySpec.class);
+    EntitySpec dataset = withKey(mock(EntitySpec.class), new DatasetKey().schema());
     when(dataset.getAspectSpec("status")).thenReturn(mock(AspectSpec.class));
     registry = mock(EntityRegistry.class);
     when(registry.findEntitySpec(anyString())).thenReturn(Optional.empty());
@@ -62,7 +68,7 @@ public class UnknownDataGuardTest {
     assertTrue(guard.admit(registry, Optional.of(metricUtils), "dataset", "status", "urn"));
     assertTrue(guard.admit(registry, Optional.of(metricUtils), "dataset", null, "urn"));
     assertTrue(guard.admit(registry, Optional.of(metricUtils), null, "status", "urn"));
-    assertTrue(guard.admitUrn(registry, Optional.of(metricUtils), "not-a-urn", "status"));
+    assertTrue(guard.admitUrn(registry, Optional.of(metricUtils), "not-a-urn", "status", ANY_TYPE));
 
     verify(metricUtils, never()).increment(any(Class.class), anyString(), anyDouble());
     verifyNoMoreInteractions(log);
@@ -75,7 +81,8 @@ public class UnknownDataGuardTest {
           guard.admit(registry, Optional.of(metricUtils), "dataset", "aspectFromNewerBuild", i));
     }
     assertFalse(
-        guard.admitUrn(registry, Optional.of(metricUtils), "urn:li:entityFromNewerBuild:x", null));
+        guard.admitUrn(
+            registry, Optional.of(metricUtils), "urn:li:entityFromNewerBuild:x", null, ANY_TYPE));
 
     verify(metricUtils, times(6))
         .increment(UnknownDataGuardTest.class, UnknownDataGuard.SKIPPED_METRIC, 1);
@@ -125,7 +132,7 @@ public class UnknownDataGuardTest {
 
   @Test
   public void testAdmitEventSkipsUrnsWhoseKeyReferencesAnUnknownType() {
-    EntitySpec schemaField = mock(EntitySpec.class);
+    EntitySpec schemaField = withKey(mock(EntitySpec.class), new SchemaFieldKey().schema());
     when(schemaField.getAspectSpec("status")).thenReturn(mock(AspectSpec.class));
     when(registry.findEntitySpec("schemaField")).thenReturn(Optional.of(schemaField));
 
@@ -135,20 +142,22 @@ public class UnknownDataGuardTest {
             Optional.of(metricUtils),
             UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)"),
             "schemaField",
-            "status"));
+            "status",
+            ANY_TYPE));
     assertTrue(
         guard.admitEvent(
             registry,
             Optional.of(metricUtils),
             UrnUtils.getUrn("urn:li:schemaField:(urn:li:dataset:d,col)"),
             "schemaField",
-            "status"));
+            "status",
+            ANY_TYPE));
     verify(metricUtils).increment(UnknownDataGuardTest.class, UnknownDataGuard.SKIPPED_METRIC, 1);
   }
 
   @Test
   public void testAdmitUrnAlsoChecksTheKey() {
-    EntitySpec schemaField = mock(EntitySpec.class);
+    EntitySpec schemaField = withKey(mock(EntitySpec.class), new SchemaFieldKey().schema());
     when(schemaField.getAspectSpec("status")).thenReturn(mock(AspectSpec.class));
     when(registry.findEntitySpec("schemaField")).thenReturn(Optional.of(schemaField));
 
@@ -157,13 +166,22 @@ public class UnknownDataGuardTest {
             registry,
             Optional.of(metricUtils),
             "urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)",
-            "status"));
+            "status",
+            ANY_TYPE));
     assertTrue(
         guard.admitUrn(
             registry,
             Optional.of(metricUtils),
             "urn:li:schemaField:(urn:li:dataset:d,col)",
-            "status"));
-    assertTrue(guard.admitUrn(registry, Optional.of(metricUtils), "not-a-urn", "status"));
+            "status",
+            ANY_TYPE));
+    assertTrue(guard.admitUrn(registry, Optional.of(metricUtils), "not-a-urn", "status", ANY_TYPE));
+  }
+
+  private static EntitySpec withKey(EntitySpec entitySpec, RecordDataSchema keySchema) {
+    AspectSpec key = mock(AspectSpec.class);
+    when(key.getPegasusSchema()).thenReturn(keySchema);
+    when(entitySpec.getKeyAspectSpec()).thenReturn(key);
+    return entitySpec;
   }
 }

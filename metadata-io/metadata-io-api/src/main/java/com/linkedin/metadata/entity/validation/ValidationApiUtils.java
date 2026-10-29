@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.EntityRegistryUrnValidator;
@@ -197,11 +198,14 @@ public class ValidationApiUtils {
   /**
    * While unknown data is tolerated, rejects a urn whose key nests an entity type this registry
    * doesn't know (e.g. a schema field of a newer version's entity type) as a ValidationException,
-   * like an unknown entity type, not as the IllegalArgumentException batch building skips.
+   * like an unknown entity type, not as the IllegalArgumentException batch building skips. Any
+   * unknown nested type is rejected, whether or not a newer version registered it, as an unknown
+   * outer type is.
    */
   public static void validateKeyEntityTypes(
       @Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
-    if (handling().referencesUnknownEntityType(entityRegistry, urn)) {
+    if (handling().toleratesUnknownEntityAspect()
+        && RegistryKnowledge.referencesUnknownEntityType(entityRegistry, urn, entityType -> true)) {
       throw new ValidationException(
           String.format("Urn %s nests an entity type this version doesn't know", urn));
     }

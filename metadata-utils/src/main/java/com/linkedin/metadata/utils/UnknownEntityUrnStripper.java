@@ -263,8 +263,9 @@ public final class UnknownEntityUrnStripper {
 
     private boolean nestsUnknownEntityType(@Nonnull final String urn) {
       try {
+        // Any type the registry doesn't know, as isUnknownType decides for the reference itself.
         return RegistryKnowledge.referencesUnknownEntityType(
-            entityRegistry, Urn.createFromString(urn));
+            entityRegistry, Urn.createFromString(urn), entityType -> true);
       } catch (URISyntaxException e) {
         // Malformed urns are left for validation to reject.
         return false;

@@ -12,6 +12,10 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.key.DatasetKey;
+import com.linkedin.metadata.key.SchemaFieldKey;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import java.util.List;
@@ -26,6 +30,8 @@ public class UnknownEntityUrnStripperTest {
 
   private static final String KNOWN = "urn:li:dataset:d";
   private static final String UNKNOWN = "urn:li:entityFromNewerBuild:x";
+  private static final String PLATFORM = "urn:li:dataPlatform:kafka";
+  private static final String DATASET = "urn:li:dataset:(" + PLATFORM + ",orders,PROD)";
 
   private static final RecordDataSchema SCHEMA =
       (RecordDataSchema)
@@ -80,8 +86,8 @@ public class UnknownEntityUrnStripperTest {
 
   @Test
   public void testUrnsNestingAnUnknownEntityTypeInTheirKeyAreRemoved() {
-    // Nested urns start a key part, at any depth; text inside a key part that merely contains
-    // "urn:li:" is not a reference.
+    // Nested urns are the urn-typed key fields, at any depth; urn-shaped text in a string key
+    // field (e.g. a dataset name) is not a reference.
     DataMap data =
         new DataMap(
             Map.of(
@@ -90,15 +96,14 @@ public class UnknownEntityUrnStripperTest {
                 "byName",
                 new DataMap(
                     Map.of(
-                        "known", "urn:li:dataset:(urn:li:dataset:(urn:li:dataset:d,a),col)",
-                        "deep",
-                            "urn:li:dataset:(urn:li:dataset:(urn:li:entityFromNewerBuild:x,a),col)",
-                        "second", "urn:li:dataset:(urn:li:dataset:d,urn:li:entityFromNewerBuild:x)",
-                        "text",
-                            "urn:li:dataset:(urn:li:dataset:d,see urn:li:entityFromNewerBuild:x)"))));
+                        "known", "urn:li:schemaField:(urn:li:schemaField:(" + DATASET + ",a),col)",
+                        "deep", "urn:li:schemaField:(urn:li:schemaField:(" + UNKNOWN + ",a),col)",
+                        "urnShapedName", "urn:li:dataset:(" + PLATFORM + "," + UNKNOWN + ",PROD)",
+                        "text", "urn:li:dataset:(" + PLATFORM + ",see " + UNKNOWN + ",PROD)"))));
 
-    assertEquals(UnknownEntityUrnStripper.strip(record(data), registry()), 2);
-    assertEquals(data.getDataMap("byName").keySet(), java.util.Set.of("known", "text"));
+    assertEquals(UnknownEntityUrnStripper.strip(record(data), registry()), 1);
+    assertEquals(
+        data.getDataMap("byName").keySet(), java.util.Set.of("known", "urnShapedName", "text"));
   }
 
   @Test
@@ -126,10 +131,10 @@ public class UnknownEntityUrnStripperTest {
 
   @Test
   public void testUrnNestingAnUnknownTypeInItsKeyIsRemoved() {
-    // A known outer type (here dataset) whose key references an entity type only a newer version
+    // A known outer type whose urn-typed key field references an entity type only a newer version
     // has, e.g. a schema field or monitor of a new entity type.
-    String nestedUnknown = "urn:li:dataset:(" + UNKNOWN + ",col)";
-    String nestedKnown = "urn:li:dataset:(" + KNOWN + ",col)";
+    String nestedUnknown = "urn:li:schemaField:(" + UNKNOWN + ",col)";
+    String nestedKnown = "urn:li:schemaField:(" + DATASET + ",col)";
     DataMap data =
         new DataMap(
             Map.of(
@@ -143,8 +148,8 @@ public class UnknownEntityUrnStripperTest {
   }
 
   @Test
-  public void testNestedUrnsAreTheKeyPartsTheUrnGrammarDefines() {
-    // Nested urns are found the way the urn parser splits a key, not by searching the text.
+  public void testNestedUrnsAreTheUrnTypedKeyFields() {
+    // Nested urns are found by the key's schema, not by searching the text.
     DataMap data =
         new DataMap(
             Map.of(
@@ -153,16 +158,16 @@ public class UnknownEntityUrnStripperTest {
                 "byName",
                 new DataMap(
                     Map.of(
-                        // Text inside a key part is not a nested urn, whatever it contains.
-                        "fieldText", "urn:li:dataset:(" + KNOWN + ",f(" + UNKNOWN + "))",
-                        // A single-part key that is itself a urn is a nested urn.
-                        "singlePart", "urn:li:dataset:" + UNKNOWN,
-                        "singlePartInTuple", "urn:li:dataset:(urn:li:dataset:" + UNKNOWN + ",col)",
-                        // An empty entity type in one part doesn't hide an unknown one later.
-                        "afterMalformed", "urn:li:dataset:(urn:li::x," + UNKNOWN + ")"))));
+                        // Text inside a string key field is not a nested urn, whatever it holds.
+                        "fieldText", "urn:li:schemaField:(" + DATASET + ",f(" + UNKNOWN + "))",
+                        // The urn-typed field is, at any depth.
+                        "parent", "urn:li:schemaField:(" + UNKNOWN + ",col)",
+                        // A malformed nested urn is left for validation to reject.
+                        "malformedParent", "urn:li:schemaField:(urn:li::x,col)"))));
 
-    assertEquals(UnknownEntityUrnStripper.strip(record(data), registry()), 3);
-    assertEquals(data.getDataMap("byName").keySet(), java.util.Set.of("fieldText"));
+    assertEquals(UnknownEntityUrnStripper.strip(record(data), registry()), 1);
+    assertEquals(
+        data.getDataMap("byName").keySet(), java.util.Set.of("fieldText", "malformedParent"));
   }
 
   private static RecordTemplate record(DataMap data) {
@@ -170,9 +175,22 @@ public class UnknownEntityUrnStripperTest {
   }
 
   private static EntityRegistry registry() {
+    Optional<EntitySpec> dataset = entity(new DatasetKey().schema());
+    Optional<EntitySpec> schemaField = entity(new SchemaFieldKey().schema());
+    Optional<EntitySpec> dataPlatform = entity(new DataPlatformKey().schema());
     EntityRegistry registry = mock(EntityRegistry.class);
     when(registry.findEntitySpec(anyString())).thenReturn(Optional.empty());
-    when(registry.findEntitySpec("dataset")).thenReturn(Optional.of(mock(EntitySpec.class)));
+    when(registry.findEntitySpec("dataset")).thenReturn(dataset);
+    when(registry.findEntitySpec("schemaField")).thenReturn(schemaField);
+    when(registry.findEntitySpec("dataPlatform")).thenReturn(dataPlatform);
     return registry;
+  }
+
+  private static Optional<EntitySpec> entity(RecordDataSchema keySchema) {
+    AspectSpec key = mock(AspectSpec.class);
+    when(key.getPegasusSchema()).thenReturn(keySchema);
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(entitySpec.getKeyAspectSpec()).thenReturn(key);
+    return Optional.of(entitySpec);
   }
 }

@@ -12,12 +12,15 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.SystemMetadata;
+import java.util.function.Predicate;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class RegistryKnowledgeTest {
+
+  private static final Predicate<String> NEWER_VERSION_TYPE = "entityFromNewerBuild"::equals;
 
   private ConfigEntityRegistry registry;
 
@@ -68,16 +71,51 @@ public class RegistryKnowledgeTest {
   }
 
   @Test
-  public void testReferencesUnknownEntityTypeLooksInsideKeys() {
+  public void testReferencesUnknownEntityTypeLooksInsideUrnTypedKeyFields() {
+    // datasetKey.platform is a urn field; a nested type counts when a newer version registered it.
+    assertTrue(
+        RegistryKnowledge.referencesUnknownEntityType(
+            registry,
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:entityFromNewerBuild:x,name,PROD)"),
+            NEWER_VERSION_TYPE));
+    assertTrue(
+        RegistryKnowledge.referencesUnknownEntityType(
+            registry, UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"), NEWER_VERSION_TYPE));
+  }
+
+  @Test
+  public void testReferencesUnknownEntityTypeIgnoresUrnShapedTextInStringKeyFields() {
+    // datasetKey.name and both chartKey fields are strings: urn-shaped text there is no reference.
     assertFalse(
         RegistryKnowledge.referencesUnknownEntityType(
-            registry, UrnUtils.getUrn("urn:li:chart:(urn:li:dataset:x,c)")));
-    assertTrue(
+            registry,
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataset:p,urn:li:entityFromNewerBuild:x,PROD)"),
+            NEWER_VERSION_TYPE));
+    assertFalse(
         RegistryKnowledge.referencesUnknownEntityType(
-            registry, UrnUtils.getUrn("urn:li:chart:(urn:li:entityFromNewerBuild:x,c)")));
-    assertTrue(
+            registry,
+            UrnUtils.getUrn("urn:li:chart:(urn:li:entityFromNewerBuild:x,c)"),
+            NEWER_VERSION_TYPE));
+  }
+
+  @Test
+  public void testReferencesUnknownEntityTypeLeavesNestedTypesNoNewerVersionRegistered() {
+    // A nested type no newer version registered (e.g. a typo) is left to validation.
+    assertFalse(
         RegistryKnowledge.referencesUnknownEntityType(
-            registry, UrnUtils.getUrn("urn:li:entityFromNewerBuild:x")));
+            registry,
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:datsaet:x,name,PROD)"),
+            NEWER_VERSION_TYPE));
+  }
+
+  @Test
+  public void testReferencesUnknownEntityTypeLeavesMalformedKeysToValidation() {
+    // datasetKey has three fields; a two-part key doesn't map onto them.
+    assertFalse(
+        RegistryKnowledge.referencesUnknownEntityType(
+            registry,
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:entityFromNewerBuild:x,name)"),
+            NEWER_VERSION_TYPE));
   }
 
   @Test

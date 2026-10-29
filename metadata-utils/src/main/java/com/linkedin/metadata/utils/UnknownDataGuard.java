@@ -14,6 +14,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -110,18 +111,22 @@ public final class UnknownDataGuard {
   /**
    * As {@link #admit}, and also skips an event whose urn references an unknown entity type in its
    * key (e.g. a schema field or monitor of an entity type only a newer version has). Such a urn
-   * fails key validation, which would otherwise fail the whole batch it arrives in.
+   * fails key validation, which would otherwise fail the whole batch it arrives in. A nested type
+   * counts only when {@code newerVersionType} accepts it (see {@link
+   * RegistryKnowledge#referencesUnknownEntityType}).
    */
   public boolean admitEvent(
       @Nonnull final EntityRegistry registry,
       @Nonnull final Optional<MetricUtils> metricUtils,
       @Nullable final Urn urn,
       @Nullable final String entityType,
-      @Nullable final String aspectName) {
+      @Nullable final String aspectName,
+      @Nonnull final Predicate<String> newerVersionType) {
     if (!admit(registry, metricUtils, entityType, aspectName, urn)) {
       return false;
     }
-    if (urn != null && RegistryKnowledge.referencesUnknownEntityType(registry, urn)) {
+    if (urn != null
+        && RegistryKnowledge.referencesUnknownEntityType(registry, urn, newerVersionType)) {
       skippedBecause(
           metricUtils,
           entityType + "/key",
@@ -140,7 +145,8 @@ public final class UnknownDataGuard {
       @Nonnull final EntityRegistry registry,
       @Nonnull final Optional<MetricUtils> metricUtils,
       @Nullable final String urn,
-      @Nullable final String aspectName) {
+      @Nullable final String aspectName,
+      @Nonnull final Predicate<String> newerVersionType) {
     if (urn == null) {
       return true;
     }
@@ -150,7 +156,8 @@ public final class UnknownDataGuard {
     } catch (URISyntaxException | IllegalArgumentException e) {
       return true;
     }
-    return admitEvent(registry, metricUtils, parsed, parsed.getEntityType(), aspectName);
+    return admitEvent(
+        registry, metricUtils, parsed, parsed.getEntityType(), aspectName, newerVersionType);
   }
 
   /**
