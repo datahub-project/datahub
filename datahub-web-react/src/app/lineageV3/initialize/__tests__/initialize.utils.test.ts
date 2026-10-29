@@ -44,9 +44,17 @@ describe('useBoundingBoxMemberPagination', () => {
 
         act(() => {
             result.current.setTotal(BOUNDING_BOX_MEMBER_PAGE_SIZE * 3);
+            result.current.setInitialized(true);
         });
 
         expect(result.current.start).toBe(BOUNDING_BOX_MEMBER_PAGE_SIZE * 2);
+    });
+
+    it('does not advance start before the first page has loaded', () => {
+        const nodes = makeNodes(ROOT_URN, BOUNDING_BOX_MEMBER_PAGE_SIZE * 3);
+        const { result } = renderHook(() => useBoundingBoxMemberPagination(ROOT_URN, nodes));
+
+        expect(result.current.start).toBe(0);
     });
 
     it('does not advance start when total fits in one page', () => {
@@ -54,6 +62,7 @@ describe('useBoundingBoxMemberPagination', () => {
 
         act(() => {
             result.current.setTotal(BOUNDING_BOX_MEMBER_PAGE_SIZE - 10);
+            result.current.setInitialized(true);
         });
 
         expect(result.current.start).toBe(0);
@@ -67,6 +76,7 @@ describe('useBoundingBoxMemberPagination', () => {
 
         act(() => {
             result.current.setTotal(BOUNDING_BOX_MEMBER_PAGE_SIZE * 5);
+            result.current.setInitialized(true);
         });
 
         expect(result.current.start).toBe(BOUNDING_BOX_MEMBER_PAGE_SIZE * 2);
