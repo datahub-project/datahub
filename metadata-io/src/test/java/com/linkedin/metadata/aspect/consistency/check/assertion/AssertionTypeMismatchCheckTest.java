@@ -22,17 +22,22 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
 import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -57,6 +62,11 @@ public class AssertionTypeMismatchCheckTest {
     checkContext =
         CheckContext.builder().operationContext(opContext).entityService(mockEntityService).build();
     check = new AssertionTypeMismatchCheck(entityRegistry);
+  }
+
+  @AfterMethod
+  public void resetHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @Test
@@ -235,6 +245,41 @@ public class AssertionTypeMismatchCheckTest {
 
     assertEquals(issues.size(), 1);
     assertTrue(issues.get(0).getDescription().contains("customAssertion"));
+  }
+
+  @Test
+  public void testTolerantNewerVersionMissingSubProperty_NoIssue() {
+    // A newer version's assertion on an entity type this registry doesn't know: reads drop its
+    // freshnessAssertion (the entity urn there is required), so it looks corrupt here.
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    SystemAspect stored = mock(SystemAspect.class);
+    when(stored.isFromNewerVersion()).thenReturn(true);
+    when(mockEntityService.getLatestSystemAspect(
+            any(OperationContext.class), eq(TEST_ASSERTION_URN), eq(ASSERTION_INFO_ASPECT_NAME)))
+        .thenReturn(Optional.of(stored));
+    EntityResponse response =
+        createAssertionWithTypeMismatch(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
+
+    List<ConsistencyIssue> issues = check.check(checkContext, Map.of(TEST_ASSERTION_URN, response));
+
+    assertTrue(issues.isEmpty());
+  }
+
+  @Test
+  public void testTolerantMissingSubPropertyNotFromNewerVersion_ReturnsHardDeleteIssue() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    SystemAspect stored = mock(SystemAspect.class);
+    when(stored.isFromNewerVersion()).thenReturn(false);
+    when(mockEntityService.getLatestSystemAspect(
+            any(OperationContext.class), eq(TEST_ASSERTION_URN), eq(ASSERTION_INFO_ASPECT_NAME)))
+        .thenReturn(Optional.of(stored));
+    EntityResponse response =
+        createAssertionWithTypeMismatch(TEST_ASSERTION_URN, AssertionType.FRESHNESS);
+
+    List<ConsistencyIssue> issues = check.check(checkContext, Map.of(TEST_ASSERTION_URN, response));
+
+    assertEquals(issues.size(), 1);
+    assertEquals(issues.get(0).getFixType(), ConsistencyFixType.HARD_DELETE);
   }
 
   @Test

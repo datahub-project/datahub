@@ -12,6 +12,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.consistency.ConsistencyIssue;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
@@ -417,6 +418,20 @@ public abstract class AbstractEntityCheck implements ConsistencyCheck {
   protected static boolean isUnknownEntityType(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
     return handling()
         .isUnknown(ctx.getOperationContext().getEntityRegistry(), urn.getEntityType(), null);
+  }
+
+  /**
+   * True when the stored aspect was written by a newer version (e.g. before a rollback). Reads drop
+   * its references to entity types this registry doesn't know, so a check can see a field as
+   * missing that the stored aspect has; such an aspect is left to the version that wrote it.
+   */
+  protected static boolean isStoredByNewerVersion(
+      @Nonnull CheckContext ctx, @Nonnull Urn urn, @Nonnull String aspectName) {
+    return handling().toleratesUnknownEntityAspect()
+        && ctx.getEntityService()
+            .getLatestSystemAspect(ctx.getOperationContext(), urn, aspectName)
+            .map(SystemAspect::isFromNewerVersion)
+            .orElse(false);
   }
 
   // ============================================================================
