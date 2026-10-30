@@ -75,6 +75,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
     escape_unity_name,
     make_schema,
     usage_statement_types,
@@ -664,6 +665,39 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             optional_ml_model = self._create_ml_model(schema, ml_model)
             if optional_ml_model:
                 yield optional_ml_model
+
+    def volumes(self, schema: Schema) -> Iterable[Volume]:
+        for obj in self._workspace_client.volumes.list(
+            catalog_name=schema.catalog.name,
+            schema_name=schema.name,
+            include_browse=True,
+        ):
+            if not obj.name or not obj.full_name:
+                continue
+            yield Volume(
+                id=obj.full_name,
+                name=obj.name,
+                comment=obj.comment,
+                schema=schema,
+                volume_type=obj.volume_type.value if obj.volume_type else None,
+                storage_location=obj.storage_location,
+                owner=obj.owner,
+                created_at=parse_ts_millis(obj.created_at),
+                created_by=obj.created_by,
+                updated_at=parse_ts_millis(obj.updated_at),
+                updated_by=obj.updated_by,
+                volume_id=obj.volume_id,
+                metastore_id=obj.metastore_id,
+                browse_only=obj.browse_only,
+                access_point=obj.access_point,
+                encryption_algorithm=(
+                    obj.encryption_details.sse_encryption_details.algorithm.value
+                    if obj.encryption_details
+                    and obj.encryption_details.sse_encryption_details
+                    and obj.encryption_details.sse_encryption_details.algorithm
+                    else None
+                ),
+            )
 
     def ml_model_versions(
         self, ml_model: Model, include_aliases: bool = False
@@ -1839,6 +1873,22 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             result_dict[table_key].append(
                 UnityCatalogTag(key=tag_name, value=tag_value if tag_value else None)
             )
+
+        return result_dict
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_volume_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
+        logger.info(f"Fetching volume tags for catalog: `{catalog}`")
+
+        query = f"SELECT * FROM `{catalog}`.information_schema.volume_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
+        for row in rows:
+            catalog_name, schema_name, volume_name, tag_name, tag_value = row
+            result_dict.setdefault(
+                f"{catalog_name}.{schema_name}.{volume_name}", []
+            ).append(UnityCatalogTag(key=tag_name, value=tag_value or None))
 
         return result_dict
 

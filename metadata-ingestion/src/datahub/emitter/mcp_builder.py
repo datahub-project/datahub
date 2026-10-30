@@ -169,6 +169,14 @@ class UnitySchemaKey(CatalogKey):
     unity_schema: str
 
 
+class UnityVolumeKey(UnitySchemaKey):
+    volume: str
+
+
+class UnityVolumeKeyWithMetastore(UnitySchemaKeyWithMetastore):
+    volume: str
+
+
 class BigQueryDatasetKey(ProjectIdKey):
     dataset_id: str
 

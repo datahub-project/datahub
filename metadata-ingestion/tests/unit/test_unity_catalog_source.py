@@ -1,13 +1,19 @@
+from typing import List, Tuple, Type, TypeVar
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 from databricks.sdk.service.catalog import TableType
 
+from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import EntityFilterReport
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-from datahub.ingestion.source.unity.proxy_types import Column, Schema, Table
+from datahub.ingestion.source.unity.proxy_types import Column, Schema, Table, Volume
 from datahub.ingestion.source.unity.source import UnityCatalogSource
+from datahub.metadata.schema_classes import _Aspect
+
+T = TypeVar("T", bound=_Aspect)
 
 
 class TestUnityCatalogSource:
@@ -3253,3 +3259,166 @@ class TestUnityCatalogViewFiltering:
         assert dropped == [table.id]
         assert view.ref in source.view_refs
         assert metric_view.ref in source.table_refs
+
+
+class TestUnityCatalogVolumes:
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
+    @staticmethod
+    def _schema() -> Schema:
+        from datahub.ingestion.source.unity.proxy_types import Catalog, Metastore
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c", name="c", metastore=metastore, comment=None, owner=None, type=None
+        )
+        return Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+
+    @staticmethod
+    def _volume(schema: Schema, name: str) -> Volume:
+        from datetime import datetime
+
+        return Volume(
+            id=f"{schema.id}.{name}",
+            name=name,
+            comment="landing zone",
+            schema=schema,
+            volume_type="EXTERNAL",
+            storage_location="s3://bucket/landing",
+            owner="alice@example.com",
+            created_at=datetime(2025, 1, 1),
+            created_by="alice@example.com",
+            updated_at=datetime(2025, 1, 2),
+            updated_by="bob@example.com",
+            volume_id="vol-123",
+            metastore_id="ms-456",
+            browse_only=False,
+            access_point=None,
+            encryption_algorithm=None,
+        )
+
+    @staticmethod
+    def _build_source(**extra: object) -> UnityCatalogSource:
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                **extra,
+            }
+        )
+        return UnityCatalogSource.create(config, PipelineContext(run_id="t"))
+
+    def _emit(
+        self, source: UnityCatalogSource, *names: str
+    ) -> Tuple[Schema, List[MetadataWorkUnit]]:
+        schema = self._schema()
+        with patch.object(
+            source.unity_catalog_api_proxy,
+            "volumes",
+            return_value=iter([self._volume(schema, name) for name in names]),
+        ):
+            return schema, list(source.process_volumes(schema))
+
+    def test_volume_emitted_as_container_in_schema_container(self) -> None:
+        from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+        from datahub.metadata.schema_classes import (
+            ContainerClass,
+            ContainerPropertiesClass,
+            OwnershipClass,
+            SubTypesClass,
+        )
+
+        source = self._build_source(include_volumes=True, include_ownership=True)
+        schema, wus = self._emit(source, "raw")
+
+        volume_urn = source.gen_volume_key(self._volume(schema, "raw")).as_urn()
+        assert {wu.get_urn() for wu in wus} == {volume_urn}
+
+        def aspect(cls: Type[T]) -> T:
+            candidates = [wu.get_aspect_of_type(cls) for wu in wus]
+            found = [a for a in candidates if a is not None]
+            assert len(found) == 1
+            return found[0]
+
+        assert aspect(SubTypesClass).typeNames == [
+            DatasetContainerSubTypes.DATABRICKS_VOLUME
+        ]
+        assert (
+            aspect(ContainerClass).container == source.gen_schema_key(schema).as_urn()
+        )
+        props = aspect(ContainerPropertiesClass)
+        assert props.name == "raw"
+        assert props.qualifiedName == "c.s.raw"
+        assert props.description == "landing zone"
+        assert props.customProperties["volume_type"] == "EXTERNAL"
+        assert props.customProperties["storage_location"] == "s3://bucket/landing"
+        assert props.customProperties["volume_id"] == "vol-123"
+        assert props.customProperties["updated_by"] == "bob@example.com"
+        assert props.customProperties["browse_only"] == "False"
+        assert "access_point" not in props.customProperties
+        assert props.created is not None and props.lastModified is not None
+        assert (
+            aspect(OwnershipClass).owners[0].owner
+            == "urn:li:corpuser:alice@example.com"
+        )
+        assert list(source.report.volumes.processed_entities) == ["c.s.raw"]
+
+    def test_volume_tags_emitted(self) -> None:
+        from datahub.metadata.schema_classes import GlobalTagsClass
+
+        source = self._build_source(include_volumes=True, include_tags=True)
+        with patch.object(
+            source.unity_catalog_api_proxy,
+            "get_volume_tags",
+            return_value={"c.s.raw": [UnityCatalogTag(key="pii", value="email")]},
+        ):
+            _, wus = self._emit(source, "raw")
+
+        tags = [wu.get_aspect_of_type(GlobalTagsClass) for wu in wus]
+        found = [t for t in tags if t is not None]
+        assert len(found) == 1
+        assert [a.tag for a in found[0].tags] == ["urn:li:tag:pii:email"]
+
+    def test_volume_tag_failure_still_emits_volume(self) -> None:
+        from datahub.metadata.schema_classes import ContainerPropertiesClass
+
+        source = self._build_source(include_volumes=True, include_tags=True)
+        with patch.object(
+            source.unity_catalog_api_proxy,
+            "get_volume_tags",
+            side_effect=RuntimeError("PERMISSION_DENIED"),
+        ):
+            _, wus = self._emit(source, "raw")
+
+        assert any(wu.get_aspect_of_type(ContainerPropertiesClass) for wu in wus)
+        assert len(source.report.warnings) == 1
+
+    def test_include_volumes_false_makes_no_api_call(self) -> None:
+        source = self._build_source()
+        with patch.object(source.unity_catalog_api_proxy, "volumes") as mock_volumes:
+            assert list(source.process_volumes(self._schema())) == []
+        mock_volumes.assert_not_called()
+
+    def test_volume_pattern_filters_on_full_name(self) -> None:
+        source = self._build_source(
+            include_volumes=True, volume_pattern={"deny": [r"c\.s\.tmp"]}
+        )
+        schema, wus = self._emit(source, "raw", "tmp")
+        assert {wu.get_urn() for wu in wus} == {
+            source.gen_volume_key(self._volume(schema, "raw")).as_urn()
+        }
+        assert list(source.report.volumes.dropped_entities) == ["c.s.tmp"]

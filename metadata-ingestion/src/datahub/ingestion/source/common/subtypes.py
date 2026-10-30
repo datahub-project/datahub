@@ -86,6 +86,7 @@ class DatasetContainerSubTypes(StrEnum):
     # A BigQuery Sharing linked dataset: a read-only pointer into another project.
     BIGQUERY_LINKED_DATASET = "Linked Dataset"
     DATABRICKS_METASTORE = "Metastore"
+    DATABRICKS_VOLUME = "Volume"
     FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
     GCS_BUCKET = "GCS bucket"
