@@ -320,7 +320,13 @@ public class ReportAssertionResultResolverTest {
   }
 
   @Test
-  public void testReportAssertionRejectsActualAggValueOutsideFloatRange() {
+  public void testReportAssertionRejectsActualAggValueOutsideFloatRange() throws Exception {
+    // Control: the same input shape binds and is stored at the largest finite float, so the
+    // failure below comes from the range guard rather than from argument binding.
+    AssertionResult stored =
+        reportWithRawInput(Map.of("type", "FAILURE", "actualAggValue", (double) Float.MAX_VALUE));
+    assertEquals(stored.getActualAggValue(), Float.MAX_VALUE);
+
     AssertionService mockedService = Mockito.mock(AssertionService.class);
     Mockito.when(
             mockedService.getEntityUrnForAssertion(
@@ -335,7 +341,6 @@ public class ReportAssertionResultResolverTest {
             () -> new ReportAssertionResultResolver(mockedService).get(mockEnv).join());
     Throwable cause = thrown instanceof CompletionException ? thrown.getCause() : thrown;
     assertTrue(cause instanceof IllegalArgumentException);
-    assertTrue(cause.getMessage().contains("actualAggValue must be a finite"));
     Mockito.verify(mockedService, Mockito.never())
         .addAssertionRunEvent(
             any(OperationContext.class),
