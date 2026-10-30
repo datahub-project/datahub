@@ -230,7 +230,7 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         if item["id"] == "identity-name-qualified-parity"
     )
     assert identity_parity["containsInTop"] == {
-        "n": 2,
+        "n": 3,
         "values": [
             "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,identity_name_only,PROD)",
             "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,identity_name_and_qualified,PROD)",

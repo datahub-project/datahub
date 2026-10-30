@@ -732,7 +732,7 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                 {"urn": identity_name_and_qualified, "relevance": 1},
             ],
             "containsInTop": {
-                "n": 2,
+                "n": 3,
                 "values": [identity_name_only, identity_name_and_qualified],
             },
             "scoreRatioAtMost": {
