@@ -972,7 +972,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // Build per-hit results and attach a per-element scrollId
     final SearchHit[] searchHits = searchResponse.getHits().getHits();
     long expirationTimeMs = 0L;
-    if (keepAlive != null && supportsPointInTime) {
+    // Sliced scrolls open a PIT even when PIT creation is disabled, so key off the response's PIT
+    // too. Without an expiration the next page cannot reuse the PIT and opens a new one.
+    if (keepAlive != null && (supportsPointInTime || searchResponse.pointInTimeId() != null)) {
       expirationTimeMs =
           TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
               + System.currentTimeMillis();
