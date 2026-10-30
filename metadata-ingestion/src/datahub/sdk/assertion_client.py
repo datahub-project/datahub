@@ -105,8 +105,20 @@ class AssertionClient:
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
         severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
+        actual_agg_value: Optional[float] = None,
+        row_count: Optional[int] = None,
+        unexpected_count: Optional[int] = None,
+        missing_count: Optional[int] = None,
     ) -> bool:
-        """Report a run result for an assertion."""
+        """Report a run result for an assertion.
+
+        ``actual_agg_value``, ``row_count``, ``unexpected_count`` and
+        ``missing_count`` are optional values observed during the run. The
+        server stores them only for SUCCESS and FAILURE results.
+        ``actual_agg_value`` is stored as a 32-bit float (about 7 significant
+        digits); use the count fields for exact counts. They are sent only when
+        set and need a server that supports them.
+        """
         return self._graph.report_assertion_result(
             urn=urn,
             timestamp_millis=timestamp_millis,
@@ -116,4 +128,8 @@ class AssertionClient:
             error_type=error_type,
             error_message=error_message,
             severity=severity,
+            actual_agg_value=actual_agg_value,
+            row_count=row_count,
+            unexpected_count=unexpected_count,
+            missing_count=missing_count,
         )

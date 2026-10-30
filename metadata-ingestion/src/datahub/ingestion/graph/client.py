@@ -2192,8 +2192,43 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
         severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
+        actual_agg_value: Optional[float] = None,
+        row_count: Optional[int] = None,
+        unexpected_count: Optional[int] = None,
+        missing_count: Optional[int] = None,
     ) -> bool:
-        graph_query: str = """
+        """Report a run result for an assertion.
+
+        The numeric arguments are optional values observed during the run. The
+        server stores them only for SUCCESS and FAILURE results and ignores them
+        for ERROR and INIT. ``actual_agg_value`` is stored as a 32-bit float, so
+        only about 7 significant digits are kept; use ``row_count``,
+        ``unexpected_count`` and ``missing_count`` for exact counts.
+
+        The numeric fields are added to the request only when set, because
+        servers that predate them reject unknown input fields.
+        """
+        # (GraphQL variable name, GraphQL type, value) for the optional numeric
+        # fields. Unset ones are left out of the mutation entirely.
+        numeric_fields = [
+            (name, gql_type, value)
+            for name, gql_type, value in (
+                ("actualAggValue", "Float", actual_agg_value),
+                ("rowCount", "Long", row_count),
+                ("unexpectedCount", "Long", unexpected_count),
+                ("missingCount", "Long", missing_count),
+            )
+            if value is not None
+        ]
+        numeric_var_defs = "".join(
+            f"\n                ${name}: {gql_type},"
+            for name, gql_type, _ in numeric_fields
+        )
+        numeric_input_fields = "".join(
+            f"\n                    {name}: ${name}" for name, _, _ in numeric_fields
+        )
+
+        graph_query: str = f"""
             mutation reportAssertionResult(
                 $assertionUrn: String!,
                 $timestampMillis: Long!,
@@ -2201,17 +2236,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $properties: [StringMapEntryInput!],
                 $externalUrl: String,
                 $error: AssertionResultErrorInput,
-                $severity: AssertionResultSeverity,
-            ) {
-                reportAssertionResult(urn: $assertionUrn, result: {
+                $severity: AssertionResultSeverity,{numeric_var_defs}
+            ) {{
+                reportAssertionResult(urn: $assertionUrn, result: {{
                     timestampMillis: $timestampMillis
                     type: $type
                     properties: $properties
                     externalUrl: $externalUrl
                     error: $error
-                    severity: $severity
-                })
-            }
+                    severity: $severity{numeric_input_fields}
+                }})
+            }}
         """
 
         variables = {
@@ -2225,6 +2260,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             ),
             "severity": severity,
         }
+        variables.update({name: value for name, _, value in numeric_fields})
 
         res = self.execute_graphql(
             query=graph_query,

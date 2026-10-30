@@ -277,6 +277,22 @@ installed.
 {{ inline /metadata-ingestion/examples/library/report_assertion_result.py show_path_as_comment }}
 ```
 
+To also report the numeric values observed during the run, pass the optional `actual_agg_value`, `row_count`,
+`unexpected_count` and `missing_count` arguments. They are sent only when set, and need a DataHub server that supports
+these fields. They are stored only for `SUCCESS` and `FAILURE` results, and `actual_agg_value` keeps only about 7
+significant digits, so use the count arguments for exact counts.
+
+```python
+graph.report_assertion_result(
+    urn="urn:li:assertion:<your-new-assertion-id>",
+    timestamp_millis=int(time.time() * 1000),
+    type="FAILURE",
+    actual_agg_value=0.12,  # e.g. the observed null fraction
+    row_count=1000,
+    missing_count=120,
+)
+```
+
 </TabItem>
 </Tabs>
 
