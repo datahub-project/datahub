@@ -7,11 +7,12 @@ import os
 import pathlib
 import shutil
 from datetime import datetime, timezone
-from typing import BinaryIO
+from typing import BinaryIO, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import click
 import pytest
+import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -25,6 +26,7 @@ from datahub.cli.datapack.loader import (
     _cached_path,
     _datapack_emit_mode,
     _DatapackSinkConfig,
+    _fetch_url_to_path,
     _run_pipeline_for_file,
     _sha256_file,
     actor_urn_from_client,
@@ -56,6 +58,72 @@ class TestFetchSession:
         assert {429, 500, 502, 503, 504}.issubset(set(retry.status_forcelist or []))
         assert retry.total is not None and retry.total >= 1
         assert retry.backoff_factor > 0
+
+
+class TestFetchUrlToPathHttp:
+    @staticmethod
+    def _mock_session(
+        chunks: List[bytes],
+        headers: Dict[str, str],
+        error: Optional[Exception] = None,
+    ) -> MagicMock:
+        def iter_content(chunk_size: int) -> Iterator[bytes]:
+            yield from chunks
+            if error is not None:
+                raise error
+
+        response = MagicMock()
+        response.headers = headers
+        response.iter_content.side_effect = iter_content
+        session = MagicMock()
+        session.__enter__.return_value = session
+        session.get.return_value = response
+        return session
+
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            pytest.param({"content-length": "6"}, id="with_content_length"),
+            pytest.param({}, id="without_content_length"),
+        ],
+    )
+    def test_replaces_existing_file(
+        self, tmp_path: pathlib.Path, headers: Dict[str, str]
+    ) -> None:
+        dest = tmp_path / "cache" / "data.json"
+        dest.parent.mkdir()
+        dest.write_bytes(b"old")
+        session = self._mock_session([b"abc", b"def"], headers)
+
+        with patch(
+            "datahub.cli.datapack.loader._build_fetch_session", return_value=session
+        ):
+            _fetch_url_to_path("https://example.com/data.json", dest)
+
+        assert dest.read_bytes() == b"abcdef"
+        assert list(dest.parent.iterdir()) == [dest]
+
+    def test_failure_mid_stream_keeps_existing_file(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        dest = tmp_path / "cache" / "data.json"
+        dest.parent.mkdir()
+        dest.write_bytes(b"old")
+        session = self._mock_session(
+            [b"ne"], {}, error=requests.ConnectionError("connection reset")
+        )
+
+        with (
+            patch(
+                "datahub.cli.datapack.loader._build_fetch_session",
+                return_value=session,
+            ),
+            pytest.raises(requests.ConnectionError),
+        ):
+            _fetch_url_to_path("https://example.com/data.json", dest)
+
+        assert dest.read_bytes() == b"old"
+        assert list(dest.parent.iterdir()) == [dest]
 
 
 class TestDatapackSinkConfig:
