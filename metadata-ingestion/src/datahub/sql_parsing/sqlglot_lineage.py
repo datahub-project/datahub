@@ -1348,7 +1348,7 @@ def _column_level_lineage(
 ) -> _ColumnLineageWithDebugInfo:
     # Simplify the input statement for column-level lineage generation.
     try:
-        select_statement = _try_extract_select(statement, dialect=dialect)
+        select_statement = _try_extract_select(statement)
     except Exception as e:
         raise SqlUnderstandingError(
             f"Failed to extract select from statement: {e}"
@@ -2011,7 +2011,6 @@ def _extract_select_from_update(
 
 def _try_extract_select(
     statement: sqlglot.exp.Expression,
-    dialect: Optional[sqlglot.Dialect] = None,
 ) -> sqlglot.exp.Expression:
     # Try to extract the core select logic from a more complex statement.
     # If it fails, just return the original statement.
@@ -2030,15 +2029,13 @@ def _try_extract_select(
             statement.expression
         )  # Get the SELECT expression from the INSERT
 
-        # MSSQL-specific: Map INSERT column names to SELECT column names
-        # This fixes column lineage when INSERT columns != SELECT columns
+        # Map INSERT column names to SELECT column names, so that
+        # downstream columns are the target columns and not the SELECT outputs.
         # Example: INSERT INTO t (col_a) SELECT col_b FROM src
         #   Should create: downstream=col_a, upstream=col_b
         #   Without fix:   downstream=col_b, upstream=col_b (WRONG!)
         if (
-            dialect
-            and is_dialect_instance(dialect, "tsql")
-            and statement.this
+            statement.this
             and hasattr(statement.this, "expressions")
             and statement.this.expressions
             and isinstance(select_statement, sqlglot.exp.Select)
@@ -2059,12 +2056,20 @@ def _try_extract_select(
                         if hasattr(insert_col, "alias_or_name")
                         else str(insert_col)
                     )
+                    # Reuse the column's identifier when there is one, so a quoted
+                    # column keeps its case in case-sensitive dialects.
+                    insert_col_alias = (
+                        insert_col.copy()
+                        if isinstance(insert_col, sqlglot.exp.Identifier)
+                        else sqlglot.exp.to_identifier(insert_col_name)
+                    )
                     # Create an explicit Alias node: expr AS insert_col_name
                     # The Alias node should survive optimization better than just setting alias property
                     aliased_expr = sqlglot.exp.Alias(
+                        # Drop any SELECT alias, since the INSERT column name replaces it.
                         # Defensive copy to preserve the original statement in case the aliased ones need to be mutated
-                        this=select_expr.copy(),
-                        alias=sqlglot.exp.to_identifier(insert_col_name),
+                        this=select_expr.unalias().copy(),
+                        alias=insert_col_alias,
                     )
                     new_selects.append(aliased_expr)
 
