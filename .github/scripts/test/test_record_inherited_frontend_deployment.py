@@ -271,6 +271,18 @@ def test_changed_paths_returns_filenames_when_ahead() -> None:
     assert client.changed_paths("acme/datahub", "aaa", "bbb") == ["metadata-io/Foo.java"]
 
 
+def test_resolve_sha_prefers_explicit_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RECORD_SHA", "abc123")
+    monkeypatch.setenv("GITHUB_SHA", "def456")
+    assert inherited.resolve_sha() == "abc123"
+
+
+def test_resolve_sha_falls_back_to_github_sha(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("RECORD_SHA", raising=False)
+    monkeypatch.setenv("GITHUB_SHA", "def456")
+    assert inherited.resolve_sha() == "def456"
+
+
 def test_success_url_ignores_older_success_once_latest_is_inactive() -> None:
     statuses = [
         {"state": "inactive", "environment_url": ""},

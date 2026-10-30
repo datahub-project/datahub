@@ -20,6 +20,14 @@ on:
       - ".github/workflows/react-cloudflare-pages.yml"
   release:
     types: [published]
+  # One-shot check from a branch: record an inherited Preview deployment for an
+  # existing commit. Does not publish a new Pages build.
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Commit to record an inherited Preview deployment for"
+        required: true
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -50,10 +58,11 @@ jobs:
       # frontend commit never published, so a cancelled build is not papered
       # over with the previous bundle.
       - name: Record inherited Meticulous base deployment
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.ci-optimize.outputs.frontend-change == 'false' }}
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.ci-optimize.outputs.frontend-change == 'false') || github.event_name == 'workflow_dispatch' }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RECORD_SHA: ${{ inputs.sha }}
         run: python3 .github/scripts/record_inherited_frontend_deployment.py
       - name: Check if cloudflare api token is available
         id: cloudflare-token-check
@@ -71,7 +80,7 @@ jobs:
       pull-requests: write
     timeout-minutes: 45
     needs: setup
-    if: ${{ needs.setup.outputs.frontend_change == 'true' && github.event.pull_request.head.repo.fork != 'true' }}
+    if: ${{ github.event_name != 'workflow_dispatch' && needs.setup.outputs.frontend_change == 'true' && github.event.pull_request.head.repo.fork != 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
