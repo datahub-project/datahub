@@ -390,7 +390,7 @@ def test_presto_view_column_metadata_parsing(mock_client):
     view_original_text = f"/* Presto View: {encoded_data} */"
 
     columns, view_definition = processor._get_presto_view_column_metadata(
-        view_original_text
+        "db1.test_view", view_original_text
     )
 
     assert view_definition == "SELECT id, name FROM users WHERE active = true"
@@ -454,7 +454,7 @@ def test_presto_view_complex_sql(mock_client):
     view_original_text = f"/* Presto View: {encoded_data} */"
 
     columns, view_definition = processor._get_presto_view_column_metadata(
-        view_original_text
+        "db1.test_view", view_original_text
     )
 
     assert "LEFT JOIN orders" in view_definition
