@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Dict, List
 from unittest.mock import MagicMock, patch
 
+import pyathena.error
 import pytest
 from pyathena.model import AthenaTableMetadata
 from sqlalchemy import exc
@@ -90,6 +91,26 @@ def test_get_view_definition_maps_operational_error_to_no_such_table() -> None:
     )
     with pytest.raises(exc.NoSuchTableError):
         dialect.get_view_definition(connection, "t", schema="s")
+
+
+def test_a_view_athena_refuses_to_describe_is_missing_not_a_driver_error() -> None:
+    """Athena refuses SHOW CREATE VIEW for views it did not create. SQLAlchemy
+    wraps the driver's error through the dialect's DBAPI; a swapped-in dialect
+    without one raised InvalidRequestError and every such view was dropped."""
+    inspectors = iter(_source().get_inspectors())
+    inspector = next(inspectors)
+    with (
+        patch.object(
+            CustomAthenaRestDialect,
+            "do_execute",
+            side_effect=pyathena.error.OperationalError("view not created by Athena"),
+        ),
+        pytest.raises(exc.NoSuchTableError),
+    ):
+        inspector.get_view_definition("v", schema="s")
+    # Leaving the generator closes the connection it holds open.
+    for _ in inspectors:
+        pass
 
 
 def test_get_column_type_rejects_unsupported_definitions() -> None:
