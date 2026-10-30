@@ -195,9 +195,11 @@ class PlatformResource(BaseModel):
         )
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=str(PlatformResourceUrn(self.id)),
+            # Instance first: instance-scoped write policies read the stored
+            # instance, and to_datahub() sends each aspect as its own request.
             aspects=[
-                self.resource_info.to_resource_info() if self.resource_info else None,
                 dpi,
+                self.resource_info.to_resource_info() if self.resource_info else None,
                 models.StatusClass(removed=self.removed),
             ],
         )
