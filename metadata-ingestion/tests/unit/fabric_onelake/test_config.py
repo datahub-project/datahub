@@ -76,7 +76,7 @@ class TestFabricOneLakeSourceConfig:
             FabricOneLakeSourceConfig(
                 credential=AzureCredentialConfig(),
                 include_notebooks=False,
-                include_notebook_execution=True,
+                notebook_execution={"enabled": True},
             )
 
     def test_notebook_execution_enabled_with_notebooks(self) -> None:
@@ -84,9 +84,29 @@ class TestFabricOneLakeSourceConfig:
         config = FabricOneLakeSourceConfig(
             credential=AzureCredentialConfig(),
             include_notebooks=True,
-            include_notebook_execution=True,
+            notebook_execution={"enabled": True},
         )
-        assert config.include_notebook_execution
+        assert config.notebook_execution.enabled
+        assert config.notebook_execution.history_days == 7
+        assert not config.notebook_execution.reconcile_code
+
+    def test_notebook_code_reconciliation_requires_execution(self) -> None:
+        """Code reconciliation requires notebook execution to be enabled."""
+        with pytest.raises(ValidationError, match="notebook_execution.enabled=True"):
+            FabricOneLakeSourceConfig(
+                credential=AzureCredentialConfig(),
+                include_notebooks=True,
+                notebook_execution={"enabled": False, "reconcile_code": True},
+            )
+
+    def test_notebook_code_reconciliation_enabled_with_execution(self) -> None:
+        """Code reconciliation is accepted when notebook execution is on."""
+        config = FabricOneLakeSourceConfig(
+            credential=AzureCredentialConfig(),
+            include_notebooks=True,
+            notebook_execution={"enabled": True, "reconcile_code": True},
+        )
+        assert config.notebook_execution.reconcile_code
 
     def test_workspace_pattern_filtering(self) -> None:
         """Workspace pattern should filter correctly."""

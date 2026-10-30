@@ -86,6 +86,10 @@ source:
     # matches the folder path (`/<folder>/.../<name>`). Contents come from
     # POST .../notebooks/{notebookId}/getDefinition?format=fabricGitSource.
     # include_notebooks: true
+    # notebook_execution:
+    #   enabled: true
+    #   reconcile_code: false
+    #   history_days: 7
     # notebook_pattern:
     #   allow:
     #     - "^/Shared/.*"

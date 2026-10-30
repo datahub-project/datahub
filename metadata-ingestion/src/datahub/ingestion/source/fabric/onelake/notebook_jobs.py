@@ -11,7 +11,6 @@ a DataProcessInstance of every per-table job (or of the DataFlow when no
 per-table lineage was resolved).
 """
 
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
@@ -40,6 +39,10 @@ from datahub.ingestion.source.fabric.common.utils import (
     parse_iso_datetime,
 )
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
+from datahub.ingestion.source.fabric.onelake.notebook_code_lineage import (
+    extract_notebook_code_lineage,
+    reconcile_spark_lineage,
+)
 from datahub.ingestion.source.fabric.onelake.notebook_spark_lineage import (
     SparkTableRef,
     extract_spark_lineage,
@@ -56,7 +59,6 @@ from datahub.sdk.entity import Entity
 
 OwnersFn = Callable[[Optional[str]], Optional[List[Tuple[CorpUserUrn, str]]]]
 
-logger = logging.getLogger(__name__)
 
 _PLATFORM = "fabric-onelake"
 
@@ -101,6 +103,7 @@ class NotebookProcessEmitter:
         platform_instance: Optional[str],
         env: str,
         execution_history_days: int,
+        reconcile_code: bool = False,
         report: FabricOneLakeSourceReport,
         client: OneLakeClient,
         known_table_urns: Set[str],
@@ -110,6 +113,7 @@ class NotebookProcessEmitter:
         self._platform_instance = platform_instance
         self._env = env
         self._execution_history_days = execution_history_days
+        self._reconcile_code = reconcile_code
         self._report = report
         self._client = client
         self._known_table_urns = known_table_urns
@@ -290,6 +294,48 @@ class NotebookProcessEmitter:
                 continue
             for output, inputs in extract_spark_lineage(plans).items():
                 raw.setdefault(output, set()).update(inputs)
+
+        # Plans credit every earlier read to the next write. The notebook
+        # source says which of those reads each write actually uses.
+        if self._reconcile_code and nb.content and nb.language in (None, "python"):
+            # Reconciliation only narrows plan lineage, so any failure (for
+            # example RecursionError on a very long method chain) keeps the
+            # plan lineage rather than failing the notebook or the run.
+            try:
+                code_lineage = extract_notebook_code_lineage(nb.content)
+                if code_lineage is None:
+                    self._report.report_notebook_code_unparseable(nb.display_name)
+                elif code_lineage and raw:
+                    result = reconcile_spark_lineage(
+                        code_lineage, raw, self._normalize_name
+                    )
+                    narrowed = sum(
+                        1
+                        for output in result.attributed
+                        if result.lineage[output] != raw[output]
+                    )
+                    not_attributed = sorted(
+                        f"{output.schema}.{output.table}"
+                        if output.schema
+                        else output.table
+                        for output in result.lineage
+                        if output not in result.attributed
+                    )
+                    raw = result.lineage
+                    self._report.report_notebook_code_reconciled(
+                        nb.display_name, narrowed, not_attributed
+                    )
+            except Exception as e:
+                self._report.warning(
+                    title="Notebook Code Lineage Failed",
+                    message=(
+                        "Could not read the notebook source to narrow its lineage. "
+                        "The Spark plan lineage is used unchanged."
+                    ),
+                    context=f"notebook={nb.display_name}",
+                    exc=e,
+                    log=False,
+                )
 
         known = self._known_table_urns
         # Case/space variants of one output table normalize to a single URN and

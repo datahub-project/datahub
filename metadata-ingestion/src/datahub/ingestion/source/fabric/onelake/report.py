@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from datahub.ingestion.source.fabric.common.report import FabricClientReport
 from datahub.ingestion.source.sql.sql_report import DetailedProfilerReportMixin
@@ -56,6 +56,16 @@ class FabricOneLakeSourceReport(
     notebook_runs_scanned: int = 0
     notebook_spark_sessions_scanned: int = 0
     notebook_spark_lineage_extracted: int = 0
+    # Notebook code reconciliation. An output the code does not attribute
+    # (a %%sql cell, spark.sql, a Delta merge, a name built at run time) keeps
+    # its Spark plan sources, which may include tables it does not use.
+    notebook_code_reconciled: int = 0
+    notebook_code_outputs_narrowed: int = 0
+    notebook_code_outputs_not_attributed: int = 0
+    notebook_code_outputs_not_attributed_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    notebook_code_unparseable: LossyList[str] = field(default_factory=LossyList)
     entities_profiled: int = 0
 
     # Filtered entities
@@ -169,6 +179,22 @@ class FabricOneLakeSourceReport(
     def report_notebook_spark_lineage_extracted(self) -> None:
         """Record a notebook that produced lineage from its Spark plans."""
         self.notebook_spark_lineage_extracted += 1
+
+    def report_notebook_code_reconciled(
+        self, notebook: str, narrowed: int, not_attributed: List[str]
+    ) -> None:
+        """Record a notebook whose source was used to narrow its plan lineage."""
+        self.notebook_code_reconciled += 1
+        self.notebook_code_outputs_narrowed += narrowed
+        self.notebook_code_outputs_not_attributed += len(not_attributed)
+        for output in not_attributed:
+            self.notebook_code_outputs_not_attributed_samples.append(
+                f"{notebook}: {output}"
+            )
+
+    def report_notebook_code_unparseable(self, notebook: str) -> None:
+        """Record a notebook whose source could not be parsed as Python."""
+        self.notebook_code_unparseable.append(notebook)
 
     def report_view_missing_definition(self, view_name: str) -> None:
         """Record a view whose SQL definition was unavailable for lineage parsing."""

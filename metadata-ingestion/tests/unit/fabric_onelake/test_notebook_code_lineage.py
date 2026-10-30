@@ -1,0 +1,483 @@
+"""Notebook source lineage, reconciled with the tables a Spark run actually touched."""
+
+from typing import Optional
+from unittest.mock import MagicMock
+
+import pytest
+
+from datahub.ingestion.source.fabric.common.models import FabricSparkSession
+from datahub.ingestion.source.fabric.onelake.notebook_code_lineage import (
+    CodeTable,
+    extract_notebook_code_lineage,
+    reconcile_spark_lineage,
+)
+from datahub.ingestion.source.fabric.onelake.notebook_jobs import (
+    NotebookProcessEmitter,
+    PendingNotebook,
+)
+from datahub.ingestion.source.fabric.onelake.notebook_spark_lineage import (
+    SparkTableRef,
+    extract_spark_lineage,
+)
+from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
+from datahub.metadata.schema_classes import DataJobInputOutputClass
+from datahub.sdk.datajob import DataJob
+
+WS = "11111111-1111-1111-1111-111111111111"
+LH = "22222222-2222-2222-2222-222222222222"
+NB = "33333333-3333-3333-3333-333333333333"
+
+# Loads three tables, writes dim_user from two of them, and writes dim_accounts
+# from one. The dim_products write is commented out, so it is not a real target.
+# Paths are assembled at run time the way Fabric notebooks build lakehouse paths.
+_NOTEBOOK = """
+%pip install example-lib
+
+silver_path = f"{lakehouse[0]['abfs_path']}"
+gold_path = f"{lakehouse[0]['abfs_path']}"
+source = f"{silver_path}/Tables/silver/"
+destination = f"{gold_path}/Tables/gold/"
+
+orders = spark.read.format("delta").load(f"{source}orders")
+customers = spark.read.format("delta").load(f"{source}customers")
+products = spark.read.format("delta").load(f"{source}products")
+
+# products.write.format("delta").mode("overwrite").save(f"{destination}dim_products")
+
+table_user = "dim_user"
+target_user = f"{destination}{table_user}"
+users = orders.join(customers, "id", "left")
+users.write.format("delta").mode("overwrite").save(target_user)
+
+def write_with_retry(df, delta_path, mode="overwrite"):
+    df.write.format("delta").mode(mode).save(delta_path)
+
+table_name = "dim_accounts"
+target_accounts = f"{destination}{table_name}"
+accounts = orders.filter(orders["id"].isNotNull())
+write_with_retry(accounts, target_accounts)
+"""
+
+
+def _pair(table: str, schema: str) -> tuple[str | None, str]:
+    return schema, table
+
+
+def test_code_lineage_keeps_only_sources_each_write_uses() -> None:
+    lineage = extract_notebook_code_lineage(_NOTEBOOK)
+    assert lineage is not None
+    by_target = {
+        _pair(target.table, target.schema or ""): {
+            _pair(source.table, source.schema or "") for source in sources
+        }
+        for target, sources in lineage.items()
+    }
+    assert by_target == {
+        ("gold", "dim_user"): {("silver", "orders"), ("silver", "customers")},
+        ("gold", "dim_accounts"): {("silver", "orders")},
+    }
+
+
+def test_commented_write_and_unused_load_are_absent() -> None:
+    lineage = extract_notebook_code_lineage(_NOTEBOOK)
+    assert lineage is not None
+    tables = {target.table for target in lineage}
+    assert "dim_products" not in tables
+    used = {source.table for sources in lineage.values() for source in sources}
+    assert "products" not in used
+
+
+def test_percent_line_inside_a_string_does_not_break_parsing() -> None:
+    # Blanking every line that starts with % would drop this string's closing
+    # quotes and leave the notebook unparseable.
+    source = '''
+report = """
+%"""
+orders = spark.read.format("delta").load("Tables/silver/orders")
+orders.write.format("delta").save("Tables/gold/dim_user")
+'''
+    lineage = extract_notebook_code_lineage(source)
+    assert lineage == {
+        CodeTable(table="dim_user", schema="gold"): {
+            CodeTable(table="orders", schema="silver")
+        }
+    }
+
+
+@pytest.mark.parametrize("method", ["saveAsTable", "insertInto"])
+def test_helper_that_writes_by_table_name_is_a_writer(method: str) -> None:
+    source = f"""
+def write_table(df, name):
+    df.write.mode("overwrite").{method}(name)
+
+orders = spark.read.table("silver.orders")
+customers = spark.read.table("silver.customers")
+write_table(orders, "gold.dim_user")
+"""
+    lineage = extract_notebook_code_lineage(source)
+    assert lineage == {
+        CodeTable(table="dim_user", schema="gold"): {
+            CodeTable(table="orders", schema="silver")
+        }
+    }
+
+
+def test_intermediate_write_is_a_source_of_the_next_write() -> None:
+    source = """
+source = f"{silver_path}/Tables/silver/"
+destination = f"{gold_path}/Tables/gold/"
+orders = spark.read.format("delta").load(f"{source}orders")
+customers = spark.read.format("delta").load(f"{source}customers")
+mid = orders.withColumn("x", orders["id"])
+mid.write.format("delta").save(f"{destination}gold_mid")
+final = mid.join(customers, "id")
+final.write.format("delta").save(f"{destination}gold_final")
+"""
+    lineage = extract_notebook_code_lineage(source)
+    assert lineage is not None
+    final = lineage[CodeTable(table="gold_final", schema="gold")]
+    assert CodeTable(table="orders", schema="silver") in final
+    assert CodeTable(table="customers", schema="silver") in final
+    assert CodeTable(table="gold_mid", schema="gold") in final
+
+
+def test_unparseable_source_leaves_plan_lineage_unchanged() -> None:
+    assert extract_notebook_code_lineage("def broken(:") is None
+
+
+def _onelake(path: str) -> str:
+    return f"abfss://{WS}@onelake.dfs.fabric.microsoft.com/{LH}/{path}"
+
+
+def _plan(output: str, reads: list[str]) -> str:
+    scans = "\n".join(
+        f"Location: InMemoryFileIndex[{_onelake(path)}]" for path in reads
+    )
+    return f"""== Physical Plan ==
+(1) SaveIntoDataSourceCommand
+Arguments: [path={_onelake(output)}], Overwrite
+(2) Scan json
+{scans}
+"""
+
+
+def test_reconcile_drops_plan_sources_the_code_does_not_use() -> None:
+    # The first plan loaded every table before dim_user was written, which is
+    # how a Spark plan reports unused loads as sources of that write.
+    execution = extract_spark_lineage(
+        [
+            _plan(
+                "Tables/gold/dim_user",
+                [
+                    "Tables/silver/orders/_delta_log/0.json",
+                    "Tables/silver/customers/_delta_log/0.json",
+                    "Tables/silver/products/_delta_log/0.json",
+                ],
+            ),
+            _plan(
+                "Tables/gold/dim_accounts",
+                ["Tables/silver/orders/_delta_log/0.json"],
+            ),
+            _plan(
+                "Tables/gold/dim_products",
+                ["Tables/silver/products/_delta_log/0.json"],
+            ),
+        ]
+    )
+    code = extract_notebook_code_lineage(_NOTEBOOK)
+    assert code is not None
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name).lineage
+
+    def inputs(table: str) -> set[str]:
+        output = SparkTableRef(workspace_id=WS, item_id=LH, table=table, schema="gold")
+        return {ref.table for ref in reconciled[output]}
+
+    assert inputs("dim_user") == {"orders", "customers"}
+    assert inputs("dim_accounts") == {"orders"}
+    # The current code no longer writes dim_products, but the run did. It keeps
+    # the plan's sources rather than disappearing.
+    assert inputs("dim_products") == {"products"}
+
+
+# A Python cell and a %%sql cell, as fabricGitSource stores them. The SQL cell
+# is comment lines to the Python parser, so only gold.dim_user is visible.
+_PYTHON_AND_SQL_NOTEBOOK = """
+orders = spark.read.format("delta").load("Tables/silver/orders")
+customers = spark.read.format("delta").load("Tables/silver/customers")
+users = orders.join(customers, "id", "left")
+users.write.format("delta").mode("overwrite").save("Tables/gold/dim_user")
+
+# MAGIC %%sql
+# MAGIC INSERT INTO gold.dim_accounts SELECT * FROM silver.orders
+"""
+
+
+def _gold(table: str) -> SparkTableRef:
+    return SparkTableRef(workspace_id=WS, item_id=LH, table=table, schema="gold")
+
+
+def test_reconcile_keeps_outputs_the_code_does_not_show() -> None:
+    execution = extract_spark_lineage(
+        [
+            _plan(
+                "Tables/gold/dim_user",
+                [
+                    "Tables/silver/orders/_delta_log/0.json",
+                    "Tables/silver/customers/_delta_log/0.json",
+                    "Tables/silver/products/_delta_log/0.json",
+                ],
+            ),
+            _plan(
+                "Tables/gold/dim_accounts",
+                [
+                    "Tables/silver/orders/_delta_log/0.json",
+                    "Tables/silver/products/_delta_log/0.json",
+                ],
+            ),
+        ]
+    )
+    code = extract_notebook_code_lineage(_PYTHON_AND_SQL_NOTEBOOK)
+    assert code is not None
+    assert set(code) == {CodeTable(table="dim_user", schema="gold")}
+
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name).lineage
+
+    assert {ref.table for ref in reconciled[_gold("dim_user")]} == {
+        "orders",
+        "customers",
+    }
+    # Not narrowed, but not dropped either: the plan's sources stand.
+    assert reconciled[_gold("dim_accounts")] == execution[_gold("dim_accounts")]
+
+
+def test_reconcile_keeps_plan_sources_when_code_sources_do_not_resolve() -> None:
+    execution = extract_spark_lineage(
+        [_plan("Tables/gold/dim_user", ["Tables/silver/orders/_delta_log/0.json"])]
+    )
+    # The code names a source the plans never read, e.g. a table built in a loop.
+    code = {
+        CodeTable(table="dim_user", schema="gold"): {
+            CodeTable(table="staging_orders", schema="silver")
+        }
+    }
+
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name).lineage
+
+    assert reconciled == execution
+
+
+def _emit_dim_user(
+    *,
+    reconcile_code: bool,
+    content: str = _NOTEBOOK,
+    report: Optional[FabricOneLakeSourceReport] = None,
+) -> DataJobInputOutputClass:
+    orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
+    customers = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="customers", schema="silver"
+    )
+    products = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="products", schema="silver"
+    )
+    dim_user = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="dim_user", schema="gold"
+    )
+    known = {
+        ref.to_urn("PROD", None) for ref in (orders, customers, products, dim_user)
+    }
+    client = MagicMock()
+    client.list_notebook_spark_sessions.return_value = [
+        FabricSparkSession(livy_id="livy-1", application_id="app-1", item_id=NB)
+    ]
+    client.get_spark_sql_plans.return_value = [
+        _plan(
+            "Tables/gold/dim_user",
+            [
+                "Tables/silver/orders/_delta_log/0.json",
+                "Tables/silver/customers/_delta_log/0.json",
+                "Tables/silver/products/_delta_log/0.json",
+            ],
+        )
+    ]
+    client.get_notebook_runs.return_value = []
+    emitter = NotebookProcessEmitter(
+        platform_instance=None,
+        env="PROD",
+        execution_history_days=30,
+        report=report or FabricOneLakeSourceReport(),
+        client=client,
+        known_table_urns=known,
+        normalize_name=lambda name: name,
+        owners_fn=lambda _upn: None,
+        reconcile_code=reconcile_code,
+    )
+    emitted = list(
+        emitter.emit(
+            [
+                PendingNotebook(
+                    workspace_id=WS,
+                    workspace_name="analytics",
+                    notebook_id=NB,
+                    display_name="pipeline",
+                    description=None,
+                    owner_user_principal_name=None,
+                    content=content,
+                    language="python",
+                )
+            ]
+        )
+    )
+    jobs = [job for job in emitted if isinstance(job, DataJob)]
+    assert len(jobs) == 1
+    io = jobs[0]._get_aspect(DataJobInputOutputClass)
+    assert io is not None
+    return io
+
+
+def test_emitter_uses_code_to_drop_unused_plan_sources() -> None:
+    io = _emit_dim_user(reconcile_code=True)
+    orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
+    customers = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="customers", schema="silver"
+    )
+    products = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="products", schema="silver"
+    )
+    assert io.inputDatasets == sorted(
+        [orders.to_urn("PROD", None), customers.to_urn("PROD", None)]
+    )
+    assert products.to_urn("PROD", None) not in (io.inputDatasets or [])
+
+
+def test_report_counts_narrowed_outputs() -> None:
+    report = FabricOneLakeSourceReport()
+    _emit_dim_user(reconcile_code=True, report=report)
+    assert report.notebook_code_reconciled == 1
+    assert report.notebook_code_outputs_narrowed == 1
+    assert report.notebook_code_outputs_not_attributed == 0
+
+
+def test_report_lists_outputs_the_code_does_not_attribute() -> None:
+    # The code writes a different table, so dim_user keeps its plan sources.
+    content = """
+orders = spark.read.format("delta").load("Tables/silver/orders")
+orders.write.format("delta").save("Tables/gold/dim_other")
+"""
+    report = FabricOneLakeSourceReport()
+    _emit_dim_user(reconcile_code=True, content=content, report=report)
+    assert report.notebook_code_reconciled == 1
+    assert report.notebook_code_outputs_narrowed == 0
+    assert report.notebook_code_outputs_not_attributed == 1
+    assert list(report.notebook_code_outputs_not_attributed_samples) == [
+        "pipeline: gold.dim_user"
+    ]
+
+
+def test_report_lists_unparseable_notebooks() -> None:
+    report = FabricOneLakeSourceReport()
+    io = _emit_dim_user(reconcile_code=True, content="def broken(:", report=report)
+    assert len(io.inputDatasets or []) == 3
+    assert list(report.notebook_code_unparseable) == ["pipeline"]
+    assert report.notebook_code_reconciled == 0
+
+
+def test_code_reconciliation_is_off_unless_enabled() -> None:
+    io = _emit_dim_user(reconcile_code=False)
+    products = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="products", schema="silver"
+    )
+    assert products.to_urn("PROD", None) in (io.inputDatasets or [])
+
+
+def test_reconcile_does_not_add_a_same_named_table_from_another_lakehouse() -> None:
+    other_lh = "44444444-4444-4444-4444-444444444444"
+    dim_user = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="dim_user", schema="gold"
+    )
+    other = SparkTableRef(workspace_id=WS, item_id=LH, table="other", schema="gold")
+    orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
+    other_orders = SparkTableRef(
+        workspace_id=WS, item_id=other_lh, table="orders", schema="silver"
+    )
+    execution = {dim_user: {orders}, other: {other_orders}}
+    code = {
+        CodeTable(table="dim_user", schema="gold"): {
+            CodeTable(table="orders", schema="silver")
+        }
+    }
+
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name).lineage
+
+    assert reconciled[dim_user] == {orders}
+    assert reconciled[other] == {other_orders}
+
+
+def test_code_lineage_failure_keeps_plan_lineage_and_warns() -> None:
+    # A long enough method chain makes the AST walk raise RecursionError.
+    content = (
+        'df = spark.read.table("silver.orders")\n'
+        "df = df" + '.withColumn("a", 1)' * 500 + "\n"
+        'df.write.save("Tables/gold/dim_user")\n'
+    )
+    report = FabricOneLakeSourceReport()
+
+    io = _emit_dim_user(reconcile_code=True, content=content, report=report)
+
+    products = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="products", schema="silver"
+    )
+    assert products.to_urn("PROD", None) in (io.inputDatasets or [])
+    assert [w.title for w in report.warnings] == ["Notebook Code Lineage Failed"]
+
+
+def test_reconcile_matches_names_case_insensitively() -> None:
+    dim_user = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="dim_user", schema="gold"
+    )
+    orders = SparkTableRef(workspace_id=WS, item_id=LH, table="orders", schema="silver")
+    products = SparkTableRef(
+        workspace_id=WS, item_id=LH, table="products", schema="silver"
+    )
+    execution = {dim_user: {orders, products}}
+    code = {
+        CodeTable(table="Dim_User", schema="Gold"): {
+            CodeTable(table="Orders", schema="Silver")
+        }
+    }
+
+    # Identity normaliser, as when convert_urns_to_lowercase is off.
+    reconciled = reconcile_spark_lineage(code, execution, lambda name: name).lineage
+
+    assert reconciled[dim_user] == {orders}
+
+
+def test_write_is_not_its_own_source_when_casing_differs() -> None:
+    lineage = extract_notebook_code_lineage(
+        """
+users = spark.read.format("delta").load("Tables/gold/dim_user")
+orders = spark.read.format("delta").load("Tables/silver/orders")
+merged = users.union(orders)
+merged.write.format("delta").save("Tables/Gold/Dim_User")
+"""
+    )
+    assert lineage is not None
+    sources = lineage[CodeTable(table="Dim_User", schema="Gold")]
+    assert {(s.schema, s.table) for s in sources} == {("silver", "orders")}
+
+
+def test_unknown_helper_with_a_frame_and_tables_path_is_not_a_write() -> None:
+    lineage = extract_notebook_code_lineage(
+        """
+orders = spark.read.format("delta").load("Tables/silver/orders")
+products = spark.read.format("delta").load("Tables/silver/products")
+users = orders.select("id")
+validate(products, "Tables/gold/dim_user")
+log_write(products, "Tables/gold/dim_products")
+users.write.format("delta").save("Tables/gold/dim_user")
+"""
+    )
+    assert lineage is not None
+    assert set(lineage) == {CodeTable(table="dim_user", schema="gold")}
+    assert lineage[CodeTable(table="dim_user", schema="gold")] == {
+        CodeTable(table="orders", schema="silver")
+    }
