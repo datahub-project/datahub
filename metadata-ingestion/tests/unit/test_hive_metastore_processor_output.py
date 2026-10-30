@@ -207,8 +207,7 @@ TABLE_CUSTOM_PROPERTIES = {
     "partitioned_columns": "dt",
 }
 
-# The view's rows are the same in every config: its four aspects back
-# to back, and viewProperties written a second time (identical) after subTypes.
+# The view's rows are the same in every config.
 VIEW_ROWS_EXPECTED = [
     ("container", "UPSERT"),
     ("status", "UPSERT"),
@@ -216,7 +215,6 @@ VIEW_ROWS_EXPECTED = [
     ("datasetProperties", "UPSERT"),
     ("viewProperties", "UPSERT"),
     ("subTypes", "UPSERT"),
-    ("viewProperties", "UPSERT"),
     ("upstreamLineage", "UPSERT"),
     ("browsePathsV2", "UPSERT"),
 ]
@@ -231,8 +229,7 @@ def _assert_view(rows: List[Row]) -> None:
         "name": "orders_view",
         "tags": [],
     }
-    view_props = [r[3] for r in rows if r[0] == VIEW_URN and r[1] == "viewProperties"]
-    assert view_props == [VIEW_PROPERTIES, VIEW_PROPERTIES]
+    assert _aspect(rows, VIEW_URN, "viewProperties") == VIEW_PROPERTIES
     table_positions = [i for i, r in enumerate(rows) if r[0] == TABLE_URN]
     view_positions = [i for i, r in enumerate(rows) if r[0] == VIEW_URN]
     assert max(table_positions) < min(view_positions)
