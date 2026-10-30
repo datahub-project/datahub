@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.update.OrderedSearchFields;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
@@ -498,12 +499,18 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     ObjectNode finalDocumentNode =
         SearchDocumentTransformer.handleRemoveFields(
             searchDocumentNode, previousSearchDocument.orElse(null));
+    Optional<OrderedSearchFields.Update> orderedUpdate =
+        OrderedSearchFields.split(aspectSpec.getName(), finalDocumentNode);
     // Serialized before any semantic-only augmentation below, so the base V2 index never sees
     // semantic-only fields such as resolvedTextSha256.
     String finalDocument = finalDocumentNode.toString();
 
     // Write to V2 index
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
+    orderedUpdate.ifPresent(
+        update ->
+            elasticSearchService.applyScriptUpdate(
+                opContext, entityName, docId, update.script(), update.params(), update.upsert()));
 
     // Dual-write to semantic index if enabled for this entity
     if (shouldWriteToSemanticIndex(opContext, entityName)) {

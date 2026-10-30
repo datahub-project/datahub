@@ -17,6 +17,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.IncidentStats;
+import com.linkedin.metadata.search.LatestIngestionRuns;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -304,6 +305,29 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
    */
   public boolean indexExists(@Nonnull OperationContext opContext, @Nonnull String indexName) {
     return esWriteDAO.indexExists(opContext, indexName);
+  }
+
+  /** Applies a script update to a document in the V2 index of the given entity. */
+  public void applyScriptUpdate(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    esWriteDAO.applyScriptUpdate(opContext, entityName, docId, scriptSource, scriptParams, upsert);
+  }
+
+  /** Applies a script update to a document in the V3 index for the given search group. */
+  public void applyScriptUpdateBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull String searchGroup,
+      @Nonnull String docId,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
+      Map<String, Object> upsert) {
+    esWriteDAO.applyScriptUpdateBySearchGroup(
+        opContext, searchGroup, docId, scriptSource, scriptParams, upsert);
   }
 
   /**
@@ -628,6 +652,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   public Map<Urn, IncidentStats> getActiveIncidentStats(
       @Nonnull OperationContext opContext, @Nonnull Set<Urn> entityUrns) {
     return esSearchDAO.getActiveIncidentStats(opContext, entityUrns);
+  }
+
+  @Nonnull
+  @Override
+  public Map<Urn, LatestIngestionRuns> getLatestIngestionRuns(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> ingestionSourceUrns) {
+    return esSearchDAO.getLatestIngestionRuns(opContext, ingestionSourceUrns);
   }
 
   @Nonnull

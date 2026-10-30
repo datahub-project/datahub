@@ -952,6 +952,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "ingestionMetrics.enabled",
           "ingestionScheduler.consumerGroupSuffix",
           "ingestionScheduler.enabled",
+          "ingestionSourceRunEvents.hook.consumerGroupSuffix",
+          "ingestionSourceRunEvents.hook.enabled",
           "ingestion.scheduler.refreshIntervalSeconds",
           "path-mappings./",
           // Management and monitoring
@@ -1008,6 +1010,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.ingestionIndices.delayMs",
           "systemUpdate.ingestionIndices.enabled",
           "systemUpdate.ingestionIndices.limit",
+          "systemUpdate.ingestionSourceRunEvents.batchSize",
+          "systemUpdate.ingestionSourceRunEvents.enabled",
+          "systemUpdate.ingestionSourceRunEvents.reprocess.enabled",
           "systemUpdate.initialBackOffMs",
           "systemUpdate.maxBackOffs",
           "systemUpdate.ownershipTypes.batchSize",
