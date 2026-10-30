@@ -1161,7 +1161,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   /**
    * Highlighting is opt-in, but matched fields are not. The light query reads name and id, and the
    * stored values that contain the query are reported with highlighting off. The exact name term is
-   * a named clause, so name is reported a second time with an empty value.
+   * named {@code matchedField:name}, the same label the source scan already recorded, so it is not
+   * reported again with an empty value.
    */
   @Test
   public void testSearchReportsNoMatchedFieldsWithoutOptIn() {
@@ -1239,12 +1240,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   private static void assertCustomersQueriedFields(@Nonnull SearchEntity hit) {
-    assertEquals(
-        matchedFieldNames(hit), List.of("name", "id", "name"), hit.getMatchedFields().toString());
+    assertEquals(matchedFieldNames(hit), List.of("name", "id"), hit.getMatchedFields().toString());
     assertEquals(matchedFieldValue(hit, "name"), "customers");
     assertEquals(matchedFieldValue(hit, "id"), "sales.customers");
-    assertEquals(hit.getMatchedFields().get(2).getName(), "name");
-    assertEquals(hit.getMatchedFields().get(2).getValue(), "");
   }
 
   @Nonnull
