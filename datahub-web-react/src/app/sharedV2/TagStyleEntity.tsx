@@ -433,7 +433,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                     <StatsLabel>{tcLabels('owners')}</StatsLabel>
                     <OwnersContainer>
                         {data?.tag?.ownership?.owners?.map((owner) => (
-                            <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
+                            <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} hideHoverCard />
                         ))}
                         {ownersEmpty && (
                             <Text color="textSecondary">

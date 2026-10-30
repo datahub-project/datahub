@@ -10,7 +10,7 @@ import styled, { useTheme } from 'styled-components/macro';
 
 import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
 import { FormattedBytesStat } from '@app/entityV2/dataset/shared/FormattedBytesStat';
-import { StatsSummary } from '@app/search/autoComplete/StatsSummary';
+import { StatsSummary } from '@app/sharedV2/datasetStats/StatsSummary';
 import { formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { countFormatter, needsFormatting } from '@utils/formatter';
