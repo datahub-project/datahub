@@ -49,8 +49,10 @@ def cooperative_timeout(timeout: Optional[float] = None) -> Iterator[None]:
     # Getting code to time out in Python is actually rather tricky, and so this felt
     # like the most straightforward approach. Other approaches include:
     #   - Using the signal module to set a signal handler that raises an exception
-    #     after a certain time. Unfortunately, this approach only works on the main
-    #     thread, and is not available on Windows.
+    #     after a certain time. This only works on the main thread and is not
+    #     available on Windows, so it can't be the only mechanism; it complements
+    #     this one in `interrupt_on_cooperative_deadline` for calls that never
+    #     cooperate, such as sqlglot's optimizer.
     #   - Creating a separate process to run the code and then killing it if it hasn't
     #     finished by the deadline. This usually requires that all arguments/return
     #     types are pickleable so that they can be passed between processes. Overall,

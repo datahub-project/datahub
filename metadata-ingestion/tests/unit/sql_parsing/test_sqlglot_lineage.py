@@ -1,4 +1,5 @@
 import pathlib
+import signal
 import time
 
 import pytest
@@ -22,6 +23,10 @@ def _disable_cooperative_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.mark.skipif(
+    not hasattr(signal, "setitimer"),
+    reason="interrupting optimize needs SIGALRM, which Windows lacks",
+)
 def test_optimize_timeout_skips_column_lineage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
