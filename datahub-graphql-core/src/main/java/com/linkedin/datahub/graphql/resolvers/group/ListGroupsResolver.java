@@ -49,6 +49,15 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
       final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
       final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
       final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+      // Newest-first only when browsing. With a query, a created-time sort overrides relevance
+      // and buries the exact match pages deep among loose fulltext hits.
+      final List<SortCriterion> sortCriteria =
+          query.isBlank()
+              ? Collections.singletonList(
+                  new SortCriterion()
+                      .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
+                      .setOrder(SortOrder.DESCENDING))
+              : Collections.emptyList();
 
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
@@ -62,10 +71,7 @@ public class ListGroupsResolver implements DataFetcher<CompletableFuture<ListGro
                       CORP_GROUP_ENTITY_NAME,
                       query,
                       null,
-                      Collections.singletonList(
-                          new SortCriterion()
-                              .setField(CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME)
-                              .setOrder(SortOrder.DESCENDING)),
+                      sortCriteria,
                       start,
                       count);
 
