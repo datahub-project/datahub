@@ -129,7 +129,6 @@ def tableau_ingest_common(
                     output_path=f"{tmp_path}/{output_file_name}",
                     golden_path=test_resources_dir / golden_file_name,
                     ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
-                    golden_mces_as_mcps=True,
                     fail_on_output_mces=True,
                 )
             return pipeline
