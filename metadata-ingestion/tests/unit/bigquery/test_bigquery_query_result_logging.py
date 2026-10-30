@@ -1,18 +1,9 @@
-from typing import Iterator
 from unittest.mock import MagicMock
 
 from google.cloud.bigquery.table import _EmptyRowIterator
 
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
-
-
-class _Page:
-    def __init__(self, items: list[str]) -> None:
-        self.num_items = len(items)
-        self._items = items
-
-    def __iter__(self) -> Iterator[str]:
-        return iter(self._items)
+from tests.unit.bigquery.query_result_fakes import FakeResultPage
 
 
 class _Rows:
@@ -23,9 +14,9 @@ class _Rows:
         self.pages_accessed = False
 
     @property
-    def pages(self) -> list[_Page]:
+    def pages(self) -> list[FakeResultPage]:
         self.pages_accessed = True
-        return [_Page(["a", "b"]), _Page(["c"])]
+        return [FakeResultPage(["a", "b"]), FakeResultPage(["c"])]
 
 
 def _schema_api(result: object) -> BigQuerySchemaApi:

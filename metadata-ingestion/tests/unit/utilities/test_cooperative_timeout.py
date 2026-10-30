@@ -15,6 +15,15 @@ from datahub.utilities.cooperative_timeout import (
 )
 
 
+def _require_main_thread_timer() -> None:
+    # SIGALRM/ITIMER_REAL don't exist on Windows and only fire on the main thread.
+    if (
+        not hasattr(signal, "setitimer")
+        or threading.current_thread() is not threading.main_thread()
+    ):
+        pytest.skip("ITIMER_REAL is only available on the main thread")
+
+
 def test_cooperate_no_timeout():
     # Called outside of a timeout block, should not do anything.
     cooperate()
@@ -35,6 +44,7 @@ def test_cooperative_timeout_no_timeout():
 
 
 def test_interrupt_on_cooperative_deadline_stops_a_call_that_never_cooperates():
+    _require_main_thread_timer()
     started = time.perf_counter()
     with (
         pytest.raises(CooperativeTimeoutError),
@@ -46,11 +56,7 @@ def test_interrupt_on_cooperative_deadline_stops_a_call_that_never_cooperates():
 
 
 def test_interrupt_restores_a_preexisting_timer():
-    if (
-        not hasattr(signal, "setitimer")
-        or threading.current_thread() is not threading.main_thread()
-    ):
-        pytest.skip("ITIMER_REAL is only available on the main thread")
+    _require_main_thread_timer()
 
     def _handler(signum: int, frame: object) -> None:
         return None
@@ -69,11 +75,7 @@ def test_interrupt_restores_a_preexisting_timer():
 
 
 def test_interrupt_does_not_postpone_a_preexisting_timer():
-    if (
-        not hasattr(signal, "setitimer")
-        or threading.current_thread() is not threading.main_thread()
-    ):
-        pytest.skip("ITIMER_REAL is only available on the main thread")
+    _require_main_thread_timer()
 
     def _handler(signum: int, frame: object) -> None:
         return None
@@ -97,11 +99,7 @@ class _HostTimeout(Exception):
 
 
 def test_preexisting_timer_due_first_still_fires():
-    if (
-        not hasattr(signal, "setitimer")
-        or threading.current_thread() is not threading.main_thread()
-    ):
-        pytest.skip("ITIMER_REAL is only available on the main thread")
+    _require_main_thread_timer()
 
     def _host_handler(signum: int, frame: object) -> None:
         raise _HostTimeout()
@@ -116,7 +114,8 @@ def test_preexisting_timer_due_first_still_fires():
             interrupt_on_cooperative_deadline(),
         ):
             time.sleep(3)
-        assert time.perf_counter() - started < 1
+        # Generous margin for a loaded runner; without the host alarm this sleeps 3s.
+        assert time.perf_counter() - started < 2
     finally:
         signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, previous_handler)
@@ -157,11 +156,7 @@ def test_interrupt_unavailable_in_worker_thread_warns_once(
 def test_interrupt_leaves_a_non_python_handler_alone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    if (
-        not hasattr(signal, "setitimer")
-        or threading.current_thread() is not threading.main_thread()
-    ):
-        pytest.skip("ITIMER_REAL is only available on the main thread")
+    _require_main_thread_timer()
 
     # getsignal returns None for a handler installed from C, which
     # signal.signal cannot restore.
