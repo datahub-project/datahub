@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.dataproduct.DataProductAssociation;
@@ -90,9 +91,12 @@ public class ListDataProductAssetsResolver
                 .data();
         final DataProductProperties dataProductProperties = new DataProductProperties(data);
         if (dataProductProperties.hasAssets()) {
+          // Assets of entity types the registry doesn't know (e.g. after a rollback) can't be
+          // searched; including their type in the search would fail the whole request.
           assetUrns.addAll(
               dataProductProperties.getAssets().stream()
                   .map(DataProductAssociation::getDestinationUrn)
+                  .filter(assetUrn -> KnownEntities.isKnown(context, assetUrn))
                   .collect(Collectors.toList()));
           outputPorts =
               dataProductProperties.getAssets().stream()

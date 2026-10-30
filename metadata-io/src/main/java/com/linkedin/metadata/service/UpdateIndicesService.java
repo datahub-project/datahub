@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -13,14 +14,19 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -28,8 +34,12 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -41,6 +51,8 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class UpdateIndicesService implements SearchIndicesService {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(UpdateIndicesService.class, "MCL");
 
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
   private final ElasticSearchService elasticSearchService;
@@ -58,6 +70,9 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   private static final String DOCUMENT_TRANSFORM_FAILED_METRIC = "document_transform_failed";
   private static final String SEARCH_DIFF_MODE_SKIPPED_METRIC = "search_diff_no_changes_detected";
+  private static final String INVALID_MCL_SKIPPED_METRIC = "invalid_mcl_skipped";
+  private static final String PREVIOUS_FROM_NEWER_VERSION_OMITTED_METRIC =
+      "mcl_previous_from_newer_version_omitted";
 
   public static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
@@ -95,7 +110,8 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Override
   public void handleChangeEvents(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
-    LinkedHashMap<Urn, List<MCLItem>> groupedEvents = groupForStrategies(opContext, events);
+    final GroupedEvents grouped = groupForStrategies(opContext, events);
+    LinkedHashMap<Urn, List<MCLItem>> groupedEvents = grouped.byUrn();
 
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
@@ -118,7 +134,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       if (!updateEvents.isEmpty()) {
         // Update graph indices for each event individually for now
         for (MCLItem event : updateEvents) {
-          updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
+          updateGraph(opContext, event, grouped);
         }
 
         handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
@@ -135,7 +151,7 @@ public class UpdateIndicesService implements SearchIndicesService {
         boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
 
         // graph update first
-        updateGraphIndicesService.handleChangeEvent(opContext, deleteEvent.getMetadataChangeLog());
+        updateGraph(opContext, deleteEvent, grouped);
 
         // system metadata is last for tracing
         handleSystemMetadataDeleteChangeEvent(
@@ -152,7 +168,7 @@ public class UpdateIndicesService implements SearchIndicesService {
    */
   public void fillSearchIndices(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
-    LinkedHashMap<Urn, List<MCLItem>> groupedEvents = groupForStrategies(opContext, events);
+    LinkedHashMap<Urn, List<MCLItem>> groupedEvents = groupForStrategies(opContext, events).byUrn();
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled() && strategy.fillsNewIndicesFromPrimaryStorage()) {
         strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
@@ -161,23 +177,163 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   /**
+   * Events grouped by URN in order, and the previous value of each event that was built without it
+   * because a newer version wrote that value (see {@link #buildValidMCLItem}), keyed by identity.
+   */
+  private record GroupedEvents(
+      @Nonnull LinkedHashMap<Urn, List<MCLItem>> byUrn,
+      @Nonnull Map<MCLItem, RecordTemplate> unvalidatedPrevious) {}
+
+  /**
    * Converts change logs to {@link MCLItem}s, expands MCL side effects, and groups by URN in order.
    * Cross-routing-key mixing is segregated upstream in the Kafka batch listener (see
    * MCLBatchKafkaListener.consumeBatch), so every call already arrives under a single routing
    * identity and grouping by URN alone is sufficient.
    */
   @Nonnull
-  private LinkedHashMap<Urn, List<MCLItem>> groupForStrategies(
+  private GroupedEvents groupForStrategies(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
+    // While unknown data is tolerated, skip MCLs with unknown entities/aspects (can happen after
+    // rollback when older build encounters rows written by the newer one).
+    EntityRegistry entityRegistry = opContext.getAspectRetriever().getEntityRegistry();
+    final Map<MCLItem, RecordTemplate> unvalidatedPrevious = new IdentityHashMap<>();
     List<MCLItem> mclItems =
         events.stream()
-            .map(event -> MCLItemImpl.builder().build(event, opContext.getAspectRetriever()))
+            .filter(
+                event -> {
+                  return handling()
+                      .admitEvent(
+                          UNKNOWN_DATA,
+                          entityRegistry,
+                          opContext.getMetricUtils(),
+                          event.getEntityUrn(),
+                          event.hasEntityType() ? event.getEntityType() : null,
+                          event.hasAspectName() ? event.getAspectName() : null);
+                })
+            .map(event -> buildValidMCLItem(opContext, event, unvalidatedPrevious))
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
     List<MCLItem> sideEffects =
         AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext())
             .collect(Collectors.toList());
-    return UpdateIndicesUtil.groupEventsByUrn(
-        Stream.concat(mclItems.stream(), sideEffects.stream()));
+    return new GroupedEvents(
+        UpdateIndicesUtil.groupEventsByUrn(Stream.concat(mclItems.stream(), sideEffects.stream())),
+        unvalidatedPrevious);
+  }
+
+  private void updateGraph(
+      @Nonnull OperationContext opContext,
+      @Nonnull final MCLItem event,
+      @Nonnull final GroupedEvents grouped) {
+    if (grouped.unvalidatedPrevious().containsKey(event)) {
+      updateGraphIndicesService.handleChangeEventWithUnvalidatedPrevious(
+          opContext, event.getMetadataChangeLog(), grouped.unvalidatedPrevious().get(event));
+    } else {
+      updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
+    }
+  }
+
+  /**
+   * Builds an MCLItem. An event whose new value fails validation because a newer version wrote it
+   * (e.g. read after a rollback) is dropped on its own instead of failing the whole batch, and
+   * counted in {@link #INVALID_MCL_SKIPPED_METRIC}. An event whose new value is valid but whose
+   * previous value a newer version wrote (e.g. a change away from an enum value only that version
+   * defines) is built without the previous value, so its new value is still indexed; that previous
+   * value goes in {@code unvalidatedPrevious} for the graph update. Any other invalid payload fails
+   * as before.
+   */
+  @Nullable
+  private static MCLItem buildValidMCLItem(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MetadataChangeLog event,
+      @Nonnull final Map<MCLItem, RecordTemplate> unvalidatedPrevious) {
+    try {
+      return MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
+    } catch (ValidationException e) {
+      // Checked first so strict handling does no deserialization and fails as before.
+      if (!handling().toleratesUnknownData()) {
+        throw e;
+      }
+      final EntityRegistry registry = opContext.getEntityRegistry();
+      final AspectSpec aspectSpec =
+          registry.findAspectSpec(event.getEntityType(), event.getAspectName()).orElse(null);
+      if (handling()
+          .isFromNewerVersion(
+              deserializeOrNull(event.hasAspect() ? event.getAspect() : null, aspectSpec),
+              event.getSystemMetadata(),
+              aspectSpec,
+              registry)) {
+        opContext
+            .getMetricUtils()
+            .ifPresent(m -> m.increment(UpdateIndicesService.class, INVALID_MCL_SKIPPED_METRIC, 1));
+        UNKNOWN_DATA.skippedBecause(
+            Optional.empty(),
+            "invalid:" + event.getEntityType() + "/" + event.getAspectName(),
+            "its payload from a newer version fails validation here: " + e.getMessage(),
+            event.getEntityUrn());
+        return null;
+      }
+      final RecordTemplate previous = deserializeOrNull(event.getPreviousAspectValue(), aspectSpec);
+      if (!event.hasPreviousAspectValue()
+          || !handling()
+              .isFromNewerVersion(
+                  previous, event.getPreviousSystemMetadata(), aspectSpec, registry)) {
+        throw e;
+      }
+      // Blame the previous value only when the new one is valid on its own, so an event whose new
+      // value is invalid for another reason still fails.
+      final MCLItem withoutPrevious = buildWithoutPrevious(opContext, event);
+      if (withoutPrevious == null) {
+        throw e;
+      }
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              m ->
+                  m.increment(
+                      UpdateIndicesService.class, PREVIOUS_FROM_NEWER_VERSION_OMITTED_METRIC, 1));
+      UNKNOWN_DATA.invalid(
+          "previous:" + event.getEntityType() + "/" + event.getAspectName(),
+          event.getAspectName()
+              + "'s previous value, from a newer version (indexing the new value without it): "
+              + e.getMessage(),
+          event.getEntityUrn());
+      unvalidatedPrevious.put(withoutPrevious, previous);
+      return withoutPrevious;
+    }
+  }
+
+  @Nullable
+  private static RecordTemplate deserializeOrNull(
+      @Nullable final GenericAspect value, @Nullable final AspectSpec aspectSpec) {
+    if (value == null || aspectSpec == null) {
+      return null;
+    }
+    try {
+      return GenericRecordUtils.deserializeAspect(
+          value.getValue(), value.getContentType(), aspectSpec);
+    } catch (RuntimeException deserializationFailure) {
+      // Unreadable payloads aren't attributed to a newer version.
+      return null;
+    }
+  }
+
+  @Nullable
+  private static MCLItem buildWithoutPrevious(
+      @Nonnull final OperationContext opContext, @Nonnull final MetadataChangeLog event) {
+    final MetadataChangeLog withoutPrevious;
+    try {
+      withoutPrevious = event.copy();
+    } catch (CloneNotSupportedException e) {
+      return null;
+    }
+    withoutPrevious.removePreviousAspectValue();
+    withoutPrevious.removePreviousSystemMetadata();
+    try {
+      return MCLItemImpl.builder().build(withoutPrevious, opContext.getAspectRetriever());
+    } catch (RuntimeException invalid) {
+      return null;
+    }
   }
 
   /**

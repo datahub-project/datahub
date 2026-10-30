@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -16,6 +17,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,6 +27,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -39,6 +43,16 @@ public class CDCProcessorTest {
   private ConfigurationProvider mockProvider;
   private ObjectMapper mockObjectMapper;
   private EntityRegistry mockEntityRegistry;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {
@@ -615,5 +629,48 @@ public class CDCProcessorTest {
       // Exception expected due to mock limitations
       Assert.assertTrue(e.getMessage().contains("urn") || e.getMessage().contains("entity"));
     }
+  }
+
+  @Test
+  public void testRecordOfAspectUnknownToRegistryIsSkipped() throws Exception {
+    // A row a newer version wrote (read after a rollback) is skipped without an error.
+    JsonNode record =
+        OBJECT_MAPPER.readTree(
+            "{\"after\": {\"urn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)\","
+                + " \"aspect\": \"aspectFromNewerBuild\", \"version\": 0, \"metadata\": \"{}\","
+                + " \"createdon\": 1700000000000, \"createdby\": \"urn:li:corpuser:x\"}}");
+    // dataset is known; only the aspect is not.
+    when(mockEntityRegistry.getEntitySpec("dataset"))
+        .thenReturn(mock(com.linkedin.metadata.models.EntitySpec.class));
+    when(mockEntityRegistry.findAspectSpec(any(), any())).thenCallRealMethod();
+    when(mockEntityRegistry.findEntitySpec(any())).thenCallRealMethod();
+
+    assertTrue(cdcProcessor.mclFromCDCRecord(record).isEmpty());
+  }
+
+  @Test
+  public void testRecordWhoseUrnKeyReferencesAnUnknownTypeIsSkippedBeforeDeserializing()
+      throws Exception {
+    // A schema field of an entity type only a newer version has: the outer type and aspect are
+    // known, but the urn key isn't. It is skipped before its (invalid) metadata is parsed.
+    JsonNode record =
+        OBJECT_MAPPER.readTree(
+            "{\"after\": {\"urn\": \"urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)\","
+                + " \"aspect\": \"status\", \"version\": 0, \"metadata\": \"{not json\","
+                + " \"createdon\": 1700000000000, \"createdby\": \"urn:li:corpuser:x\"}}");
+    com.linkedin.metadata.models.EntitySpec schemaField =
+        mock(com.linkedin.metadata.models.EntitySpec.class);
+    when(schemaField.getAspectSpec("status"))
+        .thenReturn(mock(com.linkedin.metadata.models.AspectSpec.class));
+    com.linkedin.metadata.models.AspectSpec schemaFieldKey =
+        mock(com.linkedin.metadata.models.AspectSpec.class);
+    when(schemaFieldKey.getPegasusSchema())
+        .thenReturn(new com.linkedin.metadata.key.SchemaFieldKey().schema());
+    when(schemaField.getKeyAspectSpec()).thenReturn(schemaFieldKey);
+    when(mockEntityRegistry.findEntitySpec(any())).thenReturn(java.util.Optional.empty());
+    when(mockEntityRegistry.findEntitySpec("schemaField"))
+        .thenReturn(java.util.Optional.of(schemaField));
+
+    assertTrue(cdcProcessor.mclFromCDCRecord(record).isEmpty());
   }
 }

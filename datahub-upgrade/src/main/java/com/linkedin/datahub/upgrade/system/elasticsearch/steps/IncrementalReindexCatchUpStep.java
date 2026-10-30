@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
@@ -30,6 +31,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -76,6 +78,8 @@ import org.opensearch.tasks.TaskInfo;
  */
 @Slf4j
 public class IncrementalReindexCatchUpStep implements UpgradeStep {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(IncrementalReindexCatchUpStep.class, "row (left unindexed)");
 
   public static final String UPGRADE_ID_PREFIX = IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX;
   public static final String LAST_URN_KEY = IncrementalReindexState.CATCH_UP_LAST_URN;
@@ -517,7 +521,18 @@ public class IncrementalReindexCatchUpStep implements UpgradeStep {
               .partition(sqlPageSize)
               .forEach(
                   page -> {
-                    List<EbeanAspectV2> pageAspects = page.collect(Collectors.toList());
+                    // Drop rows the registry does not know (written by a newer version) up front.
+                    List<EbeanAspectV2> pageAspects =
+                        page.filter(
+                                aspect ->
+                                    handling()
+                                        .admitUrn(
+                                            UNKNOWN_DATA,
+                                            opContext.getEntityRegistry(),
+                                            opContext.getMetricUtils(),
+                                            aspect.getUrn(),
+                                            aspect.getAspect()))
+                            .collect(Collectors.toList());
 
                     List<SystemAspect> systemAspects =
                         EntityUtils.toSystemAspectFromEbeanAspects(

@@ -1,6 +1,7 @@
 package com.linkedin.metadata.aspect.consistency;
 
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -69,6 +71,8 @@ import org.opensearch.search.SearchHit;
 @Slf4j
 @ThreadSafe
 public class ConsistencyService {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(ConsistencyService.class, "consistency check of");
 
   private final EntityService<?> entityService;
   private final ESSystemMetadataDAO esSystemMetadataDAO;
@@ -1041,6 +1045,11 @@ public class ConsistencyService {
 
     Set<Urn> orphans = new HashSet<>(urnsFromEs);
     orphans.removeAll(existingUrns);
+    // exists() reports urns of entity types this registry doesn't know (written by a newer version
+    // before a rollback), or whose key holds one (e.g. a schemaField of such an entity), as
+    // missing; their index documents belong to that version, not to orphans.
+    orphans.removeIf(
+        urn -> handling().referencesUnknownEntityType(opContext.getEntityRegistry(), urn));
     return orphans;
   }
 
@@ -1160,6 +1169,18 @@ public class ConsistencyService {
             .orElseThrow(() -> new IllegalArgumentException("Unknown check ID: " + checkId));
 
     String entityType = urn.getEntityType();
+    // Skips the urn when its type, or one its key holds, is unknown (written by a newer version
+    // before a rollback): exists() hides such urns, so every check would misread them as missing.
+    if (!handling()
+        .admitEvent(
+            UNKNOWN_DATA,
+            opContext.getEntityRegistry(),
+            opContext.getMetricUtils(),
+            urn,
+            urn.getEntityType(),
+            null)) {
+      return java.util.Optional.empty();
+    }
 
     // Derive required aspects
     Set<String> requiredAspects = deriveRequiredAspects(List.of(check));

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
@@ -17,6 +18,7 @@ import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -44,6 +46,9 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.StructuredProperties;
@@ -64,14 +69,21 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 public class AspectsBatchImplTest {
+
   private EntityRegistry testRegistry;
   private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeTest
   public void beforeTest() throws EntityRegistryException {
@@ -85,6 +97,11 @@ public class AspectsBatchImplTest {
             Snapshot.class.getClassLoader().getResourceAsStream("AspectsBatchImplTest.yaml"));
     this.testRegistry =
         new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
   }
 
   @BeforeMethod
@@ -401,6 +418,164 @@ public class AspectsBatchImplTest {
                             ByteString.copyString("{\"foo\":\"bar\"}", StandardCharsets.UTF_8))),
             auditStamp,
             testRegistry);
+  }
+
+  @Test
+  public void unknownEntityTypeRejectsBatchLikeUnknownAspect() {
+    // A sync batch naming an entity type or aspect this registry doesn't know (e.g. sent by a
+    // client built for a newer version) is rejected the same way for both, rather than the unknown
+    // entity type being dropped silently while the call reports success.
+    MetadataChangeProposal known =
+        upsert(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            STATUS_ASPECT_NAME);
+    MetadataChangeProposal unknownEntityType =
+        upsert(UrnUtils.getUrn("urn:li:entityFromNewerBuild:x"), STATUS_ASPECT_NAME);
+    MetadataChangeProposal unknownAspect =
+        upsert(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            "aspectFromNewerBuild");
+
+    for (MetadataChangeProposal unknown : List.of(unknownEntityType, unknownAspect)) {
+      assertThrows(
+          ValidationException.class,
+          () ->
+              AspectsBatchImpl.builder()
+                  .mcps(
+                      ImmutableList.of(known, unknown),
+                      AuditStampUtils.createDefaultAuditStamp(),
+                      retrieverContext));
+    }
+  }
+
+  @Test
+  public void nestedUnknownEntityTypeRejectsBatchLikeUnknownEntityType() {
+    // A known entity type whose key nests one this registry doesn't know (e.g. a schema field of a
+    // newer version's entity type) is rejected like an unknown entity type, upsert or patch, rather
+    // than dropped silently while the call reports success.
+    MetadataChangeProposal known =
+        upsert(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            STATUS_ASPECT_NAME);
+    Urn nested = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)");
+
+    for (MetadataChangeProposal unknown :
+        List.of(upsert(nested, STATUS_ASPECT_NAME), statusPatch(nested))) {
+      assertThrows(
+          ValidationException.class,
+          () ->
+              AspectsBatchImpl.builder()
+                  .mcps(
+                      ImmutableList.of(known, unknown),
+                      AuditStampUtils.createDefaultAuditStamp(),
+                      retrieverContext));
+    }
+  }
+
+  @Test
+  public void nestedTypeNoNewerVersionRegisteredIsRejectedToo() {
+    // Only a newer version's types count as its data on reads, but a write is rejected for any
+    // unknown nested type, as for an unknown outer type: a typo is a 400, not dropped as success.
+    UnknownDataHandlings.use(TolerantHandling.of(true, true, "entityFromNewerBuild"::equals));
+    MetadataChangeProposal known =
+        upsert(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            STATUS_ASPECT_NAME);
+    MetadataChangeProposal typoParent =
+        upsert(UrnUtils.getUrn("urn:li:schemaField:(urn:li:datsaet:x,col)"), STATUS_ASPECT_NAME);
+
+    assertThrows(
+        ValidationException.class,
+        () ->
+            AspectsBatchImpl.builder()
+                .mcps(
+                    ImmutableList.of(known, typoParent),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    retrieverContext));
+  }
+
+  @Test
+  public void urnShapedTextInAStringKeyFieldIsNotANestedType() {
+    // datasetKey.name is a string: a name that looks like a urn of an unknown type is just text.
+    MetadataChangeProposal urnShapedName =
+        upsert(
+            UrnUtils.getUrn(
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,urn:li:entityFromNewerBuild:x,PROD)"),
+            STATUS_ASPECT_NAME);
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                ImmutableList.of(urnShapedName),
+                AuditStampUtils.createDefaultAuditStamp(),
+                retrieverContext)
+            .build(null);
+
+    assertEquals(batch.getItems().size(), 1);
+  }
+
+  @Test
+  public void strictHandlingSkipsNestedUnknownEntityTypeAsBefore() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    MetadataChangeProposal known =
+        upsert(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
+            STATUS_ASPECT_NAME);
+    MetadataChangeProposal nested =
+        upsert(
+            UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col)"),
+            STATUS_ASPECT_NAME);
+
+    AspectsBatchImpl batch =
+        AspectsBatchImpl.builder()
+            .mcps(
+                ImmutableList.of(known, nested),
+                AuditStampUtils.createDefaultAuditStamp(),
+                retrieverContext)
+            .build(null);
+
+    assertEquals(batch.getItems().size(), 1);
+  }
+
+  private static MetadataChangeProposal statusPatch(Urn urn) {
+    return new MetadataChangeProposal()
+        .setEntityUrn(urn)
+        .setEntityType(urn.getEntityType())
+        .setAspectName(STATUS_ASPECT_NAME)
+        .setChangeType(ChangeType.PATCH)
+        .setAspect(
+            new GenericAspect()
+                .setContentType("application/json-patch+json")
+                .setValue(
+                    ByteString.copyString(
+                        "[{\"op\":\"add\",\"path\":\"/removed\",\"value\":true}]",
+                        StandardCharsets.UTF_8)));
+  }
+
+  @Test
+  public void strictHandlingValidatesUrnBeforeEntityType() {
+    // Strict handling keeps the original order: urn validation fails first, with the
+    // IllegalArgumentException batch building skips, instead of a ValidationException.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    Urn unknownEntityType = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            DeleteItemImpl.builder()
+                .urn(unknownEntityType)
+                .aspectName(STATUS_ASPECT_NAME)
+                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                .build(mockAspectRetriever));
+  }
+
+  private static MetadataChangeProposal upsert(Urn urn, String aspectName) {
+    return new MetadataChangeProposal()
+        .setEntityUrn(urn)
+        .setEntityType(urn.getEntityType())
+        .setAspectName(aspectName)
+        .setChangeType(ChangeType.UPSERT)
+        .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
   }
 
   @Test

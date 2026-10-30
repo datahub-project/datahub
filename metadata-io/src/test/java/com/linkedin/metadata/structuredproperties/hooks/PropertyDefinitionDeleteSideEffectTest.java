@@ -34,6 +34,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCL;
@@ -43,10 +45,12 @@ import jakarta.json.JsonPatch;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class PropertyDefinitionDeleteSideEffectTest {
+
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
@@ -80,6 +84,16 @@ public class PropertyDefinitionDeleteSideEffectTest {
   private CachingAspectRetriever mockAspectRetriever;
   private SearchRetriever mockSearchRetriever;
   private RetrieverContext retrieverContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {
@@ -210,6 +224,74 @@ public class PropertyDefinitionDeleteSideEffectTest {
     JsonPatch expectedPatch =
         Json.createPatchBuilder().remove("/properties/" + TEST_PROPERTY_URN).build();
     assertEquals(((PatchMCP) result.get(0)).getPatch(), expectedPatch);
+  }
+
+  @Test
+  public void testDeletePropertyDefinitionSkipsEntityTypesUnknownToRegistry() throws Exception {
+    // After a version rollback a definition can list entity types only a newer build knows.
+    // Searching them would fail the whole scroll, so only known types are searched, and a hit of
+    // an unknown type is not patched.
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition(TEST_PROPERTY_DEFINITION.data().copy())
+            .setEntityTypes(
+                new UrnArray(
+                    List.of(
+                        UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                        UrnUtils.getUrn("urn:li:entityType:datahub.entityFromNewerBuild"))));
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setPageSize(2);
+    scrollResult.setNumEntities(2);
+    scrollResult.setEntities(
+        new SearchEntityArray(
+            List.of(
+                new SearchEntity().setEntity(TEST_DATASET_URN),
+                new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")))));
+    when(mockSearchRetriever.scroll(
+            eq(List.of("dataset")), eq(expectedFilter()), nullable(String.class), anyInt()))
+        .thenReturn(scrollResult);
+
+    List<MCPItem> result = runDefinitionDelete(definition);
+
+    verify(mockSearchRetriever, times(1))
+        .scroll(eq(List.of("dataset")), eq(expectedFilter()), nullable(String.class), anyInt());
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getUrn(), TEST_DATASET_URN);
+  }
+
+  @Test
+  public void testDeletePropertyDefinitionWithOnlyUnknownEntityTypesDoesNotScroll()
+      throws Exception {
+    // An empty type list must not reach the scroll, where it would search every entity type.
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition(TEST_PROPERTY_DEFINITION.data().copy())
+            .setEntityTypes(
+                new UrnArray(
+                    List.of(UrnUtils.getUrn("urn:li:entityType:datahub.entityFromNewerBuild"))));
+
+    List<MCPItem> result = runDefinitionDelete(definition);
+
+    assertEquals(result.size(), 0);
+    verify(mockSearchRetriever, times(0)).scroll(any(), any(), nullable(String.class), anyInt());
+  }
+
+  private List<MCPItem> runDefinitionDelete(StructuredPropertyDefinition definition) {
+    PropertyDefinitionDeleteSideEffect test = new PropertyDefinitionDeleteSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    return test.postMCPSideEffect(
+            OperationFingerprint.EMPTY,
+            Set.of(
+                TestMCL.builder()
+                    .changeType(ChangeType.DELETE)
+                    .urn(TEST_PROPERTY_URN)
+                    .entitySpec(TEST_REGISTRY.getEntitySpec("structuredProperty"))
+                    .aspectSpec(
+                        TEST_REGISTRY
+                            .getEntitySpec("structuredProperty")
+                            .getAspectSpec(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+                    .previousRecordTemplate(definition)
+                    .build()),
+            retrieverContext)
+        .collect(Collectors.toList());
   }
 
   private static Filter expectedFilter() {

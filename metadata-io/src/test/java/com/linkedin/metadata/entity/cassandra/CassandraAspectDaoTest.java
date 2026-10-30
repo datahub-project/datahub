@@ -24,6 +24,8 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.sql.Timestamp;
@@ -32,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -41,6 +44,11 @@ public class CassandraAspectDaoTest {
   private CassandraAspectDao testDao;
   private CqlSession mockSession;
   private OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setupTest() {
@@ -176,6 +184,50 @@ public class CassandraAspectDaoTest {
       assertEquals(deletedCount, 0, "Should return 0 when not writable");
       verify(mockSession, never()).execute(any(SimpleStatement.class));
     }
+  }
+
+  @Test
+  public void testToleratedDeleteRemovesTheWholePartition() {
+    // A newer version can store aspects this registry doesn't know (read after a rollback); a hard
+    // delete must remove them too, or they come back after re-upgrading.
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+
+    final List<String> queries = deletes(() -> testDao.deleteUrn(opContext, null, URN));
+
+    assertEquals(queries, List.of("DELETE FROM metadata_aspect_v2 WHERE urn='" + URN + "'"));
+  }
+
+  @Test
+  public void testToleratedDeleteKeepingAspectsDeletesTheRangesAroundThem() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+
+    final List<String> queries =
+        deletes(() -> testDao.deleteUrnExcept(opContext, null, URN, Set.of("status")));
+
+    final String where = "DELETE FROM metadata_aspect_v2 WHERE urn='" + URN + "' AND ";
+    assertEquals(
+        queries,
+        List.of(
+            where + "aspect<'corpUserKey'",
+            where + "aspect>'corpUserKey' AND aspect<'status'",
+            where + "aspect>'status'",
+            where + "aspect='corpUserKey'"));
+  }
+
+  private static final String URN = "urn:li:corpuser:testDeleteUnknownAspect";
+
+  private List<String> deletes(final Runnable delete) {
+    testDao.setWritable(true);
+    ResultSet deleteResult = mock(ResultSet.class);
+    ExecutionInfo executionInfo = mock(ExecutionInfo.class);
+    when(executionInfo.getErrors()).thenReturn(Collections.emptyList());
+    when(deleteResult.getExecutionInfo()).thenReturn(executionInfo);
+    when(mockSession.execute(any(SimpleStatement.class))).thenReturn(deleteResult);
+    delete.run();
+    org.mockito.ArgumentCaptor<SimpleStatement> statements =
+        org.mockito.ArgumentCaptor.forClass(SimpleStatement.class);
+    verify(mockSession, org.mockito.Mockito.atLeastOnce()).execute(statements.capture());
+    return statements.getAllValues().stream().map(SimpleStatement::getQuery).toList();
   }
 
   @Test

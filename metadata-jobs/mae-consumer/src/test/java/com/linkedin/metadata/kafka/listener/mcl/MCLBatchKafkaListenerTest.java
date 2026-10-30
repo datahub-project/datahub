@@ -11,6 +11,8 @@ import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityRe
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -26,6 +28,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -44,6 +47,16 @@ public class MCLBatchKafkaListenerTest {
   private MetadataChangeLogHook mockHook1;
   private MetadataChangeLogHook mockHook2;
   private OperationContext systemOperationContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setUp() {
@@ -126,6 +139,77 @@ public class MCLBatchKafkaListenerTest {
                     return list.size() == 1
                         && "datasetProperties".equals(list.get(0).getAspectName());
                   }));
+    }
+  }
+
+  @Test
+  public void testConsumeBatchFiltersEntityTypesUnknownToRegistry() throws Exception {
+    MetadataChangeLog keptFirst = createTestMCL("datasetProperties", ChangeType.UPSERT);
+    MetadataChangeLog unknownEntity = createTestMCL("datasetProperties", ChangeType.UPSERT);
+    unknownEntity.setEntityType("entityFromNewerBuild");
+    MetadataChangeLog keptLast = createTestMCL("ownership", ChangeType.UPSERT);
+
+    List<ConsumerRecord<String, GenericRecord>> records =
+        List.of(
+            createMockConsumerRecord(0), createMockConsumerRecord(1), createMockConsumerRecord(2));
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils
+          .when(() -> EventUtils.avroToPegasusMCL(any()))
+          .thenReturn(keptFirst)
+          .thenReturn(unknownEntity)
+          .thenReturn(keptLast);
+
+      listener.consumeBatch(records);
+
+      verify(mockHook1)
+          .invokeBatch(
+              any(OperationContext.class),
+              argThat(
+                  events ->
+                      events.size() == 2
+                          && events.contains(keptFirst)
+                          && events.contains(keptLast)
+                          && !events.contains(unknownEntity)));
+    }
+  }
+
+  @Test
+  public void testConsumeBatchSkipsAnUnknownEventWithAMalformedUrnAndKeepsTheRest()
+      throws Exception {
+    // An unknown entity type whose urn can't be parsed is skipped on its own; logging the skip must
+    // not read the urn, which would throw out of the batch and lose the events polled with it.
+    MetadataChangeLog keptFirst = createTestMCL("datasetProperties", ChangeType.UPSERT);
+    // Raw data, as Kafka delivers it: the urn setter would cache a parsed urn.
+    MetadataChangeLog malformed = new MetadataChangeLog();
+    malformed.data().put("entityUrn", "urn:li:entityFromNewerBuild:(unbalanced");
+    malformed.setEntityType("entityFromNewerBuild");
+    malformed.setAspectName("datasetProperties");
+    malformed.setChangeType(ChangeType.UPSERT);
+    malformed.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
+    MetadataChangeLog keptLast = createTestMCL("ownership", ChangeType.UPSERT);
+
+    List<ConsumerRecord<String, GenericRecord>> records =
+        List.of(
+            createMockConsumerRecord(0), createMockConsumerRecord(1), createMockConsumerRecord(2));
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils
+          .when(() -> EventUtils.avroToPegasusMCL(any()))
+          .thenReturn(keptFirst)
+          .thenReturn(malformed)
+          .thenReturn(keptLast);
+
+      listener.consumeBatch(records);
+
+      verify(mockHook1)
+          .invokeBatch(
+              any(OperationContext.class),
+              argThat(
+                  events ->
+                      events.size() == 2
+                          && events.contains(keptFirst)
+                          && events.contains(keptLast)));
     }
   }
 

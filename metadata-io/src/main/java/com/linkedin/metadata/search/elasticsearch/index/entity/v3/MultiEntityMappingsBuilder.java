@@ -12,6 +12,7 @@ import static com.linkedin.metadata.search.utils.ESUtils.FIELDS;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -231,7 +232,10 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         log.warn("Could not extract entity type from URN: {}", entityTypeUrn);
         continue;
       }
-      if (entityRegistry.getEntitySpec(entityTypeName) != null) {
+      // While unknown data is tolerated, an entity type this registry doesn't know (e.g. added by
+      // a newer version before a rollback) is skipped, so the mapping is still updated for the
+      // property's known types; otherwise it fails as before.
+      if (handling().entitySpecForData(entityRegistry, entityTypeName).isPresent()) {
         knownEntityType = true;
       } else {
         log.warn("Missing entitySpec for entity type: {}", entityTypeName);

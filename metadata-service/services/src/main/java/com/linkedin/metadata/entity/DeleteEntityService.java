@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -319,8 +320,22 @@ public class DeleteEntityService {
       String relationshipType,
       @Nullable CascadeOperationContext cascade) {
     final String relatedEntityName = relatedUrn.getEntityType();
-    final EntitySpec relatedEntitySpec =
-        opContext.getEntityRegistry().getEntitySpec(relatedEntityName);
+    final Optional<EntitySpec> maybeRelatedEntitySpec =
+        handling().entitySpecForData(opContext.getEntityRegistry(), relatedEntityName);
+    // While unknown data is tolerated, an entity type this build does not know (e.g. a referrer
+    // written by a newer build before a version rollback) cannot have its aspects edited here: skip
+    // it instead of failing the whole reference cleanup. Otherwise the lookup fails as before.
+    if (maybeRelatedEntitySpec.isEmpty()) {
+      handleError(
+          new DeleteEntityServiceError(
+              "Related entity type not found in entity registry",
+              DeleteEntityServiceErrorReason.ENTITY_REGISTRY_SPEC_NOT_FOUND,
+              ImmutableMap.of(
+                  "relatedEntityName", relatedEntityName, "relationshipType", relationshipType)),
+          cascade);
+      return Stream.empty();
+    }
+    final EntitySpec relatedEntitySpec = maybeRelatedEntitySpec.get();
     final Map<String, AspectSpec> aspectSpecs =
         getAspectSpecsReferringTo(urn.getEntityType(), relationshipType, relatedEntitySpec);
 

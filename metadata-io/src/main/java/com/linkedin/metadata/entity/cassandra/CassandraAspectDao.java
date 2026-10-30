@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity.cassandra;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.cassandra.CassandraAspect.rowToEntityAspect;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
@@ -14,6 +15,7 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.paging.OffsetPager;
 import com.datastax.oss.driver.api.core.paging.OffsetPager.Page;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.querybuilder.delete.Delete;
 import com.datastax.oss.driver.api.querybuilder.insert.Insert;
 import com.datastax.oss.driver.api.querybuilder.select.Selector;
 import com.datastax.oss.driver.api.querybuilder.term.Term;
@@ -44,12 +46,14 @@ import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -501,6 +505,13 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     String keyAspectName = opContext.getKeyAspectName(urnObj);
     String entityType = urnObj.getEntityType();
 
+    // While unknown data is tolerated, rows of aspects this registry doesn't know (written by a
+    // newer version before a rollback) must go too, or they come back after re-upgrading. Deleting
+    // by registry aspect name can't reach them, so delete by urn instead.
+    if (handling().toleratesUnknownEntityAspect()) {
+      return deleteUrnKeeping(urn, keyAspectName, keptAspectNames);
+    }
+
     // Get all aspect names for this entity type
     Set<String> allAspectNames =
         opContext.getEntityRegistryContext().getEntityAspectNames(entityType);
@@ -552,6 +563,67 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     }
 
     return -1;
+  }
+
+  /**
+   * Deletes every row of {@code urn} except those of {@code keptAspectNames}, whatever their aspect
+   * names. With none kept, the urn's partition is deleted at once; otherwise the ranges of aspect
+   * names around the kept ones and the key aspect, then the key aspect last, as by name.
+   */
+  private int deleteUrnKeeping(
+      @Nonnull final String urn,
+      @Nonnull final String keyAspectName,
+      @Nonnull final Set<String> keptAspectNames) {
+    final List<SimpleStatement> deletes = new ArrayList<>();
+    if (keptAspectNames.isEmpty()) {
+      deletes.add(
+          deleteFrom(CassandraAspect.TABLE_NAME)
+              .whereColumn(CassandraAspect.URN_COLUMN)
+              .isEqualTo(literal(urn))
+              .build());
+    } else {
+      final TreeSet<String> bounds = new TreeSet<>(keptAspectNames);
+      bounds.add(keyAspectName);
+      String lower = null;
+      for (String upper : bounds) {
+        deletes.add(aspectRange(urn, lower, upper));
+        lower = upper;
+      }
+      deletes.add(aspectRange(urn, lower, null));
+      if (!keptAspectNames.contains(keyAspectName)) {
+        deletes.add(
+            deleteFrom(CassandraAspect.TABLE_NAME)
+                .whereColumn(CassandraAspect.URN_COLUMN)
+                .isEqualTo(literal(urn))
+                .whereColumn(CassandraAspect.ASPECT_COLUMN)
+                .isEqualTo(literal(keyAspectName))
+                .build());
+      }
+    }
+    for (SimpleStatement delete : deletes) {
+      if (_cqlSession.execute(delete).getExecutionInfo().getErrors().size() > 0) {
+        log.error("Failed to delete URN {} - errors in execution", urn);
+        return 0;
+      }
+    }
+    return -1;
+  }
+
+  /** Deletes the rows of {@code urn} whose aspect name is strictly between the given bounds. */
+  @Nonnull
+  private static SimpleStatement aspectRange(
+      @Nonnull final String urn, @Nullable final String lower, @Nullable final String upper) {
+    Delete delete =
+        deleteFrom(CassandraAspect.TABLE_NAME)
+            .whereColumn(CassandraAspect.URN_COLUMN)
+            .isEqualTo(literal(urn));
+    if (lower != null) {
+      delete = delete.whereColumn(CassandraAspect.ASPECT_COLUMN).isGreaterThan(literal(lower));
+    }
+    if (upper != null) {
+      delete = delete.whereColumn(CassandraAspect.ASPECT_COLUMN).isLessThan(literal(upper));
+    }
+    return delete.build();
   }
 
   @Override

@@ -27,6 +27,9 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
@@ -73,6 +76,7 @@ import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.metrics.ParsedTopHits;
 import org.testng.Assert;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -104,6 +108,16 @@ public class TimeseriesAspectServiceUnitTest {
           null);
 
   private static final String INDEX_PATTERN = "indexPattern";
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void resetMocks() {
@@ -138,6 +152,40 @@ public class TimeseriesAspectServiceUnitTest {
     Assert.assertEquals(results.get(0).getSizeInMb(), 8078.398031);
     // Propagation: the index pattern must be resolved with the exact operation context passed in.
     verify(indexConvention).getAllTimeseriesAspectIndicesPattern(eq(opContext));
+  }
+
+  @Test
+  public void testAggregatedStatsRejectsUnknownAspect() {
+    // An aspect added by a newer version (e.g. requested after a rollback) is not in the registry:
+    // the request must fail as a bad argument instead of a NullPointerException.
+    Assert.assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            _timeseriesAspectService.getAggregatedStats(
+                opContext, "dataset", "futureAspect", new AggregationSpec[0], null, null));
+    // A known aspect that is not timeseries is handled as with tolerance off: the tolerance only
+    // concerns aspects the registry doesn't know.
+    final Class<? extends Throwable> tolerant =
+        outcomeOf(
+            () ->
+                _timeseriesAspectService.getAggregatedStats(
+                    opContext, "dataset", "status", new AggregationSpec[0], null, null));
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    final Class<? extends Throwable> strict =
+        outcomeOf(
+            () ->
+                _timeseriesAspectService.getAggregatedStats(
+                    opContext, "dataset", "status", new AggregationSpec[0], null, null));
+    Assert.assertEquals(tolerant, strict);
+  }
+
+  private static Class<? extends Throwable> outcomeOf(final Runnable call) {
+    try {
+      call.run();
+      return null;
+    } catch (RuntimeException e) {
+      return e.getClass();
+    }
   }
 
   @Test

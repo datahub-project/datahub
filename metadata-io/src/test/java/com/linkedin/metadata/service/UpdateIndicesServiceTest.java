@@ -3,10 +3,15 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -14,14 +19,25 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
+import com.linkedin.common.Deprecation;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
+import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -33,7 +49,10 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -43,8 +62,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -58,6 +79,16 @@ public class UpdateIndicesServiceTest {
 
   private OperationContext operationContext;
   private UpdateIndicesService updateIndicesService;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {
@@ -360,5 +391,345 @@ public class UpdateIndicesServiceTest {
     // The exact verification depends on the implementation details, but both should process the
     // event
     verify(updateGraphIndicesService).handleChangeEvent(operationContext, event);
+  }
+
+  @Test
+  public void testHandleChangeEvents_SkipsEventsUnknownToRegistry() {
+    MetadataChangeLog knownFirst = datasetPropertiesEvent("known.first");
+    MetadataChangeLog unknownAspect =
+        datasetPropertiesEvent("unknown.aspect").setAspectName("aspectFromNewerBuild");
+    Urn unknownEntityUrn = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    MetadataChangeLog unknownEntity =
+        datasetPropertiesEvent("unknown.entity")
+            .setEntityUrn(unknownEntityUrn)
+            .setEntityType(unknownEntityUrn.getEntityType());
+    MetadataChangeLog knownLast = datasetPropertiesEvent("known.last");
+
+    updateIndicesService.handleChangeEvents(
+        operationContext, List.of(knownFirst, unknownAspect, unknownEntity, knownLast));
+
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, knownFirst);
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, knownLast);
+    verify(updateGraphIndicesService, never()).handleChangeEvent(operationContext, unknownAspect);
+    verify(updateGraphIndicesService, never()).handleChangeEvent(operationContext, unknownEntity);
+  }
+
+  @Test
+  public void testHandleChangeEvents_CountsEventsUnknownToRegistry() {
+    // Skips are counted so operators can see how much a newer version's data is being ignored.
+    com.linkedin.metadata.utils.metrics.MetricUtils metrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    OperationContext context = org.mockito.Mockito.spy(operationContext);
+    when(context.getMetricUtils()).thenReturn(java.util.Optional.of(metrics));
+    MetadataChangeLog unknownAspect =
+        datasetPropertiesEvent("unknown.metric").setAspectName("aspectFromNewerBuild");
+
+    updateIndicesService.handleChangeEvents(context, List.of(unknownAspect));
+
+    verify(metrics).increment(UpdateIndicesService.class, "unknown_to_registry_skipped", 1);
+  }
+
+  @Test
+  public void testHandleChangeEvents_CountsInvalidEventsFromANewerVersion() {
+    com.linkedin.metadata.utils.metrics.MetricUtils metrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    OperationContext context = org.mockito.Mockito.spy(operationContext);
+    when(context.getMetricUtils()).thenReturn(java.util.Optional.of(metrics));
+    MetadataChangeLog unstrippable =
+        datasetAspectEvent(
+            "invalid.metric",
+            DEPRECATION_ASPECT_NAME,
+            new Deprecation()
+                .setDeprecated(true)
+                .setNote("moved")
+                .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")));
+
+    updateIndicesService.handleChangeEvents(context, List.of(unstrippable));
+
+    verify(metrics).increment(UpdateIndicesService.class, "invalid_mcl_skipped", 1);
+  }
+
+  @Test
+  public void testHandleChangeEvents_SkipsEventsWhoseUrnKeyReferencesAnUnknownType() {
+    // A schema field of an entity type only a newer version has fails key validation; it is
+    // skipped on its own instead of failing the whole batch.
+    MetadataChangeLog known = datasetPropertiesEvent("nested.known");
+    Urn nested = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,col_a)");
+    MetadataChangeLog nestedUnknown =
+        new MetadataChangeLog()
+            .setChangeType(ChangeType.UPSERT)
+            .setEntityUrn(nested)
+            .setEntityType(nested.getEntityType())
+            .setAspectName(STATUS_ASPECT_NAME)
+            .setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)))
+            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+            .setCreated(AuditStampUtils.createDefaultAuditStamp());
+
+    updateIndicesService.handleChangeEvents(operationContext, List.of(nestedUnknown, known));
+
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, known);
+    verify(updateGraphIndicesService, never()).handleChangeEvent(operationContext, nestedUnknown);
+  }
+
+  @Test
+  public void testHandleChangeEvents_SkipsOnlyEventsFailingValidation() {
+    // A known aspect referencing an entity type this registry does not know (written by a newer
+    // version): the reference is stripped and the rest indexed. When the reference sits in a
+    // required top-level field it can't be stripped, so only that event is dropped, not the batch.
+    MetadataChangeLog knownFirst = datasetPropertiesEvent("known.first");
+    Urn unknownTypeUrn = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    MetadataChangeLog strippable =
+        datasetAspectEvent(
+            "strippable",
+            DOMAINS_ASPECT_NAME,
+            new Domains()
+                .setDomains(
+                    new UrnArray(unknownTypeUrn, UrnUtils.getUrn("urn:li:domain:finance"))));
+    MetadataChangeLog unstrippable =
+        datasetAspectEvent(
+            "unstrippable",
+            DEPRECATION_ASPECT_NAME,
+            new Deprecation().setDeprecated(true).setNote("moved").setActor(unknownTypeUrn));
+    MetadataChangeLog knownLast = datasetPropertiesEvent("known.last");
+
+    updateIndicesService.handleChangeEvents(
+        operationContext, List.of(knownFirst, strippable, unstrippable, knownLast));
+
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, knownFirst);
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, strippable);
+    verify(updateGraphIndicesService).handleChangeEvent(operationContext, knownLast);
+    verify(updateGraphIndicesService, never()).handleChangeEvent(operationContext, unstrippable);
+  }
+
+  private static MetadataChangeLog datasetAspectEvent(
+      String name, String aspectName, RecordTemplate aspect) {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs," + name + ",PROD)");
+    return new MetadataChangeLog()
+        .setChangeType(ChangeType.UPSERT)
+        .setEntityUrn(urn)
+        .setEntityType(urn.getEntityType())
+        .setAspectName(aspectName)
+        .setAspect(GenericRecordUtils.serializeAspect(aspect))
+        .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+        .setCreated(AuditStampUtils.createDefaultAuditStamp());
+  }
+
+  @Test
+  public void testHandleChangeEvents_StrictHandlingFailsOnInvalidEventsFromANewerVersion() {
+    // Strict handling keeps the original behavior: the whole batch fails, nothing is counted.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    com.linkedin.metadata.utils.metrics.MetricUtils metrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    OperationContext context = org.mockito.Mockito.spy(operationContext);
+    when(context.getMetricUtils()).thenReturn(java.util.Optional.of(metrics));
+    MetadataChangeLog unstrippable =
+        datasetAspectEvent(
+            "strict.invalid",
+            DEPRECATION_ASPECT_NAME,
+            new Deprecation()
+                .setDeprecated(true)
+                .setNote("moved")
+                .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")));
+
+    expectThrows(
+        ValidationException.class,
+        () -> updateIndicesService.handleChangeEvents(context, List.of(unstrippable)));
+    verify(metrics, never()).increment(UpdateIndicesService.class, "invalid_mcl_skipped", 1);
+  }
+
+  @Test
+  public void testHandleChangeEvents_EnumToleranceAloneFailsOnUnknownReferences() {
+    // References to unknown entity types are the unknown-data flag's kind; tolerating only enum
+    // values leaves an event that can't be stripped failing the batch, as before.
+    UnknownDataHandlings.use(TolerantHandling.of(false, true, entityType -> true));
+    MetadataChangeLog unstrippable =
+        datasetAspectEvent(
+            "enumonly.invalid",
+            DEPRECATION_ASPECT_NAME,
+            new Deprecation()
+                .setDeprecated(true)
+                .setNote("moved")
+                .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")));
+
+    expectThrows(
+        ValidationException.class,
+        () -> updateIndicesService.handleChangeEvents(operationContext, List.of(unstrippable)));
+  }
+
+  @Test
+  public void testHandleChangeEvents_InvalidPayloadNotFromNewerVersionStillFails() {
+    // Only payloads a newer version wrote are dropped alone; other invalid data fails as before,
+    // so it can't silently go unindexed.
+    Deprecation invalid = new Deprecation().setDeprecated(true).setNote("n");
+    invalid.data().put("actor", "not-a-urn");
+    MetadataChangeLog event = datasetAspectEvent("invalid", DEPRECATION_ASPECT_NAME, invalid);
+
+    expectThrows(
+        ValidationException.class,
+        () -> updateIndicesService.handleChangeEvents(operationContext, List.of(event)));
+  }
+
+  @Test
+  public void testHandleChangeEvents_IndexesTheNewValueWhenThePreviousIsFromANewerVersion()
+      throws Exception {
+    // A change away from an owner type only a newer version defines: the new value is valid, the
+    // previous one fails validation here. The new value is indexed without the previous value, and
+    // the graph gets that previous value to diff against.
+    com.linkedin.metadata.utils.metrics.MetricUtils metrics =
+        mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
+    OperationContext context = org.mockito.Mockito.spy(operationContext);
+    when(context.getMetricUtils()).thenReturn(java.util.Optional.of(metrics));
+    MetadataChangeLog previousFromNewerVersion =
+        ownershipChangeAwayFromNewerOwnerType("prev.newer");
+    MetadataChangeLog known = datasetPropertiesEvent("prev.known");
+
+    updateIndicesService.handleChangeEvents(context, List.of(previousFromNewerVersion, known));
+
+    ArgumentCaptor<MetadataChangeLog> indexed = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    ArgumentCaptor<RecordTemplate> previous = ArgumentCaptor.forClass(RecordTemplate.class);
+    verify(updateGraphIndicesService)
+        .handleChangeEventWithUnvalidatedPrevious(
+            eq(context), indexed.capture(), previous.capture());
+    assertFalse(indexed.getValue().hasPreviousAspectValue());
+    assertEquals(indexed.getValue().getAspect(), previousFromNewerVersion.getAspect());
+    assertEquals(
+        new Ownership(previous.getValue().data()).getOwners().get(0).data().get("type"),
+        "OWNER_TYPE_FROM_NEWER_BUILD");
+    verify(updateGraphIndicesService).handleChangeEvent(context, known);
+    verify(updateGraphIndicesService, never()).handleChangeEvent(context, previousFromNewerVersion);
+    verify(searchDocumentTransformer, atLeastOnce())
+        .transformAspect(
+            eq(context),
+            eq(previousFromNewerVersion.getEntityUrn()),
+            argThat(aspect -> aspect instanceof Ownership),
+            any(AspectSpec.class),
+            eq(false),
+            any());
+    verify(metrics)
+        .increment(UpdateIndicesService.class, "mcl_previous_from_newer_version_omitted", 1);
+    verify(metrics, never()).increment(UpdateIndicesService.class, "invalid_mcl_skipped", 1);
+  }
+
+  @Test
+  public void testHandleChangeEvents_DeletesWhenThePreviousValueIsFromANewerVersion()
+      throws Exception {
+    // Deleting an aspect whose stored value holds an owner type only a newer version defines: the
+    // delete is indexed, and the graph gets the previous value to remove its edges.
+    MetadataChangeLog delete =
+        ownershipChangeAwayFromNewerOwnerType("prev.newer.delete").setChangeType(ChangeType.DELETE);
+    delete.removeAspect();
+
+    updateIndicesService.handleChangeEvents(operationContext, List.of(delete));
+
+    verify(updateGraphIndicesService)
+        .handleChangeEventWithUnvalidatedPrevious(
+            eq(operationContext),
+            argThat(
+                mcl -> mcl.getChangeType() == ChangeType.DELETE && !mcl.hasPreviousAspectValue()),
+            argThat(previous -> previous instanceof Ownership));
+    verify(searchDocumentTransformer, atLeastOnce())
+        .transformAspect(
+            eq(operationContext),
+            eq(delete.getEntityUrn()),
+            nullable(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(true),
+            any());
+    verify(systemMetadataService)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(delete.getEntityUrn().toString()),
+            eq(OWNERSHIP_ASPECT_NAME));
+    verify(updateGraphIndicesService, never())
+        .handleChangeEvent(any(OperationContext.class), any(MetadataChangeLog.class));
+  }
+
+  @Test
+  public void testHandleChangeEvents_StrictHandlingFailsWhenThePreviousValueIsFromANewerVersion() {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    MetadataChangeLog event = ownershipChangeAwayFromNewerOwnerType("prev.strict");
+
+    expectThrows(
+        ValidationException.class,
+        () -> updateIndicesService.handleChangeEvents(operationContext, List.of(event)));
+  }
+
+  @Test
+  public void testHandleChangeEvents_InvalidNewValueStillFailsWhenThePreviousIsFromANewerVersion() {
+    // The previous value is the newer version's, but the new one is invalid for another reason:
+    // the event fails as before instead of being dropped.
+    Deprecation invalid = new Deprecation().setDeprecated(true).setNote("n");
+    invalid.data().put("actor", "not-a-urn");
+    MetadataChangeLog event =
+        datasetAspectEvent("prev.invalid.new", DEPRECATION_ASPECT_NAME, invalid)
+            .setPreviousAspectValue(
+                GenericRecordUtils.serializeAspect(
+                    new Deprecation()
+                        .setDeprecated(true)
+                        .setNote("moved")
+                        .setActor(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc"))));
+
+    expectThrows(
+        ValidationException.class,
+        () -> updateIndicesService.handleChangeEvents(operationContext, List.of(event)));
+  }
+
+  private static MetadataChangeLog ownershipChangeAwayFromNewerOwnerType(String name) {
+    Owner previousOwner =
+        new Owner().setOwner(UrnUtils.getUrn("urn:li:corpuser:alice")).setType(OwnershipType.NONE);
+    // An owner type this build doesn't define, as a newer version wrote it.
+    previousOwner.data().put("type", "OWNER_TYPE_FROM_NEWER_BUILD");
+    Ownership previous = new Ownership().setOwners(new OwnerArray(previousOwner));
+    Ownership current =
+        new Ownership()
+            .setOwners(
+                new OwnerArray(
+                    new Owner()
+                        .setOwner(UrnUtils.getUrn("urn:li:corpuser:alice"))
+                        .setType(OwnershipType.TECHNICAL_OWNER)));
+    return datasetAspectEvent(name, OWNERSHIP_ASPECT_NAME, current)
+        .setPreviousAspectValue(GenericRecordUtils.serializeAspect(previous))
+        .setPreviousSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
+  }
+
+  @Test
+  public void testHandleChangeEvents_MalformedKnownEventStillFails() {
+    // Only unknown entities/aspects are skipped; other build failures must still surface
+    MetadataChangeLog missingAspectPayload = datasetPropertiesEvent("missing.payload");
+    missingAspectPayload.removeAspect();
+
+    expectThrows(
+        UnsupportedOperationException.class,
+        () ->
+            updateIndicesService.handleChangeEvents(
+                operationContext, List.of(missingAspectPayload)));
+    verify(updateGraphIndicesService, never())
+        .handleChangeEvent(eq(operationContext), any(MetadataChangeLog.class));
+  }
+
+  @Test
+  public void testHandleChangeEvents_MissingAspectNameStillFails() {
+    // An MCL without an aspect name is malformed, not unknown — it must not be silently skipped
+    MetadataChangeLog missingAspectName = datasetPropertiesEvent("missing.aspect.name");
+    missingAspectName.removeAspectName();
+
+    expectThrows(
+        UnsupportedOperationException.class,
+        () ->
+            updateIndicesService.handleChangeEvents(operationContext, List.of(missingAspectName)));
+    verify(updateGraphIndicesService, never())
+        .handleChangeEvent(eq(operationContext), any(MetadataChangeLog.class));
+  }
+
+  private static MetadataChangeLog datasetPropertiesEvent(String name) {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs," + name + ",PROD)");
+    return new MetadataChangeLog()
+        .setChangeType(ChangeType.UPSERT)
+        .setEntityUrn(urn)
+        .setAspectName(DATASET_PROPERTIES_ASPECT_NAME)
+        .setEntityType(urn.getEntityType())
+        .setAspect(GenericRecordUtils.serializeAspect(new DatasetProperties().setDescription(name)))
+        .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+        .setCreated(AuditStampUtils.createDefaultAuditStamp());
   }
 }

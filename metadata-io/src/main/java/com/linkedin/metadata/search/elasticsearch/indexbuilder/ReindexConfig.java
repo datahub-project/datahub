@@ -6,10 +6,12 @@ import static com.linkedin.metadata.search.utils.ESUtils.FIELDS;
 import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
@@ -574,10 +576,16 @@ public class ReindexConfig {
     public ReindexConfig build() {
       if (super.exists) {
         /* Consider mapping changes */
+        final Map<String, Object> currentProperties =
+            normalizeMapForComparison(getOrDefault(super.currentMappings, List.of(PROPERTIES)));
+        final Map<String, Object> targetProperties =
+            normalizeMapForComparison(getOrDefault(super.targetMappings, List.of(PROPERTIES)));
         MapDifference<String, Object> mappingsDiff =
             calculateMapDifference(
-                normalizeMapForComparison(getOrDefault(super.currentMappings, List.of(PROPERTIES))),
-                normalizeMapForComparison(getOrDefault(super.targetMappings, List.of(PROPERTIES))));
+                handling().toleratesUnknownEntityAspect()
+                    ? withoutFieldsMissingFromTarget(currentProperties, targetProperties)
+                    : currentProperties,
+                targetProperties);
 
         super.requiresApplyMappings =
             !mappingsDiff.entriesDiffering().isEmpty()
@@ -1117,6 +1125,44 @@ public class ReindexConfig {
               (Map<String, Object>) indexSettings.get("analysis"),
               super.currentSettings.getByPrefix("index.analysis."),
               super.settingsComparison));
+    }
+
+    /**
+     * Drops field definitions (keys of a {@code properties} map, at any depth) that the live
+     * mapping has and the target doesn't. After a rollback the live index was built by a newer
+     * version whose mapping is a superset of this version's: fields of aspects only it knows, or
+     * fields it added to aspects this version knows. Applied only while unknown data is tolerated.
+     * Those fields don't need this version's reindex; top-level ones were already ignored, and this
+     * applies the same rule to nested objects such as {@code _aspects}. Field parameters are not
+     * dropped, so removing one (e.g. {@code ignore_above}) still counts as a change.
+     */
+    @SuppressWarnings("unchecked")
+    @VisibleForTesting
+    static Map<String, Object> withoutFieldsMissingFromTarget(
+        @Nonnull Map<String, Object> currentProperties,
+        @Nonnull Map<String, Object> targetProperties) {
+      final Map<String, Object> result = new TreeMap<>();
+      for (Map.Entry<String, Object> field : currentProperties.entrySet()) {
+        final Object targetField = targetProperties.get(field.getKey());
+        if (targetField == null) {
+          continue;
+        }
+        Object currentField = field.getValue();
+        if (currentField instanceof Map
+            && targetField instanceof Map
+            && ((Map<String, Object>) currentField).get(PROPERTIES) instanceof Map
+            && ((Map<String, Object>) targetField).get(PROPERTIES) instanceof Map) {
+          final Map<String, Object> pruned = new TreeMap<>((Map<String, Object>) currentField);
+          pruned.put(
+              PROPERTIES,
+              withoutFieldsMissingFromTarget(
+                  (Map<String, Object>) ((Map<String, Object>) currentField).get(PROPERTIES),
+                  (Map<String, Object>) ((Map<String, Object>) targetField).get(PROPERTIES)));
+          currentField = pruned;
+        }
+        result.put(field.getKey(), currentField);
+      }
+      return result;
     }
 
     /**

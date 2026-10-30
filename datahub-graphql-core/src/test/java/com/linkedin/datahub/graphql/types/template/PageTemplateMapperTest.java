@@ -16,15 +16,29 @@ import com.linkedin.datahub.graphql.generated.SummaryElementType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.template.DataHubPageTemplateProperties;
 import com.linkedin.template.DataHubPageTemplateRow;
 import com.linkedin.template.DataHubPageTemplateRowArray;
 import com.linkedin.template.DataHubPageTemplateSurface;
 import com.linkedin.template.DataHubPageTemplateVisibility;
 import com.linkedin.template.SummaryElementArray;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class PageTemplateMapperTest {
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testPageTemplateMapper() {
@@ -175,6 +189,11 @@ public class PageTemplateMapperTest {
         com.linkedin.template.SummaryElementType.STRUCTURED_PROPERTY);
     structuredPropertyElement.setStructuredPropertyUrn(structuredPropertyUrn);
     summaryElements.add(structuredPropertyElement);
+
+    // An element type only a newer version knows (read after a rollback) is left out.
+    com.linkedin.template.SummaryElement newerElement = new com.linkedin.template.SummaryElement();
+    newerElement.data().put("elementType", "ELEMENT_FROM_NEWER_BUILD");
+    summaryElements.add(newerElement);
 
     gmsAssetSummary.setSummaryElements(summaryElements);
     gmsProperties.setAssetSummary(gmsAssetSummary);

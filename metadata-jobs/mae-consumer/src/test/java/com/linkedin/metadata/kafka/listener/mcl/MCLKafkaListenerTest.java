@@ -13,7 +13,10 @@ import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityRe
 import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.trace.TraceServiceImpl;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -58,6 +61,11 @@ public class MCLKafkaListenerTest {
   private MCLKafkaListener listener;
   private OperationContext systemOperationContext;
   private SimpleMeterRegistry meterRegistry;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
 
   @BeforeMethod
   public void setUp() throws URISyntaxException {
@@ -111,6 +119,7 @@ public class MCLKafkaListenerTest {
   @AfterMethod
   public void tearDown() {
     MDC.clear();
+    UnknownDataHandlings.reset();
   }
 
   @Test
@@ -288,6 +297,41 @@ public class MCLKafkaListenerTest {
       verify(mockHook1, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
       verify(mockHook2, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
     }
+  }
+
+  @Test
+  public void testShouldSkipProcessingUnknownEntityType() throws Exception {
+    MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
+    event.setEntityType("entityFromNewerBuild");
+
+    try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
+      eventUtils.when(() -> EventUtils.avroToPegasusMCL(any())).thenReturn(event);
+
+      listener.consume(mockConsumerRecord);
+
+      verify(mockHook1, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+      verify(mockHook2, never()).invoke(any(OperationContext.class), any(MetadataChangeLog.class));
+    }
+  }
+
+  @Test
+  public void testStrictHandlingDoesNotSkipUnknownEntityType() throws Exception {
+    // Without tolerance only the aspects-to-drop configuration skips an MCL, as before.
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
+    event.setEntityType("entityFromNewerBuild");
+
+    assertFalse(MCLKafkaListener.shouldSkipMcl(event, Map.of(), systemOperationContext));
+  }
+
+  @Test
+  public void testMalformedUrnIsNotSkippedAndDoesNotThrow() throws Exception {
+    // Reading a malformed urn throws; the MCL must reach the hooks as before tolerance instead of
+    // failing the batch or the pgQueue poll it is in.
+    MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
+    event.data().put("entityUrn", "not-a-urn");
+
+    assertFalse(MCLKafkaListener.shouldSkipMcl(event, Map.of(), systemOperationContext));
   }
 
   @Test

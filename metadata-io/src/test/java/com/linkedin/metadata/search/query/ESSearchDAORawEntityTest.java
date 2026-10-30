@@ -5,9 +5,12 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -19,9 +22,21 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ESSearchDAORawEntityTest {
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testRawEntityWithMockedClient() throws Exception {
@@ -73,5 +88,58 @@ public class ESSearchDAORawEntityTest {
     Mockito.verify(mockClient)
         .search(
             Mockito.any(OperationContext.class), Mockito.any(), Mockito.eq(RequestOptions.DEFAULT));
+  }
+
+  // After a rollback, clients built for a newer version can name entity types this registry
+  // doesn't know.
+
+  @Test
+  public void testRawEntityLeavesOutUrnsOfUnknownEntityTypes() throws Exception {
+    SearchClientShim<?> mockClient = Mockito.mock(SearchClientShim.class);
+    OperationContext opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), mockClient);
+    SearchResponse mockResponse = Mockito.mock(SearchResponse.class);
+    Mockito.when(
+            mockClient.search(
+                Mockito.any(OperationContext.class),
+                Mockito.any(),
+                Mockito.eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockResponse);
+    Urn datasetUrn =
+        Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)");
+
+    Map<Urn, SearchResponse> results =
+        newDao()
+            .rawEntity(
+                opContext,
+                Set.of(datasetUrn, Urn.createFromString("urn:li:entityFromNewerBuild:x")));
+
+    assertEquals(results.keySet(), Set.of(datasetUrn));
+    Mockito.verify(mockClient)
+        .search(
+            Mockito.any(OperationContext.class), Mockito.any(), Mockito.eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testAutocompleteOfAnUnknownEntityTypeIsABadRequest() throws Exception {
+    SearchClientShim<?> mockClient = Mockito.mock(SearchClientShim.class);
+    OperationContext opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), mockClient);
+
+    expectThrows(
+        IllegalArgumentException.class,
+        () -> newDao().autoComplete(opContext, "entityFromNewerBuild", "q", null, null, 10));
+    Mockito.verifyNoInteractions(mockClient);
+  }
+
+  private static ESSearchDAO newDao() {
+    return new ESSearchDAO(
+        false,
+        TEST_OS_SEARCH_CONFIG,
+        null,
+        com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain.EMPTY,
+        TEST_SEARCH_SERVICE_CONFIG);
   }
 }

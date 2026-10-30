@@ -1,11 +1,27 @@
 package com.linkedin.datahub.upgrade.loadindices;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class LoadIndicesResultTest {
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @Test
   public void testDefaultValues() {
@@ -61,5 +77,20 @@ public class LoadIndicesResultTest {
     assertTrue(resultString.contains("urnsProcessed=0"));
     assertTrue(resultString.contains("timeSqlQueryMs=0"));
     assertTrue(resultString.contains("timeElasticsearchWriteMs=0"));
+  }
+
+  @Test
+  public void testToStringReportsUnknownSkipsOnlyWhenTolerated() {
+    LoadIndicesResult result = new LoadIndicesResult();
+    result.unknownToRegistrySkipped = 3L;
+    assertTrue(result.toString().endsWith(", unknownToRegistrySkipped=3}"));
+
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    try {
+      assertFalse(result.toString().contains("unknownToRegistrySkipped"));
+      assertTrue(result.toString().endsWith("conversionErrorsSkipped=0}"));
+    } finally {
+      UnknownDataHandlings.reset();
+    }
   }
 }

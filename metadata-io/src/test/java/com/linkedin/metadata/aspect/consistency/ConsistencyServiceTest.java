@@ -23,8 +23,11 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -38,6 +41,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -51,6 +55,16 @@ public class ConsistencyServiceTest {
   private ConsistencyService consistencyService;
   private ConsistencyCheckRegistry checkRegistry;
   private ConsistencyFixRegistry fixRegistry;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   /** Test check for entity type "assertion" */
   private static class TestAssertionCheck implements ConsistencyCheck {
@@ -215,6 +229,9 @@ public class ConsistencyServiceTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
+    // Tests not about unknown entity types run against a registry that knows every type.
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.findEntitySpec(any())).thenReturn(Optional.of(mockEntitySpec));
 
     // Create check registry with test checks
     List<ConsistencyCheck> checks =
@@ -1288,6 +1305,106 @@ public class ConsistencyServiceTest {
 
     assertEquals(orphans.size(), 1);
     assertTrue(orphans.contains(urn2));
+  }
+
+  @Test
+  public void testIdentifyOrphanUrnsSkipsUnknownEntityTypes() {
+    // Index documents of an entity type only a newer version registered (read after a rollback)
+    // are reported missing by exists(), but belong to that version: they are not orphans.
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn known = UrnUtils.getUrn("urn:li:assertion:test-1");
+    Urn unknownType = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
+    Set<Urn> urnsFromEs = new HashSet<>(Set.of(known, unknownType));
+    when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+
+    Set<Urn> orphans = consistencyService.identifyOrphanUrns(mockOpContext, urnsFromEs);
+
+    assertEquals(orphans, Set.of(known));
+  }
+
+  @Test
+  public void testIdentifyOrphanUrnsSkipsUrnsWhoseKeyHoldsAnUnknownEntityType() {
+    // A schemaField of an entity only a newer version registered: exists() hides it too, so its
+    // index documents belong to that version and are not orphans. A real orphan still is.
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn nested = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,field)");
+    Urn orphan =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,gone,PROD),field)");
+    Set<Urn> urnsFromEs = new HashSet<>(Set.of(nested, orphan));
+    when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+
+    assertEquals(consistencyService.identifyOrphanUrns(mockOpContext, urnsFromEs), Set.of(orphan));
+  }
+
+  @Test
+  public void testIdentifyOrphanUrnsWithStrictHandlingReportsEveryMissingUrn() {
+    // With tolerance off, nothing is exempt, as before.
+    UnknownDataHandlings.use(com.linkedin.metadata.utils.StrictHandling.INSTANCE);
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn nested = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,field)");
+    Set<Urn> urnsFromEs = new HashSet<>(Set.of(nested));
+    when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+
+    assertEquals(consistencyService.identifyOrphanUrns(mockOpContext, urnsFromEs), Set.of(nested));
+  }
+
+  @Test
+  public void testDiscoverIssueOrphanCheckSkipsUnknownEntityType() {
+    // exists() reports an entity type only a newer version registered as missing; the orphan check
+    // must not turn that into a delete of the newer version's index documents.
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn unknownType = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
+    when(mockEntityService.exists(
+            eq(mockOpContext), eq(Set.of(unknownType)), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+    ConsistencyService serviceWithOrphanCheck =
+        new ConsistencyService(
+            mockEntityService,
+            mockEsSystemMetadataDAO,
+            null,
+            new ConsistencyCheckRegistry(
+                List.of(
+                    new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck())),
+            fixRegistry);
+
+    assertTrue(
+        serviceWithOrphanCheck
+            .discoverIssue(mockOpContext, unknownType, "orphan-index-document")
+            .isEmpty());
+  }
+
+  @Test
+  public void testDiscoverIssueOrphanCheckSkipsUrnWhoseKeyHoldsAnUnknownEntityType() {
+    // A schemaField of an entity only a newer version registered: exists() hides it too, so the
+    // single-urn orphan check must not report it either.
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn nestedUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,field)");
+    when(mockEntityService.exists(
+            eq(mockOpContext), eq(Set.of(nestedUrn)), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+    ConsistencyService serviceWithOrphanCheck =
+        new ConsistencyService(
+            mockEntityService,
+            mockEsSystemMetadataDAO,
+            null,
+            new ConsistencyCheckRegistry(
+                List.of(
+                    new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck())),
+            fixRegistry);
+
+    assertTrue(
+        serviceWithOrphanCheck
+            .discoverIssue(mockOpContext, nestedUrn, "orphan-index-document")
+            .isEmpty());
   }
 
   @Test

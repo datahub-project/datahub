@@ -43,6 +43,8 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
@@ -53,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -81,6 +84,16 @@ public class DataProductAssetsSideEffectTest {
 
   private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {
@@ -186,6 +199,19 @@ public class DataProductAssetsSideEffectTest {
     assertEquals(output.get(0).getAspectName(), DATA_PRODUCTS_ASPECT_NAME);
     assertEquals(
         output.get(0), expectedAssetPatch(DATASET_2, PatchOperationType.ADD, false, change));
+  }
+
+  @Test
+  public void testAssetOfUnknownEntityTypeIsSkipped() {
+    // After a version rollback a data product can list an asset of an entity type only a newer
+    // build knows; the known assets are still synced.
+    Urn unknownTypeAsset = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    ChangeItemImpl change = changeItem(propsWith(), ChangeType.UPSERT);
+    List<MCPItem> output = run(change, propsWith(DATASET_1, unknownTypeAsset));
+
+    assertEquals(output.size(), 1, "Expected a REMOVE patch for the known asset only: " + output);
+    assertEquals(
+        output.get(0), expectedAssetPatch(DATASET_1, PatchOperationType.REMOVE, false, change));
   }
 
   @Test

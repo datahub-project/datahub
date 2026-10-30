@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -105,6 +107,13 @@ public class MCLItemImpl implements MCLItem {
       // validate new
       ValidationApiUtils.validateRecordTemplate(
           this.entitySpec, urn, aspects.getFirst(), aspectRetriever);
+      // Validating the new aspect removed its references to entity types this registry doesn't
+      // know (written by a newer version). Remove them from the previous aspect too, so the index
+      // diff doesn't read them as removed and delete the newer version's edges and values. A
+      // DELETE has no new aspect, and its previous aspect is removed in full.
+      if (aspects.getFirst() != null && aspects.getSecond() != null) {
+        handling().stripUnknownReferences(aspects.getSecond(), entityRegistry);
+      }
 
       return new MCLItemImpl(
           this.metadataChangeLog,

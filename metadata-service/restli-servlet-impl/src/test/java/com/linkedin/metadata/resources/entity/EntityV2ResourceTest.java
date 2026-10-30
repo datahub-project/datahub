@@ -1,5 +1,7 @@
 package com.linkedin.metadata.resources.entity;
 
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
@@ -19,6 +21,8 @@ import com.linkedin.parseq.Task;
 import java.util.concurrent.Executors;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -67,6 +71,16 @@ import org.testng.annotations.Test;
 public class EntityV2ResourceTest {
 
   private static final Urn USER_URN = UrnUtils.getUrn("urn:li:corpuser:victim");
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   /** Grants everything except Manage User Credentials. */
   private static Authorizer denyManageUserCredentialsAuthorizer() {
@@ -149,6 +163,25 @@ public class EntityV2ResourceTest {
     assertEquals(
         responses.get(USER_URN).getAspects().keySet(),
         Set.of(Constants.CORP_USER_INFO_ASPECT_NAME));
+  }
+
+  @Test
+  public void testBatchGetLeavesOutEntityTypesFromANewerVersion() throws Exception {
+    // Urns of a type only a newer version knows (e.g. after a rollback) are left out; the rest of
+    // the batch is fetched as before, whichever urn comes first.
+    EntityService<?> entityService = mock(EntityService.class);
+    Urn newerUrn = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
+    when(entityService.getEntitiesV2(any(), eq("corpuser"), anySet(), anySet(), anyBoolean()))
+        .thenReturn(Map.of(USER_URN, corpUserResponseWithCredentials(USER_URN)));
+
+    awaitTask(
+        resourceForUser(entityService)
+            .batchGet(Set.of(USER_URN.toString(), newerUrn.toString()), null, null));
+
+    verify(entityService)
+        .getEntitiesV2(any(), eq("corpuser"), eq(Set.of(USER_URN)), anySet(), anyBoolean());
+    verify(entityService, never())
+        .getEntitiesV2(any(), eq("entityFromNewerBuild"), anySet(), anySet(), anyBoolean());
   }
 
   private static final Urn QUERY_URN = UrnUtils.getUrn("urn:li:query:auth-test");

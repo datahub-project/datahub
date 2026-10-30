@@ -13,6 +13,8 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -27,10 +29,12 @@ import java.util.List;
 import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class PolicyFieldTypeValidatorTest {
+
   private static final Urn TEST_POLICY_URN = UrnUtils.getUrn("urn:li:dataHubPolicy:test-policy");
 
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
@@ -51,6 +55,16 @@ public class PolicyFieldTypeValidatorTest {
   private EntityRegistry entityRegistry;
 
   private PolicyFieldTypeValidator validator;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() {
@@ -86,6 +100,75 @@ public class PolicyFieldTypeValidatorTest {
             .count(),
         0,
         "Expected validation to pass for valid field type TYPE");
+  }
+
+  @Test
+  public void testUnknownFieldTypeAlreadyStoredIsAccepted() {
+    // A field type a newer version added (read after a rollback) that the policy already stores
+    // doesn't block re-saving the policy; a newly added unknown field type is still rejected.
+    DataHubPolicyInfo policyInfo = createPolicyInfoWithFilter("FIELD_FROM_NEWER_BUILD", "x");
+    com.linkedin.metadata.aspect.SystemAspect stored =
+        mock(com.linkedin.metadata.aspect.SystemAspect.class);
+    when(stored.getRecordTemplate()).thenReturn(policyInfo);
+    when(mockAspectRetriever.getLatestSystemAspect(
+            any(), eq(TEST_POLICY_URN), eq(DATAHUB_POLICY_INFO_ASPECT_NAME)))
+        .thenReturn(stored);
+
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(policyInfo)
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "A field type already stored must not block re-saving the policy");
+  }
+
+  @Test
+  public void testUnknownFieldTypeStoredElsewhereInThePolicyIsRejected() {
+    // Only a value stored at the same criteria field counts; the same string in, e.g., the
+    // description doesn't let a new unknown field type through.
+    DataHubPolicyInfo storedInfo = createPolicyInfoWithFilter("TYPE", "x");
+    storedInfo.setDescription("FIELD_FROM_NEWER_BUILD");
+    com.linkedin.metadata.aspect.SystemAspect stored =
+        mock(com.linkedin.metadata.aspect.SystemAspect.class);
+    when(stored.getRecordTemplate()).thenReturn(storedInfo);
+    when(mockAspectRetriever.getLatestSystemAspect(
+            any(), eq(TEST_POLICY_URN), eq(DATAHUB_POLICY_INFO_ASPECT_NAME)))
+        .thenReturn(stored);
+    DataHubPolicyInfo proposed = createPolicyInfoWithFilter("FIELD_FROM_NEWER_BUILD", "x");
+
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.UPSERT)
+                        .urn(TEST_POLICY_URN)
+                        .entitySpec(entityRegistry.getEntitySpec(TEST_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(TEST_POLICY_URN.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(proposed)
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1);
   }
 
   @Test

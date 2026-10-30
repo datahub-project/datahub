@@ -35,6 +35,8 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuil
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -54,6 +56,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import org.opensearch.common.settings.Settings;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -67,6 +70,16 @@ public class MultiEntityMappingsBuilderTest {
   private EntitySpec mockEntitySpec;
 
   @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
+
+  @BeforeMethod
   public void setUp() throws IOException {
     // Setup mock configuration
     mockConfig = mock(EntityIndexConfiguration.class);
@@ -77,6 +90,7 @@ public class MultiEntityMappingsBuilderTest {
 
     // Setup mock entity registry and specs
     mockEntityRegistry = mock(EntityRegistry.class);
+    when(mockEntityRegistry.findEntitySpec(any())).thenCallRealMethod();
     mockEntitySpec = createMockEntitySpec();
     stubEntitySpecs(mockEntitySpec);
 
@@ -1413,6 +1427,26 @@ public class MultiEntityMappingsBuilderTest {
 
     assertNotNull(mappings, "Mappings should not be null");
     assertFalse(mappings.isEmpty(), "Should have mappings for new structured property");
+  }
+
+  @Test
+  public void testNewStructuredPropertySkipsEntityTypesUnknownToRegistry() {
+    // A property listing an entity type only a newer version registered (edited after a rollback)
+    // still gets its mapping update for the known types instead of failing as a whole.
+    when(mockEntityRegistry.getEntitySpec("entityFromNewerBuild"))
+        .thenThrow(new IllegalArgumentException("Failed to find entity with name"));
+    StructuredPropertyDefinition property = createMockStructuredProperty();
+    when(property.getEntityTypes())
+        .thenReturn(
+            new UrnArray(
+                UrnUtils.getUrn("urn:li:entityType:datahub.entityFromNewerBuild"),
+                UrnUtils.getUrn("urn:li:entityType:datahub.testEntity")));
+
+    Collection<IndexMapping> mappings =
+        mappingsBuilder.getIndexMappingsWithNewStructuredProperty(
+            operationContext, UrnUtils.getUrn("urn:li:structuredProperty:test:property"), property);
+
+    assertFalse(mappings.isEmpty(), "Known entity types still get the mapping update");
   }
 
   @Test

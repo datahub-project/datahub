@@ -29,6 +29,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -52,10 +54,12 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class TraceServiceImplTest {
+
   private static final String TEST_TRACE_ID_FUTURE =
       SystemTelemetryContext.TRACE_ID_GENERATOR.generateTraceId(
           Instant.now().toEpochMilli() + 1000);
@@ -74,6 +78,16 @@ public class TraceServiceImplTest {
   private TraceServiceImpl traceService;
   private static final OperationContext operationContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlings.reset();
+  }
 
   @BeforeMethod
   public void setup() throws Exception {
@@ -204,6 +218,56 @@ public class TraceServiceImplTest {
     TraceStatus status = urnStatus.get(ASPECT_NAME);
     assertEquals(status.getPrimaryStorage().getWriteStatus(), TraceWriteStatus.ERROR);
     assertFalse(status.isSuccess());
+  }
+
+  @Test
+  public void testTraceSkipsAspectUnknownToRegistry() throws Exception {
+    String unknownAspect = "aspectFromNewerBuild";
+    Map<Urn, List<String>> aspectNames =
+        Collections.singletonMap(TEST_URN, List.of(ASPECT_NAME, unknownAspect));
+
+    when(entityService.getEntitiesV2(any(), anyString(), anySet(), anySet(), anyBoolean()))
+        .thenReturn(Collections.emptyMap());
+    Map<String, TraceStorageStatus> pendingStatus = new LinkedHashMap<>();
+    pendingStatus.put(
+        ASPECT_NAME,
+        TraceStorageStatus.ok(TraceWriteStatus.PENDING, "Consumer has not processed offset."));
+    when(mcpTraceReader.tracePendingStatuses(any(), eq(TEST_TRACE_ID), any(), anyBoolean()))
+        .thenReturn(Collections.singletonMap(TEST_URN, pendingStatus));
+
+    Map<Urn, Map<String, TraceStatus>> result =
+        traceService.trace(operationContext, TEST_TRACE_ID, aspectNames, false, false);
+
+    Map<String, TraceStatus> urnStatus = result.get(TEST_URN);
+    assertEquals(
+        urnStatus.get(ASPECT_NAME).getPrimaryStorage().getWriteStatus(), TraceWriteStatus.PENDING);
+    assertFalse(urnStatus.containsKey(unknownAspect));
+  }
+
+  @Test
+  public void testTraceSkipsEntityTypeUnknownToRegistry() throws Exception {
+    Urn unknownEntityUrn = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    Map<Urn, List<String>> aspectNames = new LinkedHashMap<>();
+    aspectNames.put(TEST_URN, List.of(ASPECT_NAME));
+    aspectNames.put(unknownEntityUrn, List.of(ASPECT_NAME));
+
+    when(entityService.getEntitiesV2(any(), anyString(), anySet(), anySet(), anyBoolean()))
+        .thenReturn(Collections.emptyMap());
+    Map<String, TraceStorageStatus> pendingStatus = new LinkedHashMap<>();
+    pendingStatus.put(
+        ASPECT_NAME,
+        TraceStorageStatus.ok(TraceWriteStatus.PENDING, "Consumer has not processed offset."));
+    when(mcpTraceReader.tracePendingStatuses(any(), eq(TEST_TRACE_ID), any(), anyBoolean()))
+        .thenReturn(Collections.singletonMap(TEST_URN, pendingStatus));
+
+    // detailed=true also runs the failed-MCP lookup over every traced urn
+    Map<Urn, Map<String, TraceStatus>> result =
+        traceService.trace(operationContext, TEST_TRACE_ID, aspectNames, false, true);
+
+    assertEquals(
+        result.get(TEST_URN).get(ASPECT_NAME).getPrimaryStorage().getWriteStatus(),
+        TraceWriteStatus.PENDING);
+    assertFalse(result.containsKey(unknownEntityUrn));
   }
 
   @Test

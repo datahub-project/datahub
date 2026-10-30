@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.analytics.service;
 import static com.linkedin.metadata.Constants.CORP_USER_EDITABLE_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -56,6 +57,11 @@ public class AnalyticsUtil {
     result.setValue(urn);
     try {
       Entity entity = UrnToEntityMapper.map(null, Urn.createFromString(urn));
+      if (entity == null && handling().toleratesUnknownEntityAspect()) {
+        // An entity type GraphQL can't map (e.g. added by a newer version before a rollback):
+        // show the urn as plain text without a link.
+        return result;
+      }
       result.setEntity(entity);
       result.setLinkParams(
           LinkParams.builder()

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -29,10 +31,14 @@ public class UrnScrollResultsMapper<T extends RecordTemplate, E extends Entity> 
     result.setTotal(input.getNumEntities());
 
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
-    result.setSearchResults(
-        input.getEntities().stream()
-            .map(r -> MapperUtils.mapResult(context, r))
-            .collect(Collectors.toList()));
+    if (handling().toleratesUnknownEntityAspect()) {
+      result.setSearchResults(UrnSearchResultsMapper.mapKnownResults(context, input.getEntities()));
+    } else {
+      result.setSearchResults(
+          input.getEntities().stream()
+              .map(r -> MapperUtils.mapResult(context, r))
+              .collect(Collectors.toList()));
+    }
     result.setFacets(
         searchResultMetadata.getAggregations().stream()
             .map(f -> MapperUtils.mapFacet(context, f))
