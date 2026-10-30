@@ -93,7 +93,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_custom_assertion_info,
     select_test_results_to_emit,
 )
-from datahub.ingestion.source.dremio.dremio_source import (
+from datahub.ingestion.source.dremio.dremio_naming import (
     DREMIO_DATABASE_NAME,
     DremioSchemaResolver,
 )
