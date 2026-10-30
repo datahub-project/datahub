@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
 import { useAppConfig } from '@app/useAppConfig';
+import { PageRoutes } from '@conf/Global';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 const StyledLink = styled(Link)`
@@ -22,7 +23,7 @@ export default function AppLogoLink() {
     const themeConfig = useTheme();
 
     return (
-        <StyledLink to="/">
+        <StyledLink to={PageRoutes.HOME}>
             <LogoImage
                 src={
                     appConfig.config !== DEFAULT_APP_CONFIG
