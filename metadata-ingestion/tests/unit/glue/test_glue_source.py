@@ -57,6 +57,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.testing import mce_helpers
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
@@ -210,11 +211,11 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
     [
-        (None, "glue_mces.json", "glue_mces_golden.json"),
+        (None, "glue.json", "glue_golden.json"),
         (
             "some_instance_name",
-            "glue_mces_platform_instance.json",
-            "glue_mces_platform_instance_golden.json",
+            "glue_platform_instance.json",
+            "glue_platform_instance_golden.json",
         ),
     ],
 )
@@ -314,6 +315,7 @@ def test_glue_ingest(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        fail_on_output_mces=True,
     )
 
 
@@ -343,12 +345,13 @@ def test_glue_view_lineage_ingest(
         mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
         glue_stubber.assert_no_pending_responses()
 
-        write_metadata_file(tmp_path / "glue_views_mces.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_views.json", mce_objects)
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_views_mces.json",
-        golden_path=test_resources_dir / "glue_views_mces_golden.json",
+        output_path=tmp_path / "glue_views.json",
+        golden_path=test_resources_dir / "glue_views_golden.json",
+        fail_on_output_mces=True,
     )
 
 
@@ -720,6 +723,77 @@ def test_resource_link_schema_resolved_from_glue_when_absent_in_datahub():
     assert schema is not None
     assert {f.fieldPath.split(".")[-1] for f in schema.fields} == {"txn_id", "amount"}
     assert source.report.num_resource_link_schema_from_glue == 1
+
+
+def _owner_placeholder_view_response(view_original_text: str) -> Dict[str, Any]:
+    return {
+        "Table": {
+            "Name": "transactions",
+            "DatabaseName": "test-database",
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": view_original_text,
+            "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+        }
+    }
+
+
+@pytest.mark.parametrize("valid_payload", [True, False])
+def test_resource_link_to_placeholder_view_recovers_columns_from_glue(
+    valid_payload: bool,
+) -> None:
+    source = _resource_link_schema_source()
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = None
+    source.ctx.graph = graph
+    view_original_text = (
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "txn_id", "type": "bigint"},
+                    {"name": "booked_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        )
+        if valid_payload
+        else "/* Presto View: not!valid!base64 */"
+    )
+
+    with Stubber(source.glue_client) as stubber:
+        stubber.add_response(
+            "get_table",
+            _owner_placeholder_view_response(view_original_text),
+            {
+                "CatalogId": "432143214321",
+                "DatabaseName": "test-database",
+                "Name": "transactions",
+            },
+        )
+        schema = source._resource_link_schema(
+            resource_link_table_in_mixed_database,
+            CONSUMER_LINK_URN,
+            "mixed-database.shared-transactions",
+        )
+
+    assert schema is not None
+    field_names = [
+        get_simple_field_path_from_v2_field_path(f.fieldPath) for f in schema.fields
+    ]
+    placeholder_contexts = [
+        context
+        for w in source.report.warnings
+        if w.title == "View schema is a placeholder column"
+        for context in w.context
+    ]
+    if valid_payload:
+        assert field_names == ["txn_id", "booked_at"]
+        assert not placeholder_contexts
+    else:
+        assert field_names == ["dummy"]
+        assert len(placeholder_contexts) == 1
+        assert placeholder_contexts[0].startswith(
+            "mixed-database.shared-transactions -> test-database.transactions: "
+        )
 
 
 def test_resource_link_schema_unresolved_leaves_link_schemaless():
@@ -1187,12 +1261,13 @@ def test_glue_ingest_cross_account_and_resource_links(
         mce_objects = [wu.metadata for wu in source.get_workunits()]
         glue_stubber.assert_no_pending_responses()
 
-        write_metadata_file(tmp_path / "glue_mces_cross_account.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_cross_account.json", mce_objects)
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_mces_cross_account.json",
-        golden_path=test_resources_dir / "glue_mces_cross_account_golden.json",
+        output_path=tmp_path / "glue_cross_account.json",
+        golden_path=test_resources_dir / "glue_cross_account_golden.json",
+        fail_on_output_mces=True,
     )
 
 
@@ -1305,10 +1380,10 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
 
     wus = list(source.get_workunits())
 
-    snapshot_urns = {
-        wu.metadata.proposedSnapshot.urn
+    dataset_urns = {
+        wu.get_urn()
         for wu in wus
-        if isinstance(wu.metadata, models.MetadataChangeEventClass)
+        if wu.get_aspect_of_type(models.DatasetPropertiesClass) is not None
     }
 
     events_urn = (
@@ -1327,10 +1402,10 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
     # (1) The mapping is consulted for the table's own CatalogId: tables are stamped with the mapped
     # "consumer_inst", not the source's own "ingestion_acct". owner_db is excluded by the pattern,
     # so it is never emitted as a dataset (it exists only as the lineage target).
-    assert events_urn in snapshot_urns
-    assert shared_events_urn in snapshot_urns
-    assert all("ingestion_acct" not in urn for urn in snapshot_urns)
-    assert all("owner_db" not in urn for urn in snapshot_urns)
+    assert events_urn in dataset_urns
+    assert shared_events_urn in dataset_urns
+    assert all("ingestion_acct" not in urn for urn in dataset_urns)
+    assert all("owner_db" not in urn for urn in dataset_urns)
 
     # (2) The resource link stitches back to the owner account's URN via TargetTable.CatalogId.
     upstreams = _upstream_lineage(wus, shared_events_urn)
@@ -1906,7 +1981,7 @@ def test_get_databases_filters_by_catalog():
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
-    deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
+    deleted_actor_golden_mcs = "{}/glue_deleted_actor_golden.json".format(
         test_resources_dir
     )
 
@@ -1963,7 +2038,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             assert checkpoint1.state
 
             # Capture MCEs of second run to validate Status(removed=true)
-            deleted_mces_path = "{}/{}".format(tmp_path, "glue_deleted_mces.json")
+            deleted_mces_path = "{}/{}".format(tmp_path, "glue_deleted.json")
             pipeline_config_dict["sink"]["type"] = "file"
             pipeline_config_dict["sink"]["config"] = {"filename": deleted_mces_path}
 
@@ -1987,6 +2062,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 pytestconfig,
                 output_path=deleted_mces_path,
                 golden_path=deleted_actor_golden_mcs,
+                fail_on_output_mces=True,
             )
 
             # Perform all assertions on the states. The deleted table should not be
@@ -2028,13 +2104,14 @@ def test_glue_with_delta_schema_ingest(
 
         assert glue_source_instance.get_report().num_dataset_valid_delta_schema == 1
 
-        write_metadata_file(tmp_path / "glue_delta_mces.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_delta.json", mce_objects)
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_delta_mces.json",
-        golden_path=test_resources_dir / "glue_delta_mces_golden.json",
+        output_path=tmp_path / "glue_delta.json",
+        golden_path=test_resources_dir / "glue_delta_golden.json",
+        fail_on_output_mces=True,
     )
 
 
@@ -2064,20 +2141,21 @@ def test_glue_with_malformed_delta_schema_ingest(
 
         assert glue_source_instance.get_report().num_dataset_invalid_delta_schema == 1
 
-        write_metadata_file(tmp_path / "glue_malformed_delta_mces.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_malformed_delta.json", mce_objects)
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_malformed_delta_mces.json",
-        golden_path=test_resources_dir / "glue_malformed_delta_mces_golden.json",
+        output_path=tmp_path / "glue_malformed_delta.json",
+        golden_path=test_resources_dir / "glue_malformed_delta_golden.json",
+        fail_on_output_mces=True,
     )
 
 
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
     [
-        (None, "glue_mces.json", "glue_mces_golden_table_lineage.json"),
+        (None, "glue.json", "glue_golden_table_lineage.json"),
     ],
 )
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2179,13 +2257,14 @@ def test_glue_ingest_include_table_lineage(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        fail_on_output_mces=True,
     )
 
 
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
     [
-        (None, "glue_mces.json", "glue_mces_golden_table_column_lineage.json"),
+        (None, "glue.json", "glue_golden_table_column_lineage.json"),
     ],
 )
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2285,6 +2364,7 @@ def test_glue_ingest_include_column_lineage(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        fail_on_output_mces=True,
     )
 
 
@@ -2294,8 +2374,8 @@ def test_glue_ingest_with_profiling(
     pytestconfig: pytest.Config,
 ) -> None:
     glue_source_instance = glue_source_with_profiling()
-    mce_file = "glue_mces.json"
-    mce_golden_file = "glue_mces_golden_profiling.json"
+    mce_file = "glue.json"
+    mce_golden_file = "glue_golden_profiling.json"
     with Stubber(glue_source_instance.glue_client) as glue_stubber:
         glue_stubber.add_response("get_databases", get_databases_response_profiling, {})
 
@@ -2322,6 +2402,7 @@ def test_glue_ingest_with_profiling(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        fail_on_output_mces=True,
     )
 
 
@@ -2330,8 +2411,8 @@ def test_glue_ingest_with_profiling(
     [
         (
             None,
-            "glue_mces_lake_formation_tags.json",
-            "glue_mces_lake_formation_tags_golden.json",
+            "glue_lake_formation_tags.json",
+            "glue_lake_formation_tags_golden.json",
         ),
     ],
 )
@@ -2531,6 +2612,7 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        fail_on_output_mces=True,
     )
 
 
@@ -2580,12 +2662,10 @@ def test_no_lakeformation_extraction_when_disabled() -> None:
 
     source.lf_client.get_resource_lf_tags.assert_not_called()
     for wu in workunits:
-        mce = wu.metadata
-        if isinstance(mce, models.MetadataChangeEventClass):
-            for aspect in mce.proposedSnapshot.aspects:
-                assert not isinstance(aspect, models.GlobalTagsClass)
-                if isinstance(aspect, models.SchemaMetadataClass):
-                    assert all(f.globalTags is None for f in aspect.fields)
+        assert wu.get_aspect_of_type(models.GlobalTagsClass) is None
+        schema_metadata = wu.get_aspect_of_type(models.SchemaMetadataClass)
+        if schema_metadata is not None:
+            assert all(f.globalTags is None for f in schema_metadata.fields)
 
 
 def _resolved_table_tag_names(source: GlueSource, response: Dict[str, Any]) -> Set[str]:
@@ -3012,25 +3092,23 @@ def test_lf_tags_propagated_and_column_tagged_end_to_end() -> None:
             "get_tables", {"TableList": []}, {"DatabaseName": "empty-database"}
         )
 
-        mce_objects = [wu.metadata for wu in source.get_workunits()]
+        workunits = list(source.get_workunits())
 
     table_tags = None
     column_tag_fields = set()
-    for mce in mce_objects:
-        if not isinstance(mce, models.MetadataChangeEventClass):
+    for wu in workunits:
+        if "flights-database.avro" not in wu.get_urn():
             continue
-        snapshot = mce.proposedSnapshot
-        if "flights-database.avro" not in snapshot.urn:
-            continue
-        for aspect in snapshot.aspects:
-            if isinstance(aspect, models.GlobalTagsClass):
-                table_tags = {assoc.tag for assoc in aspect.tags}
-            if isinstance(aspect, models.SchemaMetadataClass):
-                for f in aspect.fields:
-                    if f.globalTags and any(
-                        t.tag == make_tag_urn("pii:true") for t in f.globalTags.tags
-                    ):
-                        column_tag_fields.add(f.fieldPath)
+        global_tags = wu.get_aspect_of_type(models.GlobalTagsClass)
+        if global_tags is not None:
+            table_tags = {assoc.tag for assoc in global_tags.tags}
+        schema_metadata = wu.get_aspect_of_type(models.SchemaMetadataClass)
+        if schema_metadata is not None:
+            for f in schema_metadata.fields:
+                if f.globalTags and any(
+                    t.tag == make_tag_urn("pii:true") for t in f.globalTags.tags
+                ):
+                    column_tag_fields.add(f.fieldPath)
 
     assert table_tags is not None, "flights-database.avro had no GlobalTags aspect"
     assert make_tag_urn("DataClassification:Sensitive") in table_tags
@@ -3877,22 +3955,12 @@ def test_incremental_properties_emits_patch_mcps(
         assert isinstance(patch_ops, list)
         assert all("op" in op and "path" in op for op in patch_ops)
 
-    # Verify that dataset MCEs do NOT contain DatasetProperties aspect
-    mce_wus = [
-        wu
-        for wu in workunits
-        if wu.metadata
-        and isinstance(wu.metadata, models.MetadataChangeEventClass)
-        and wu.metadata.proposedSnapshot
-    ]
-    for wu in mce_wus:
-        assert isinstance(wu.metadata, models.MetadataChangeEventClass)
-        snapshot = wu.metadata.proposedSnapshot
-        if snapshot and hasattr(snapshot, "aspects"):
-            for aspect in snapshot.aspects:
-                assert not isinstance(aspect, models.DatasetPropertiesClass), (
-                    "DatasetPropertiesClass should not be in MCE snapshot in PATCH mode"
-                )
+    # Verify that no work unit UPSERTs the DatasetProperties aspect
+    for wu in workunits:
+        assert not (
+            isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, models.DatasetPropertiesClass)
+        ), "DatasetPropertiesClass should not be UPSERTed in PATCH mode"
 
 
 # ── extract_column_parameters (structured properties) ─────────────────────────
@@ -4323,6 +4391,272 @@ def test_glue_view_lineage_links_view_to_upstream_table() -> None:
     }
     assert ("id", "id") in column_edges
     assert ("name", "name") in column_edges
+
+
+def test_glue_athena_view_with_dummy_placeholder_column_uses_view_columns() -> None:
+    # When an Athena view has an output column Hive cannot represent (e.g.
+    # `timestamp with time zone` from AT TIME ZONE, or char(>255)), Athena writes a
+    # single placeholder column named `dummy` into StorageDescriptor.Columns. The
+    # real output columns survive only in the encoded Presto view definition.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    original_sql = (
+        "SELECT id, created_at AT TIME ZONE 'US/Pacific' AS created_at "
+        "FROM my_db.events"
+    )
+    encoded = base64.b64encode(
+        json.dumps(
+            {
+                "originalSql": original_sql,
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "created_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        ).encode()
+    ).decode()
+    view = {
+        "Name": "events_view",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "ViewOriginalText": f"/* Presto View: {encoded} */",
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "dummy",
+                    "Type": "string",
+                    "Comment": "Unsupported type for column created_at",
+                }
+            ]
+        },
+    }
+
+    schema_metadatas = [
+        wu.get_aspect_of_type(models.SchemaMetadataClass)
+        for wu in source._gen_table_wu(view)
+    ]
+    found = [s for s in schema_metadatas if s is not None]
+
+    assert len(found) == 1
+    fields_by_name = {
+        get_simple_field_path_from_v2_field_path(f.fieldPath): f
+        for f in found[0].fields
+    }
+    assert set(fields_by_name) == {"id", "created_at"}
+    created_at = fields_by_name["created_at"]
+    assert isinstance(created_at.type.type, models.TimeTypeClass)
+    assert created_at.nativeDataType == "timestamp(3) with time zone"
+    assert source.report.num_view_schema_from_view_definition == 1
+
+
+def _placeholder_view(name: str, view_original_text: Optional[str]) -> Dict[str, Any]:
+    view: Dict[str, Any] = {
+        "Name": name,
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+    }
+    if view_original_text is not None:
+        view["ViewOriginalText"] = view_original_text
+    return view
+
+
+def _schema_column_names(workunits: List[Any]) -> List[str]:
+    names: List[str] = []
+    for wu in workunits:
+        schema = wu.get_aspect_of_type(models.SchemaMetadataClass)
+        if schema is not None:
+            names.extend(
+                get_simple_field_path_from_v2_field_path(f.fieldPath)
+                for f in schema.fields
+            )
+    return names
+
+
+def _presto_view_text(payload: Any) -> str:
+    encoded = base64.b64encode(json.dumps(payload).encode()).decode()
+    return f"/* Presto View: {encoded} */"
+
+
+@pytest.mark.parametrize(
+    "view_original_text",
+    [
+        "/* Presto View: not!valid!base64 */",
+        # A non-list `columns` must not raise out of the table loop and abort the run.
+        _presto_view_text({"originalSql": "SELECT 1", "columns": 5}),
+        # Pathologically nested JSON can segfault json.loads on Python 3.12+; it must
+        # be rejected before parsing and must not escape either.
+        "/* Presto View: "
+        + base64.b64encode(("[" * 10_000 + "]" * 10_000).encode()).decode()
+        + " */",
+    ],
+    ids=["invalid_base64", "columns_not_a_list", "deeply_nested_json"],
+)
+def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns(
+    view_original_text: str,
+) -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view("broken_view", view_original_text)
+
+    assert _schema_column_names(list(source._gen_table_wu(view))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 1
+    assert source.report.num_view_schema_from_view_definition == 0
+    placeholder_contexts = [
+        context
+        for w in source.report.warnings
+        if w.title == "View schema is a placeholder column"
+        for context in w.context
+    ]
+    assert len(placeholder_contexts) == 1
+    assert placeholder_contexts[0].startswith("my_db.broken_view: ")
+    # The view-definition path decodes the same payload; one root cause must
+    # produce one report entry.
+    assert not any(
+        w.title == "Failed to decode Presto view definition"
+        for w in source.report.warnings
+    )
+
+
+def test_glue_placeholder_view_recovered_columns_inherit_lake_formation_tags() -> None:
+    # Lake Formation can only tag columns Glue lists (here just `dummy`), so the
+    # realistic case is table/database tags propagating to the recovered columns.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "created_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        ),
+    )
+    parent_tags = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c"),
+    ]
+
+    schema = source._get_glue_schema_metadata(view, "events_view", None, parent_tags)
+    assert schema is not None
+    by_col = _column_tag_names_by_field(schema)
+
+    expected = {make_tag_urn("DataClassification:Sensitive")}
+    assert by_col == {"id": expected, "created_at": expected}
+
+
+@pytest.mark.parametrize(
+    "view_original_text", [None, "SELECT id AS dummy FROM my_db.events"]
+)
+def test_glue_non_presto_view_with_column_named_dummy_is_kept_without_warning(
+    view_original_text: Optional[str],
+) -> None:
+    # Only Presto/Athena writes the placeholder; a Spark/Hive view's single
+    # `dummy` column is real, so it is neither replaced nor reported.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view("spark_view", view_original_text)
+
+    assert _schema_column_names(list(source._gen_table_wu(view))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 0
+    assert not any(
+        w.title == "View schema is a placeholder column" for w in source.report.warnings
+    )
+
+
+def test_glue_placeholder_view_reports_columns_left_without_a_type() -> None:
+    # A quoted row field name the Hive parser cannot read leaves that column
+    # untyped; the view is still recovered, but the column is reported.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    # Deliberate Hive parser failure: `(` in a struct field name.
+                    {"name": "payload", "type": 'row("a(b" bigint)'},
+                ],
+            }
+        ),
+    )
+
+    assert sorted(_schema_column_names(list(source._gen_table_wu(view)))) == [
+        "id",
+        "payload",
+    ]
+    assert source.report.num_view_schema_from_view_definition == 1
+    assert source.report.num_view_columns_type_unresolved == 1
+    assert any(
+        w.title == "View column types could not be converted"
+        for w in source.report.warnings
+    )
+
+
+def test_glue_placeholder_view_reports_nested_untyped_field() -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [{"name": "payload", "type": "row(a bigint, b foo)"}],
+            }
+        ),
+    )
+
+    # The decoder maps unknown scalars to string, so force a Hive type whose
+    # nested field the Hive parser cannot read while the top level still parses.
+    with patch(
+        "datahub.ingestion.source.aws.glue.trino_type_to_hive_type",
+        return_value="struct<a:bigint,b:foo>",
+    ):
+        list(source._gen_table_wu(view))
+
+    assert source.report.num_view_schema_from_view_definition == 1
+    assert source.report.num_view_columns_type_unresolved == 1
+
+
+def test_glue_placeholder_view_reports_columns_too_nested_to_convert() -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "deep", "type": "array(" * 100 + "bigint" + ")" * 100},
+                ],
+            }
+        ),
+    )
+
+    schema = source._get_glue_schema_metadata(view, "my_db.events_view")
+
+    assert schema is not None
+    deep = next(f for f in schema.fields if f.fieldPath.endswith(".deep"))
+    assert isinstance(deep.type.type, models.StringTypeClass)
+    assert source.report.num_view_columns_type_unresolved == 1
+
+
+def test_glue_table_with_column_named_dummy_is_not_treated_as_placeholder() -> None:
+    # Only views get the fallback; a real table column named `dummy` is kept as-is.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    table = {
+        "Name": "my_table",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "EXTERNAL_TABLE",
+        "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+    }
+
+    assert _schema_column_names(list(source._gen_table_wu(table))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 0
 
 
 def test_glue_view_lineage_disabled_creates_no_aggregator() -> None:

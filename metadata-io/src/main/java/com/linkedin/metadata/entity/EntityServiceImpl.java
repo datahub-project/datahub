@@ -398,6 +398,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           changeMCP.setSemanticNoOpStrategyMask(0);
         }
 
+        // The pre-merge comparison runs before write hooks. A hook can fill in server-managed
+        // fields (ownership.ownerTypes, for example) so the final body equals the stored row after
+        // this write already advanced the in-memory row to its own version. Restore the stored
+        // state so the comparison below keeps the stored version and no history row is written.
+        latestAspect
+            .getDatabaseAspect()
+            .filter(
+                databaseAspect ->
+                    advancedByThisWrite(
+                        latestSystemMetadata, databaseAspect.getSystemMetadata(), rowNextVersion))
+            .filter(
+                databaseAspect ->
+                    DataTemplateUtil.areEqual(
+                        databaseAspect.getRecordTemplate(), changeMCP.getRecordTemplate()))
+            .ifPresent(
+                databaseAspect ->
+                    restoreStoredState(latestAspect, latestSystemMetadata, databaseAspect));
+
         // Check strict equality first. Besides avoiding a needless walk, this distinguishes a
         // semantic suppression from the persist-time rematch after a real update has already
         // copied the incoming body onto latestAspect.
@@ -467,6 +485,62 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     } catch (CloneNotSupportedException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /**
+   * True when the in-memory row carries this write's proposed version rather than the stored one,
+   * meaning an earlier pass of this same write advanced it.
+   */
+  private static boolean advancedByThisWrite(
+      @Nonnull SystemMetadata latestSystemMetadata,
+      @Nullable SystemMetadata storedSystemMetadata,
+      long rowNextVersion) {
+    String storedVersion =
+        storedSystemMetadata == null ? null : storedSystemMetadata.getVersion(GetMode.NULL);
+    String latestVersion = latestSystemMetadata.getVersion(GetMode.NULL);
+    return storedVersion != null
+        && !storedVersion.equals(latestVersion)
+        && String.valueOf(rowNextVersion).equals(latestVersion);
+  }
+
+  /**
+   * True when a later write in this batch already advanced the in-memory row past this item's
+   * version. A row rewound below this item's version (by {@link #restoreStoredState}) is not
+   * obsolete: this item must still apply its run metadata.
+   */
+  static boolean isObsoleteWrite(
+      @Nullable SystemAspect latestAspect, @Nonnull ChangeMCP writeItem) {
+    if (latestAspect == null) {
+      return false;
+    }
+    String latestVersion = latestAspect.getSystemMetadata().getVersion();
+    String itemVersion = writeItem.getSystemMetadata().getVersion();
+    if (Objects.equals(latestVersion, itemVersion)) {
+      return false;
+    }
+    try {
+      return Long.parseLong(latestVersion) > Long.parseLong(itemVersion);
+    } catch (NumberFormatException e) {
+      return true;
+    }
+  }
+
+  /**
+   * Puts the stored body, audit stamp and version back on the in-memory row. Run metadata from the
+   * incoming write (lastObserved, runId, lastRunId) is kept.
+   */
+  private static void restoreStoredState(
+      @Nonnull SystemAspect latestAspect,
+      @Nonnull SystemMetadata latestSystemMetadata,
+      @Nonnull SystemAspect databaseAspect) {
+    SystemMetadata storedSystemMetadata = databaseAspect.getSystemMetadata();
+    latestAspect.setRecordTemplate(databaseAspect.getRecordTemplate());
+    latestAspect.setAuditStamp(databaseAspect.getAuditStamp());
+    latestSystemMetadata.setVersion(storedSystemMetadata.getVersion());
+    latestSystemMetadata.setAspectModified(
+        storedSystemMetadata.getAspectModified(GetMode.NULL), SetMode.REMOVE_IF_NULL);
+    latestSystemMetadata.setAspectCreated(
+        storedSystemMetadata.getAspectCreated(GetMode.NULL), SetMode.REMOVE_IF_NULL);
   }
 
   public void setUpdateIndicesService(@Nullable SearchIndicesService updateIndicesService) {
@@ -1143,8 +1217,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   /**
    * Builds retention contexts from upsert results. Previous version existence is implied by
-   * oldValue != null. Results whose body is unchanged are skipped: an unchanged body keeps its
-   * stored version, so no history row was added and there is nothing new to trim.
+   * oldValue != null. Results that wrote no history row (maxVersion == 0) and left the body
+   * unchanged are skipped: there is nothing new to trim.
    *
    * @param updatedLatestAspects when non-null (legacy in-transaction path), restricts retention to
    *     urn/aspect pairs actually present in the post-upsert latest-aspect snapshot; when null
@@ -1163,8 +1237,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             .get(r.getUrn().toString())
                             .containsKey(r.getRequest().getAspectName())))
         .filter(r -> !r.isSemanticNoOp())
-        // Compare by value: a re-sent aspect arrives as a separate but equal record.
-        .filter(r -> r.getOldValue() != null && !r.isNoOp())
+        // Trim when this write added a history row, or changed the body. Body equality alone is not
+        // enough: a write hook can make the final body equal after a history row was written. A
+        // time-only policy writes no history row (maxVersion 0) but still ages out old rows.
+        .filter(r -> r.getOldValue() != null && (r.getMaxVersion() > 0 || !r.isNoOp()))
         .map(
             r ->
                 RetentionService.RetentionContext.builder()
@@ -1909,10 +1985,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                             // latest
                                             // aspect
                                             // doesn't match this ChangeMCP
-                                            if (latestAspect != null
-                                                && !Objects.equals(
-                                                    latestAspect.getSystemMetadata().getVersion(),
-                                                    writeItem.getSystemMetadata().getVersion())) {
+                                            if (isObsoleteWrite(latestAspect, writeItem)) {
                                               log.debug(
                                                   "Skipping obsolete write: urn: {} aspect: {} version: {}",
                                                   writeItem.getUrn(),
@@ -3867,7 +3940,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             opContext, List.of(deleteItem), opContext.getRetrieverContext(), opContext);
     if (!exceptions.isEmpty()) {
       throw new ValidationException(
-          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
+          collectMetrics(opContext.getMetricUtils().orElse(null), exceptions));
     }
 
     // Hard delete wipes all aspects in one shot; capture aspects needed by post-commit side
@@ -4096,8 +4169,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     if (!preCommitExceptions.isEmpty()) {
                       throw new ValidationException(
                           collectMetrics(
-                                  opContext.getMetricUtils().orElse(null), preCommitExceptions)
-                              .toString());
+                              opContext.getMetricUtils().orElse(null), preCommitExceptions));
                     }
 
                     // 5. Apply deletes and fix up latest row
@@ -4859,10 +4931,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
       // eliminate unneeded writes within a batch if the latest aspect doesn't match this
       // ChangeMCP
-      if (latestAspect != null
-          && !Objects.equals(
-              latestAspect.getSystemMetadata().getVersion(),
-              writeItem.getSystemMetadata().getVersion())) {
+      if (isObsoleteWrite(latestAspect, writeItem)) {
         log.debug(
             "Skipping obsolete write: urn: {} aspect: {} version: {}",
             writeItem.getUrn(),
