@@ -324,7 +324,14 @@ public class ReportAssertionResultResolverTest {
     // Control: the same input shape binds and is stored at the largest finite float, so the
     // failure below comes from the range guard rather than from argument binding.
     AssertionResult stored =
-        reportWithRawInput(Map.of("type", "FAILURE", "actualAggValue", (double) Float.MAX_VALUE));
+        reportWithRawInput(
+            Map.of(
+                "timestampMillis",
+                0L,
+                "type",
+                "FAILURE",
+                "actualAggValue",
+                (double) Float.MAX_VALUE));
     assertEquals(stored.getActualAggValue(), Float.MAX_VALUE);
 
     AssertionService mockedService = Mockito.mock(AssertionService.class);
@@ -333,7 +340,8 @@ public class ReportAssertionResultResolverTest {
                 any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(TEST_DATASET_URN);
     DataFetchingEnvironment mockEnv =
-        mockEnvWithRawInput(Map.of("type", "FAILURE", "actualAggValue", 1e39d));
+        mockEnvWithRawInput(
+            Map.of("timestampMillis", 0L, "type", "FAILURE", "actualAggValue", 1e39d));
 
     Throwable thrown =
         expectThrows(
