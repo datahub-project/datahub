@@ -24,6 +24,7 @@ import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -448,45 +449,29 @@ public class ESIndexBuilderTest {
   }
 
   /**
-   * A V3 index from before the shared search fields has none of the text subfields V3 full-text
-   * search reads, which only a rebuild adds.
+   * A V3 index from before the shared search fields has none of the text or ngram subfields V3
+   * full-text search reads. Those subfields sit on the root field, and only a rebuild adds them.
    */
   @Test
   void testApplyMappings_ReportsV3IndexWithoutSharedFullTextFields() throws IOException {
     Map<String, Object> perField =
-        searchMappings(
-            Map.of("type", "keyword", "fields", Map.of("delimited", Map.of("type", "text"))),
-            Map.of("type", "keyword"));
+        rootField(
+            "name",
+            Map.of("type", "keyword", "fields", Map.of("delimited", Map.of("type", "text"))));
     Map<String, Object> shared =
-        searchMappings(
-            Map.of("type", "keyword"),
-            Map.of("type", "keyword", "fields", Map.of("text", Map.of("type", "text"))));
+        rootField(
+            "name", Map.of("type", "keyword", "fields", Map.of("text", Map.of("type", "text"))));
     assertEquals(mappingRebuildErrors("datasetindex_v3", perField, shared), 1);
     assertEquals(mappingRebuildErrors("datasetindex_v2", perField, shared), 0);
-    // Autocomplete reads the ngram subfield of its shared field
-    Map<String, Object> withAutocomplete =
-        Map.of(
-            "properties",
-            Map.of(
-                "_search",
-                Map.of(
-                    "properties",
-                    Map.of(
-                        "autocomplete",
-                        Map.of(
-                            "type",
-                            "keyword",
-                            "fields",
-                            Map.of("ngram", Map.of("type", "search_as_you_type")))))));
-    assertEquals(
-        mappingRebuildErrors(
-            "datasetindex_v3", Map.of("properties", Map.of("urn", Map.of())), withAutocomplete),
-        1);
     // Once the index has them, other unapplied changes only warn
     Map<String, Object> sharedWithOldRoot =
-        searchMappings(
-            Map.of("type", "keyword", "fields", Map.of("delimited", Map.of("type", "text"))),
-            Map.of("type", "keyword", "fields", Map.of("text", Map.of("type", "text"))));
+        rootField(
+            "name",
+            Map.of(
+                "type",
+                "keyword",
+                "fields",
+                Map.of("delimited", Map.of("type", "text"), "text", Map.of("type", "text"))));
     assertEquals(mappingRebuildErrors("datasetindex_v3", sharedWithOldRoot, shared), 0);
 
     when(elasticSearchConfiguration.getEntityIndex())
@@ -506,12 +491,8 @@ public class ESIndexBuilderTest {
                 opContext, staleMappingIndexState("datasetindex_v3", perField, shared)));
   }
 
-  private static Map<String, Object> searchMappings(
-      Map<String, Object> name, Map<String, Object> searchEntityName) {
-    return Map.of(
-        "properties",
-        Map.of(
-            "name", name, "_search", Map.of("properties", Map.of("entityName", searchEntityName))));
+  private static Map<String, Object> rootField(String name, Map<String, Object> mapping) {
+    return Map.of("properties", Map.of(name, mapping));
   }
 
   private static ReindexConfig staleIndexState(String index, Object currentName) {
@@ -1190,6 +1171,36 @@ public class ESIndexBuilderTest {
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
             any(RequestOptions.class));
+  }
+
+  @Test
+  void testApplyMappings_NeverSendsTheDocIdSchemeStamp() throws IOException {
+    // _meta.docIdScheme is provenance written at creation; a put-mapping onto an existing index
+    // must not relabel it as current (see V3DocumentIdScheme).
+    Map<String, Object> targetMappings = new HashMap<>(createTestMappings());
+    targetMappings.put(
+        V3DocumentIdScheme.META, Map.of(V3DocumentIdScheme.DOC_ID_SCHEME, "sha256-urn"));
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.isPureMappingsAddition()).thenReturn(true);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(targetMappings);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(mock(AcknowledgedResponse.class));
+
+    indexBuilder.applyMappings(opContext, indexState, false);
+
+    ArgumentCaptor<PutMappingRequest> request = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class), request.capture(), any(RequestOptions.class));
+    String sent = request.getValue().source().utf8ToString();
+    Assert.assertFalse(
+        sent.contains(V3DocumentIdScheme.META), "put-mapping must not carry _meta: " + sent);
+    assertTrue(sent.contains("properties"));
   }
 
   @Test
@@ -2580,6 +2591,55 @@ public class ESIndexBuilderTest {
         result.completed(),
         "Completed-but-short must not be treated as success even after a catch-up resubmit");
     verify(searchClient, atLeastOnce())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * The ES task finishes right after a short count is read. That count must not be paired with the
+   * COMPLETED status and treated as dropped documents, which would resubmit a full reindex.
+   */
+  @Test
+  void testPollReindexCompletion_taskCompletesAfterShortCount_completesWithoutRetrigger()
+      throws Throwable {
+    setupPollReindexBuilder(0L, NUM_RETRIES);
+    // A resubmit must only be reachable through the completed-but-short path: neither the
+    // unresolved-task guard nor the no-progress timer may mask it.
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(false);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(60);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
+        .thenReturn("node1:100");
+
+    // Count call 1 is the pre-loop read; the task finishes right after count call 2.
+    AtomicInteger countCalls = new AtomicInteger();
+    GetTaskResponse task = mock(GetTaskResponse.class);
+    when(task.isCompleted()).thenAnswer(invocation -> countCalls.get() >= 2);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.of(task));
+
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion) {
+          @Override
+          protected Pair<Long, Long> getDocumentCounts(
+              OperationContext ctx, Callable<Long> expectedCountSupplier, String destinationIndex) {
+            return Pair.of(1000L, countCalls.incrementAndGet() <= 2 ? 900L : 1000L);
+          }
+        };
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertTrue(result.completed());
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1000L));
+    verify(searchClient, never())
         .submitReindexTask(
             any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
   }

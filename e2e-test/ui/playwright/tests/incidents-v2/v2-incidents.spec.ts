@@ -16,6 +16,7 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { IncidentsPage } from '../../pages/incidents.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'incidents-v2' });
 
@@ -41,7 +42,7 @@ const sharedTimestamp = Date.now();
 const newIncidentName = `${NEW_INCIDENT_VALUES.NAME}-${sharedTimestamp}`;
 const editedIncidentName = `${newIncidentName}-edited`;
 
-test.describe('Incidents V2', () => {
+test.describe('Incidents V2', { tag: [TestTag.P0] }, () => {
   // Tests 2 and 3 share the same incident name (create → update).
   // Serial mode ensures test 2 completes before test 3 starts.
   test.describe.configure({ mode: 'serial' });
@@ -54,7 +55,7 @@ test.describe('Incidents V2', () => {
     });
   });
 
-  test('can view v1 incident', async ({ page, logger, logDir }) => {
+  test('can view v1 incident', { tag: [DomainTag.Observe] }, async ({ page, logger, logDir }) => {
     const incidentsPage = new IncidentsPage(page, logger, logDir);
     await incidentsPage.navigateToKafkaDatasetIncidents();
 
@@ -66,7 +67,7 @@ test.describe('Incidents V2', () => {
     await expect(row).toContainText(EXISTING_INCIDENT_TITLE);
   });
 
-  test('create a v2 incident with all fields set', async ({ page, logger, logDir }) => {
+  test('create a v2 incident with all fields set', { tag: [DomainTag.Observe] }, async ({ page, logger, logDir }) => {
     const incidentsPage = new IncidentsPage(page, logger, logDir);
     await incidentsPage.navigateToKafkaDatasetIncidents();
 
@@ -89,7 +90,7 @@ test.describe('Incidents V2', () => {
     await incidentsPage.expectResolveButtonContains(newIncidentName, 'Resolve');
   });
 
-  test('can update incident & resolve incident', async ({ page, logger, logDir }) => {
+  test('can update incident & resolve incident', { tag: [DomainTag.Observe] }, async ({ page, logger, logDir }) => {
     test.setTimeout(120000);
     const incidentsPage = new IncidentsPage(page, logger, logDir);
 
@@ -127,66 +128,74 @@ test.describe('Incidents V2', () => {
     await incidentsPage.expectResolveButtonContains(editedIncidentName, 'Me');
   });
 
-  test('Create V2 incident with all fields set and separate_siblings=false', async ({ page, logger, logDir }) => {
-    const incidentsPage = new IncidentsPage(page, logger, logDir);
-    // is_lineage_mode=false is the default for this navigation helper
-    await incidentsPage.navigateToBigQueryDatasetIncidents();
+  test(
+    'Create V2 incident with all fields set and separate_siblings=false',
+    { tag: [DomainTag.Observe] },
+    async ({ page, logger, logDir }) => {
+      const incidentsPage = new IncidentsPage(page, logger, logDir);
+      // is_lineage_mode=false is the default for this navigation helper
+      await incidentsPage.navigateToBigQueryDatasetIncidents();
 
-    // The create button shows with siblings variant when separate_siblings is not forced true
-    await incidentsPage.clickCreateIncidentBtnWithSiblings();
-    await incidentsPage.selectFirstSiblingFromDropdown();
+      // The create button shows with siblings variant when separate_siblings is not forced true
+      await incidentsPage.clickCreateIncidentBtnWithSiblings();
+      await incidentsPage.selectFirstSiblingFromDropdown();
 
-    // Drawer should open for "Create New Incident"
-    await incidentsPage.expectDrawerTitleContains('Create New Incident');
+      // Drawer should open for "Create New Incident"
+      await incidentsPage.expectDrawerTitleContains('Create New Incident');
 
-    // In sibling mode a second remirror editor may appear (index 1)
-    await incidentsPage.fillIncidentName(newIncidentName);
-    await incidentsPage.fillDescription(NEW_INCIDENT_VALUES.DESCRIPTION, 1);
-    await incidentsPage.selectCategory(NEW_INCIDENT_VALUES.TYPE);
-    await incidentsPage.selectPriority(NEW_INCIDENT_VALUES.PRIORITY);
-    await incidentsPage.selectStage(NEW_INCIDENT_VALUES.STAGE);
-    await incidentsPage.selectFirstAssignee();
-    await incidentsPage.dismissDropdowns();
-    await incidentsPage.submitIncidentForm();
+      // In sibling mode a second remirror editor may appear (index 1)
+      await incidentsPage.fillIncidentName(newIncidentName);
+      await incidentsPage.fillDescription(NEW_INCIDENT_VALUES.DESCRIPTION, 1);
+      await incidentsPage.selectCategory(NEW_INCIDENT_VALUES.TYPE);
+      await incidentsPage.selectPriority(NEW_INCIDENT_VALUES.PRIORITY);
+      await incidentsPage.selectStage(NEW_INCIDENT_VALUES.STAGE);
+      await incidentsPage.selectFirstAssignee();
+      await incidentsPage.dismissDropdowns();
+      await incidentsPage.submitIncidentForm();
 
-    await expect(incidentsPage.getIncidentGroup('CRITICAL')).toBeVisible();
-    const criticalGroup = incidentsPage.getIncidentGroup('CRITICAL');
-    await criticalGroup.scrollIntoViewIfNeeded();
-    await incidentsPage.expandGroupIfNeeded('CRITICAL');
+      await expect(incidentsPage.getIncidentGroup('CRITICAL')).toBeVisible();
+      const criticalGroup = incidentsPage.getIncidentGroup('CRITICAL');
+      await criticalGroup.scrollIntoViewIfNeeded();
+      await incidentsPage.expandGroupIfNeeded('CRITICAL');
 
-    await expect(incidentsPage.getIncidentRow(newIncidentName)).toBeVisible({ timeout: 15000 });
-    await incidentsPage.expectIncidentNameBadgeVisible(newIncidentName);
-    await incidentsPage.expectIncidentRowStage(newIncidentName, NEW_INCIDENT_VALUES.STAGE);
-    await incidentsPage.expectIncidentRowCategory(newIncidentName, NEW_INCIDENT_VALUES.TYPE);
-    await incidentsPage.expectResolveButtonVisible(newIncidentName);
-    await incidentsPage.expectResolveButtonContains(newIncidentName, 'Resolve');
-  });
+      await expect(incidentsPage.getIncidentRow(newIncidentName)).toBeVisible({ timeout: 15000 });
+      await incidentsPage.expectIncidentNameBadgeVisible(newIncidentName);
+      await incidentsPage.expectIncidentRowStage(newIncidentName, NEW_INCIDENT_VALUES.STAGE);
+      await incidentsPage.expectIncidentRowCategory(newIncidentName, NEW_INCIDENT_VALUES.TYPE);
+      await incidentsPage.expectResolveButtonVisible(newIncidentName);
+      await incidentsPage.expectResolveButtonContains(newIncidentName, 'Resolve');
+    },
+  );
 
-  test('Create V2 incident with all fields set and separate_siblings=true', async ({ page, logger, logDir }) => {
-    const siblingIncidentName = `${newIncidentName}-New`;
-    const incidentsPage = new IncidentsPage(page, logger, logDir);
-    await incidentsPage.navigateToBigQueryDatasetIncidents('separate_siblings=true');
+  test(
+    'Create V2 incident with all fields set and separate_siblings=true',
+    { tag: [DomainTag.Observe] },
+    async ({ page, logger, logDir }) => {
+      const siblingIncidentName = `${newIncidentName}-New`;
+      const incidentsPage = new IncidentsPage(page, logger, logDir);
+      await incidentsPage.navigateToBigQueryDatasetIncidents('separate_siblings=true');
 
-    await incidentsPage.clickCreateIncidentBtn();
-    await incidentsPage.fillIncidentName(siblingIncidentName);
-    await incidentsPage.fillDescription(NEW_INCIDENT_VALUES.DESCRIPTION);
-    await incidentsPage.selectCategory(NEW_INCIDENT_VALUES.TYPE);
-    await incidentsPage.selectPriority(NEW_INCIDENT_VALUES.PRIORITY);
-    await incidentsPage.selectStage(NEW_INCIDENT_VALUES.STAGE);
-    await incidentsPage.selectFirstAssignee();
-    await incidentsPage.dismissDropdowns();
-    await incidentsPage.submitIncidentForm();
+      await incidentsPage.clickCreateIncidentBtn();
+      await incidentsPage.fillIncidentName(siblingIncidentName);
+      await incidentsPage.fillDescription(NEW_INCIDENT_VALUES.DESCRIPTION);
+      await incidentsPage.selectCategory(NEW_INCIDENT_VALUES.TYPE);
+      await incidentsPage.selectPriority(NEW_INCIDENT_VALUES.PRIORITY);
+      await incidentsPage.selectStage(NEW_INCIDENT_VALUES.STAGE);
+      await incidentsPage.selectFirstAssignee();
+      await incidentsPage.dismissDropdowns();
+      await incidentsPage.submitIncidentForm();
 
-    await expect(incidentsPage.getIncidentGroup('CRITICAL')).toBeVisible();
-    const criticalGroup = incidentsPage.getIncidentGroup('CRITICAL');
-    await criticalGroup.scrollIntoViewIfNeeded();
-    await incidentsPage.expandGroupIfNeeded('CRITICAL');
+      await expect(incidentsPage.getIncidentGroup('CRITICAL')).toBeVisible();
+      const criticalGroup = incidentsPage.getIncidentGroup('CRITICAL');
+      await criticalGroup.scrollIntoViewIfNeeded();
+      await incidentsPage.expandGroupIfNeeded('CRITICAL');
 
-    await expect(incidentsPage.getIncidentRow(siblingIncidentName)).toBeVisible({ timeout: 15000 });
-    await incidentsPage.expectIncidentNameBadgeVisible(siblingIncidentName);
-    await incidentsPage.expectIncidentRowStage(siblingIncidentName, NEW_INCIDENT_VALUES.STAGE);
-    await incidentsPage.expectIncidentRowCategory(siblingIncidentName, NEW_INCIDENT_VALUES.TYPE);
-    await incidentsPage.expectResolveButtonVisible(siblingIncidentName);
-    await incidentsPage.expectResolveButtonContains(siblingIncidentName, 'Resolve');
-  });
+      await expect(incidentsPage.getIncidentRow(siblingIncidentName)).toBeVisible({ timeout: 15000 });
+      await incidentsPage.expectIncidentNameBadgeVisible(siblingIncidentName);
+      await incidentsPage.expectIncidentRowStage(siblingIncidentName, NEW_INCIDENT_VALUES.STAGE);
+      await incidentsPage.expectIncidentRowCategory(siblingIncidentName, NEW_INCIDENT_VALUES.TYPE);
+      await incidentsPage.expectResolveButtonVisible(siblingIncidentName);
+      await incidentsPage.expectResolveButtonContains(siblingIncidentName, 'Resolve');
+    },
+  );
 });

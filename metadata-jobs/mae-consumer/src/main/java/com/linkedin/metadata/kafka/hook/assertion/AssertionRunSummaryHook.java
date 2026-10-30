@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionResult;
+import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.AssertionRunSummary;
@@ -50,6 +51,12 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
       ImmutableSet.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.RESTATE);
   private static final Set<String> SUPPORTED_UPDATE_ASPECTS =
       ImmutableSet.of(ASSERTION_RUN_EVENT_ASPECT_NAME);
+  private static final Set<AssertionResultType> SUPPORTED_RESULT_TYPES =
+      ImmutableSet.of(
+          AssertionResultType.SUCCESS,
+          AssertionResultType.FAILURE,
+          AssertionResultType.ERROR,
+          AssertionResultType.INIT);
 
   private final AssertionService assertionService;
   private final boolean isEnabled;
@@ -94,154 +101,114 @@ public class AssertionRunSummaryHook implements MetadataChangeLogHook {
     }
   }
 
-  /** Handle an assertion update by adding to either resolved or active assertions for an entity. */
+  /**
+   * Records the run's timestamp under its result type if it is newer than the one stored, then
+   * derives the assertion status from the latest timestamp across all result types. Run events can
+   * arrive out of order (e.g. backfilled results), so the incoming event's result alone does not
+   * decide the status.
+   */
   private void handleAssertionRunCompleted(
       @Nonnull final OperationContext operationContext,
       @Nonnull final Urn assertionUrn,
       @Nonnull final AssertionRunEvent runEvent) {
-    AssertionRunSummary assertionRunSummary =
-        assertionService.getAssertionRunSummary(operationContext, assertionUrn);
-
-    // If there isn't yet a summary aspect, add one.
-    if (assertionRunSummary == null) {
-      assertionRunSummary = new AssertionRunSummary();
-    }
-
-    AssertionResult result = runEvent.getResult();
+    final AssertionResult result = runEvent.getResult();
 
     if (result == null) {
       log.warn("Skipping assertion run event with null result for assertion urn {}", assertionUrn);
       return;
     }
 
-    final AssertionStatus assertionStatus =
-        AssertionStatusUtils.resolveStatus(false, result.getType());
+    final AssertionResultType resultType = result.getType();
+    if (!SUPPORTED_RESULT_TYPES.contains(resultType)) {
+      log.warn(
+          "Skipping assertion run event with unsupported result type {} for assertion urn {}",
+          resultType,
+          assertionUrn);
+      return;
+    }
 
-    switch (result.getType()) {
+    final AssertionRunSummary existingSummary =
+        assertionService.getAssertionRunSummary(operationContext, assertionUrn);
+    final AssertionRunSummary summary =
+        existingSummary != null ? copySummary(existingSummary) : new AssertionRunSummary();
+    final AssertionStatus storedStatus = summary.getAssertionStatus();
+
+    final Long lastAtForType = getLastAtMillis(summary, resultType);
+    final boolean isNewerForType =
+        lastAtForType == null || runEvent.getTimestampMillis() > lastAtForType;
+
+    final AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
+    patchBuilder.urn(assertionUrn);
+    if (isNewerForType) {
+      setLastAtMillis(summary, patchBuilder, resultType, runEvent.getTimestampMillis());
+    }
+
+    final AssertionStatus nextStatus = AssertionStatusUtils.resolveStatus(false, summary);
+    final boolean isStatusOutOfDate = nextStatus != null && !nextStatus.equals(storedStatus);
+
+    // A stale event still repairs a status left inconsistent with the stored timestamps, so
+    // re-sending a run event recomputes the status.
+    if (isNewerForType || (storedStatus != null && isStatusOutOfDate)) {
+      if (nextStatus != null) {
+        patchBuilder.setAssertionStatus(nextStatus.name());
+      }
+      emitAssertionSummaryPatch(operationContext, patchBuilder);
+    }
+  }
+
+  @Nullable
+  private static Long getLastAtMillis(
+      @Nonnull final AssertionRunSummary summary, @Nonnull final AssertionResultType resultType) {
+    switch (resultType) {
       case SUCCESS:
-        updateAssertionSummaryWithPass(
-            operationContext, assertionUrn, runEvent, assertionRunSummary, assertionStatus);
+        return summary.getLastPassedAtMillis();
+      case FAILURE:
+        return summary.getLastFailedAtMillis();
+      case ERROR:
+        return summary.getLastErroredAtMillis();
+      case INIT:
+        return summary.getLastInitializedAtMillis();
+      default:
+        throw new IllegalStateException(
+            String.format("Unhandled assertion result type %s", resultType));
+    }
+  }
+
+  private static void setLastAtMillis(
+      @Nonnull final AssertionRunSummary summary,
+      @Nonnull final AssertionRunSummaryPatchBuilder patchBuilder,
+      @Nonnull final AssertionResultType resultType,
+      final long timestampMillis) {
+    switch (resultType) {
+      case SUCCESS:
+        summary.setLastPassedAtMillis(timestampMillis);
+        patchBuilder.setLastPassedAt(timestampMillis);
         break;
       case FAILURE:
-        updateAssertionSummaryWithFail(
-            operationContext, assertionUrn, runEvent, assertionRunSummary, assertionStatus);
+        summary.setLastFailedAtMillis(timestampMillis);
+        patchBuilder.setLastFailedAt(timestampMillis);
         break;
       case ERROR:
-        updateAssertionSummaryWithError(
-            operationContext, assertionUrn, runEvent, assertionRunSummary, assertionStatus);
+        summary.setLastErroredAtMillis(timestampMillis);
+        patchBuilder.setLastErroredAt(timestampMillis);
         break;
       case INIT:
-        updateAssertionSummaryWithInit(
-            operationContext, assertionUrn, runEvent, assertionRunSummary, assertionStatus);
+        summary.setLastInitializedAtMillis(timestampMillis);
+        patchBuilder.setLastInitializedAt(timestampMillis);
         break;
       default:
-        log.warn(
-            "Skipping assertion run event with unsupported result type {} for assertion urn {}",
-            result.getType(),
-            assertionUrn);
+        throw new IllegalStateException(
+            String.format("Unhandled assertion result type %s", resultType));
     }
   }
 
-  private void updateAssertionSummaryWithPass(
-      @Nonnull final OperationContext operationContext,
-      @Nonnull final Urn assertionUrn,
-      @Nonnull final AssertionRunEvent runEvent,
-      @Nonnull final AssertionRunSummary assertionSummary,
-      @Nullable final AssertionStatus assertionStatus) {
-
-    AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
-    patchBuilder.urn(assertionUrn);
-
-    Long maybeLastPassedAt = assertionSummary.getLastPassedAtMillis();
-
-    // Now, compare the timestamp on the new event with the timestamp on the existing summary.
-    // If the new event is more recent, update the summary.
-    if (maybeLastPassedAt == null || runEvent.getTimestampMillis() > maybeLastPassedAt) {
-      patchBuilder.setLastPassedAt(runEvent.getTimestampMillis());
-      if (assertionStatus != null) {
-        patchBuilder.setAssertionStatus(assertionStatus.name());
-      }
-      // And also emit.
-      emitAssertionSummaryPatch(operationContext, patchBuilder);
+  @Nonnull
+  private static AssertionRunSummary copySummary(@Nonnull final AssertionRunSummary summary) {
+    try {
+      return summary.copy();
+    } catch (CloneNotSupportedException e) {
+      throw new IllegalStateException("Failed to copy assertion run summary", e);
     }
-  }
-
-  private AssertionRunSummaryPatchBuilder updateAssertionSummaryWithFail(
-      @Nonnull final OperationContext operationContext,
-      @Nonnull final Urn assertionUrn,
-      @Nonnull final AssertionRunEvent runEvent,
-      @Nonnull final AssertionRunSummary assertionSummary,
-      @Nullable final AssertionStatus assertionStatus) {
-
-    AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
-    patchBuilder.urn(assertionUrn);
-
-    Long maybeLastFailedAt = assertionSummary.getLastFailedAtMillis();
-
-    // Now, compare the timestamp on the new event with the timestamp on the existing summary.
-    // If the new event is more recent, update the summary.
-    if (maybeLastFailedAt == null || runEvent.getTimestampMillis() > maybeLastFailedAt) {
-      patchBuilder.setLastFailedAt(runEvent.getTimestampMillis());
-      if (assertionStatus != null) {
-        patchBuilder.setAssertionStatus(assertionStatus.name());
-      }
-      // And also emit.
-      emitAssertionSummaryPatch(operationContext, patchBuilder);
-    }
-
-    return patchBuilder;
-  }
-
-  private AssertionRunSummaryPatchBuilder updateAssertionSummaryWithError(
-      @Nonnull final OperationContext operationContext,
-      @Nonnull final Urn assertionUrn,
-      @Nonnull final AssertionRunEvent runEvent,
-      @Nonnull final AssertionRunSummary assertionSummary,
-      @Nullable final AssertionStatus assertionStatus) {
-
-    AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
-    patchBuilder.urn(assertionUrn);
-
-    Long maybeLastErroredAt = assertionSummary.getLastErroredAtMillis();
-
-    // Now, compare the timestamp on the new event with the timestamp on the existing summary.
-    // If the new event is more recent, update the summary.
-    if (maybeLastErroredAt == null || runEvent.getTimestampMillis() > maybeLastErroredAt) {
-      patchBuilder.setLastErroredAt(runEvent.getTimestampMillis());
-      if (assertionStatus != null) {
-        patchBuilder.setAssertionStatus(assertionStatus.name());
-      }
-      // And also emit.
-      emitAssertionSummaryPatch(operationContext, patchBuilder);
-    }
-
-    return patchBuilder;
-  }
-
-  private AssertionRunSummaryPatchBuilder updateAssertionSummaryWithInit(
-      @Nonnull final OperationContext operationContext,
-      @Nonnull final Urn assertionUrn,
-      @Nonnull final AssertionRunEvent runEvent,
-      @Nonnull final AssertionRunSummary assertionSummary,
-      @Nullable final AssertionStatus assertionStatus) {
-
-    AssertionRunSummaryPatchBuilder patchBuilder = new AssertionRunSummaryPatchBuilder();
-    patchBuilder.urn(assertionUrn);
-
-    Long maybeLastInitializedAt = assertionSummary.getLastInitializedAtMillis();
-
-    // Now, compare the timestamp on the new event with the timestamp on the existing summary.
-    // If the new event is more recent, update the summary.
-    if (maybeLastInitializedAt == null || runEvent.getTimestampMillis() > maybeLastInitializedAt) {
-      patchBuilder.setLastInitializedAt(runEvent.getTimestampMillis());
-      if (assertionStatus != null) {
-        patchBuilder.setAssertionStatus(assertionStatus.name());
-      }
-      // And also emit.
-      emitAssertionSummaryPatch(operationContext, patchBuilder);
-    }
-
-    return patchBuilder;
   }
 
   private void emitAssertionSummaryPatch(

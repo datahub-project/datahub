@@ -23,7 +23,11 @@ record MetricKey {
     "fieldType": "URN",
     "enableAutocomplete": true,
     "addToFilters": true,
-    "filterNameOverride": "Platform"
+    "filterNameOverride": "Platform",
+    "v3": {
+      "searchLabel": "platform",
+      "copyToOther": true
+    }
   }
   platform: Urn
 
@@ -33,6 +37,9 @@ record MetricKey {
    * same `id` on the same platform without colliding.
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "TEXT_PARTIAL",
     "addToFilters": true,
     "filterNameOverride": "Path"

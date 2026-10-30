@@ -3,7 +3,7 @@ import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
 import {
     StructuredReport,
@@ -18,7 +18,7 @@ import {
 } from '@app/ingestV2/executions/constants';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import dayjs from '@utils/dayjs';
 
 import {

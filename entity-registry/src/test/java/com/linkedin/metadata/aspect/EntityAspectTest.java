@@ -340,7 +340,7 @@ public class EntityAspectTest {
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME),
             entityRegistry.getEntitySpec(DATASET_ENTITY_NAME).getAspectSpec(TEST_ASPECT),
             Collections.emptyList(),
-            null); // No operationContext
+            null);
 
     // This should trigger the condition we're testing:
     // "if (entityAspect != null && entityAspect.getSystemMetadata() != null)"

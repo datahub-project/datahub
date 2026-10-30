@@ -1,8 +1,8 @@
 import '@components/components/SelectItemsPopover/select-items-popover.less';
 
-import { Popover } from '@components';
 import React, { ReactNode } from 'react';
 
+import { Popover } from '@components/components/Popover';
 import { SelectItems } from '@components/components/SelectItemsPopover/SelectItems';
 
 import { Entity, EntityType } from '@src/types.generated';

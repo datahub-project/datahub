@@ -164,7 +164,10 @@ def _declares_no(source_type: str, kind: str, declared: str) -> str:
     [
         ("mysql", _MY, "schema", [], "shop", "Schema", "Database, Table, View"),
         ("mysql", _MY, "Schema", ["x"], "shop", "Schema", "Database, Table, View"),
-        ("bigquery", _BQ, "database", [], "p1", "Database", "Schema"),
+        # "Project, Schema": BigQuery lists its projects through the
+        # `projects` command, which declares that kind, so the warning
+        # names the level a dataset is actually qualified by.
+        ("bigquery", _BQ, "database", [], "p1", "Database", "Project, Schema"),
         ("kafka", _KAFKA, "table", [], "t1", "Table", "Topic"),
     ],
 )
