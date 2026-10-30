@@ -17,11 +17,13 @@ import asyncio.exceptions
 import json
 import logging
 import os
+import re
 import signal
 import sys
 from asyncio import tasks
 from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import IO, Any, Optional
@@ -52,6 +54,28 @@ from datahub.executor.execution.task import Task, TaskError
 from datahub.masking.masking_filter import SecretMaskingFilter
 
 logger = logging.getLogger(__name__)
+
+# Matches the pipeline's periodic CLI report, e.g. "'peak_memory_usage': '12.3 GB',".
+_PEAK_MEMORY_RE = re.compile(r"'peak_memory_usage': '([^']+)'")
+
+
+@dataclass
+class IngestionMemoryInfo:
+    """The peak memory the ingestion subprocess last reported about itself.
+
+    A run killed for running out of memory never writes its report file, so the
+    periodic CLI report in its output is the only record of what it used.
+    """
+
+    last_reported_peak: Optional[str] = None
+
+    def record_log_line(self, line: str) -> None:
+        if "peak_memory_usage" not in line:
+            return
+        match = _PEAK_MEMORY_RE.search(line)
+        if match:
+            self.last_reported_peak = match.group(1)
+
 
 ARTIFACTS_DIR_NAME = "artifacts"
 
@@ -406,10 +430,16 @@ class SubProcessIngestionTask(Task):
         # text is in the result report, not here.
         ctx.set_artifact_dir(artifact_output_dir)
 
+        memory_info = IngestionMemoryInfo()
         cancelled = False
         try:
             await self._monitor_subprocess(
-                ingest_process, exec_id, ctx, shared_logs, full_log_file
+                ingest_process,
+                exec_id,
+                ctx,
+                shared_logs,
+                full_log_file,
+                memory_info=memory_info,
             )
         except asyncio.CancelledError:
             # Track for the finally cleanup; the bare raise re-raises so
@@ -430,6 +460,7 @@ class SubProcessIngestionTask(Task):
                 exec_out_dir,
                 shared_logs,
                 cancelled=cancelled,
+                memory_info=memory_info,
             )
 
     @staticmethod
@@ -448,8 +479,13 @@ class SubProcessIngestionTask(Task):
         ctx: ExecutionContext,
         shared_logs: LogHolder,
         full_log_file: IO[str],
+        memory_info: Optional[IngestionMemoryInfo] = None,
     ) -> None:
-        """Monitor subprocess execution with async tasks for output reading and progress reporting."""
+        """Monitor subprocess execution with async tasks for output reading and progress reporting.
+
+        When ``memory_info`` is given, the peak memory the pipeline prints in its
+        periodic CLI report is remembered so an OOM error can quote it.
+        """
         most_recent_log_ts: Optional[datetime] = None
         masking_filter = SecretMaskingFilter()
 
@@ -489,6 +525,8 @@ class SubProcessIngestionTask(Task):
                 line = line_bytes.decode("utf-8")
 
                 most_recent_log_ts = datetime.now(tz=timezone.utc)
+                if memory_info is not None:
+                    memory_info.record_log_line(line)
 
                 full_log_file.write(line)
 
@@ -590,6 +628,7 @@ class SubProcessIngestionTask(Task):
         exec_out_dir: str,
         shared_logs: LogHolder,
         cancelled: bool = False,
+        memory_info: Optional[IngestionMemoryInfo] = None,
     ) -> None:
         """Handle subprocess completion: report processing, cleanup, and status.
 
@@ -636,13 +675,15 @@ class SubProcessIngestionTask(Task):
                 except ValueError:
                     signal_name = str(-return_code)
                 ctx.get_report().report_error(
-                    f"The ingestion process was killed by signal {signal_name} likely because it ran out of memory. "
-                    "You can resolve this issue by allocating more memory to the datahub-actions container."
+                    self._format_oom_error(
+                        f"was killed by signal {signal_name}", memory_info
+                    )
                 )
             elif return_code == 137:
                 ctx.get_report().report_error(
-                    "The ingestion process was terminated with exit code 137, likely because it ran out of memory."
-                    "You can resolve this issue by allocating more memory to the datahub-actions container."
+                    self._format_oom_error(
+                        "was terminated with exit code 137", memory_info
+                    )
                 )
             else:
                 ctx.get_report().report_info(
@@ -652,6 +693,31 @@ class SubProcessIngestionTask(Task):
 
         # Report Successful execution
         ctx.get_report().report_info("Successfully executed 'datahub ingest'")
+
+    @staticmethod
+    def _format_oom_error(
+        how_it_ended: str, memory_info: Optional[IngestionMemoryInfo]
+    ) -> str:
+        """An OOM error that quotes the run's last reported peak memory.
+
+        The peak is the last value the pipeline printed before the kill, not the
+        true peak. The memory limit applies to the whole executor and is shown
+        with its memory use on the executor's status, so it is not repeated here.
+        """
+        peak = memory_info.last_reported_peak if memory_info is not None else None
+        measured = (
+            f" This run last reported a peak memory usage of {peak}."
+            if peak is not None
+            else ""
+        )
+        return (
+            f"The ingestion process {how_it_ended}, most likely because the "
+            f"executor ran out of memory.{measured} The executor's memory limit is "
+            "shared by every ingestion running on it; its memory use and limit are "
+            "shown under Data Sources > Executors. Reduce this ingestion's memory "
+            "use, run fewer ingestions at once on the executor, or give the "
+            "executor more memory."
+        )
 
     def close(self) -> None:
         pass
