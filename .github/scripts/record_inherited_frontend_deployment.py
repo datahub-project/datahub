@@ -383,7 +383,9 @@ def _log_url_from_env() -> str | None:
 def main() -> int:
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
     repo = os.environ.get("GITHUB_REPOSITORY", "")
-    sha = os.environ.get("GITHUB_SHA", "")
+    # RECORD_SHA is only for a one-off re-record. GITHUB_SHA cannot be overridden
+    # on a pull_request job; the runner resets it to the merge commit.
+    sha = os.environ.get("RECORD_SHA") or os.environ.get("GITHUB_SHA", "")
     if not token or not repo or not sha:
         print(
             "::error::GITHUB_TOKEN, GITHUB_REPOSITORY, and GITHUB_SHA are required",
