@@ -345,3 +345,81 @@ class TestPowerBiConfig:
         )
         assert config.is_platform_in_dataset_type_mapping("PostgreSQL") is True
         assert config.is_platform_in_dataset_type_mapping("Unknown") is False
+
+
+_FABRIC_DETAIL = {
+    "workspace_id": "ff23fbe3-7418-42f8-a675-9f10eb2b78cb",
+    "database_to_item_id": {"MyLakehouse": "2afa2dbd-555b-48c8-b082-35d94f4b7836"},
+}
+
+
+def _fabric_config(**overrides):
+    return PowerBiDashboardSourceConfig(
+        tenant_id="fake", client_id="foo", client_secret="bar", **overrides
+    )
+
+
+def test_fabric_sql_endpoint_lookup_normalizes_host():
+    config = _fabric_config(
+        fabric_sql_endpoint_to_fabric_onelake={
+            "ABC.datawarehouse.fabric.microsoft.com": _FABRIC_DETAIL
+        }
+    )
+
+    detail = config.lookup_fabric_sql_endpoint(
+        "{tcp:abc.datawarehouse.fabric.microsoft.com,1433}"
+    )
+    assert detail is not None
+    assert detail.item_id_for("MYLAKEHOUSE") == "2afa2dbd-555b-48c8-b082-35d94f4b7836"
+    assert detail.item_id_for("OtherLakehouse") is None
+    assert config.lookup_fabric_sql_endpoint("sql.example.com") is None
+
+
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        pytest.param(
+            {
+                "abc.datawarehouse.fabric.microsoft.com": _FABRIC_DETAIL,
+                "ABC.datawarehouse.fabric.microsoft.com,1433": _FABRIC_DETAIL,
+            },
+            id="duplicate-host",
+        ),
+        pytest.param({"tcp:,1433": _FABRIC_DETAIL}, id="empty-host"),
+        pytest.param(
+            {"abc": {**_FABRIC_DETAIL, "workspace_id": "my-workspace"}},
+            id="workspace-not-guid",
+        ),
+        pytest.param(
+            {"abc": {**_FABRIC_DETAIL, "database_to_item_id": {"MyLakehouse": " "}}},
+            id="item-not-guid",
+        ),
+        pytest.param(
+            {"abc": {**_FABRIC_DETAIL, "database_to_item_id": {}}},
+            id="no-items",
+        ),
+        pytest.param(
+            {
+                "abc": {
+                    **_FABRIC_DETAIL,
+                    "database_to_item_id": {
+                        "MyLakehouse": "2afa2dbd-555b-48c8-b082-35d94f4b7836",
+                        "mylakehouse": "6f1c2b0e-0d1a-4c58-9b8e-5a3f6e2d4c11",
+                    },
+                }
+            },
+            id="duplicate-database",
+        ),
+    ],
+)
+def test_fabric_sql_endpoint_invalid_mapping_rejected(mapping):
+    with pytest.raises(ValidationError):
+        _fabric_config(fabric_sql_endpoint_to_fabric_onelake=mapping)
+
+
+def test_fabric_sql_endpoint_requires_fabric_onelake_mapping():
+    with pytest.raises(ValidationError, match="FabricOneLake"):
+        _fabric_config(
+            dataset_type_mapping={"Sql": "mssql"},
+            fabric_sql_endpoint_to_fabric_onelake={"abc": _FABRIC_DETAIL},
+        )
