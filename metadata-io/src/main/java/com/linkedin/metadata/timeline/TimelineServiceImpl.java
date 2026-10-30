@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.agent.AIAgentInfo;
 import com.linkedin.agentskill.AgentSkillInfo;
 import com.linkedin.api.ApiProperties;
@@ -22,6 +23,7 @@ import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.datajob.EditableDataFlowProperties;
 import com.linkedin.datajob.EditableDataJobProperties;
 import com.linkedin.glossary.GlossaryNodeInfo;
+import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
@@ -35,7 +37,9 @@ import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.eventgenerator.ApplicationsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DataProductPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DocumentInfoChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DocumentationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DomainPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
@@ -43,12 +47,12 @@ import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorFactory;
 import com.linkedin.metadata.timeline.eventgenerator.GlobalTagsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryRelatedTermsChangeEventGenerator;
-import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.GlossaryTermsChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.InstitutionalMemoryChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.LifecycleStageChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.OwnershipChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.PropertiesDescriptionChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.PropertiesDescriptionChangeEventGenerator.TrackedField;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.SingleDomainChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.StructuredPropertyChangeEventGenerator;
@@ -107,6 +111,7 @@ public class TimelineServiceImpl implements TimelineService {
   }
 
   private static final long FIRST_TRANSACTION_ID = 0;
+  private static final String IMMUTABLE_ID_REASON = "immutable identifier set at creation";
   private static final String BUILD_VALUE_COMPUTED = "computed";
 
   private final AspectDao _aspectDao;
@@ -168,6 +173,12 @@ public class TimelineServiceImpl implements TimelineService {
                 elementName,
                 INSTITUTIONAL_MEMORY_ASPECT_NAME,
                 new InstitutionalMemoryChangeEventGenerator());
+            aspects.add(DOCUMENTATION_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                DOCUMENTATION_ASPECT_NAME,
+                new DocumentationChangeEventGenerator());
             aspects.add(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME);
             _entityChangeEventGeneratorFactory.addGenerator(
                 entityType,
@@ -260,6 +271,16 @@ public class TimelineServiceImpl implements TimelineService {
                 new VersionPropertiesChangeEventGenerator());
           }
           break;
+        case DEPRECATION:
+          {
+            aspects.add(DEPRECATION_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityType,
+                elementName,
+                DEPRECATION_ASPECT_NAME,
+                new DeprecationChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
@@ -299,13 +320,33 @@ public class TimelineServiceImpl implements TimelineService {
                 entityTypeGlossaryTerm,
                 elementName,
                 GLOSSARY_TERM_INFO_ASPECT_NAME,
-                new GlossaryTermInfoChangeEventGenerator());
+                new PropertiesDescriptionChangeEventGenerator<>(
+                    GLOSSARY_TERM_INFO_ASPECT_NAME,
+                    GlossaryTermInfo.class,
+                    List.of(
+                        TrackedField.text("name", "Name"),
+                        TrackedField.description("definition"),
+                        TrackedField.stringMap("customProperties", "Custom property"),
+                        TrackedField.text("termSource", "Source"),
+                        TrackedField.text("sourceRef", "Source reference"),
+                        TrackedField.text("sourceUrl", "Source URL")),
+                    Map.of("id", IMMUTABLE_ID_REASON, "rawSchema", "not user-facing")));
             aspects.add(INSTITUTIONAL_MEMORY_ASPECT_NAME);
             _entityChangeEventGeneratorFactory.addGenerator(
                 entityTypeGlossaryTerm,
                 elementName,
                 INSTITUTIONAL_MEMORY_ASPECT_NAME,
                 new InstitutionalMemoryChangeEventGenerator());
+          }
+          break;
+        case PARENT:
+          {
+            aspects.add(GLOSSARY_TERM_INFO_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                GLOSSARY_TERM_INFO_ASPECT_NAME,
+                glossaryParentGenerator(GLOSSARY_TERM_INFO_ASPECT_NAME, GlossaryTermInfo.class));
           }
           break;
         case GLOSSARY_TERM:
@@ -368,6 +409,16 @@ public class TimelineServiceImpl implements TimelineService {
                 new LifecycleStageChangeEventGenerator());
           }
           break;
+        case DEPRECATION:
+          {
+            aspects.add(DEPRECATION_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeGlossaryTerm,
+                elementName,
+                DEPRECATION_ASPECT_NAME,
+                new DeprecationChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
@@ -414,6 +465,16 @@ public class TimelineServiceImpl implements TimelineService {
                 elementName,
                 STRUCTURED_PROPERTIES_ASPECT_NAME,
                 new StructuredPropertyChangeEventGenerator());
+          }
+          break;
+        case DEPRECATION:
+          {
+            aspects.add(DEPRECATION_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDomain,
+                elementName,
+                DEPRECATION_ASPECT_NAME,
+                new DeprecationChangeEventGenerator());
           }
           break;
         default:
@@ -514,6 +575,16 @@ public class TimelineServiceImpl implements TimelineService {
                 new DataProductPropertiesChangeEventGenerator());
           }
           break;
+        case DEPRECATION:
+          {
+            aspects.add(DEPRECATION_ASPECT_NAME);
+            _entityChangeEventGeneratorFactory.addGenerator(
+                entityTypeDataProduct,
+                elementName,
+                DEPRECATION_ASPECT_NAME,
+                new DeprecationChangeEventGenerator());
+          }
+          break;
         default:
           break;
       }
@@ -558,6 +629,14 @@ public class TimelineServiceImpl implements TimelineService {
           break;
         default:
           break;
+      }
+      if (elementName == ChangeCategory.DOCUMENTATION) {
+        aspects.add(DOCUMENTATION_ASPECT_NAME);
+        _entityChangeEventGeneratorFactory.addGenerator(
+            entityTypeDocument,
+            elementName,
+            DOCUMENTATION_ASPECT_NAME,
+            new DocumentationChangeEventGenerator());
       }
       documentElementAspectRegistry.put(elementName, aspects);
     }
@@ -650,11 +729,23 @@ public class TimelineServiceImpl implements TimelineService {
             CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
             EditableContainerProperties.class));
     registerCatalogEntity(GLOSSARY_NODE_ENTITY_NAME, Map.of());
-    registerDescriptionAspect(
+    registerAspectGenerator(
         GLOSSARY_NODE_ENTITY_NAME,
+        ChangeCategory.DOCUMENTATION,
         GLOSSARY_NODE_INFO_ASPECT_NAME,
-        GlossaryNodeInfo.class,
-        "definition");
+        new PropertiesDescriptionChangeEventGenerator<>(
+            GLOSSARY_NODE_INFO_ASPECT_NAME,
+            GlossaryNodeInfo.class,
+            List.of(
+                TrackedField.text("name", "Name"),
+                TrackedField.description("definition"),
+                TrackedField.stringMap("customProperties", "Custom property")),
+            Map.of("id", IMMUTABLE_ID_REASON)));
+    registerAspectGenerator(
+        GLOSSARY_NODE_ENTITY_NAME,
+        ChangeCategory.PARENT,
+        GLOSSARY_NODE_INFO_ASPECT_NAME,
+        glossaryParentGenerator(GLOSSARY_NODE_INFO_ASPECT_NAME, GlossaryNodeInfo.class));
     registerCatalogEntity(
         APPLICATION_ENTITY_NAME,
         Map.of(APPLICATION_PROPERTIES_ASPECT_NAME, ApplicationProperties.class));
@@ -721,15 +812,43 @@ public class TimelineServiceImpl implements TimelineService {
       final String aspectName,
       final Class<? extends RecordTemplate> aspectClass,
       final String fieldName) {
-    entityTypeElementAspectRegistry
-        .get(entityType)
-        .computeIfAbsent(ChangeCategory.DOCUMENTATION, k -> new HashSet<>())
-        .add(aspectName);
-    _entityChangeEventGeneratorFactory.addGenerator(
+    registerAspectGenerator(
         entityType,
         ChangeCategory.DOCUMENTATION,
         aspectName,
-        new PropertiesDescriptionChangeEventGenerator<>(aspectName, aspectClass, fieldName));
+        new PropertiesDescriptionChangeEventGenerator<>(
+            aspectName, aspectClass, List.of(TrackedField.description(fieldName)), Map.of()));
+  }
+
+  /** Adds {@code aspectName} to an already-registered entity's category and its generator. */
+  private void registerAspectGenerator(
+      final String entityType,
+      final ChangeCategory category,
+      final String aspectName,
+      final EntityChangeEventGenerator<?> generator) {
+    entityTypeElementAspectRegistry
+        .get(entityType)
+        .computeIfAbsent(category, k -> new HashSet<>())
+        .add(aspectName);
+    _entityChangeEventGeneratorFactory.addGenerator(entityType, category, aspectName, generator);
+  }
+
+  private static <T extends RecordTemplate>
+      PropertiesDescriptionChangeEventGenerator<T> glossaryParentGenerator(
+          final String aspectName, final Class<T> aspectClass) {
+    return new PropertiesDescriptionChangeEventGenerator<>(
+        aspectName, aspectClass, List.of(TrackedField.parent("parentNode")), Map.of());
+  }
+
+  @VisibleForTesting
+  public Map<String, Map<ChangeCategory, Set<String>>> getCategoryAspectsByEntityType() {
+    return Collections.unmodifiableMap(entityTypeElementAspectRegistry);
+  }
+
+  @VisibleForTesting
+  public EntityChangeEventGenerator<?> getTimelineGenerator(
+      final String entityType, final ChangeCategory category, final String aspectName) {
+    return _entityChangeEventGeneratorFactory.getGenerator(entityType, category, aspectName);
   }
 
   private HashMap<ChangeCategory, Set<String>> buildAgentFamilyTimelineRegistry(
@@ -750,6 +869,12 @@ public class TimelineServiceImpl implements TimelineService {
               category,
               INSTITUTIONAL_MEMORY_ASPECT_NAME,
               new InstitutionalMemoryChangeEventGenerator());
+          aspects.add(DOCUMENTATION_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType,
+              category,
+              DOCUMENTATION_ASPECT_NAME,
+              new DocumentationChangeEventGenerator());
           break;
         case TAG:
           aspects.add(GLOBAL_TAGS_ASPECT_NAME);
@@ -763,6 +888,11 @@ public class TimelineServiceImpl implements TimelineService {
               category,
               GLOSSARY_TERMS_ASPECT_NAME,
               new GlossaryTermsChangeEventGenerator());
+          break;
+        case DEPRECATION:
+          aspects.add(DEPRECATION_ASPECT_NAME);
+          _entityChangeEventGeneratorFactory.addGenerator(
+              entityType, category, DEPRECATION_ASPECT_NAME, new DeprecationChangeEventGenerator());
           break;
         default:
           break;

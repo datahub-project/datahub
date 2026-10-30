@@ -1,6 +1,9 @@
 import {
     CATEGORY_APPLICATION,
+    CATEGORY_DEPRECATION,
     CATEGORY_DOMAIN,
+    CATEGORY_LIFECYCLE,
+    CATEGORY_PARENT,
     CATEGORY_STRUCTURED_PROPERTY,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
 import {
@@ -710,5 +713,128 @@ describe('getChangeEventString', () => {
             const result = getDocumentationString(changeEvent);
             expect(result).toBe('Added column test_column.');
         });
+    });
+});
+
+describe('getChangeEventString for deprecation, hierarchy and info-aspect changes', () => {
+    const event = (
+        category: string,
+        parameters: Array<{ key: string; value: string }>,
+        description = 'Backend description.',
+    ): ChangeEvent => ({
+        urn: 'urn:li:glossaryNode:n',
+        category: category as ChangeCategoryType,
+        operation: ChangeOperationType.Modify,
+        parameters,
+        description,
+    });
+
+    it('renders deprecation with note', () => {
+        const changeEvent = event(CATEGORY_DEPRECATION, [
+            { key: 'status', value: 'DEPRECATED' },
+            { key: 'note', value: 'use x' },
+        ]);
+        expect(getChangeEventString(changeEvent)).toBe('Marked as deprecated: use x');
+    });
+
+    it('renders deprecation without note', () => {
+        expect(getChangeEventString(event(CATEGORY_DEPRECATION, [{ key: 'status', value: 'DEPRECATED' }]))).toBe(
+            'Marked as deprecated.',
+        );
+    });
+
+    it('renders undeprecation', () => {
+        expect(getChangeEventString(event(CATEGORY_DEPRECATION, [{ key: 'status', value: 'ACTIVE' }]))).toBe(
+            'No longer deprecated.',
+        );
+    });
+
+    it('renders a move between parents', () => {
+        const nameMap = new Map([
+            ['urn:li:glossaryNode:a', 'Finance'],
+            ['urn:li:glossaryNode:b', 'Risk'],
+        ]);
+        const changeEvent = event(CATEGORY_PARENT, [
+            { key: 'oldParent', value: 'urn:li:glossaryNode:a' },
+            { key: 'newParent', value: 'urn:li:glossaryNode:b' },
+        ]);
+        expect(getChangeEventString(changeEvent, nameMap)).toBe('Moved from "Finance" to "Risk".');
+    });
+
+    it('renders a move under a parent', () => {
+        const nameMap = new Map([['urn:li:glossaryNode:b', 'Risk']]);
+        const changeEvent = event(CATEGORY_PARENT, [{ key: 'newParent', value: 'urn:li:glossaryNode:b' }]);
+        expect(getChangeEventString(changeEvent, nameMap)).toBe('Moved to "Risk".');
+    });
+
+    it('renders move to top level', () => {
+        const changeEvent = event(CATEGORY_PARENT, [{ key: 'oldParent', value: 'urn:li:glossaryNode:a' }]);
+        expect(getChangeEventString(changeEvent)).toBe('Moved to the top level.');
+    });
+
+    it('renders a lifecycle stage being set', () => {
+        const changeEvent = event(CATEGORY_LIFECYCLE, [
+            { key: 'oldState', value: '' },
+            { key: 'newState', value: 'in_review' },
+        ]);
+        expect(getChangeEventString(changeEvent)).toBe('Lifecycle stage set to "In review".');
+    });
+
+    it('renders a lifecycle stage change', () => {
+        const changeEvent = event(CATEGORY_LIFECYCLE, [
+            { key: 'oldState', value: 'draft' },
+            { key: 'newState', value: 'in_review' },
+        ]);
+        expect(getChangeEventString(changeEvent)).toBe('Lifecycle stage changed from "Draft" to "In review".');
+    });
+
+    it('renders a lifecycle stage being cleared', () => {
+        const changeEvent = event(CATEGORY_LIFECYCLE, [
+            { key: 'oldState', value: 'draft' },
+            { key: 'newState', value: '' },
+        ]);
+        expect(getChangeEventString(changeEvent)).toBe('Lifecycle stage "Draft" cleared.');
+    });
+
+    it('renders glossary term definition change', () => {
+        const changeEvent = event(ChangeCategoryType.Documentation, [
+            { key: 'description', value: 'New definition' },
+            { key: 'previousDescription', value: 'Old definition' },
+        ]);
+        expect(getChangeEventString(changeEvent)).toBe('Set asset documentation to New definition.');
+    });
+
+    it('renders a custom property change', () => {
+        const changeEvent = event(
+            ChangeCategoryType.Documentation,
+            [
+                { key: 'field', value: 'customProperties' },
+                { key: 'key', value: 'owner_team' },
+                { key: 'value', value: 'risk' },
+            ],
+            "Custom property 'owner_team' for 'urn:li:glossaryNode:n' has been set: 'risk'.",
+        );
+        expect(getChangeEventString(changeEvent)).toBe("Custom property 'owner_team' has been set: 'risk'.");
+    });
+
+    it('renders an attributed documentation-aspect change without a field prefix', () => {
+        const changeEvent = {
+            ...event(
+                ChangeCategoryType.Documentation,
+                [{ key: 'documentation', value: 'Docs' }],
+                "Documentation for 'urn:li:dataset:d' has been added: 'Docs'.",
+            ),
+            modifier: 'urn:li:dataHubAction:propagation',
+        };
+        expect(getChangeEventString(changeEvent)).toBe("Documentation has been added: 'Docs'.");
+    });
+
+    it('renders a documentation-aspect change', () => {
+        const changeEvent = event(
+            ChangeCategoryType.Documentation,
+            [{ key: 'documentation', value: 'Docs' }],
+            "Documentation for 'urn:li:dataset:d' has been added: 'Docs'.",
+        );
+        expect(getChangeEventString(changeEvent)).toBe("Documentation has been added: 'Docs'.");
     });
 });

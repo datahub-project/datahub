@@ -1,5 +1,7 @@
 import i18next from 'i18next';
 
+import timelineSupportedCategories from '@app/entityV2/shared/tabs/Dataset/Schema/history/timelineSupportedCategories.json';
+
 import { ChangeCategoryType, ChangeOperationType, EntityType } from '@types';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -9,6 +11,7 @@ import { ChangeCategoryType, ChangeOperationType, EntityType } from '@types';
 export const PARAM_FIELD_PATH = 'fieldPath';
 export const PARAM_DESCRIPTION = 'description';
 export const PARAM_PREVIOUS_DESCRIPTION = 'previousDescription';
+export const PARAM_DOCUMENTATION = 'documentation';
 export const PARAM_TAG_URN = 'tagUrn';
 export const PARAM_TERM_URN = 'termUrn';
 export const PARAM_RELATIONSHIP_TYPE = 'relationshipType';
@@ -18,6 +21,13 @@ export const PARAM_OWNER_TYPE_URN = 'ownerTypeUrn';
 export const PARAM_DOMAIN_URN = 'domainUrn';
 export const PARAM_PROPERTY_URN = 'propertyUrn';
 export const PARAM_PROPERTY_VALUES = 'propertyValues';
+export const PARAM_STATUS = 'status';
+export const PARAM_NOTE = 'note';
+export const PARAM_OLD_PARENT = 'oldParent';
+export const PARAM_NEW_PARENT = 'newParent';
+export const PARAM_OLD_STATE = 'oldState';
+export const PARAM_NEW_STATE = 'newState';
+export const DEPRECATION_STATUS_ACTIVE = 'ACTIVE';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Glossary relationship type labels — maps backend relationship type strings
@@ -56,6 +66,8 @@ export const CATEGORY_STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY';
 export const CATEGORY_APPLICATION = 'APPLICATION';
 export const CATEGORY_ASSET_MEMBERSHIP = 'ASSET_MEMBERSHIP';
 export const CATEGORY_VERSIONING = 'VERSIONING';
+export const CATEGORY_DEPRECATION = 'DEPRECATION';
+export const CATEGORY_PARENT = 'PARENT';
 export const CATEGORY_LIFECYCLE = 'LIFECYCLE';
 
 // Re-export generated enums for convenience within the history feature
@@ -104,194 +116,43 @@ function getAllCategoryOptions(): CategoryOption[] {
             label: i18next.t('entity.profile.schema:historySidebar.categoryVersions'),
         },
         {
+            value: CATEGORY_DEPRECATION,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryDeprecation'),
+        },
+        {
+            value: CATEGORY_PARENT,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryParent'),
+        },
+        {
             value: CATEGORY_LIFECYCLE,
             label: i18next.t('entity.profile.schema:historySidebar.categoryLifecycle'),
         },
     ];
 }
 
-// Supported categories per entity type. Entries for the catalog entities are derived from the aspects each
-// entity carries in the entity registry; the backend registers the matching categories via
-// TimelineServiceImpl.registerCatalogEntity.
-const ENTITY_SUPPORTED_CATEGORIES: Partial<Record<EntityType, Set<ChangeCategoryValue>>> = {
-    [EntityType.Dataset]: new Set([
-        ChangeCategoryType.TechnicalSchema,
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-        CATEGORY_VERSIONING,
-    ]),
-    [EntityType.GlossaryTerm]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-        CATEGORY_VERSIONING,
-        CATEGORY_LIFECYCLE,
-    ]),
-    [EntityType.Domain]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Ownership,
-        CATEGORY_STRUCTURED_PROPERTY,
-    ]),
-    [EntityType.DataProduct]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-        CATEGORY_ASSET_MEMBERSHIP,
-    ]),
-    [EntityType.DataFlow]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.DataJob]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.Chart]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.Dashboard]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.Metric]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.SemanticModel]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.Mlmodel]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-        CATEGORY_VERSIONING,
-    ]),
-    [EntityType.MlmodelGroup]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.Mlfeature]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.MlfeatureTable]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.MlprimaryKey]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.Container]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.GlossaryNode]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_APPLICATION,
-    ]),
-    [EntityType.Application]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-    ]),
-    [EntityType.Api]: new Set([
-        ChangeCategoryType.Documentation,
-        ChangeCategoryType.Tag,
-        ChangeCategoryType.GlossaryTerm,
-        ChangeCategoryType.Ownership,
-        CATEGORY_DOMAIN,
-        CATEGORY_STRUCTURED_PROPERTY,
-        CATEGORY_VERSIONING,
-    ]),
-};
+// Supported categories per entity type (GraphQL EntityType → ChangeCategoryType names). Generated from the
+// backend registry in TimelineServiceImpl; TimelineSupportedCategoriesJsonTest fails CI when it drifts.
+const ENTITY_SUPPORTED_CATEGORIES: Record<string, string[] | undefined> = timelineSupportedCategories;
 
 export function getCategoryOptions(entityType?: EntityType): CategoryOption[] {
     const allOptions = getAllCategoryOptions();
     const supported = entityType ? ENTITY_SUPPORTED_CATEGORIES[entityType] : undefined;
     if (!supported) return allOptions;
-    return allOptions.filter((o) => supported.has(o.value));
+    return allOptions.filter((o) => supported.includes(o.value));
+}
+
+/**
+ * Returns the Documentation change that carries a description. A transaction can hold several Documentation
+ * changes (e.g. a glossary term's name and definition), and only the description one feeds the diff view.
+ */
+export function findDescriptionChange<
+    C extends { category?: string | null; parameters?: Array<{ key?: string | null }> | null } | null,
+>(changes: C[]): C | undefined {
+    return changes.find(
+        (c) =>
+            c?.category === ChangeCategoryType.Documentation &&
+            (c.parameters ?? []).some((p) => p.key === PARAM_DESCRIPTION),
+    );
 }
 
 /**

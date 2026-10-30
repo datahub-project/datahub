@@ -14,6 +14,8 @@ Covered categories per entity:
   GlossaryTerm: OWNERSHIP, DOCUMENTATION, GLOSSARY_TERM (related terms), DOMAIN, STRUCTURED_PROPERTY, APPLICATION
   Domain:       OWNERSHIP, DOCUMENTATION, STRUCTURED_PROPERTY
   DataProduct:  OWNERSHIP, DOCUMENTATION, TAG, GLOSSARY_TERM, DOMAIN, STRUCTURED_PROPERTY, APPLICATION, ASSET_MEMBERSHIP
+  GlossaryNode: DOCUMENTATION (rename), PARENT (move)
+  Dataset deprecation toggle: DEPRECATION
 """
 
 import logging
@@ -33,9 +35,11 @@ from datahub.metadata.schema_classes import (
     DataProductAssociationClass,
     DataProductPropertiesClass,
     DatasetPropertiesClass,
+    DeprecationClass,
     DomainsClass,
     EditableDatasetPropertiesClass,
     GlobalTagsClass,
+    GlossaryNodeInfoClass,
     GlossaryRelatedTermsClass,
     GlossaryTermAssociationClass,
     GlossaryTermInfoClass,
@@ -747,6 +751,39 @@ class TestDatasetTimeline:
             min_events=1,
         )
 
+    def test_dataset_deprecation_toggle(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
+        """Deprecate then un-deprecate the dataset (DEPRECATION category)."""
+        for deprecated in (True, False):
+            _emit_and_wait(
+                graph_client,
+                MetadataChangeProposalWrapper(
+                    entityUrn=timeline_urns.dataset_urn,
+                    aspect=DeprecationClass(
+                        deprecated=deprecated,
+                        note="Replaced by a newer table" if deprecated else "",
+                        actor="urn:li:corpuser:datahub",
+                    ),
+                ),
+            )
+
+        txns = _wait_for_timeline_events(
+            auth_session,
+            timeline_urns.dataset_urn,
+            [("DEPRECATION", "MODIFY")],
+            "dataset/deprecation",
+            categories=["DEPRECATION"],
+            min_events=2,
+        )
+        statuses = [
+            param["value"]
+            for event in _collect_change_events(txns)
+            for param in event.get("parameters") or []
+            if param["key"] == "status"
+        ]
+        assert sorted(statuses) == ["ACTIVE", "DEPRECATED"], statuses
+
     def test_dataset_all_categories(self, auth_session, timeline_urns: TimelineUrns):
         """Fetch timeline with all categories and verify actor attribution."""
         _wait_for_timeline_categories(
@@ -1409,3 +1446,70 @@ class TestDataProductTimeline:
                 assert change["urn"] is not None
                 assert change["category"] is not None
                 assert change["operation"] is not None
+
+
+# ===========================================================================
+# GLOSSARY NODE TIMELINE TESTS
+# ===========================================================================
+class TestGlossaryNodeTimeline:
+    """Rename and move a term group (DOCUMENTATION and PARENT categories)."""
+
+    def test_glossary_node_rename_and_move(
+        self, graph_client, auth_session, timeline_urns: TimelineUrns
+    ):
+        u = timeline_urns.unique
+        parent_1 = f"urn:li:glossaryNode:change-history-parent-1-{u}"
+        parent_2 = f"urn:li:glossaryNode:change-history-parent-2-{u}"
+        node = f"urn:li:glossaryNode:change-history-node-{u}"
+
+        def node_info(name: str, parent: str) -> GlossaryNodeInfoClass:
+            return GlossaryNodeInfoClass(
+                name=name, definition="Term group for timeline test", parentNode=parent
+            )
+
+        try:
+            for parent in (parent_1, parent_2):
+                _emit_and_wait(
+                    graph_client,
+                    MetadataChangeProposalWrapper(
+                        entityUrn=parent,
+                        aspect=GlossaryNodeInfoClass(
+                            name=parent.rsplit(":", 1)[-1], definition="Parent group"
+                        ),
+                    ),
+                )
+            for info in (
+                node_info("Original name", parent_1),
+                node_info("Renamed", parent_1),
+                node_info("Renamed", parent_2),
+            ):
+                _emit_and_wait(
+                    graph_client,
+                    MetadataChangeProposalWrapper(entityUrn=node, aspect=info),
+                )
+
+            txns = _wait_for_timeline_events(
+                auth_session,
+                node,
+                [("DOCUMENTATION", "MODIFY"), ("PARENT", "MODIFY")],
+                "glossaryNode/renameAndMove",
+                categories=["DOCUMENTATION", "PARENT"],
+            )
+            events = _collect_change_events(txns)
+            assert any(
+                "Renamed" in (event.get("description") or "")
+                for event in events
+                if event["category"] == "DOCUMENTATION"
+            ), events
+            moves = [
+                {param["key"]: param["value"] for param in event["parameters"]}
+                for event in events
+                if event["category"] == "PARENT" and event["operation"] == "MODIFY"
+            ]
+            assert {"oldParent": parent_1, "newParent": parent_2} in moves, moves
+        finally:
+            for urn in (node, parent_1, parent_2):
+                try:
+                    graph_client.hard_delete_entity(urn=urn)
+                except Exception:
+                    logger.warning(f"Failed to delete {urn} during cleanup")
