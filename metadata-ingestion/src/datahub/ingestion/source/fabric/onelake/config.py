@@ -333,6 +333,20 @@ class FabricOneLakeSourceConfig(
         description="Ingest notebooks, represented as DataHub datasets.",
     )
 
+    include_notebook_source: bool = Field(
+        default=False,
+        description=(
+            "Emit each notebook's source as the `content` custom property and on "
+            "the View Definition tab. Off by default because notebooks often "
+            "hold connection strings, SAS tokens or keys. When on, common "
+            "credential patterns (`password=`, `AccountKey=`, `sig=`, bearer "
+            "tokens, URL user info, private keys) are masked before emitting; "
+            "masking is best effort, so prefer secret scopes or Key Vault in "
+            "notebooks. The source is still read for "
+            "`notebook_execution.reconcile_code` when this is off."
+        ),
+    )
+
     notebook_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(

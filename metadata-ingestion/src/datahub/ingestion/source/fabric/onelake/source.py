@@ -27,6 +27,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
+from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -728,8 +729,13 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         custom_properties = {"path": path}
         if language:
             custom_properties["language"] = language
-        if content:
+        # Notebooks often embed credentials, so the source is opt-in and
+        # credential-shaped values are masked before it leaves the connector.
+        if content and self.config.include_notebook_source:
+            content = scrub_text(content, set())
             custom_properties["content"] = content
+        else:
+            content = None
 
         # The View Definition tab reads viewProperties, not custom properties.
         view_definition = (
