@@ -19,7 +19,9 @@ record SchemaField {
     "boostScore": 1.0,
     "queryByDefault": "true",
     "v3": {
-      "searchLabel": "columns",
+      "searchLabel": "name",
+      "lowercase": true,
+      "degree": 1,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },
@@ -51,6 +53,8 @@ record SchemaField {
     "hasValuesFieldName": "hasDescription",
     "v3": {
       "searchLabel": "description",
+      "degree": 1,
+      "boostScore": 0.5,
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
         { "subfield": "text", "type": "TEXT" },
@@ -72,7 +76,9 @@ record SchemaField {
     "fieldType": "TEXT",
     "boostScore": 1.0,
     "v3": {
-      "searchLabel": "columns",
+      "searchLabel": "name",
+      "lowercase": true,
+      "degree": 1,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },
@@ -125,6 +131,8 @@ record SchemaField {
       "hasValuesFieldName": "hasTags",
       "v3": {
         "searchLabel": "tags",
+        "degree": 1,
+        "boostScore": 0.25,
         "mappings": [
           { "type": "URN" }
         ]
@@ -165,6 +173,8 @@ record SchemaField {
       "hasValuesFieldName": "hasGlossaryTerms",
       "v3": {
         "searchLabel": "glossaryTerms",
+        "degree": 1,
+        "boostScore": 0.25,
         "mappings": [
           { "type": "URN" }
         ]

@@ -9,8 +9,6 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp_builder import DatabaseKey, DataProductKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
-from datahub.ingestion.source.azure.abs_utils import make_abs_urn
 from datahub.ingestion.source.snowflake.constants import (
     DEFAULT_SNOWFLAKE_DOMAIN,
     SNOWFLAKE_DEFAULT_SCHEMAS,
@@ -97,29 +95,6 @@ def snowflake_identity_key(name: str, *, preserve_column_case: bool) -> str:
     if preserve_column_case:
         return name
     return name.upper()
-
-
-def make_cloud_storage_urn(url: str, env: str) -> Optional[str]:
-    """Dataset URN for a cloud storage URL as Snowflake spells it (stage URLs, external
-    volume locations): s3://, gcs:// or azure://. None for any other scheme."""
-    if url.startswith("s3://"):
-        return make_s3_urn_for_lineage(url, env)
-    if url.startswith("gcs://"):
-        # Snowflake uses gcs:// but DataHub GCS platform expects the path without prefix
-        path = url[len("gcs://") :]
-        if path.endswith("/"):
-            path = path[:-1]
-        return make_dataset_urn_with_platform_instance(
-            platform="gcs",
-            name=path,
-            env=env,
-            platform_instance=None,
-        )
-    if url.startswith("azure://"):
-        # Snowflake stores azure://<account>.blob.core.windows.net/<container>/<path>
-        abs_url = url.replace("azure://", "https://", 1)
-        return make_abs_urn(abs_url, env)
-    return None
 
 
 class SnowflakeStructuredReportMixin(abc.ABC):

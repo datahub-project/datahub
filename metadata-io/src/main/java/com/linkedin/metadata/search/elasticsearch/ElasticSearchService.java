@@ -25,6 +25,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
@@ -43,6 +44,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.indices.GetMappingsRequest;
+import org.opensearch.cluster.metadata.MappingMetadata;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -532,16 +536,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         from,
         size);
 
+    OperationContext searching =
+        SearchTemplateSurfaces.withDefault(
+            opContext.withSearchFlags(
+                flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
+            SearchTemplateSurfaces.SEARCH_ENTITIES);
     return esSearchDAO.search(
-        opContext.withSearchFlags(
-            flags -> applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)),
-        entityNames,
-        input,
-        postFilters,
-        sortCriteria,
-        from,
-        size,
-        facets);
+        searching, entityNames, input, postFilters, sortCriteria, from, size, facets);
   }
 
   @Nonnull
@@ -669,10 +670,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer count) {
 
     return esBrowseDAO.browseV2(
-        opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(true)),
+        browseContext(opContext, null),
         entityName,
         path,
         filter,
@@ -693,10 +691,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable Integer count) {
 
     return esBrowseDAO.browseV2(
-        opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(true)),
+        browseContext(opContext, input),
         entityNames,
         path,
         filter,
@@ -736,9 +731,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esSearchDAO.scroll(
         opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(true)),
+            flags -> {
+              SearchFlags resolved =
+                  applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
+              return opContext.getSearchContext().getResolvedSearchTemplate() == null
+                  ? resolved.setFulltext(true)
+                  : resolved;
+            }),
         entities,
         input,
         postFilters,
@@ -771,9 +770,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
     return esSearchDAO.scroll(
         opContext.withSearchFlags(
-            flags ->
-                applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS)
-                    .setFulltext(false)),
+            flags -> {
+              SearchFlags resolved =
+                  applyDefaultSearchFlags(flags, null, DEFAULT_SERVICE_SEARCH_FLAGS);
+              return opContext.getSearchContext().getResolvedSearchTemplate() == null
+                  ? resolved.setFulltext(false)
+                  : resolved;
+            }),
         entities,
         input,
         postFilters,
@@ -844,6 +847,26 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         .validateAndSwapAlias(opContext, aliasName, newBackingIndex, expectedSourceDocCount);
   }
 
+  /**
+   * Mapping body for {@code indexName}, on the cluster that owns it. Empty when the index has no
+   * mapping. A restate uses this to find structured-property fields the aspect no longer sets.
+   */
+  @Nonnull
+  public Map<String, Object> indexMappingSource(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
+    return builderFor(indexName)
+        .getSearchClient()
+        .getIndexMapping(
+            opContext, new GetMappingsRequest().indices(indexName), RequestOptions.DEFAULT)
+        .mappings()
+        .values()
+        .stream()
+        .map(MappingMetadata::getSourceAsMap)
+        .filter(mapping -> mapping != null)
+        .findFirst()
+        .orElse(Map.of());
+  }
+
   @Override
   public ESIndexBuilder getIndexBuilder() {
     return indexBuilder;
@@ -852,5 +875,22 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public ESIndexBuilder getIndexBuilder(@Nonnull String indexName) {
     return builderFor(indexName);
+  }
+
+  /**
+   * Browse uses the global fulltext seed, the search router. A caller context already tagged for
+   * page search must not keep that surface or a template resolved for a different query. Path,
+   * depth, and group aggregation stay outside the template.
+   */
+  @Nonnull
+  private OperationContext browseContext(
+      @Nonnull OperationContext opContext, @Nullable String input) {
+    return opContext
+        .withResolvedSearchTemplate(null)
+        .withSearchSurface(null)
+        .withSearchFlags(
+            flags ->
+                applyDefaultSearchFlags(flags, input, DEFAULT_SERVICE_SEARCH_FLAGS)
+                    .setFulltext(true));
   }
 }

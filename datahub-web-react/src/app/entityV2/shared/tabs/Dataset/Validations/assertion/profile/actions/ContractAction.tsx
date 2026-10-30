@@ -18,7 +18,7 @@ import {
     getDataContractCategoryFromAssertion,
     isAssertionPartOfContract,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
-import { ActionItem } from '@app/shared/actions/ActionItem';
+import { ActionItem } from '@app/sharedV2/actions/ActionItem';
 
 import { useUpsertDataContractMutation } from '@graphql/contract.generated';
 import { Assertion, DataContract } from '@types';

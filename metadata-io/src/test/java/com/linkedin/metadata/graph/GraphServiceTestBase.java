@@ -7,12 +7,17 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFI
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.Siblings;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataFlowUrn;
 import com.linkedin.common.urn.DataJobUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -23,8 +28,10 @@ import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +50,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.mockito.Mockito;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
@@ -610,6 +618,116 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
 
     // reset graph service
     getGraphService();
+  }
+
+  @Test
+  public void testGetLineageCount() throws Exception {
+    GraphService service = getLineagePopulatedGraphService();
+    LineageGraphFilters downstream =
+        LineageGraphFilters.forEntityType(
+            service.getLineageRegistry(), dataset1Urn.getEntityType(), LineageDirection.DOWNSTREAM);
+
+    // Same neighbours the walk reports for dataset1: dataset2, dataJobOne, dataJobTwo.
+    LineageCountResult single =
+        service.getLineageCount(operationContext, Set.of(dataset1Urn), downstream, 10);
+    assertEquals(single.getTotal(), 3);
+    assertEquals(
+        new HashSet<>(single.getSample()), Set.of(dataset2Urn, dataJobOneUrn, dataJobTwoUrn));
+
+    // A group counts as one entity: shared neighbours once, members never.
+    LineageCountResult group =
+        service.getLineageCount(operationContext, Set.of(dataset1Urn, dataset2Urn), downstream, 10);
+    assertEquals(group.getTotal(), 4);
+    assertEquals(
+        new HashSet<>(group.getSample()),
+        Set.of(dataset3Urn, dataset4Urn, dataJobOneUrn, dataJobTwoUrn));
+
+    // The sample is capped; the total is not.
+    LineageCountResult capped =
+        service.getLineageCount(operationContext, Set.of(dataset1Urn, dataset2Urn), downstream, 2);
+    assertEquals(capped.getTotal(), 4);
+    assertEquals(capped.getSample().size(), 2);
+    assertFalse(capped.getSample().contains(dataset1Urn));
+
+    LineageGraphFilters upstream =
+        LineageGraphFilters.forEntityType(
+            service.getLineageRegistry(), dataset1Urn.getEntityType(), LineageDirection.UPSTREAM);
+    assertEquals(
+        service.getLineageCount(operationContext, Set.of(dataset1Urn), upstream, 10).getTotal(), 0);
+    assertEquals(
+        service.getLineageCount(operationContext, Set.of(dataset3Urn), upstream, 10).getTotal(), 2);
+  }
+
+  /**
+   * A sibling pair whose members share neighbours: dataset1 and dataset2 are both consumed by
+   * dataJobOne and dataJobTwo. The count path counts each shared neighbour once and, because the
+   * pair's lineage fits in one page, shows the same number on a card as the walk.
+   */
+  @Test
+  public void testLineageCountMatchesWalkForSiblingsWithSharedNeighbours() throws Exception {
+    GraphService service = getLineagePopulatedGraphService();
+    EntityService<?> entityService = Mockito.mock(EntityService.class);
+    Siblings primary =
+        new Siblings().setSiblings(new UrnArray(List.of(dataset2Urn))).setPrimary(true);
+    Siblings secondary =
+        new Siblings().setSiblings(new UrnArray(List.of(dataset1Urn))).setPrimary(false);
+    Map<Urn, Siblings> siblingsByUrn = Map.of(dataset1Urn, primary, dataset2Urn, secondary);
+    Mockito.when(
+            entityService.getLatestAspect(
+                Mockito.any(OperationContext.class),
+                Mockito.any(Urn.class),
+                Mockito.eq(Constants.SIBLINGS_ASPECT_NAME)))
+        .thenAnswer(invocation -> siblingsByUrn.get(invocation.getArgument(1)));
+    Mockito.when(
+            entityService.getLatestAspects(
+                Mockito.any(OperationContext.class), Mockito.anySet(), Mockito.anySet()))
+        .thenAnswer(
+            invocation -> {
+              Map<Urn, List<RecordTemplate>> aspects = new HashMap<>();
+              for (Object urn : (Set<?>) invocation.getArgument(1)) {
+                Siblings siblings = siblingsByUrn.get(urn);
+                aspects.put((Urn) urn, siblings == null ? List.of() : List.of(siblings));
+              }
+              return aspects;
+            });
+    Mockito.when(
+            entityService.exists(
+                Mockito.any(OperationContext.class),
+                Mockito.anyCollection(),
+                Mockito.any(),
+                Mockito.anyBoolean(),
+                Mockito.anyBoolean()))
+        .thenAnswer(invocation -> new HashSet<>((Collection<?>) invocation.getArgument(1)));
+    // The default overloads delegate to the one stubbed above; a mock does not run them unless
+    // told.
+    Mockito.when(
+            entityService.exists(
+                Mockito.any(OperationContext.class), Mockito.anyCollection(), Mockito.anyBoolean()))
+        .thenCallRealMethod();
+    Mockito.when(
+            entityService.exists(
+                Mockito.any(OperationContext.class),
+                Mockito.anyCollection(),
+                Mockito.anyBoolean(),
+                Mockito.anyBoolean()))
+        .thenCallRealMethod();
+    SiblingGraphService siblingGraphService = new SiblingGraphService(entityService, service);
+
+    EntityLineageResult walked =
+        siblingGraphService.getLineage(
+            operationContext, dataset1Urn, LineageDirection.DOWNSTREAM, 0, 100, 1, false, false);
+    EntityLineageResult counted =
+        siblingGraphService.getLineageCount(
+            operationContext, dataset1Urn, LineageDirection.DOWNSTREAM, 100, false, false);
+
+    // dataset1 -> {dataset2, dataJobOne, dataJobTwo}; dataset2 -> {dataset3, dataset4, dataJobOne,
+    // dataJobTwo}. Outside the pair: dataset3, dataset4, dataJobOne, dataJobTwo.
+    assertEquals(counted.getTotal() - counted.getFiltered(), 4);
+    assertEquals(
+        walked.getTotal() - walked.getFiltered(), counted.getTotal() - counted.getFiltered());
+    // total on its own is not comparable: the walk counts edges (shared neighbours twice).
+    assertEquals(counted.getTotal().intValue(), 4);
+    assertTrue(walked.getTotal() > counted.getTotal(), "walk total " + walked.getTotal());
   }
 
   @Test

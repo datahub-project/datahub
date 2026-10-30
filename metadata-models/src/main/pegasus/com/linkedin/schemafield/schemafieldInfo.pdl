@@ -9,10 +9,13 @@ import com.linkedin.common.Urn
 record SchemaFieldInfo {
     @Searchable = {
         "fieldType": "KEYWORD",
+        "queryByDefault": true,
         "boostScore": 10.0,
         "fieldNameAliases": [ "_entityName" ],
         "v3": {
+          "queryByDefault": true,
           "searchLabel": "name",
+          "lowercase": true,
           "mappings": [
             { "type": "KEYWORD" },
             { "subfield": "text", "type": "TEXT" },
@@ -27,6 +30,9 @@ record SchemaFieldInfo {
     */
     @Searchable = {
         "/*": {
+          "v3": {
+            "queryByDefault": true
+          },
             "fieldType": "URN",
             "queryByDefault": true,
         }

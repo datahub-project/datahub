@@ -3,7 +3,7 @@ title: "Timeline API"
 ---
 
 The Timeline API supports viewing version history of schemas, documentation, tags, glossary terms, and other updates
-to entities. The API supports Datasets, Glossary Terms, Domains, and Data Products.
+to entities. The API supports Datasets, Glossary Terms, Glossary Nodes, Domains, Data Products, Containers, Pipelines (DataFlow), Tasks (DataJob), Charts, Dashboards, Metrics, Semantic Models, ML Models, ML Model Groups, ML Features, ML Feature Tables, ML Primary Keys, Applications, and Repositories.
 
 ## Compatibility
 
@@ -184,7 +184,7 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 ## Documentation
 
 - Any changes to documentation at the dataset level or at the field level.
-- Driven by the `datasetProperties`, `institutionalMemory`, `schemaMetadata` and `editableSchemaMetadata`.
+- Driven by the `datasetProperties`, `institutionalMemory`, `documentation`, `schemaMetadata` and `editableSchemaMetadata`.
 - Addition or removal of documentation or links is marked as `MINOR` while edits to existing documentation are marked as `PATCH` changes.
 
 ### Example Usage
@@ -239,6 +239,22 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 	REMOVE GLOSSARY_TERM dataset:hive:testTimelineDataset (urn:li:glossaryTerm:CustomerAccount): The GlossaryTerm 'CustomerAccount' for the entity 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been removed.
 	REMOVE GLOSSARY_TERM dataset:hive:testTimelineDataset (urn:li:glossaryTerm:SavingsAccount): The GlossaryTerm 'SavingsAccount' for the entity 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been removed.
 ```
+
+## Deprecation
+
+- Marking an entity as deprecated or no longer deprecated, on every entity type that carries the `deprecation` aspect.
+- Driven by the `deprecation` aspect. Only the deprecated flag flipping produces an event; editing the note or decommission time of an already deprecated entity does not.
+- The event's `status` parameter is `DEPRECATED` (with the `note` and decommission `timestamp` when set) or `ACTIVE`.
+
+## Lifecycle
+
+- Changes to an entity's lifecycle stage (e.g. Draft to Published), for documents and glossary terms.
+- Driven by the `lifecycleStage` field of the `status` aspect. The event's `oldState` and `newState` parameters hold the lowercased stage ids.
+
+## Glossary terms and term groups
+
+- `DOCUMENTATION` covers the name, definition and custom properties of glossary terms and term groups, plus the source, source reference and source URL of glossary terms (`glossaryTermInfo` / `glossaryNodeInfo`).
+- `PARENT` covers moving a term or term group to another term group or to the top level (the `parentNode` field). The event's `oldParent` and `newParent` parameters hold the term group URNs.
 
 ## Explore the API
 

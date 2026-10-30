@@ -4,11 +4,11 @@ import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -26,6 +26,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
@@ -41,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,10 +57,13 @@ import org.opensearch.OpenSearchException;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
+import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.admin.indices.refresh.RefreshRequest;
+import org.opensearch.action.admin.indices.refresh.RefreshResponse;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.get.GetSettingsResponse;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
@@ -81,7 +86,9 @@ import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.core.tasks.TaskId;
 import org.opensearch.index.reindex.ReindexRequest;
+import org.opensearch.tasks.TaskInfo;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -2595,6 +2602,55 @@ public class ESIndexBuilderTest {
             any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
   }
 
+  /**
+   * The ES task finishes right after a short count is read. That count must not be paired with the
+   * COMPLETED status and treated as dropped documents, which would resubmit a full reindex.
+   */
+  @Test
+  void testPollReindexCompletion_taskCompletesAfterShortCount_completesWithoutRetrigger()
+      throws Throwable {
+    setupPollReindexBuilder(0L, NUM_RETRIES);
+    // A resubmit must only be reachable through the completed-but-short path: neither the
+    // unresolved-task guard nor the no-progress timer may mask it.
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(false);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(60);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
+        .thenReturn("node1:100");
+
+    // Count call 1 is the pre-loop read; the task finishes right after count call 2.
+    AtomicInteger countCalls = new AtomicInteger();
+    GetTaskResponse task = mock(GetTaskResponse.class);
+    when(task.isCompleted()).thenAnswer(invocation -> countCalls.get() >= 2);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.of(task));
+
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion) {
+          @Override
+          protected Pair<Long, Long> getDocumentCounts(
+              OperationContext ctx, Callable<Long> expectedCountSupplier, String destinationIndex) {
+            return Pair.of(1000L, countCalls.incrementAndGet() <= 2 ? 900L : 1000L);
+          }
+        };
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertTrue(result.completed());
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1000L));
+    verify(searchClient, never())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
   /** Counts match and the ES task reports completed — poll succeeds. */
   @Test
   void testPollReindexCompletion_countsMatchAndTaskCompleted_completes() throws Throwable {
@@ -2644,6 +2700,415 @@ public class ESIndexBuilderTest {
     assertFalse(
         result.completed(),
         "Matching counts during a transient task-status lookup failure must not complete");
+  }
+
+  // --- allowDocCountMismatch snapshot-floor tests ---
+
+  /** Well-formed task id, so lookupReindexTask consults the getTask mock. */
+  private static final String RESOLVABLE_TASK_ID = "node1:99";
+
+  /**
+   * @param numRetries index retry budget. Also the number of extra {@code getDocumentCounts} reads
+   *     after the first mismatch.
+   * @param noProgressRetryMinutes 0 makes the no-progress re-trigger fire on the first iteration,
+   *     which (with numRetries=0) breaks the loop immediately.
+   */
+  private ESIndexBuilder buildMismatchBuilder(int numRetries, int noProgressRetryMinutes) {
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(numRetries)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .refreshIntervals(RefreshIntervals.allServices(REFRESH_INTERVAL_SECONDS))
+                .maxReindexHours(1)
+                .build());
+    when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(true);
+    when(buildIndicesConfig.isCloneIndices()).thenReturn(true);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(noProgressRetryMinutes);
+    when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
+    when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
+    return new ESIndexBuilder(
+        searchClient,
+        elasticSearchConfiguration,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion);
+  }
+
+  private void mockDestCount(long destCount) throws IOException {
+    CountResponse destResp = mock(CountResponse.class);
+    when(destResp.getCount()).thenReturn(destCount);
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(destResp);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class), any(RefreshRequest.class), any(RequestOptions.class)))
+        .thenReturn(mock(RefreshResponse.class));
+  }
+
+  /** Source reports {@code snapshot} once, then {@code grown} on every later read. */
+  private static Callable<Long> liveSource(long snapshot, long grown) {
+    AtomicInteger reads = new AtomicInteger();
+    return () -> reads.getAndIncrement() == 0 ? snapshot : grown;
+  }
+
+  /**
+   * Live source never equals the destination. The floor is the first supplier read, taken before
+   * {@code getDocumentCounts} retries, so the copy still completes.
+   */
+  @Test
+  void testPollReindexCompletion_liveSourceNeverEqualsDest_completesAtSnapshot() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 5);
+
+    Iterator<Long> liveSource = List.of(13_923_058L, 13_923_068L, 13_923_071L).iterator();
+    Iterator<Long> destCounts = List.of(13_625_285L, 13_923_058L, 13_923_058L).iterator();
+
+    CountResponse destResp = mock(CountResponse.class);
+    when(destResp.getCount()).thenAnswer(in -> destCounts.next());
+    when(searchClient.count(
+            any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
+        .thenReturn(destResp);
+    when(searchClient.refreshIndex(
+            any(OperationFingerprint.class), any(RefreshRequest.class), any(RequestOptions.class)))
+        .thenReturn(mock(RefreshResponse.class));
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src", "dest", liveSource::next, 1, new HashMap<>(), RESOLVABLE_TASK_ID);
+
+    assertTrue(result.completed(), "A live source that never equals the destination must complete");
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(13_923_058L));
+    Assert.assertNotEquals(
+        result.finalDocumentCounts().getFirst(), result.finalDocumentCounts().getSecond());
+  }
+
+  /**
+   * {@code index.numRetries >= 1} makes {@code getDocumentCounts} keep the last, grown source
+   * count. The floor must stay the single sample taken before that helper, and the poll must not
+   * resubmit.
+   */
+  @Test
+  void testPollReindexCompletion_floorIsFirstSampleNotRetriedCount() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(1, 5);
+    mockDestCount(13_923_058L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext,
+            "src",
+            "dest",
+            liveSource(13_923_058L, 13_923_071L),
+            1,
+            new HashMap<>(),
+            RESOLVABLE_TASK_ID);
+
+    assertTrue(result.completed(), "Floor must be the first source sample, not the retried count");
+    assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(13_923_071L));
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(13_923_058L));
+    verify(searchClient, never())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * A transport error on the floor sample is retried. The floor stays the first successful read,
+   * not a later grown count.
+   */
+  @Test
+  void testPollReindexCompletion_floorSampleRetriesTransientCountError() throws Throwable {
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(0)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .refreshIntervals(RefreshIntervals.allServices(REFRESH_INTERVAL_SECONDS))
+                .maxReindexHours(1)
+                .build());
+    when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(true);
+    when(buildIndicesConfig.isCloneIndices()).thenReturn(true);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(5);
+    when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(2);
+    when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(1);
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion);
+    mockDestCount(13_923_058L);
+    stubReindexTaskCompleted(true);
+
+    AtomicInteger reads = new AtomicInteger();
+    Callable<Long> source =
+        () -> {
+          int read = reads.getAndIncrement();
+          if (read == 0) {
+            throw new OpenSearchException("transient count failure");
+          }
+          return read == 1 ? 13_923_058L : 13_923_071L;
+        };
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src", "dest", source, 1, new HashMap<>(), RESOLVABLE_TASK_ID);
+
+    assertTrue(
+        result.completed(), "A retried floor sample must still complete at the first success");
+    assertEquals(Long.valueOf(result.initialSourceDocCount()), Long.valueOf(13_923_058L));
+    assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(13_923_071L));
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(13_923_058L));
+  }
+
+  @Test
+  void testPollReindexCompletion_liveSourceTaskStillRunning_doesNotExit() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 0);
+    mockDestCount(13_923_058L);
+    stubReindexTaskCompleted(false);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext,
+            "src",
+            "dest",
+            liveSource(13_923_058L, 13_923_071L),
+            1,
+            new HashMap<>(),
+            RESOLVABLE_TASK_ID);
+
+    assertFalse(result.completed(), "A running reindex task must block the mismatch exit");
+  }
+
+  @Test
+  void testPollReindexCompletion_liveSourceBlankTaskId_doesNotExit() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 0);
+    mockDestCount(13_923_058L);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext,
+            "src",
+            "dest",
+            liveSource(13_923_058L, 13_923_071L),
+            1,
+            new HashMap<>(),
+            "unset");
+
+    assertFalse(result.completed(), "A blank task id must not take the snapshot-floor exit");
+  }
+
+  @Test
+  void testPollReindexCompletion_liveSourceTaskLookupError_doesNotExit() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 0);
+    mockDestCount(13_923_058L);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenThrow(new IOException("task status unavailable"));
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext,
+            "src",
+            "dest",
+            liveSource(13_923_058L, 13_923_071L),
+            1,
+            new HashMap<>(),
+            RESOLVABLE_TASK_ID);
+
+    assertFalse(result.completed(), "A task-status lookup failure must block the mismatch exit");
+  }
+
+  @Test
+  void testPollReindexCompletion_liveSourceTaskNotFound_exitsAtSnapshot() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 5);
+    mockDestCount(13_923_058L);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenReturn(Optional.empty());
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext,
+            "src",
+            "dest",
+            liveSource(13_923_058L, 13_923_071L),
+            1,
+            new HashMap<>(),
+            RESOLVABLE_TASK_ID);
+
+    assertTrue(result.completed(), "A missing finished task must not block the snapshot floor");
+  }
+
+  @Test
+  void testPollReindexCompletion_destBelowSnapshot_doesNotExit() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 0);
+    mockDestCount(13_900_000L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext,
+            "src",
+            "dest",
+            liveSource(13_923_058L, 13_923_071L),
+            1,
+            new HashMap<>(),
+            RESOLVABLE_TASK_ID);
+
+    assertFalse(result.completed(), "dest below the first source sample must not complete");
+  }
+
+  @Test
+  void testPollReindexCompletion_allowMismatchFalse_doesNotExitEarly() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 0);
+    when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(false);
+    when(buildIndicesConfig.isCloneIndices()).thenReturn(false);
+    mockDestCount(13_923_058L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext,
+            "src",
+            "dest",
+            liveSource(13_923_058L, 13_923_071L),
+            1,
+            new HashMap<>(),
+            RESOLVABLE_TASK_ID);
+
+    assertFalse(result.completed(), "Mismatch exit must not fire when allowDocCountMismatch=false");
+  }
+
+  @Test
+  void testPollReindexCompletion_cloneIndicesFalse_doesNotExitEarly() throws Throwable {
+    ESIndexBuilder builder = buildMismatchBuilder(0, 0);
+    when(buildIndicesConfig.isCloneIndices()).thenReturn(false);
+    mockDestCount(13_923_058L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext,
+            "src",
+            "dest",
+            liveSource(13_923_058L, 13_923_071L),
+            1,
+            new HashMap<>(),
+            RESOLVABLE_TASK_ID);
+
+    assertFalse(result.completed(), "Mismatch exit must not fire when cloneIndices=false");
+  }
+
+  /**
+   * Resume must poll with the in-flight task id. A short copy with both flags on fails, names the
+   * task lookup, and does not swap the alias.
+   */
+  @Test
+  void testReindexResume_usesTaskIdAndDoesNotSwapWhenPollFails() throws Throwable {
+    RuntimeException thrown =
+        failReindex(
+            new ESIndexBuilder.PollReindexResult(
+                false,
+                new HashMap<>(),
+                Pair.of(1000L, 900L),
+                1000L,
+                ESIndexBuilder.ReindexTaskLookup.COMPLETED));
+    assertTrue(
+        thrown
+            .getCause()
+            .getMessage()
+            .contains("Destination 900 is short of the source count sampled at poll start (1000)"));
+    assertTrue(thrown.getCause().getMessage().contains("Task lookup: COMPLETED"));
+  }
+
+  /**
+   * A destination already at the floor, with the task still running, is not described as a short
+   * copy.
+   */
+  @Test
+  void testReindexResume_floorReachedTaskStillRunning_doesNotClaimShortCopy() throws Throwable {
+    RuntimeException thrown =
+        failReindex(
+            new ESIndexBuilder.PollReindexResult(
+                false,
+                new HashMap<>(),
+                Pair.of(1100L, 1000L),
+                1000L,
+                ESIndexBuilder.ReindexTaskLookup.RUNNING));
+    String message = thrown.getCause().getMessage();
+    assertTrue(
+        message.contains("Destination 1000 reached the source count sampled at poll start (1000)"));
+    assertTrue(message.contains("but the reindex task was not observed finished"));
+    assertTrue(message.contains("Task lookup: RUNNING"));
+    assertTrue(message.contains("Live source count 1100"));
+    assertFalse(message.contains("is short of"));
+  }
+
+  /**
+   * Resume with a stubbed failed poll. Asserts the task id passed to the poll and that the alias is
+   * not swapped.
+   */
+  private RuntimeException failReindex(ESIndexBuilder.PollReindexResult pollResult)
+      throws Throwable {
+    when(buildIndicesConfig.isAllowDocCountMismatch()).thenReturn(true);
+    when(buildIndicesConfig.isCloneIndices()).thenReturn(true);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+
+    TaskInfo previous = mock(TaskInfo.class);
+    when(previous.getTaskId()).thenReturn(new TaskId("node1", 42L));
+    when(previous.getParentTaskId()).thenReturn(TaskId.EMPTY_TASK_ID);
+    when(previous.getDescription()).thenReturn("reindex");
+    when(previous.getHeaders())
+        .thenReturn(
+            Map.of(
+                ESUtils.OPAQUE_ID_HEADER,
+                ESUtils.getOpaqueIdHeaderValue(
+                    "1.0.0", TEST_INDEX_NAME, TEST_INDEX_NAME + "_resume")));
+
+    ListTasksResponse taskListResponse = mock(ListTasksResponse.class);
+    when(taskListResponse.getTasks()).thenReturn(List.of(previous));
+    when(searchClient.listTasks(any(ListTasksRequest.class), any())).thenReturn(taskListResponse);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresApplySettings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    ESIndexBuilder builder =
+        spy(
+            new ESIndexBuilder(
+                searchClient,
+                elasticSearchConfiguration,
+                TEST_ES_STRUCT_PROPS_DISABLED,
+                Map.of(),
+                gitVersion));
+    ArgumentCaptor<String> taskId = ArgumentCaptor.forClass(String.class);
+    doReturn(pollResult)
+        .when(builder)
+        .pollReindexCompletion(
+            any(), anyString(), anyString(), any(), anyInt(), any(), taskId.capture());
+
+    RuntimeException thrown =
+        assertThrows(RuntimeException.class, () -> builder.buildIndex(opContext, indexState));
+    assertEquals(taskId.getValue(), "node1:42");
+    verify(searchClient, never())
+        .updateIndexAliases(
+            any(OperationFingerprint.class),
+            any(IndicesAliasesRequest.class),
+            any(RequestOptions.class));
+    verify(searchClient, never())
+        .createIndex(
+            any(OperationFingerprint.class),
+            any(CreateIndexRequest.class),
+            any(RequestOptions.class));
+    return thrown;
   }
 
   @Test

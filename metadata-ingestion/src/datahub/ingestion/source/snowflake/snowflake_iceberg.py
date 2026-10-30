@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RawSearchFilterRule
+from datahub.ingestion.source.data_lake_common.config import PathMode
 from datahub.ingestion.source.snowflake.constants import (
     ICEBERG_BASE_LOCATION_PROPERTY,
     ICEBERG_CATALOG_INTEGRATION_PROPERTY,
@@ -24,7 +25,6 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
-    make_cloud_storage_urn,
 )
 from datahub.metadata.schema_classes import DatasetLineageTypeClass
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
@@ -184,14 +184,19 @@ class SnowflakeIcebergHandler:
         )
         upstream_urn = self._resolve_writer(info.storage_location, downstream_urn)
         if upstream_urn is None:
-            upstream_urn = make_cloud_storage_urn(
-                info.storage_location, self.config.env
+            # Same resolver as external stages: folds the path per
+            # datalake_lineage_config.path_specs and maps s3:// gcs:// azure:// to a
+            # dataset URN.
+            upstream_urn = self.config.datalake_lineage_config.get_urn_for_lineage(
+                info.storage_location, self.config.env, mode=PathMode.DIRECTORY
             )
             if upstream_urn is None:
                 self.report.warning(
-                    title="Unsupported Iceberg storage location",
-                    message="No lineage emitted: the external volume's storage URL "
-                    "scheme is not one DataHub maps to a dataset.",
+                    title="Iceberg storage location not resolved",
+                    message="No lineage emitted: the storage location did not map to a "
+                    "dataset. Either its scheme is not s3://, gcs:// or azure:// "
+                    "(blob.core.windows.net), or a datalake_lineage_config path spec "
+                    "excluded it.",
                     context=f"{db_name}.{schema_name}.{table.name} -> {info.storage_location}",
                 )
                 return

@@ -7,7 +7,8 @@ import com.linkedin.common.CustomProperties
  * Info associated with a Test Entity
  */
 @Aspect = {
-  "name": "testEntityInfo"
+  "name": "testEntityInfo",
+  "schemaVersion": 3
 }
 record TestEntityInfo includes CustomProperties {
 
@@ -18,6 +19,7 @@ record TestEntityInfo includes CustomProperties {
     "fieldNameAliases": [ "_entityName" ],
     "includeQueryEmptyAggregation": true,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name"
     }
   }
@@ -25,12 +27,18 @@ record TestEntityInfo includes CustomProperties {
 
   @Searchable = {
    "/*": {
+     "v3": {
+       "queryByDefault": true
+     },
     "fieldType": "TEXT_PARTIAL"
    }
   }
   textArrayField: optional array[string]
 
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "WORD_GRAM"
   }
   wordGramField: optional string
@@ -70,6 +78,9 @@ record TestEntityInfo includes CustomProperties {
 
   nestedRecordArrayField: optional array[record SimpleNestedRecord2 {
     @Searchable = {
+      "v3": {
+        "queryByDefault": true
+      },
      "fieldType": "TEXT"
     }
     nestedArrayStringField: optional string
@@ -81,13 +92,20 @@ record TestEntityInfo includes CustomProperties {
     nestedArrayForeignKey: optional Urn
 
     @Searchable = {
-      "/*": {}
+      "/*": {
+        "v3": {
+          "queryByDefault": true
+        }
+      }
     }
     nestedArrayArrayField: optional array[string]
   }]
 
   @Searchable = {
     "/*": {
+      "v3": {
+        "queryByDefault": true
+      },
       "name": "esObjectField",
       "fieldType": "OBJECT",
       "queryByDefault": true
@@ -109,6 +127,9 @@ record TestEntityInfo includes CustomProperties {
 
    @Searchable = {
       "/*": {
+        "v3": {
+          "queryByDefault": true
+        },
         "name": "esObjectFieldLong",
         "fieldType": "OBJECT",
         "queryByDefault": true
@@ -118,6 +139,9 @@ record TestEntityInfo includes CustomProperties {
 
    @Searchable = {
       "/*": {
+        "v3": {
+          "queryByDefault": true
+        },
           "name": "esObjectFieldBoolean",
           "fieldType": "OBJECT",
           "queryByDefault": true
@@ -127,6 +151,9 @@ record TestEntityInfo includes CustomProperties {
 
   @Searchable = {
       "/*": {
+        "v3": {
+          "queryByDefault": true
+        },
         "name": "esObjectFieldFloat",
         "fieldType": "OBJECT",
         "queryByDefault": true
@@ -136,6 +163,9 @@ record TestEntityInfo includes CustomProperties {
 
   @Searchable = {
        "/*": {
+         "v3": {
+           "queryByDefault": true
+         },
         "name": "esObjectFieldDouble",
         "fieldType": "OBJECT",
         "queryByDefault": true
@@ -145,6 +175,9 @@ record TestEntityInfo includes CustomProperties {
 
   @Searchable = {
       "/*": {
+        "v3": {
+          "queryByDefault": true
+        },
         "name": "esObjectFieldInteger",
         "fieldType": "OBJECT",
         "queryByDefault": true

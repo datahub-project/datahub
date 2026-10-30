@@ -19,6 +19,18 @@ PSEUDO_PARTITION_COLUMN_TYPES: Dict[str, str] = {
     "_PARTITIONDATE": "DATE",
 }
 
+# The require-filter error for an ingestion-time partitioned table lists every
+# pseudo-column alias for the one ingestion-time partition (_PARTITIONTIME, _PARTITIONDATE,
+# and the _PARTITION_LOAD_TIME alias). They are interchangeable views of the *same*
+# partition, so a filter on any one eliminates partitions — they are not a composite key.
+# Used to collapse the parsed set to a single column so single-column logic
+# (partition_datetime, max_partition_id) still applies.
+INGESTION_TIME_PSEUDO_COLUMNS: Set[str] = {
+    "_PARTITIONTIME",
+    "_PARTITIONDATE",
+    "_PARTITION_LOAD_TIME",
+}
+
 
 # Column names that suggest date/time data, used as a fallback when type info is
 # unavailable. 'day' is excluded: in partition contexts it's usually a day number (1-31).

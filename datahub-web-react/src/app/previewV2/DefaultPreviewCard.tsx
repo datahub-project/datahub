@@ -33,8 +33,8 @@ import {
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import DataProcessInstanceInfo from '@src/app/previewV2/DataProcessInstanceInfo';
 
 import {
     BrowsePathV2,
@@ -219,7 +219,7 @@ export default function DefaultPreviewCard({
     description,
     refetchDeprecation,
 }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
     const { config } = useAppConfig();
 
@@ -392,7 +392,7 @@ export default function DefaultPreviewCard({
     );
 }
 
-function useRemoveRelationship(entityType: EntityType) {
+export function useRemoveRelationship(entityType: EntityType) {
     const { t } = useTranslation('entity.preview');
     const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
     const { showRemovalFromList, onRemove, removeText } = useSearchCardContext();
@@ -459,7 +459,12 @@ function useRemoveRelationship(entityType: EntityType) {
     if (pageEntityType === EntityType.Application) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn)),
-            removeButtonText: showRemovalFromList ? removeText || t('removeFromApplication') : null,
+            // A child Application is listed through its own parentApplication, not the applications
+            // aspect that removeApplication unsets, so it can't be removed from here.
+            removeButtonText:
+                showRemovalFromList && entityType !== EntityType.Application
+                    ? removeText || t('removeFromApplication')
+                    : null,
             confirmationModals,
         };
     }

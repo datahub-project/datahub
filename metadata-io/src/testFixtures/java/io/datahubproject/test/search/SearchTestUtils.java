@@ -55,6 +55,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySet
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
@@ -598,7 +599,8 @@ public class SearchTestUtils {
         // As the factory wires it: every V3 index is created with the document-id scheme stamp.
         builders.add(
             new DocumentIdSchemeStampingMappingsBuilder(
-                new MultiEntityMappingsBuilder(entityIndexConfiguration),
+                new MultiEntityMappingsBuilder(
+                    entityIndexConfiguration, null, ESUtils.KEYWORD_MAXLENGTH, List.of()),
                 new V3DocumentIdScheme(new Sha256UrnEntityDocumentIdHasher())));
       } catch (IOException e) {
         throw new RuntimeException("Failed to initialize MultiEntityMappingsBuilder", e);

@@ -81,6 +81,11 @@ extend type MLModel implements SupportsVersions {
     @aspectMapping(aspects: ["versionProperties"])
 }
 
+extend type GlossaryTerm implements SupportsVersions {
+  versionProperties: VersionProperties
+    @aspectMapping(aspects: ["versionProperties"])
+}
+
 extend type Query {
   """
   Fetch a Version Set by its URN

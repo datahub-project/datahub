@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
@@ -371,7 +372,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
                 false, // not timeseries
                 searchableFieldTypes,
                 opContext,
-                queryFilterRewriteChain)
+                queryFilterRewriteChain,
+                readV3 && !entitySpecs.isEmpty() ? new SearchFieldResolver(entitySpecs) : null)
             : null;
 
     // Calculate k for oversampling
@@ -579,8 +581,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * Adapts a filter to the V3 mapping. {@code _entityType} becomes an {@code _index} filter on the
    * V3 index names, resolved like the V2 rewrite (underscores dropped, case ignored), because
    * GraphQL sends {@code DOCUMENT} while V3 stores {@code document}. Only entity-named V3 indices
-   * are searched, so an index name identifies the entity type. Other fields keep their V2 names: V3
-   * root fields carry the same {@code .keyword} subfields.
+   * are searched, so an index name identifies the entity type. Other fields keep their V2 names:
+   * the V3 filter builder resolves a {@code .keyword} name to the root field.
    */
   @Nonnull
   private static Filter toV3Filter(@Nonnull OperationContext opContext, @Nonnull Filter filter) {

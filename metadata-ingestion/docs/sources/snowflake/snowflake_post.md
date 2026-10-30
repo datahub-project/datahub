@@ -451,7 +451,7 @@ Iceberg tables are ingested like any other table, with `IS_ICEBERG: true` in the
 An `UNMANAGED` Iceberg table is written by another engine (for example Databricks with UniForm, or Spark) and only read by Snowflake, so Snowflake's own query history never shows where its data comes from. With `include_iceberg_external_lineage: true` (off by default; requires `include_iceberg_metadata` and `include_table_lineage`) DataHub adds the upstream itself:
 
 1. It looks in DataHub for a dataset whose `storage_location` custom property equals the table's `STORAGE_LOCATION`. The Unity Catalog connector records this property on every external table, so a Databricks table that writes to `s3://bucket/prefix/table` becomes a direct upstream of the Snowflake table that reads it, with column-level lineage matched by column name. GCS and Azure paths are also matched under their Spark spellings (`gs://` and `abfss://`), since Snowflake spells them `gcs://` and `azure://`.
-2. If no such dataset is found (or more than one claims the path), the upstream is the storage path's own dataset instead (an S3, GCS or Azure Blob dataset), the same way Snowflake external stages are represented.
+2. If no such dataset is found (or more than one claims the path), the upstream is the storage path's own dataset instead (an S3, GCS or Azure Blob dataset), resolved the same way as external stage locations: `datalake_lineage_config.path_specs` fold the path to its `{table}` boundary and `ignore_non_path_spec_path` skips unmatched paths (see the stage section below).
 
 The lookup needs a connection to DataHub; with a file sink only the storage-path fallback applies. Ingest the writing platform (for example Unity Catalog) before or alongside Snowflake so the lookup can find it; the edge is re-evaluated on every Snowflake run. The report counts the outcomes (`num_iceberg_lineage_writer_resolved`, `num_iceberg_lineage_storage_fallback`, `num_iceberg_lineage_writer_ambiguous`, `num_iceberg_lineage_skipped_no_storage_location`).
 
@@ -461,7 +461,7 @@ DataHub supports ingestion of Snowflake Stages, Tasks, and Snowpipe objects. All
 
 ##### Stages (`include_stages: true`)
 
-Stages are ingested as containers nested under their parent schema. Internal stages additionally emit a placeholder dataset representing the staged data, which is used for pipe lineage resolution. External stages (S3, GCS, Azure) resolve their URLs to the corresponding cloud platform dataset URN.
+Stages are ingested as containers nested under their parent schema. Internal stages additionally emit a placeholder dataset representing the staged data, which is used for pipe lineage resolution. External stages on S3, GCS, or Azure Blob Storage resolve their URLs to the corresponding cloud platform dataset URN when the location uses a supported scheme and host (Snowflake `azure://` URLs on ADLS Gen2 `dfs.core.windows.net` hosts are skipped).
 
 ```yaml
 include_stages: true
@@ -469,6 +469,23 @@ stage_pattern:
   allow:
     - "MY_DB.MY_SCHEMA.*"
 ```
+
+**Data lake lineage path specs for external stages**
+
+An external stage may point at a location that is more granular than the logical dataset — for example `s3://my-bucket/events/year=2024/month=01/`. By default the stage URL resolves to a dataset URN for that exact prefix, which will not match the table-level URN that the [S3 source](https://docs.datahub.com/docs/generated/ingestion/sources/s3) emits (`s3://my-bucket/events`), so lineage does not stitch together.
+
+Configure `datalake_lineage_config.path_specs` (the same `PathSpec` model used by the S3 source) to fold the stage location up to the `{table}` boundary. A stage pointing at the table root, a partition subfolder, or any prefix beneath `{table}` all resolve to the same dataset URN when the folded bucket/key path matches what the lake source emits. Path specs may use `s3://` or `gcs://`, or `azure://` for Azure Blob Storage stages whose host is `*.blob.core.windows.net`; Snowflake `azure://` URLs on ADLS Gen2 `*.dfs.core.windows.net` hosts are not resolved and emit no external dataset URN. Resolved URNs do not carry a `platform_instance`, so lineage does not stitch to S3, GCS, or ABS datasets ingested with `platform_instance` set even when the path matches. Set `ignore_non_path_spec_path: true` to skip emitting a dataset URN for any stage whose location does not match a configured path spec.
+
+```yaml
+datalake_lineage_config:
+  path_specs:
+    - include: "s3://my-bucket/{table}/*/*/*.csv"
+  ignore_non_path_spec_path: true
+```
+
+Give each storage location a single path spec. A stage URL is a directory prefix with no filename, so specs cannot be told apart by `file_types` the way they are when matching files — if two specs cover the same location but place `{table}` at different depths, the first one listed wins and the resulting URN may not be the one the lake source emits for that table.
+
+`exclude` and `tables_filter_pattern` are honoured: a stage location that a matching spec excludes or filters out emits no lineage at all, rather than falling back to the raw prefix.
 
 ##### Tasks (`include_tasks: true`)
 

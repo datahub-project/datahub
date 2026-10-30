@@ -5,6 +5,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.search.MatchedField;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
@@ -12,7 +13,7 @@ import org.testng.annotations.Test;
 public class MatchedFieldsTest {
 
   @Test
-  public void testCopiedPropertyReportsTheStrongestArrayValue() {
+  public void testStructuredPropertyStopsAtTheFirstMatch() {
     Map<String, Object> nested =
         Map.of(
             "structuredProperties", Map.of("businessName", List.of("Orders", "Customer Orders")));
@@ -21,7 +22,7 @@ public class MatchedFieldsTest {
             .find(nested, List.of("structuredProperties.businessName", "name"));
 
     assertEquals(names(matched), List.of("structuredProperties.businessName"));
-    assertEquals(matched.get(0).getValue(), "Customer Orders");
+    assertEquals(matched.get(0).getValue(), "Orders");
 
     Map<String, Object> flat =
         Map.of("structuredProperties.businessName", List.of("Customer Orders Daily", "Orders"));
@@ -30,7 +31,7 @@ public class MatchedFieldsTest {
             .find(flat, List.of("structuredProperties.businessName"))
             .get(0)
             .getValue(),
-        "Orders");
+        "Customer Orders Daily");
   }
 
   @Test
@@ -189,6 +190,24 @@ public class MatchedFieldsTest {
             .get(0)
             .getValue()
             .contains(" data "));
+  }
+
+  @Test
+  public void testNulledUrnLabelReportsTheStoredParsedName() {
+    Map<String, Object> source = new HashMap<>();
+    source.put("tags", null);
+    source.put("_aspects", Map.of("globalTags", Map.of("tags__urn_name", List.of("Confidential"))));
+
+    assertTrue(new MatchedFields("confidential", 0).find(source, List.of("tags")).isEmpty());
+    List<MatchedField> matched =
+        new MatchedFields("confidential", 0)
+            .find(
+                source,
+                List.of("_aspects.globalTags.tags__urn_name"),
+                Map.of("_aspects.globalTags.tags__urn_name", "tags"));
+
+    assertEquals(names(matched), List.of("tags"));
+    assertEquals(matched.get(0).getValue(), "Confidential");
   }
 
   private static List<String> names(List<MatchedField> matchedFields) {

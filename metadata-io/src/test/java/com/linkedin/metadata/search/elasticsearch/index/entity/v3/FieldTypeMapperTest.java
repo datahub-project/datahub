@@ -6,6 +6,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
+import com.linkedin.data.DataList;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.IntegerDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.LogicalValueType;
@@ -24,8 +28,8 @@ import org.testng.annotations.Test;
 public class FieldTypeMapperTest {
 
   @Test
-  public void testStringFieldsMapToNormalizedKeywords() {
-    // Root fields are not analyzed: full text lives in the shared _search fields
+  public void testStringFieldsMapToRawKeywords() {
+    // The root is the exact field. Full text lives on the shared labels.
     for (FieldType fieldType :
         List.of(
             FieldType.TEXT,
@@ -35,22 +39,19 @@ public class FieldTypeMapperTest {
             FieldType.URN_PARTIAL)) {
       Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(fieldType);
       assertEquals(mapping.get("type"), "keyword", fieldType.name());
-      assertEquals(mapping.get("normalizer"), "keyword_normalizer", fieldType.name());
+      assertFalse(mapping.containsKey("normalizer"), fieldType.name());
       assertEquals(mapping.get("ignore_above"), KEYWORD_MAXLENGTH, fieldType.name());
-      assertEquals(getFields(mapping).keySet(), Set.of("keyword"), fieldType.name());
-      assertKeywordSubfieldPresent(mapping);
-      // .keyword keeps the stored casing for case-sensitive exact match and facets
-      assertFalse(
-          ((Map<String, Object>) getFields(mapping).get("keyword")).containsKey("normalizer"),
-          fieldType.name());
+      assertFalse(mapping.containsKey("fields"), fieldType.name());
     }
   }
 
   @Test
-  public void testPlainKeywordFieldDoesNotHaveIgnoreAbove() {
+  public void testPlainKeywordFieldIsARawKeyword() {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForFieldType(FieldType.KEYWORD);
     assertEquals(mapping.get("type"), "keyword");
-    assertFalse(mapping.containsKey("ignore_above"));
+    assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
+    assertFalse(mapping.containsKey("normalizer"));
+    assertFalse(mapping.containsKey("fields"));
   }
 
   @Test
@@ -58,13 +59,8 @@ public class FieldTypeMapperTest {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForKeywordWithIgnoreAbove();
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
-    // Parent and .keyword sub-field must both be byte-safe so an oversized value is skipped rather
-    // than failing the whole document write on Lucene's 32,766-byte term limit.
-    Map<String, Object> fields = getFields(mapping);
-    assertTrue(fields.containsKey("keyword"), "must keep the .keyword sub-field");
-    assertEquals(
-        ((Map<String, Object>) fields.get("keyword")).get("ignore_above"),
-        keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
+    assertFalse(mapping.containsKey("normalizer"), mapping.toString());
+    assertFalse(mapping.containsKey("fields"), mapping.toString());
   }
 
   @Test
@@ -81,18 +77,12 @@ public class FieldTypeMapperTest {
   }
 
   private void assertKeywordByteSafe(Map<String, Object> mapping) {
-    // Full fix contract: exact-match filtering is preserved (keyword type + normalizer) AND the
-    // parent and its .keyword sub-field are byte-safe so an oversized value is skipped rather than
-    // failing the whole document write. A naive swap to a stripped keyword helper would pass the
-    // ignore_above checks but silently drop the normalizer — hence the normalizer assertion.
+    // The root is the exact keyword. ignore_above skips an oversized value instead of failing the
+    // document write on Lucene's term limit.
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("normalizer"), "keyword_normalizer", "normalizer must be preserved");
+    assertFalse(mapping.containsKey("normalizer"), mapping.toString());
+    assertFalse(mapping.containsKey("fields"), mapping.toString());
     assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
-    Map<String, Object> fields = getFields(mapping);
-    assertEquals(
-        ((Map<String, Object>) fields.get("keyword")).get("ignore_above"),
-        keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH),
-        "the .keyword sub-field must also be byte-safe");
   }
 
   @Test
@@ -101,7 +91,7 @@ public class FieldTypeMapperTest {
     assertEquals(mapping.get("type"), "keyword");
     // Configured value is UTF-8 bytes; ignore_above is character-based and byte-safe (/ 4).
     assertEquals(mapping.get("ignore_above"), 256);
-    assertKeywordSubfieldPresent(mapping);
+    assertRawKeyword(mapping);
   }
 
   @Test
@@ -111,14 +101,14 @@ public class FieldTypeMapperTest {
             com.linkedin.metadata.models.LogicalValueType.STRING, 2048);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), 512);
-    assertKeywordSubfieldPresent(mapping);
+    assertRawKeyword(mapping);
   }
 
   @Test
   public void testGetMappingsForUrn() {
     Map<String, Object> mapping = FieldTypeMapper.getMappingsForUrn();
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), 255);
+    assertFalse(mapping.containsKey("ignore_above"));
     assertFalse(
         mapping.containsKey("fields"),
         "URN mapping is parent keyword only; query time skips .keyword for URN SPs");
@@ -130,7 +120,7 @@ public class FieldTypeMapperTest {
         FieldTypeMapper.getMappingsForLogicalValueType(
             com.linkedin.metadata.models.LogicalValueType.URN);
     assertEquals(mapping.get("type"), "keyword");
-    assertEquals(mapping.get("ignore_above"), 255);
+    assertFalse(mapping.containsKey("ignore_above"));
     assertFalse(
         mapping.containsKey("fields"),
         "URN logical value type must use parent keyword mapping without .keyword subfield");
@@ -143,7 +133,7 @@ public class FieldTypeMapperTest {
             com.linkedin.metadata.models.LogicalValueType.STRING);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
-    assertKeywordSubfieldPresent(mapping);
+    assertRawKeyword(mapping);
   }
 
   @Test
@@ -153,7 +143,7 @@ public class FieldTypeMapperTest {
             com.linkedin.metadata.models.LogicalValueType.RICH_TEXT);
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
-    assertKeywordSubfieldPresent(mapping);
+    assertRawKeyword(mapping);
   }
 
   @Test
@@ -210,9 +200,7 @@ public class FieldTypeMapperTest {
           mapping.get("type"),
           "keyword",
           "URN+KEYWORD collision must emit an exact-match-safe base regardless of spec order");
-      // Filters, facets and sorts append .keyword to root fields
-      assertEquals(
-          ((Map<String, Object>) getFields(mapping).get("keyword")).get("type"), "keyword");
+      assertFalse(mapping.containsKey("fields"), mapping.toString());
     }
   }
 
@@ -237,8 +225,8 @@ public class FieldTypeMapperTest {
             FieldType.TEXT, mock(SearchableFieldSpec.class));
     assertEquals(aspect.get("type"), "keyword");
     assertEquals(aspect.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
-    Map<String, Object> fields = (Map<String, Object>) aspect.get("fields");
-    assertEquals(fields.keySet(), Set.of("keyword"));
+    assertFalse(aspect.containsKey("fields"), aspect.toString());
+    assertFalse(aspect.containsKey("normalizer"), aspect.toString());
 
     Map<String, Object> unindexed =
         FieldTypeMapper.mappingForRoot(
@@ -250,8 +238,69 @@ public class FieldTypeMapperTest {
     Map<String, Object> unindexedAspect =
         FieldTypeMapper.mappingForAspectRoot(
             FieldMapping.root(FieldMapping.Type.KEYWORD, false, false),
-            mock(SearchableFieldSpec.class));
+            annotationSpec(unindexedKeywordAnnotation(), mock(DataSchema.class)));
     assertEquals(unindexedAspect, unindexed);
+  }
+
+  @Test
+  public void testLabeledAspectSourceIsUnindexedUntilReenabled() {
+    Map<String, Object> labeled =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.KEYWORD),
+            annotationSpec(labeledAnnotation("KEYWORD", "name"), mock(DataSchema.class)));
+    assertEquals(labeled.get("type"), "keyword");
+    assertEquals(labeled.get("index"), false);
+    assertEquals(labeled.get("doc_values"), false);
+    assertFalse(labeled.containsKey("fields"));
+
+    DataMap indexOnly = labeledAnnotation("KEYWORD", "name");
+    DataMap indexOnlySource = new DataMap();
+    indexOnlySource.put("index", true);
+    ((DataMap) indexOnly.get("v3")).put("source", indexOnlySource);
+    Map<String, Object> indexed =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.KEYWORD),
+            annotationSpec(indexOnly, mock(DataSchema.class)));
+    assertFalse(indexed.containsKey("normalizer"), indexed.toString());
+    assertEquals(indexed.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
+    assertFalse(indexed.containsKey("index"));
+    assertEquals(indexed.get("doc_values"), false);
+
+    DataMap both = labeledAnnotation("KEYWORD", "name");
+    DataMap bothSource = new DataMap();
+    bothSource.put("index", true);
+    bothSource.put("docValues", true);
+    ((DataMap) both.get("v3")).put("source", bothSource);
+    Map<String, Object> fullyIndexed =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.KEYWORD),
+            annotationSpec(both, mock(DataSchema.class)));
+    assertFalse(fullyIndexed.containsKey("normalizer"), fullyIndexed.toString());
+    assertEquals(
+        fullyIndexed.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
+    assertFalse(fullyIndexed.containsKey("index"));
+    assertFalse(fullyIndexed.containsKey("doc_values"));
+
+    Map<String, Object> count =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.COUNT),
+            annotationSpec(
+                labeledAnnotation("COUNT", "rowCount"),
+                new IntegerDataSchema(),
+                DataSchema.Type.INT));
+    assertEquals(count.get("type"), "integer");
+    assertEquals(count.get("index"), false);
+    assertEquals(count.get("doc_values"), false);
+
+    DataMap plain = new DataMap();
+    plain.put("fieldType", "BOOLEAN");
+    Map<String, Object> unlabeled =
+        FieldTypeMapper.mappingForAspectRoot(
+            FieldMapping.root(FieldMapping.Type.BOOLEAN),
+            annotationSpec(plain, mock(DataSchema.class), DataSchema.Type.BOOLEAN));
+    assertEquals(unlabeled.get("type"), "boolean");
+    assertEquals(unlabeled.get("index"), false);
+    assertEquals(unlabeled.get("doc_values"), false);
   }
 
   @Test
@@ -272,7 +321,7 @@ public class FieldTypeMapperTest {
     assertEquals(label.get("type"), "keyword");
     assertEquals(label.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
     Map<String, Object> fields = (Map<String, Object>) label.get("fields");
-    assertEquals(fields.keySet(), Set.of("keyword", "text", "stemmed", "ngram"));
+    assertEquals(fields.keySet(), Set.of("text", "stemmed", "ngram"));
     assertEquals(((Map<String, Object>) fields.get("text")).get("type"), "text");
     assertFalse(
         fields.get("text") instanceof Map
@@ -288,6 +337,41 @@ public class FieldTypeMapperTest {
     assertTrue(mappings.get(0).isIndex());
   }
 
+  private static DataMap labeledAnnotation(String fieldType, String searchLabel) {
+    DataMap v3 = new DataMap();
+    v3.put("searchLabel", searchLabel);
+    DataMap annotation = new DataMap();
+    annotation.put("fieldType", fieldType);
+    annotation.put("v3", v3);
+    return annotation;
+  }
+
+  private static DataMap unindexedKeywordAnnotation() {
+    DataMap root = new DataMap();
+    root.put("type", "KEYWORD");
+    root.put("index", false);
+    root.put("docValues", false);
+    DataList mappings = new DataList();
+    mappings.add(root);
+    DataMap v3 = new DataMap();
+    v3.put("mappings", mappings);
+    DataMap annotation = new DataMap();
+    annotation.put("fieldType", "KEYWORD");
+    annotation.put("v3", v3);
+    return annotation;
+  }
+
+  private static SearchableFieldSpec annotationSpec(DataMap annotation, DataSchema schema) {
+    return annotationSpec(annotation, schema, DataSchema.Type.STRING);
+  }
+
+  private static SearchableFieldSpec annotationSpec(
+      DataMap annotation, DataSchema schema, DataSchema.Type schemaType) {
+    SearchableAnnotation parsed =
+        SearchableAnnotation.fromPegasusAnnotationObject(annotation, "field", schemaType, "test");
+    return new SearchableFieldSpec(new PathSpec("field"), parsed, schema);
+  }
+
   private static SearchableFieldSpec fieldSpec(FieldType fieldType, String path) {
     SearchableFieldSpec spec = mock(SearchableFieldSpec.class);
     SearchableAnnotation annotation = mock(SearchableAnnotation.class);
@@ -297,21 +381,8 @@ public class FieldTypeMapperTest {
     return spec;
   }
 
-  @SuppressWarnings("unchecked")
-  private static void assertKeywordSubfieldPresent(Map<String, Object> mapping) {
-    assertTrue(mapping.containsKey("fields"), "STRING/RICH_TEXT/TEXT mappings need .keyword");
-    Map<String, Object> fields = (Map<String, Object>) mapping.get("fields");
-    assertTrue(fields.containsKey("keyword"), "Must expose .keyword multi-field for exact match");
-    Map<String, Object> keyword = (Map<String, Object>) fields.get("keyword");
-    assertEquals(keyword.get("type"), "keyword");
-    assertEquals(
-        keyword.get("ignore_above"),
-        mapping.get("ignore_above"),
-        ".keyword subfield must mirror parent ignore_above");
-  }
-
-  @SuppressWarnings("unchecked")
-  private Map<String, Object> getFields(Map<String, Object> mapping) {
-    return (Map<String, Object>) mapping.get("fields");
+  private static void assertRawKeyword(Map<String, Object> mapping) {
+    assertFalse(mapping.containsKey("normalizer"), mapping.toString());
+    assertFalse(mapping.containsKey("fields"), mapping.toString());
   }
 }

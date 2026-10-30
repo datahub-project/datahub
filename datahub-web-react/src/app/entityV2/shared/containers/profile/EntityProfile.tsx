@@ -37,7 +37,7 @@ import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/His
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import useIsLineageMode from '@app/lineageV3/utils/useIsLineageMode';
 import { useUpdateMarketplaceEntityDataOnChange } from '@app/marketplace/useUpdateMarketplaceEntityDataOnChange';
 import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -45,11 +45,11 @@ import {
     LINEAGE_GRAPH_INTRO_ID,
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '@app/onboarding/config/LineageGraphOnboardingConfig';
-import CompactContext from '@app/shared/CompactContext';
-import { EntityHead } from '@app/shared/EntityHead';
-import TabFullsizeContext from '@app/shared/TabFullsizedContext';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import TabFullsizeContext from '@app/sharedV2/TabFullsizedContext';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 import useEntityState from '@src/app/entity/shared/useEntityState';

@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
@@ -22,6 +23,10 @@ import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
@@ -269,6 +274,22 @@ public class ESBrowseDAO {
   }
 
   /**
+   * The filter Browse v1 applies, rebuilt from its request map so sibling hiding sees the same
+   * criteria search does: each entry is an equality filter applied below.
+   */
+  @Nullable
+  private static Filter requestMapToFilter(@Nonnull final Map<String, List<String>> requestMap) {
+    if (requestMap.isEmpty()) {
+      return null;
+    }
+    final CriterionArray criteria = new CriterionArray();
+    requestMap.forEach(
+        (field, values) -> criteria.add(buildCriterion(field, Condition.EQUAL, values)));
+    return new Filter()
+        .setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criteria)));
+  }
+
+  /**
    * Builds query string.
    *
    * @param path the path which is being browsed
@@ -289,6 +310,8 @@ public class ESBrowseDAO {
 
     applyDefaultSearchFilters(
         opContext, List.of(entityName), null, queryBuilder, searchConfiguration.getEntityIndex());
+    ESUtils.filterNonPrimarySiblings(
+        requestMapToFilter(requestMap), queryBuilder, searchConfiguration.getSearch());
 
     if (!path.isEmpty()) {
       queryBuilder.filter(QueryBuilders.termQuery(BROWSE_PATH, path));
@@ -622,6 +645,9 @@ public class ESBrowseDAO {
     final String indexName = entityIndexName(opContext, entityName);
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    // The browse template owns lexical routing and ranking. Path, depth, authorization filters,
+    // the groups aggregation, the result limit, and execution stay here, so a stored aggregation
+    // or rescore cannot replace group counts.
     searchSourceBuilder.size(0);
     searchSourceBuilder.query(
         buildQueryStringV2(
@@ -656,6 +682,8 @@ public class ESBrowseDAO {
 
     final SearchRequest searchRequest = new SearchRequest(indexArray);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    // Same boundary as a single-entity browse: the template query, then Java path, depth,
+    // filters, and the groups aggregation.
     searchSourceBuilder.size(0);
     searchSourceBuilder.query(
         buildQueryStringBrowseAcrossEntities(

@@ -95,7 +95,10 @@ describe('AssetsSection', () => {
                 variables: expect.objectContaining({
                     input: expect.objectContaining({
                         count: 0,
-                        orFilters: [{ and: [{ field: 'applications', values: [urn] }] }],
+                        orFilters: [
+                            { and: [{ field: 'applications', values: [urn] }] },
+                            { and: [{ field: 'parentApplication', values: [urn] }] },
+                        ],
                     }),
                 }),
             }),
