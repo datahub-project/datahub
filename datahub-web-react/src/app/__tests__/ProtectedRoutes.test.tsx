@@ -3,6 +3,7 @@ import React from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 
 import { ProtectedRoutes } from '@app/ProtectedRoutes';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 
 vi.mock('@app/DataHubTitle', () => ({ default: () => null }));
 vi.mock('@app/EmbedRoutes', () => ({ default: () => null }));
@@ -25,10 +26,12 @@ const renderRoutes = (path: string, landingPage = 'home') => {
     vi.stubEnv('REACT_APP_DEFAULT_LANDING_PAGE', landingPage);
 
     return render(
-        <MemoryRouter initialEntries={[path]}>
-            <CurrentPath />
-            <ProtectedRoutes />
-        </MemoryRouter>,
+        <CustomThemeProvider>
+            <MemoryRouter initialEntries={[path]}>
+                <CurrentPath />
+                <ProtectedRoutes />
+            </MemoryRouter>
+        </CustomThemeProvider>,
     );
 };
 
