@@ -243,7 +243,7 @@ def test_superset_dataset_omits_ownership_when_no_owners_resolve(requests_mock):
         status_code=200,
     )
 
-    dataset_aspects = source.construct_dataset_from_dataset_data(
+    _, dataset_aspects = source.construct_dataset_from_dataset_data(
         {"id": 77, "owners": [{"id": 99}]}
     )
 
@@ -328,7 +328,7 @@ def test_superset_dataset_includes_ownership_when_owner_resolves(requests_mock):
         status_code=200,
     )
 
-    dataset_aspects = source.construct_dataset_from_dataset_data(
+    _, dataset_aspects = source.construct_dataset_from_dataset_data(
         {"id": 77, "owners": [{"id": 1}]}
     )
 

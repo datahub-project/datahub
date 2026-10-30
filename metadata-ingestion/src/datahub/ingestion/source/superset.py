@@ -2040,7 +2040,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         return upstream_lineage
 
-    def construct_dataset_from_dataset_data(self, dataset_data: dict) -> List[_Aspect]:
+    def construct_dataset_from_dataset_data(
+        self, dataset_data: dict
+    ) -> Tuple[str, List[_Aspect]]:
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
         result = dataset_response.get("result")
         if not isinstance(result, dict):
@@ -2146,7 +2148,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
             aspects_items.append(owners_info)
 
-        return aspects_items
+        return datasource_urn, aspects_items
 
     def _extract_and_map_tags(self, raw_tags: Any) -> Optional[GlobalTagsClass]:
         """Extract and map Superset tags to DataHub GlobalTagsClass.
@@ -2240,11 +2242,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                     )
                     return
 
-            dataset_aspects = self.construct_dataset_from_dataset_data(dataset_data)
-            # Cache hit: construct_dataset_from_dataset_data only returns after
-            # get_dataset_info cached this id.
-            dataset_urn = self.get_datasource_urn_from_id(
-                self.get_dataset_info(dataset_id), self.platform
+            dataset_urn, dataset_aspects = self.construct_dataset_from_dataset_data(
+                dataset_data
             )
         except Exception as e:
             self.report.warning(
