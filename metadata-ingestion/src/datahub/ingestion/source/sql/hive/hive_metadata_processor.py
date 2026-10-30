@@ -25,7 +25,6 @@ from typing import (
     List,
     Optional,
     Tuple,
-    Union,
     cast,
 )
 
@@ -35,6 +34,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.presto_view_decoder import decode_presto_view
 from datahub.ingestion.source.common.subtypes import (
@@ -43,7 +43,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.sql.hive.exceptions import InvalidDatasetIdentifierError
 from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineage
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, get_schema_metadata
+from datahub.ingestion.source.sql.sql_common import get_schema_metadata
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -54,14 +54,13 @@ from datahub.ingestion.source.sql.sql_utils import (
     get_domain_wu,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     SubTypesClass,
     ViewPropertiesClass,
+    _Aspect,
 )
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
@@ -406,9 +405,7 @@ class HiveMetadataProcessor:
                 ]
         return table_properties
 
-    def process_tables(
-        self, db_name: str
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    def process_tables(self, db_name: str) -> Iterable[MetadataWorkUnit]:
         """
         Process all tables and generate WorkUnits.
 
@@ -462,11 +459,6 @@ class HiveMetadataProcessor:
                 self.config.platform_instance,
                 self.config.env,
             )
-            dataset_snapshot = DatasetSnapshot(
-                urn=dataset_urn,
-                aspects=[StatusClass(removed=False)],
-            )
-
             # Generate schema fields
             schema_fields = self.get_schema_fields(dataset_name, columns)
             self._set_partition_key(columns, schema_fields)
@@ -481,7 +473,9 @@ class HiveMetadataProcessor:
                 schema_fields,
                 self.config.simplify_nested_field_paths,
             )
-            dataset_snapshot.aspects.append(schema_metadata)
+            # schema_metadata is emitted as is, not copied: the schema field path
+            # validators edit it in place, and storage lineage below reads the result.
+            aspects: List[_Aspect] = [StatusClass(removed=False), schema_metadata]
 
             # Register schema with aggregator so view lineage SQL parsing
             # can resolve column types without network calls to DataHub
@@ -512,7 +506,7 @@ class HiveMetadataProcessor:
                 from datahub.specific.dataset import DatasetPatchBuilder
 
                 patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
-                    urn=dataset_snapshot.urn
+                    urn=dataset_urn
                 )
                 patch_builder.set_display_name(key.table)
 
@@ -529,15 +523,19 @@ class HiveMetadataProcessor:
                     for mcp_raw in patch_builder.build()
                 ]
             else:
-                dataset_properties = DatasetPropertiesClass(
-                    name=key.table,
-                    description=table_description,
-                    customProperties=properties,
+                aspects.append(
+                    DatasetPropertiesClass(
+                        name=key.table,
+                        description=table_description,
+                        customProperties=properties,
+                    )
                 )
-                dataset_snapshot.aspects.append(dataset_properties)
 
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            yield SqlWorkUnit(id=dataset_name, mce=mce)
+            yield from auto_workunit(
+                MetadataChangeProposalWrapper.construct_many(
+                    entityUrn=dataset_urn, aspects=aspects
+                )
+            )
 
             # Emit subtype
             yield MetadataChangeProposalWrapper(
@@ -659,9 +657,7 @@ class HiveMetadataProcessor:
                 view_definition=view_definition,
             )
 
-    def process_views(
-        self, db_name: str
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    def process_views(self, db_name: str) -> Iterable[MetadataWorkUnit]:
         """
         Process all views and generate WorkUnits.
 
@@ -692,11 +688,6 @@ class HiveMetadataProcessor:
                 self.config.platform_instance,
                 self.config.env,
             )
-            dataset_snapshot = DatasetSnapshot(
-                urn=dataset_urn,
-                aspects=[StatusClass(removed=False)],
-            )
-
             # Generate schema fields
             schema_fields = self.get_schema_fields(
                 dataset.dataset_name, dataset.columns
@@ -710,7 +701,6 @@ class HiveMetadataProcessor:
                 canonical_schema=schema_fields,
                 simplify_nested_field_paths=self.config.simplify_nested_field_paths,
             )
-            dataset_snapshot.aspects.append(schema_metadata)
 
             if self.aggregator is not None:
                 self.aggregator.register_schema(dataset_urn, schema_metadata)
@@ -722,7 +712,6 @@ class HiveMetadataProcessor:
                 description=None,
                 customProperties=properties,
             )
-            dataset_snapshot.aspects.append(dataset_properties)
 
             # Add view properties
             view_properties = ViewPropertiesClass(
@@ -730,15 +719,23 @@ class HiveMetadataProcessor:
                 viewLogic=dataset.view_definition if dataset.view_definition else "",
                 viewLanguage="SQL",
             )
-            dataset_snapshot.aspects.append(view_properties)
 
             # Add to container
             yield from self._add_dataset_to_container(
                 dataset_urn=dataset_urn, db_name=db_name, schema=dataset.schema_name
             )
 
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            yield SqlWorkUnit(id=dataset.dataset_name, mce=mce)
+            view_aspects: List[_Aspect] = [
+                StatusClass(removed=False),
+                schema_metadata,
+                dataset_properties,
+                view_properties,
+            ]
+            yield from auto_workunit(
+                MetadataChangeProposalWrapper.construct_many(
+                    entityUrn=dataset_urn, aspects=view_aspects
+                )
+            )
 
             # Emit subtype
             yield MetadataChangeProposalWrapper(
@@ -750,17 +747,6 @@ class HiveMetadataProcessor:
             dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn)
             if dpi_aspect:
                 yield dpi_aspect
-
-            # Emit view properties again via MCP
-            view_properties_aspect = ViewPropertiesClass(
-                materialized=False,
-                viewLanguage="SQL",
-                viewLogic=dataset.view_definition if dataset.view_definition else "",
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=view_properties_aspect,
-            ).as_workunit()
 
             # Emit domain
             if self.config.domain and self.domain_registry:

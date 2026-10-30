@@ -139,6 +139,8 @@ An explicit empty string drops that section, including an inherited `knn`, `rank
 
 `fields` merges by key. A child's `add`, `remove`, and `override` combine with the parent's, and the child's `override` wins when both name the same field. When the parent set `replace`, those child keys apply to that set. A child's `replace` replaces the queried set and discards the parent's `add`, `remove`, and `override`.
 
+`ranking.signals` replaces the inherited signal list. `ranking.add` and `ranking.remove` patch that list by signal name, including a list loaded through `ranking.template`. A new name is appended. The same name replaces that signal and keeps its place. A non-empty `signals` list discards parent patches and leaves `preset` unset. An empty `signals` list or an empty `formula` drops that field and keeps the rest of the ranking. An empty `template` drops the reference and the `add` and `remove` patches that sat beside it. A `ranking.template` URN replaces inherited inline ranking fields. Inline ranking fields replace an inherited `ranking.template`.
+
 `queryFragments` merges by hole name. Every level that sets a non-empty key adds a fragment, joined root-first with commas. An unset key adds nothing. An empty string drops inherited fragments for that key. See [Query holes](#query-holes).
 
 `routes` replaces the whole list. Unset keeps the parent's list. An explicit empty list drops it, which is how a route target stays on the body it was routed to. A non-empty child list replaces the parent's order. There is no per-route merge. A default target is separate from the list. Unset keeps the parent's target. Setting one replaces it. Clearing it leaves a miss on this template.
@@ -650,7 +652,7 @@ A property joins a `dis_max` when the author fills `extraDisMaxQueries`, or when
 
 ### Ranking
 
-V2.5 order is decided after the query returns. An engine `rescore` block cannot carry that formula. Script scoring stays forbidden, so the formula cannot move into `functionScore` either. `ranking` names a preset the service implements, plus parameters. It does not carry an expression or a script.
+V2.5 order is decided after the query returns. An engine `rescore` block cannot carry that formula. Script scoring stays forbidden, so the formula cannot move into `functionScore` either. `ranking` names a preset, plus parameters. A stored `formula` is kept and is not evaluated.
 
 ```yaml
 ranking:
@@ -661,13 +663,17 @@ ranking:
     matchTierBand: 10
 ```
 
-| Preset              | What the service does                                                                              |
-| ------------------- | -------------------------------------------------------------------------------------------------- |
-| `none`              | Leaves the query order.                                                                            |
-| `usage`             | The exp4j product over the indexed signals (usage, entity type, tags, rank features, deprecation). |
-| `usageAndMatchTier` | `usage`, then match-tier bands, then entity-type diversity.                                        |
+| Preset              | What the service does          |
+| ------------------- | ------------------------------ |
+| `none`              | Leaves the query order.        |
+| `usage`             | Not executed. Selection fails. |
+| `usageAndMatchTier` | Not executed. Selection fails. |
 
-`windowSizer` is the same kind of closed set. `fixed` uses `window`. `tokenCurve` is the current U-curve: one token and six-plus tokens use a smaller window, three and four tokens use the full window, and a deep path caps at 100. Search V3 implements `none` and `fixed`. `usage`, `usageAndMatchTier`, and `tokenCurve` are future OSS use. A template that names a preset or window sizer the process does not implement fails the capability check.
+`windowSizer` is the same kind of closed set. `fixed` uses `window`. This release implements `none` and `fixed`. `usage` and `usageAndMatchTier` fail selection. `tokenCurve` fails selection unless the resolved ranking stores a non-empty signal list. That list does not change the window.
+
+A ranking may store `signals`, an optional `formula`, or `ranking.template`. A reference and inline fields on the same ranking are rejected. `add` and `remove` patch the inherited list by signal name and may sit beside the reference. A non-empty `signals` list replaces the inherited list and cannot be combined with those patches. Signals or `ranking.template` require `rankingSignals`. A formula requires `rankingFormula`. Elasticsearch `rescore` is not combined with either. This release merges the stored section and does not score it.
+
+A `postProcess` component at version 1 is a registered component. OSS registers an empty implementation when no other implementation uses that name and version. The empty implementation accepts the stored config, does not interpret it, and does not reorder hits.
 
 `fields.override` changes the engine score the ranking step reads. It applies only to a field that remains in the queried set. `ranking` and `rescore` do not carry a field-weight list, and they do not copy the query weights into one. A saved ranking is a child whose section is `fields.override`, as [Field weights](#field-weights) specifies. `ranking` still only reorders the fetched window.
 
@@ -675,7 +681,7 @@ The author writes the boost and the `dis_max` in the body. Inside the weighted f
 
 Those clauses run in the composed keyword query, before `functionScore`, engine `rescore`, `ranking`, and `knn`. Downstream scoring crosses them only when the selected template applies `functionScore`, `rescore`, `ranking`, or `knn`.
 
-`rescore`, `ranking`, and `knn` then reorder inside their windows. Inside a window another clause can move ahead. Past those windows the served order is the query score. Scroll runs the composed keyword query and drops all three. `usageAndMatchTier` applies usage and entity-type diversity inside its window, on top of the query score. A quoted query requires the phrase. See [Selection](#selection).
+`rescore`, `ranking`, and `knn` then reorder inside their windows. Inside a window another clause can move ahead. Past those windows the served order is the query score. Scroll runs the composed keyword query and drops all three. A quoted query requires the phrase. See [Selection](#selection).
 
 The name-and-value group sits in that query, before `functionScore`. It is its own `dis_max`. It is not a ranking preset. See [Name and value](#name-and-value).
 

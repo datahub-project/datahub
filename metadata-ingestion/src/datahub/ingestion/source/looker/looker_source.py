@@ -31,7 +31,6 @@ from looker_sdk.sdk.api40.models import (
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -1686,10 +1685,8 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             self.source_config.tag_measures_and_dimensions
             and self.reporter.explores_scanned > 0
         ):
-            # Emit tag MCPs for measures and dimensions if we produced any explores:
-            # Tags MCEs are converted to MCPs
-            for tag_mce in LookerUtil.get_tag_mces():
-                yield from auto_workunit(mcps_from_mce(tag_mce))
+            # Emit tag definitions for measures and dimensions if we produced any explores:
+            yield from LookerUtil.gen_tag_workunits()
 
         # Extract usage history is enabled
         if self.source_config.extract_usage_history:

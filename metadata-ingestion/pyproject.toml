@@ -667,6 +667,10 @@ kinesis = [
     "networkx>=2.6.2,<4.0.0",
 ]
 
+langfuse = [
+    "requests<3.0.0",
+]
+
 ldap = [
     "python-ldap>=2.4,<4.0.0",
 ]
@@ -1007,12 +1011,14 @@ snowflake = [
     "greenlet<4.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
     "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch<11.0.0",
 ]
 
 snowflake-queries = [
@@ -1021,12 +1027,14 @@ snowflake-queries = [
     "greenlet<4.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
     "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch<11.0.0",
 ]
 
 snowflake-slim = [
@@ -1034,9 +1042,11 @@ snowflake-slim = [
     "cryptography>=50.0.0,<51.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
     "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch<11.0.0",
 ]
 
 snowflake-summary = [
@@ -1045,12 +1055,14 @@ snowflake-summary = [
     "greenlet<4.0.0",
     "msal<2.0.0",
     "pandas<3.0.0",
+    "parse>=1.19.0,<2.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
     "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "wcmatch<11.0.0",
 ]
 
 snowplow = [
@@ -1855,6 +1867,7 @@ json-schema = "datahub.ingestion.source.schema.json_schema:JsonSchemaSource"
 kafka = "datahub.ingestion.source.kafka.kafka:KafkaSource"
 kafka-connect = "datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource"
 kinesis = "datahub.ingestion.source.kinesis.kinesis:KinesisSource"
+langfuse = "datahub.ingestion.source.langfuse.langfuse:LangfuseSource"
 ldap = "datahub.ingestion.source.ldap:LDAPSource"
 looker = "datahub.ingestion.source.looker.looker_source:LookerDashboardSource"
 lookml = "datahub.ingestion.source.looker.lookml_source:LookMLSource"

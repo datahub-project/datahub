@@ -85,6 +85,7 @@ def ldap_ingest_common(
                 output_path=tmp_path / output_file_name,
                 golden_path=test_resources_dir / golden_file_name,
                 ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+                fail_on_output_mces=True,
             )
             return pipeline
 
@@ -94,17 +95,17 @@ def ldap_ingest_common(
 def test_ldap_stateful(
     docker_compose_runner, pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):
-    golden_file_name: str = "ldap_mces_golden_stateful.json"
-    output_file_name: str = "ldap_mces_stateful.json"
+    golden_file_name: str = "ldap_golden_stateful.json"
+    output_file_name: str = "ldap_stateful.json"
 
-    golden_file_deleted_name: str = "ldap_mces_golden_deleted_stateful.json"
-    output_file_deleted_name: str = "ldap_mces_deleted_stateful.json"
+    golden_file_deleted_name: str = "ldap_golden_deleted_stateful.json"
+    output_file_deleted_name: str = "ldap_deleted_stateful.json"
 
-    golden_file_group: str = "ldap_mces_golden_group_stateful.json"
-    output_file_group: str = "ldap_mces_group_stateful.json"
+    golden_file_group: str = "ldap_golden_group_stateful.json"
+    output_file_group: str = "ldap_group_stateful.json"
 
-    golden_file_delete_group: str = "ldap_mces_golden_deleted_group_stateful.json"
-    output_file_delete_group: str = "ldap_mces_deleted_group_stateful.json"
+    golden_file_delete_group: str = "ldap_golden_deleted_group_stateful.json"
+    output_file_delete_group: str = "ldap_deleted_group_stateful.json"
 
     filter1: str = "(|(cn=Bart Simpson)(cn=Homer Simpson))"
     filter2: str = "(|(cn=Bart Simpson))"
