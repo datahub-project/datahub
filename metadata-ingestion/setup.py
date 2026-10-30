@@ -864,6 +864,8 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | aws_common
     | sqlalchemy_lib  # powers the optional sql_table query_source backend
+    # google-auth signs udmSearch calls for the optional secops query_source backend.
+    | {"google-auth>=2.0.0,<3.0.0"}
     # cachetools is imported at module load via SQLAlchemyConnectionConfig ->
     # profiling config -> operation_config.
     | cachetools_lib

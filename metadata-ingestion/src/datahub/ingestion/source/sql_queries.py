@@ -4,7 +4,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from functools import cached_property
 from typing import (
     Annotated,
@@ -15,6 +15,7 @@ from typing import (
     List,
     Literal,
     Optional,
+    Tuple,
     Union,
 )
 
@@ -34,6 +35,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
@@ -60,6 +62,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.elastic_search_common import ElasticsearchConnectionConfig
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
@@ -84,6 +87,10 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 
 logger = logging.getLogger(__name__)
+
+# udmSearch coerces any larger limit to this and returns no page token.
+SECOPS_MAX_EVENTS_PER_SEARCH = 10000
+SECOPS_OAUTH_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 
 
 class ElasticsearchQueryFieldMappings(ConfigModel):
@@ -213,8 +220,118 @@ class SqlTableQuerySourceConfig(ConfigModel):
 
 
 # Discriminated on `type` so new backends can be added without touching callers.
+class SecOpsQueryFieldMappings(ConfigModel):
+    """Maps QueryEntry fields to UDM event fields.
+
+    Paths are dotted and relative to the event's `udm` object, in the camelCase
+    form the Chronicle REST API returns (e.g. `metadata.eventTimestamp`). A path
+    that passes through a repeated field takes its first element.
+    """
+
+    query: str = Field(
+        description="UDM field holding the SQL query text. Where the statement lands "
+        "depends on the log type's parser, e.g. `target.process.commandLine` or "
+        "`additional.fields.statement`; check a sample event in UDM Search."
+    )
+    timestamp: Optional[str] = Field(
+        "metadata.eventTimestamp",
+        description="UDM field holding the query timestamp.",
+    )
+    user: Optional[str] = Field(
+        "principal.user.userid",
+        description="UDM field holding the executing user.",
+    )
+    session_id: Optional[str] = Field(
+        None, description="UDM field holding the session/connection id."
+    )
+    default_db: Optional[str] = Field(
+        None,
+        description="UDM field holding the default database for unqualified table names.",
+    )
+    default_schema: Optional[str] = Field(
+        None,
+        description="UDM field holding the default schema for unqualified table names.",
+    )
+
+
+class SecOpsQuerySourceConfig(BaseTimeWindowConfig):
+    type: Literal["secops"] = "secops"
+    project_id: str = Field(
+        description="Google Cloud project that the Google SecOps instance is bound to."
+    )
+    location: str = Field(
+        description="Region of the Google SecOps instance, e.g. `us`, `europe` or "
+        "`europe-west2`. Selects the `https://<location>-chronicle.googleapis.com` "
+        "endpoint unless `endpoint` is set."
+    )
+    instance_id: str = Field(
+        description="Google SecOps instance (customer) id, a GUID shown under "
+        "SIEM Settings > Profile."
+    )
+    endpoint: Optional[str] = Field(
+        None,
+        description="Override the Chronicle API base URL, e.g. for a private endpoint.",
+    )
+    credential: Optional[GCPCredential] = Field(
+        None,
+        description="Service account key with the `chronicle.events.udmSearch` "
+        "permission (e.g. the Chronicle API Viewer role). When omitted, Application "
+        "Default Credentials are used.",
+    )
+    udm_query: str = Field(
+        description="UDM Search query selecting the events that carry SQL, e.g. "
+        '`metadata.log_type = "GCP_CLOUDAUDIT" AND metadata.product_event_type = '
+        '"jobservice.jobcompleted"`. Scope it tightly: every matching event is read.'
+    )
+    field_mappings: SecOpsQueryFieldMappings = Field(
+        description="Maps QueryEntry fields to UDM event fields."
+    )
+    unescape_sql: bool = Field(
+        False,
+        description="Unescape backslash-escaped quotes in the SQL text.",
+    )
+    email_domain: Optional[str] = Field(
+        None,
+        description="If set, bare user values are turned into CorpUser URNs by "
+        "appending '@' and this domain.",
+    )
+    window_minutes: int = Field(
+        60,
+        gt=0,
+        description="Length of each search window. udmSearch returns at most "
+        f"{SECOPS_MAX_EVENTS_PER_SEARCH} events per call and has no paging, so the "
+        "time range is read window by window, and a window that hits the cap is split "
+        "in half until it fits.",
+    )
+    min_window_seconds: int = Field(
+        1,
+        gt=0,
+        description="Smallest window to split down to. A window this short that still "
+        "hits the cap is read as is, its extra events are missed, and a warning is "
+        "reported.",
+    )
+    request_timeout_seconds: int = Field(
+        300, gt=0, description="Timeout for each udmSearch request."
+    )
+
+    def api_base_url(self) -> str:
+        return (
+            self.endpoint or f"https://{self.location}-chronicle.googleapis.com"
+        ).rstrip("/")
+
+    def instance_name(self) -> str:
+        return (
+            f"projects/{self.project_id}/locations/{self.location}"
+            f"/instances/{self.instance_id}"
+        )
+
+
 QuerySourceConfig = Annotated[
-    Union[ElasticsearchQuerySourceConfig, SqlTableQuerySourceConfig],
+    Union[
+        ElasticsearchQuerySourceConfig,
+        SqlTableQuerySourceConfig,
+        SecOpsQuerySourceConfig,
+    ],
     Field(discriminator="type"),
 ]
 
@@ -229,8 +346,8 @@ class SqlQueriesSourceConfig(
     )
     query_source: Optional[QuerySourceConfig] = Field(
         None,
-        description="A non-file backend to read query records from (elasticsearch or "
-        "sql_table). Mutually exclusive with query_file.",
+        description="A non-file backend to read query records from (elasticsearch, "
+        "sql_table or secops). Mutually exclusive with query_file.",
     )
 
     platform: str = Field(
@@ -314,6 +431,8 @@ class SqlQueriesSourceReport(SourceReport):
     num_queries_processed: int = 0
     num_invalid_table_entries: int = 0
     num_temp_table_matches: int = 0
+    secops_searches: int = 0
+    secops_windows_truncated: int = 0
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
     schema_resolver_report: Optional[SchemaResolverReport] = None
@@ -465,6 +584,8 @@ def _query_source_label(source: Optional["QuerySourceConfig"]) -> str:
         return f"elasticsearch:{source.index}"
     if isinstance(source, SqlTableQuerySourceConfig):
         return "sql_table"
+    if isinstance(source, SecOpsQuerySourceConfig):
+        return f"secops:{source.instance_id}"
     return "unknown"
 
 
@@ -728,6 +849,147 @@ class SqlTableQueryLogReader(QueryLogReader):
             engine.dispose()
 
 
+class SecOpsQueryLogReader(QueryLogReader):
+    """Reads query records from Google SecOps (Chronicle) UDM events.
+
+    udmSearch caps each call at SECOPS_MAX_EVENTS_PER_SEARCH events and has no
+    paging, only a `moreDataAvailable` flag, so the time range is walked in
+    windows and a window that hits the cap is bisected. Windows are read oldest
+    first and each window's events are sorted by timestamp, because the
+    aggregator resolves session temp tables from earlier statements.
+    """
+
+    def __init__(
+        self,
+        config: SecOpsQuerySourceConfig,
+        report: SqlQueriesSourceReport,
+    ) -> None:
+        self.config = config
+        self.report = report
+
+    @staticmethod
+    def _get(udm: Dict[str, Any], path: Optional[str]) -> Any:
+        if not path:
+            return None
+        current: Any = udm
+        for part in path.split("."):
+            if isinstance(current, list):
+                current = current[0] if current else None
+            if not isinstance(current, dict):
+                return None
+            current = current.get(part)
+        if isinstance(current, list):
+            return current[0] if current else None
+        return current
+
+    def _to_entry(self, event: Dict[str, Any]) -> Optional["QueryEntry"]:
+        udm = event.get("udm") or {}
+        fm = self.config.field_mappings
+        return _build_query_entry(
+            raw_sql=self._get(udm, fm.query),
+            timestamp=self._get(udm, fm.timestamp),
+            user=self._get(udm, fm.user),
+            session_id=self._get(udm, fm.session_id),
+            default_db=self._get(udm, fm.default_db),
+            default_schema=self._get(udm, fm.default_schema),
+            unescape_sql=self.config.unescape_sql,
+            email_domain=self.config.email_domain,
+            report=self.report,
+        )
+
+    def _session(self) -> Any:
+        try:
+            import google.auth
+            from google.auth.transport.requests import AuthorizedSession
+            from google.oauth2 import service_account
+        except ImportError as e:
+            raise ImportError(
+                "The SecOps query source requires google-auth: "
+                "pip install 'acryl-datahub[sql-queries]'"
+            ) from e
+
+        if self.config.credential is not None:
+            credentials = service_account.Credentials.from_service_account_info(
+                self.config.credential.to_dict(), scopes=[SECOPS_OAUTH_SCOPE]
+            )
+        else:
+            credentials, _ = google.auth.default(scopes=[SECOPS_OAUTH_SCOPE])
+        return AuthorizedSession(credentials)
+
+    def _search(
+        self, session: Any, start: datetime, end: datetime
+    ) -> Tuple[List[Dict[str, Any]], bool]:
+        response = session.get(
+            f"{self.config.api_base_url()}/v1/{self.config.instance_name()}:udmSearch",
+            params={
+                "query": self.config.udm_query,
+                "timeRange.startTime": _rfc3339(start),
+                "timeRange.endTime": _rfc3339(end),
+                "limit": SECOPS_MAX_EVENTS_PER_SEARCH,
+            },
+            timeout=self.config.request_timeout_seconds,
+        )
+        response.raise_for_status()
+        body = response.json()
+        self.report.secops_searches += 1
+        return body.get("events") or [], bool(body.get("moreDataAvailable"))
+
+    def _events(self, session: Any) -> Iterable[Dict[str, Any]]:
+        window = timedelta(minutes=self.config.window_minutes)
+        min_window = timedelta(seconds=self.config.min_window_seconds)
+        windows: List[Tuple[datetime, datetime]] = []
+        start = self.config.start_time
+        while start < self.config.end_time:
+            windows.append((start, min(start + window, self.config.end_time)))
+            start += window
+        # A stack popped oldest first; a split pushes its later half underneath.
+        pending = list(reversed(windows))
+        timestamp_path = self.config.field_mappings.timestamp
+        while pending:
+            start, end = pending.pop()
+            events, truncated = self._search(session, start, end)
+            if truncated and end - start > min_window:
+                middle = start + (end - start) / 2
+                pending.extend([(middle, end), (start, middle)])
+                continue
+            if truncated:
+                self.report.secops_windows_truncated += 1
+                self.report.warning(
+                    title="SecOps search window truncated",
+                    message=f"More than {SECOPS_MAX_EVENTS_PER_SEARCH} events matched "
+                    "a window that can't be split further; the rest were not read. "
+                    "Narrow udm_query or lower min_window_seconds.",
+                    context=f"{_rfc3339(start)} - {_rfc3339(end)}",
+                )
+            yield from sorted(
+                events,
+                key=lambda event: str(
+                    self._get(event.get("udm") or {}, timestamp_path) or ""
+                ),
+            )
+
+    def get_query_entries(self) -> Iterable["QueryEntry"]:
+        logger.info(
+            f"Reading query records from Google SecOps instance "
+            f"'{self.config.instance_id}' between {self.config.start_time} and "
+            f"{self.config.end_time}"
+        )
+        session = self._session()
+        try:
+            yield from _tolerant_query_entries(
+                self._events(session),
+                self._to_entry,
+                self.report,
+                context_of=lambda event: event.get("name"),
+            )
+        finally:
+            session.close()
+
+
+def _rfc3339(value: datetime) -> str:
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
 @platform_name("SQL Queries", id="sql-queries")
 @config_class(SqlQueriesSourceConfig)
 @support_status(SupportStatus.GA)
@@ -800,6 +1062,8 @@ class SqlQueriesSource(Source):
             return ElasticsearchQueryLogReader(source, self.report)
         if isinstance(source, SqlTableQuerySourceConfig):
             return SqlTableQueryLogReader(source, self.report)
+        if isinstance(source, SecOpsQuerySourceConfig):
+            return SecOpsQueryLogReader(source, self.report)
         return FileQueryLogReader(self.config, self.report)
 
     @classmethod
