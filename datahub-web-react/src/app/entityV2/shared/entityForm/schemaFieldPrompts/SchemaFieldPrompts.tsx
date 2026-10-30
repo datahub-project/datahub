@@ -3,9 +3,9 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import translateFieldPath from '@app/entity/dataset/profile/schema/utils/translateFieldPath';
-import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import SchemaFieldDropdown from '@app/entityV2/shared/entityForm/schemaFieldPrompts/SchemaFieldDropdown';
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import VirtualScrollChild from '@app/sharedV2/VirtualScrollChild';
 import { SearchBar } from '@src/alchemy-components';
 

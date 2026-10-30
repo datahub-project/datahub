@@ -11,12 +11,12 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import EntityDropdown, { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
-import { ExpandedOwner } from '@app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { EditOwnersModal } from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { GetSearchResultsParams, SearchResultInterface } from '@app/entityV2/shared/components/styled/search/types';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import { EditOwnersModal } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
 import { generateOrFilters } from '@app/search/utils/generateOrFilters';
 import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
@@ -179,7 +179,9 @@ type Props = {
         loading: boolean;
         error: ApolloError | undefined;
     };
-    hideDeleteAction?: boolean;
+    // Passed in by the Tag pages rather than imported here: importing EntityDropdown would create an
+    // import cycle through its lazy incident drawer back to the tag profile drawer.
+    renderActions?: (tagData: GenericEntityProperties | null) => React.ReactNode;
 };
 
 const generateColor = new ColorHash({
@@ -189,11 +191,7 @@ const generateColor = new ColorHash({
 /**
  * Responsible for displaying metadata about a tag
  */
-export default function TagStyleEntity({
-    urn,
-    useGetSearchResults = useWrappedSearchResults,
-    hideDeleteAction = false,
-}: Props) {
+export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSearchResults, renderActions }: Props) {
     const { t } = useTranslation('shared.tags');
     const { t: tcFeedback } = useTranslation('common.feedback');
     const { t: tcActions } = useTranslation('common.actions');
@@ -364,14 +362,7 @@ export default function TagStyleEntity({
                 </div>
                 <ActionButtons>
                     <CopyUrn urn={urn} isActive={copiedUrn} onClick={() => setCopiedUrn(true)} />
-                    {!hideDeleteAction && (
-                        <EntityDropdown
-                            urn={urn}
-                            entityType={EntityType.Tag}
-                            entityData={data?.tag}
-                            menuItems={new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.DELETE])}
-                        />
-                    )}
+                    {renderActions?.(data?.tag ?? null)}
                 </ActionButtons>
                 {displayColorPicker && (
                     <ColorPickerPopOver ref={colorPickerRef}>
@@ -442,7 +433,7 @@ export default function TagStyleEntity({
                     <StatsLabel>{tcLabels('owners')}</StatsLabel>
                     <OwnersContainer>
                         {data?.tag?.ownership?.owners?.map((owner) => (
-                            <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} hidePopOver />
+                            <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} />
                         ))}
                         {ownersEmpty && (
                             <Text color="textSecondary">

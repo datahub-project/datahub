@@ -75,3 +75,10 @@ export const StyledImgIcon = styled.img<{ addLineHeight?: boolean; disable?: boo
     ${(props) => props.disable && `opacity: 0.5;`};
     ${(props) => props.addLineHeight && `line-height: 24px;`}
 `;
+
+export const SubTitle = styled.div<{ addMargin?: boolean }>`
+    font-weight: 600;
+    margin-bottom: 4px;
+    ${(props) => props.addMargin && `margin-top: 8px;`}
+    text-wrap: wrap;
+`;

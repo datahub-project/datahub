@@ -134,6 +134,8 @@ type Props = {
     resetShouldRefetch?: () => void;
     applyView?: boolean;
     showFilterBar?: boolean;
+    isViewAllMode?: boolean;
+    handleViewAllClickWarning?: () => void;
     sort?: SortCriterion;
     searchFlags?: SearchFlags;
 };
@@ -168,6 +170,8 @@ export const EmbeddedListSearch = ({
     resetShouldRefetch,
     applyView = false,
     showFilterBar = true,
+    isViewAllMode,
+    handleViewAllClickWarning,
     sort,
     searchFlags,
 }: Props) => {
@@ -445,6 +449,8 @@ export const EmbeddedListSearch = ({
                 selectedViewUrn={selectedViewUrn || ''}
                 setSelectedViewUrn={setSelectedViewUrn}
                 applyView={applyView}
+                isViewAllMode={isViewAllMode}
+                handleViewAllClickWarning={handleViewAllClickWarning}
                 defaultViewUrn={defaultViewUrn}
                 allSearchCount={allSearchCount}
                 defaultViewCount={defaultViewCount}

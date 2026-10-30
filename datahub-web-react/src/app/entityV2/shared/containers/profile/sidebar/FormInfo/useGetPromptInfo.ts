@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import {
     getAllPrompts,
@@ -8,6 +7,7 @@ import {
     getFieldPromptsInfo,
     getPromptsForForm,
 } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/utils';
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 
 export default function useGetPromptInfo(formUrn?: string) {
     const { entityData } = useEntityData();

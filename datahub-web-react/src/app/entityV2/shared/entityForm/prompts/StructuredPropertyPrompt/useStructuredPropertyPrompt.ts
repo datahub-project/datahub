@@ -1,12 +1,12 @@
 import isEqual from 'lodash/isEqual';
 import { useEffect, useMemo } from 'react';
 
-import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { useEditStructuredProperty } from '@app/entityV2/shared/components/styled/StructuredProperty/useEditStructuredProperty';
 import { FormView, useEntityFormContext } from '@app/entityV2/shared/entityForm/EntityFormContext';
 import { SCHEMA_FIELD_PROMPT_TYPES } from '@app/entityV2/shared/entityForm/constants';
 import { getInitialValues } from '@app/entityV2/shared/entityForm/prompts/StructuredPropertyPrompt/utils';
+import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import usePrevious from '@app/sharedV2/usePrevious';
 
 import { FormPrompt, FormPromptType, SchemaField, SubmitFormPromptInput } from '@types';

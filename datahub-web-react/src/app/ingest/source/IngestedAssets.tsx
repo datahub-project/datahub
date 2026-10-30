@@ -2,7 +2,7 @@ import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
+import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     extractEntityTypeCountsFromFacets,

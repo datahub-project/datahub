@@ -1,7 +1,7 @@
 import DOMPurify from 'dompurify';
 import React from 'react';
 
-import DescriptionField from '@app/entity/dataset/profile/schema/components/SchemaDescriptionField';
+import BusinessAttributeDescriptionField from '@app/businessAttribute/BusinessAttributeDescriptionField';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 import { BusinessAttribute } from '@types';
@@ -19,7 +19,7 @@ export default function useDescriptionRenderer(businessAttributeRefetch: () => P
         const sanitizedDescription = DOMPurify.sanitize(displayedDescription);
 
         return (
-            <DescriptionField
+            <BusinessAttributeDescriptionField
                 description={sanitizedDescription}
                 onUpdate={(updatedDescription) =>
                     updateDescription({

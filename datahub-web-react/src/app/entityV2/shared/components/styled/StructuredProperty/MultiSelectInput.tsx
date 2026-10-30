@@ -38,7 +38,7 @@ export default function MultiSelectInput({
     allowedValues,
     selectedValues,
 }: Props) {
-    const { t } = useTranslation('entityV1.shared.components');
+    const { t } = useTranslation('entity.shared.components');
     const shouldShowSelectDropdown = allowedValues.length > 5;
     const options = allowedValues.flatMap((allowedValue) => {
         const value = getStructuredPropertyValue(allowedValue.value);

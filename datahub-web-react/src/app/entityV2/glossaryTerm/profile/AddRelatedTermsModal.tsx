@@ -8,7 +8,7 @@ import { SelectOption } from '@components/components/Select/types';
 
 import { refreshRelatedTerms } from '@app/entityV2/glossaryTerm/profile/relatedTermsQuery';
 import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
-import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';

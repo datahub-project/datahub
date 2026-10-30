@@ -3,7 +3,6 @@ import { SorterResult } from 'antd/lib/table/interface';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     ActionsColumn,
@@ -11,6 +10,7 @@ import {
     ScheduleColumn,
     TypeColumn,
 } from '@app/ingest/source/IngestionSourceTableColumns';
+import { StyledTable } from '@app/ingest/source/StyledTable';
 import { IngestionSourceExecutionList } from '@app/ingest/source/executions/IngestionSourceExecutionList';
 import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingest/source/utils';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';

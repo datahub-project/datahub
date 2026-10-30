@@ -2,7 +2,7 @@ import { Text } from '@components';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
+import { stripMarkdown } from '@app/sharedV2/stripMarkdown';
 
 const StyledText = styled(Text)`
     text-wrap: nowrap;
@@ -21,7 +21,7 @@ export default function ShortMarkdownViewer({ content, clearMarkdown }: Props) {
         let processingContent = content;
 
         if (clearMarkdown) {
-            processingContent = removeMarkdown(processingContent);
+            processingContent = stripMarkdown(processingContent);
         }
 
         return processingContent;

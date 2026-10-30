@@ -69,6 +69,7 @@ interface Props {
     openToEntity?: boolean;
     refreshBrowser?: boolean;
     nodeUrnToHide?: string;
+    termUrnToHide?: string;
     selectTerm?: (urn: string, displayName: string) => void;
     selectNode?: (urn: string, displayName: string) => void;
     selectedUrns?: string[];
@@ -83,6 +84,7 @@ function GlossaryBrowserInner(props: Props) {
         refreshBrowser,
         openToEntity,
         nodeUrnToHide,
+        termUrnToHide,
         selectTerm,
         selectNode,
         selectedUrns,
@@ -352,6 +354,7 @@ function GlossaryBrowserInner(props: Props) {
                             openToEntity={openToEntity}
                             refreshBrowser={refreshBrowser}
                             nodeUrnToHide={nodeUrnToHide}
+                            termUrnToHide={termUrnToHide}
                             selectTerm={selectTerm}
                             selectNode={selectNode}
                             depth={0}
@@ -366,6 +369,7 @@ function GlossaryBrowserInner(props: Props) {
                                 isSelecting={isSelecting}
                                 selectTerm={selectTerm}
                                 depth={0}
+                                termUrnToHide={termUrnToHide}
                             />
                         ))}
                     {useServerSortedRoots && <div ref={serverRootsScrollRef} />}

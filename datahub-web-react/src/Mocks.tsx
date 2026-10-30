@@ -1,9 +1,9 @@
 import React from 'react';
 
-import { ViewBuilderState } from '@app/entity/view/types';
 import { Entity, EntityCapabilityType } from '@app/entityV2/Entity';
 import { VIEW_ENTITY_PAGE } from '@app/entityV2/shared/constants';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
+import { ViewBuilderState } from '@app/entityV2/view/types';
 import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AppConfigDocument, GetEntityCountsDocument } from '@graphql/app.generated';

@@ -30,7 +30,7 @@ type Props = {
 };
 
 export default function SingleSelectInput({ selectSingleValue, allowedValues, selectedValues }: Props) {
-    const { t } = useTranslation('entityV1.shared.components');
+    const { t } = useTranslation('entity.shared.components');
     const [groupName] = useState(() => `structured-property-${uuidv4()}`);
     const options = allowedValues.flatMap((allowedValue) => {
         const value = getStructuredPropertyValue(allowedValue.value);

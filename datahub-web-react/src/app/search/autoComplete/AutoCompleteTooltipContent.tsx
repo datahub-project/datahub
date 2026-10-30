@@ -2,8 +2,8 @@ import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import React from 'react';
 import styled from 'styled-components';
 
-import { DatasetStatsSummary } from '@app/entity/dataset/shared/DatasetStatsSummary';
 import { getDatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
+import { DatasetStatsSummary } from '@app/search/autoComplete/DatasetStatsSummary';
 import { ArrowWrapper } from '@app/search/autoComplete/ParentContainers';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

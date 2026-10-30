@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import EmptySources from '@app/ingestV2/EmptySources';
 import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { SecretBuilderModal } from '@app/ingestV2/secret/SecretBuilderModal';

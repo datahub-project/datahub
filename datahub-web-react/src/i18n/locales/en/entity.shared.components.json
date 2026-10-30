@@ -100,5 +100,9 @@
     "searchActions.owners.addTitle": "Add owners",
     "searchActions.owners.removeTitle": "Remove owners",
     "searchActions.tags.addTitle": "Add tags",
-    "searchActions.tags.removeTitle": "Remove tags"
+    "searchActions.tags.removeTitle": "Remove tags",
+    "structuredProperty.addMore": "+ Add More",
+    "structuredProperty.selectPlaceholder": "Select",
+    "viewAll.resultsIncomplete": "Results may be incomplete.",
+    "viewAll.searchAllAssets": "Search all ingested {{platform}} assets"
 }

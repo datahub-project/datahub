@@ -4,10 +4,10 @@ import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import { StyledTag } from '@app/entity/shared/components/styled/StyledTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { TagProfileDrawer } from '@app/sharedV2/tags/TagProfileDrawer';
+import { StyledTag } from '@app/sharedV2/tags/tag/StyledTag';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTagMutation } from '@graphql/mutations.generated';

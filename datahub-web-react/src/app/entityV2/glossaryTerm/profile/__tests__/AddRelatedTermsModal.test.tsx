@@ -21,7 +21,7 @@ vi.mock('@graphql/glossaryTerm.generated', () => ({
     useAddRelatedTermsMutation: () => [vi.fn()],
 }));
 
-vi.mock('@app/glossary/GlossaryBrowser/GlossaryBrowser', () => ({
+vi.mock('@app/glossaryV2/GlossaryBrowser/GlossaryBrowser', () => ({
     default: () => React.createElement('div', { 'data-testid': 'glossary-browser' }),
 }));
 

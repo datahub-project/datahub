@@ -17,8 +17,8 @@ import styled from 'styled-components/macro';
 
 import analytics, { Event, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import ViewAllSearchItem from '@app/search/ViewAllSearchItem';
 import AutoCompleteItem from '@app/search/autoComplete/AutoCompleteItem';
 import RecommendedOption from '@app/search/autoComplete/RecommendedOption';

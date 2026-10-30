@@ -100,5 +100,9 @@
     "searchActions.owners.addTitle": "Adicionar responsáveis",
     "searchActions.owners.removeTitle": "Remover responsáveis",
     "searchActions.tags.addTitle": "Adicionar Tags",
-    "searchActions.tags.removeTitle": "Remover Tags"
+    "searchActions.tags.removeTitle": "Remover Tags",
+    "structuredProperty.addMore": "+ Adicionar Mais",
+    "structuredProperty.selectPlaceholder": "Selecionar",
+    "viewAll.resultsIncomplete": "Os resultados podem estar incompletos.",
+    "viewAll.searchAllAssets": "Pesquisar todos os ativos {{platform}} ingeridos"
 }

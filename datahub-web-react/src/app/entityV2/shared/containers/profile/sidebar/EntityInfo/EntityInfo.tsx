@@ -4,11 +4,11 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { DatasetStatsSummarySubHeader } from '@app/entity/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
-import FormInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/FormInfo';
-import { StyledDivider } from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
+import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import PlatformContent from '@app/entityV2/shared/containers/profile/header/PlatformContent';
+import FormInfo from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/FormInfo';
+import { StyledDivider } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const EntityName = styled.div`
@@ -63,9 +63,9 @@ export default function EntityInfo({ formUrn }: Props) {
                     components={{ icon: <ArrowSquareOut style={{ marginLeft: '4px' }} /> }}
                 />
             </StyledLink>
-            <DatasetStatsSummarySubHeader properties={{ shouldWrap: true }} />
+            <DatasetStatsSummarySubHeader />
             <FormInfoWrapper>
-                <FormInfo shouldDisplayBackground formUrn={formUrn} />
+                <FormInfo formUrn={formUrn} />
             </FormInfoWrapper>
             <StyledDivider />
         </EntityInfoWrapper>

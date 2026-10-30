@@ -7,7 +7,6 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
 import { ViewBuilder } from '@app/search/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/search/view/builder/types';
 import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '@app/search/view/cacheUtils';
@@ -18,6 +17,7 @@ import { RemoveGlobalDefaultItem } from '@app/search/view/menu/item/RemoveGlobal
 import { RemoveUserDefaultItem } from '@app/search/view/menu/item/RemoveUserDefaultItem';
 import { SetGlobalDefaultItem } from '@app/search/view/menu/item/SetGlobalDefaultItem';
 import { SetUserDefaultItem } from '@app/search/view/menu/item/SetUserDefaultItem';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/search/view/utils';
 
 import { useUpdateGlobalViewsSettingsMutation } from '@graphql/app.generated';
 import { useUpdateCorpUserViewsSettingsMutation } from '@graphql/user.generated';
