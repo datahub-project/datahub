@@ -1937,9 +1937,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     lastModified=AuditStampClass(
                         actor="urn:li:corpuser:unknown",
                         time=int(
-                            parse_absolute_time(
-                                workspace.app.last_update
-                            ).timestamp()
+                            parse_absolute_time(workspace.app.last_update).timestamp()
                         ),
                     )
                     if workspace.app.last_update
