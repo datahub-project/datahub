@@ -31,6 +31,13 @@ def test_decode_presto_view_returns_payload() -> None:
     assert decoded["columns"] == payload["columns"]
 
 
+@pytest.mark.parametrize("encoding", ["utf-8-sig", "utf-16", "utf-32-le"])
+def test_decode_presto_view_accepts_non_utf8_json_encodings(encoding: str) -> None:
+    payload = {"originalSql": "SELECT 1", "columns": [{"name": "é", "type": "int"}]}
+    encoded = base64.b64encode(json.dumps(payload).encode(encoding)).decode()
+    assert decode_presto_view(f"/* Presto View: {encoded} */") == payload
+
+
 def test_decode_presto_view_raises_on_invalid_base64() -> None:
     # binascii.Error (bad base64) and json.JSONDecodeError both subclass ValueError.
     with pytest.raises(ValueError):
@@ -69,6 +76,7 @@ def test_decode_presto_view_ignores_brackets_inside_strings() -> None:
         ("integer", "int"),
         ("decimal(10,2)", "decimal(10,2)"),
         ("map(varchar, bigint)", "map<varchar,bigint>"),
+        ("map(varchar)", "string"),
         (
             'array(row(a bigint, "b c" timestamp(3) with time zone))',
             "array<struct<a:bigint,b c:timestamp>>",
@@ -77,6 +85,8 @@ def test_decode_presto_view_ignores_brackets_inside_strings() -> None:
         ("varbinary", "binary"),
         # Anonymous row fields get positional names so the struct is kept.
         ("row(bigint, varchar)", "struct<field0:bigint,field1:varchar>"),
+        # ...that never collide with a named sibling.
+        ("row(bigint, field0 varchar)", "struct<_field0:bigint,field0:varchar>"),
         # Anonymous fields whose type is several words are not read as `name type`.
         (
             "row(interval day to second, interval year to month)",
@@ -95,30 +105,44 @@ def test_decode_presto_view_ignores_brackets_inside_strings() -> None:
         # Commas inside a quoted field name are not separators. Hive cannot parse
         # the resulting name; that column is reported as untyped downstream.
         ('row("a,b" bigint, c varchar)', "struct<a,b:bigint,c:varchar>"),
+        # `""` escapes a quote inside a quoted field name.
+        ('row("a""b" bigint)', 'struct<a"b:bigint>'),
+        ('row("a"",b" bigint, c varchar)', 'struct<a",b:bigint,c:varchar>'),
         # Types Hive has no equivalent for, and malformed input, fall back to string.
         ("interval day to second", "string"),
         ("hyperloglog", "string"),
         ("row(a bigint", "string"),
+        # Scalar parameters must be integers.
+        ("varchar(x)", "string"),
+        ("row(a varchar(x))", "struct<a:string>"),
     ],
 )
 def test_trino_type_to_hive_type(trino_type: str, hive_type: str) -> None:
     assert trino_type_to_hive_type(trino_type) == hive_type
 
 
-def test_trino_type_to_hive_type_caps_nesting_depth() -> None:
-    # Untrusted catalog data must not be able to exhaust the stack.
-    # Deeper than the nesting cap but within the length cap, so the depth limit
-    # is what applies.
+def test_trino_type_to_hive_type_raises_past_nesting_cap() -> None:
+    # Untrusted catalog data must not be able to exhaust the stack, and hitting
+    # the cap must be visible to the caller rather than silently become string.
     deeply_nested = "array(" * 500 + "bigint" + ")" * 500
-    hive_type = trino_type_to_hive_type(deeply_nested)
-    assert hive_type.startswith("array<")
-    assert "string" in hive_type
+    with pytest.raises(ValueError):
+        trino_type_to_hive_type(deeply_nested)
 
 
-def test_trino_type_to_hive_type_rejects_oversized_types() -> None:
-    # A valid type that only the length cap turns into string: without the cap
-    # this would parse as bigint.
-    assert trino_type_to_hive_type("bigint" + " " * 5000) == "string"
+def test_trino_type_to_hive_type_converts_wide_row() -> None:
+    wide_row = (
+        "row("
+        + ", ".join(f"col_{i} timestamp(3) with time zone" for i in range(500))
+        + ")"
+    )
+    hive_type = trino_type_to_hive_type(wide_row)
+    assert hive_type.startswith("struct<col_0:timestamp,")
+    assert hive_type.endswith(",col_499:timestamp>")
+
+
+def test_trino_type_to_hive_type_raises_on_oversized_types() -> None:
+    with pytest.raises(ValueError):
+        trino_type_to_hive_type("bigint" + " " * 2_000_000)
 
 
 def test_get_presto_view_columns_returns_validated_columns() -> None:

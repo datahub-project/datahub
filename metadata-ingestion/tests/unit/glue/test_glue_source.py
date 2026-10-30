@@ -725,6 +725,77 @@ def test_resource_link_schema_resolved_from_glue_when_absent_in_datahub():
     assert source.report.num_resource_link_schema_from_glue == 1
 
 
+def _owner_placeholder_view_response(view_original_text: str) -> Dict[str, Any]:
+    return {
+        "Table": {
+            "Name": "transactions",
+            "DatabaseName": "test-database",
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": view_original_text,
+            "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+        }
+    }
+
+
+@pytest.mark.parametrize("valid_payload", [True, False])
+def test_resource_link_to_placeholder_view_recovers_columns_from_glue(
+    valid_payload: bool,
+) -> None:
+    source = _resource_link_schema_source()
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = None
+    source.ctx.graph = graph
+    view_original_text = (
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "txn_id", "type": "bigint"},
+                    {"name": "booked_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        )
+        if valid_payload
+        else "/* Presto View: not!valid!base64 */"
+    )
+
+    with Stubber(source.glue_client) as stubber:
+        stubber.add_response(
+            "get_table",
+            _owner_placeholder_view_response(view_original_text),
+            {
+                "CatalogId": "432143214321",
+                "DatabaseName": "test-database",
+                "Name": "transactions",
+            },
+        )
+        schema = source._resource_link_schema(
+            resource_link_table_in_mixed_database,
+            CONSUMER_LINK_URN,
+            "mixed-database.shared-transactions",
+        )
+
+    assert schema is not None
+    field_names = [
+        get_simple_field_path_from_v2_field_path(f.fieldPath) for f in schema.fields
+    ]
+    placeholder_contexts = [
+        context
+        for w in source.report.warnings
+        if w.title == "View schema is a placeholder column"
+        for context in w.context
+    ]
+    if valid_payload:
+        assert field_names == ["txn_id", "booked_at"]
+        assert not placeholder_contexts
+    else:
+        assert field_names == ["dummy"]
+        assert len(placeholder_contexts) == 1
+        assert placeholder_contexts[0].startswith(
+            "mixed-database.shared-transactions -> test-database.transactions: "
+        )
+
+
 def test_resource_link_schema_unresolved_leaves_link_schemaless():
     # Neither DataHub nor a cross-account Glue read can supply the schema (e.g. owner not ingested
     # and no glue:GetTable permission). The link stays schemaless — no crash — and it's counted.
@@ -4439,6 +4510,12 @@ def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns
     ]
     assert len(placeholder_contexts) == 1
     assert placeholder_contexts[0].startswith("my_db.broken_view: ")
+    # The view-definition path decodes the same payload; one root cause must
+    # produce one report entry.
+    assert not any(
+        w.title == "Failed to decode Presto view definition"
+        for w in source.report.warnings
+    )
 
 
 def test_glue_placeholder_view_recovered_columns_inherit_lake_formation_tags() -> None:
@@ -4518,6 +4595,53 @@ def test_glue_placeholder_view_reports_columns_left_without_a_type() -> None:
         w.title == "View column types could not be converted"
         for w in source.report.warnings
     )
+
+
+def test_glue_placeholder_view_reports_nested_untyped_field() -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [{"name": "payload", "type": "row(a bigint, b foo)"}],
+            }
+        ),
+    )
+
+    # The decoder maps unknown scalars to string, so force a Hive type whose
+    # nested field the Hive parser cannot read while the top level still parses.
+    with patch(
+        "datahub.ingestion.source.aws.glue.trino_type_to_hive_type",
+        return_value="struct<a:bigint,b:foo>",
+    ):
+        list(source._gen_table_wu(view))
+
+    assert source.report.num_view_schema_from_view_definition == 1
+    assert source.report.num_view_columns_type_unresolved == 1
+
+
+def test_glue_placeholder_view_reports_columns_too_nested_to_convert() -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "deep", "type": "array(" * 100 + "bigint" + ")" * 100},
+                ],
+            }
+        ),
+    )
+
+    schema = source._get_glue_schema_metadata(view, "my_db.events_view")
+
+    assert schema is not None
+    deep = next(f for f in schema.fields if f.fieldPath.endswith(".deep"))
+    assert isinstance(deep.type.type, models.StringTypeClass)
+    assert source.report.num_view_columns_type_unresolved == 1
 
 
 def test_glue_table_with_column_named_dummy_is_not_treated_as_placeholder() -> None:

@@ -13,7 +13,7 @@ the decode logic lives here to avoid duplication.
 import base64
 import json
 import re
-from typing import Any, Dict, List, Optional, TypedDict, cast
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 
 # Markers wrapping the base64-encoded payload of a Presto/Athena view.
 PRESTO_VIEW_PREFIX = "/* Presto View: "
@@ -26,8 +26,14 @@ _TYPE_PRECISION = re.compile(r"^(timestamp|time)\s*\(\s*\d+\s*\)$", re.IGNORECAS
 _PARAMETERIZED_TYPE = re.compile(
     r"^(array|map|row)\s*\((.*)\)$", re.DOTALL | re.IGNORECASE
 )
-# A named row field: a double-quoted or bare identifier followed by its type.
-_ROW_FIELD = re.compile(r'^(?:"([^"]+)"|(\w+))\s+(.+)$', re.DOTALL)
+# A named row field: a double-quoted (with `""` escaping a quote) or bare
+# identifier followed by its type.
+_ROW_FIELD = re.compile(r'^(?:"((?:[^"]|"")+)"|(\w+))\s+(.+)$', re.DOTALL)
+# A scalar type name with optional integer parameters, e.g. `varchar(10)` or
+# `decimal(10,2)`.
+_SCALAR_TYPE = re.compile(
+    r"^([a-z]+)(?:\s*\(\s*\d+\s*(?:,\s*\d+\s*)?\))?$", re.IGNORECASE
+)
 # Trino types spelled with several words. An anonymous row field of one of these
 # types (e.g. `interval day to second`) would otherwise match _ROW_FIELD, taking
 # the first word as a field name.
@@ -66,14 +72,14 @@ _HIVE_SCALAR_TYPES = frozenset(
         "timestamp",
     }
 )
-_FALLBACK_HIVE_TYPE = "string"
+FALLBACK_HIVE_TYPE = "string"
 _MAX_TYPE_NESTING_DEPTH = 64
 # Real Presto view payloads nest only a few levels (object -> columns -> column).
 _MAX_JSON_NESTING_DEPTH = 64
-# Real column types are far shorter. Together with collapsing whitespace runs,
-# this keeps the type regexes (quadratic on long whitespace runs) fast on corrupt
-# input, so a crafted type cannot stall the run.
-_MAX_TYPE_LENGTH = 4096
+# Far above any real column type (a row with thousands of fields), while still
+# bounding the work spent on corrupt input. Whitespace runs are collapsed before
+# matching, which keeps the type regexes linear.
+_MAX_TYPE_LENGTH = 1_000_000
 
 
 class PrestoViewDefinition(TypedDict, total=False):
@@ -136,14 +142,17 @@ def decode_presto_view(view_text: str) -> PrestoViewDefinition:
     Expects text of the form ``/* Presto View: <base64> */`` and returns the parsed
     JSON object (typically with ``originalSql`` and ``columns`` keys).
 
-    Raises ``ValueError`` on malformed input (invalid base64 or UTF-8, non-JSON,
+    Raises ``ValueError`` on malformed input (invalid base64 or text encoding, non-JSON,
     nesting deeper than ``_MAX_JSON_NESTING_DEPTH``, or a non-object payload).
     Callers that want best-effort behaviour should catch it.
     """
     encoded = view_text.split(PRESTO_VIEW_PREFIX, 1)[-1].rsplit(PRESTO_VIEW_SUFFIX, 1)[
         0
     ]
-    text = base64.b64decode(encoded).decode("utf-8")
+    raw = base64.b64decode(encoded)
+    # Same encoding detection as json.loads(bytes), so UTF-16/32 and BOM-prefixed
+    # payloads keep decoding.
+    text = raw.decode(json.detect_encoding(raw), "surrogatepass")
     # json.loads can overflow the C stack and segfault the whole process on
     # deeply nested input (seen on Python 3.12), which no except clause catches.
     # The payload is untrusted catalog data, so reject deep nesting up front.
@@ -189,7 +198,8 @@ def _split_top_level(type_args: str) -> List[str]:
     """Split ``type_args`` on commas outside parentheses and double quotes.
 
     Quoted row field names may contain commas or parentheses (``"a,b" bigint``),
-    which must not be treated as separators.
+    which must not be treated as separators. An escaped quote (``""``) toggles
+    the quote state twice, so it leaves the name quoted.
     """
     parts: List[str] = []
     depth = 0
@@ -220,9 +230,13 @@ def trino_type_to_hive_type(trino_type: str) -> str:
     parses Hive types (``struct<a:bigint>``, ``timestamp``). Types Hive cannot
     represent are mapped to their nearest Hive type (dropping time zone and
     precision) or to ``string``, so the column is kept rather than lost.
+
+    Raises ``ValueError`` when the type is longer than ``_MAX_TYPE_LENGTH`` or
+    nested deeper than ``_MAX_TYPE_NESTING_DEPTH``, so callers can report the
+    column instead of silently typing it as ``string``.
     """
     if len(trino_type) > _MAX_TYPE_LENGTH:
-        return _FALLBACK_HIVE_TYPE
+        raise ValueError("Trino type is too long to convert")
     # Collapse whitespace runs once here; otherwise the time-zone regex re-scans
     # long inner runs at every nesting level.
     return _trino_type_to_hive_type(" ".join(trino_type.split()), depth=0)
@@ -232,7 +246,7 @@ def _trino_type_to_hive_type(trino_type: str, depth: int) -> str:
     # The payload is untrusted catalog data; cap nesting so a corrupt or crafted
     # type cannot exhaust the stack and abort the ingestion run.
     if depth > _MAX_TYPE_NESTING_DEPTH:
-        return _FALLBACK_HIVE_TYPE
+        raise ValueError("Trino type is nested too deeply to convert")
 
     normalized = _TIME_ZONE_SUFFIX.sub("", trino_type.strip())
     precision_match = _TYPE_PRECISION.match(normalized)
@@ -250,27 +264,47 @@ def _trino_type_to_hive_type(trino_type: str, depth: int) -> str:
             value_type = _trino_type_to_hive_type(args[1], depth + 1)
             return f"map<{key_type},{value_type}>"
         if kind == "row":
-            struct_fields: List[str] = []
-            for index, arg in enumerate(args):
-                row_field = _ROW_FIELD.match(arg)
-                if row_field and not _MULTI_WORD_TYPE.match(arg):
-                    # Trino folds unquoted identifiers to lowercase; quoted names
-                    # keep their case.
-                    field_name = row_field.group(1) or row_field.group(2).lower()
-                    field_trino_type = row_field.group(3)
-                else:
-                    # Anonymous row fields (e.g. from `ROW(1, 'a')`) have no name,
-                    # but Hive structs require one; use a positional name.
-                    field_name = f"field{index}"
-                    field_trino_type = arg
-                field_type = _trino_type_to_hive_type(field_trino_type, depth + 1)
-                struct_fields.append(f"{field_name}:{field_type}")
-            return f"struct<{','.join(struct_fields)}>"
+            return _row_type_to_hive_struct(args, depth)
         # Wrong number of array/map arguments: not a type we can translate.
-        return _FALLBACK_HIVE_TYPE
+        return FALLBACK_HIVE_TYPE
 
     scalar_type = normalized.lower()
+    if not _SCALAR_TYPE.match(scalar_type):
+        return FALLBACK_HIVE_TYPE
     hive_type = _TRINO_TO_HIVE_SCALAR_TYPES.get(scalar_type, scalar_type)
     if hive_type.split("(", 1)[0].strip() not in _HIVE_SCALAR_TYPES:
-        return _FALLBACK_HIVE_TYPE
+        return FALLBACK_HIVE_TYPE
     return hive_type
+
+
+def _row_type_to_hive_struct(args: List[str], depth: int) -> str:
+    named_fields: List[Tuple[Optional[str], str]] = []
+    for arg in args:
+        row_field = _ROW_FIELD.match(arg)
+        if row_field and not _MULTI_WORD_TYPE.match(arg):
+            # Trino folds unquoted identifiers to lowercase; quoted names keep
+            # their case.
+            field_name = (
+                row_field.group(1).replace('""', '"')
+                if row_field.group(1)
+                else row_field.group(2).lower()
+            )
+            named_fields.append((field_name, row_field.group(3)))
+        else:
+            named_fields.append((None, arg))
+
+    # Hive struct field names are case-insensitive.
+    used_names = {name.lower() for name, _ in named_fields if name is not None}
+    struct_fields: List[str] = []
+    for index, (field_name, field_trino_type) in enumerate(named_fields):
+        if field_name is None:
+            # Anonymous row fields (e.g. from `ROW(1, 'a')`) have no name, but
+            # Hive structs require one; use a positional name that no sibling
+            # already has.
+            field_name = f"field{index}"
+            while field_name.lower() in used_names:
+                field_name = f"_{field_name}"
+            used_names.add(field_name.lower())
+        field_type = _trino_type_to_hive_type(field_trino_type, depth + 1)
+        struct_fields.append(f"{field_name}:{field_type}")
+    return f"struct<{','.join(struct_fields)}>"

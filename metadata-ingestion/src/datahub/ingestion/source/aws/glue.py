@@ -103,6 +103,7 @@ from datahub.ingestion.source.aws.tag_entities import (
     LakeFormationTagPlatformResourceId,
 )
 from datahub.ingestion.source.common.presto_view_decoder import (
+    FALLBACK_HIVE_TYPE,
     PrestoViewColumn,
     decode_presto_view,
     get_presto_view_columns,
@@ -852,6 +853,10 @@ class GlueSource(StatefulIngestionSourceBase):
         # Tracks which structured property definitions have been emitted this run
         # so each key's definition is only upserted once.
         self._seen_column_param_urns: Set[str] = set()
+        # Views whose Presto definition already failed to decode and was reported
+        # while building the schema, so _get_view_definition does not report the
+        # same root cause again.
+        self._presto_view_decode_failures_reported: Set[str] = set()
         self._aws_account_id: Optional[str] = None
         self._aws_account_id_loaded: bool = False
 
@@ -2650,6 +2655,14 @@ class GlueSource(StatefulIngestionSourceBase):
             dataset_urn=dataset_urn, db_name=database_name
         )
 
+    @staticmethod
+    def _glue_table_key(table: Dict) -> str:
+        # Includes the catalog because a shared owner table and a local table can
+        # have the same database and name.
+        return (
+            f"{table.get('CatalogId')}:{table.get('DatabaseName')}.{table.get('Name')}"
+        )
+
     def _get_view_definition(
         self, table: Dict, full_table_name: str
     ) -> Optional[GlueViewDefinition]:
@@ -2676,11 +2689,15 @@ class GlueSource(StatefulIngestionSourceBase):
             try:
                 original_sql = decode_presto_view(view_text).get("originalSql")
             except Exception as e:
-                self.report.warning(
-                    message="Failed to decode Presto view definition",
-                    context=f"table={full_table_name}: {e}",
-                    log=False,
-                )
+                if (
+                    self._glue_table_key(table)
+                    not in self._presto_view_decode_failures_reported
+                ):
+                    self.report.warning(
+                        message="Failed to decode Presto view definition",
+                        context=f"table={full_table_name}: {e}",
+                        log=False,
+                    )
                 return None
             if isinstance(original_sql, str) and original_sql:
                 return GlueViewDefinition(
@@ -3119,17 +3136,25 @@ class GlueSource(StatefulIngestionSourceBase):
             # single column happens to be named `dummy` is a real column.
             return None
 
+        # On the resource-link path table_name is the link, so name the owning
+        # view too.
+        view_name = f"{table.get('DatabaseName')}.{table.get('Name')}"
+        context_name = (
+            table_name if table_name == view_name else f"{table_name} -> {view_name}"
+        )
+
         view_columns: Optional[List[PrestoViewColumn]] = None
         decode_error: Optional[Exception] = None
         try:
             definition = decode_presto_view(view_text)
         except ValueError as e:
             # Covers bad base64/JSON/Unicode and over-nested payloads, which must
-            # not escape the table loop. Reported here as well as in
+            # not escape the table loop. Reported here rather than only in
             # _get_view_definition, because the resource-link owner path reaches
             # this method without it.
             decode_error = e
             reason = "view definition could not be decoded"
+            self._presto_view_decode_failures_reported.add(self._glue_table_key(table))
         else:
             view_columns = get_presto_view_columns(definition)
             reason = "view definition has no valid 'columns' list"
@@ -3141,26 +3166,36 @@ class GlueSource(StatefulIngestionSourceBase):
                 message="Glue stores only a placeholder 'dummy' column for this view "
                 "because one of its output columns has a type Hive cannot represent, "
                 "and the real columns could not be read from the view definition.",
-                context=f"{table_name}: {reason}",
+                context=f"{context_name}: {reason}",
                 exc=decode_error,
                 log=False,
             )
             return None
 
         fields: List[SchemaField] = []
-        untyped_columns: List[str] = []
+        unconverted_columns: List[str] = []
         for column in view_columns:
+            try:
+                hive_type = trino_type_to_hive_type(column["type"])
+                conversion_failed = False
+            except ValueError:
+                # Too long or too deeply nested to convert; keep the column.
+                hive_type = FALLBACK_HIVE_TYPE
+                conversion_failed = True
             schema_fields = get_schema_fields_for_hive_column(
                 hive_column_name=column["name"],
-                hive_column_type=trino_type_to_hive_type(column["type"]),
+                hive_column_type=hive_type,
                 default_nullable=True,
             )
             if schema_fields:
                 # The Hive parser falls back to NullType instead of raising when it
-                # cannot read a type, so surface those columns rather than count
-                # the view as fully recovered.
-                if isinstance(schema_fields[0].type.type, NullTypeClass):
-                    untyped_columns.append(f"{column['name']} ({column['type']})")
+                # cannot read a type (for a nested field too), so surface those
+                # columns rather than count the view as fully recovered.
+                if conversion_failed or any(
+                    isinstance(field.type.type, NullTypeClass)
+                    for field in schema_fields
+                ):
+                    unconverted_columns.append(f"{column['name']} ({column['type']})")
                 # Keep the engine's own type (e.g. `timestamp(3) with time zone`)
                 # rather than the Hive approximation used to build the field.
                 schema_fields[0].nativeDataType = column["type"]
@@ -3173,13 +3208,14 @@ class GlueSource(StatefulIngestionSourceBase):
                 )
                 fields.extend(schema_fields)
 
-        if untyped_columns:
-            self.report.num_view_columns_type_unresolved += len(untyped_columns)
+        if unconverted_columns:
+            self.report.num_view_columns_type_unresolved += len(unconverted_columns)
             self.report.warning(
                 title="View column types could not be converted",
                 message="Some columns recovered from this view's definition have a "
-                "type DataHub could not convert, so they are ingested without a type.",
-                context=f"{table_name}: {', '.join(untyped_columns)}",
+                "type DataHub could not convert, so they are ingested without a type "
+                "(or with part of their type missing) or typed as string.",
+                context=f"{context_name}: {', '.join(unconverted_columns)}",
                 log=False,
             )
         self.report.num_view_schema_from_view_definition += 1

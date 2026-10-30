@@ -172,8 +172,9 @@ kept as it is.
 The ingestion report counts these views in `num_view_schema_from_view_definition`. Views whose
 columns cannot be recovered keep the `dummy` column, are counted in
 `num_view_placeholder_schema_unresolved`, and produce a warning that says why. Recovered columns
-whose type still cannot be converted are ingested without a type, counted in
-`num_view_columns_type_unresolved`, and listed in a warning.
+whose type cannot be converted are counted in `num_view_columns_type_unresolved` and listed in a
+warning. They are ingested without a type (or with a nested field untyped), or as a string when the
+type is too long or too deeply nested to convert.
 
 #### Checking a recipe before ingesting
 
