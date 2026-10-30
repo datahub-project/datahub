@@ -4,6 +4,10 @@ schema:
 config:
     scalars:
         Long: number
+    # Parse GraphQL documents lazily on first DocumentNode access instead of at
+    # module evaluation (CAT-3693). Keeps source size of gql strings; avoids the
+    # DocumentNode AST bloat of documentMode: documentNode.
+    gqlImport: '@graphql/lazyGql#gql'
 documents:
     - 'src/**/*.graphql'
 generates:
