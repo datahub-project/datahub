@@ -103,8 +103,12 @@ from datahub.ingestion.source.aws.tag_entities import (
     LakeFormationTagPlatformResourceId,
 )
 from datahub.ingestion.source.common.presto_view_decoder import (
+    FALLBACK_HIVE_TYPE,
+    PrestoViewColumn,
     decode_presto_view,
+    get_presto_view_columns,
     is_presto_view,
+    trino_type_to_hive_type,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -144,6 +148,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
     MetadataAttributionClass,
+    NullTypeClass,
     OperationClass,
     OperationTypeClass,
     OwnerClass,
@@ -714,6 +719,9 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_resource_link_schema_from_datahub: int = 0
     num_resource_link_schema_from_glue: int = 0
     num_resource_link_schema_unresolved: int = 0
+    num_view_schema_from_view_definition: int = 0
+    num_view_placeholder_schema_unresolved: int = 0
+    num_view_columns_type_unresolved: int = 0
 
     def report_table_scanned(self) -> None:
         self.tables_scanned += 1
@@ -816,6 +824,12 @@ class GlueSource(StatefulIngestionSourceBase):
     # catalog) with this TableType. Everything else is a table.
     _VIRTUAL_VIEW_TABLE_TYPE = "VIRTUAL_VIEW"
 
+    # When a view has an output column whose type Hive cannot represent (e.g.
+    # `timestamp with time zone`, `char(256)`), the engine writing the view to Glue
+    # replaces StorageDescriptor.Columns with a single column of this name. The real
+    # columns survive only in the encoded Presto view definition.
+    _PLACEHOLDER_VIEW_COLUMN_NAME = "dummy"
+
     # sqlglot dialects for the two kinds of Glue view SQL. Presto/Athena views are
     # Trino SQL; raw views are authored by Spark (Glue ETL/EMR) or Hive. sqlglot's
     # "spark" dialect extends "hive", so it parses both Spark and Hive SQL — the
@@ -839,6 +853,10 @@ class GlueSource(StatefulIngestionSourceBase):
         # Tracks which structured property definitions have been emitted this run
         # so each key's definition is only upserted once.
         self._seen_column_param_urns: Set[str] = set()
+        # Views whose Presto definition already failed to decode and was reported
+        # while building the schema, so _get_view_definition does not report the
+        # same root cause again.
+        self._presto_view_decode_failures_reported: Set[str] = set()
         self._aws_account_id: Optional[str] = None
         self._aws_account_id_loaded: bool = False
 
@@ -2637,6 +2655,14 @@ class GlueSource(StatefulIngestionSourceBase):
             dataset_urn=dataset_urn, db_name=database_name
         )
 
+    @staticmethod
+    def _glue_table_key(table: Dict) -> str:
+        # Includes the catalog because a shared owner table and a local table can
+        # have the same database and name.
+        return (
+            f"{table.get('CatalogId')}:{table.get('DatabaseName')}.{table.get('Name')}"
+        )
+
     def _get_view_definition(
         self, table: Dict, full_table_name: str
     ) -> Optional[GlueViewDefinition]:
@@ -2663,11 +2689,15 @@ class GlueSource(StatefulIngestionSourceBase):
             try:
                 original_sql = decode_presto_view(view_text).get("originalSql")
             except Exception as e:
-                self.report.warning(
-                    message="Failed to decode Presto view definition",
-                    context=f"table={full_table_name}: {e}",
-                    log=False,
-                )
+                if (
+                    self._glue_table_key(table)
+                    not in self._presto_view_decode_failures_reported
+                ):
+                    self.report.warning(
+                        message="Failed to decode Presto view definition",
+                        context=f"table={full_table_name}: {e}",
+                        log=False,
+                    )
                 return None
             if isinstance(original_sql, str) and original_sql:
                 return GlueViewDefinition(
@@ -3018,6 +3048,17 @@ class GlueSource(StatefulIngestionSourceBase):
         schema = table["StorageDescriptor"]["Columns"]
         fields: List[SchemaField] = []
 
+        view_fields = self._get_placeholder_view_schema_fields(
+            table,
+            table_name,
+            column_tags,
+            column_parent_tags,
+            column_parent_origin,
+        )
+        if view_fields is not None:
+            fields.extend(view_fields)
+            schema = []
+
         # Process regular columns
         for field in schema:
             schema_fields = get_schema_fields_for_hive_column(
@@ -3063,6 +3104,122 @@ class GlueSource(StatefulIngestionSourceBase):
             hash="",
             platformSchema=MySqlDDL(tableSchema=""),
         )
+
+    def _get_placeholder_view_schema_fields(
+        self,
+        table: Dict,
+        table_name: str,
+        column_tags: Optional[Dict[str, List[LakeFormationTag]]],
+        column_parent_tags: Optional[List[LakeFormationTag]],
+        column_parent_origin: Optional[str],
+    ) -> Optional[List[SchemaField]]:
+        """Recover a view's columns from its Presto definition when Glue only holds
+        the ``dummy`` placeholder column.
+
+        Returns ``None`` when the table is not a view with a placeholder schema, or
+        when the real columns cannot be recovered, so the caller falls back to
+        ``StorageDescriptor.Columns``.
+        """
+        if table.get("TableType") != self._VIRTUAL_VIEW_TABLE_TYPE:
+            return None
+        columns = table["StorageDescriptor"].get("Columns") or []
+        if (
+            len(columns) != 1
+            or str(columns[0].get("Name", "")).lower()
+            != self._PLACEHOLDER_VIEW_COLUMN_NAME
+        ):
+            return None
+
+        view_text = table.get("ViewOriginalText")
+        if not isinstance(view_text, str) or not is_presto_view(view_text):
+            # Only Presto/Athena writes the placeholder; a Spark/Hive view whose
+            # single column happens to be named `dummy` is a real column.
+            return None
+
+        # On the resource-link path table_name is the link, so name the owning
+        # view too.
+        view_name = f"{table.get('DatabaseName')}.{table.get('Name')}"
+        context_name = (
+            table_name if table_name == view_name else f"{table_name} -> {view_name}"
+        )
+
+        view_columns: Optional[List[PrestoViewColumn]] = None
+        decode_error: Optional[Exception] = None
+        try:
+            definition = decode_presto_view(view_text)
+        except ValueError as e:
+            # Covers bad base64/JSON/Unicode and over-nested payloads, which must
+            # not escape the table loop. Reported here rather than only in
+            # _get_view_definition, because the resource-link owner path reaches
+            # this method without it.
+            decode_error = e
+            reason = "view definition could not be decoded"
+            self._presto_view_decode_failures_reported.add(self._glue_table_key(table))
+        else:
+            view_columns = get_presto_view_columns(definition)
+            reason = "view definition has no valid 'columns' list"
+
+        if view_columns is None:
+            self.report.num_view_placeholder_schema_unresolved += 1
+            self.report.warning(
+                title="View schema is a placeholder column",
+                message="Glue stores only a placeholder 'dummy' column for this view "
+                "because one of its output columns has a type Hive cannot represent, "
+                "and the real columns could not be read from the view definition.",
+                context=f"{context_name}: {reason}",
+                exc=decode_error,
+                log=False,
+            )
+            return None
+
+        fields: List[SchemaField] = []
+        unconverted_columns: List[str] = []
+        for column in view_columns:
+            try:
+                hive_type = trino_type_to_hive_type(column["type"])
+                conversion_failed = False
+            except ValueError:
+                # Too long or too deeply nested to convert; keep the column.
+                hive_type = FALLBACK_HIVE_TYPE
+                conversion_failed = True
+            schema_fields = get_schema_fields_for_hive_column(
+                hive_column_name=column["name"],
+                hive_column_type=hive_type,
+                default_nullable=True,
+            )
+            if schema_fields:
+                # The Hive parser falls back to NullType instead of raising when it
+                # cannot read a type (for a nested field too), so surface those
+                # columns rather than count the view as fully recovered.
+                if conversion_failed or any(
+                    isinstance(field.type.type, NullTypeClass)
+                    for field in schema_fields
+                ):
+                    unconverted_columns.append(f"{column['name']} ({column['type']})")
+                # Keep the engine's own type (e.g. `timestamp(3) with time zone`)
+                # rather than the Hive approximation used to build the field.
+                schema_fields[0].nativeDataType = column["type"]
+                self._apply_column_lf_tags(
+                    schema_fields,
+                    column["name"],
+                    column_tags,
+                    column_parent_tags,
+                    column_parent_origin,
+                )
+                fields.extend(schema_fields)
+
+        if unconverted_columns:
+            self.report.num_view_columns_type_unresolved += len(unconverted_columns)
+            self.report.warning(
+                title="View column types could not be converted",
+                message="Some columns recovered from this view's definition have a "
+                "type DataHub could not convert, so they are ingested without a type "
+                "(or with part of their type missing) or typed as string.",
+                context=f"{context_name}: {', '.join(unconverted_columns)}",
+                log=False,
+            )
+        self.report.num_view_schema_from_view_definition += 1
+        return fields
 
     def _get_delta_schema_metadata(
         self,

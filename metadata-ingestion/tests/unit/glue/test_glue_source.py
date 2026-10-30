@@ -57,6 +57,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.testing import mce_helpers
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
@@ -722,6 +723,77 @@ def test_resource_link_schema_resolved_from_glue_when_absent_in_datahub():
     assert schema is not None
     assert {f.fieldPath.split(".")[-1] for f in schema.fields} == {"txn_id", "amount"}
     assert source.report.num_resource_link_schema_from_glue == 1
+
+
+def _owner_placeholder_view_response(view_original_text: str) -> Dict[str, Any]:
+    return {
+        "Table": {
+            "Name": "transactions",
+            "DatabaseName": "test-database",
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": view_original_text,
+            "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+        }
+    }
+
+
+@pytest.mark.parametrize("valid_payload", [True, False])
+def test_resource_link_to_placeholder_view_recovers_columns_from_glue(
+    valid_payload: bool,
+) -> None:
+    source = _resource_link_schema_source()
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = None
+    source.ctx.graph = graph
+    view_original_text = (
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "txn_id", "type": "bigint"},
+                    {"name": "booked_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        )
+        if valid_payload
+        else "/* Presto View: not!valid!base64 */"
+    )
+
+    with Stubber(source.glue_client) as stubber:
+        stubber.add_response(
+            "get_table",
+            _owner_placeholder_view_response(view_original_text),
+            {
+                "CatalogId": "432143214321",
+                "DatabaseName": "test-database",
+                "Name": "transactions",
+            },
+        )
+        schema = source._resource_link_schema(
+            resource_link_table_in_mixed_database,
+            CONSUMER_LINK_URN,
+            "mixed-database.shared-transactions",
+        )
+
+    assert schema is not None
+    field_names = [
+        get_simple_field_path_from_v2_field_path(f.fieldPath) for f in schema.fields
+    ]
+    placeholder_contexts = [
+        context
+        for w in source.report.warnings
+        if w.title == "View schema is a placeholder column"
+        for context in w.context
+    ]
+    if valid_payload:
+        assert field_names == ["txn_id", "booked_at"]
+        assert not placeholder_contexts
+    else:
+        assert field_names == ["dummy"]
+        assert len(placeholder_contexts) == 1
+        assert placeholder_contexts[0].startswith(
+            "mixed-database.shared-transactions -> test-database.transactions: "
+        )
 
 
 def test_resource_link_schema_unresolved_leaves_link_schemaless():
@@ -4319,6 +4391,272 @@ def test_glue_view_lineage_links_view_to_upstream_table() -> None:
     }
     assert ("id", "id") in column_edges
     assert ("name", "name") in column_edges
+
+
+def test_glue_athena_view_with_dummy_placeholder_column_uses_view_columns() -> None:
+    # When an Athena view has an output column Hive cannot represent (e.g.
+    # `timestamp with time zone` from AT TIME ZONE, or char(>255)), Athena writes a
+    # single placeholder column named `dummy` into StorageDescriptor.Columns. The
+    # real output columns survive only in the encoded Presto view definition.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    original_sql = (
+        "SELECT id, created_at AT TIME ZONE 'US/Pacific' AS created_at "
+        "FROM my_db.events"
+    )
+    encoded = base64.b64encode(
+        json.dumps(
+            {
+                "originalSql": original_sql,
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "created_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        ).encode()
+    ).decode()
+    view = {
+        "Name": "events_view",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "ViewOriginalText": f"/* Presto View: {encoded} */",
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "dummy",
+                    "Type": "string",
+                    "Comment": "Unsupported type for column created_at",
+                }
+            ]
+        },
+    }
+
+    schema_metadatas = [
+        wu.get_aspect_of_type(models.SchemaMetadataClass)
+        for wu in source._gen_table_wu(view)
+    ]
+    found = [s for s in schema_metadatas if s is not None]
+
+    assert len(found) == 1
+    fields_by_name = {
+        get_simple_field_path_from_v2_field_path(f.fieldPath): f
+        for f in found[0].fields
+    }
+    assert set(fields_by_name) == {"id", "created_at"}
+    created_at = fields_by_name["created_at"]
+    assert isinstance(created_at.type.type, models.TimeTypeClass)
+    assert created_at.nativeDataType == "timestamp(3) with time zone"
+    assert source.report.num_view_schema_from_view_definition == 1
+
+
+def _placeholder_view(name: str, view_original_text: Optional[str]) -> Dict[str, Any]:
+    view: Dict[str, Any] = {
+        "Name": name,
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+    }
+    if view_original_text is not None:
+        view["ViewOriginalText"] = view_original_text
+    return view
+
+
+def _schema_column_names(workunits: List[Any]) -> List[str]:
+    names: List[str] = []
+    for wu in workunits:
+        schema = wu.get_aspect_of_type(models.SchemaMetadataClass)
+        if schema is not None:
+            names.extend(
+                get_simple_field_path_from_v2_field_path(f.fieldPath)
+                for f in schema.fields
+            )
+    return names
+
+
+def _presto_view_text(payload: Any) -> str:
+    encoded = base64.b64encode(json.dumps(payload).encode()).decode()
+    return f"/* Presto View: {encoded} */"
+
+
+@pytest.mark.parametrize(
+    "view_original_text",
+    [
+        "/* Presto View: not!valid!base64 */",
+        # A non-list `columns` must not raise out of the table loop and abort the run.
+        _presto_view_text({"originalSql": "SELECT 1", "columns": 5}),
+        # Pathologically nested JSON can segfault json.loads on Python 3.12+; it must
+        # be rejected before parsing and must not escape either.
+        "/* Presto View: "
+        + base64.b64encode(("[" * 10_000 + "]" * 10_000).encode()).decode()
+        + " */",
+    ],
+    ids=["invalid_base64", "columns_not_a_list", "deeply_nested_json"],
+)
+def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns(
+    view_original_text: str,
+) -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view("broken_view", view_original_text)
+
+    assert _schema_column_names(list(source._gen_table_wu(view))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 1
+    assert source.report.num_view_schema_from_view_definition == 0
+    placeholder_contexts = [
+        context
+        for w in source.report.warnings
+        if w.title == "View schema is a placeholder column"
+        for context in w.context
+    ]
+    assert len(placeholder_contexts) == 1
+    assert placeholder_contexts[0].startswith("my_db.broken_view: ")
+    # The view-definition path decodes the same payload; one root cause must
+    # produce one report entry.
+    assert not any(
+        w.title == "Failed to decode Presto view definition"
+        for w in source.report.warnings
+    )
+
+
+def test_glue_placeholder_view_recovered_columns_inherit_lake_formation_tags() -> None:
+    # Lake Formation can only tag columns Glue lists (here just `dummy`), so the
+    # realistic case is table/database tags propagating to the recovered columns.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "created_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        ),
+    )
+    parent_tags = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c"),
+    ]
+
+    schema = source._get_glue_schema_metadata(view, "events_view", None, parent_tags)
+    assert schema is not None
+    by_col = _column_tag_names_by_field(schema)
+
+    expected = {make_tag_urn("DataClassification:Sensitive")}
+    assert by_col == {"id": expected, "created_at": expected}
+
+
+@pytest.mark.parametrize(
+    "view_original_text", [None, "SELECT id AS dummy FROM my_db.events"]
+)
+def test_glue_non_presto_view_with_column_named_dummy_is_kept_without_warning(
+    view_original_text: Optional[str],
+) -> None:
+    # Only Presto/Athena writes the placeholder; a Spark/Hive view's single
+    # `dummy` column is real, so it is neither replaced nor reported.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view("spark_view", view_original_text)
+
+    assert _schema_column_names(list(source._gen_table_wu(view))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 0
+    assert not any(
+        w.title == "View schema is a placeholder column" for w in source.report.warnings
+    )
+
+
+def test_glue_placeholder_view_reports_columns_left_without_a_type() -> None:
+    # A quoted row field name the Hive parser cannot read leaves that column
+    # untyped; the view is still recovered, but the column is reported.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    # Deliberate Hive parser failure: `(` in a struct field name.
+                    {"name": "payload", "type": 'row("a(b" bigint)'},
+                ],
+            }
+        ),
+    )
+
+    assert sorted(_schema_column_names(list(source._gen_table_wu(view)))) == [
+        "id",
+        "payload",
+    ]
+    assert source.report.num_view_schema_from_view_definition == 1
+    assert source.report.num_view_columns_type_unresolved == 1
+    assert any(
+        w.title == "View column types could not be converted"
+        for w in source.report.warnings
+    )
+
+
+def test_glue_placeholder_view_reports_nested_untyped_field() -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [{"name": "payload", "type": "row(a bigint, b foo)"}],
+            }
+        ),
+    )
+
+    # The decoder maps unknown scalars to string, so force a Hive type whose
+    # nested field the Hive parser cannot read while the top level still parses.
+    with patch(
+        "datahub.ingestion.source.aws.glue.trino_type_to_hive_type",
+        return_value="struct<a:bigint,b:foo>",
+    ):
+        list(source._gen_table_wu(view))
+
+    assert source.report.num_view_schema_from_view_definition == 1
+    assert source.report.num_view_columns_type_unresolved == 1
+
+
+def test_glue_placeholder_view_reports_columns_too_nested_to_convert() -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "deep", "type": "array(" * 100 + "bigint" + ")" * 100},
+                ],
+            }
+        ),
+    )
+
+    schema = source._get_glue_schema_metadata(view, "my_db.events_view")
+
+    assert schema is not None
+    deep = next(f for f in schema.fields if f.fieldPath.endswith(".deep"))
+    assert isinstance(deep.type.type, models.StringTypeClass)
+    assert source.report.num_view_columns_type_unresolved == 1
+
+
+def test_glue_table_with_column_named_dummy_is_not_treated_as_placeholder() -> None:
+    # Only views get the fallback; a real table column named `dummy` is kept as-is.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    table = {
+        "Name": "my_table",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "EXTERNAL_TABLE",
+        "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+    }
+
+    assert _schema_column_names(list(source._gen_table_wu(table))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 0
 
 
 def test_glue_view_lineage_disabled_creates_no_aggregator() -> None:
