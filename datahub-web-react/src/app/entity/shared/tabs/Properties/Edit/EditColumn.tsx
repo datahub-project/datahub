@@ -7,10 +7,10 @@ import { ItemType } from '@components/components/Menu/types';
 
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { Button, Menu } from '@src/alchemy-components';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
+import { Button, Menu, toast } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
 import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
@@ -47,7 +47,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
     }
 
     const handleRemoveProperty = () => {
-        showToastMessage(ToastType.LOADING, t('properties.removing.loading'), 1);
+        toast.loading(t('properties.removing.loading'), { duration: 1 });
         removeStructuredProperty({
             variables: {
                 input: {
@@ -64,15 +64,18 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
                     assetUrn: associatedUrn || mutationUrn,
                     assetType: associatedUrn?.includes('urn:li:schemaField') ? EntityType.SchemaField : entityType,
                 });
-                showToastMessage(ToastType.SUCCESS, t('properties.removed.success'), 3);
+                toast.success(t('properties.removed.success'), { duration: 3 });
                 if (refetch) {
                     refetch();
                 } else {
                     entityRefetch();
                 }
             })
-            .catch(() => {
-                showToastMessage(ToastType.ERROR, t('properties.removed.error'), 3);
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: t('properties.removed.error'),
+                });
             });
 
         setShowConfirmRemove(false);

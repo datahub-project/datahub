@@ -199,9 +199,12 @@ jobs:
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
-            -d "{\"model\": \"claude-haiku-4-5-20251001\", \"max_tokens\": 10, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
+            -d "{\"model\": \"claude-haiku-5-5\", \"max_tokens\": 1024, \"output_config\": {\"effort\": \"low\"}, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
 
-          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '[.content[] | select(.type == "text")][0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          if [ "$(echo "$CLAUDE_RESPONSE" | jq -r '.type // empty' 2>/dev/null)" = "error" ]; then
+            echo "::warning::Routing LLM call failed: $(echo "$CLAUDE_RESPONSE" | jq -r '.error.message' 2>/dev/null)"
+          fi
 
           if [ -z "$TEAM_KEY" ] || [ "$TEAM_KEY" = "NONE" ] || [ "$TEAM_KEY" = "NULL" ]; then
             echo "⚠️  No matching engineering team for PR #$PR_NUMBER — falling back to OSS (DevRel triage)"
@@ -437,9 +440,12 @@ jobs:
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
             -H "content-type: application/json" \
-            -d "{\"model\": \"claude-haiku-4-5-20251001\", \"max_tokens\": 10, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
+            -d "{\"model\": \"claude-haiku-5-5\", \"max_tokens\": 1024, \"output_config\": {\"effort\": \"low\"}, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
 
-          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '[.content[] | select(.type == "text")][0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          if [ "$(echo "$CLAUDE_RESPONSE" | jq -r '.type // empty' 2>/dev/null)" = "error" ]; then
+            echo "::warning::Routing LLM call failed: $(echo "$CLAUDE_RESPONSE" | jq -r '.error.message' 2>/dev/null)"
+          fi
 
           if [ -z "$TEAM_KEY" ] || [ "$TEAM_KEY" = "NONE" ] || [ "$TEAM_KEY" = "NULL" ]; then
             echo "⚠️  No matching engineering team for issue #$ISSUE_NUMBER — falling back to OSS (DevRel triage)"

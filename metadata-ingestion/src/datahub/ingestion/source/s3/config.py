@@ -1,18 +1,29 @@
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import ValidationInfo, field_validator, model_validator
 from pydantic.fields import Field
+from typing_extensions import Annotated
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, FiltersByRule
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    Verdict,
+    VerdictContext,
+)
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -33,6 +44,18 @@ class DataLakeSourceConfig(
     PathSpecsConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 ):
+    # Redeclared from PathSpecsConfigMixin to mark it: path_specs, not an
+    # AllowDenyPattern, decide every level this source emits, and the bucket
+    # kind differs per source (ABS shares the mixin).
+    path_specs: Annotated[
+        List[PathSpec],
+        FiltersByRule(DatasetContainerSubTypes.S3_BUCKET),
+        FiltersByRule(DatasetContainerSubTypes.FOLDER),
+        FiltersByRule(DatasetSubTypes.TABLE),
+    ] = Field(
+        description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
+    )
+
     platform: str = Field(
         default="",
         description="The platform that this source connects to (either 's3' or 'file'). "
@@ -134,6 +157,42 @@ class DataLakeSourceConfig(
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
+        )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: s3_probe imports this module and the S3 listing stack
+        from datahub.ingestion.source.s3.s3_probe import S3MetadataProbe
+
+        return S3MetadataProbe
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Judge one name with the PathSpec calls S3Source makes; see path_spec_verdict."""
+        # lazy: path_spec_verdict is probe-only, and ingestion never needs it
+        from datahub.ingestion.source.data_lake_common.path_spec_verdict import (
+            judge_path_spec_name,
+        )
+
+        if self.platform != "s3":
+            raise ProbeArgumentError(
+                f"probe filter judges s3:// path_specs; this recipe reads local "
+                f"paths (platform '{self.platform}')"
+            )
+        if self.aws_config is None:
+            ctx.warn(
+                "aws_config is not set, so ingesting this recipe fails before it "
+                "lists anything; the verdict is what path_specs decide once it is set"
+            )
+        # s3a:// and s3n:// are refused too: create_s3_path always writes s3://,
+        # so ingestion never names a dataset or folder with them. ignore_ext
+        # mirrors get_workunits_internal: is_s3_platform() (checked above) and
+        # use_s3_content_type.
+        return judge_path_spec_name(
+            self.path_specs,
+            ctx,
+            scheme="s3://",
+            bucket_kind=str(DatasetContainerSubTypes.S3_BUCKET),
+            ignore_ext=self.use_s3_content_type,
         )
 
     @field_validator("path_specs", mode="before")

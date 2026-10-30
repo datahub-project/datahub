@@ -61,19 +61,33 @@ public final class SemanticEmbeddingMappings {
     return indexName.equals(suffix) || indexName.endsWith("_" + suffix);
   }
 
-  public static boolean isSemanticEnabledV3Index(
-      @Nullable SemanticSearchConfiguration semanticConfig, @Nullable String indexName) {
-    if (semanticConfig == null
-        || !semanticConfig.isEnabled()
-        || semanticConfig.getEnabledEntities() == null
-        || indexName == null) {
+  /**
+   * True when semantic search is on for at least one entity and a model is configured. The V3
+   * mapping is one document applied to every index, so that entity's vector field is on every
+   * index, including entities that do not store vectors.
+   */
+  public static boolean enabledForAnyEntity(@Nullable SemanticSearchConfiguration semanticConfig) {
+    if (semanticConfig == null || !semanticConfig.isEnabled()) {
+      return false;
+    }
+    Set<String> enabledEntities = semanticConfig.getEnabledEntities();
+    if (enabledEntities == null || enabledEntities.isEmpty()) {
       return false;
     }
     Map<String, ModelEmbeddingConfig> models = semanticConfig.getModels();
-    if (models == null || models.isEmpty()) {
+    return models != null && !models.isEmpty();
+  }
+
+  public static boolean isSemanticEnabledV3Index(
+      @Nullable SemanticSearchConfiguration semanticConfig, @Nullable String indexName) {
+    if (semanticConfig == null || indexName == null || !enabledForAnyEntity(semanticConfig)) {
       return false;
     }
-    for (String entityName : semanticConfig.getEnabledEntities()) {
+    Set<String> enabledEntities = semanticConfig.getEnabledEntities();
+    if (enabledEntities == null) {
+      return false;
+    }
+    for (String entityName : enabledEntities) {
       if (isV3IndexForEntity(indexName, entityName)) {
         return true;
       }

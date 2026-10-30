@@ -1693,3 +1693,24 @@ class TestPublishChokePoints:
         registry.register_secret("SIBLING_SECRET", "sibling-secret-value")
         self._run_completion(ingestion_task, mock_execution_context, LogHolder())
         assert registry.has_secret("SIBLING_SECRET")
+
+
+async def test_execute_refuses_credential_redirect_before_setup(
+    ingestion_task: SubProcessIngestionTask,
+    mock_execution_context: Mock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://datahub-gms:8080")
+    recipe = {
+        "source": {"type": "demo-data", "config": {}},
+        "datahub_api": {"server": "http://other:8080"},
+    }
+    args = {"recipe": json.dumps(recipe), "version": "latest"}
+    with (
+        patch(_SETUP_VENV) as mock_setup_venv,
+        patch.object(ingestion_task, "_setup_directories") as mock_setup_dirs,
+    ):
+        with pytest.raises(TaskError, match=r"datahub_api\.server"):
+            await ingestion_task.execute(args, mock_execution_context)
+    mock_setup_dirs.assert_not_called()
+    mock_setup_venv.assert_not_called()

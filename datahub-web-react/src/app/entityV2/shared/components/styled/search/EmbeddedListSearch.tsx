@@ -26,7 +26,7 @@ import {
     DownloadSearchResultsParams,
 } from '@app/search/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { combineOrFilters } from '@src/app/searchV2/utils/filterUtils';
 import { SearchCfg } from '@src/conf';
 
@@ -254,16 +254,26 @@ export const EmbeddedListSearch = ({
                 },
             },
             fetchPolicy: skipCache ? undefined : 'cache-first',
+            // The counts are only shown on the view switcher, which a list that ignores the view lacks.
+            skip: !applyView,
         });
     };
 
     const { total: allSearchCount, refetch: refetchAllSearchCount } = useGetViewSearchData(undefined);
     const { total: defaultViewCount, refetch: refetchDefaultViewCount } = useGetViewSearchData(defaultViewUrn);
+
+    const refetchViewCounts = () => {
+        if (!applyView) return;
+        refetchAllSearchCount?.();
+        if (defaultViewUrn) refetchDefaultViewCount?.();
+    };
+
     const { data: viewData } = useGetViewQuery({
         variables: {
             urn: defaultViewUrn || '',
         },
-        skip: !defaultViewUrn,
+        // A list that ignores the view does not load it, so it shows no switcher for it.
+        skip: !applyView || !defaultViewUrn,
     });
 
     const view = (viewData?.view?.__typename === 'DataHubView' && viewData?.view) || undefined;
@@ -274,8 +284,7 @@ export const EmbeddedListSearch = ({
                 input: searchInput,
             });
             resetShouldRefetch();
-            refetchAllSearchCount?.();
-            if (defaultViewUrn) refetchDefaultViewCount?.();
+            refetchViewCounts();
         }
     });
 
@@ -285,8 +294,7 @@ export const EmbeddedListSearch = ({
                 input: searchInput,
             });
             setShouldRefetchEmbeddedListSearch?.(false);
-            refetchAllSearchCount?.();
-            if (defaultViewUrn) refetchDefaultViewCount?.();
+            refetchViewCounts();
         }
     });
 

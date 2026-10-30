@@ -28,7 +28,7 @@ import {
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { AddIncidentModal } from '@app/entity/shared/tabs/Incident/components/AddIncidentModal';
-import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
+import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';
 import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -397,6 +397,7 @@ function EntityDropdown(props: Props) {
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetchForTerms}
                 />
@@ -404,6 +405,7 @@ function EntityDropdown(props: Props) {
             {isCreateNodeModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryNode}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetchForNodes}
                 />
@@ -411,6 +413,7 @@ function EntityDropdown(props: Props) {
             {isCloneEntityModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={entityType}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCloneEntityModalVisible(false)}
                     refetchData={entityType === EntityType.GlossaryTerm ? refetchForTerms : refetchForNodes}
                     isCloning

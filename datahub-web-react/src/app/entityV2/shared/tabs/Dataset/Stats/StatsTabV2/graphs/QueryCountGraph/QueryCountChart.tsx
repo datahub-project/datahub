@@ -21,7 +21,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
 import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
-import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
+import { formatNumberWithoutAbbreviation } from '@src/app/sharedV2/formatNumber';
 import { TimeRange } from '@src/types.generated';
 
 function isTimeRange(value: string): value is TimeRange {

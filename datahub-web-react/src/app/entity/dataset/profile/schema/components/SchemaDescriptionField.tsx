@@ -10,7 +10,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import StripMarkdownText, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import PropagationDetails from '@app/entity/shared/propagation/PropagationDetails';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 import { Button } from '@src/alchemy-components';
 import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 import CompactMarkdownViewer from '@src/app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
@@ -99,7 +99,8 @@ const AttributeDescription = styled.div`
 const StyledAttributeViewer = styled(Editor)`
     padding-right: 8px;
     display: block;
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 0;
         color: ${(props) => props.theme.colors.textTertiary};
     }

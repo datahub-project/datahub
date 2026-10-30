@@ -516,17 +516,30 @@ URI, rather than deferring the error to the first query.
 | `ELASTICSEARCH_COMPONENT_CLUSTER_USAGE`           | `primary` | Cluster hosting usage event indices                    | GMS, MAE Consumer, MCE Consumer, System Update |
 
 Search V2 and Search V3 route independently, so a dual-write migration can keep both families on
-one cluster or split them. Reading V3 still requires V3 writes to be enabled
-(`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED` plus `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED`);
-routing V3 to a second cluster does not by itself change which family is read. Semantic (kNN)
-search has its own read flag, `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED` (default
-`false`): with V3 writes on, it reads document vectors from the V3 document index on the Search V3
-cluster instead of the semantic indices, independent of the keyword read flag. It needs OpenSearch
-3.5+ or Elasticsearch 8.18+ on the Search V3 cluster; services given it refuse to start on older OpenSearch.
-Hybrid search has its own flag too, `ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED` (default
-`false`): it reranks the documents among full-text keyword results with their V3 vectors. Services
-given it refuse to start unless V3 keyword and semantic reads are on, semantic search is enabled
-with an embedding provider, and the active embedding model has a mapping.
+one cluster or split them. Pointing Search V3 at a second cluster does not by itself change which
+family is read.
+
+#### Search V3 feature switches
+
+Each Search V3 feature has its own switch. The switches default off. The V2 entity index stays on,
+so keyword search keeps using V2 until an operator turns a V3 read on. A change takes effect on
+restart.
+
+| Environment Variable                                  | Default | Description                                                                                                                                                                                                                                               | Components                                     |
+| ----------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED`               | `true`  | Serve and maintain Search V2 entity indices (`*index_v2`).                                                                                                                                                                                                | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED`               | `false` | Write entity documents to Search V3 indices (`*index_v3`). Off ignores keyword read, semantic read, and hybrid, and search stays on V2.                                                                                                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED`  | `false` | Serve keyword search, browse, scroll, and lineage search from V3. Off, while V2 is still on, keeps those reads on V2. V3 writes can stay on.                                                                                                              | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED` | `false` | Read document vectors from the V3 document index instead of the V2 semantic indices. Independent of keyword read. Requires V3 write. Needs OpenSearch 3.5+ or Elasticsearch 8.18+ on the Search V3 cluster. Refuses to start on older OpenSearch.         | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED`   | `false` | Rerank full-text keyword results with V3 document vectors. Off leaves keyword ranking unchanged. On refuses to start unless V3 write, keyword read, semantic read, and semantic search are on, with an embedding provider and the active model's mapping. | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED`               | `false` | Enable semantic search. See [Semantic Search Configuration](../how-to/semantic-search-configuration.md).                                                                                                                                                  | GMS, MAE Consumer, MCE Consumer, System Update |
+| `SEARCH_V3_TEMPLATES_ENABLED`                         | `false` | Rank keyword search with Search V3 query templates. Off keeps the Java query builder even when keyword read is on. On serves templates only when keyword reads use V3. See [Search V3 query templates](../how/search.md#search-v3-query-templates).       | GMS                                            |
+
+With `ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED` set to `false` and V3 write on, keyword reads use V3
+even when `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED` is `false`, because no V2 index
+remains. Semantic search behavior is in
+[Semantic Search Configuration](../how-to/semantic-search-configuration.md#search-v3). Template
+ranking is in [Search](../how/search.md#search-v3-query-templates).
 
 #### MAE consumer (`metadata-jobs/mae-consumer-job`)
 
@@ -657,24 +670,26 @@ upstream filter-chain changes continue to apply on upgrades.
 
 #### Search Configuration
 
-| Environment Variable                                    | Default              | Description                                    | Components |
-| ------------------------------------------------------- | -------------------- | ---------------------------------------------- | ---------- |
-| `ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE`              | `60`                 | Maximum term bucket size                       | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`             | `false`              | Only return exact matches when using quotes    | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`           | `true`               | Include prefix match in exact match results    | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`                | `16.0`               | Multiply by this number on true exact match    | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR`         | `1.1`                | Multiply by this number when prefix match      | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR`           | `0.0`                | Stacked boost multiplier when case mismatch    | GMS        |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED`     | `true`               | Enable exact match on structured search        | GMS        |
-| `ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR`                   | `1.2`                | Boost multiplier when match on 2-gram tokens   | GMS        |
-| `ELASTICSEARCH_QUERY_THREE_GRAM_FACTOR`                 | `1.5`                | Boost multiplier when match on 3-gram tokens   | GMS        |
-| `ELASTICSEARCH_QUERY_FOUR_GRAM_FACTOR`                  | `1.8`                | Boost multiplier when match on 4-gram tokens   | GMS        |
-| `ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR`                | `0.5`                | Multiplier on Urn token match                  | GMS        |
-| `ELASTICSEARCH_QUERY_PARTIAL_FACTOR`                    | `0.4`                | Multiplier on possible non-Urn token match     | GMS        |
-| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED`             | `true`               | Enable search query and ranking customization  | GMS        |
-| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE`                | `search_config.yaml` | Location of search customization configuration | GMS        |
-| `ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT`       | `legacy`             | Default field configuration for search         | GMS        |
-| `ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT` | `legacy`             | Default field configuration for autocomplete   | GMS        |
+| Environment Variable                                    | Default              | Description                                     | Components |
+| ------------------------------------------------------- | -------------------- | ----------------------------------------------- | ---------- |
+| `ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE`              | `60`                 | Maximum term bucket size                        | GMS        |
+| `ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS`        | `false`              | Hide non-primary dataset siblings from search   | GMS        |
+| `LINEAGE_COUNT_ONLY_ENABLED`                            | `false`              | Count-only lineage requests use one aggregation | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`             | `false`              | Only return exact matches when using quotes     | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`           | `true`               | Include prefix match in exact match results     | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`                | `16.0`               | Multiply by this number on true exact match     | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR`         | `1.1`                | Multiply by this number when prefix match       | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR`           | `0.0`                | Stacked boost multiplier when case mismatch     | GMS        |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED`     | `true`               | Enable exact match on structured search         | GMS        |
+| `ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR`                   | `1.2`                | Boost multiplier when match on 2-gram tokens    | GMS        |
+| `ELASTICSEARCH_QUERY_THREE_GRAM_FACTOR`                 | `1.5`                | Boost multiplier when match on 3-gram tokens    | GMS        |
+| `ELASTICSEARCH_QUERY_FOUR_GRAM_FACTOR`                  | `1.8`                | Boost multiplier when match on 4-gram tokens    | GMS        |
+| `ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR`                | `0.5`                | Multiplier on Urn token match                   | GMS        |
+| `ELASTICSEARCH_QUERY_PARTIAL_FACTOR`                    | `0.4`                | Multiplier on possible non-Urn token match      | GMS        |
+| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED`             | `true`               | Enable search query and ranking customization   | GMS        |
+| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE`                | `search_config.yaml` | Location of search customization configuration  | GMS        |
+| `ELASTICSEARCH_QUERY_SEARCH_FIELD_CONFIG_DEFAULT`       | `legacy`             | Default field configuration for search          | GMS        |
+| `ELASTICSEARCH_QUERY_AUTOCOMPLETE_FIELD_CONFIG_DEFAULT` | `legacy`             | Default field configuration for autocomplete    | GMS        |
 
 #### Graph Search Configuration
 
@@ -992,7 +1007,7 @@ Reference Links:
 
 Reference Links:
 
-- **Updating DataHub**: [Updating DataHub Guide](../how/updating-datahub.md)
+- **Updating DataHub**: [Breaking Changes](../how/breaking-changes.md)
 
 ### Bootstrap Configuration
 
@@ -1104,7 +1119,7 @@ One-time upgrade step that grants `VIEW_ALL_QUERIES` to every existing policy th
 
 | Environment Variable                                          | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Components    |
 | ------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED`    | `false` | Enable the non-blocking system-update step that re-ingests dataset `schemaMetadata`/`status` to materialize schemaField key/aliases/status (and optionally backfill mirrored `domains`/`ownership` when those MCP flags are on). Turning a mirror flag off stops further mirroring and does **not** delete leftover field aspects. See [Updating DataHub](../how/updating-datahub.md).                                                                                                                                                                                                  | System Update |
+| `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED`    | `false` | Enable the non-blocking system-update step that re-ingests dataset `schemaMetadata`/`status` to materialize schemaField key/aliases/status (and optionally backfill mirrored `domains`/`ownership` when those MCP flags are on). Turning a mirror flag off stops further mirroring and does **not** delete leftover field aspects. See [Breaking Changes](../how/breaking-changes.md).                                                                                                                                                                                                  | System Update |
 | `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE` | `500`   | Schema fields from schema metadata batch size                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | System Update |
 | `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_DELAY_MS`   | `1000`  | Schema fields from schema metadata delay                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | System Update |
 | `SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_LIMIT`      | `0`     | Schema fields from schema metadata limit (`0` = no limit)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | System Update |
@@ -1318,28 +1333,43 @@ See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api
 
 ### GraphQL Configuration
 
-| Environment Variable                            | Default                                                    | Description                                                                            | Components |
-| ----------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------- |
-| `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL`      | `false`                                                    | Enable separate thread pool for GraphQL                                                | GMS        |
-| `GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS`     | `false`                                                    | Restore CPU-scaled pool sizes and SynchronousQueue                                     | GMS        |
-| `GRAPHQL_CONCURRENCY_STACK_SIZE`                | `256000`                                                   | GraphQL thread pool stack size                                                         | GMS        |
-| `GRAPHQL_CONCURRENCY_CORE_POOL_SIZE`            | `40`                                                       | GraphQL core pool size (`< 0` = 5 \* cores)                                            | GMS        |
-| `GRAPHQL_CONCURRENCY_MAX_POOL_SIZE`             | `800`                                                      | GraphQL max pool size, 8-core cap (`<= 0` = 100 \* cores)                              | GMS        |
-| `GRAPHQL_CONCURRENCY_QUEUE_SIZE`                | `0`                                                        | `<= 0` SynchronousQueue (blocking fan-out); `> 0` bounded queue                        | GMS        |
-| `GRAPHQL_CONCURRENCY_KEEP_ALIVE`                | `60`                                                       | GraphQL thread keep alive time                                                         | GMS        |
-| `GRAPHQL_DOCUMENT_CACHE_ENABLED`                | `true`                                                     | Enable the cache of parsed/validated GraphQL query documents                           | GMS        |
-| `GRAPHQL_DOCUMENT_CACHE_MAX_BYTES`              | `26214400`                                                 | Maximum GraphQL document cache weight in bytes (25MB, estimated as 5x query text size) | GMS        |
-| `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                | `2000`                                                     | GraphQL query complexity limit                                                         | GMS        |
-| `GRAPHQL_QUERY_DEPTH_LIMIT`                     | `50`                                                       | GraphQL query depth limit                                                              | GMS        |
-| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`           | `true`                                                     | Enable GraphQL introspection                                                           | GMS        |
-| `GRAPHQL_METRICS_ENABLED`                       | `true`                                                     | Enable GraphQL metrics collection                                                      | GMS        |
-| `GRAPHQL_PERCENTILES`                           | `0.5,0.75,0.95,0.98,0.99,0.999`                            | GraphQL percentiles                                                                    | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED`           | `false`                                                    | Enable field-level GraphQL metrics                                                     | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS`        | `getSearchResultsForMultiple,searchAcrossLineageStructure` | GraphQL field-level operations                                                         | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED`      | `false`                                                    | Include field path in GraphQL metrics                                                  | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`             | ``                                                         | GraphQL field-level paths                                                              | GMS        |
-| `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED` | `false`                                                    | Include trivial data fetchers in GraphQL metrics                                       | GMS        |
-| `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED`           | `true`                                                     | Load only aspects the query selection needs                                            | GMS        |
+| Environment Variable                                  | Default                                                    | Description                                                                            | Components |
+| ----------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------- |
+| `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL`            | `false`                                                    | Enable separate thread pool for GraphQL                                                | GMS        |
+| `GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS`           | `false`                                                    | Restore CPU-scaled pool sizes and SynchronousQueue                                     | GMS        |
+| `GRAPHQL_CONCURRENCY_STACK_SIZE`                      | `256000`                                                   | GraphQL thread pool stack size                                                         | GMS        |
+| `GRAPHQL_CONCURRENCY_CORE_POOL_SIZE`                  | `40`                                                       | GraphQL core pool size (`< 0` = 5 \* cores)                                            | GMS        |
+| `GRAPHQL_CONCURRENCY_MAX_POOL_SIZE`                   | `800`                                                      | GraphQL max pool size, 8-core cap (`<= 0` = 100 \* cores)                              | GMS        |
+| `GRAPHQL_CONCURRENCY_QUEUE_SIZE`                      | `0`                                                        | `<= 0` SynchronousQueue (blocking fan-out); `> 0` bounded queue                        | GMS        |
+| `GRAPHQL_CONCURRENCY_KEEP_ALIVE`                      | `60`                                                       | GraphQL thread keep alive time                                                         | GMS        |
+| `GRAPHQL_DOCUMENT_CACHE_ENABLED`                      | `true`                                                     | Enable the cache of parsed/validated GraphQL query documents                           | GMS        |
+| `GRAPHQL_DOCUMENT_CACHE_MAX_BYTES`                    | `26214400`                                                 | Maximum GraphQL document cache weight in bytes (25MB, estimated as 5x query text size) | GMS        |
+| `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                      | `2010`                                                     | GraphQL query complexity limit                                                         | GMS        |
+| `GRAPHQL_QUERY_DEPTH_LIMIT`                           | `50`                                                       | GraphQL query depth limit                                                              | GMS        |
+| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`                 | `true`                                                     | Enable GraphQL introspection                                                           | GMS        |
+| `GRAPHQL_QUERY_MAX_PARENT_DEPTH`                      | `50`                                                       | Max parent-chain depth traversed (glossary, domains, containers)                       | GMS        |
+| `GRAPHQL_QUERY_MAX_VISITED_URNS`                      | `20000`                                                    | Relationship resolution cap per request (cycle protection)                             | GMS        |
+| `GRAPHQL_QUERY_SLOW_QUERY_THRESHOLD_MS`               | `1000`                                                     | Duration above which a query is logged as slow                                         | GMS        |
+| `GRAPHQL_QUERY_STREAM_RESPONSE`                       | `false`                                                    | Stream the JSON response instead of buffering it (bounds GMS heap)                     | GMS        |
+| `GRAPHQL_GRAPHIQL_ENABLED`                            | `true`                                                     | Serve the GraphiQL interface at `/api/graphiql`                                        | GMS        |
+| `GRAPHQL_METRICS_ENABLED`                             | `true`                                                     | Enable GraphQL metrics collection                                                      | GMS        |
+| `GRAPHQL_PERCENTILES`                                 | `0.5,0.75,0.95,0.98,0.99,0.999`                            | GraphQL percentiles                                                                    | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED`                 | `false`                                                    | Enable field-level GraphQL metrics                                                     | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS`              | `getSearchResultsForMultiple,searchAcrossLineageStructure` | GraphQL field-level operations                                                         | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED`            | `false`                                                    | Include field path in GraphQL metrics                                                  | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`                   | ``                                                         | GraphQL field-level paths                                                              | GMS        |
+| `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED`       | `false`                                                    | Include trivial data fetchers in GraphQL metrics                                       | GMS        |
+| `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED`                 | `true`                                                     | Load only aspects the query selection needs                                            | GMS        |
+| `GRAPHQL_SHAPE_LOGGING_ENABLED`                       | `false`                                                    | Threshold-based structured logging of request/response shape                           | GMS        |
+| `GRAPHQL_SHAPE_LOGGING_FIELD_COUNT_THRESHOLD`         | `100`                                                      | Field-selection count that triggers shape logging                                      | GMS        |
+| `GRAPHQL_SHAPE_LOGGING_DURATION_THRESHOLD_MS`         | `3000`                                                     | Request duration that triggers shape logging                                           | GMS        |
+| `GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES` | `1048576`                                                  | Recorded on a shape log only after field count, duration, or error count has crossed   | GMS        |
+| `GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD`         | `1`                                                        | Error count that triggers shape logging                                                | GMS        |
+| `ENABLE_OTEL_GRAPHQL_TRACES`                          | `false`                                                    | Enable GraphQL OpenTelemetry traces; required for resolver spans                       | GMS        |
+| `GRAPHQL_OTEL_RESOLVER_SPANS_ENABLED`                 | `false`                                                    | Emit filtered resolver-level OTel spans (requires `ENABLE_OTEL_GRAPHQL_TRACES=true`)   | GMS        |
+| `GRAPHQL_OTEL_RESOLVER_SPANS_INCLUDE_TRIVIAL`         | `false`                                                    | Also trace trivial property getters (noisy)                                            | GMS        |
+| `GRAPHQL_OTEL_RESOLVER_SPANS_TOP_LEVEL_ONLY`          | `true`                                                     | Restrict resolver spans to top-level Query/Mutation fields                             | GMS        |
+| `GRAPHQL_OTEL_RESOLVER_SPANS_ALLOWED_PATHS`           | ``                                                         | CSV allow-list of `ParentType.field` for nested resolver spans                         | GMS        |
 
 ### Chrome Extension Configuration
 

@@ -80,9 +80,8 @@ const I18N_RULE_EXCLUDED_FILES = [
     // live and dead code interleave (no clean glob) — same rationale as this
     // directory's exclusion from COLOR_RULE_EXCLUDED_FILES below.
     'src/app/ingest/**',
-    // Generated GraphQL types/mocks — not authored, not user-facing UI copy.
+    // Generated GraphQL types — not authored, not user-facing UI copy.
     'src/graphql/**',
-    'src/graphql-mock/**',
     // Mock fixtures, tests, and Storybook demos — never production UI.
     '**/__tests__/**',
     '**/*.test.ts',
@@ -195,12 +194,11 @@ const COLOR_RULE_EXCLUDED_FILES = [
     // rendered by V2, so do not assume app/entity is fully dead.
     'src/app/entity/**',
     'src/app/search/**',
-    'src/app/lineage/**',
     'src/app/glossary/**',
-    'src/app/analyticsDashboard/**',
+    // Moved from the old analyticsDashboard folder; chart crosshair color not yet migrated.
+    'src/app/analyticsDashboardV2/components/TimeSeriesChart.tsx',
     'src/app/ingest/**',
-    // Mock fixtures, tests, and Storybook demos — never production UI.
-    'src/graphql-mock/**',
+    // Tests and Storybook demos — never production UI.
     '**/*.test.ts',
     '**/*.test.tsx',
     '**/__tests__/**',
@@ -317,7 +315,6 @@ module.exports = {
                     { alias: '@app/', matcher: '^src/app/' },
                     { alias: '@conf/', matcher: '^src/conf/' },
                     { alias: '@graphql/', matcher: '^src/graphql/' },
-                    { alias: '@graphql-mock/', matcher: '^src/graphql-mock/' },
                     { alias: '@images/', matcher: '^src/images/' },
                     { alias: '@providers/', matcher: '^src/providers/' },
                     { alias: '@utils/', matcher: '^src/utils/' },

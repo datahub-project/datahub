@@ -13,7 +13,7 @@ import { EntityIconProps } from '@app/searchV2/autoCompleteV2/components/icon/ty
 import useUniqueEntitiesByPlatformUrn from '@app/searchV2/autoCompleteV2/components/icon/useUniqueEntitiesByPlatformUrn';
 import ColoredEntityIcon from '@app/sharedV2/icons/ColoredEntityIcon';
 import { getTagColor } from '@app/tags/utils';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Domain, EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
@@ -69,7 +69,7 @@ const DEFAULT_DOMAIN_FONT_SIZE = 16;
 const DEFAULT_GLOSSARY_ICON_SIZE = 14;
 
 export default function DefaultEntityIcon({ entity, siblings, size }: EntityIconProps) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const theme = useTheme();
     const uniqueSiblingsByPlatform = useUniqueEntitiesByPlatformUrn(siblings);
     const hasSiblings = useMemo(() => (uniqueSiblingsByPlatform?.length ?? 0) > 0, [uniqueSiblingsByPlatform?.length]);
