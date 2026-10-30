@@ -279,6 +279,16 @@
     displayName: Kusto
     type: OLAP_DATASTORE
     logoUrl: "assets/platforms/kustologo.png"
+- entityUrn: urn:li:dataPlatform:langfuse
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: langfuse
+    displayName: Langfuse
+    type: OTHERS
+    logoUrl: "assets/platforms/langfuselogo.svg"
 - entityUrn: urn:li:dataPlatform:mode
   entityType: dataPlatform
   aspectName: dataPlatformInfo

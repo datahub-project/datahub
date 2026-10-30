@@ -8,7 +8,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "dataProductProperties",
-  "schemaVersion": 3
+  "schemaVersion": 4
 }
 record DataProductProperties includes CustomProperties, ExternalReference  {
   /**
@@ -57,7 +57,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "DataProductContains",
-      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document", "api" ],
+      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document", "api", "service", "application", "repository", "aiAgent", "agentSkill" ],
     }
   }
   assets: optional array[DataProductAssociation]

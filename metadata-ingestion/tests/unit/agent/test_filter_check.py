@@ -5,6 +5,7 @@ import pytest
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
+    ContainerUnknown,
     ProbeInternalError,
     pattern_verdict,
 )
@@ -395,34 +396,33 @@ def test_a_single_project_recipe_still_needs_no_parent():
     assert verdicts["staging"] == (False, "proj_a.staging")
 
 
-def test_an_override_that_cannot_answer_says_so():
+def test_an_override_that_cannot_answer_refuses():
     """BigQuery pinning several projects has no single answer to give without
-    a parent, so it declines rather than guessing -- leaving the bare-name
-    verdict and the "pass the containing schema" warning, which is weaker
-    than an answer but not a wrong one.
+    a parent, so it gives none.
+
+    It used to fall through to the bare name and report `ds1` excluded, which
+    this test called "weaker than an answer but not a wrong one". It was a
+    wrong one: `^p1\\.ds1$` is a pattern about a project, and ingestion asked
+    about `p1.ds1` would have included it. The warning saying so sat beside a
+    verdict that contradicted it, and the verdict is what gets read.
 
     Drives check_filters rather than the removed per-connector override, for
     the reason given on the Redshift test above.
     """
-    result = check_filters(
-        source_type="bigquery",
-        config_dict={
-            "project_ids": ["p1", "p2"],
-            "dataset_pattern": {"allow": [r"^p1\.ds1$"]},
-        },
-        kind=str(DatasetContainerSubTypes.SCHEMA),
-        parent_path=[],
-        names=["ds1"],
-    )
-    # Bare name, because nothing could qualify it.
-    assert result.results[0].target == "ds1"
-    # ...and it SAYS so, which is what the test is named for. The assertion
-    # was lost in a rewrite, leaving the docstring claiming the warning is
-    # "the point of the path" while nothing here checked it fired.
-    assert any("qualified" in w for w in result.warnings), result.warnings
-    # A bare name judged against a qualified pattern excludes, which is the
-    # outcome the warning exists to explain.
-    assert all(not v.included for v in result.results)
+    with pytest.raises(ContainerUnknown) as refusal:
+        check_filters(
+            source_type="bigquery",
+            config_dict={
+                "project_ids": ["p1", "p2"],
+                "dataset_pattern": {"allow": [r"^p1\.ds1$"]},
+            },
+            kind=str(DatasetContainerSubTypes.SCHEMA),
+            parent_path=[],
+            names=["ds1"],
+        )
+    # It names the way out, not just the problem.
+    assert "--parent" in str(refusal.value)
+    assert "project_ids" in str(refusal.value)
 
     # And with the caller naming one, the qualified verdict comes back.
     answered = check_filters(
@@ -890,6 +890,87 @@ def test_a_hypothetical_pattern_is_normalized_the_way_the_recipe_would_be():
     # in the normalized pattern and not in the one the caller wrote.
     assert any(".*" in w for w in hypothetical.warnings)
     assert not any(".*" in p for p in hypothetical.tried["allow"])
+
+
+def test_a_switched_off_kind_outlives_a_container_that_cannot_be_judged():
+    """The parent is judged first, so its refusal must not pre-empt a verdict
+    that holds in every container.
+
+    `include_views: false` excludes the view wherever it lives, so the
+    unresolvable project above it cannot change the answer. Moving
+    `_parent_exclusion` ahead of the name loop -- which is what stops an
+    excluded container being overruled -- reintroduced the same ordering
+    fault one level up until the parent's refusal was held back.
+    """
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={
+            "include_views": False,
+            "dataset_pattern": {"allow": ["^analytics$"]},
+        },
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=["analytics"],
+        names=["v1"],
+    )
+    assert result.results[0].excluded_by == "include_views"
+
+
+def test_a_container_that_cannot_be_judged_still_refuses_for_a_name_it_decides():
+    """The other half: with nothing else to decide the name, the parent's
+    refusal is the answer and must still be raised -- carrying what the
+    connector said on the way, exactly as an unheld refusal does. Holding it
+    aside is a detail of the ordering, not a reason to answer with less.
+    """
+    with pytest.raises(ContainerUnknown) as refusal:
+        check_filters(
+            source_type="bigquery",
+            config_dict={"dataset_pattern": {"allow": ["^analytics$"]}},
+            kind=str(DatasetSubTypes.VIEW),
+            parent_path=["analytics"],
+            names=["v1"],
+        )
+    assert "This source also reported" in str(refusal.value)
+
+
+def test_a_container_that_cannot_be_judged_refuses_for_what_is_inside_it():
+    """The --parent chain is judged too, so the rule has to hold there.
+
+    `--kind Table --parent analytics` on BigQuery judges the dataset
+    `analytics` in turn, and that judgement has no project either. Answering
+    about the table while silently failing to judge its container would report
+    a table ingestion may never reach.
+    """
+    with pytest.raises(ContainerUnknown) as refusal:
+        check_filters(
+            source_type="bigquery",
+            config_dict={"dataset_pattern": {"allow": ["^analytics$"]}},
+            kind=str(DatasetSubTypes.TABLE),
+            parent_path=["analytics"],
+            names=["t1"],
+        )
+    # The container's field, not the table's: that is the one that could not
+    # be judged.
+    assert "dataset_pattern" in str(refusal.value)
+
+
+def test_a_hypothetical_pattern_refuses_on_the_same_terms_as_the_recipe():
+    """--try-allow must not be a way back to the verdict the recipe refuses.
+
+    The trial pattern goes through the source's validators too, so
+    `^analytics$` becomes `^.*\\.analytics$` here exactly as it would in the
+    recipe. If it were judged while the recipe's own pattern is refused,
+    "test the fix before you write it" would answer the question wrongly and
+    the caller would write the wrong fix.
+    """
+    with pytest.raises(ContainerUnknown):
+        check_filters(
+            source_type="bigquery",
+            config_dict={"dataset_pattern": {"allow": [".*"]}},
+            kind="Schema",
+            parent_path=[],
+            names=["analytics"],
+            try_allow=["^analytics$"],
+        )
 
 
 def test_a_source_that_does_not_rewrite_the_pattern_says_nothing_about_it():

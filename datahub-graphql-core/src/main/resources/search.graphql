@@ -255,7 +255,7 @@ input SearchFlags {
   """
   Caller-selected search template URN (`urn:li:searchTemplate:<id>`). When set, the server uses this
   template and skips query classification and engine lookup. The resolved template is not written
-  back onto this field. The caller must have the MANAGE_SYSTEM_OPERATIONS privilege.
+  back onto this field.
   """
   searchTemplate: String
 }

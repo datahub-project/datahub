@@ -82,6 +82,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTestResult,
     ExistingAssertionNote,
     classify_contract_model_run,
+    is_passing_test_result,
     make_assertion_from_freshness,
     make_assertion_from_test,
     make_assertion_note_from_test,
@@ -90,6 +91,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_assertion_result_from_test,
     make_contract_assertion_info,
     make_custom_assertion_info,
+    select_test_results_to_emit,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -111,8 +113,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageUpstreamType,
     UpstreamClass,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MySqlDDL,
     NullTypeClass,
@@ -143,6 +143,7 @@ from datahub.metadata.schema_classes import (
     DatasetAssertionScopeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
+    DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnerClass,
@@ -159,6 +160,7 @@ from datahub.metadata.schema_classes import (
     QuerySubjectsClass,
     SiblingsClass,
     StatusClass,
+    StructuredPropertiesClass,
     SubTypesClass,
     SystemMetadataClass,
     TagAssociationClass,
@@ -416,6 +418,10 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     node_cll_failures_list: LossyList[str] = field(default_factory=LossyList)
     node_emission_failures: int = 0
     node_emission_failures_list: LossyList[str] = field(default_factory=LossyList)
+
+    # Non-passing dbt test results skipped because a newer result for the same
+    # test was present (only_emit_latest_test_result).
+    num_superseded_test_failures_not_emitted: int = 0
 
     # Details on where column info comes from.
     nodes_with_catalog_columns: int = 0
@@ -869,6 +875,17 @@ class DBTCommonConfig(
             "The default will change to ``true`` in a future release once assertion "
             "result consumers can filter by severity; set ``true`` today to adopt the "
             "forthcoming behavior."
+        ),
+    )
+    only_emit_latest_test_result: bool = Field(
+        default=True,
+        description=(
+            "When multiple run_results files contain a result for the same dbt test "
+            "(e.g. a glob over historical runs, or `dbt build` followed by `dbt retry`), "
+            "only emit the most recent result. Older results are stale, and replaying "
+            "them on every ingestion re-triggers assertion notifications (a failure "
+            "immediately followed by a pass). Set to false to emit every result, "
+            "e.g. to backfill assertion run history."
         ),
     )
     infer_dbt_schemas: bool = Field(
@@ -2804,6 +2821,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     raise upstream_errors[node.dbt_name]
                 upstreams = upstreams_by_test[node.dbt_name]
 
+                results_to_emit = select_test_results_to_emit(
+                    node.test_results,
+                    latest_only=self.config.only_emit_latest_test_result,
+                )
+                if (
+                    self.config.entities_enabled.can_emit_test_results
+                    and self.config.only_emit_latest_test_result
+                ):
+                    self._report_superseded_non_passing_results(node, results_to_emit)
                 # In case a dbt test depends on multiple tables, we create separate assertions for each.
                 for upstream_node_name, upstream_urn in upstreams.items():
                     assertion_urn = self._make_test_assertion_urn(
@@ -2850,7 +2876,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         if ownership_mcp:
                             yield ownership_mcp
 
-                    for test_result in node.test_results:
+                    for test_result in results_to_emit:
                         if self.config.entities_enabled.can_emit_test_results:
                             yield make_assertion_result_from_test(
                                 node,
@@ -3045,6 +3071,27 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return None
 
         return result
+
+    def _report_superseded_non_passing_results(
+        self, node: DBTNode, results_to_emit: List[DBTTestResult]
+    ) -> None:
+        # Without a record of what earlier ingestions already emitted we cannot tell
+        # a superseded failure that was ingested before from one that never was, so
+        # surface it rather than dropping it silently.
+        for test_result in node.test_results:
+            if test_result in results_to_emit or is_passing_test_result(
+                test_result, self.config.test_warnings_are_errors
+            ):
+                continue
+            self.report.num_superseded_test_failures_not_emitted += 1
+            self.report.warning(
+                title="Superseded dbt test failures not emitted",
+                message="A newer result exists for these dbt tests, so older non-passing "
+                "results from other run_results files were not emitted. Set "
+                "`only_emit_latest_test_result: false` to emit every result.",
+                context=f"{node.dbt_name} ({test_result.invocation_id}: {test_result.status})",
+                log=False,
+            )
 
     def create_freshness_assertion_mcps(
         self,
@@ -3435,10 +3482,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         test_nodes = [test_node for test_node in nodes if test_node.node_type == "test"]
 
         logger.info(f"Creating dbt metadata for {len(nodes)} nodes")
-        yield from self.create_dbt_platform_mces(non_test_nodes, all_nodes_map)
+        yield from self.create_dbt_platform_mcps(non_test_nodes, all_nodes_map)
 
         logger.info(f"Updating {self.config.target_platform} metadata")
-        yield from self.create_target_platform_mces(non_test_nodes)
+        yield from self.create_target_platform_mcps(non_test_nodes)
 
         yield from self.create_test_entity_mcps(test_nodes, all_nodes_map)
 
@@ -4152,12 +4199,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.report.sql_parser_successes += 1
         return sql_result
 
-    def create_dbt_platform_mces(
+    def create_dbt_platform_mcps(
         self,
         dbt_nodes: List[DBTNode],
         all_nodes_map: Dict[str, DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        """Create MCEs and MCPs for the dbt platform."""
+        """Create MCPs for the dbt platform."""
 
         action_processor = OperationProcessor(
             self.config.meta_mapping,
@@ -4208,7 +4255,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if view_prop_aspect:
                     aspects.append(view_prop_aspect)
 
-                # Generate main MCE.
                 if self.config.entities_enabled.can_emit_node_type(node.node_type):
                     # Subtype.
                     sub_type_wu = self._create_subType_wu(node, node_datahub_urn)
@@ -4221,25 +4267,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         aspect=self._make_data_platform_instance_aspect(),
                     ).as_workunit()
 
-                    standalone_aspects, snapshot_aspects = more_itertools.partition(
-                        (
-                            lambda aspect: mce_builder.can_add_aspect_to_snapshot(
-                                DatasetSnapshot, type(aspect)
-                            )
+                    # Domains and structured properties are emitted before siblings, the
+                    # rest after. The target-platform path emits siblings first instead.
+                    other_aspects, standalone_aspects = more_itertools.partition(
+                        lambda aspect: isinstance(
+                            aspect, (DomainsClass, StructuredPropertiesClass)
                         ),
                         aspects,
                     )
 
                     for aspect in standalone_aspects:
-                        # The domains aspect, and some others, may not support being added to the snapshot.
                         yield MetadataChangeProposalWrapper(
                             entityUrn=node_datahub_urn,
                             aspect=aspect,
                         ).as_workunit()
-
-                    dataset_snapshot = DatasetSnapshot(
-                        urn=node_datahub_urn, aspects=list(snapshot_aspects)
-                    )
 
                     # Emit sibling aspect for dbt entity (dbt is authoritative source for sibling relationships)
                     if self._should_create_sibling_relationships(node):
@@ -4254,11 +4295,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             ),
                         ).as_workunit()
 
-                    mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                    dataset_aspects = list(other_aspects)
                     if self.config.write_semantics == "PATCH":
-                        mce = self.get_patched_mce(mce)
+                        self._merge_with_server_aspects(
+                            node_datahub_urn, dataset_aspects
+                        )
 
-                    yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+                    for aspect in dataset_aspects:
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=node_datahub_urn, aspect=aspect
+                        ).as_workunit()
                 else:
                     logger.debug(
                         f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
@@ -4529,11 +4575,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             self.report.num_queries_emitted += 1
 
-    def create_target_platform_mces(
+    def create_target_platform_mcps(
         self,
         dbt_nodes: List[DBTNode],
     ) -> Iterable[MetadataWorkUnit]:
-        """Create MCEs and MCPs for the target (e.g. Snowflake, BigQuery) platform."""
+        """Create MCPs for the target (e.g. Snowflake, BigQuery) platform."""
 
         prefetched_target_platform_aspects: Optional[
             Dict[str, _TargetPlatformAspects]
@@ -5054,44 +5100,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             else:
                 meta_aspects["add_tag"] = query_tag_aspects["add_tag"]
 
-    def get_aspect_from_dataset(
-        self, dataset_snapshot: DatasetSnapshot, aspect_type: type
-    ) -> Any:
-        for aspect in dataset_snapshot.aspects:
-            if isinstance(aspect, aspect_type):
-                return aspect
-        return None
-
-    def get_patched_mce(self, mce):
-        owner_aspect = self.get_aspect_from_dataset(
-            mce.proposedSnapshot, OwnershipClass
-        )
-        if owner_aspect:
-            transformed_owner_list = self.get_transformed_owners_by_source_type(
-                owner_aspect.owners,
-                mce.proposedSnapshot.urn,
-                str(OwnershipSourceTypeClass.SOURCE_CONTROL),
-            )
-            owner_aspect.owners = transformed_owner_list
-
-        tag_aspect = self.get_aspect_from_dataset(mce.proposedSnapshot, GlobalTagsClass)
-        if tag_aspect:
-            transformed_tag_list = self.get_transformed_tags_by_prefix(
-                tag_aspect.tags,
-                mce.proposedSnapshot.urn,
-                tag_prefix=self.config.tag_prefix,
-            )
-            tag_aspect.tags = transformed_tag_list
-
-        term_aspect: GlossaryTermsClass = self.get_aspect_from_dataset(
-            mce.proposedSnapshot, GlossaryTermsClass
-        )
-        if term_aspect:
-            transformed_terms = self.get_transformed_terms(
-                term_aspect.terms, mce.proposedSnapshot.urn
-            )
-            term_aspect.terms = transformed_terms
-        return mce
+    def _merge_with_server_aspects(self, urn: str, aspects: List[Any]) -> None:
+        """Merge Ownership, GlobalTags and GlossaryTerms with the server's, in place."""
+        for aspect in aspects:
+            if isinstance(aspect, OwnershipClass):
+                aspect.owners = self.get_transformed_owners_by_source_type(
+                    aspect.owners, urn, str(OwnershipSourceTypeClass.SOURCE_CONTROL)
+                )
+            elif isinstance(aspect, GlobalTagsClass):
+                aspect.tags = self.get_transformed_tags_by_prefix(
+                    aspect.tags, urn, tag_prefix=self.config.tag_prefix
+                )
+            elif isinstance(aspect, GlossaryTermsClass):
+                aspect.terms = self.get_transformed_terms(aspect.terms, urn)
 
     def _create_dataset_properties_aspect(
         self, node: DBTNode
@@ -5148,7 +5169,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _generate_base_dbt_aspects(
         self,
         node: DBTNode,
-        mce_platform: str,
+        platform: str,
         meta_aspects: Dict[str, Any],
         column_meta_aspects: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> List[Any]:
@@ -5199,9 +5220,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if meta_links_aspect and self.config.enable_meta_mapping:
             aspects.append(meta_links_aspect)
 
-        # structuredProperties is not part of the DatasetSnapshot aspect union,
-        # but the create_*_platform_mces helpers automatically route any aspect
-        # not in the union into a standalone MCP.
         meta_structured_properties_aspect = meta_aspects.get(
             Constants.ADD_STRUCTURED_PROPERTY_OPERATION
         )
@@ -5210,7 +5228,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         # add schema metadata aspect
         schema_metadata = self.get_schema_metadata(
-            self.report, node, mce_platform, column_meta_aspects=column_meta_aspects
+            self.report, node, platform, column_meta_aspects=column_meta_aspects
         )
         aspects.append(schema_metadata)
 
