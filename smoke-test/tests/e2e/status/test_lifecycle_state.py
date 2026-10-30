@@ -650,7 +650,7 @@ class TestLifecycleStageAPIs:
                 {
                     "input": {
                         "id": _unique_id("smoketest_term"),
-                        "name": "Stage change term",
+                        "name": _unique_id("Stage change term"),
                     }
                 },
             )

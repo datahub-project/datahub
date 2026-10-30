@@ -87,7 +87,8 @@
         "OWNERSHIP",
         "PARENT",
         "STRUCTURED_PROPERTY",
-        "TAG"
+        "TAG",
+        "VERSIONING"
     ],
     "METRIC": [
         "APPLICATION",
@@ -150,6 +151,7 @@
         "STRUCTURED_PROPERTY",
         "TAG"
     ],
+    "REPOSITORY": ["DOCUMENTATION", "DOMAIN", "GLOSSARY_TERM", "OWNERSHIP", "STRUCTURED_PROPERTY", "TAG"],
     "SEMANTIC_MODEL": [
         "APPLICATION",
         "DEPRECATION",

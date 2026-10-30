@@ -19,6 +19,7 @@ import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
+import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.MySqlDDL;
@@ -114,13 +115,11 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
             null,
             null,
             false);
-    // Assert.assertEquals(changes.size(), 7);
-    // Assert.assertEquals(changes.get(0).getChangeEvents().get(0).getChangeType(),
-    // ChangeOperation.ADD);
-    // Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(0).getTime().longValue());
-    // Assert.assertEquals(changes.get(1).getChangeEvents().get(0).getChangeType(),
-    // ChangeOperation.MODIFY);
-    // Assert.assertEquals(changes.get(1).getTimestamp(), timestamps.get(1).getTime().longValue());
+    // Schema changes within the window collapse into a single transaction at the latest timestamp.
+    Assert.assertEquals(changes.size(), 1);
+    Assert.assertEquals(
+        changes.get(0).getChangeEvents().get(0).getOperation(), ChangeOperation.ADD);
+    Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(6).getTime().longValue());
 
     changes =
         _entityTimelineService.getTimeline(
@@ -132,13 +131,11 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
             null,
             null,
             false);
-    // Assert.assertEquals(changes.size(), 3);
-    // Assert.assertEquals(changes.get(0).getChangeEvents().get(0).getChangeType(),
-    // ChangeOperation.MODIFY);
-    // Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(4).getTime().longValue());
-    // Assert.assertEquals(changes.get(1).getChangeEvents().get(0).getChangeType(),
-    // ChangeOperation.MODIFY);
-    // Assert.assertEquals(changes.get(1).getTimestamp(), timestamps.get(5).getTime().longValue());
+    // A window starting mid-history yields the same collapsed transaction.
+    Assert.assertEquals(changes.size(), 1);
+    Assert.assertEquals(
+        changes.get(0).getChangeEvents().get(0).getOperation(), ChangeOperation.ADD);
+    Assert.assertEquals(changes.get(0).getTimestamp(), timestamps.get(6).getTime().longValue());
   }
 
   @Test

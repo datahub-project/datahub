@@ -67,6 +67,7 @@ def test_glossary_ingest(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -98,6 +99,7 @@ def test_single_owner_types(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -131,6 +133,7 @@ def test_multiple_owners_same_type(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -164,6 +167,7 @@ def test_multiple_owners_different_types(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -195,6 +199,7 @@ def test_custom_ownership_urns(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )
 
 
@@ -226,4 +231,5 @@ def test_url_cleaning(
         pytestconfig,
         output_path=output_mces_path,
         golden_path=golden_mces_path,
+        fail_on_output_mces=True,
     )

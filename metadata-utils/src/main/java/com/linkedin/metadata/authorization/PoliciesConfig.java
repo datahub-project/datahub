@@ -926,6 +926,7 @@ public class PoliciesConfig {
               EDIT_ENTITY_OWNERS_PRIVILEGE,
               EDIT_ENTITY_DOCS_PRIVILEGE,
               EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_LIFECYCLE_STAGE_PRIVILEGE,
               EDIT_ENTITY_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE,

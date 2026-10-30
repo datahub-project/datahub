@@ -28,7 +28,7 @@ const ALL_CATEGORY_OPTIONS: CategoryOption[] = [
     { value: CATEGORY_VERSIONING, label: 'Versions' },
     { value: CATEGORY_DEPRECATION, label: 'Deprecation' },
     { value: CATEGORY_PARENT, label: 'Hierarchy' },
-    { value: CATEGORY_LIFECYCLE, label: 'Lifecycle' },
+    { value: CATEGORY_LIFECYCLE, label: 'Lifecycle stage' },
 ];
 
 describe('getCategoryOptions', () => {

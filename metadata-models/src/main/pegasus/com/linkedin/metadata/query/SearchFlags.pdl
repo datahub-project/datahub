@@ -143,8 +143,7 @@ record SearchFlags {
 
   /**
    * Caller-selected search template URN. When set, selection skips classification, sub-intent,
-   * and engine lookup. The resolved template is not written back onto this field. The caller must
-   * have the MANAGE_SYSTEM_OPERATIONS privilege.
+   * and engine lookup. The resolved template is not written back onto this field.
    */
   searchTemplate: optional Urn
 }

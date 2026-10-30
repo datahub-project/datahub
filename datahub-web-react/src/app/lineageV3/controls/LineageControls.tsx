@@ -10,15 +10,15 @@ import { useTranslation } from 'react-i18next';
 import { Panel, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
 
-import LineageControlIcon from '@app/lineage/controls/LineageControlIcon';
-import { isLineageFilterActive } from '@app/lineage/controls/lineageControlsUtils';
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageNodesContext, TRANSITION_DURATION_MS } from '@app/lineageV3/common';
 import DownloadLineageScreenshotButton from '@app/lineageV3/controls/DownloadLineageScreenshotButton';
+import LineageControlIcon from '@app/lineageV3/controls/LineageControlIcon';
 import LineageSearchFilters from '@app/lineageV3/controls/LineageSearchFilters';
 import LineageTimeRangeControls from '@app/lineageV3/controls/LineageTimeRangeControls';
 import { StyledPanelButton } from '@app/lineageV3/controls/StyledPanelButton';
 import { ControlPanel } from '@app/lineageV3/controls/common';
+import { isLineageFilterActive } from '@app/lineageV3/controls/lineageControlsUtils';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import TabFullsizedContext from '@app/sharedV2/TabFullsizedContext';
 
 const StyledPanel = styled(Panel)`

@@ -19,8 +19,13 @@ import com.linkedin.common.Urn
  * replaces only the normalization fields it sets. Each non-empty {@code queryFragments}
  * value adds to the root-first comma join for that hole. An empty string drops inherited
  * pieces for that hole.
- * {@code routes} is replaced as a whole list: unset keeps the parent list, an empty list
- * drops it, and a non-empty list replaces it. {@code defaultRoute} is inherited on its own.
+ * {@code ranking.template} unset inherits, empty drops, and a URN replaces. On an inline
+ * ranking, {@code signals} follows {@code fieldFactors}: unset inherits, an empty list drops,
+ * and a non-empty list replaces. {@code formula} unset inherits, and an empty string drops it.
+ * A reference and any inline ranking field together are invalid. An empty {@code ranking}
+ * record drops the section. {@code routes} is replaced as a whole list: unset keeps the parent
+ * list, an empty list drops it, and a non-empty list replaces it. {@code defaultRoute} is
+ * inherited on its own.
  * Unset keeps the parent default. A record with a template replaces it. A record with no
  * template clears it.
  *
@@ -44,7 +49,7 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "searchTemplateProperties",
   "aspectJson": true,
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 record SearchTemplateProperties {
   /**
@@ -165,8 +170,12 @@ record SearchTemplateProperties {
   knn: optional string
 
   /**
-   * Service ranking. Unset keeps the parent section. An explicit empty value drops it. OSS
-   * runs {@code preset none} and {@code windowSizer fixed} only.
+   * Service ranking. Unset keeps the parent section. An explicit empty value drops it. A
+   * reference ({@code template}) or an inline signal list, never both. {@code add} and
+   * {@code remove} patch the inherited signals by name and may sit beside a reference. OSS runs
+   * {@code preset none} and {@code windowSizer fixed} only, and does not ship ranking signals.
+   * Capability {@code rankingSignals} is required when signals or {@code ranking.template} are
+   * set. Capability {@code rankingFormula} is required when {@code formula} is set.
    */
   ranking: optional SearchTemplateRanking
 

@@ -104,7 +104,7 @@ def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir, minio_run
             "sink": {
                 "type": "file",
                 "config": {
-                    "filename": f"{tmp_path}/delta_lake_minio_mces.json",
+                    "filename": f"{tmp_path}/delta_lake_minio.json",
                 },
             },
         }
@@ -115,6 +115,7 @@ def test_delta_lake_ingest(pytestconfig, tmp_path, test_resources_dir, minio_run
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "delta_lake_minio_mces.json",
-        golden_path=test_resources_dir / "delta_lake_minio_mces_golden.json",
+        output_path=tmp_path / "delta_lake_minio.json",
+        golden_path=test_resources_dir / "delta_lake_minio_golden.json",
+        fail_on_output_mces=True,
     )

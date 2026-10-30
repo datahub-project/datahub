@@ -5,13 +5,13 @@ import styled from 'styled-components';
 
 import { Editor } from '@components/components/Editor';
 
-import { PostEntry } from '@app/settings/posts/PostsListColumns';
+import { PostEntry } from '@app/settingsV2/posts/PostsListColumns';
 import {
     CREATE_POST_BUTTON_ID,
     LINK_FIELD_NAME,
     LOCATION_FIELD_NAME,
     TYPE_FIELD_NAME,
-} from '@app/settings/posts/constants';
+} from '@app/settingsV2/posts/constants';
 import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Modal } from '@src/alchemy-components';

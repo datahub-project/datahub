@@ -35,7 +35,7 @@ import {
 } from '@app/entityV2/shared/profileChunks';
 import { EntityTab } from '@app/entityV2/shared/types';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
-import { FetchedEntity } from '@app/lineage/types';
+import { FetchedEntity } from '@app/lineageV3/types';
 
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { EntityType, GlossaryTerm, SearchResult } from '@types';
@@ -55,6 +55,8 @@ const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.LIFECYCLE_STAGE,
+    EntityMenuItems.NEW_VERSION,
     EntityMenuItems.CLONE,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
