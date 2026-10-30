@@ -191,7 +191,10 @@ input AssertionResultInput {
   severity: AssertionResultSeverity
 
   """
-  Optional: Observed aggregate value for the evaluated batch, e.g. a row count, null percentage or metric value.
+  Optional: Observed aggregate value for the evaluated batch, e.g. a null fraction or metric value.
+  Stored as a 32-bit float, so only about 7 significant digits are kept; use rowCount for row counts.
+  Values outside the 32-bit float range are rejected.
+  The numeric fields below are only stored for SUCCESS and FAILURE results.
   """
   actualAggValue: Float
 
@@ -206,7 +209,7 @@ input AssertionResultInput {
   unexpectedCount: Long
 
   """
-  Optional: Number of rows with a missing value in the evaluated batch
+  Optional: Number of rows with a missing (null) value in the evaluated batch
   """
   missingCount: Long
 }

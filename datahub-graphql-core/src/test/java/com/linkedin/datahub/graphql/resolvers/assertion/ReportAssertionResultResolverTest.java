@@ -24,6 +24,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -75,10 +76,6 @@ public class ReportAssertionResultResolverTest {
           null,
           null,
           null);
-
-  private static final AssertionResultInput TEST_FAILURE_INPUT_WITH_NUMERIC_VALUES =
-      new AssertionResultInput(
-          0L, AssertionResultType.FAILURE, null, null, null, null, 42.5f, 1000L, 7L, 3L);
 
   private static final AssertionRunEvent TEST_ASSERTION_RUN_EVENT =
       new AssertionRunEvent()
@@ -262,38 +259,117 @@ public class ReportAssertionResultResolverTest {
   }
 
   @Test
-  public void testReportAssertionResultWithNumericValues() throws Exception {
-    AssertionService mockedService = Mockito.mock(AssertionService.class);
-    ReportAssertionResultResolver resolver = new ReportAssertionResultResolver(mockedService);
+  public void testReportAssertionFailureWithNumericValues() throws Exception {
+    // graphql-java hands bindArgument a Map with a Double; Jackson narrows it to Float.
+    AssertionResult result =
+        reportWithRawInput(
+            Map.of(
+                "timestampMillis", 0L,
+                "type", "FAILURE",
+                "actualAggValue", 0.12d,
+                "rowCount", 1000L,
+                "unexpectedCount", 7L,
+                "missingCount", 120L));
 
+    assertEquals(
+        result,
+        new AssertionResult()
+            .setType(com.linkedin.assertion.AssertionResultType.FAILURE)
+            .setActualAggValue(0.12f)
+            .setRowCount(1000L)
+            .setUnexpectedCount(7L)
+            .setMissingCount(120L));
+  }
+
+  @Test
+  public void testReportAssertionSuccessKeepsNumericValues() throws Exception {
+    AssertionResult result =
+        reportWithRawInput(
+            Map.of(
+                "timestampMillis",
+                0L,
+                "type",
+                "SUCCESS",
+                "actualAggValue",
+                42.5d,
+                "rowCount",
+                1000L));
+
+    assertEquals(
+        result,
+        new AssertionResult()
+            .setType(com.linkedin.assertion.AssertionResultType.SUCCESS)
+            .setActualAggValue(42.5f)
+            .setRowCount(1000L));
+  }
+
+  @Test
+  public void testReportAssertionErrorIgnoresNumericValues() throws Exception {
+    AssertionResult result =
+        reportWithRawInput(
+            Map.of(
+                "timestampMillis", 0L,
+                "type", "ERROR",
+                "actualAggValue", 42.5d,
+                "rowCount", 1000L,
+                "unexpectedCount", 7L,
+                "missingCount", 3L));
+
+    assertEquals(
+        result, new AssertionResult().setType(com.linkedin.assertion.AssertionResultType.ERROR));
+  }
+
+  @Test
+  public void testReportAssertionRejectsActualAggValueOutsideFloatRange() {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
+    Mockito.when(
+            mockedService.getEntityUrnForAssertion(
+                any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
+        .thenReturn(TEST_DATASET_URN);
+    DataFetchingEnvironment mockEnv =
+        mockEnvWithRawInput(Map.of("type", "FAILURE", "actualAggValue", 1e39d));
+
+    Throwable thrown =
+        expectThrows(
+            Throwable.class,
+            () -> new ReportAssertionResultResolver(mockedService).get(mockEnv).join());
+    Throwable cause = thrown instanceof CompletionException ? thrown.getCause() : thrown;
+    assertTrue(cause instanceof IllegalArgumentException);
+    Mockito.verify(mockedService, Mockito.never())
+        .addAssertionRunEvent(
+            any(OperationContext.class),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any());
+  }
+
+  private static DataFetchingEnvironment mockEnvWithRawInput(Map<String, Object> input) {
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ASSERTION_URN.toString());
-    Mockito.when(mockEnv.getArgument(Mockito.eq("result")))
-        .thenReturn(TEST_FAILURE_INPUT_WITH_NUMERIC_VALUES);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("result"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    return mockEnv;
+  }
 
+  private static AssertionResult reportWithRawInput(Map<String, Object> input) throws Exception {
+    AssertionService mockedService = Mockito.mock(AssertionService.class);
     Mockito.when(
             mockedService.getEntityUrnForAssertion(
                 any(OperationContext.class), Mockito.eq(TEST_ASSERTION_URN)))
         .thenReturn(TEST_DATASET_URN);
 
-    resolver.get(mockEnv).get();
+    new ReportAssertionResultResolver(mockedService).get(mockEnvWithRawInput(input)).get();
 
-    AssertionResult expectedResult =
-        new AssertionResult()
-            .setType(com.linkedin.assertion.AssertionResultType.FAILURE)
-            .setActualAggValue(42.5f)
-            .setRowCount(1000L)
-            .setUnexpectedCount(7L)
-            .setMissingCount(3L);
-
+    ArgumentCaptor<AssertionResult> captor = ArgumentCaptor.forClass(AssertionResult.class);
     Mockito.verify(mockedService, Mockito.times(1))
         .addAssertionRunEvent(
             any(OperationContext.class),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_DATASET_URN),
             Mockito.eq(0L),
-            Mockito.eq(expectedResult));
+            captor.capture());
+    return captor.getValue();
   }
 }
