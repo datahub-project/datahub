@@ -130,7 +130,10 @@ class DremioSchemaResolver(SchemaResolver):
     """
 
     def _get_table_name_parts(self, table: _TableName) -> List[Optional[str]]:
-        if table.parts:
+        # Up to 3 parts, database/db_schema/table carry the same name. They are also
+        # the only reliable fields when a CTE was swapped for a table (dbt
+        # ephemeral models): sqlglot then reports just the table in `parts`.
+        if table.parts and len(table.parts) > 3:
             return [DREMIO_DATABASE_NAME, *table.parts]
         elif table.database and table.database.lower() != DREMIO_DATABASE_NAME:
             return [

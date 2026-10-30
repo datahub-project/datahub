@@ -345,6 +345,18 @@ class TestDremioSchemaResolverWithSQLGlot:
             f"Expected '{expected_3part}' in '{urn_3part}'"
         )
 
+    def test_parsed_3_part_name_with_dremio_prefix_not_doubled(self, resolver):
+        parsed = sqlglot.parse_one(
+            'SELECT * FROM "dremio"."my_space"."orders"', dialect="dremio"
+        )
+        table_name = _table_name_from_sqlglot_table(
+            next(parsed.find_all(sqlglot.exp.Table)), None
+        )
+        assert (
+            resolver.get_urn_for_table(table_name)
+            == "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.my_space.orders,PROD)"
+        )
+
     def test_unquoted_multi_part_table_names(self, resolver):
         """Test that unquoted 5-part table names are handled correctly by SQLGlot."""
         sql = "SELECT * FROM MySpace.folder1.folder2.folder3.table"

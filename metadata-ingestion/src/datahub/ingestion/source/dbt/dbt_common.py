@@ -93,6 +93,10 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_custom_assertion_info,
     select_test_results_to_emit,
 )
+from datahub.ingestion.source.dremio.dremio_source import (
+    DREMIO_DATABASE_NAME,
+    DremioSchemaResolver,
+)
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -2171,6 +2175,20 @@ class DBTNode:
         fqn = self._join_parts([self.database, self.schema, self.name])
         return fqn.replace('"', "")
 
+    def get_target_platform_name(self, name: str, target_platform: str) -> str:
+        """Adjust a warehouse name to the one the target platform's own source uses.
+
+        The Dremio source names every dataset ``dremio.<path>``, so prefix it here
+        the same way DremioSchemaResolver does, unless the database already is
+        ``dremio``.
+        """
+        if (
+            target_platform == "dremio"
+            and (self.database or "").lower() != DREMIO_DATABASE_NAME
+        ):
+            return f"{DREMIO_DATABASE_NAME}.{name}"
+        return name
+
     def get_urn(
         self,
         target_platform: str,
@@ -2179,7 +2197,7 @@ class DBTNode:
         # Otherwise, it's the target platform instance.
         data_platform_instance: Optional[str],
     ) -> str:
-        db_fqn = self.get_db_fqn()
+        db_fqn = self.get_target_platform_name(self.get_db_fqn(), target_platform)
         if self.convert_urns_to_lowercase:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
@@ -3872,11 +3890,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         graph: Optional[DataHubGraph] = self.ctx.graph
 
-        resolver_class: Type[SchemaResolver] = (
-            SchemaResolver
-            if self.config.include_database_name
-            else _TwoTierSchemaResolver
-        )
+        resolver_class: Type[SchemaResolver]
+        if self.config.target_platform == "dremio":
+            resolver_class = DremioSchemaResolver
+        elif self.config.include_database_name:
+            resolver_class = SchemaResolver
+        else:
+            resolver_class = _TwoTierSchemaResolver
         schema_resolver = resolver_class(
             platform=self.config.target_platform,
             platform_instance=self.config.target_platform_instance,
@@ -3922,7 +3942,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_node_urn = (
                         mce_builder.make_dataset_urn_with_platform_instance(
                             platform=self.config.target_platform,
-                            name=node.get_fake_ephemeral_table_name(),
+                            name=node.get_target_platform_name(
+                                node.get_fake_ephemeral_table_name(),
+                                self.config.target_platform,
+                            ),
                             platform_instance=self.config.target_platform_instance,
                             env=self.config.env,
                         )
