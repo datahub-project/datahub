@@ -87,7 +87,7 @@ def doris_runner(docker_compose_runner, pytestconfig, test_resources_dir, reques
         time.sleep(5)
 
         setup_sql = test_resources_dir / "setup" / "setup.sql"
-        setup_cmd = f"docker exec -i testdoris-fe mysql -h 127.0.0.1 -P {DORIS_PORT} -u root < {setup_sql}"
+        setup_cmd = f"docker exec -i testdoris-fe mysql --default-character-set=utf8mb4 -h 127.0.0.1 -P {DORIS_PORT} -u root < {setup_sql}"
 
         setup_success = False
         for attempt in range(5):
