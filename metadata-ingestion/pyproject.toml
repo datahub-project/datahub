@@ -9,7 +9,7 @@
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools>=83.0.0", "wheel"]
+requires = ["setuptools>=84.1.0", "wheel"]
 
 [project]
 name = "acryl-datahub"
@@ -26,6 +26,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
@@ -151,6 +152,7 @@ azure-auth = [
 azure-data-factory = [
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
+    "sqlglot[c]==30.12.0",
 ]
 
 bigid = [
@@ -206,7 +208,8 @@ bigquery-slim = [
 cassandra = [
     "cachetools<6.0.0",
     "cassandra-driver>=3.30.1,<4.0.0",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
 ]
 
 circuit-breaker = []
@@ -265,7 +268,7 @@ cube = [
 databricks = [
     "cachetools<6.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "greenlet<4.0.0",
     "requests<3.0.0",
@@ -476,7 +479,8 @@ feast = [
     "dask[dataframe]<2024.7.0",
     "feast>=0.47.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
     "starlette>=1.3.1,<2.0.0",
 ]
 
@@ -484,7 +488,7 @@ fivetran = [
     "cachetools<6.0.0",
     "cryptography>=50.0.0,<51.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
@@ -587,27 +591,29 @@ hex = [
 ]
 
 hive = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
-    "databricks-dbapi<0.7.0",
     "greenlet<4.0.0",
+    "impyla>=0.24.0,<1.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
 ]
 
 hive-metastore = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
     "kerberos>=1.3.0,<2.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymysql[rsa]>=1.0.2,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
 ]
 
 iceberg = [
@@ -661,6 +667,10 @@ kinesis = [
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.84.0,<2.0.0",
     "networkx>=2.6.2,<4.0.0",
+]
+
+langfuse = [
+    "requests<3.0.0",
 ]
 
 ldap = [
@@ -857,9 +867,9 @@ preset = [
 ]
 
 presto = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
+    "presto-python-client>=0.8.4,<1.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
@@ -867,17 +877,18 @@ presto = [
 ]
 
 presto-on-hive = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "cachetools<6.0.0",
     "greenlet<4.0.0",
     "kerberos>=1.3.0,<2.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pymetastore>=0.4.2,<1.0.0",
     "pymysql[rsa]>=1.0.2,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
     "tenacity>=8.0.1,<9.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
 ]
 
 pulsar = [
@@ -962,7 +973,7 @@ s3-slim = [
 ]
 
 sac = [
-    "Authlib>=1.6.11,<2.0.0",
+    "Authlib>=1.9.0,<2.0.0",
     "defusedxml>=0.7.1,<0.8.0",
     "requests<3.0.0",
 ]
@@ -1154,7 +1165,7 @@ trino = [
 unity-catalog = [
     "cachetools<6.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "greenlet<4.0.0",
     "requests<3.0.0",
@@ -1188,9 +1199,8 @@ vertica = [
 
 # All plugins (excluding: airflow, confluence, datahub-documents, datahub-lite, debug-recording, duckdb, feast, google-drive, great-expectations, mssql-odbc, notion, onnx-embeddings, sqlmesh, unstructured)
 all = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
-    "Authlib>=1.6.11,<2.0.0",
+    "Authlib>=1.9.0,<2.0.0",
     "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
@@ -1203,9 +1213,8 @@ all = [
     "clickhouse-sqlalchemy>=0.3.0,<0.4.0",
     "confluent_kafka[avro,schemaregistry]>=2.15.1,!=2.8.1,<3.0.0",
     "cryptography>=50.0.0,<51.0.0",
-    "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "datasketches>=5.0.0,<6.0.0",
     "db-dtypes",
@@ -1236,6 +1245,7 @@ all = [
     "grpcio>=1.84.0,<2.0.0",
     "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "ibm_db_sa>=0.4.4,<0.5.0; platform_machine == 'x86_64' or platform_system == 'Darwin'",
+    "impyla>=0.24.0,<1.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "kerberos>=1.3.0,<2.0.0",
@@ -1249,7 +1259,8 @@ all = [
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
     "okta~=1.7.0,<2.0.0",
     "openpyxl>=3.1.5,<4.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
@@ -1258,8 +1269,10 @@ all = [
     "pandas<3.0.0",
     "parse>=1.19.0,<2.0.0",
     "pinecone-client>=3.0.0,<6.0.0",
+    "presto-python-client>=0.8.4,<1.0.0",
     "protobuf>=5.0.0,<7.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
     "pycarlo>=0.15.262,<1.0.0",
@@ -1300,6 +1313,7 @@ all = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=20.0.0.9,<21.0.0.0",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
     "wcmatch<11.0.0",
@@ -1308,12 +1322,11 @@ all = [
 ]
 
 dev = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
     "anyio>=4.14.2,<5.0.0",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib>=1.6.11,<2.0.0",
+    "Authlib>=1.9.0,<2.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "azure-core>=1.38.0,<2.0.0",
@@ -1336,9 +1349,8 @@ dev = [
     "cramjam>=2.8.0,<3.0.0",
     "cryptography>=50.0.0,<51.0.0",
     "dask[dataframe]<2024.7.0",
-    "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "datasketches>=5.0.0,<6.0.0",
     "db-dtypes",
@@ -1379,6 +1391,7 @@ dev = [
     "humanfriendly<11.0.0",
     "hypothesis>=6.0.0,<7.0.0",
     "ijson>=3.2.0,<4.0.0",
+    "impyla>=0.24.0,<1.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "jsonpath-ng==1.7.0",
@@ -1401,7 +1414,8 @@ dev = [
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
     "nltk!=3.10.1",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
     "okta~=1.7.0,<2.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
@@ -1411,10 +1425,12 @@ dev = [
     "parse>=1.19.0,<2.0.0",
     "pinecone-client>=3.0.0,<6.0.0",
     "pip",
+    "presto-python-client>=0.8.4,<1.0.0",
     "progressbar2<5.0.0",
     "protobuf>=5.0.0,<7.0.0",
     "psutil>=5.8.0,<8.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
     "pydantic>=2.4.0,<3.0.0",
@@ -1470,6 +1486,7 @@ dev = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=20.0.0.9,<21.0.0.0",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
     "time-machine<4.0.0",
     "toml>=0.10.0,<=0.10.2",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -1503,12 +1520,11 @@ dev = [
 ]
 
 docs = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
     "anyio>=4.14.2,<5.0.0",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib>=1.6.11,<2.0.0",
+    "Authlib>=1.9.0,<2.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "azure-core>=1.38.0,<2.0.0",
@@ -1531,9 +1547,8 @@ docs = [
     "cramjam>=2.8.0,<3.0.0",
     "cryptography>=50.0.0,<51.0.0",
     "dask[dataframe]<2024.7.0",
-    "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
     "datasketches>=5.0.0,<6.0.0",
     "db-dtypes",
@@ -1574,6 +1589,7 @@ docs = [
     "humanfriendly<11.0.0",
     "hypothesis>=6.0.0,<7.0.0",
     "ijson>=3.2.0,<4.0.0",
+    "impyla>=0.24.0,<1.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "jsonpath-ng==1.7.0",
@@ -1596,7 +1612,8 @@ docs = [
     "nest-asyncio<2.0.0",
     "networkx>=2.6.2,<4.0.0",
     "nltk!=3.10.1",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
     "okta~=1.7.0,<2.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
     "oracledb<4.0.0",
@@ -1606,10 +1623,12 @@ docs = [
     "parse>=1.19.0,<2.0.0",
     "pinecone-client>=3.0.0,<6.0.0",
     "pip",
+    "presto-python-client>=0.8.4,<1.0.0",
     "progressbar2<5.0.0",
     "protobuf>=5.0.0,<7.0.0",
     "psutil>=5.8.0,<8.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
     "pydantic>=2.4.0,<3.0.0",
@@ -1665,6 +1684,7 @@ docs = [
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=20.0.0.9,<21.0.0.0",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
     "time-machine<4.0.0",
     "toml>=0.10.0,<=0.10.2",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -1712,7 +1732,6 @@ testing-utils = [
 ]
 
 integration-tests = [
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
@@ -1723,7 +1742,6 @@ integration-tests = [
     "cachetools<6.0.0",
     "clickhouse-sqlalchemy>=0.3.0,<0.4.0",
     "dask[dataframe]<2024.7.0",
-    "databricks-dbapi<0.7.0",
     "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
@@ -1733,16 +1751,19 @@ integration-tests = [
     "greenlet<4.0.0",
     "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "ibm_db_sa>=0.4.4,<0.5.0; platform_machine == 'x86_64' or platform_system == 'Darwin'",
+    "impyla>=0.24.0,<1.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "kerberos>=1.3.0,<2.0.0",
     "lark>=1.3.1,<2.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "numpy<2",
+    "numpy<2; python_version < \"3.13\"",
+    "numpy<3; python_version >= \"3.13\"",
     "openpyxl>=3.1.5,<4.0.0",
     "pandas<3.0.0",
     "parse>=1.19.0,<2.0.0",
     "psycopg2-binary<3.0.0",
+    "pure-sasl>=0.6.2,<1.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
     "pycarlo>=0.15.262,<1.0.0",
@@ -1773,6 +1794,7 @@ integration-tests = [
     "starrocks>=1.3.3,<2.0",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
     "ujson>=5.12.1,<6.0.0",
     "vcrpy>=8.2.0,<9.0",
     "wcmatch<11.0.0",
@@ -1839,6 +1861,7 @@ json-schema = "datahub.ingestion.source.schema.json_schema:JsonSchemaSource"
 kafka = "datahub.ingestion.source.kafka.kafka:KafkaSource"
 kafka-connect = "datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource"
 kinesis = "datahub.ingestion.source.kinesis.kinesis:KinesisSource"
+langfuse = "datahub.ingestion.source.langfuse.langfuse:LangfuseSource"
 ldap = "datahub.ingestion.source.ldap:LDAPSource"
 looker = "datahub.ingestion.source.looker.looker_source:LookerDashboardSource"
 lookml = "datahub.ingestion.source.looker.lookml_source:LookMLSource"
@@ -1993,6 +2016,8 @@ datahub = ["py.typed", "constraints.txt"]
 "datahub.cli.gql" = ["*.gql"]
 "datahub.cli.resources" = ["*.md"]
 "datahub.ingestion.autogenerated" = ["*.json"]
+"datahub.ingestion.autogenerated.connector_registry" = ["datahub.json"]
+"datahub.ingestion.source.odcs.odcs_schema" = ["*.json"]
 "datahub.ingestion.source.powerbi.m_query.mquery_bridge" = ["bundle.js.gz"]
 "datahub.metadata" = ["schema.avsc"]
 "datahub.metadata.schemas" = ["*.avsc"]
@@ -2014,7 +2039,13 @@ environments = [
 constraint-dependencies = [
     "jaraco-context>=6.1.0,<7",  # GHSA-58pv-8j8x-9vj2 (path traversal)
     "pypdf>=6.19.0,<7.0.0",  # GHSA-4pxv-j86v-mhcw; CVE-2026-103000 / GHSA-w23x-9jrw-r45c (page-label DoS). Cap major until reviewed.
-    "authlib>=1.6.11,<2.0.0",  # GHSA-jj8c-mmj3-mmgv (OAuth cache CSRF)
+    "authlib>=1.9.0,<2.0.0",  # GHSA-jj8c-mmj3-mmgv (OAuth cache CSRF); CVE-2026-96760 fixed in 1.9.0
+    # CVE-2026-102946: fixed in joserfc 1.7.4. Transitive via authlib, whose own floor
+    # (joserfc>=1.6.8) still admits vulnerable versions.
+    "joserfc>=1.7.4,<2.0.0",
+    # CVE-2026-114603: fixed in opentelemetry-api 1.45.1. Transitive via
+    # google-cloud-logging / mlflow-skinny.
+    "opentelemetry-api>=1.45.1",
     # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
     # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
@@ -2027,16 +2058,18 @@ constraint-dependencies = [
     # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.8.0 is enforced here at lock time
     # only, since Airflow constraints pin urllib3 below 2.7.
     "urllib3>=2.8.0,<3.0.0",
-    # CVE-2026-59890: floored at lock time, not in base_requirements (Airflow
-    # constraint files pin setuptools, so a base floor breaks those installs).
-    "setuptools>=83.0.0",
+    # CVE-2026-59890 (fixed in 83.0.0) and GHSA-xmj3-9gf7-h52w (Windows path escape via
+    # namespace_packages.txt in legacy wheel installs, fixed in 84.1.0): floored at lock
+    # time, not in base_requirements (Airflow constraint files pin setuptools, so a base
+    # floor breaks those installs).
+    "setuptools>=84.1.0",
     # pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-8643 (path traversal
     # via entry point names, fixed in 26.1.2); CVE-2026-13346 (URL path decoded twice
     # when determining a link filename, fixed in 26.2). setup.py declares a bare "pip"
     # (no upper bound: pip is a system tool), so the floor is enforced here at lock time
     # and mirrored in docker/snippets/ingestion/constraints.txt. The resolved pin ships
     # as datahub/constraints.txt and constrains every executor-built venv.
-    "pip>=26.2",
+    "pip>=26.2.2",  # 26.2.1 vendors certifi 2026.6.17 (GHSA-6q48-6c7w-9gw2); 26.2.2 fixes
     # anyio: CVE-2026-64847 (process-pool workers block on undrained stderr);
     # fixed in 4.14.2. setup.py floors at >=4.10.0 (Airflow 3.0 pin); >=4.14.2
     # is enforced here at lock time only.
@@ -2049,6 +2082,24 @@ constraint-dependencies = [
     # (fixed 2.8.4). Transitive via beautifulsoup4; not in setup.py. Docker
     # snippet: docker/snippets/ingestion/constraints.txt.
     "soupsieve>=2.9.0",
+    # aiohttp: CVE-2026-111064 / GHSA-2g87-pp6c-29x5; fixed in 3.14.4. setup.py stays
+    # Airflow-satisfiable (aiohttp<4, no floor); enforced here at lock time and in
+    # docker/snippets/ingestion/constraints.txt.
+    "aiohttp>=3.14.4,<4",
+    # multidict: CVE-2026-104874; fixed in 6.9.1. Transitive via aiohttp/yarl; not in
+    # setup.py. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "multidict>=6.9.1",
+    # Mako: CVE-2026-102991; fixed in 1.4.2. Transitive via alembic; not in setup.py.
+    # Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "mako>=1.4.2,<2",
+    # fsspec: CVE-2026-104851; fixed in 2026.6.0. Transitive via s3fs/adlfs/pyiceberg/
+    # dask; not in setup.py. s3fs pins fsspec to its own version, so this also moves
+    # s3fs/adlfs. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "fsspec>=2026.6.0",
+    # numpy 1.x ships no 3.13 wheels and does not build there. setup.py only caps
+    # numpy<2 below 3.13, but without this uv still reuses the <3.13 fork's 1.26.4
+    # for 3.13 (numpy comes in through extras such as file_profiling and feast).
+    "numpy>=2.1; python_full_version >= '3.13'",
 ]
 
 [tool.ruff]

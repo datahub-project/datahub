@@ -39,6 +39,11 @@ ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
 # no `next_page_token` is returned.
 ONELAKE_CATALOG_PAGE_SIZE = 1000
 
+# The HTTP errors this module logs carry their status and operation, not the
+# response body: an error body can echo request details. BaseFabricClient.get
+# still logs the body on the same path (a shared fix is pending), so the probe
+# silences that logger.
+
 # getDefinition is a long-running operation: 202 plus a status poll. Cap each
 # sleep so a large Retry-After cannot stall the run indefinitely, and allow
 # the operation longer than a single HTTP timeout.
@@ -542,7 +547,8 @@ class OneLakeClient(BaseFabricClient):
             workspace_id: Workspace GUID
             item_id: Lakehouse or Warehouse GUID
             item_label: Used in log messages
-            missing_ok: When True, a 404 yields nothing instead of failing
+            missing_ok: A 404 is expected for this item, so it is re-raised for
+                the caller without being counted or logged as an error
 
         Yields:
             Schema names
@@ -567,14 +573,10 @@ class OneLakeClient(BaseFabricClient):
 
         except requests.exceptions.HTTPError as e:
             if missing_ok and e.response is not None and e.response.status_code == 404:
-                logger.warning(
-                    f"{item_label.capitalize()} {item_id} has no OneLake schema catalog "
-                    "(404). Tables will not be listed for this item."
-                )
-                return
+                raise
             self.report.report_error()
             logger.error(
-                f"HTTP error {e.response.status_code} listing schemas for {item_label} {item_id}: {e.response.text}"
+                f"HTTP error {e.response.status_code} listing schemas for {item_label} {item_id}"
             )
             raise
         except Exception as e:
@@ -631,7 +633,7 @@ class OneLakeClient(BaseFabricClient):
         except requests.exceptions.HTTPError as e:
             self.report.report_error()
             logger.error(
-                f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for {item_label} {item_id}: {e.response.text}"
+                f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for {item_label} {item_id}"
             )
             raise
         except Exception as e:
@@ -642,7 +644,11 @@ class OneLakeClient(BaseFabricClient):
             raise
 
     def list_lakehouse_tables(
-        self, workspace_id: str, lakehouse_id: str
+        self,
+        workspace_id: str,
+        lakehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
     ) -> Iterator[FabricTable]:
         """List all tables in a lakehouse.
 
@@ -657,6 +663,8 @@ class OneLakeClient(BaseFabricClient):
         Args:
             workspace_id: Workspace GUID
             lakehouse_id: Lakehouse GUID
+            on_degraded: Told when a refused listing is returned as empty, so
+                a caller that must not mistake that for "no tables" can say so.
 
         Yields:
             FabricTable objects
@@ -684,10 +692,20 @@ class OneLakeClient(BaseFabricClient):
                 if e.response.status_code in (401, 403):
                     logger.warning(
                         f"OneLake Delta Table APIs require additional permissions or different authentication. "
-                        f"Unable to list tables for schemas-enabled lakehouse {lakehouse_id}. "
-                        f"Error: {e.response.text}. "
+                        f"Unable to list tables for schemas-enabled lakehouse {lakehouse_id} "
+                        f"(HTTP {e.response.status_code}). "
                         f"Please ensure your identity has 'Lakehouse.Read.All' or 'Lakehouse.ReadWrite.All' permissions."
                     )
+                    if on_degraded is not None:
+                        # Status and operation only: the response body can
+                        # echo request details.
+                        on_degraded(
+                            f"OneLake table API returned HTTP "
+                            f"{e.response.status_code} for schemas-enabled lakehouse "
+                            f"{lakehouse_id}, so its table list may be partial or "
+                            f"empty. The identity needs Lakehouse.Read.All (or "
+                            f"ReadWrite.All)."
+                        )
                     # Return empty iterator instead of raising
                     return
                 else:
@@ -767,7 +785,7 @@ class OneLakeClient(BaseFabricClient):
                 else:
                     self.report.report_error()
                     logger.error(
-                        f"HTTP error {e.response.status_code} listing tables for lakehouse {lakehouse_id}: {e.response.text}"
+                        f"HTTP error {e.response.status_code} listing tables for lakehouse {lakehouse_id}"
                     )
                     raise
             except Exception as e:
@@ -828,7 +846,11 @@ class OneLakeClient(BaseFabricClient):
         return data.get("displayName") or None
 
     def list_warehouse_tables(
-        self, workspace_id: str, warehouse_id: str
+        self,
+        workspace_id: str,
+        warehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
     ) -> Iterator[FabricTable]:
         """List all tables in a warehouse via the OneLake Delta Table APIs.
 
@@ -846,6 +868,8 @@ class OneLakeClient(BaseFabricClient):
         Args:
             workspace_id: Workspace GUID
             warehouse_id: Warehouse GUID
+            on_degraded: Told when a 404 is returned as empty, so a caller
+                that must not mistake that for "no tables" can say so.
 
         Yields:
             FabricTable objects
@@ -870,6 +894,26 @@ class OneLakeClient(BaseFabricClient):
                     schema_name,
                     item_label="warehouse",
                 )
+
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                logger.warning(
+                    f"Warehouse {warehouse_id} has no OneLake schema catalog (404). "
+                    "Some warehouse types (e.g. staging) do not expose tables via API."
+                )
+                if on_degraded is not None:
+                    on_degraded(
+                        f"warehouse {warehouse_id} OneLake catalog returned HTTP 404; "
+                        f"some warehouse types (e.g. staging) expose no tables via API"
+                    )
+                return
+            status = e.response.status_code if e.response is not None else None
+            logger.error(
+                f"HTTP error {status} listing tables for warehouse {warehouse_id}"
+            )
+            raise
         except Exception as e:
-            logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
+            logger.error(
+                f"Failed to list tables for warehouse {warehouse_id} ({type(e).__name__})"
+            )
             raise

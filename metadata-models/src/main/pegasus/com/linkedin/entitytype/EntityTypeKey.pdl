@@ -7,6 +7,10 @@ record EntityTypeKey {
     /**
      * A unique id for an entity type. Usually this will be a unique namespace + entity name.
      */
-    @Searchable = {}
+    @Searchable = {
+      "v3": {
+        "queryByDefault": true
+      }
+    }
     id: string
 }

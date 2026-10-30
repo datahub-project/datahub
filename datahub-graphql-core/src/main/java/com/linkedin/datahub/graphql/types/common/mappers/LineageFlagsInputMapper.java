@@ -28,13 +28,13 @@ public class LineageFlagsInputMapper
 
   @Nonnull
   public static com.linkedin.metadata.query.LineageFlags map(
-      QueryContext queryContext, @Nonnull final LineageFlags lineageFlags) {
+      @Nullable final QueryContext queryContext, @Nonnull final LineageFlags lineageFlags) {
     return INSTANCE.apply(queryContext, lineageFlags);
   }
 
   @Override
   public com.linkedin.metadata.query.LineageFlags apply(
-      QueryContext context, @Nullable final LineageFlags lineageFlags) {
+      @Nullable final QueryContext context, @Nullable final LineageFlags lineageFlags) {
     com.linkedin.metadata.query.LineageFlags result =
         new com.linkedin.metadata.query.LineageFlags();
     if (lineageFlags == null) {
@@ -49,7 +49,9 @@ public class LineageFlagsInputMapper
     // Default to "now" if no end time is provided, but start time is provided.
     Long endTimeMillis =
         ResolverUtils.getLineageEndTimeMillis(
-            lineageFlags.getStartTimeMillis(), lineageFlags.getEndTimeMillis());
+            context == null ? null : context.getOperationContext(),
+            lineageFlags.getStartTimeMillis(),
+            lineageFlags.getEndTimeMillis());
     if (endTimeMillis != null) {
       result.setEndTimeMillis(endTimeMillis);
     }

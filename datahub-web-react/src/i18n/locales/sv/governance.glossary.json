@@ -18,5 +18,11 @@
     "sidebar.collapse": "Fäll ihop ordlistan",
     "sidebar.expand": "Fäll ut ordlistan",
     "sidebar.home": "Ordlistans startsida",
-    "sidebar.section.allTerms": "Alla termer"
+    "sidebar.ownerFilter.label": "Ägare",
+    "sidebar.ownerFilter.placeholder": "Filtrera på ägare",
+    "sidebar.domainFilter.label": "Domäner",
+    "sidebar.domainFilter.placeholder": "Filtrera på domän",
+    "sidebar.section.allTerms": "Alla termer",
+    "sidebar.tagFilter.label": "Taggar",
+    "sidebar.tagFilter.placeholder": "Filtrera på tagg"
 }

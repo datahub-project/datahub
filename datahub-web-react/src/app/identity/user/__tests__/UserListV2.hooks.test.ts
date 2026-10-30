@@ -15,7 +15,7 @@ const { mockUseSearchUsersQuery, mockUseBatchAssignRoleMutation } = vi.hoisted((
 
 vi.mock('@app/context/useUserContext', () => ({
     useUserContext: () => ({
-        platformPrivileges: { managePolicies: true },
+        platformPrivileges: { manageUserCredentials: true },
     }),
 }));
 
@@ -68,7 +68,7 @@ describe('UserListV2.hooks', () => {
             expect(result.current.usersList).toEqual([]);
             expect(result.current.isViewingResetToken).toBe(false);
             expect(result.current.resetTokenUser).toBeNull();
-            expect(result.current.canManagePolicies).toBe(true);
+            expect(result.current.canManageUserCredentials).toBe(true);
         });
 
         it('should update query state', () => {

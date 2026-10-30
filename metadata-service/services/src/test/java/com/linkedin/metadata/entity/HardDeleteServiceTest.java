@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -55,6 +57,7 @@ public class HardDeleteServiceTest {
   private static final DeleteCeiling CAPTURED =
       new DeleteCeiling(Map.of("datasetKey", 1L, "datasetProperties", 3L), 7L);
   private static final List<String> ASPECTS = List.of("datasetProfile");
+  private static final List<String> TWO_ASPECTS = List.of("datasetProfile", "operation");
   private static final long START = 10L;
   private static final long END = 20L;
 
@@ -73,6 +76,8 @@ public class HardDeleteServiceTest {
     deleteEntityService = mock(DeleteEntityService.class);
     timeseriesAspectService = mock(TimeseriesAspectService.class);
     dispatcher = mock(HardDeleteDispatcher.class);
+    // offer() reads dispatch(), as the interface's default does, unless a test says otherwise.
+    when(dispatcher.offer(any(), any())).thenCallRealMethod();
     referencesDeleted =
         new DeleteReferencesResponse().setTotal(2).setRelatedAspects(new RelatedAspectArray());
     when(entityService.captureDeleteCeiling(any(), eq(URN))).thenReturn(Optional.of(CAPTURED));
@@ -168,10 +173,22 @@ public class HardDeleteServiceTest {
     final InOrder inOrder = inOrder(entityService, dispatcher);
     inOrder.verify(entityService).captureDeleteCeiling(any(), eq(URN));
     inOrder.verify(entityService).captureDeleteCeiling(any(), eq(OTHER));
-    inOrder.verify(dispatcher).dispatch(opContext, HardDeleteRequest.entity(URN, CAPTURED));
+    inOrder
+        .verify(dispatcher)
+        .dispatchOneOfMany(opContext, HardDeleteRequest.entity(URN, CAPTURED));
     inOrder.verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
-    inOrder.verify(dispatcher).dispatch(opContext, HardDeleteRequest.entity(OTHER, other));
+    inOrder.verify(dispatcher).dispatchOneOfMany(opContext, HardDeleteRequest.entity(OTHER, other));
     inOrder.verify(entityService).deleteUrn(any(), eq(OTHER), eq(other));
+    verify(dispatcher, never()).dispatch(any(), any());
+  }
+
+  /** A request with one urn is offered as a single delete, not as one of many. */
+  @Test
+  public void deleteEntitiesOfOneUrnIsOfferedAsASingleDelete() {
+    service(true, dispatcher).deleteEntities(opContext, List.of(URN));
+
+    verify(dispatcher).dispatch(opContext, HardDeleteRequest.entity(URN, CAPTURED));
+    verify(dispatcher, never()).dispatchOneOfMany(any(), any());
   }
 
   // ---- deleteEntityThenReferences(op, urn, runHere)
@@ -276,6 +293,8 @@ public class HardDeleteServiceTest {
         .deleteAspectValues(any(), eq("dataset"), eq("datasetProfile"), eq(windowFilter()));
     assertEquals(response.getRows(), Long.valueOf(5L));
     assertEquals(response.getTimeseriesRows(), Long.valueOf(4L));
+    verify(entityService, never()).countUrnRows(any(), any());
+    verify(timeseriesAspectService, never()).countByFilter(any(), any(), any(), any());
   }
 
   @Test
@@ -290,42 +309,182 @@ public class HardDeleteServiceTest {
   }
 
   @Test
-  public void deleteEntityAndTimeseriesTakenRunsNothingHere() {
+  public void deleteEntityAndTimeseriesTakenRunsNothingHereAndReportsWhatIsThere() {
     when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    when(entityService.countUrnRows(any(), eq(URN))).thenReturn(9);
+    final OperationContext timeseriesContext = mock(OperationContext.class);
+    when(timeseriesAspectService.countByFilter(
+            eq(timeseriesContext), eq("dataset"), eq("datasetProfile"), eq(windowFilter())))
+        .thenReturn(3L);
+    when(timeseriesAspectService.countByFilter(
+            eq(timeseriesContext), eq("dataset"), eq("operation"), eq(windowFilter())))
+        .thenReturn(5L);
+
+    final DeleteEntityResponse response =
+        service(true, dispatcher)
+            .deleteEntityAndTimeseries(opContext, timeseriesContext, URN, TWO_ASPECTS, START, END);
+
+    verify(dispatcher)
+        .dispatch(
+            opContext,
+            HardDeleteRequest.entityAndTimeseries(URN, CAPTURED, TWO_ASPECTS, START, END));
+    assertEquals(response.getRows(), Long.valueOf(9L));
+    assertEquals(response.getTimeseriesRows(), Long.valueOf(8L));
+    assertTrue(response.hasQueued() && response.isQueued());
+    verifyNoDelete();
+    verify(timeseriesAspectService, never()).deleteAspectValues(any(), any(), any(), any());
+    // The count runs under the caller's timeseries authz context, as the delete does.
+    verify(timeseriesAspectService, never())
+        .countByFilter(eq(opContext), anyString(), anyString(), any());
+  }
+
+  /** The delete is already submitted: a failed count is -1, never a failed request. */
+  @Test
+  public void deleteEntityAndTimeseriesTakenStillAnswersWhenACountFails() {
+    when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    when(entityService.countUrnRows(any(), eq(URN))).thenThrow(new IllegalStateException("db"));
+    stubTimeseriesCount("datasetProfile", 3L);
 
     final DeleteEntityResponse response =
         service(true, dispatcher)
             .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END);
 
-    verify(dispatcher)
-        .dispatch(
-            opContext, HardDeleteRequest.entityAndTimeseries(URN, CAPTURED, ASPECTS, START, END));
-    assertEquals(response.getRows(), Long.valueOf(0L));
-    assertEquals(response.getTimeseriesRows(), Long.valueOf(0L));
-    verifyNoDelete();
-    verifyNoInteractions(timeseriesAspectService);
+    assertEquals(response.getRows(), Long.valueOf(-1L));
+    assertEquals(response.getTimeseriesRows(), Long.valueOf(3L));
+    assertTrue(response.isQueued());
   }
 
   @Test
-  public void deleteEntityAndTimeseriesDeclinedRunsTodaysCodeAfterOneOffer() {
+  public void deleteEntityAndTimeseriesTakenAnswersWhenTheTimeseriesCountFails() {
+    when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    when(entityService.countUrnRows(any(), eq(URN))).thenReturn(9);
+    when(timeseriesAspectService.countByFilter(any(), anyString(), anyString(), any()))
+        .thenThrow(new IllegalStateException("es"));
+
+    final DeleteEntityResponse response =
+        service(true, dispatcher)
+            .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END);
+
+    assertEquals(response.getRows(), Long.valueOf(9L));
+    assertEquals(response.getTimeseriesRows(), Long.valueOf(-1L));
+    assertTrue(response.isQueued());
+  }
+
+  /** A DAO that cannot count (Cassandra) answers -1; it passes through. */
+  @Test
+  public void deleteEntityAndTimeseriesTakenPassesAnUnsupportedRowCountThrough() {
+    when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    when(entityService.countUrnRows(any(), eq(URN))).thenReturn(-1);
+
+    final DeleteEntityResponse response =
+        service(true, dispatcher)
+            .deleteEntityAndTimeseries(opContext, opContext, URN, List.of(), START, END);
+
+    assertEquals(response.getRows(), Long.valueOf(-1L));
+    assertEquals(response.getTimeseriesRows(), Long.valueOf(0L));
+    verifyNoInteractions(timeseriesAspectService);
+  }
+
+  /** The count reads the window the delete deletes, so the two cannot drift apart. */
+  @Test
+  public void deleteEntityAndTimeseriesTakenCountsTheSameWindowItDeletes() {
+    when(dispatcher.dispatch(any(), any())).thenReturn(true);
+
     service(true, dispatcher)
         .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END);
+    service(true, null).deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END);
+
+    verify(timeseriesAspectService)
+        .countByFilter(any(), eq("dataset"), eq("datasetProfile"), eq(windowFilter()));
+    verify(timeseriesAspectService)
+        .deleteAspectValues(any(), eq("dataset"), eq("datasetProfile"), eq(windowFilter()));
+  }
+
+  /** Declined: today's delete runs here and reports its own counts, not the ones read first. */
+  @Test
+  public void deleteEntityAndTimeseriesDeclinedRunsTodaysCodeAfterOneOffer() {
+    when(entityService.countUrnRows(any(), eq(URN))).thenReturn(9);
+
+    final DeleteEntityResponse response =
+        service(true, dispatcher)
+            .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END);
 
     verify(dispatcher, times(1)).dispatch(any(), any());
     verify(entityService).deleteUrn(any(), eq(URN), eq(CAPTURED));
     verify(timeseriesAspectService)
         .deleteAspectValues(any(), eq("dataset"), eq("datasetProfile"), eq(windowFilter()));
+    assertEquals(response.getRows(), Long.valueOf(5L));
+    assertEquals(response.getTimeseriesRows(), Long.valueOf(4L));
+  }
+
+  /**
+   * A delete the dispatcher runs itself is gone when the offer returns, so the counts are read
+   * before it: they are what the delete removes. Done here is not queued.
+   */
+  @Test
+  public void deleteEntityAndTimeseriesDoneByTheDispatcherReportsWhatItRemovedWithoutQueued() {
+    doReturn(HardDeleteDispatcher.Offer.of(HardDeleteDispatcher.Outcome.DONE))
+        .when(dispatcher)
+        .offer(any(), any());
+    when(entityService.countUrnRows(any(), eq(URN))).thenReturn(9);
+    when(timeseriesAspectService.countByFilter(any(), anyString(), anyString(), any()))
+        .thenReturn(30L);
+
+    final DeleteEntityResponse response =
+        service(true, dispatcher)
+            .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END);
+
+    final InOrder inOrder = inOrder(entityService, timeseriesAspectService, dispatcher);
+    inOrder.verify(entityService).countUrnRows(opContext, URN);
+    inOrder.verify(timeseriesAspectService).countByFilter(any(), anyString(), anyString(), any());
+    inOrder.verify(dispatcher).offer(any(), any());
+    verify(entityService, never()).deleteUrn(any(), any(), any(DeleteCeiling.class));
+    assertEquals(response.getRows(), Long.valueOf(9L));
+    assertEquals(response.getTimeseriesRows(), Long.valueOf(30L));
+    assertFalse(response.hasQueued());
+  }
+
+  /** Queued: the same counts, read before the job can start, and queued is set. */
+  @Test
+  public void deleteEntityAndTimeseriesQueuedCountsBeforeTheOffer() {
+    doReturn(HardDeleteDispatcher.Offer.of(HardDeleteDispatcher.Outcome.QUEUED))
+        .when(dispatcher)
+        .offer(any(), any());
+    when(entityService.countUrnRows(any(), eq(URN))).thenReturn(9);
+
+    final DeleteEntityResponse response =
+        service(true, dispatcher)
+            .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END);
+
+    final InOrder inOrder = inOrder(entityService, dispatcher);
+    inOrder.verify(entityService).countUrnRows(opContext, URN);
+    inOrder.verify(dispatcher).offer(any(), any());
+    assertEquals(response.getRows(), Long.valueOf(9L));
+    assertTrue(response.isQueued());
+  }
+
+  @Test
+  public void deleteEntityAndTimeseriesDeclinedDoesNotReportQueued() {
+    final DeleteEntityResponse response =
+        service(true, dispatcher)
+            .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END);
+
+    assertFalse(response.hasQueued());
   }
 
   @Test
   public void deleteEntityAndTimeseriesWithTheFlagOffIsStillOffered() {
     when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    when(entityService.countUrnRows(any(), eq(URN))).thenReturn(9);
 
-    service(false, dispatcher)
-        .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END);
+    final DeleteEntityResponse response =
+        service(false, dispatcher)
+            .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END);
 
     verify(dispatcher, times(1)).dispatch(any(), any());
     verifyNoDelete();
+    assertEquals(response.getRows(), Long.valueOf(9L));
+    assertTrue(response.isQueued());
   }
 
   /** PARTIAL throws before the timeseries values are deleted, as today. */
@@ -339,7 +498,8 @@ public class HardDeleteServiceTest {
         () ->
             service(true, dispatcher)
                 .deleteEntityAndTimeseries(opContext, opContext, URN, ASPECTS, START, END));
-    verifyNoInteractions(timeseriesAspectService);
+    // Counted before the offer, but never deleted.
+    verify(timeseriesAspectService, never()).deleteAspectValues(any(), any(), any(), any());
   }
 
   // ---- deleteReferences(op, urn)
@@ -348,19 +508,38 @@ public class HardDeleteServiceTest {
   public void deleteReferencesWithoutDispatcherRunsTodaysCode() {
     assertSame(service(true, null).deleteReferences(opContext, URN), referencesDeleted);
     verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), eq(true));
   }
 
   @Test
-  public void deleteReferencesTakenRunsNothingHereAndReportsNothing() {
+  public void deleteReferencesTakenRunsNothingHereAndReportsWhatIsThere() {
     when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    final DeleteReferencesResponse dryRun =
+        new DeleteReferencesResponse().setTotal(7).setRelatedAspects(new RelatedAspectArray());
+    when(deleteEntityService.deleteReferencesTo(any(), eq(URN), eq(true))).thenReturn(dryRun);
 
     final DeleteReferencesResponse response =
         service(true, dispatcher).deleteReferences(opContext, URN);
 
     verify(dispatcher).dispatch(opContext, HardDeleteRequest.references(URN));
-    assertEquals(response.getTotal(), Integer.valueOf(0));
+    verify(deleteEntityService, times(1)).deleteReferencesTo(opContext, URN, true);
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), eq(false));
+    assertEquals(response.getTotal(), Integer.valueOf(7));
+    assertTrue(response.isQueued());
+  }
+
+  @Test
+  public void deleteReferencesTakenStillAnswersWhenTheDryRunFails() {
+    when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    when(deleteEntityService.deleteReferencesTo(any(), eq(URN), eq(true)))
+        .thenThrow(new IllegalStateException("graph"));
+
+    final DeleteReferencesResponse response =
+        service(true, dispatcher).deleteReferences(opContext, URN);
+
+    assertEquals(response.getTotal(), Integer.valueOf(-1));
     assertTrue(response.getRelatedAspects().isEmpty());
-    verifyNoInteractions(deleteEntityService);
+    assertTrue(response.isQueued());
   }
 
   @Test
@@ -371,14 +550,101 @@ public class HardDeleteServiceTest {
     verify(deleteEntityService).deleteReferencesTo(opContext, URN, false);
   }
 
+  /** A cleanup the dispatcher runs itself reports the dry run read before it, without queued. */
+  @Test
+  public void deleteReferencesDoneByTheDispatcherReportsTheDryRunWithoutQueued() {
+    doReturn(HardDeleteDispatcher.Offer.of(HardDeleteDispatcher.Outcome.DONE))
+        .when(dispatcher)
+        .offer(any(), any());
+    final DeleteReferencesResponse dryRun =
+        new DeleteReferencesResponse().setTotal(7).setRelatedAspects(new RelatedAspectArray());
+    when(deleteEntityService.deleteReferencesTo(any(), eq(URN), eq(true))).thenReturn(dryRun);
+
+    final DeleteReferencesResponse response =
+        service(true, dispatcher).deleteReferences(opContext, URN);
+
+    final InOrder inOrder = inOrder(deleteEntityService, dispatcher);
+    inOrder.verify(deleteEntityService).deleteReferencesTo(opContext, URN, true);
+    inOrder.verify(dispatcher).offer(opContext, HardDeleteRequest.references(URN));
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), eq(false));
+    assertEquals(response.getTotal(), Integer.valueOf(7));
+    assertFalse(response.hasQueued());
+  }
+
+  /**
+   * The CLI's second call, after its entity delete dropped the graph edges: the dry run reads the
+   * graph and finds nothing, but the dispatcher counted the referrers the delete kept. The larger
+   * count is reported.
+   */
+  @Test
+  public void deleteReferencesReportsTheDispatchersCountWhenTheGraphNoLongerHasTheReferrers() {
+    doReturn(new HardDeleteDispatcher.Offer(HardDeleteDispatcher.Outcome.QUEUED, 8))
+        .when(dispatcher)
+        .offer(any(), any());
+    when(deleteEntityService.deleteReferencesTo(any(), eq(URN), eq(true)))
+        .thenReturn(
+            new DeleteReferencesResponse().setTotal(0).setRelatedAspects(new RelatedAspectArray()));
+
+    final DeleteReferencesResponse response =
+        service(true, dispatcher).deleteReferences(opContext, URN);
+
+    assertEquals(response.getTotal(), Integer.valueOf(8));
+    assertTrue(response.isQueued());
+  }
+
+  /** The dry run's count wins when it is larger, e.g. a capped routing count. */
+  @Test
+  public void deleteReferencesKeepsTheDryRunWhenItCountsMore() {
+    doReturn(new HardDeleteDispatcher.Offer(HardDeleteDispatcher.Outcome.DONE, 3))
+        .when(dispatcher)
+        .offer(any(), any());
+    when(deleteEntityService.deleteReferencesTo(any(), eq(URN), eq(true)))
+        .thenReturn(
+            new DeleteReferencesResponse().setTotal(7).setRelatedAspects(new RelatedAspectArray()));
+
+    final DeleteReferencesResponse response =
+        service(true, dispatcher).deleteReferences(opContext, URN);
+
+    assertEquals(response.getTotal(), Integer.valueOf(7));
+    assertFalse(response.hasQueued());
+  }
+
+  /** A failed dry run (-1) still reports the dispatcher's count. */
+  @Test
+  public void deleteReferencesReportsTheDispatchersCountWhenTheDryRunFails() {
+    doReturn(new HardDeleteDispatcher.Offer(HardDeleteDispatcher.Outcome.QUEUED, 8))
+        .when(dispatcher)
+        .offer(any(), any());
+    when(deleteEntityService.deleteReferencesTo(any(), eq(URN), eq(true)))
+        .thenThrow(new IllegalStateException("graph"));
+
+    final DeleteReferencesResponse response =
+        service(true, dispatcher).deleteReferences(opContext, URN);
+
+    assertEquals(response.getTotal(), Integer.valueOf(8));
+    assertTrue(response.isQueued());
+  }
+
+  @Test
+  public void deleteReferencesDeclinedDoesNotReportQueued() {
+    assertFalse(service(true, dispatcher).deleteReferences(opContext, URN).hasQueued());
+  }
+
   @Test
   public void deleteReferencesWithTheFlagOffIsStillOffered() {
     when(dispatcher.dispatch(any(), any())).thenReturn(true);
+    when(deleteEntityService.deleteReferencesTo(any(), eq(URN), eq(true)))
+        .thenReturn(
+            new DeleteReferencesResponse().setTotal(7).setRelatedAspects(new RelatedAspectArray()));
 
-    service(false, dispatcher).deleteReferences(opContext, URN);
+    final DeleteReferencesResponse response =
+        service(false, dispatcher).deleteReferences(opContext, URN);
 
     verify(dispatcher).dispatch(opContext, HardDeleteRequest.references(URN));
-    verifyNoInteractions(deleteEntityService);
+    verify(deleteEntityService, times(1)).deleteReferencesTo(opContext, URN, true);
+    verify(deleteEntityService, never()).deleteReferencesTo(any(), any(), eq(false));
+    assertEquals(response.getTotal(), Integer.valueOf(7));
+    assertTrue(response.isQueued());
   }
 
   private HardDeleteService service(
@@ -389,6 +655,12 @@ public class HardDeleteServiceTest {
         timeseriesAspectService,
         new ReliableHardDelete(entityService, reliableHardDelete),
         hardDeleteDispatcher);
+  }
+
+  private void stubTimeseriesCount(final String aspect, final long count) {
+    when(timeseriesAspectService.countByFilter(
+            any(), eq("dataset"), eq(aspect), eq(windowFilter())))
+        .thenReturn(count);
   }
 
   private void verifyNoDelete() {

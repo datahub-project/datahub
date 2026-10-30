@@ -29,7 +29,7 @@ Feature summary:
     otherwise to the image tag. The label lives in a label group chosen by the ref:
     - Tag refs whose names are semantic versions, including release candidates (``vX.Y.Z``,
       ``vX.Y.Z.W``, optional ``rcN`` / ``-rcN``, optional ``-cloud``), reuse the child of a
-      workspace release group. A ``-cloud`` suffix uses ``Saas Release`` and the tag as the
+      workspace release group. A ``-cloud`` suffix uses ``SaaS Release`` and the tag as the
       label name. A tag without it uses ``OSS Release`` and the label name ``OSS <tag>``
       (for example ``OSS v1.7.0.1``). The group is the one the release workflow creates when
       a final tag is cut, and it must already exist. An RC child is created under that group
@@ -101,7 +101,7 @@ from utils.security_scan_utils import (
     write_security_scan_summary_json,
 )
 
-SAAS_RELEASE_LABEL_GROUP = "Saas Release"
+SAAS_RELEASE_LABEL_GROUP = "SaaS Release"
 OSS_RELEASE_LABEL_GROUP = "OSS Release"
 SECURITY_SCAN_LABEL_GROUP = "Security Scan"
 # Child labels under OSS Release are ``OSS v1.7.0.1``, not the bare git tag.
@@ -156,7 +156,7 @@ def is_semantic_version_tag(ref_name: str) -> bool:
 def release_label_group_for_tag(ref_name: str) -> str | None:
     """Workspace release group for a semantic tag, or ``None`` when it is not one.
 
-    Final releases and RCs share a group. A ``-cloud`` suffix is ``Saas Release``; the same
+    Final releases and RCs share a group. A ``-cloud`` suffix is ``SaaS Release``; the same
     version shape without it is ``OSS Release``.
     """
     name = ref_name.strip()

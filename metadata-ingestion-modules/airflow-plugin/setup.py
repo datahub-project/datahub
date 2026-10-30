@@ -72,7 +72,8 @@ dev_requirements = {
     "coverage>=5.1",
     "mypy==1.17.1",
     "ruff==0.15.22",
-    "pytest>=6.2.2",
+    # Cap matching metadata-ingestion.
+    "pytest>=6.2.2,<10.0.0",
     "pytest-cov>=2.8.1",
     "tox",
     "tox-uv",

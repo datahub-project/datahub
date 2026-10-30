@@ -298,7 +298,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     Map<String, Set<String>> urnAspects1 = new HashMap<>();
     urnAspects1.put("urn:li:chart:1", new HashSet<>(Arrays.asList("chartKey", "ChartInfo")));
 
-    Map<Urn, Map<String, Map<String, Object>>> result1 = _client.raw(null, urnAspects1);
+    Map<Urn, Map<String, Map<String, Object>>> result1 = _client.raw(operationContext, urnAspects1);
 
     assertEquals(result1.size(), 1);
     assertTrue(result1.containsKey(UrnUtils.getUrn("urn:li:chart:1")));
@@ -323,7 +323,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     urnAspects2.put("urn:li:chart:2", new HashSet<>(Arrays.asList("chartKey", "ChartInfo")));
     urnAspects2.put("urn:li:dataset:3", new HashSet<>(Arrays.asList("DatasetKey")));
 
-    Map<Urn, Map<String, Map<String, Object>>> result2 = _client.raw(null, urnAspects2);
+    Map<Urn, Map<String, Map<String, Object>>> result2 = _client.raw(operationContext, urnAspects2);
 
     assertEquals(result2.size(), 3);
     assertTrue(result2.containsKey(UrnUtils.getUrn("urn:li:chart:1")));
@@ -347,37 +347,37 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
     Map<String, Set<String>> urnAspects3 = new HashMap<>();
     urnAspects3.put("urn:li:chart:999", new HashSet<>(Arrays.asList("chartKey")));
 
-    Map<Urn, Map<String, Map<String, Object>>> result3 = _client.raw(null, urnAspects3);
+    Map<Urn, Map<String, Map<String, Object>>> result3 = _client.raw(operationContext, urnAspects3);
     assertTrue(result3.isEmpty());
 
     // Test 4: Query for existing URN but non-existent aspect
     Map<String, Set<String>> urnAspects4 = new HashMap<>();
     urnAspects4.put("urn:li:chart:1", new HashSet<>(Arrays.asList("NonExistentAspect")));
 
-    Map<Urn, Map<String, Map<String, Object>>> result4 = _client.raw(null, urnAspects4);
+    Map<Urn, Map<String, Map<String, Object>>> result4 = _client.raw(operationContext, urnAspects4);
     assertTrue(result4.isEmpty());
 
     // Test 5: Empty input map
     Map<String, Set<String>> urnAspects5 = new HashMap<>();
-    Map<Urn, Map<String, Map<String, Object>>> result5 = _client.raw(null, urnAspects5);
+    Map<Urn, Map<String, Map<String, Object>>> result5 = _client.raw(operationContext, urnAspects5);
     assertTrue(result5.isEmpty());
 
     // Test 6: Null input
-    Map<Urn, Map<String, Map<String, Object>>> result6 = _client.raw(null, null);
+    Map<Urn, Map<String, Map<String, Object>>> result6 = _client.raw(operationContext, null);
     assertTrue(result6.isEmpty());
 
     // Test 7: URN with null aspects set
     Map<String, Set<String>> urnAspects7 = new HashMap<>();
     urnAspects7.put("urn:li:chart:1", null);
 
-    Map<Urn, Map<String, Map<String, Object>>> result7 = _client.raw(null, urnAspects7);
+    Map<Urn, Map<String, Map<String, Object>>> result7 = _client.raw(operationContext, urnAspects7);
     assertTrue(result7.isEmpty());
 
     // Test 8: URN with empty aspects set
     Map<String, Set<String>> urnAspects8 = new HashMap<>();
     urnAspects8.put("urn:li:chart:1", new HashSet<>());
 
-    Map<Urn, Map<String, Map<String, Object>>> result8 = _client.raw(null, urnAspects8);
+    Map<Urn, Map<String, Map<String, Object>>> result8 = _client.raw(operationContext, urnAspects8);
     assertTrue(result8.isEmpty());
   }
 }

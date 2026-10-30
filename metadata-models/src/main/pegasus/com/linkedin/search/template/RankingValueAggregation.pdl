@@ -1,0 +1,11 @@
+namespace com.linkedin.search.template
+
+/**
+ * How a numeric ranking signal combines multiple values from one candidate.
+ */
+enum RankingValueAggregation {
+  MAX
+  MIN
+  SUM
+  AVERAGE
+}

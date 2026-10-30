@@ -6,6 +6,8 @@ import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContex
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/entityData';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
+import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
@@ -84,6 +86,10 @@ function TermItem(props: Props) {
 
     const displayName = entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term);
 
+    const versionProperties = isOnEntityPage ? entityData?.versionProperties : term.versionProperties;
+    const versionTag = versionProperties?.version?.versionTag;
+    const lifecycleStage = (isOnEntityPage ? entityData?.status : term.status)?.lifecycleStage ?? null;
+
     const deprecation = isOnEntityPage ? entityData?.deprecation : term.deprecation;
 
     const deprecationBadge = deprecation?.deprecated ? (
@@ -92,14 +98,17 @@ function TermItem(props: Props) {
         </DeprecationSlot>
     ) : null;
 
-    // SaaS can pass lifecycle/version via `afterLabel`; OSS deprecation composes with it.
-    const resolvedAfterLabel =
-        afterLabel != null || deprecationBadge != null ? (
-            <>
-                {deprecationBadge}
-                {afterLabel}
-            </>
-        ) : undefined;
+    const hasBadges = !!versionTag || !!lifecycleStage || deprecationBadge != null || afterLabel != null;
+    const resolvedAfterLabel = hasBadges ? (
+        <>
+            {!!versionTag && (
+                <VersionPill label={versionTag} isLatest={versionProperties?.isLatest ?? false} size="xs" />
+            )}
+            <LifecycleStageBadge lifecycleStage={lifecycleStage} size="xs" />
+            {deprecationBadge}
+            {afterLabel}
+        </>
+    ) : undefined;
 
     return (
         <HierarchicalBrowseTreeRow

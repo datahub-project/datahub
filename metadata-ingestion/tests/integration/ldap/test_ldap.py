@@ -40,7 +40,7 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/ldap_mces.json",
+                        "filename": f"{tmp_path}/ldap.json",
                     },
                 },
             }
@@ -50,8 +50,9 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=tmp_path / "ldap_mces.json",
-            golden_path=test_resources_dir / "ldap_mces_golden.json",
+            output_path=tmp_path / "ldap.json",
+            golden_path=test_resources_dir / "ldap_golden.json",
+            fail_on_output_mces=True,
         )
 
 
@@ -89,7 +90,7 @@ def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/ldap_memberof_mces.json",
+                        "filename": f"{tmp_path}/ldap_memberof.json",
                     },
                 },
             }
@@ -99,8 +100,9 @@ def test_ldap_memberof_ingest(docker_compose_runner, pytestconfig, tmp_path, moc
 
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=tmp_path / "ldap_memberof_mces.json",
-            golden_path=test_resources_dir / "ldap_memberof_mces_golden.json",
+            output_path=tmp_path / "ldap_memberof.json",
+            golden_path=test_resources_dir / "ldap_memberof_golden.json",
+            fail_on_output_mces=True,
         )
 
 
@@ -141,7 +143,7 @@ def test_ldap_ingest_with_email_as_username(
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/ldap_mces.json",
+                        "filename": f"{tmp_path}/ldap.json",
                     },
                 },
             }
@@ -151,6 +153,7 @@ def test_ldap_ingest_with_email_as_username(
 
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=tmp_path / "ldap_mces.json",
-            golden_path=test_resources_dir / "ldap_mces_golden.json",
+            output_path=tmp_path / "ldap.json",
+            golden_path=test_resources_dir / "ldap_golden.json",
+            fail_on_output_mces=True,
         )

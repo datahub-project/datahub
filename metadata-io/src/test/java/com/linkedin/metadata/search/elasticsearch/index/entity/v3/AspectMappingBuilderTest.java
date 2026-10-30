@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -49,6 +50,8 @@ public class AspectMappingBuilderTest {
     when(mockAnnotation1.getFieldName()).thenReturn("testField");
     when(mockAnnotation1.getFieldType()).thenReturn(FieldType.KEYWORD);
     when(mockAnnotation1.getFieldNameAliases()).thenReturn(Collections.emptyList());
+    when(mockAnnotation1.isV3Searchable()).thenReturn(true);
+    when(mockAnnotation1.resolvedForV3()).thenReturn(mockAnnotation1);
   }
 
   @Test
@@ -60,6 +63,17 @@ public class AspectMappingBuilderTest {
     assertNotNull(result);
     assertTrue(result.containsKey("testAspect"));
     assertTrue(result.get("testAspect") instanceof Map);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testSearchableAspectKeepsSystemMetadata() {
+    Map<String, Object> aspect =
+        (Map<String, Object>)
+            AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null).get("testAspect");
+    Map<String, Object> fields = (Map<String, Object>) aspect.get(PROPERTIES);
+
+    assertTrue(fields.containsKey(V3SearchDocumentProjector.SYSTEM_METADATA_FIELD));
   }
 
   @Test
@@ -89,34 +103,32 @@ public class AspectMappingBuilderTest {
   }
 
   @Test
-  public void testCreateAspectMappingsSkipsStructuredProperties() {
-    // Test that structuredProperties aspect is skipped
+  @SuppressWarnings("unchecked")
+  public void testStructuredPropertiesOmitsADedicatedParsedUrnName() {
     when(mockEntitySpec.getAspectSpecs())
         .thenReturn(Collections.singletonList(mockStructuredPropertiesAspect));
     when(mockStructuredPropertiesAspect.getName()).thenReturn(STRUCTURED_PROPERTIES_ASPECT_NAME);
     when(mockStructuredPropertiesAspect.getSearchableFieldSpecs())
         .thenReturn(Collections.singletonList(mockFieldSpec1));
+    when(mockAnnotation1.getFieldType()).thenReturn(FieldType.URN);
+    when(mockAnnotation1.getSearchLabel()).thenReturn(Optional.empty());
+    when(mockAnnotation1.getEntityFieldName()).thenReturn(Optional.empty());
 
     Map<String, Object> result =
         AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null);
 
-    assertNotNull(result);
-    assertFalse(result.containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME));
+    assertFalse(result.containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME), result.toString());
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   public void testCreateAspectMappingsWithEmptyAspectFields() {
-    // An aspect with no searchable fields still maps the system metadata the projector writes
     when(mockAspectSpec1.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec1.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
 
     Map<String, Object> result =
         AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null);
 
-    Map<String, Object> aspect = (Map<String, Object>) result.get("testAspect");
-    assertEquals(
-        ((Map<String, Object>) aspect.get(PROPERTIES)).keySet(),
-        Set.of(V3SearchDocumentProjector.SYSTEM_METADATA_FIELD));
+    assertFalse(result.containsKey("testAspect"));
   }
 
   @Test
@@ -151,29 +163,34 @@ public class AspectMappingBuilderTest {
             AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null).get("testAspect");
     Map<String, Object> fields = (Map<String, Object>) aspect.get(PROPERTIES);
 
-    // Full-text search reads the root fields, so the aspect copies are not analyzed a second time
-    Map<String, Object> unanalyzedString =
+    // A root-projected field keeps an unindexed aspect copy. copy_to still reaches the label.
+    Map<String, Object> unindexed = Map.of(TYPE, "keyword", "index", false, "doc_values", false);
+    for (String stringField : List.of("description", "name", "browsePathV2")) {
+      assertEquals(fields.get(stringField), unindexed, stringField);
+    }
+    assertEquals(
+        fields.get("platform"),
         Map.of(
             TYPE,
             "keyword",
-            "normalizer",
-            "keyword_normalizer",
-            "ignore_above",
-            8191,
-            "fields",
-            Map.of("keyword", Map.of(TYPE, "keyword", "ignore_above", 8191)));
-    for (String stringField : List.of("description", "name", "browsePathV2")) {
-      assertEquals(fields.get(stringField), unanalyzedString, stringField);
-    }
-    assertEquals(fields.get("platform"), Map.of(TYPE, "keyword", "ignore_above", 255));
-    assertEquals(fields.get("lastModified"), Map.of(TYPE, "date"));
-    assertEquals(fields.get("removed"), Map.of(TYPE, "boolean"));
+            "index",
+            false,
+            "doc_values",
+            false,
+            "copy_to",
+            List.of("platform_urn")));
+    assertEquals(
+        fields.get("lastModified"), Map.of(TYPE, "date", "index", false, "doc_values", false));
+    assertEquals(
+        fields.get("removed"), Map.of(TYPE, "boolean", "index", false, "doc_values", false));
   }
 
   private static SearchableFieldSpec mockField(String fieldName, FieldType fieldType) {
     SearchableAnnotation annotation = mock(SearchableAnnotation.class);
     when(annotation.getFieldName()).thenReturn(fieldName);
     when(annotation.getFieldType()).thenReturn(fieldType);
+    when(annotation.isV3Searchable()).thenReturn(true);
+    when(annotation.resolvedForV3()).thenReturn(annotation);
     SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
     when(fieldSpec.getSearchableAnnotation()).thenReturn(annotation);
     return fieldSpec;

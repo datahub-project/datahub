@@ -7,7 +7,8 @@ import com.linkedin.common.Urn
  * e.g. Gets activated when subTypes is view
  */
 @Aspect = {
-  "name": "viewProperties"
+  "name": "viewProperties",
+  "schemaVersion": 2
 }
 record ViewProperties {
 
@@ -15,8 +16,7 @@ record ViewProperties {
    * Whether the view is materialized
    */
   @Searchable = {
-    "fieldType": "BOOLEAN",
-    "weightsPerFieldValue": { "true": 0.5 }
+    "fieldType": "BOOLEAN"
   }
   materialized: boolean
 
