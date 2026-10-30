@@ -15,6 +15,12 @@ export function ApplicationEntitiesTab() {
             field: 'applications',
             values: [urn],
         },
+        {
+            // Child Applications: an Application whose parentApplication is this urn belongs in
+            // the parent's Assets tab alongside the assets that are directly assigned to it.
+            field: 'parentApplication',
+            values: [urn],
+        },
     ];
 
     return (
