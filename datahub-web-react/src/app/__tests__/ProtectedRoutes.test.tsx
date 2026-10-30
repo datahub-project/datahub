@@ -40,24 +40,24 @@ describe('ProtectedRoutes default landing page', () => {
         vi.unstubAllEnvs();
     });
 
-    it('keeps Home at the root by default', () => {
+    it('keeps Home at the root by default', async () => {
         renderRoutes('/');
 
         expect(screen.getByTestId('current-path')).toHaveTextContent('/');
-        expect(screen.getByTestId('home-page')).toBeInTheDocument();
+        expect(await screen.findByTestId('home-page')).toBeInTheDocument();
     });
 
     it('redirects the root to Discover when configured', async () => {
         renderRoutes('/', 'discover');
 
         await waitFor(() => expect(screen.getByTestId('current-path')).toHaveTextContent('/search'));
-        expect(screen.getByTestId('search-routes')).toBeInTheDocument();
+        expect(await screen.findByTestId('search-routes')).toBeInTheDocument();
     });
 
-    it('keeps Home reachable at /home when Discover is configured', () => {
+    it('keeps Home reachable at /home when Discover is configured', async () => {
         renderRoutes('/home', 'discover');
 
         expect(screen.getByTestId('current-path')).toHaveTextContent('/home');
-        expect(screen.getByTestId('home-page')).toBeInTheDocument();
+        expect(await screen.findByTestId('home-page')).toBeInTheDocument();
     });
 });
