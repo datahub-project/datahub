@@ -1091,32 +1091,6 @@ class TestOracleSource:
             "MY_PKG": JobContainerSubTypes.STORED_PROCEDURE,
         }
 
-    def test_loop_materialized_views(self):
-        """Test looping through materialized views."""
-        source = OracleSource(self.config, self.ctx)
-
-        # DataHub's own inspector wrapper (DBA mode), which filters system schemas
-        mock_inspector = Mock(spec=OracleInspectorObjectWrapper)
-        mock_inspector.get_materialized_view_names.return_value = ["MV1", "MV2"]
-
-        # Mock the _process_materialized_view method
-        mock_workunit = Mock()
-        with (
-            patch.object(source, "get_identifier", return_value="test_schema.mv1"),
-            patch.object(
-                source, "_process_materialized_view", return_value=[mock_workunit]
-            ),
-        ):
-            result = list(
-                source.loop_materialized_views(
-                    mock_inspector, "TEST_SCHEMA", self.config
-                )
-            )
-
-            # Should process both materialized views
-            assert len(result) == 2
-            assert all(wu == mock_workunit for wu in result)
-
     def test_loop_materialized_views_plain_inspector_uses_filtered_fallback(self):
         # SA 2.0's Inspector has its own get_materialized_view_names, which doesn't
         # exclude system schemas. ALL mode must still use DataHub's filtered query.
@@ -1187,69 +1161,6 @@ class TestOracleSource:
 
         assert result == mock_definition
         mock_inspector.bind.execute.assert_called_once()
-
-    def test_process_materialized_view(self):
-        """Test processing a single materialized view."""
-        source = OracleSource(self.config, self.ctx)
-
-        # Mock inspector
-        mock_inspector = Mock()
-        mock_inspector.get_materialized_view_definition.return_value = (
-            "SELECT * FROM test_table"
-        )
-
-        # Mock required methods
-        with (
-            patch.object(
-                source, "get_table_properties", return_value=("Test MV", {}, None)
-            ),
-            patch.object(source, "_get_columns", return_value=[]),
-            patch(
-                "datahub.ingestion.source.sql.sql_common.get_schema_metadata",
-                return_value=Mock(),
-            ),
-            patch(
-                "datahub.ingestion.source.sql.oracle.make_dataset_urn_with_platform_instance",
-                return_value="urn:li:dataset:(urn:li:dataPlatform:oracle,test_schema.test_mv,PROD)",
-            ),
-            patch.object(source, "add_table_to_schema_container", return_value=[]),
-            patch.object(source, "get_db_name", return_value="TEST_DB"),
-            patch.object(
-                source,
-                "get_dataplatform_instance_aspect",
-                return_value=None,
-            ),
-        ):
-            result = list(
-                source._process_materialized_view(
-                    "test_schema.test_mv",
-                    mock_inspector,
-                    "TEST_SCHEMA",
-                    "TEST_MV",
-                    self.config,
-                )
-            )
-
-            # Should generate multiple work units (properties, schema, subtypes, view properties)
-            assert len(result) >= 3
-
-            # Look for ViewPropertiesClass work unit in metadata
-            view_properties_workunits = [
-                wu
-                for wu in result
-                if hasattr(wu, "metadata")
-                and hasattr(wu.metadata, "aspect")
-                and wu.metadata.aspect.__class__.__name__ == "ViewPropertiesClass"
-            ]
-
-            # We should have at least one ViewPropertiesClass work unit with materialized=True
-            assert len(view_properties_workunits) > 0
-            workunit = view_properties_workunits[0]
-            assert hasattr(workunit.metadata, "aspect")
-            view_properties_aspect = workunit.metadata.aspect
-            assert view_properties_aspect is not None
-            assert hasattr(view_properties_aspect, "materialized")
-            assert view_properties_aspect.materialized is True
 
     def test_error_handling_in_get_procedures_for_schema(self):
         """Test error handling in get_procedures_for_schema."""

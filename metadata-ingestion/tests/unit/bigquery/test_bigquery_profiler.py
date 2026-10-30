@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,9 +31,10 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_filter_expression,
     validate_sql_structure,
 )
+from tests.unit.bigquery.conftest import make_table
 
 
-def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table():
+def test_not_generate_partition_profiler_query_if_not_partitioned_shardedmake_table():
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
     test_table = BigqueryTable(
         name="test_table",
@@ -235,27 +237,6 @@ WHERE
     assert expected_query == query[1].strip()
 
 
-def test_generate_sharded_table_profiler_query():
-    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
-    test_table = BigqueryTable(
-        name="my_sharded_table",
-        max_shard_id="20200101",
-        comment="test_comment",
-        rows_count=1,
-        size_in_bytes=1,
-        last_altered=datetime.now(timezone.utc),
-        created=datetime.now(timezone.utc),
-    )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
-    )
-
-    assert query[0] == "20200101"
-    assert query[1] is None
-
-
 @patch(
     "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
 )
@@ -379,15 +360,6 @@ def test_profiler_engine_falls_back_to_adc_when_no_credential(mock_create_engine
 )
 def test_validate_bigquery_identifier_valid(input_id: str, expected: str) -> None:
     assert validate_bigquery_identifier(input_id) == expected
-
-
-@pytest.mark.parametrize(
-    "invalid_id",
-    ["col;drop", "col'injection", "col--comment", "col/*x*/", "bad col"],
-)
-def test_validate_bigquery_identifier_invalid(invalid_id: str) -> None:
-    with pytest.raises(ValueError):
-        validate_bigquery_identifier(invalid_id)
 
 
 def test_build_safe_table_reference():
@@ -678,3 +650,251 @@ def test_extract_column_names_from_ddl_does_not_flatten_function_args(ddl, expec
         discovery._extract_column_names_from_sqlglot_partition(partition_expr)
         == expected
     )
+
+
+# ---------------------------------------------------------------------------
+# Partition selection and profile request shaping
+# ---------------------------------------------------------------------------
+
+
+def _partition_column(
+    name: str = "date", data_type: str = "TIMESTAMP"
+) -> BigqueryColumn:
+    return BigqueryColumn(
+        name=name,
+        field_path=name,
+        ordinal_position=1,
+        data_type=data_type,
+        is_partition_column=True,
+        cluster_column_position=None,
+        comment=None,
+        is_nullable=False,
+    )
+
+
+def _profiler(**config: Any) -> BigqueryProfiler:
+    return BigqueryProfiler(
+        config=BigQueryV2Config(**config),
+        report=BigQueryV2Report(),
+    )
+
+
+def test_range_partitioned_table_filters_on_partition_column() -> None:
+    profiler = _profiler()
+    table = make_table(
+        partition_info=PartitionInfo(
+            type="RANGE",
+            fields=("bucket",),
+            columns=(_partition_column("bucket", "INT64"),),
+        ),
+        max_partition_id="500",
+    )
+
+    partition, custom_sql = profiler.generate_partition_profiler_query(
+        "test_project", "test_dataset", table
+    )
+
+    assert partition == "500"
+    assert custom_sql is not None
+    assert "bucket >= 500" in custom_sql
+
+
+def test_range_partition_without_column_is_skipped() -> None:
+    profiler = _profiler()
+    table = make_table(
+        partition_info=PartitionInfo(type="RANGE", fields=("bucket",)),
+        max_partition_id="500",
+    )
+
+    assert profiler.generate_partition_profiler_query(
+        "test_project", "test_dataset", table
+    ) == (None, None)
+    assert profiler.report.profiling_skipped_invalid_partition_ids == {
+        "test_project.test_dataset.test_table": "500"
+    }
+
+
+def test_unrecognised_partition_id_is_skipped() -> None:
+    profiler = _profiler()
+    table = make_table(
+        partition_info=PartitionInfo(
+            type="DAY", fields=("date",), columns=(_partition_column(),)
+        ),
+        max_partition_id="2020-01-01",
+    )
+
+    assert profiler.generate_partition_profiler_query(
+        "test_project", "test_dataset", table
+    ) == (None, None)
+    assert profiler.report.profiling_skipped_invalid_partition_ids == {
+        "test_project.test_dataset.test_table": "2020-01-01"
+    }
+
+
+def test_unsupported_time_partition_type_is_skipped() -> None:
+    profiler = _profiler()
+    table = make_table(
+        partition_info=PartitionInfo(
+            type="WEEK", fields=("date",), columns=(_partition_column(),)
+        ),
+        max_partition_id="20200101",
+    )
+
+    assert profiler.generate_partition_profiler_query(
+        "test_project", "test_dataset", table
+    ) == (None, None)
+    assert profiler.report.profiling_skipped_invalid_partition_type == {
+        "test_project.test_dataset.test_table": "WEEK"
+    }
+
+
+def test_profile_request_carries_partition_and_custom_sql() -> None:
+    profiler = _profiler()
+    table = make_table(
+        partition_info=PartitionInfo(
+            type="DAY", fields=("date",), columns=(_partition_column(),)
+        ),
+        max_partition_id="20200101",
+    )
+
+    request = profiler.get_profile_request(table, "test_dataset", "test_project")
+
+    assert request is not None
+    assert request.batch_kwargs["partition"] == "20200101"
+    assert "`date` BETWEEN" in request.batch_kwargs["custom_sql"]
+    assert request.batch_kwargs["table"] == "test_dataset.test_table"
+
+
+def test_profile_request_for_sharded_table_has_shard_but_no_custom_sql() -> None:
+    request = _profiler().get_profile_request(
+        make_table(max_shard_id="20200101"), "test_dataset", "test_project"
+    )
+
+    assert request is not None
+    assert request.batch_kwargs["partition"] == "20200101"
+    assert request.batch_kwargs["custom_sql"] is None
+
+
+def test_partitioned_table_is_skipped_when_partition_profiling_disabled() -> None:
+    profiler = _profiler(profiling={"partition_profiling_enabled": False})
+    table = make_table(
+        partition_info=PartitionInfo(
+            type="DAY", fields=("date",), columns=(_partition_column(),)
+        ),
+        max_partition_id="20200101",
+    )
+
+    assert profiler.get_profile_request(table, "test_dataset", "test_project") is None
+    assert list(profiler.report.profiling_skipped_partition_profiling_disabled) == [
+        "test_project.test_dataset.test_table"
+    ]
+
+
+def test_partitioned_table_with_invalid_partition_is_skipped_with_warning() -> None:
+    profiler = _profiler()
+    table = make_table(
+        partition_info=PartitionInfo(
+            type="DAY", fields=("date",), columns=(_partition_column(),)
+        ),
+        max_partition_id="bogus",
+    )
+
+    assert profiler.get_profile_request(table, "test_dataset", "test_project") is None
+    assert "Profile skipped for partitioned table" in {
+        w.title for w in profiler.report.warnings
+    }
+
+
+def test_pseudo_partitioned_table_without_partition_id_is_still_profiled() -> None:
+    """_PARTITIONTIME tables report no column; a missing partition id must not
+    block profiling of the whole table."""
+    table = make_table(
+        partition_info=PartitionInfo(type="DAY", fields=("_PARTITIONTIME",))
+    )
+
+    request = _profiler().get_profile_request(table, "test_dataset", "test_project")
+
+    assert request is not None
+    assert "partition" not in request.batch_kwargs
+
+
+def test_external_tables_are_only_profiled_when_enabled() -> None:
+    tables = {"test_dataset": [make_table("plain"), make_table("ext", external=True)]}
+
+    with patch.object(
+        BigqueryProfiler, "generate_profile_workunits", return_value=[]
+    ) as gen:
+        list(_profiler().get_workunits("test_project", tables))
+        skipped_requests = gen.call_args.args[0]
+
+        list(
+            _profiler(profiling={"profile_external_tables": True}).get_workunits(
+                "test_project", tables
+            )
+        )
+        included_requests = gen.call_args.args[0]
+
+    assert [r.pretty_name for r in skipped_requests] == [
+        "test_project.test_dataset.plain"
+    ]
+    assert [r.pretty_name for r in included_requests] == [
+        "test_project.test_dataset.plain",
+        "test_project.test_dataset.ext",
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Identifier validation: one rejected shape per rule, per identifier type
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "identifier_type,identifier",
+    [
+        ("project", "Bad Project"),  # uppercase / space
+        ("project", "abc"),  # too short
+        ("project", "my--project"),  # consecutive hyphens
+        ("table", "t;drop"),  # disallowed character
+        ("table", "t" * 1025),  # too long
+        ("table", "my--table"),  # consecutive hyphens
+        ("dataset", "my-dataset"),  # hyphens only allowed in tables
+        ("dataset", "d" * 1025),  # too long
+        ("dataset", "__reserved"),  # reserved prefix
+        ("general", ""),  # empty
+        ("general", "tab\x01le"),  # non-printable
+        ("general", "INFORMATION_SCHEMA.bad view"),  # malformed view name
+        ("general", "col'injection"),  # quote
+        ("general", "col--comment"),  # SQL comment
+        ("general", "col/*x*/"),  # block comment
+        ("general", "bad col"),  # whitespace
+    ],
+)
+def test_validate_bigquery_identifier_rejects_each_rule_violation(
+    identifier_type: str, identifier: str
+) -> None:
+    with pytest.raises(ValueError):
+        validate_bigquery_identifier(identifier, identifier_type)
+
+
+def test_validate_bigquery_identifier_accepts_well_formed_per_type() -> None:
+    assert (
+        validate_bigquery_identifier("my-project-123", "project") == "`my-project-123`"
+    )
+    assert validate_bigquery_identifier("events-2024", "table") == "`events-2024`"
+    assert validate_bigquery_identifier("select", "dataset") == "`select`"
+
+
+def test_validators_reject_empty_input_without_raising() -> None:
+    assert validate_column_name("", "fallback filter") is False
+    assert validate_sql_structure("") is False
+    assert validate_filter_expression("") is False
+
+
+def test_sql_structure_must_start_with_select_or_with() -> None:
+    with pytest.raises(ValueError):
+        validate_sql_structure("EXPLAIN SELECT 1")
+
+
+def test_filter_without_comparison_operator_is_rejected() -> None:
+    assert validate_filter_expression("`dt`") is False
+    assert validate_and_filter_expressions(["`dt`", "`region`"], "fallback") == []

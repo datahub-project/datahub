@@ -89,48 +89,6 @@ class PageFilterConfig(ConfigModel):
     )
 
 
-class ConfluenceAuthConfig(ConfigModel):
-    """Authentication configuration for Confluence."""
-
-    username: Optional[str] = Field(
-        default=None,
-        description="Username for Confluence Cloud authentication (required for Cloud).",
-    )
-    api_token: Optional[SecretStr] = Field(
-        default=None,
-        description="API token for Confluence Cloud authentication (required for Cloud).",
-    )
-    personal_access_token: Optional[SecretStr] = Field(
-        default=None,
-        description="Personal Access Token for Confluence Data Center authentication.",
-    )
-
-    @model_validator(mode="after")
-    def validate_auth_config(self) -> "ConfluenceAuthConfig":
-        """Ensure exactly one authentication method is provided."""
-        cloud_auth = bool(self.username and self.api_token)
-        datacenter_auth = bool(self.personal_access_token)
-
-        if not cloud_auth and not datacenter_auth:
-            raise ValueError(
-                "Either provide username + api_token (for Cloud) or personal_access_token (for Data Center)"
-            )
-
-        if cloud_auth and datacenter_auth:
-            raise ValueError(
-                "Cannot provide both Cloud authentication (username + api_token) and "
-                "Data Center authentication (personal_access_token)"
-            )
-
-        if self.username and not self.api_token:
-            raise ValueError("Username provided but api_token is missing")
-
-        if self.api_token and not self.username:
-            raise ValueError("API token provided but username is missing")
-
-        return self
-
-
 class ConfluenceSourceConfig(
     StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], ConfigModel
 ):

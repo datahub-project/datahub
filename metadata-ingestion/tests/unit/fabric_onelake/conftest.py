@@ -1,18 +1,49 @@
-"""A fake Fabric OneLake tenant, served to the probe and to ingestion through
-the parts of OneLakeClient each calls."""
+"""Shared builders for the Fabric OneLake unit tests.
 
-from typing import Callable, Dict, Iterator, List, Optional
-from unittest.mock import MagicMock
+`FakeOneLakeClient` is a hand-written fake tenant served to the probe and to
+ingestion through the parts of `OneLakeClient` each calls. `onelake_client` is
+the real client over a specced auth helper, for tests that stub its HTTP
+session. `make_onelake_source` builds sources and closes them at teardown.
+"""
 
+from typing import Any, Callable, Dict, Iterator, List, Optional, cast
+from unittest.mock import NonCallableMagicMock, create_autospec
+
+import pytest
+import requests
+
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.fabric.common.models import FabricWorkspace
+from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricLakehouse,
     FabricTable,
     FabricWarehouse,
 )
+from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
+from tests.unit.fabric_common.conftest import fabric_response, specced_auth_helper
 
 WS = FabricWorkspace(id="00000000-0000-0000-0000-00000000000a", name="sales-ws")
 LH_ID = "00000000-0000-0000-0000-00000000000b"
+WH_ID = "00000000-0000-0000-0000-00000000000c"
+
+ENDPOINT_HOST = "placeholder.datawarehouse.fabric.microsoft.com"
+PROVISIONED: Dict[str, object] = {
+    "properties": {
+        "sqlEndpointProperties": {
+            "provisioningStatus": "Success",
+            "connectionString": ENDPOINT_HOST,
+        }
+    }
+}
+
+# No SQL Analytics Endpoint: tables come from the REST listing alone.
+REST_ONLY: Dict[str, Any] = {
+    "sql_endpoint": None,
+    "extract_views": False,
+    "extract_schema": {"enabled": False},
+    "usage": {"include_usage_statistics": False},
+}
 
 
 def tables() -> List[FabricTable]:
@@ -28,28 +59,14 @@ def tables() -> List[FabricTable]:
     ]
 
 
-WH_ID = "00000000-0000-0000-0000-00000000000c"
-
-
-ENDPOINT_HOST = "placeholder.datawarehouse.fabric.microsoft.com"
-PROVISIONED: Dict[str, object] = {
-    "properties": {
-        "sqlEndpointProperties": {
-            "provisioningStatus": "Success",
-            "connectionString": ENDPOINT_HOST,
-        }
-    }
-}
-
-
 class FakeOneLakeClient:
-    """Answers only what the probe calls, and records the calls so resolution
-    cost is visible."""
+    """Answers only what the probe and ingestion call, and records the calls
+    so resolution cost is visible."""
 
     def __init__(self) -> None:
         self.calls: List[str] = []
         self.closed = False
-        self.auth_helper = MagicMock()
+        self.auth_helper = specced_auth_helper()
         self.lakehouse_tables: List[FabricTable] = tables()
         self.degrade_message: str = ""
         self.workspaces_error: Optional[Exception] = None
@@ -118,13 +135,53 @@ class FakeOneLakeClient:
             ]
         )
 
-    def get(self, endpoint: str) -> MagicMock:
+    def get(self, endpoint: str) -> requests.Response:
         self.calls.append(f"get {endpoint}")
         if self.item_error is not None:
             raise self.item_error
-        response = MagicMock()
-        response.json.return_value = self.item_body
-        return response
+        return fabric_response(200, self.item_body)
 
     def close(self) -> None:
         self.closed = True
+
+
+@pytest.fixture
+def auth_helper() -> NonCallableMagicMock:
+    return specced_auth_helper()
+
+
+@pytest.fixture
+def onelake_client(auth_helper: NonCallableMagicMock) -> Iterator[OneLakeClient]:
+    client = OneLakeClient(auth_helper=auth_helper)
+    yield client
+    client.close()
+
+
+OneLakeSourceFactory = Callable[..., FabricOneLakeSource]
+
+
+@pytest.fixture
+def make_onelake_source() -> Iterator[OneLakeSourceFactory]:
+    """`make(client=None, **recipe)`: a source over `client` (a
+    `FakeOneLakeClient`), or over a specced `OneLakeClient` mock when none is
+    given."""
+    sources: List[FabricOneLakeSource] = []
+
+    def make(
+        client: Optional[FakeOneLakeClient] = None, **recipe: Any
+    ) -> FabricOneLakeSource:
+        source = FabricOneLakeSource.create(
+            dict(recipe), PipelineContext(run_id="fabric-onelake-test")
+        )
+        source.client.close()
+        source.client = (
+            cast(OneLakeClient, client)
+            if client is not None
+            else create_autospec(OneLakeClient, instance=True)
+        )
+        sources.append(source)
+        return source
+
+    yield make
+    for source in sources:
+        source.close()

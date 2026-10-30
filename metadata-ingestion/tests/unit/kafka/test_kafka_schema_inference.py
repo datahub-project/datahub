@@ -4,7 +4,10 @@ from unittest.mock import Mock, patch
 import pytest
 
 from datahub.ingestion.source.kafka.kafka_config import SchemaResolutionFallback
-from datahub.ingestion.source.kafka.kafka_constants import OffsetResetStrategy
+from datahub.ingestion.source.kafka.kafka_constants import (
+    OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS,
+    OffsetResetStrategy,
+)
 from datahub.ingestion.source.kafka.kafka_report import KafkaSourceReport
 from datahub.ingestion.source.kafka.kafka_schema_inference import (
     KafkaSchemaInference,
@@ -12,29 +15,12 @@ from datahub.ingestion.source.kafka.kafka_schema_inference import (
 from datahub.ingestion.source.kafka.kafka_utils import flatten_json
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
     BooleanTypeClass,
     NumberTypeClass,
     StringTypeClass,
 )
-
-_INFERENCE_MODULE = "datahub.ingestion.source.kafka.kafka_schema_inference"
-
-
-class ScriptedConsumer:
-    """Yields a fixed sequence of poll results (then None), and records close()."""
-
-    def __init__(self, messages: List[object]) -> None:
-        self._messages = list(messages)
-        self.closed = False
-
-    def subscribe(self, topics: List[str]) -> None:
-        pass
-
-    def poll(self, timeout: float) -> object:
-        return self._messages.pop(0) if self._messages else None
-
-    def close(self) -> None:
-        self.closed = True
+from tests.unit.kafka.conftest import INFERENCE_MODULE, FakeMessage, ScriptedConsumer
 
 
 @pytest.fixture
@@ -157,19 +143,6 @@ class TestKafkaSchemaInference:
         assert len(result["topic2"]) == 2
         assert mock_infer.call_count == 2
 
-    def test_infer_schemas_batch_parallel(self, schema_inference):
-        schema_inference.max_workers = 2
-
-        with patch.object(schema_inference, "_infer_schemas_parallel") as mock_parallel:
-            mock_parallel.return_value = {
-                "topic1": [Mock(spec=SchemaField)],
-                "topic2": [Mock(spec=SchemaField), Mock(spec=SchemaField)],
-            }
-            result = schema_inference.infer_schemas_batch(["topic1", "topic2"])
-
-        mock_parallel.assert_called_once_with(["topic1", "topic2"])
-        assert len(result) == 2
-
     def testsample_topic_messages_hybrid_strategy(self, schema_inference):
         with patch.object(
             schema_inference, "_sample_messages_with_strategy"
@@ -216,7 +189,7 @@ class TestKafkaSchemaInference:
             report=report,
         )
         with patch(
-            "datahub.ingestion.source.kafka.kafka_schema_inference.Consumer",
+            f"{INFERENCE_MODULE}.Consumer",
             side_effect=OSError("broker down"),
         ):
             result = inference._sample_messages_with_strategy(
@@ -258,14 +231,9 @@ class TestKafkaSchemaInference:
             report=report,
         )
 
-        errored = Mock()
-        errored.error.return_value = "broker error"
-        undecodable = Mock()
-        undecodable.error.return_value = None
-        undecodable.value.return_value = b"not-json"
-        valid = Mock()
-        valid.error.return_value = None
-        valid.value.return_value = b'{"a": 1}'
+        errored = FakeMessage(None, error="broker error")
+        undecodable = FakeMessage(b"not-json")
+        valid = FakeMessage(b'{"a": 1}')
         scripted = ScriptedConsumer([None, errored, undecodable, valid])
 
         def fake_process(value: object) -> object:
@@ -274,9 +242,9 @@ class TestKafkaSchemaInference:
             return {"a": 1}
 
         with (
-            patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted),
+            patch(f"{INFERENCE_MODULE}.Consumer", return_value=scripted),
             patch(
-                f"{_INFERENCE_MODULE}.process_kafka_message_for_sampling",
+                f"{INFERENCE_MODULE}.process_kafka_message_for_sampling",
                 side_effect=fake_process,
             ),
         ):
@@ -299,15 +267,13 @@ class TestKafkaSchemaInference:
             report=report,
         )
 
-        undecodable = Mock()
-        undecodable.error.return_value = None
-        undecodable.value.return_value = b"not-json"
+        undecodable = FakeMessage(b"not-json")
         scripted = ScriptedConsumer([undecodable, undecodable])
 
         with (
-            patch(f"{_INFERENCE_MODULE}.Consumer", return_value=scripted),
+            patch(f"{INFERENCE_MODULE}.Consumer", return_value=scripted),
             patch(
-                f"{_INFERENCE_MODULE}.process_kafka_message_for_sampling",
+                f"{INFERENCE_MODULE}.process_kafka_message_for_sampling",
                 side_effect=ValueError("undecodable"),
             ),
         ):
@@ -334,3 +300,94 @@ class TestKafkaSchemaInference:
         assert result["array"] == [1, 2, 3]
         assert isinstance(result["nested.field2"], int)
         assert isinstance(result["nested.field3"], bool)
+
+
+def test_parallel_inference_isolates_topic_failures(fallback_config):
+    """One topic's sampling failure is reported and yields no fields; the other
+    topics in the same parallel batch are still inferred."""
+    report = KafkaSourceReport()
+    inference = KafkaSchemaInference(
+        bootstrap_servers="localhost:9092",
+        consumer_config={"group.id": "test"},
+        fallback_config=fallback_config,
+        max_workers=2,
+        report=report,
+    )
+    inferred = Mock(spec=SchemaField)
+
+    def infer(topic: str) -> List[SchemaField]:
+        if topic == "bad":
+            raise OSError("broker down")
+        return [inferred]
+
+    with patch.object(inference, "_infer_schema_from_messages", side_effect=infer):
+        result = inference.infer_schemas_batch(["good", "bad", "also-good"])
+
+    assert result == {"good": [inferred], "bad": [], "also-good": [inferred]}
+    assert report.schema_inference_sampling_failures == 1
+
+
+def test_oauth_callback_config_polls_before_sampling(fallback_config):
+    """The OAuth callback only runs on poll(), so a sampling consumer built with
+    oauth_cb must poll once before subscribing or the fetch fails auth."""
+    inference = KafkaSchemaInference(
+        bootstrap_servers="localhost:9092",
+        consumer_config={"oauth_cb": "tests.integration.kafka.oauth:create_token"},
+        fallback_config=fallback_config,
+        max_workers=1,
+    )
+    scripted = ScriptedConsumer([None, FakeMessage(b'{"a": 1}')])
+
+    with patch(f"{INFERENCE_MODULE}.Consumer", return_value=scripted):
+        result = inference._sample_messages_with_strategy(
+            "test-topic", OffsetResetStrategy.EARLIEST
+        )
+
+    assert scripted.poll_timeouts[0] == OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS
+    assert result == [{"a": 1}]
+
+
+def test_tombstone_messages_are_skipped(schema_inference):
+    scripted = ScriptedConsumer([FakeMessage(None), FakeMessage(b'{"a": 1}')])
+
+    with patch(f"{INFERENCE_MODULE}.Consumer", return_value=scripted):
+        result = schema_inference._sample_messages_with_strategy(
+            "test-topic", OffsetResetStrategy.EARLIEST
+        )
+
+    assert result == [{"a": 1}]
+
+
+def test_subscribe_failure_is_reported_and_consumer_closed(fallback_config):
+    report = KafkaSourceReport()
+    inference = KafkaSchemaInference(
+        bootstrap_servers="localhost:9092",
+        consumer_config={"group.id": "test"},
+        fallback_config=fallback_config,
+        max_workers=1,
+        report=report,
+    )
+    scripted = ScriptedConsumer([], subscribe_error=RuntimeError("unauthorized"))
+
+    with patch(f"{INFERENCE_MODULE}.Consumer", return_value=scripted):
+        result = inference._sample_messages_with_strategy(
+            "test-topic", OffsetResetStrategy.EARLIEST
+        )
+
+    assert result == []
+    assert report.schema_inference_sampling_failures == 1
+    assert scripted.closed
+
+
+def test_inferred_fields_capture_arrays_and_nullability(schema_inference):
+    fields = schema_inference._extract_fields_from_samples(
+        "test-topic",
+        [{"tags": ["a"], "note": None}, {"tags": [], "note": "x"}],
+    )
+
+    by_path = {f.fieldPath: f for f in fields}
+    assert isinstance(by_path["tags"].type.type, ArrayTypeClass)
+    assert by_path["tags"].nativeDataType == "array"
+    assert not by_path["tags"].nullable
+    assert isinstance(by_path["note"].type.type, StringTypeClass)
+    assert by_path["note"].nullable

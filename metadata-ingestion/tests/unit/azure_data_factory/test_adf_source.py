@@ -49,24 +49,11 @@ from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
-    OtherSchemaClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
-    StringTypeClass,
 )
 from datahub.metadata.urns import DataJobUrn
 from datahub.sdk.dataflow import DataFlow
-
-
-def make_source() -> AzureDataFactorySource:
-    with patch(
-        "datahub.ingestion.source.azure_data_factory.adf_source.AzureDataFactoryClient"
-    ):
-        return AzureDataFactorySource(
-            AzureDataFactoryConfig(subscription_id="test-sub"),
-            PipelineContext(run_id="test"),
-        )
+from tests.unit.azure_data_factory.conftest import build_adf_source, schema_metadata
+from tests.unit.conftest import log_titles
 
 
 class TestLinkedServicePlatformMapping:
@@ -187,7 +174,7 @@ class TestNestedActivityTraversal:
     """
 
     def _make_source(self) -> AzureDataFactorySource:
-        return make_source()
+        return build_adf_source()
 
     @pytest.mark.timeout(5)
     def test_find_activity_by_name_terminates_on_self_referencing_container(
@@ -277,46 +264,6 @@ class TestActivitySubtypeMapping:
             assert "Databricks" in subtype
 
 
-class TestTableNameExtractionLogic:
-    """Tests for the logic patterns used in table name extraction.
-
-    These tests verify the extraction logic that would be used in
-    _extract_table_name without needing a full source instance.
-    """
-
-    def test_extract_simple_table_name(self) -> None:
-        """Should extract tableName property directly."""
-        type_props = {"tableName": "dbo.customers"}
-        # Logic pattern from _extract_table_name
-        table_name = type_props.get("tableName")
-        assert table_name == "dbo.customers"
-
-    def test_combine_schema_and_table(self) -> None:
-        """Should combine separate schema and table fields."""
-        type_props = {"schema": "sales", "table": "orders"}
-        # Logic pattern from _extract_table_name
-        schema = type_props.get("schema", "")
-        table = type_props.get("table", "")
-        result = f"{schema}.{table}" if schema and table else table or schema
-        assert result == "sales.orders"
-
-    def test_schema_only_returns_schema(self) -> None:
-        """Should return schema when table is missing."""
-        type_props = {"schema": "dbo"}
-        schema = type_props.get("schema", "")
-        table = type_props.get("table", "")
-        result = f"{schema}.{table}" if schema and table else table or schema
-        assert result == "dbo"
-
-    def test_table_only_returns_table(self) -> None:
-        """Should return table when schema is missing."""
-        type_props = {"table": "orders"}
-        schema = type_props.get("schema", "")
-        table = type_props.get("table", "")
-        result = f"{schema}.{table}" if schema and table else table or schema
-        assert result == "orders"
-
-
 class TestExpressionParameterResolution:
     """Tests for resolving ADF dynamic-content dataset typeProperties
     (e.g. "@dataset().table_name") via activity/dataset parameters.
@@ -330,7 +277,7 @@ class TestExpressionParameterResolution:
 
     def _make_source(self) -> AzureDataFactorySource:
         config = AzureDataFactoryConfig(subscription_id="test-sub")
-        source = make_source()
+        source = build_adf_source()
         source.config = config
         source.report = AzureDataFactorySourceReport()
         source._datasets_cache = {}
@@ -1439,290 +1386,22 @@ class TestExpressionParameterResolution:
         assert len(resolved) == 2
 
 
-class TestFilePathExtractionLogic:
-    """Tests for file path extraction from dataset properties."""
-
-    def test_combine_folder_and_filename(self) -> None:
-        """Should combine folderPath and fileName."""
-        type_props = {"folderPath": "raw/data", "fileName": "file.csv"}
-        folder = type_props.get("folderPath", "")
-        filename = type_props.get("fileName", "")
-        result = f"{folder}/{filename}" if folder and filename else filename or folder
-        assert result == "raw/data/file.csv"
-
-    def test_folder_only_returns_folder(self) -> None:
-        """Should return folder when filename is missing."""
-        type_props = {"folderPath": "raw/data"}
-        folder = type_props.get("folderPath", "")
-        filename = type_props.get("fileName", "")
-        result = f"{folder}/{filename}" if folder and filename else filename or folder
-        assert result == "raw/data"
-
-    def test_nested_location_extraction(self) -> None:
-        """Should extract path components from nested location object."""
-        type_props = {
-            "location": {
-                "container": "mycontainer",
-                "folderPath": "data/raw",
-                "fileName": "output.parquet",
-            }
-        }
-        location = type_props.get("location", {})
-        if isinstance(location, dict):
-            container = location.get("container", "")
-            folder = location.get("folderPath", "")
-            filename = location.get("fileName", "")
-            parts = [p for p in [container, folder, filename] if p]
-            result = "/".join(parts) if parts else None
-        else:
-            result = None
-        assert result == "mycontainer/data/raw/output.parquet"
-
-
-class TestRunStatusMapping:
-    """Tests for mapping ADF run status to DataHub InstanceRunResult."""
-
-    def test_succeeded_maps_to_success(self) -> None:
-        """Succeeded status should map to SUCCESS result."""
-        status_map = {
-            "Succeeded": InstanceRunResult.SUCCESS,
-            "Failed": InstanceRunResult.FAILURE,
-            "Cancelled": InstanceRunResult.SKIPPED,
-        }
-        assert status_map["Succeeded"] == InstanceRunResult.SUCCESS
-
-    def test_failed_maps_to_failure(self) -> None:
-        """Failed status should map to FAILURE result."""
-        status_map = {
-            "Succeeded": InstanceRunResult.SUCCESS,
-            "Failed": InstanceRunResult.FAILURE,
-            "Cancelled": InstanceRunResult.SKIPPED,
-        }
-        assert status_map["Failed"] == InstanceRunResult.FAILURE
-
-    def test_cancelled_maps_to_skipped(self) -> None:
-        """Cancelled status should map to SKIPPED result."""
-        status_map = {
-            "Cancelled": InstanceRunResult.SKIPPED,
-        }
-        assert status_map["Cancelled"] == InstanceRunResult.SKIPPED
-
-    def test_in_progress_should_return_none(self) -> None:
-        """In-progress statuses should not have a final result."""
-        incomplete_statuses = ["InProgress", "Queued", "Cancelling"]
-        status_map = {
-            "InProgress": None,
-            "Queued": None,
-            "Cancelling": None,
-        }
-        for status in incomplete_statuses:
-            assert status_map.get(status) is None
-
-
-class TestResourceGroupExtractionLogic:
-    """Tests for extracting resource group from Azure resource ID."""
-
-    def test_extract_from_standard_resource_id(self) -> None:
-        """Should extract resource group from standard Azure resource ID."""
-        resource_id = (
-            "/subscriptions/12345678-1234-1234-1234-123456789012"
-            "/resourceGroups/my-resource-group"
-            "/providers/Microsoft.DataFactory/factories/my-factory"
-        )
-        parts = resource_id.split("/")
-        rg_index = parts.index("resourceGroups")
-        resource_group = parts[rg_index + 1]
-        assert resource_group == "my-resource-group"
-
-    def test_extract_with_complex_resource_group_name(self) -> None:
-        """Should handle resource groups with hyphens, underscores, and numbers."""
-        test_cases = [
-            ("prod-data-rg-001", "prod-data-rg-001"),
-            ("RG_Production_123", "RG_Production_123"),
-            ("simple", "simple"),
-        ]
-        for rg_name, expected in test_cases:
-            resource_id = (
-                f"/subscriptions/00000000-0000-0000-0000-000000000000"
-                f"/resourceGroups/{rg_name}"
-                f"/providers/Microsoft.DataFactory/factories/factory1"
-            )
-            parts = resource_id.split("/")
-            rg_index = parts.index("resourceGroups")
-            extracted = parts[rg_index + 1]
-            assert extracted == expected
-
-
-class TestActivityRunPropertyExtraction:
-    """Tests for activity run property extraction logic.
-
-    Activity runs create DataProcessInstance entities linked to DataJobs.
-    These tests verify the property extraction patterns.
-    """
-
-    def test_activity_run_properties_extracted(self) -> None:
-        """Verify essential activity run properties are extracted."""
-        activity_run: dict[str, object] = {
-            "activityRunId": "act-run-123",
-            "activityName": "CopyData",
-            "activityType": "Copy",
-            "pipelineRunId": "pipe-run-456",
-            "status": "Succeeded",
-            "durationInMs": 45000,
-        }
-
-        # Logic pattern from _emit_activity_runs
-        properties: dict[str, str] = {
-            "activity_run_id": str(activity_run["activityRunId"]),
-            "activity_type": str(activity_run["activityType"]),
-            "pipeline_run_id": str(activity_run["pipelineRunId"]),
-            "status": str(activity_run["status"]),
-        }
-
-        if activity_run.get("durationInMs") is not None:
-            properties["duration_ms"] = str(activity_run["durationInMs"])
-
-        assert properties["activity_run_id"] == "act-run-123"
-        assert properties["activity_type"] == "Copy"
-        assert properties["pipeline_run_id"] == "pipe-run-456"
-        assert properties["status"] == "Succeeded"
-        assert properties["duration_ms"] == "45000"
-
-    def test_activity_run_error_truncated(self) -> None:
-        """Verify error messages are truncated to prevent oversized properties."""
-        MAX_RUN_MESSAGE_LENGTH = 500
-        long_error = "E" * 1000  # 1000 character error
-
-        activity_run: dict[str, object] = {
-            "activityRunId": "act-run-err",
-            "error": {"message": long_error},
-        }
-
-        # Logic pattern from _emit_activity_runs
-        truncated = ""
-        error = activity_run.get("error")
-        if isinstance(error, dict):
-            error_msg = str(error.get("message", ""))
-            if error_msg:
-                truncated = error_msg[:MAX_RUN_MESSAGE_LENGTH]
-
-        assert len(truncated) == MAX_RUN_MESSAGE_LENGTH
-        assert len(truncated) < len(long_error)
-
-    def test_activity_run_missing_optional_fields(self) -> None:
-        """Verify graceful handling of missing optional fields."""
-        activity_run: dict[str, object] = {
-            "activityRunId": "act-run-minimal",
-            "activityName": "MinimalActivity",
-            "activityType": "Copy",
-            "pipelineRunId": "pipe-run-789",
-            "status": "Succeeded",
-            # No durationInMs, error, input, output
-        }
-
-        properties: dict[str, str] = {
-            "activity_run_id": str(activity_run["activityRunId"]),
-            "activity_type": str(activity_run["activityType"]),
-            "pipeline_run_id": str(activity_run["pipelineRunId"]),
-            "status": str(activity_run["status"]),
-        }
-
-        # Optional fields should not cause errors
-        if activity_run.get("durationInMs") is not None:
-            properties["duration_ms"] = str(activity_run["durationInMs"])
-
-        error = activity_run.get("error")
-        if isinstance(error, dict):
-            error_msg = str(error.get("message", ""))
-            if error_msg:
-                properties["error"] = error_msg[:500]
-
-        assert "duration_ms" not in properties
-        assert "error" not in properties
-        assert len(properties) == 4
-
-
-class TestActivityRunToDataJobUrnMapping:
-    """Tests for mapping activity runs to DataJob URNs.
-
-    Activity runs must link to DataJob URNs (not DataFlow URNs) so the
-    Runs tab appears on DataJob pages in the UI.
-    """
-
-    def test_datajob_urn_constructed_from_activity_run(self) -> None:
-        """DataJob URN should use activity name as job_id."""
-        from datahub.metadata.urns import DataFlowUrn, DataJobUrn
-
-        factory_name = "my-factory"
-        pipeline_name = "DataPipeline"
-        activity_name = "CopyActivity"
-        env = "PROD"
-        platform = "azure-data-factory"
-
-        # Logic pattern from _emit_activity_runs
-        flow_name = f"{factory_name}.{pipeline_name}"
-        flow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=platform,
-            flow_id=flow_name,
-            env=env,
-        )
-        job_urn = DataJobUrn.create_from_ids(
-            data_flow_urn=str(flow_urn),
-            job_id=activity_name,
-        )
-
-        # Verify URN structure
-        assert "dataJob" in str(job_urn)
-        assert activity_name in str(job_urn)
-        assert flow_name in str(job_urn)
-        assert platform in str(job_urn)
-
-    def test_activity_run_links_to_datajob_not_dataflow(self) -> None:
-        """Verify activity runs link to DataJob, enabling the Runs tab in UI."""
-        from datahub.metadata.urns import DataFlowUrn, DataJobUrn
-
-        flow_urn = DataFlowUrn.create_from_ids(
-            orchestrator="azure-data-factory",
-            flow_id="factory.pipeline",
-            env="PROD",
-        )
-        job_urn = DataJobUrn.create_from_ids(
-            data_flow_urn=str(flow_urn),
-            job_id="MyActivity",
-        )
-
-        # The URN type should be dataJob, not dataFlow
-        assert job_urn.entity_type == "dataJob"
-        assert flow_urn.entity_type == "dataFlow"
-
-        # The job URN should reference the flow URN
-        assert str(flow_urn) in str(job_urn)
-
-    def test_multiple_activities_get_unique_urns(self) -> None:
-        """Each activity in a pipeline should have a unique DataJob URN."""
-        from datahub.metadata.urns import DataFlowUrn, DataJobUrn
-
-        flow_urn = DataFlowUrn.create_from_ids(
-            orchestrator="azure-data-factory",
-            flow_id="factory.pipeline",
-            env="PROD",
-        )
-
-        activities = ["CopyData", "TransformData", "LoadData"]
-        job_urns = [
-            DataJobUrn.create_from_ids(
-                data_flow_urn=str(flow_urn),
-                job_id=activity,
-            )
-            for activity in activities
-        ]
-
-        # All URNs should be unique
-        assert len(set(str(u) for u in job_urns)) == len(activities)
-
-        # Each URN should contain its activity name
-        for activity, urn in zip(activities, job_urns, strict=False):
-            assert activity in str(urn)
+@pytest.mark.parametrize(
+    "status, expected",
+    [
+        ("Succeeded", InstanceRunResult.SUCCESS),
+        ("Failed", InstanceRunResult.FAILURE),
+        ("Cancelled", InstanceRunResult.SKIPPED),
+        # Not finished: no result yet, so no COMPLETE event is emitted.
+        ("InProgress", None),
+        ("Queued", None),
+        ("Cancelling", None),
+    ],
+)
+def test_run_status_maps_to_an_instance_result(
+    status: str, expected: Optional[InstanceRunResult]
+) -> None:
+    assert build_adf_source()._map_run_status(status) == expected
 
 
 # =============================================================================
@@ -2343,7 +2022,7 @@ class TestSimpleSelectStarDetection:
     where falling back to a DataHub-graph schema lookup is safe."""
 
     def _make_source(self) -> AzureDataFactorySource:
-        source = make_source()
+        source = build_adf_source()
         source.report = AzureDataFactorySourceReport()
         return source
 
@@ -2384,35 +2063,18 @@ class TestGraphSchemaColumnLineageFallback:
     connector no column list of its own to work from."""
 
     def _make_source(self, graph: Optional[Any]) -> AzureDataFactorySource:
-        source = make_source()
+        source = build_adf_source()
         source.report = AzureDataFactorySourceReport()
         source.ctx = PipelineContext(run_id="test", graph=graph)
         source._graph_schema_cache = {}
         return source
-
-    def _schema_metadata(self, columns: list) -> SchemaMetadataClass:
-        return SchemaMetadataClass(
-            schemaName="test",
-            platform="urn:li:dataPlatform:mssql",
-            version=0,
-            hash="",
-            platformSchema=OtherSchemaClass(rawSchema=""),
-            fields=[
-                SchemaFieldClass(
-                    fieldPath=col,
-                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                    nativeDataType="varchar",
-                )
-                for col in columns
-            ],
-        )
 
     def test_resolves_schema_and_builds_same_name_mappings(self) -> None:
         source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,my_db.orders,PROD)"
         sink_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)"
 
         mock_graph = MagicMock()
-        mock_graph.get_schema_metadata.return_value = self._schema_metadata(
+        mock_graph.get_schema_metadata.return_value = schema_metadata(
             ["id", "customer_name"]
         )
         source = self._make_source(graph=mock_graph)
@@ -2449,8 +2111,8 @@ class TestGraphSchemaColumnLineageFallback:
 
         mock_graph = MagicMock()
         schemas_by_urn = {
-            source_urn: self._schema_metadata(["Customer_Name"]),
-            sink_urn: self._schema_metadata(["customer_name"]),
+            source_urn: schema_metadata(["Customer_Name"]),
+            sink_urn: schema_metadata(["customer_name"]),
         }
         mock_graph.get_schema_metadata.side_effect = lambda urn: schemas_by_urn.get(urn)
         source = self._make_source(graph=mock_graph)
@@ -2475,7 +2137,7 @@ class TestGraphSchemaColumnLineageFallback:
         sink_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)"
 
         mock_graph = MagicMock()
-        mock_graph.get_schema_metadata.return_value = self._schema_metadata(
+        mock_graph.get_schema_metadata.return_value = schema_metadata(
             ["[version=2.0].[type=struct].id", "[version=2.0].[type=struct].name"]
         )
         source = self._make_source(graph=mock_graph)
@@ -2500,7 +2162,7 @@ class TestGraphSchemaColumnLineageFallback:
         sink_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,orders,PROD)"
 
         mock_graph = MagicMock()
-        mock_graph.get_schema_metadata.return_value = self._schema_metadata(["id"])
+        mock_graph.get_schema_metadata.return_value = schema_metadata(["id"])
         source = self._make_source(graph=mock_graph)
 
         source._infer_column_lineage_from_graph_schema(source_urn, sink_urn)
@@ -2542,7 +2204,7 @@ class TestGraphSchemaColumnLineageFallback:
 
     def test_schema_with_no_fields_returns_empty(self) -> None:
         mock_graph = MagicMock()
-        mock_graph.get_schema_metadata.return_value = self._schema_metadata([])
+        mock_graph.get_schema_metadata.return_value = schema_metadata([])
         source = self._make_source(graph=mock_graph)
 
         mappings = source._infer_column_lineage_from_graph_schema(
@@ -2574,10 +2236,6 @@ def _io_aspects(
     return aspects
 
 
-def _warning_titles(source: AzureDataFactorySource) -> set[Optional[str]]:
-    return {w.title for w in source.report.warnings}
-
-
 class TestDynamicLineageFanOut:
     """_emit_dynamic_lineage_augmentation for an activity whose execution
     history has many distinct sources and many distinct sinks."""
@@ -2599,7 +2257,7 @@ class TestDynamicLineageFanOut:
         stateful: bool = False,
         description: Optional[str] = None,
     ) -> tuple[AzureDataFactorySource, list[MetadataWorkUnit]]:
-        source = make_source()
+        source = build_adf_source()
         config: dict[str, Any] = {
             "subscription_id": "test-sub",
             "include_column_lineage": False,
@@ -2715,7 +2373,7 @@ class TestDynamicLineageFanOut:
         # Not unioned onto the parent either.
         assert self.PARENT_JOB_URN not in _io_aspects(workunits)
         assert source.report.dynamic_lineage_pairs_over_cap == 1
-        assert "Dynamic Lineage Pair Cap Exceeded" in _warning_titles(source)
+        assert "Dynamic Lineage Pair Cap Exceeded" in log_titles(source.report.warnings)
 
     def test_exactly_cap_pairs_is_not_over_cap(self) -> None:
         source, workunits = self._run(
@@ -2888,11 +2546,11 @@ class TestDynamicLineageFanOut:
 
         source, _ = self._run(pairs, stateful=True)
         assert "Per-Pair DataJobs Without Stale Metadata Removal" not in (
-            _warning_titles(source)
+            log_titles(source.report.warnings)
         )
 
     def test_missing_dataflow_warns_and_emits_nothing(self) -> None:
-        source = make_source()
+        source = build_adf_source()
         source._dataflow_cache = {}
         activity = SimpleNamespace(name="CopyActivity", type="Copy", description=None)
 
@@ -2912,12 +2570,14 @@ class TestDynamicLineageFanOut:
         )
 
         assert workunits == []
-        assert "Missing Cached DataFlow for Sibling DataJob" in _warning_titles(source)
+        assert "Missing Cached DataFlow for Sibling DataJob" in log_titles(
+            source.report.warnings
+        )
 
     def test_display_name_truncates_more_than_three_names(self) -> None:
         pair = LineagePair.of([_table_urn(t) for t in "abcd"], [_table_urn("sink")])
 
-        name = make_source()._pair_sibling_display_name("CopyActivity", pair)
+        name = build_adf_source()._pair_sibling_display_name("CopyActivity", pair)
 
         assert name == "CopyActivity (a, b, c and 1 more -> sink)"
 
@@ -2927,7 +2587,7 @@ class TestDynamicLineageColumnRecompute:
     since extractors only read inlets[0]/outlets[0]."""
 
     def _make_source(self, include_column_lineage: bool) -> AzureDataFactorySource:
-        source = make_source()
+        source = build_adf_source()
         source.config = AzureDataFactoryConfig(
             subscription_id="test-sub", include_column_lineage=include_column_lineage
         )
@@ -3017,32 +2677,14 @@ class TestDynamicLineageColumnRecompute:
         ]
 
 
-def _schema_metadata(columns: list[str]) -> SchemaMetadataClass:
-    return SchemaMetadataClass(
-        schemaName="test",
-        platform="urn:li:dataPlatform:mssql",
-        version=0,
-        hash="",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath=col,
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="varchar",
-            )
-            for col in columns
-        ],
-    )
-
-
 class TestSinkSchemaFromDataHub:
     """Auto-mapped column lineage uses the sink schema DataHub already has."""
 
     def _make_source(self, schemas: dict[str, list[str]]) -> AzureDataFactorySource:
-        source = make_source()
+        source = build_adf_source()
         graph = MagicMock()
         graph.get_schema_metadata.side_effect = lambda urn: (
-            _schema_metadata(schemas[urn]) if urn in schemas else None
+            schema_metadata(schemas[urn]) if urn in schemas else None
         )
         source.ctx = PipelineContext(run_id="test", graph=graph)
         return source
@@ -3092,7 +2734,7 @@ class TestSinkSchemaFromDataHub:
             [f"urn:li:schemaField:({_table_urn('stg_orders')},id)"]
         ]
         assert source.report.column_lineage_sink_columns_unmatched == 1
-        assert "Column Not Found in Sink Schema" in _warning_titles(source)
+        assert "Column Not Found in Sink Schema" in log_titles(source.report.warnings)
 
     def test_query_parsed_column_uses_sink_casing(self) -> None:
         sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"

@@ -1856,7 +1856,9 @@ class TableauSiteSource:
                 ):
                     # If it was only a timeout error, we can retry.
                     if retries_remaining <= 0:
-                        raise
+                        raise RuntimeError(
+                            f"Query {connection_type} error after exhausting retries: {errors}"
+                        )
 
                     # This is a pretty dumb backoff mechanism, but it's good enough for now.
                     backoff_time = min(

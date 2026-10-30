@@ -34,6 +34,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
@@ -413,7 +414,7 @@ class VirtualConnectionProcessor:
             dataset_urn = DatasetUrn.from_string(datasource_urn)
             datasource_id = dataset_urn.name
             logger.debug(f"Extracted datasource ID: {datasource_id}")
-        except ValueError as e:
+        except (InvalidUrnError, ValueError) as e:
             logger.error(
                 f"Invalid datasource URN format '{datasource_urn}': {e}. "
                 "Expected format: urn:li:dataset:(urn:li:dataPlatform:tableau,datasource_id,PROD). "

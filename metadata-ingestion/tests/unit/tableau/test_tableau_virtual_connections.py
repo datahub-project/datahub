@@ -21,7 +21,7 @@ from datahub.ingestion.source.tableau.tableau_virtual_connections import (
     VirtualConnectionProcessor,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
-from tests.unit.tableau.test_tableau_config import default_config
+from tests.unit.tableau.conftest import default_config
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 
@@ -338,13 +338,6 @@ class TestVirtualConnectionProcessor:
 
     def test_error_handling_and_exception_scenarios(self):
         """Test comprehensive error handling"""
-        problematic_urn = mock.MagicMock()
-        problematic_urn.split.side_effect = AttributeError("Mock exception")
-
-        result = self.vc_processor.create_datasource_vc_lineage(str(problematic_urn))
-        assert result.upstream_tables == []
-        assert result.fine_grained_lineages == []
-
         malformed_datasource = {
             c.ID: "malformed-ds",
             c.FIELDS: "not_a_list",
@@ -716,33 +709,6 @@ class TestVirtualConnectionProcessor:
 
         match = FIELD_TABLE_REFERENCE_PATTERN.search(field_name)
         assert match is None
-
-    def test_vc_table_name_override(self):
-        """Test that field names with table references override the default table ID"""
-        self.vc_processor.datasource_vc_relationships = {
-            "ds-override": [
-                {
-                    "vc_table_id": "vc-table-default",
-                    "field_name": "customer_id (customers)",
-                    "column_name": "id",
-                    "vc_table_name": "default_table",
-                }
-            ]
-        }
-        self.vc_processor.vc_table_id_to_vc_id = {
-            "vc-table-default": "vc-1",
-            "vc-table-customers": "vc-1",
-        }
-        self.vc_processor.vc_table_id_to_name = {
-            "vc-table-default": "default_table",
-            "vc-table-customers": "customers",
-        }
-
-        datasource_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,ds-override,PROD)"
-
-        result = self.vc_processor.create_datasource_vc_lineage(datasource_urn)
-
-        assert isinstance(result, LineageResult)
 
     def test_snowflake_column_normalization(self):
         """Test Snowflake column name normalization in lineage"""

@@ -115,9 +115,13 @@ def is_overflow_value(v: FieldValue) -> bool:
 def clean_field_path(field_path: str) -> str:
     # Return the innermost field name, ignoring Avro path tokens like
     # [version=...]/[type=...] and stripping any trailing [key=...] suffix.
-    parts = field_path.split(".")
-    for part in reversed(parts):
-        if part and not (part.startswith("[version=") or part.startswith("[type=")):
+    # The version token itself contains a dot ("[version=2.0]"), so drop it
+    # before splitting or its tail ("0]") would be mistaken for a field name.
+    body = field_path
+    if body.startswith("[version=") and "]" in body:
+        body = body[body.index("]") + 1 :].lstrip(".")
+    for part in reversed(body.split(".")):
+        if part and not part.startswith("[type="):
             return part.split("[key=")[0]
 
     return field_path

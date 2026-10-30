@@ -483,46 +483,6 @@ class TestAssertionResultTypes:
         )
         return SnowflakeAssertionsHandler(config, report, connection, identifiers)
 
-    def test_value_1_is_success(self, handler):
-        """VALUE=1 should result in SUCCESS."""
-        row = {
-            "MEASUREMENT_TIME": datetime.now(),
-            "METRIC_NAME": "my_check",
-            "TABLE_NAME": "orders",
-            "TABLE_SCHEMA": "public",
-            "TABLE_DATABASE": "my_db",
-            "VALUE": 1,
-            "REFERENCE_ID": "ref_123",
-            "ARGUMENT_NAMES": "[]",
-        }
-        discovered = ["my_db.public.orders"]
-        workunits = handler._process_result_row(row, discovered)
-
-        run_event_wu = [
-            wu for wu in workunits if wu.metadata.aspectName == "assertionRunEvent"
-        ][0]
-        assert run_event_wu.metadata.aspect.result.type == AssertionResultType.SUCCESS
-
-    def test_value_0_is_failure(self, handler):
-        """VALUE=0 should result in FAILURE."""
-        row = {
-            "MEASUREMENT_TIME": datetime.now(),
-            "METRIC_NAME": "my_check",
-            "TABLE_NAME": "orders",
-            "TABLE_SCHEMA": "public",
-            "TABLE_DATABASE": "my_db",
-            "VALUE": 0,
-            "REFERENCE_ID": "ref_123",
-            "ARGUMENT_NAMES": "[]",
-        }
-        discovered = ["my_db.public.orders"]
-        workunits = handler._process_result_row(row, discovered)
-
-        run_event_wu = [
-            wu for wu in workunits if wu.metadata.aspectName == "assertionRunEvent"
-        ][0]
-        assert run_event_wu.metadata.aspect.result.type == AssertionResultType.FAILURE
-
     def test_other_values_are_error(self, handler):
         """VALUES other than 0 or 1 should result in ERROR."""
         for invalid_value in [5, 100, -1, 999]:

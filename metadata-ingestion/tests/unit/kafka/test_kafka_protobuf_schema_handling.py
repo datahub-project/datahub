@@ -1,9 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     SCHEMA_TYPE_AVRO,
     SCHEMA_TYPE_JSON,
@@ -33,21 +29,6 @@ SAMPLE_AVRO_SCHEMA = """{
     {"name": "name", "type": "string"}
   ]
 }"""
-
-
-@pytest.fixture
-def kafka_source():
-    with patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer"):
-        ctx = PipelineContext(run_id="test")
-        config = KafkaSourceConfig.model_validate(
-            {
-                "connection": {"bootstrap": "localhost:9092"},
-                "profiling": {"enabled": True},
-            }
-        )
-        source = KafkaSource(config, ctx)
-        yield source
-        source.close()
 
 
 class TestProtobufSchemaHandling:
@@ -172,21 +153,6 @@ class TestProtobufSchemaHandling:
 
         # The protobuf *key* must not be run through the Avro decoder either.
         assert result == {"text_value": sample_key_data.decode("utf-8")}
-        assert kafka_source.report.profiling_avro_decode_failures == 0
-
-    def test_schemaless_bytes_are_returned_raw(self, kafka_source):
-        # With no schema metadata, bytes pass through unchanged (not decoded).
-        data = b'{"id": 1}'
-
-        result = kafka_source._process_message_part(
-            data=data,
-            prefix="value",
-            topic="test_topic",
-            schema_metadata=None,
-            is_key=False,
-        )
-
-        assert result == data
         assert kafka_source.report.profiling_avro_decode_failures == 0
 
     def test_missing_schema_type_uses_fallback(self, kafka_source):

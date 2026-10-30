@@ -1,67 +1,26 @@
-from typing import Dict, Iterator, List, Optional, Tuple
-from unittest.mock import MagicMock, patch
+from typing import Dict, List, Optional, Tuple
+from unittest.mock import patch
 
 import confluent_kafka
-import pytest
 
-from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kafka.kafka import (
-    KafkaSource,
-    KafkaSourceConfig,
     _full_offset,
     _latest_offset,
     _random_offset,
 )
-from datahub.metadata.schema_classes import (
-    KafkaSchemaClass,
-    SchemaMetadataClass,
+from datahub.metadata.schema_classes import KafkaSchemaClass, SchemaMetadataClass
+from tests.unit.kafka.conftest import (
+    KAFKA_MODULE,
+    FakeMessage,
+    OffsetRecordingConsumer,
+    ScriptedConsumer,
+    SourceFactory,
+    schemaless_metadata,
+    warned_about,
 )
 
 TOPIC = "test-topic"
-
-
-class FakeConsumer:
-    """Records assign/seek offsets and yields no messages so the read loop exits."""
-
-    def __init__(self) -> None:
-        self.assigned_offsets: List[int] = []
-        self.seek_offsets: List[int] = []
-
-    def assign(self, partitions: List[confluent_kafka.TopicPartition]) -> None:
-        self.assigned_offsets = [p.offset for p in partitions]
-
-    def seek(self, partition: confluent_kafka.TopicPartition) -> None:
-        self.seek_offsets.append(partition.offset)
-
-    def consume(self, num_messages: int, timeout: float) -> list:
-        return []
-
-    def poll(self, timeout: float) -> None:
-        return None
-
-
-@pytest.fixture
-def kafka_source() -> Iterator[KafkaSource]:
-    with (
-        patch(
-            "datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer",
-            autospec=True,
-        ),
-        patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True),
-    ):
-        config = KafkaSourceConfig.model_validate(
-            {
-                "connection": {"bootstrap": "localhost:9092"},
-                "profiling": {
-                    "enabled": True,
-                    "sample_size": 100,
-                    "batch_size": 100,
-                },
-            }
-        )
-        source = KafkaSource(config, PipelineContext(run_id="test"))
-        yield source
-        source.close()
+SCHEMALESS_METADATA = schemaless_metadata(TOPIC)
 
 
 def _single_partition() -> Tuple[
@@ -74,7 +33,7 @@ def _single_partition() -> Tuple[
 
 def test_latest_strategy_seeks_near_end(kafka_source):
     partitions, watermarks = _single_partition()
-    fake = FakeConsumer()
+    fake = OffsetRecordingConsumer()
 
     kafka_source._get_offset_based_samples(
         partitions,
@@ -93,7 +52,7 @@ def test_latest_strategy_seeks_near_end(kafka_source):
 
 def test_full_strategy_seeks_to_low(kafka_source):
     partitions, watermarks = _single_partition()
-    fake = FakeConsumer()
+    fake = OffsetRecordingConsumer()
 
     kafka_source._get_offset_based_samples(
         partitions,
@@ -111,11 +70,11 @@ def test_full_strategy_seeks_to_low(kafka_source):
 
 def test_random_strategy_seeks_within_valid_window(kafka_source):
     partitions, watermarks = _single_partition()
-    fake = FakeConsumer()
+    fake = OffsetRecordingConsumer()
 
     # randint is called with (0, range_size - partition_sample_size) = (0, 800);
     # pin it so the assertion is deterministic.
-    with patch("datahub.ingestion.source.kafka.kafka.random.randint", return_value=123):
+    with patch(f"{KAFKA_MODULE}.random.randint", return_value=123):
         kafka_source._get_offset_based_samples(
             partitions,
             watermarks,
@@ -133,10 +92,10 @@ def test_random_strategy_seeks_within_valid_window(kafka_source):
 
 def test_random_strategy_never_seeks_past_available_window(kafka_source):
     partitions, watermarks = _single_partition()
-    fake = FakeConsumer()
+    fake = OffsetRecordingConsumer()
 
     # Largest legal randint result keeps start + sample_size within [low, high].
-    with patch("datahub.ingestion.source.kafka.kafka.random.randint", return_value=800):
+    with patch(f"{KAFKA_MODULE}.random.randint", return_value=800):
         kafka_source._get_offset_based_samples(
             partitions,
             watermarks,
@@ -154,7 +113,7 @@ def test_random_strategy_never_seeks_past_available_window(kafka_source):
 
 def test_stratified_strategy_seeks_evenly_across_range(kafka_source):
     partitions, watermarks = _single_partition()
-    fake = FakeConsumer()
+    fake = OffsetRecordingConsumer()
 
     kafka_source._get_stratified_samples(
         partitions, watermarks, 100, [], TOPIC, None, consumer=fake
@@ -168,7 +127,7 @@ def test_stratified_strategy_seeks_evenly_across_range(kafka_source):
 def test_strategy_skips_empty_partition(kafka_source):
     partition = confluent_kafka.TopicPartition(TOPIC, 0)
     watermarks = {0: (500, 500)}  # high == low -> nothing to read
-    fake = FakeConsumer()
+    fake = OffsetRecordingConsumer()
 
     kafka_source._get_offset_based_samples(
         [partition],
@@ -185,32 +144,18 @@ def test_strategy_skips_empty_partition(kafka_source):
     assert fake.assigned_offsets == [partition.offset]
 
 
-class ErroringConsumer:
-    """Yields messages whose .error() is truthy to exercise the error-report path."""
-
-    def assign(self, partitions: List[confluent_kafka.TopicPartition]) -> None:
-        pass
-
-    def seek(self, partition: confluent_kafka.TopicPartition) -> None:
-        pass
-
-    def poll(self, timeout: float) -> MagicMock:
-        msg = MagicMock()
-        msg.error.return_value = "simulated broker error"
-        return msg
-
-
 def test_stratified_reports_errored_messages(kafka_source):
+    """Errored messages are reported (like the batch path), not silently dropped."""
     partitions, watermarks = _single_partition()
     samples: List[Dict] = []
+    errored = ScriptedConsumer([FakeMessage(None, error="simulated broker error")])
 
     kafka_source._get_stratified_samples(
-        partitions, watermarks, 10, samples, TOPIC, None, consumer=ErroringConsumer()
+        partitions, watermarks, 10, samples, TOPIC, None, consumer=errored
     )
 
-    # Errored messages must be reported (like the batch path), not silently dropped.
     assert samples == []
-    assert kafka_source.report.warnings
+    assert warned_about(kafka_source.report, TOPIC)
 
 
 def test_parallel_profiling_worker_failure_is_dropped(kafka_source):
@@ -224,12 +169,12 @@ def test_parallel_profiling_worker_failure_is_dropped(kafka_source):
 
     assert workunits == []
     assert kafka_source.report.profiling_topics_dropped == 1
-    assert kafka_source.report.warnings
+    assert warned_about(kafka_source.report, TOPIC)
 
 
 def test_empty_samples_drops_profile(kafka_source):
     with (
-        patch("datahub.ingestion.source.kafka.kafka.get_kafka_consumer"),
+        patch(f"{KAFKA_MODULE}.get_kafka_consumer"),
         patch.object(kafka_source, "get_sample_messages", return_value=[]),
     ):
         result = kafka_source._collect_and_profile_topic("urn:test", TOPIC, None)
@@ -238,29 +183,22 @@ def test_empty_samples_drops_profile(kafka_source):
     assert kafka_source.report.profiling_topics_dropped == 1
 
 
-def test_empty_samples_reports_when_report_dropped_profiles_enabled():
-    with (
-        patch(
-            "datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer",
-            autospec=True,
-        ),
-        patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True),
-        patch("datahub.ingestion.source.kafka.kafka.get_kafka_consumer"),
-    ):
-        config = KafkaSourceConfig.model_validate(
-            {
-                "connection": {"bootstrap": "localhost:9092"},
-                "profiling": {"enabled": True, "report_dropped_profiles": True},
-            }
-        )
-        source = KafkaSource(config, PipelineContext(run_id="test"))
-        with patch.object(source, "get_sample_messages", return_value=[]):
-            result = source._collect_and_profile_topic("urn:test", TOPIC, None)
+def test_empty_samples_reports_when_report_dropped_profiles_enabled(
+    make_kafka_source: SourceFactory,
+) -> None:
+    source = make_kafka_source(
+        {"profiling": {"enabled": True, "report_dropped_profiles": True}}
+    )
 
-        assert result is None
-        assert source.report.profiling_topics_dropped == 1
-        assert source.report.warnings
-        source.close()
+    with (
+        patch(f"{KAFKA_MODULE}.get_kafka_consumer"),
+        patch.object(source, "get_sample_messages", return_value=[]),
+    ):
+        result = source._collect_and_profile_topic("urn:test", TOPIC, None)
+
+    assert result is None
+    assert source.report.profiling_topics_dropped == 1
+    assert warned_about(source.report, TOPIC)
 
 
 def test_avro_decode_failure_is_skipped_and_reported(kafka_source):
@@ -287,3 +225,51 @@ def test_avro_decode_failure_is_skipped_and_reported(kafka_source):
 
     assert result is None
     assert kafka_source.report.profiling_avro_decode_failures == 1
+
+
+def test_random_offset_reads_whole_range_when_smaller_than_sample():
+    assert _random_offset(10, 15, 100) == (10, 5)
+
+
+def test_stratified_reads_small_partition_sequentially(kafka_source):
+    """Fewer messages than requested: read from low in one batch, no seeking."""
+    partition = confluent_kafka.TopicPartition(TOPIC, 0)
+    fake = OffsetRecordingConsumer()
+
+    kafka_source._get_stratified_samples(
+        [partition], {0: (0, 5)}, 100, [], TOPIC, None, consumer=fake
+    )
+
+    assert fake.assigned_offsets == [0]
+    assert fake.seek_offsets == []
+
+
+def test_stratified_skips_empty_partition(kafka_source):
+    partition = confluent_kafka.TopicPartition(TOPIC, 0)
+    fake = OffsetRecordingConsumer()
+
+    kafka_source._get_stratified_samples(
+        [partition], {0: (7, 7)}, 10, [], TOPIC, None, consumer=fake
+    )
+
+    assert fake.assigned_offsets == []
+    assert fake.seek_offsets == []
+
+
+def test_stratified_collects_polled_messages(kafka_source):
+    partitions, watermarks = _single_partition()
+    samples: List[Dict] = []
+    scripted = ScriptedConsumer([FakeMessage(b'{"a": 1}', offset=i) for i in range(3)])
+
+    kafka_source._get_stratified_samples(
+        partitions,
+        watermarks,
+        20,
+        samples,
+        TOPIC,
+        SCHEMALESS_METADATA,
+        consumer=scripted,
+    )
+
+    assert len(samples) == 3
+    assert samples[0]["a"] == "1"
