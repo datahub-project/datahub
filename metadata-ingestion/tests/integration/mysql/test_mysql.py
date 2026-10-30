@@ -56,8 +56,8 @@ def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir, reques
 @pytest.mark.parametrize(
     "config_file,golden_file",
     [
-        ("mysql_to_file_with_db.yml", "mysql_mces_with_db_golden.json"),
-        ("mysql_to_file_no_db.yml", "mysql_mces_no_db_golden.json"),
+        ("mysql_to_file_with_db.yml", "mysql_with_db_golden.json"),
+        ("mysql_to_file_no_db.yml", "mysql_no_db_golden.json"),
         ("mysql_profile_table_level_only.yml", "mysql_table_level_only.json"),
         (
             "mysql_profile_table_row_count_estimate_only.yml",
@@ -82,7 +82,6 @@ def test_mysql_ingest_no_db(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
         output_path=tmp_path / "mysql_mces.json",
         golden_path=test_resources_dir / golden_file,
