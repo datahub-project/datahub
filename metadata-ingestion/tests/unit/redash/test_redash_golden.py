@@ -131,8 +131,8 @@ def _mock_client() -> MagicMock:
 @pytest.mark.parametrize(
     "parse_table_names_from_sql, golden",
     [
-        (False, "redash_mces_golden.json"),
-        (True, "redash_parse_sql_mces_golden.json"),
+        (False, "redash_golden.json"),
+        (True, "redash_parse_sql_golden.json"),
     ],
 )
 def test_redash_golden(
@@ -161,6 +161,5 @@ def test_redash_golden(
         pytestconfig,
         output_path=output_path,
         golden_path=RESOURCES / golden,
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
     )

@@ -369,7 +369,6 @@ def test_preset_ingest(pytestconfig, tmp_path, mock_time, requests_mock):
         pytestconfig,
         output_path=tmp_path / "preset_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
-        golden_mces_as_mcps=True,
         fail_on_output_mces=True,
     )
 
@@ -509,6 +508,5 @@ def test_preset_stateful_ingest(
             pytestconfig,
             output_path=deleted_mces_path,
             golden_path=test_resources_dir / "golden_test_stateful_ingest.json",
-            golden_mces_as_mcps=True,
             fail_on_output_mces=True,
         )
