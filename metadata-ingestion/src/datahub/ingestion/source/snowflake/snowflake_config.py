@@ -536,6 +536,24 @@ class SnowflakeV2Config(
         description="Populates table->table and view->table column lineage. Requires appropriate grants given to the role and the Snowflake Enterprise Edition or above.",
     )
 
+    include_iceberg_metadata: bool = Field(
+        default=False,
+        description="If enabled, Iceberg tables get their external volume, base location, "
+        "resolved storage location, catalog integration and table type as custom properties. "
+        "Runs one `SHOW ICEBERG TABLES` per schema that has Iceberg tables and one "
+        "`DESC EXTERNAL VOLUME` per volume; the latter needs USAGE on the volume, without "
+        "which a warning is reported and the storage location (and any external lineage) "
+        "is skipped for tables on that volume.",
+    )
+    include_iceberg_external_lineage: bool = Field(
+        default=False,
+        description="If enabled, externally managed (UNMANAGED) Iceberg tables get upstream lineage "
+        "from whatever writes their storage location: the dataset another connector (e.g. Unity "
+        "Catalog) already ingested with that `storage_location`, found through the DataHub graph "
+        "(one search per table), or the storage path itself (e.g. an S3 dataset) when no writer "
+        "is known. Requires `include_iceberg_metadata` and `include_table_lineage`.",
+    )
+
     use_queries_v2: bool = Field(
         default=True,
         description="If enabled, uses the new queries extractor to extract queries from snowflake.",
@@ -792,6 +810,19 @@ class SnowflakeV2Config(
         if not info.data.get("include_table_lineage") and v:
             raise ValueError(
                 "include_table_lineage must be True for include_column_lineage to be set."
+            )
+        return v
+
+    @field_validator("include_iceberg_external_lineage", mode="after")
+    @classmethod
+    def validate_include_iceberg_external_lineage(cls, v, info):
+        if v and not info.data.get("include_iceberg_metadata"):
+            raise ValueError(
+                "include_iceberg_metadata must be True for include_iceberg_external_lineage to be set."
+            )
+        if v and not info.data.get("include_table_lineage"):
+            raise ValueError(
+                "include_table_lineage must be True for include_iceberg_external_lineage to be set."
             )
         return v
 

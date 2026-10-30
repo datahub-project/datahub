@@ -27,6 +27,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
     classification_workunit_processor,
 )
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
@@ -48,6 +49,9 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakePermissionError,
 )
 from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDataReader
+from datahub.ingestion.source.snowflake.snowflake_iceberg import (
+    SnowflakeIcebergHandler,
+)
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SNOWFLAKE_MAX_QUERY_BYTES,
@@ -284,6 +288,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         aggregator: Optional[SqlParsingAggregator],
         snowsight_url_builder: Optional[SnowsightUrlBuilder],
         fetch_views_from_information_schema: bool = False,
+        graph: Optional[DataHubGraph] = None,
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
@@ -335,6 +340,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.dynamic_table_identifiers: Set[str] = set()
 
         self.aggregator = aggregator
+
+        # isinstance: SnowflakeSummary passes a config without these flags (see FIXME above).
+        self.include_iceberg_metadata = bool(
+            isinstance(config, SnowflakeV2Config) and config.include_iceberg_metadata
+        )
+        self.include_iceberg_external_lineage = bool(
+            self.include_iceberg_metadata
+            and isinstance(config, SnowflakeV2Config)
+            and config.include_table_lineage
+            and config.include_iceberg_external_lineage
+        )
+        self.iceberg_handler = SnowflakeIcebergHandler(
+            config=self.config,
+            report=self.report,
+            data_dictionary=self.data_dictionary,
+            identifiers=self.identifiers,
+            graph=graph,
+            aggregator=aggregator,
+        )
 
     def get_connection(self) -> SnowflakeConnection:
         return self.connection
@@ -798,6 +822,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         exc=e,
                     )
 
+        iceberg_tables = [t for t in tables if t.is_iceberg]
+        if iceberg_tables and self.include_iceberg_metadata:
+            try:
+                self.iceberg_handler.enrich_tables(iceberg_tables, db_name, schema_name)
+            except Exception as e:
+                # SHOW re-raises permission errors so the caller can name the fix.
+                action_msg = (
+                    "Please check permissions."
+                    if isinstance(e, SnowflakePermissionError)
+                    else ""
+                )
+                self.structured_reporter.warning(
+                    title="Failed to fetch Iceberg table details",
+                    message="Iceberg properties and external lineage are missing for "
+                    f"this schema's Iceberg tables. {action_msg}",
+                    context=f"{db_name}.{schema_name}",
+                    exc=e,
+                )
+
         if self.config.include_technical_schema:
             data_reader = self.make_data_reader()
             for table in tables:
@@ -810,6 +853,20 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     data_reader,
                     [db_name, schema_name, table.name],
                 )
+
+        # After the tables' schemas are registered with the aggregator, so the known
+        # mapping also gets column lineage. Outside the include_technical_schema gate so
+        # a lineage-only run still gets the table-level edge.
+        if iceberg_tables and self.include_iceberg_external_lineage:
+            for table in iceberg_tables:
+                try:
+                    self.iceberg_handler.register_lineage(table, db_name, schema_name)
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        "Failed to register Iceberg table lineage",
+                        f"{db_name}.{schema_name}.{table.name}",
+                        exc=e,
+                    )
 
     def _process_views(
         self,
@@ -1685,6 +1742,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             if isinstance(table, SnowflakeDynamicTable):
                 if table.target_lag:
                     custom_properties["TARGET_LAG"] = table.target_lag
+
+            if table.iceberg is not None:
+                custom_properties.update(
+                    SnowflakeIcebergHandler.custom_properties(table.iceberg)
+                )
 
         if isinstance(table, SnowflakeView) and table.is_secure:
             custom_properties["IS_SECURE"] = "true"

@@ -433,6 +433,28 @@ semantic_view_pattern:
 - Requires `REFERENCES` or `SELECT` privileges on semantic views (they are treated as views in Snowflake's permission model)
 - The semantic view definition (SQL DDL) is extracted when available through the `GET_DDL` function
 
+#### Iceberg Tables
+
+Iceberg tables are ingested like any other table, with `IS_ICEBERG: true` in their properties. With `include_iceberg_metadata: true` (off by default) DataHub also runs `SHOW ICEBERG TABLES` for each schema that has Iceberg tables and `DESC EXTERNAL VOLUME` once per volume to add:
+
+| Property                                  | Source                                                                                         |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `ICEBERG_TABLE_TYPE`                      | `SNOWFLAKE` (Snowflake-managed) or `UNMANAGED` (externally managed, written by another engine) |
+| `EXTERNAL_VOLUME`                         | The external volume the table's files live on                                                  |
+| `BASE_LOCATION`                           | The table's path relative to the volume, as Snowflake reports it                               |
+| `STORAGE_LOCATION`                        | The volume's `STORAGE_BASE_URL` joined with `BASE_LOCATION`, e.g. `s3://bucket/prefix/table`   |
+| `CATALOG_INTEGRATION`                     | The catalog integration (object store, Glue, REST, ...)                                        |
+| `CATALOG_NAMESPACE`, `CATALOG_TABLE_NAME` | The table's identity in the external catalog, when one is used                                 |
+
+##### Lineage for externally managed Iceberg tables
+
+An `UNMANAGED` Iceberg table is written by another engine (for example Databricks with UniForm, or Spark) and only read by Snowflake, so Snowflake's own query history never shows where its data comes from. With `include_iceberg_external_lineage: true` (off by default; requires `include_iceberg_metadata` and `include_table_lineage`) DataHub adds the upstream itself:
+
+1. It looks in DataHub for a dataset whose `storage_location` custom property equals the table's `STORAGE_LOCATION`. The Unity Catalog connector records this property on every external table, so a Databricks table that writes to `s3://bucket/prefix/table` becomes a direct upstream of the Snowflake table that reads it, with column-level lineage matched by column name. GCS and Azure paths are also matched under their Spark spellings (`gs://` and `abfss://`), since Snowflake spells them `gcs://` and `azure://`.
+2. If no such dataset is found (or more than one claims the path), the upstream is the storage path's own dataset instead (an S3, GCS or Azure Blob dataset), the same way Snowflake external stages are represented.
+
+The lookup needs a connection to DataHub; with a file sink only the storage-path fallback applies. Ingest the writing platform (for example Unity Catalog) before or alongside Snowflake so the lookup can find it; the edge is re-evaluated on every Snowflake run. The report counts the outcomes (`num_iceberg_lineage_writer_resolved`, `num_iceberg_lineage_storage_fallback`, `num_iceberg_lineage_writer_ambiguous`, `num_iceberg_lineage_skipped_no_storage_location`).
+
 #### Stages, Tasks, and Pipes
 
 DataHub supports ingestion of Snowflake Stages, Tasks, and Snowpipe objects. All three features are disabled by default and can be enabled independently.

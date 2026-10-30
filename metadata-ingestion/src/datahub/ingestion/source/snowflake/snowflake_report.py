@@ -112,6 +112,17 @@ class SnowflakeV2Report(
     stages_scanned: int = 0
     tasks_scanned: int = 0
     pipes_scanned: int = 0
+    iceberg_tables_scanned: int = 0
+    # Externally managed Iceberg tables, by lineage outcome. writer_resolved: the dataset
+    # writing the storage location was found in DataHub (direct writer -> table edge).
+    # storage_fallback: the edge went to the storage path's own dataset instead, because
+    # no graph was available, the lookup failed or found nothing, or it was ambiguous
+    # (writer_ambiguous counts that last cause and is a subset of storage_fallback).
+    # skipped_no_storage_location: no edge at all, the volume could not be resolved.
+    num_iceberg_lineage_writer_resolved: int = 0
+    num_iceberg_lineage_writer_ambiguous: int = 0
+    num_iceberg_lineage_storage_fallback: int = 0
+    num_iceberg_lineage_skipped_no_storage_location: int = 0
 
     include_usage_stats: bool = False
     include_operational_stats: bool = False
