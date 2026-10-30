@@ -335,6 +335,7 @@ public class ReportAssertionResultResolverTest {
             () -> new ReportAssertionResultResolver(mockedService).get(mockEnv).join());
     Throwable cause = thrown instanceof CompletionException ? thrown.getCause() : thrown;
     assertTrue(cause instanceof IllegalArgumentException);
+    assertTrue(cause.getMessage().contains("actualAggValue must be a finite"));
     Mockito.verify(mockedService, Mockito.never())
         .addAssertionRunEvent(
             any(OperationContext.class),

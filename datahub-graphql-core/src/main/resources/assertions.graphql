@@ -193,8 +193,8 @@ input AssertionResultInput {
   """
   Optional: Observed aggregate value for the evaluated batch, e.g. a null fraction or metric value.
   Stored as a 32-bit float, so only about 7 significant digits are kept; use rowCount for row counts.
-  Values outside the 32-bit float range are rejected.
-  The numeric fields below are only stored for SUCCESS and FAILURE results.
+  This field and the three below are only stored for SUCCESS and FAILURE results
+  (ignored otherwise). For SUCCESS and FAILURE, values outside the 32-bit float range are rejected.
   """
   actualAggValue: Float
 
