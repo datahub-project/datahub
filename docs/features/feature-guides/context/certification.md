@@ -29,8 +29,6 @@ You can certify:
 | Semantic layer | Metrics and semantic models                                                |
 | Context        | [Context documents](./context-documents.md), including generated documents |
 
-A certification applies to the whole asset. Columns, glossary terms, and domains can't be certified.
-
 <p align="center">
   <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/certification-seal-hover.png"/>
 </p>
@@ -66,7 +64,7 @@ _Screenshot: certifying a dataset from its page, with a note._
 
 **Context > Certification** lists everything your organization has certified, with who certified each item, when, and how. Filter by type or source, search by name, and remove certifications one at a time or in bulk.
 
-You can also find certified assets anywhere you search: filter by **Certification** or **Certified By**, or add **Certification** as a condition to a [View](../views/overview.md).
+You can also find certified assets anywhere you search: filter by **Certification**, or add **Certification** as a condition to a [View](../views/overview.md).
 
 <p align="center">
   <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/certification-page.png"/>
