@@ -724,13 +724,15 @@ This event is emitted when a new Action Request (Metadata Proposal) has been cre
 
 These are the common parameters for all Action Request create events.
 
-| Name              | Type   | Description                                                                                                                                        | Optional |
-| ----------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| actionRequestType | String | The type of Action Request. One of `TAG_ASSOCIATION`, `TERM_ASSOCIATION`, `CREATE_GLOSSARY_NODE`, `CREATE_GLOSSARY_TERM`, or `UPDATE_DESCRIPTION.` | False    |
-| resourceType      | String | The type of entity this Action Request is applied on, such as `dataset`.                                                                           | True     |
-| resourceUrn       | String | The entity this Action Request is applied on.                                                                                                      | True     |
-| subResourceType   | String | Filled if this Action Request is applied on a sub-resource, such as a `schemaField`.                                                               | True     |
-| subResource       | String | Identifier of the sub-resource if this proposal is applied on one.                                                                                 | True     |
+| Name              | Type   | Description                                                                                                                                                                                | Optional |
+| ----------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| actionRequestType | String | The type of Action Request. One of `TAG_ASSOCIATION`, `TERM_ASSOCIATION`, `CREATE_GLOSSARY_NODE`, `CREATE_GLOSSARY_TERM`, `CREATE_DOMAIN`, `CREATE_DATA_PRODUCT`, or `UPDATE_DESCRIPTION.` | False    |
+| resourceType      | String | The type of entity this Action Request is applied on, such as `dataset`.                                                                                                                   | True\*   |
+| resourceUrn       | String | The entity this Action Request is applied on.                                                                                                                                              | True\*   |
+| subResourceType   | String | Filled if this Action Request is applied on a sub-resource, such as a `schemaField`.                                                                                                       | True     |
+| subResource       | String | Identifier of the sub-resource if this proposal is applied on one.                                                                                                                         | True     |
+
+\* `resourceType` and `resourceUrn` are optional in general, but some proposal types require them — see the per-type tables below (for example, `CREATE_DOMAIN` requires `resourceType`, and `CREATE_DATA_PRODUCT` requires both).
 
 Parameters specific to different proposal types are listed below.
 
@@ -804,6 +806,54 @@ Parameters specific to different proposal types are listed below.
     "glossaryEntityName": "PII",
     "parentNodeUrn": "urn:li:glossaryNode:Classification",
     "description": "Personally Identifiable Information"
+  },
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1649953100653
+  }
+}
+```
+
+#### Create Domain Proposal Specific Parameters and Sample Event
+
+| Name         | Type   | Description                              | Optional |
+| ------------ | ------ | ---------------------------------------- | -------- |
+| resourceType | String | The entity type being created. `domain`. | False    |
+
+```
+{
+  "entityUrn": "urn:li:actionRequest:abc",
+  "entityType": "actionRequest",
+  "category": "LIFECYCLE",
+  "operation": "CREATED",
+  "parameters": {
+    "actionRequestType": "CREATE_DOMAIN",
+    "resourceType": "domain"
+  },
+  "auditStamp": {
+    "actor": "urn:li:corpuser:jdoe",
+    "time": 1649953100653
+  }
+}
+```
+
+#### Create Data Product Proposal Specific Parameters and Sample Event
+
+| Name         | Type   | Description                                                  | Optional |
+| ------------ | ------ | ------------------------------------------------------------ | -------- |
+| resourceType | String | The parent Domain's entity type. `domain`.                   | False    |
+| resourceUrn  | String | The parent Domain the proposed Data Product would belong to. | False    |
+
+```
+{
+  "entityUrn": "urn:li:actionRequest:abc",
+  "entityType": "actionRequest",
+  "category": "LIFECYCLE",
+  "operation": "CREATED",
+  "parameters": {
+    "actionRequestType": "CREATE_DATA_PRODUCT",
+    "resourceType": "domain",
+    "resourceUrn": "urn:li:domain:marketing"
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
