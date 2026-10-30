@@ -743,7 +743,21 @@ def test_the_trace_reads_a_dashboard_listing_answered_with_only_its_fields(
     dashboards, which the mocked client never shows."""
     client = install(mock.MagicMock())
     client.all_dashboards = _real_sdk(client).all_dashboards
-    full = json.loads(serialize.serialize40(api_model=LIVE_DASHBOARDS))
+    # Built by hand: the SDK's serializer is not stable across test orders.
+    folder_fields = ("id", "name", "parent_id", "is_personal", "is_personal_descendant")
+    full = [
+        {
+            "id": d.id,
+            "folder": {
+                k: getattr(d.folder, k)
+                for k in folder_fields
+                if getattr(d.folder, k) is not None
+            }
+            if d.folder
+            else None,
+        }
+        for d in LIVE_DASHBOARDS
+    ]
     requests_mock.get(
         "https://looker.example.com/api/4.0/dashboards",
         json=lambda request, context: [
