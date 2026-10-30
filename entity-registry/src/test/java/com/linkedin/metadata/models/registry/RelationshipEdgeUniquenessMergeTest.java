@@ -98,7 +98,7 @@ public class RelationshipEdgeUniquenessMergeTest {
 
   private static AspectSpec keyAspect() {
     return new AspectSpec(
-        new AspectAnnotation("datasetKey", false, false, null, 1L),
+        new AspectAnnotation("datasetKey", false, false, null, 1L, false),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
@@ -119,7 +119,7 @@ public class RelationshipEdgeUniquenessMergeTest {
                 relationshipName, destTypes, true, false, null, null, null, null, null, null),
             new StringDataSchema());
     return new AspectSpec(
-        new AspectAnnotation(aspectName, false, false, null, 1L),
+        new AspectAnnotation(aspectName, false, false, null, 1L, false),
         Collections.emptyList(),
         Collections.emptyList(),
         ImmutableList.of(field),

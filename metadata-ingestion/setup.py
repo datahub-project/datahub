@@ -345,25 +345,19 @@ trino = {
     "trino[sqlalchemy]>=0.308,<=0.336.0",
 }
 
-pyhive_common = {
-    # DataHub maintains a fork of PyHive
-    # - 0.6.11 adds support for table comments and column comments,
-    #   and also releases HTTP and HTTPS transport schemes
-    # - 0.6.12 adds support for Spark Thrift Server
-    # - 0.6.13 adds a small fix for Databricks
-    # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
-    # - 0.6.15 adds support for thrift > 0.14 (cherry-picked from https://github.com/apache/thrift/pull/2491)
-    # - 0.6.16 fixes a regression in 0.6.15 (https://github.com/acryldata/PyHive/pull/9)
-    # - 0.6.17 fixes the 'HTTPMessage' object has no attribute 'pop' error
-    # - 0.6.18 fixes SASL encode/decode swap and 4-byte framing for QOP auth-int/auth-conf modes
-    #   (https://github.com/acryldata/PyHive/pull/11)
-    "acryl-pyhive[hive-pure-sasl]==0.6.18",
-    # As per https://github.com/datahub-project/datahub/issues/8405
-    # and https://github.com/dropbox/PyHive/issues/417, version 0.14.0
-    # of thrift broke PyHive's hive+http transport.
-    # Fixed by https://github.com/apache/thrift/pull/2491 in version 0.17.0
-    # which is unfortunately not on PyPi.
-    # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
+# Kerberos (GSSAPI) over Thrift SASL, for HiveServer2 and the Hive Metastore.
+thrift_sasl_common = {
+    "pure-sasl>=0.6.2,<1.0.0",
+    "thrift-sasl>=0.4.3,<1.0.0",
+}
+
+# HiveServer2 / Spark Thrift Server driver for DataHub's Hive SQLAlchemy dialects.
+hive_common = thrift_sasl_common | {
+    "impyla>=0.24.0,<1.0.0",
+}
+
+presto_common = {
+    "presto-python-client>=0.8.4,<1.0.0",
 }
 
 microsoft_common = {
@@ -438,6 +432,7 @@ abs_base = {
 azure_data_factory = {
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
+    *sqlglot_lib,
 }
 
 file_profiling = {
@@ -477,7 +472,9 @@ databricks_common = {
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
     # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
     # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
-    "databricks-sql-connector>=4.1.2,<5.0.0",
+    # 4.7.0 relaxes the oauthlib cap to <5.0.0, allowing oauthlib>=4.0.0
+    # (fixes CVE-2026-49264 / CVE-2026-49265)
+    "databricks-sql-connector>=4.7.0,<5.0.0",
     # connector 4.x split the SQLAlchemy dialect into a separate package; required so
     # create_engine("databricks://...") can load the dialect for SQLAlchemy profiling.
     "databricks-sqlalchemy>=2.0.0,<3.0.0",
@@ -494,7 +491,8 @@ mysql_common = sql_common | mysql | aws_common
 sac = {
     "requests<3.0.0",
     # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
-    "Authlib>=1.6.11,<2.0.0",
+    # CVE-2026-96760: fixed in 1.9.0
+    "Authlib>=1.9.0,<2.0.0",
     # Safe XML parsing for Data Export Service $metadata (shared sap_common.edmx).
     "defusedxml>=0.7.1,<0.8.0",
 }
@@ -711,13 +709,16 @@ plugins: Dict[str, Set[str]] = {
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
-        "numpy<2",
+        # Scoped below 3.13: numpy 1.x has no 3.13 wheels and does not build there.
+        # On 3.13, cap at the next major for the same binary-compatibility reason.
+        'numpy<2; python_version < "3.13"',
+        'numpy<3; python_version >= "3.13"',
         *cachetools_lib,
     },
     "feast": {
         # 0.47 declares fastapi>=0.68 with no upper bound, so starlette>=1.3.1
         # can resolve. 0.34–0.46 pin a FastAPI that cannot take Starlette 1.3.
-        # feast>=0.48 requires numpy>=2, so numpy<2 below still caps feast at 0.47.
+        # feast>=0.48 requires numpy>=2, so numpy<2 below still caps feast at 0.47 on Python < 3.13.
         "feast>=0.47.0,<1",
         # feast pulls starlette via fastapi; same CVE floor as datahub-lite.
         "starlette>=1.3.1,<2.0.0",
@@ -726,7 +727,10 @@ plugins: Dict[str, Set[str]] = {
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
-        "numpy<2",
+        # Scoped below 3.13: numpy 1.x has no 3.13 wheels and does not build there.
+        # On 3.13, cap at the next major for the same binary-compatibility reason.
+        'numpy<2; python_version < "3.13"',
+        'numpy<3; python_version >= "3.13"',
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
@@ -741,16 +745,12 @@ plugins: Dict[str, Set[str]] = {
         "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "defusedxml>=0.7.1,<0.8.0",
     },
-    "hive": sql_common
-    | pyhive_common
-    | {
-        "databricks-dbapi<0.7.0",
-    },
+    "hive": sql_common | hive_common,
     # keep in sync with presto-on-hive until presto-on-hive will be removed
     # Supports both SQL (psycopg2/pymysql) and Thrift (pymetastore) connection types
     # kerberos is required for GSSAPI auth (pure-sasl delegates to it)
     "hive-metastore": sql_common
-    | pyhive_common
+    | thrift_sasl_common
     | {
         "psycopg2-binary<3.0.0",
         "pymysql[rsa]>=1.0.2,<2.0.0",
@@ -777,6 +777,7 @@ plugins: Dict[str, Set[str]] = {
     # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
+    "langfuse": {"requests<3.0.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -811,10 +812,10 @@ plugins: Dict[str, Set[str]] = {
     "openapi": {"requests<3.0.0"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
-    "presto": sql_common | pyhive_common | trino,
+    "presto": sql_common | presto_common | trino,
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
-    | pyhive_common
+    | thrift_sasl_common
     | {
         "psycopg2-binary<3.0.0",
         "pymysql[rsa]>=1.0.2,<2.0.0",
@@ -1273,6 +1274,7 @@ entry_points = {
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
+        "langfuse = datahub.ingestion.source.langfuse.langfuse:LangfuseSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
@@ -1443,6 +1445,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -1463,6 +1466,9 @@ setuptools.setup(
         "datahub.metadata.schemas": ["*.avsc"],
         "datahub.ingestion.source.powerbi.m_query.mquery_bridge": ["bundle.js.gz"],
         "datahub.ingestion.autogenerated": ["*.json"],
+        # Read at runtime by montecarlo/constants.py:get_known_data_platforms().
+        "datahub.ingestion.autogenerated.connector_registry": ["datahub.json"],
+        "datahub.ingestion.source.odcs.odcs_schema": ["*.json"],
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
         "datahub.cli.datapack.resources": ["*.md", "*.json"],

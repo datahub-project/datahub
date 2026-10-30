@@ -5,7 +5,7 @@ import { PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { getDataProduct } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityPath, EntityType, MlModelGroup } from '@types';
@@ -40,7 +40,6 @@ export const Preview = ({
             entityType={EntityType.MlmodelGroup}
             logoUrl={group?.platform?.properties?.logoUrl || ''}
             platform={group?.platform?.properties?.displayName || capitalizeFirstLetterOnly(group?.platform?.name)}
-            qualifier={group?.origin}
             owners={group?.ownership?.owners}
             dataProduct={getDataProduct(genericProperties?.dataProduct)}
             degree={degree}

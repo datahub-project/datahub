@@ -1,4 +1,4 @@
-import { URN_TYPE_URN } from '@app/shared/constants';
+import { URN_TYPE_URN } from '@app/sharedV2/constants';
 
 import { EntityType } from '@types';
 

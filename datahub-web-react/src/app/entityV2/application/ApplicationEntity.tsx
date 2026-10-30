@@ -10,11 +10,12 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/application/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfileTab } from '@app/entityV2/shared/constants';
+import { EntityProfileTab, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
+    DataProductSection,
     DocumentationTab,
     EntityProfile,
     PropertiesTab,
@@ -47,7 +48,12 @@ const ApplicationEntitiesTab = lazyProfileComponent('ApplicationEntitiesTab', ()
     })),
 );
 
-const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.DELETE, EntityMenuItems.EDIT]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+    EntityMenuItems.EDIT,
+]);
 
 type ApplicationWithChildren = Application & {
     children?: {
@@ -130,6 +136,9 @@ export class ApplicationEntity implements Entity<Application> {
             component: SidebarGlossaryTermsSection,
         },
         {
+            component: DataProductSection,
+        },
+        {
             component: SidebarStructuredProperties,
         },
         {
@@ -153,6 +162,7 @@ export class ApplicationEntity implements Entity<Application> {
             {
                 id: EntityProfileTab.SUMMARY_TAB,
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: showSummaryTab ? SummaryTab : ApplicationSummaryTab,
                 icon: BookOpen,
             },
@@ -160,6 +170,7 @@ export class ApplicationEntity implements Entity<Application> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -167,6 +178,7 @@ export class ApplicationEntity implements Entity<Application> {
                 : []),
             {
                 name: i18next.t('entity.types:tab.assets'),
+                path: EntityTabPath.ASSETS,
                 getCount: (entityData, _, loading) => {
                     return !loading ? entityData?.children?.total : undefined;
                 },
@@ -175,6 +187,7 @@ export class ApplicationEntity implements Entity<Application> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },
@@ -256,6 +269,7 @@ export class ApplicationEntity implements Entity<Application> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
         ]);

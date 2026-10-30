@@ -2,6 +2,8 @@ import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
+import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import ChildrenLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/ChildrenLoader';
@@ -11,12 +13,19 @@ import useGlossaryRelatedEntitiesLoader from '@app/homeV3/modules/hierarchyViewM
 import useParentValuesToLoadChildren from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useParentValues';
 import { ChildrenLoaderMetadata } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
 import useGlossaryTree from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryTree';
+import { GlossaryTermType } from '@app/homeV3/modules/hierarchyViewModule/components/glossary/types';
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 
-import { AndFilterInput, DataHubPageModuleType } from '@types';
+import { AndFilterInput, DataHubPageModuleType, Entity, EntityType } from '@types';
 
 const Wrapper = styled.div``;
+
+const TermBadges = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+`;
 
 interface Props {
     assetUrns: string[];
@@ -85,6 +94,26 @@ export default function GlossaryTreeView({ assetUrns, shouldShowRelatedEntities,
                             hideMatches
                             padding="8px 13px 8px 0"
                             moduleType={DataHubPageModuleType.Hierarchy}
+                            customHoverEntityName={(entity: Entity, nameContent: React.ReactNode) => {
+                                if (entity.type !== EntityType.GlossaryTerm) return nameContent;
+                                const term = entity as GlossaryTermType;
+                                const versionTag = term.versionProperties?.version?.versionTag;
+                                const lifecycleStage = term.status?.lifecycleStage;
+                                if (!versionTag && !lifecycleStage) return nameContent;
+                                return (
+                                    <TermBadges>
+                                        {nameContent}
+                                        {!!versionTag && (
+                                            <VersionPill
+                                                label={versionTag}
+                                                isLatest={term.versionProperties?.isLatest ?? false}
+                                                size="xs"
+                                            />
+                                        )}
+                                        <LifecycleStageBadge lifecycleStage={lifecycleStage} size="xs" />
+                                    </TermBadges>
+                                );
+                            }}
                         />
                     )}
                 />

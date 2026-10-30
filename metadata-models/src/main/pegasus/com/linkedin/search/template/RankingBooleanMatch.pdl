@@ -1,0 +1,17 @@
+namespace com.linkedin.search.template
+
+/**
+ * When a boolean signal is true. Unset reads the stored boolean, the same as {@code OR} of
+ * {@code TRUE}. Quote {@code TRUE} and {@code FALSE} in YAML.
+ */
+record RankingBooleanMatch {
+  /**
+   * Unset is {@code OR}.
+   */
+  operator: optional RankingBooleanOperator
+
+  /**
+   * At least one of {@code TRUE}, {@code FALSE}, {@code EXISTS}, or {@code NOT_EXISTS}.
+   */
+  values: array[RankingBooleanValue]
+}

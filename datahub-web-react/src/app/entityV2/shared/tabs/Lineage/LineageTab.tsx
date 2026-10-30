@@ -10,7 +10,7 @@ import { LineageColumnView } from '@app/entityV2/shared/tabs/Lineage/LineageColu
 import { useLineageViewState } from '@app/entityV2/shared/tabs/Lineage/hooks';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import LineageGraph from '@app/lineageV3/LineageGraph';
-import TabFullsizedContext from '@app/shared/TabFullsizedContext';
+import TabFullsizedContext from '@app/sharedV2/TabFullsizedContext';
 
 import { LineageDirection } from '@types';
 

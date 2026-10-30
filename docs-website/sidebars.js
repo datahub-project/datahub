@@ -112,6 +112,11 @@ module.exports = {
               id: "docs/dev-guides/agent-context/skills",
             },
             {
+              label: "DataHub Cloud Plugins",
+              type: "doc",
+              id: "docs/dev-guides/agent-context/plugins",
+            },
+            {
               label: "Snowflake",
               type: "category",
               collapsible: true,
@@ -352,7 +357,7 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Knowledge Catalog Metadata Sync",
+              label: "Google Cloud Knowledge Catalog (Dataplex) Metadata Sync",
               type: "doc",
               id: "docs/automations/knowledge-catalog-metadata-sync",
               className: "saasOnly",
@@ -700,8 +705,23 @@ module.exports = {
         },
         {
           label: "Metrics & Semantic Models",
-          type: "doc",
-          id: "docs/features/feature-guides/metrics-and-semantic-models",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/features/feature-guides/metrics-and-semantic-models",
+          },
+          items: [
+            {
+              label: "Best Practices",
+              type: "doc",
+              id: "docs/features/feature-guides/metrics-and-semantic-models-best-practices",
+            },
+            {
+              label: "Ossie Compatibility",
+              type: "doc",
+              id: "docs/features/feature-guides/ossie-compatibility",
+            },
+          ],
         },
         {
           label: "MCP Server",
@@ -1601,6 +1621,7 @@ module.exports = {
         "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
+        "docs/how/upgrading-datahub",
         "docs/deploy/rendered-manifest-upgrade",
       ],
     },
@@ -1635,6 +1656,7 @@ module.exports = {
       "Developing on DataHub": [
         "docs/developers",
         "docs/developers/java-sdk-v2-design",
+        "docs/developers/search-v3-design",
         "docs/docker/development",
         "metadata-ingestion/developing",
         "docs/api/graphql/graphql-endpoint-development",
@@ -1730,7 +1752,7 @@ module.exports = {
       ],
     },
     {
-      "Release History": ["releases", "docs/how/updating-datahub"],
+      "Release History": ["releases", "docs/how/breaking-changes"],
     },
     {
       type: "doc",

@@ -7,20 +7,44 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "formInfo",
-  "schemaVersion": 2
+  "schemaVersion": 5
 }
 record FormInfo {
   /**
    * Display name of the form
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL"
+    "fieldType": "TEXT_PARTIAL",
+    "boostScore": 10.0,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: string
 
   /**
    * Description of the form
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 
   /**

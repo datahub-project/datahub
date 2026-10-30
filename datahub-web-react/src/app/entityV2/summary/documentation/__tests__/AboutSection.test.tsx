@@ -42,18 +42,18 @@ vi.mock('@app/entityV2/summary/links/RelatedSection', () => ({
 }));
 
 vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: () => ({ getEntityName: () => 'Glossary Term' }),
+    useEntityRegistry: () => ({ getEntityName: () => 'Glossary Term' }),
 }));
 
 vi.mock('@graphql/mutations.generated', () => ({
     useUpdateDescriptionMutation: () => [vi.fn()],
 }));
 
-vi.mock('@app/shared/hooks/useFileUpload', () => ({
+vi.mock('@app/sharedV2/hooks/useFileUpload', () => ({
     default: () => ({ uploadFile: vi.fn() }),
 }));
 
-vi.mock('@app/shared/hooks/useFileUploadAnalyticsCallbacks', () => ({
+vi.mock('@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks', () => ({
     default: () => ({}),
 }));
 
