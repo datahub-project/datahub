@@ -299,6 +299,8 @@ public final class V3SearchFields {
     if (isParsedKeywordLabel(label, entitySpecs)) {
       return false;
     }
+    // One fact, not a list of URNs: any source of this label is a URN. The lambda cannot
+    // assign a local boolean, so the single value sits in a one-element array.
     final boolean[] urn = {false};
     forEachFieldSpec(
         entitySpecs,

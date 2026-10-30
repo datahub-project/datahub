@@ -37,12 +37,16 @@ import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.key.SchemaFieldKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.AspectAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.schema.EditableSchemaFieldInfoArray;
+import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
 import io.datahubproject.metadata.context.OperationContext;
@@ -489,6 +493,45 @@ public class V3SearchDocumentProjectorTest {
 
     assertFalse(projected.aspectFields().has("hasDescription"));
     assertTrue(projected.rootFields().get("hasDescription").isNull());
+  }
+
+  @Test
+  public void testInlineFieldDescriptionUsesTheDegreeOneBoolean() throws Exception {
+    V3SearchDocumentProjector realProjector = realProjector();
+    EntityRegistry registry = opContext.getEntityRegistry();
+    EntitySpec dataset = registry.getEntitySpec("dataset");
+    AspectSpec editableSchema = dataset.getAspectSpec("editableSchemaMetadata");
+    SearchableFieldSpec columnDescription =
+        editableSchema.getSearchableFieldSpecs().stream()
+            .filter(
+                spec ->
+                    "editedFieldDescriptions".equals(spec.getSearchableAnnotation().getFieldName()))
+            .findFirst()
+            .orElseThrow();
+    assertEquals(
+        columnDescription.getSearchableAnnotation().indexedHasValuesFieldName().orElseThrow(),
+        "hasDescription_1");
+
+    when(event.getEntitySpec()).thenReturn(dataset);
+    when(event.getAspectSpec()).thenReturn(editableSchema);
+    when(event.getAspectName()).thenReturn(editableSchema.getName());
+    when(event.getPreviousRecordTemplate()).thenReturn(null);
+    EditableSchemaMetadata metadata =
+        new EditableSchemaMetadata()
+            .setEditableSchemaFieldInfo(
+                new EditableSchemaFieldInfoArray(
+                    new EditableSchemaFieldInfo()
+                        .setFieldPath("amount")
+                        .setDescription("Order amount")));
+    when(event.getRecordTemplate()).thenReturn(metadata);
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        realProjector.projectAspect(opContext, event).orElseThrow();
+
+    assertTrue(projected.aspectFields().get("hasDescription").booleanValue());
+    assertTrue(projected.rootFields().get("hasDescription").isNull());
+    assertFalse(projected.aspectFields().has("hasDescription_1"));
+    assertFalse(projected.rootFields().has("hasDescription_1"));
   }
 
   @Test
