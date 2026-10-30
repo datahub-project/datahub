@@ -107,9 +107,13 @@ def test_get_notebook_definition_polls_long_running_operation() -> None:
 
 def _notebook_source(
     pattern: AllowDenyPattern,
+    include_source: bool = True,
+    content: str = "print('hello')\n",
+    part_path: str = "notebook-content.py",
 ) -> tuple[MagicMock, FabricWorkspace, FabricNotebook]:
     source = MagicMock()
     source.config.include_notebooks = True
+    source.config.include_notebook_source = include_source
     source.config.notebook_pattern = pattern
     source.config.platform_instance = None
     source.config.env = "PROD"
@@ -129,9 +133,7 @@ def _notebook_source(
     )
     source.client.list_folders.return_value = {"folder-shared": ("Shared", None)}
     source.client.list_notebooks.return_value = iter([notebook])
-    source.client.get_notebook_definition.return_value = _definition(
-        "notebook-content.py", "print('hello')\n"
-    )
+    source.client.get_notebook_definition.return_value = _definition(part_path, content)
     return source, workspace, notebook
 
 
@@ -149,13 +151,74 @@ def test_process_notebooks_emits_dataset_with_contents() -> None:
     assert dataset.custom_properties == {
         "path": "/Shared/analysis",
         "language": "python",
-        "content": "print('hello')\n",
     }
+    assert dataset.view_definition is not None
+    assert dataset.view_definition.viewLogic == "print('hello')\n"
+    assert dataset.view_definition.viewLanguage == "python"
+    assert dataset.view_definition.materialized is False
+    # Lineage belongs on the Spark jobs. Emitting upstreamLineage here, even
+    # empty, would replace lineage a user added to the notebook in the UI.
+    assert dataset.upstreams is None
     subtypes = dataset._get_aspect(SubTypesClass)
     assert subtypes is not None
     assert subtypes.typeNames == ["Notebook"]
     assert source.report.notebooks_scanned == 1
     assert "ws-1.nb-1" in str(dataset.urn)
+
+
+def test_notebook_source_is_not_emitted_by_default() -> None:
+    source, workspace, _notebook = _notebook_source(
+        AllowDenyPattern.allow_all(), include_source=False
+    )
+    datasets = list(FabricOneLakeSource._process_notebooks(source, workspace))
+
+    assert len(datasets) == 1
+    dataset = datasets[0]
+    assert isinstance(dataset, Dataset)
+    assert dataset.custom_properties == {
+        "path": "/Shared/analysis",
+        "language": "python",
+    }
+    assert dataset.view_definition is None
+
+
+def test_unknown_notebook_language_is_plaintext() -> None:
+    source, workspace, _notebook = _notebook_source(
+        AllowDenyPattern.allow_all(), part_path="notebook-content.ipynb"
+    )
+    datasets = list(FabricOneLakeSource._process_notebooks(source, workspace))
+
+    dataset = datasets[0]
+    assert isinstance(dataset, Dataset)
+    assert dataset.view_definition is not None
+    assert dataset.view_definition.viewLanguage == "plaintext"
+    assert "language" not in dataset.custom_properties
+
+
+def test_notebook_source_masks_credentials() -> None:
+    content = (
+        'conn = "DefaultEndpointsProtocol=https;AccountName=acct;'
+        'AccountKey=placeholder-account-key;EndpointSuffix=core.windows.net"\n'
+        'url = "https://acct.blob.core.windows.net/c?sv=2022&sig=placeholder-sig"\n'
+        'password = "placeholder-password"\n'
+        "df = spark.read.table('silver.orders')\n"
+    )
+    source, workspace, _notebook = _notebook_source(
+        AllowDenyPattern.allow_all(), content=content
+    )
+    datasets = list(FabricOneLakeSource._process_notebooks(source, workspace))
+
+    dataset = datasets[0]
+    assert isinstance(dataset, Dataset)
+    assert dataset.view_definition is not None
+    emitted = dataset.view_definition.viewLogic
+    for secret in (
+        "placeholder-account-key",
+        "placeholder-sig",
+        "placeholder-password",
+    ):
+        assert secret not in emitted
+    assert "spark.read.table('silver.orders')" in emitted
 
 
 def test_notebook_pattern_filters_before_definition_fetch() -> None:

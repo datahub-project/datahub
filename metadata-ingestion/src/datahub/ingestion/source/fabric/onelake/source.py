@@ -27,6 +27,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
+from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -120,6 +121,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.container import Container
@@ -732,8 +734,20 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         custom_properties = {"path": path}
         if language:
             custom_properties["language"] = language
-        if content:
-            custom_properties["content"] = content
+        # Notebooks often embed credentials, so the source is opt-in and
+        # credential-shaped values are masked before it leaves the connector.
+        # It goes only to viewLogic: custom properties are indexed as keyword
+        # terms, which a large notebook would overflow.
+        view_definition = (
+            ViewPropertiesClass(
+                materialized=False,
+                viewLogic=scrub_text(content, set()),
+                # Prism's name for unhighlighted text; "text" is not one.
+                viewLanguage=language or "plaintext",
+            )
+            if content and self.config.include_notebook_source
+            else None
+        )
 
         return Dataset(
             platform=PLATFORM,
@@ -753,6 +767,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 f"/synapsenotebooks/{notebook.id}"
             ),
             custom_properties=custom_properties,
+            view_definition=view_definition,
+            parse_view_lineage=False,
             owners=self._owners(notebook.owner_user_principal_name),
         )
 
