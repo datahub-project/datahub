@@ -1,0 +1,10 @@
+services:
+  rest-views:
+    # Unlike tabulario/iceberg-rest used by the other tests, this image
+    # implements the view endpoints of the Iceberg REST spec.
+    image: apache/iceberg-rest-fixture:1.10.1
+    container_name: iceberg-rest-views
+    ports:
+      - 8183:8181
+    environment:
+      - CATALOG_WAREHOUSE=file:///tmp/warehouse
