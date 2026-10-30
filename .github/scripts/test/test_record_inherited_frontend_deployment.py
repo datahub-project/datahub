@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 from typing import Any, Mapping
@@ -36,8 +35,11 @@ def _deployment(
     }
 
 
-def _success(url: str) -> dict[str, Any]:
-    return {"state": "success", "environment_url": url}
+def _success(url: str, log_url: str | None = None) -> dict[str, Any]:
+    status = {"state": "success", "environment_url": url}
+    if log_url is not None:
+        status["log_url"] = log_url
+    return status
 
 
 class FakeClient:
@@ -132,7 +134,7 @@ def test_reuses_newest_successful_pages_url() -> None:
             "required_contexts": [],
             "transient_environment": False,
             "production_environment": False,
-            "payload": json.dumps({"inherited": True, "source_deployment_id": 2}),
+            "payload": {"inherited": True, "source_deployment_id": 2},
         }
     ]
     assert client.status_posts == [
@@ -184,6 +186,41 @@ def test_does_not_reuse_current_sha_or_non_https_url() -> None:
     assert result.environment_url == PAGES_URL
     assert result.source_deployment_id == 2
     assert client.created == []
+
+
+CLOUDFLARE_LOG = (
+    "https://dash.cloudflare.com/account/pages/view/datahub-project-web-react/abc"
+)
+
+
+def test_copies_the_pages_dashboard_url() -> None:
+    client = FakeClient()
+    client.deployments = [_deployment(2, "bbbb")]
+    client.statuses = {2: [_success(PAGES_URL, CLOUDFLARE_LOG)]}
+
+    result = _record(client, "cccc")
+
+    assert result.action == "created"
+    assert client.status_posts[0][1]["log_url"] == CLOUDFLARE_LOG
+
+
+def test_replaces_a_record_whose_log_is_the_actions_run() -> None:
+    client = FakeClient()
+    client.deployments = [
+        _deployment(9, "cccc", environment=inherited.RECORD_ENVIRONMENT),
+        _deployment(2, "aaaa"),
+    ]
+    client.statuses = {
+        9: [_success(PAGES_URL, "https://github.com/acme/datahub/actions/runs/7")],
+        2: [_success(PAGES_URL, CLOUDFLARE_LOG)],
+    }
+
+    result = _record(client, "cccc")
+
+    assert result.action == "created"
+    assert result.deployment_id != 9
+    assert client.status_posts[0][1]["log_url"] == CLOUDFLARE_LOG
+    assert client.created[0]["payload"] == {"inherited": True, "source_deployment_id": 2}
 
 
 def test_already_recorded_sha_is_left_alone() -> None:

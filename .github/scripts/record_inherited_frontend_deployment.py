@@ -88,22 +88,37 @@ class RecordResult:
     source_deployment_id: int | None = None
 
 
-def success_environment_url(statuses: Sequence[Mapping[str, Any]]) -> str | None:
-    """URL from the latest status, when that status is a successful https deploy.
+def latest_success_status(statuses: Sequence[Mapping[str, Any]]) -> Mapping[str, Any] | None:
+    """Latest status, when that status is a successful https deploy.
 
     ``statuses`` is newest first, matching the GitHub deployments API.
     An inactive or failed latest status hides any earlier success on that deployment.
     """
-    if not statuses:
-        return None
-    if statuses[0].get("state") != "success":
+    if not statuses or statuses[0].get("state") != "success":
         return None
     for status in statuses:
         if status.get("state") != "success":
             continue
         url = str(status.get("environment_url") or "").strip()
         if url.startswith("https://"):
-            return url
+            return status
+    return None
+
+
+def success_environment_url(statuses: Sequence[Mapping[str, Any]]) -> str | None:
+    status = latest_success_status(statuses)
+    if status is None:
+        return None
+    return str(status.get("environment_url") or "").strip() or None
+
+
+def cloudflare_log_url(status: Mapping[str, Any] | None) -> str | None:
+    """Pages dashboard URL. Meticulous executes against that deployment, not an Actions log."""
+    if status is None:
+        return None
+    log_url = str(status.get("log_url") or "").strip()
+    if log_url.startswith("https://dash.cloudflare.com/"):
+        return log_url
     return None
 
 
@@ -140,16 +155,6 @@ def record_inherited_deployment(
     """
     sha = sha.lower()
     existing = client.list_deployments(repo, environment=environment, sha=sha)
-    for deployment in existing:
-        url = success_environment_url(client.list_statuses(repo, _deployment_id(deployment)))
-        if url:
-            return RecordResult(
-                action="already_recorded",
-                deployment_id=_deployment_id(deployment),
-                environment_url=url,
-            )
-
-    existing_id = _deployment_id(existing[0]) if existing else None
 
     candidates: list[Mapping[str, Any]] = []
     for source_environment in source_environments:
@@ -161,19 +166,42 @@ def record_inherited_deployment(
     source_id: int | None = None
     source_url: str | None = None
     source_sha: str | None = None
+    source_log: str | None = None
     for deployment in candidates:
         deployment_id = _deployment_id(deployment)
-        url = success_environment_url(client.list_statuses(repo, deployment_id))
-        if url:
+        status = latest_success_status(client.list_statuses(repo, deployment_id))
+        url = success_environment_url([status] if status is not None else [])
+        if status is not None and url:
             source_id = deployment_id
             source_url = url
             source_sha = _sha(deployment)
+            source_log = cloudflare_log_url(status)
             break
 
     if source_id is None or source_url is None or source_sha is None:
         raise NoPublishedDeploymentError(
             f"No long-lived Pages deployment with an https URL to reuse for {sha}"
         )
+
+    # A success whose log URL is the Actions run, not the Pages deployment, is
+    # the shape Meticulous started and then failed to execute. Record a new
+    # deployment that points at the same dashboard URL as the publish.
+    incomplete_id: int | None = None
+    for deployment in existing:
+        deployment_id = _deployment_id(deployment)
+        status = latest_success_status(client.list_statuses(repo, deployment_id))
+        if status is None:
+            if incomplete_id is None:
+                incomplete_id = deployment_id
+            continue
+        recorded_log = cloudflare_log_url(status)
+        if source_log is None or recorded_log == source_log:
+            return RecordResult(
+                action="already_recorded",
+                deployment_id=deployment_id,
+                environment_url=str(status.get("environment_url") or "").strip(),
+                source_deployment_id=source_id,
+            )
 
     # A cancelled or failed frontend publish leaves no URL of its own. Reusing
     # the previous bundle would make Meticulous compare against a stale UI
@@ -187,7 +215,7 @@ def record_inherited_deployment(
             source_deployment_id=source_id,
         )
 
-    if existing_id is None:
+    if incomplete_id is None:
         created = client.create_deployment(
             repo,
             {
@@ -198,17 +226,15 @@ def record_inherited_deployment(
                 "required_contexts": [],
                 "transient_environment": False,
                 "production_environment": False,
-                # String, matching the create-deployment schema. Marks records that
-                # reuse a previous Pages URL so they can be told apart from a build.
-                "payload": json.dumps(
-                    {"inherited": True, "source_deployment_id": source_id}
-                ),
+                # Object, matching the Pages workflow. A JSON string is what the
+                # failed base run was recorded with.
+                "payload": {"inherited": True, "source_deployment_id": source_id},
             },
         )
         deployment_id = _deployment_id(created)
         action = "created"
     else:
-        deployment_id = existing_id
+        deployment_id = incomplete_id
         action = "status_on_existing"
 
     status_body: dict[str, Any] = {
@@ -219,8 +245,11 @@ def record_inherited_deployment(
         # Default true would mark every earlier production deployment inactive.
         "auto_inactive": False,
     }
-    if log_url:
-        status_body["log_url"] = log_url
+    # The dashboard URL is how a real Pages publish is recorded. The Actions
+    # run is only a fallback when that publish has no log URL.
+    status_log = source_log or log_url
+    if status_log:
+        status_body["log_url"] = status_log
     client.create_status(repo, deployment_id, status_body)
     return RecordResult(
         action=action,
