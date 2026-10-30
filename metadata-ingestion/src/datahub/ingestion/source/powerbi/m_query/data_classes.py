@@ -9,6 +9,17 @@ from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 TRACE_POWERBI_MQUERY_PARSER: bool = get_trace_powerbi_mquery_parser()
 
 
+@dataclass(frozen=True)
+class ColumnRename:
+    source_name: str
+    renamed_name: str
+
+
+@dataclass
+class ColumnRenameStep:
+    renames: List[ColumnRename] = field(default_factory=list)
+
+
 @dataclass
 class IdentifierAccessor:
     """
@@ -44,6 +55,7 @@ class DataAccessFunctionDetail:
     identifier_accessor: Optional[IdentifierAccessor]
     node_map: Dict[int, dict] = field(repr=False)  # full NodeIdMap for ast_utils
     parameters: Dict[str, str] = field(default_factory=dict)
+    column_rename_steps: List[ColumnRenameStep] = field(default_factory=list)
 
 
 @dataclass
@@ -65,6 +77,10 @@ class DataPlatformTable:
 class Lineage:
     upstreams: List[DataPlatformTable]
     column_lineage: List[ColumnLineageInfo]
+    # Table navigation copies Power BI field names onto both sides of an edge, so
+    # renames are applied afterwards by mapping the upstream side back. Native SQL
+    # lineage applies renames to the query's output names inside parse_custom_sql.
+    downstream_names_are_powerbi_fields: bool = True
 
     @staticmethod
     def empty() -> "Lineage":

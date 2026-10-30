@@ -105,6 +105,33 @@ def make_notebook_name(workspace_id: str, notebook_id: str) -> str:
     return f"{workspace_id}{URN_PATTERN_SEPARATOR}{notebook_id}"
 
 
+def make_notebook_flow_id(workspace_id: str, notebook_id: str) -> str:
+    """Generate flow ID for a notebook modelled as its own pipeline (DataFlow).
+
+    Each notebook is its own pipeline; every table it writes becomes a DataJob
+    under it (so partial-run lineage accumulates per output table).
+
+    Flow ID format: {workspaceGUID}.{notebookGUID}
+    """
+    return f"{workspace_id}{URN_PATTERN_SEPARATOR}{notebook_id}"
+
+
+def make_notebook_flow_urn(
+    workspace_id: str,
+    notebook_id: str,
+    platform: str,
+    env: str,
+    platform_instance: Optional[str] = None,
+) -> DataFlowUrn:
+    """Generate a DataFlowUrn for a notebook's pipeline DataFlow."""
+    return DataFlowUrn.create_from_ids(
+        orchestrator=platform,
+        flow_id=make_notebook_flow_id(workspace_id, notebook_id),
+        env=env,
+        platform_instance=platform_instance,
+    )
+
+
 def make_pipeline_flow_id(workspace_id: str, pipeline_id: str) -> str:
     """Generate flow ID for a Fabric Data Pipeline.
 

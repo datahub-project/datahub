@@ -57,6 +57,8 @@ class DatasetSubTypes(StrEnum):
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
+    # Langfuse
+    LANGFUSE_PROMPT = "Langfuse Prompt"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -178,6 +180,7 @@ class BIAssetSubTypes(StrEnum):
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
     POWERBI_APP = "App"
+    POWERBI_PAGINATED_REPORT = "PaginatedReport"
 
     # Mode
     MODE_REPORT = "Report"
@@ -217,6 +220,11 @@ class MLAssetSubTypes(StrEnum):
 
     FOLDER = "Folder"
 
+    # Langfuse
+    LANGFUSE_PROJECT = "Langfuse Project"
+    LANGFUSE_TRACE = "Langfuse Trace"
+    LANGFUSE_GENERATION = "Langfuse Generation"
+
 
 class DocumentSubTypes(StrEnum):
     # Documents that stand for a folder in the source system, matching the value
@@ -234,6 +242,9 @@ class DataFlowSubTypes(StrEnum):
     SAP_TASK_CHAIN = "Task Chain"
     # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
     KINESIS_FIREHOSE_STREAM = "Firehose Stream"
+    # Microsoft Fabric — a notebook modelled as its own pipeline (DataFlow), with
+    # its Spark executions as DataJobs rolling up to it.
+    FABRIC_SPARK_PIPELINE = "Fabric Spark Pipeline"
 
 
 class DataJobSubTypes(StrEnum):
@@ -289,6 +300,9 @@ class DataJobSubTypes(StrEnum):
     FABRIC_EXECUTE_SSIS_PACKAGE = "Execute SSIS Package"
     FABRIC_KQL_ACTIVITY = "KQL Activity"
     FABRIC_TRIDENT_NOTEBOOK = "Trident Notebook"
+    # A Fabric notebook's executed Spark application, rolled up to the notebook
+    # pipeline (DataFlow). Carries the Spark-plan table lineage.
+    FABRIC_SPARK_JOB = "Fabric Spark Job"
     FABRIC_OFFICE365_EMAIL = "Office 365 Email"
     FABRIC_EMAIL_ACTIVITY = "Email Activity"
     FABRIC_TEAMS_ACTIVITY = "Teams Activity"

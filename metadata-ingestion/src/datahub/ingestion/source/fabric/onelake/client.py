@@ -2,7 +2,8 @@
 
 import logging
 import time
-from typing import Callable, Dict, Iterator, Optional, Tuple, TypeVar
+from datetime import datetime
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, TypeVar
 
 import requests
 
@@ -12,10 +13,13 @@ from datahub.ingestion.source.fabric.common.auth import (
 )
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
 from datahub.ingestion.source.fabric.common.models import (
+    FabricJobInstance,
+    FabricSparkSession,
     FabricWorkspace,
     item_owner_user_principal_name,
     sensitivity_label_id,
 )
+from datahub.ingestion.source.fabric.common.utils import parse_iso_datetime
 from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricLakehouse,
@@ -35,11 +39,20 @@ ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
 # no `next_page_token` is returned.
 ONELAKE_CATALOG_PAGE_SIZE = 1000
 
+# The HTTP errors this module logs carry their status and operation, not the
+# response body: an error body can echo request details. BaseFabricClient.get
+# still logs the body on the same path (a shared fix is pending), so the probe
+# silences that logger.
+
 # getDefinition is a long-running operation: 202 plus a status poll. Cap each
 # sleep so a large Retry-After cannot stall the run indefinitely, and allow
 # the operation longer than a single HTTP timeout.
 _LRO_POLL_SLEEP_CAP_SEC = 15
 _LRO_MIN_DEADLINE_SEC = 120
+
+# The Spark History Server SQL endpoint returns a bare array and defaults to 20
+# executions; page through it explicitly so late write executions aren't lost.
+_SPARK_SQL_PAGE_SIZE = 100
 
 
 class OneLakeClient(BaseFabricClient):
@@ -306,6 +319,127 @@ class OneLakeClient(BaseFabricClient):
                 delay = 2
             time.sleep(min(delay, _LRO_POLL_SLEEP_CAP_SEC))
 
+    def get_notebook_runs(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        lookback_window_start: datetime,
+    ) -> List[FabricJobInstance]:
+        """Fetch notebook job instances within the lookback window.
+
+        Uses the generic Job Scheduler list_item_job_instances(), which returns
+        runs newest-first. Stops as soon as a run's startTimeUtc falls before
+        the window, avoiding unnecessary pages.
+
+        Args:
+            workspace_id: Workspace GUID
+            notebook_id: Notebook item GUID
+            lookback_window_start: Cutoff datetime (UTC); older runs are excluded.
+
+        Returns:
+            List of FabricJobInstance within the lookback window.
+        """
+        runs: List[FabricJobInstance] = []
+        for job_instance in self.list_item_job_instances(workspace_id, notebook_id):
+            if job_instance.start_time_utc:
+                run_start = parse_iso_datetime(job_instance.start_time_utc)
+                if run_start < lookback_window_start:
+                    break
+            runs.append(job_instance)
+        return runs
+
+    def list_notebook_spark_sessions(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        lookback_window_start: datetime,
+    ) -> List[FabricSparkSession]:
+        """List Spark (Livy) sessions for a notebook within the lookback window.
+
+        Unlike the Job Scheduler ``jobs/instances`` endpoint, this reports every
+        Spark application that ran the notebook - including pipeline-triggered
+        runs - and exposes each run's Spark History Server application id.
+
+        Reference: https://learn.microsoft.com/en-us/rest/api/fabric/spark/livy-sessions
+        """
+        endpoint = f"workspaces/{workspace_id}/notebooks/{notebook_id}/livySessions"
+        sessions: List[FabricSparkSession] = []
+        for data in self._paginate(endpoint):
+            application_id = data.get("sparkApplicationId")
+            livy_id = data.get("livyId")
+            if not application_id or not livy_id:
+                continue
+            start = data.get("startDateTime")
+            if start and parse_iso_datetime(start) < lookback_window_start:
+                continue
+            item = data.get("item") or {}
+            sessions.append(
+                FabricSparkSession(
+                    livy_id=livy_id,
+                    application_id=application_id,
+                    item_id=item.get("itemId", notebook_id),
+                    state=data.get("state"),
+                    start_time_utc=start,
+                    end_time_utc=data.get("endDateTime"),
+                )
+            )
+        return sessions
+
+    def get_spark_sql_plans(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        livy_id: str,
+        application_id: str,
+    ) -> List[str]:
+        """Return the physical plan text of each SQL execution in a Spark run.
+
+        Proxies the Spark History Server SQL API, whose executions carry a
+        ``planDescription`` listing the resolved ``abfss://`` paths read and
+        written. The endpoint returns a bare JSON array, not a paged envelope,
+        and defaults to only the first 20 executions - so it must be paged
+        explicitly via ``offset``/``length``. Table writes typically run late
+        in a notebook, so a truncated fetch sees the reads but misses the
+        writes (hence lineage with inputs but no outputs).
+
+        Plans are returned in chronological execution order (ascending SQL
+        execution ``id``). Lineage attribution is order-aware - a write is
+        credited with the tables read earlier in the same run - so the API's
+        own ordering (newest-first, and sliced across pages) must be normalized
+        here before the plans are consumed.
+        """
+        endpoint = (
+            f"workspaces/{workspace_id}/notebooks/{notebook_id}"
+            f"/livySessions/{livy_id}/applications/{application_id}/sql"
+        )
+        executions: List[Tuple[int, str]] = []
+        offset = 0
+        while True:
+            data = self.get(
+                endpoint,
+                params={
+                    "offset": str(offset),
+                    "length": str(_SPARK_SQL_PAGE_SIZE),
+                },
+            ).json()
+            if not isinstance(data, list) or not data:
+                break
+            for execution in data:
+                if not isinstance(execution, dict) or not execution.get(
+                    "planDescription"
+                ):
+                    continue
+                # `id` is the monotonic SQL execution id; fall back to append
+                # order when absent so a plan is never silently dropped.
+                exec_id = execution.get("id")
+                order = exec_id if isinstance(exec_id, int) else len(executions)
+                executions.append((order, execution["planDescription"]))
+            if len(data) < _SPARK_SQL_PAGE_SIZE:
+                break
+            offset += _SPARK_SQL_PAGE_SIZE
+        executions.sort(key=lambda item: item[0])
+        return [plan for _, plan in executions]
+
     def _is_lakehouse_schemas_enabled(
         self, workspace_id: str, lakehouse_id: str
     ) -> bool:
@@ -413,7 +547,8 @@ class OneLakeClient(BaseFabricClient):
             workspace_id: Workspace GUID
             item_id: Lakehouse or Warehouse GUID
             item_label: Used in log messages
-            missing_ok: When True, a 404 yields nothing instead of failing
+            missing_ok: A 404 is expected for this item, so it is re-raised for
+                the caller without being counted or logged as an error
 
         Yields:
             Schema names
@@ -438,14 +573,10 @@ class OneLakeClient(BaseFabricClient):
 
         except requests.exceptions.HTTPError as e:
             if missing_ok and e.response is not None and e.response.status_code == 404:
-                logger.warning(
-                    f"{item_label.capitalize()} {item_id} has no OneLake schema catalog "
-                    "(404). Tables will not be listed for this item."
-                )
-                return
+                raise
             self.report.report_error()
             logger.error(
-                f"HTTP error {e.response.status_code} listing schemas for {item_label} {item_id}: {e.response.text}"
+                f"HTTP error {e.response.status_code} listing schemas for {item_label} {item_id}"
             )
             raise
         except Exception as e:
@@ -502,7 +633,7 @@ class OneLakeClient(BaseFabricClient):
         except requests.exceptions.HTTPError as e:
             self.report.report_error()
             logger.error(
-                f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for {item_label} {item_id}: {e.response.text}"
+                f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for {item_label} {item_id}"
             )
             raise
         except Exception as e:
@@ -513,7 +644,11 @@ class OneLakeClient(BaseFabricClient):
             raise
 
     def list_lakehouse_tables(
-        self, workspace_id: str, lakehouse_id: str
+        self,
+        workspace_id: str,
+        lakehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
     ) -> Iterator[FabricTable]:
         """List all tables in a lakehouse.
 
@@ -528,6 +663,8 @@ class OneLakeClient(BaseFabricClient):
         Args:
             workspace_id: Workspace GUID
             lakehouse_id: Lakehouse GUID
+            on_degraded: Told when a refused listing is returned as empty, so
+                a caller that must not mistake that for "no tables" can say so.
 
         Yields:
             FabricTable objects
@@ -555,10 +692,20 @@ class OneLakeClient(BaseFabricClient):
                 if e.response.status_code in (401, 403):
                     logger.warning(
                         f"OneLake Delta Table APIs require additional permissions or different authentication. "
-                        f"Unable to list tables for schemas-enabled lakehouse {lakehouse_id}. "
-                        f"Error: {e.response.text}. "
+                        f"Unable to list tables for schemas-enabled lakehouse {lakehouse_id} "
+                        f"(HTTP {e.response.status_code}). "
                         f"Please ensure your identity has 'Lakehouse.Read.All' or 'Lakehouse.ReadWrite.All' permissions."
                     )
+                    if on_degraded is not None:
+                        # Status and operation only: the response body can
+                        # echo request details.
+                        on_degraded(
+                            f"OneLake table API returned HTTP "
+                            f"{e.response.status_code} for schemas-enabled lakehouse "
+                            f"{lakehouse_id}, so its table list may be partial or "
+                            f"empty. The identity needs Lakehouse.Read.All (or "
+                            f"ReadWrite.All)."
+                        )
                     # Return empty iterator instead of raising
                     return
                 else:
@@ -638,7 +785,7 @@ class OneLakeClient(BaseFabricClient):
                 else:
                     self.report.report_error()
                     logger.error(
-                        f"HTTP error {e.response.status_code} listing tables for lakehouse {lakehouse_id}: {e.response.text}"
+                        f"HTTP error {e.response.status_code} listing tables for lakehouse {lakehouse_id}"
                     )
                     raise
             except Exception as e:
@@ -699,7 +846,11 @@ class OneLakeClient(BaseFabricClient):
         return data.get("displayName") or None
 
     def list_warehouse_tables(
-        self, workspace_id: str, warehouse_id: str
+        self,
+        workspace_id: str,
+        warehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
     ) -> Iterator[FabricTable]:
         """List all tables in a warehouse via the OneLake Delta Table APIs.
 
@@ -717,6 +868,8 @@ class OneLakeClient(BaseFabricClient):
         Args:
             workspace_id: Workspace GUID
             warehouse_id: Warehouse GUID
+            on_degraded: Told when a 404 is returned as empty, so a caller
+                that must not mistake that for "no tables" can say so.
 
         Yields:
             FabricTable objects
@@ -741,6 +894,26 @@ class OneLakeClient(BaseFabricClient):
                     schema_name,
                     item_label="warehouse",
                 )
+
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                logger.warning(
+                    f"Warehouse {warehouse_id} has no OneLake schema catalog (404). "
+                    "Some warehouse types (e.g. staging) do not expose tables via API."
+                )
+                if on_degraded is not None:
+                    on_degraded(
+                        f"warehouse {warehouse_id} OneLake catalog returned HTTP 404; "
+                        f"some warehouse types (e.g. staging) expose no tables via API"
+                    )
+                return
+            status = e.response.status_code if e.response is not None else None
+            logger.error(
+                f"HTTP error {status} listing tables for warehouse {warehouse_id}"
+            )
+            raise
         except Exception as e:
-            logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
+            logger.error(
+                f"Failed to list tables for warehouse {warehouse_id} ({type(e).__name__})"
+            )
             raise

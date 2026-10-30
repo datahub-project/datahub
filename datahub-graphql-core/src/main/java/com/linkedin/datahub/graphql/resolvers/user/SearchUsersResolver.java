@@ -49,7 +49,7 @@ public class SearchUsersResolver implements DataFetcher<CompletableFuture<Search
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment)
       throws Exception {
-    final QueryContext context = environment.getContext();
+    final QueryContext context = getQueryContext(environment);
 
     if (!AuthorizationUtils.canManageUsersAndGroups(context)) {
       throw new AuthorizationException("Unauthorized to list users and groups.");

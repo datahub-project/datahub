@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { FetchStatus, LineageEntity, createEntityRef } from '@app/lineageV3/common';
 import { FetchedEntityV2, LineageAsset, LineageAssetType } from '@app/lineageV3/types';
 import getFineGrainedLineage, { schemaFieldExists } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
+
+const entityRegistry = getTestEntityRegistry();
 
 describe('schemaFieldExists', () => {
     it('should return false when node does not exist in nodes map', () => {
@@ -350,7 +353,8 @@ describe('getFineGrainedLineage', () => {
     }
 
     function run(nodes: Map<string, LineageEntity>) {
-        return getFineGrainedLineage({ nodes, edges: new Map(), rootType: EntityType.Dataset }).indirect;
+        return getFineGrainedLineage({ nodes, edges: new Map(), rootType: EntityType.Dataset }, entityRegistry)
+            .indirect;
     }
 
     function columnEdge(fromUrn: string, fromField: string, toUrn: string, toField: string) {

@@ -1,6 +1,6 @@
-import { Pill } from '@components';
 import React from 'react';
 
+import { Pill } from '@components/components/Pills';
 import { ActionButtonsContainer, LabelsWrapper, SelectValue } from '@components/components/Select/components';
 import { SelectLabelVariantProps, SelectOption } from '@components/components/Select/types';
 

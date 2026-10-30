@@ -371,6 +371,27 @@ For each notebook that passes the pattern, the connector calls `POST /workspaces
 
 The caller needs `Workspace.Read.All` or `Workspace.ReadWrite.All`.
 
+##### Notebook Execution: Lineage and Run History
+
+`include_notebook_execution` (off by default, requires `include_notebooks: true`) also models each notebook as a **pipeline**: one DataFlow per notebook (subtype "Fabric Spark Pipeline"), and under it one Spark-job DataJob (subtype "Fabric Spark Job") **per table the notebook writes**. Each job carries that output table's own upstreams, so lineage renders as `input → [job] → output` — precise table-to-table edges with the notebook transformation attributed, not one job with a cross-product of every table the notebook ever read and wrote. When one output table is itself an input to another output table's job in the same notebook, the two jobs are chained **job → job**. The lineage lives on the jobs, not the notebook dataset, so the notebook's code and its lineage (process) stay cleanly separated. It emits two things from the notebook's run history over `notebook_execution_history_days` (default 7): table-level **lineage** on the per-output jobs, and a **run history** of `DataProcessInstance`s on those jobs.
+
+**Lineage.** Fabric exposes no API that lists the tables a notebook reads or writes, and the source text hides them when paths are built at run time (e.g. `spark.read.format("delta").load(f"{source}{table}")` or `DeltaTable.forPath(spark, target)`). So the connector reads the **resolved Spark physical plans** of each run instead: for every run in the window it fetches the run's SQL executions from the Spark monitoring API (`livySessions` + the Spark History Server SQL API) and extracts the `abfss://` OneLake table paths actually read and written. Attribution is **order-aware within a run**: a notebook usually reads a table in one Spark execution and writes a derived table in a later execution whose plan references a cached relation rather than the source path, so each written table is credited with the tables read earlier in the same run (the read set resets after each write). This keeps independent, sequential pipelines precise instead of collapsing a run into a cross-product, and recovers read-then-write edges that span executions. Those paths map directly to the GUID-based dataset URNs the connector emits. Because a notebook may apply only specific cells on a given run, lineage is **accumulated across all of the notebook's runs** in the window, giving a complete picture over time. Only edges to tables ingested in the same run are kept; GUID-built URNs that do not match an ingested table, and internal Spark scratch paths (shuffle, lakehouse-warmup), are dropped.
+
+**Run history.** A Fabric run executes the whole notebook (the Job Scheduler reports one status per run, not per table), so for each run in the window the connector emits a `DataProcessInstance` on each of the notebook's per-output jobs — the whole-notebook run is recorded against every job it contains, falling back to the DataFlow only when a run resolved no per-table lineage — read from the Job Scheduler `GET /workspaces/{id}/items/{itemId}/jobs/instances` API. Each instance records start/end time and the run result (success / failure / skipped).
+
+Because lineage is only accumulated over the runs within the window, a full re-state would drop an edge once its run ages out of `notebook_execution_history_days`. Set `incremental_lineage: true` to emit each job's lineage as an additive patch instead: parsed edges are added to whatever is already in DataHub (including manually added edges), so lineage accumulates across ingestions rather than being replaced each run.
+
+This makes extra API calls per notebook run, so it is slower than table/view extraction alone.
+
+```yaml
+source:
+  type: fabric-onelake
+  config:
+    include_notebooks: true
+    include_notebook_execution: true
+    notebook_execution_history_days: 7
+```
+
 #### Profiling
 
 When `profiling.enabled` is `true`, the connector profiles each ingested table through that item's SQL Analytics Endpoint. The connection is `mssql+pyodbc` with the Microsoft ODBC Driver for SQL Server, and the statistics are computed by the same SQLAlchemy profiler the `mssql-odbc` source uses. Profiles are attached to the Fabric dataset URN, not a separate SQL Server dataset.
@@ -378,6 +399,54 @@ When `profiling.enabled` is `true`, the connector profiles each ingested table t
 `profile_pattern` filters tables as `schema.table` and columns as `schema.table.column`, the same way `mssql-odbc` does. Column metrics (`include_field_null_count`, `include_field_distinct_count`, min/max/mean/median/stddev, quantiles, histograms, distinct value frequencies, and sample values), `profile_table_level_only`, `query_combiner_enabled`, and `max_workers` all apply. Set `turn_off_expensive_profiling_metrics` to skip quantiles, histograms, frequencies, and sample values.
 
 `profiling.enabled` requires `sql_endpoint.enabled=true`.
+
+#### Probe support
+
+`datahub recipe probe` lists what the recipe's credential can see and judges it
+the way ingestion will, without running an ingestion. Commands take display
+names, which every `*_pattern` matches, and also accept GUIDs (the ids in
+DataHub URNs). `datahub recipe probe methods --recipe recipe.yml` lists every
+command and its parameters.
+
+```bash
+datahub recipe probe run workspaces --recipe recipe.yml
+datahub recipe probe run tables --recipe recipe.yml \
+  --workspace sales-ws --item lh_main --schema dbo
+datahub recipe probe filter --recipe recipe.yml --kind Table \
+  --parent sales-ws --parent lh_main --parent dbo --name orders
+```
+
+- `workspaces`, `lakehouses` and `warehouses` return each item's `name` and
+  `id`. `schemas`, `tables` and `views` return names, and `columns`,
+  `view_definition` and `sql_endpoint` describe one object.
+- Tables of a schemas-disabled lakehouse are under `dbo`. `table_pattern` and
+  `view_pattern` match `<schema>.<name>`.
+- Pass `--item-type Lakehouse` or `--item-type Warehouse` only when a lakehouse
+  and a warehouse share a name.
+- A table or view verdict applies `schema_pattern` and `table_pattern` or
+  `view_pattern`. It does not apply `lakehouse_pattern`, `warehouse_pattern` or
+  `workspace_pattern`, because a parent path cannot say whether the item is a
+  lakehouse or a warehouse, and the result carries a warning saying so. Judge
+  those levels with `--kind "Fabric Lakehouse"`, `--kind "Fabric Warehouse"` or
+  `--kind "Fabric Workspace"`.
+- `extract_lakehouses`, `extract_warehouses` and `extract_views` set to `false`
+  are reported as the reason a lakehouse, warehouse or view is excluded.
+- `probe filter --kind "Fabric Schema"` does not model `extract_schemas: false`:
+  ingestion then emits no schema containers, but `schema_pattern` still filters
+  the tables, so the verdict still applies to them.
+- Address workspaces and items by display name when a listing feeds
+  `probe filter --from-run`. A GUID works for `probe run`, but the listing's
+  parent path then carries the GUID, and patterns match display names. The
+  result warns when this happens.
+- `views`, `columns` and `view_definition` connect to the item's SQL Analytics
+  Endpoint. They need `sql_endpoint.enabled: true` and the ODBC driver on the
+  machine running the probe. `sql_endpoint` makes REST calls only, and reports
+  the endpoint host ingestion would connect to.
+- An empty `tables` result with a warning means the listing was refused (HTTP
+  403 on a schemas-enabled lakehouse, or 404 on a staging warehouse). It does
+  not mean there are no tables. Ingestion skips these items silently.
+- The probe reads metadata only: no rows, no `queryinsights` query history, and
+  no item definitions.
 
 ### Limitations
 

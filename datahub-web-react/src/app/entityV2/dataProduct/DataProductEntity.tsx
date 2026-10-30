@@ -11,7 +11,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/dataProduct/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfileTab } from '@app/entityV2/shared/constants';
+import { EntityProfileTab, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
@@ -174,16 +174,19 @@ export class DataProductEntity implements Entity<DataProduct> {
             {
                 id: EntityProfileTab.SUMMARY_TAB,
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: SummaryTab,
                 icon: BookOpen,
             },
             {
                 name: i18next.t('entity.types:tab.outputPorts'),
+                path: EntityTabPath.OUTPUT_PORTS,
                 component: OutputPortsTab,
                 icon: OutputPortsTabIcon,
             },
             {
                 name: i18next.t('entity.types:tab.assets'),
+                path: EntityTabPath.ASSETS,
                 getCount: (entityData, _) => {
                     return entityData?.entities?.total;
                 },
@@ -192,6 +195,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 // Data products show the explorer only, without the impact analysis tab — as data flows do
                 component: DAGTab,
                 icon: TreeStructure,
@@ -203,6 +207,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },

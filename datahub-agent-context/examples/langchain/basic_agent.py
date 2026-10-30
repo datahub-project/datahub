@@ -189,10 +189,9 @@ async def main() -> None:
     print(f"{DIM}Connecting to AWS Bedrock ({aws_region})...{RESET}")
 
     model = ChatBedrockConverse(
-        model="us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        model="us.anthropic.claude-haiku-5-5",
         region_name=aws_region,
         max_tokens=4096,
-        temperature=0,
     )
 
     system_prompt = """You are a helpful data discovery assistant with access to DataHub.
