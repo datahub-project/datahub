@@ -42,7 +42,12 @@ export const AssetsSection = () => {
             input: {
                 types: [],
                 query: '',
-                orFilters: [{ and: [{ field: 'applications', values: [urn] }] }],
+                // Same membership as the Assets tab: assets assigned to this Application, plus child
+                // Applications linked through their own parentApplication.
+                orFilters: [
+                    { and: [{ field: 'applications', values: [urn] }] },
+                    { and: [{ field: 'parentApplication', values: [urn] }] },
+                ],
                 // Facets/total only — do not fetch result cards (avoids per-result lineage/health/stats fan-out).
                 count: 0,
             },

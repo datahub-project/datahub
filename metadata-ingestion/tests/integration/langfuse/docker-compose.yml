@@ -10,14 +10,13 @@ services:
   langfuse-worker:
     image: docker.langfuse.com/langfuse/langfuse-worker:4
     restart: unless-stopped
-    depends_on: &langfuse-depends-on
-      postgres:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      clickhouse:
+    # The web container runs the Postgres migrations; the worker does not. The
+    # worker loads Langfuse's default model prices once at startup and only logs
+    # an error if the tables are missing, so a worker that starts before the
+    # migrations finish computes no cost for any generation. Wait until web is
+    # healthy, which happens only after its entrypoint has migrated.
+    depends_on:
+      langfuse-web:
         condition: service_healthy
     environment: &langfuse-worker-env
       NEXTAUTH_URL: http://localhost:3211
@@ -54,7 +53,22 @@ services:
   langfuse-web:
     image: docker.langfuse.com/langfuse/langfuse:4
     restart: unless-stopped
-    depends_on: *langfuse-depends-on
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    # The server binds to $HOSTNAME (the container's address), not localhost.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://$$HOSTNAME:3000/api/public/health || exit 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+      start_period: 5s
     ports:
       - 127.0.0.1:3211:3000
     environment:

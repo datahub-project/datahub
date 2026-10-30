@@ -15,6 +15,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
@@ -65,7 +66,10 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -2539,6 +2543,45 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             "urn:li:dataset:(urn:li:dataPlatform:hdfs,valid2,PROD)"));
     // The reported total still reflects what the search engine matched.
     assertEquals(result.getNumEntities().intValue(), 3);
+  }
+
+  @Test
+  public void testScrollIdWithPitCarriesExpirationAndNextPageReusesPit() {
+    // Sliced scrolls create a PIT even when pointInTimeCreationEnabled is false, so the caller
+    // passes supportsPointInTime=false. The scrollId must still carry an expiration, or the next
+    // page opens a new PIT and leaks the previous one.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(2L, TotalHits.Relation.EQUAL_TO));
+    SearchHit hit = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,a,PROD)");
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {hit});
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+
+    ScrollResult result =
+        handler.extractScrollResult(operationContext, mockResponse, null, "5m", 1, false);
+
+    SearchAfterWrapper wrapper = SearchAfterWrapper.fromScrollId(result.getScrollId());
+    assertEquals(wrapper.getPitId(), "test-pit-id");
+    assertTrue(wrapper.getExpirationTime() > System.currentTimeMillis());
+
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    assertEquals(
+        ESUtils.computePointInTime(
+            operationContext, result.getScrollId(), "5m", client, "test-index"),
+        "test-pit-id");
+    verifyNoInteractions(client);
   }
 
   @Test

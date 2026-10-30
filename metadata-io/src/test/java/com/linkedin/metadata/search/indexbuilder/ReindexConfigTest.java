@@ -2448,4 +2448,137 @@ public class ReindexConfigTest {
     Assert.assertFalse(config.requiresMappingReconciliation());
     Assert.assertFalse(config.requiresReindex());
   }
+
+  // Versioned structured properties as each side really sees them: the mappings builder emits the
+  // field under one dotted key, Elasticsearch returns it as nested objects under "properties".
+  private static final String VERSIONED_NAME = "logicalDatasetBusinessName";
+  private static final String VERSION = "10000000000000";
+  private static final Map<String, Object> KEYWORD_FIELD =
+      ImmutableMap.of(
+          "type", "keyword",
+          "normalizer", "keyword_normalizer",
+          "fields", ImmutableMap.of("keyword", ImmutableMap.of("type", "keyword")));
+
+  private static Map<String, Object> builderVersionedMappings(
+      String name, Map<String, Object> field) {
+    return structuredPropertyContainer(
+        ImmutableMap.of(String.join(".", "_versioned", name, VERSION, "string"), field));
+  }
+
+  private static Map<String, Object> elasticsearchVersionedMappings(
+      String name, Map<String, Object> field) {
+    return structuredPropertyContainer(
+        ImmutableMap.of(
+            "_versioned",
+            ImmutableMap.of(
+                "properties",
+                ImmutableMap.of(
+                    name,
+                    ImmutableMap.of(
+                        "properties",
+                        ImmutableMap.of(
+                            VERSION,
+                            ImmutableMap.of("properties", ImmutableMap.of("string", field))))))));
+  }
+
+  private static Map<String, Object> structuredPropertyContainer(Map<String, Object> properties) {
+    return ImmutableMap.of(
+        "properties",
+        ImmutableMap.of(
+            STRUCTURED_PROPERTY_MAPPING_FIELD,
+            ImmutableMap.of("type", "object", "dynamic", false, "properties", properties)));
+  }
+
+  private static ReindexConfig versionedConfig(
+      Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
+    return ReindexConfig.builder()
+        .name(TEST_INDEX_NAME)
+        .exists(true)
+        .currentMappings(currentMappings)
+        .targetMappings(targetMappings)
+        .currentSettings(Settings.EMPTY)
+        .targetSettings(new HashMap<>())
+        .enableIndexMappingsReindex(true)
+        .enableStructuredPropertiesReindex(true)
+        .enableStructuredPropertyTypeMismatchReindex(true)
+        .enableStructuredPropertyCopyToMismatchReindex(true)
+        .build();
+  }
+
+  @Test
+  void testUnchangedVersionedStructuredPropertyDoesNotRequireReindex() {
+    ReindexConfig config =
+        versionedConfig(
+            elasticsearchVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD),
+            builderVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD));
+
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertFalse(config.hasNewStructuredProperty());
+    Assert.assertFalse(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertFalse(config.hasStructuredPropertyCopyToMismatch());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testTextMappedVersionedStructuredPropertyRequiresReindex() {
+    Map<String, Object> dynamicText =
+        ImmutableMap.of(
+            "type",
+            "text",
+            "fields",
+            ImmutableMap.of("keyword", ImmutableMap.of("type", "keyword", "ignore_above", 256)));
+
+    ReindexConfig config =
+        versionedConfig(
+            elasticsearchVersionedMappings(VERSIONED_NAME, dynamicText),
+            builderVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD));
+
+    Assert.assertTrue(config.hasStructuredPropertyTypeMismatch());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testVersionedStructuredPropertyCopyToMismatchRequiresReindex() {
+    Map<String, Object> withCopyTo = new HashMap<>(KEYWORD_FIELD);
+    withCopyTo.put("copy_to", List.of("customFullTextSearchFields"));
+
+    ReindexConfig config =
+        versionedConfig(
+            elasticsearchVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD),
+            builderVersionedMappings(VERSIONED_NAME, withCopyTo));
+
+    Assert.assertTrue(config.hasStructuredPropertyCopyToMismatch());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testRemovedVersionedStructuredPropertyRequiresReindex() {
+    ReindexConfig config =
+        versionedConfig(
+            elasticsearchVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD),
+            structuredPropertyContainer(ImmutableMap.of()));
+
+    Assert.assertTrue(config.hasRemovedStructuredProperty());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testNewVersionedStructuredPropertyIsAppliedInPlace() {
+    ReindexConfig config =
+        versionedConfig(
+            elasticsearchVersionedMappings(VERSIONED_NAME, KEYWORD_FIELD),
+            structuredPropertyContainer(
+                ImmutableMap.of(
+                    String.join(".", "_versioned", VERSIONED_NAME, VERSION, "string"),
+                    KEYWORD_FIELD,
+                    String.join(".", "_versioned", "otherProperty", VERSION, "string"),
+                    KEYWORD_FIELD)));
+
+    Assert.assertTrue(config.hasNewStructuredProperty());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertTrue(config.isPureStructuredPropertyAddition());
+    Assert.assertFalse(config.requiresReindex());
+  }
 }
