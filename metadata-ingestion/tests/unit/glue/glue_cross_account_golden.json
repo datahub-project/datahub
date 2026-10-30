@@ -119,81 +119,111 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.normal-table,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.normal-table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466682,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.normal-table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "classification": "parquet",
+                "Location": "s3://test-db-123412341234/normal-table",
+                "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+                "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+                "Compressed": "False",
+                "NumberOfBuckets": "0",
+                "SerdeInfo": "{'Parameters': {'serialization.format': '1'}, 'SerializationLibrary': 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'}",
+                "SortColumns": "[]",
+                "StoredAsSubDirectories": "False"
+            },
+            "name": "normal-table",
+            "qualifiedName": "arn:aws:glue:us-east-1:123412341234:table/mixed-database/normal-table",
+            "created": {
+                "time": 1623248059000
+            },
+            "lastModified": {
+                "time": 1623248059000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466682,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.normal-table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "mixed-database.normal-table",
+            "platform": "urn:li:dataPlatform:glue",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "classification": "parquet",
-                            "Location": "s3://test-db-123412341234/normal-table",
-                            "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
-                            "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
-                            "Compressed": "False",
-                            "NumberOfBuckets": "0",
-                            "SerdeInfo": "{'Parameters': {'serialization.format': '1'}, 'SerializationLibrary': 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'}",
-                            "SortColumns": "[]",
-                            "StoredAsSubDirectories": "False"
-                        },
-                        "name": "normal-table",
-                        "qualifiedName": "arn:aws:glue:us-east-1:123412341234:table/mixed-database/normal-table",
-                        "created": {
-                            "time": 1623248059000
-                        },
-                        "lastModified": {
-                            "time": 1623248059000
-                        },
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "mixed-database.normal-table",
-                        "platform": "urn:li:dataPlatform:glue",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[type=long].id",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "bigint",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:glue",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)"
-                    }
+                    "fieldPath": "[version=2.0].[type=long].id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466682,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.normal-table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)"
         }
     },
     "systemMetadata": {
@@ -284,92 +314,122 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466684,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "shared-transactions",
+            "qualifiedName": "arn:aws:glue:us-east-1:123412341234:table/mixed-database/shared-transactions",
+            "created": {
+                "time": 1623248059000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466684,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "mixed-database.shared-transactions",
+            "platform": "urn:li:dataPlatform:glue",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "fieldPath": "[version=2.0].[type=long].txn_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "name": "shared-transactions",
-                        "qualifiedName": "arn:aws:glue:us-east-1:123412341234:table/mixed-database/shared-transactions",
-                        "created": {
-                            "time": 1623248059000
-                        },
-                        "tags": []
-                    }
+                    "fieldPath": "[version=2.0].[type=double].amount",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "mixed-database.shared-transactions",
-                        "platform": "urn:li:dataPlatform:glue",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[type=long].txn_id",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "bigint",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=double].amount",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "double",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=string].currency",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:glue",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)"
-                    }
+                    "fieldPath": "[version=2.0].[type=string].currency",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1783586466684,
+        "runId": "glue-source-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_domain.mixed-database.shared-transactions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,consumer_domain)"
         }
     },
     "systemMetadata": {

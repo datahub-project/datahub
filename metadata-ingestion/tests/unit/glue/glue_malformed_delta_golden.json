@@ -119,56 +119,86 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.delta-database.delta_table_1,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.delta-database.delta_table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1773134921668,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.delta-database.delta_table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "spark.sql.sources.provider": "delta",
+                "spark.sql.sources.schema.numParts": "1",
+                "spark.sql.sources.schema.part.0": "this is totally wrong!",
+                "Location": "s3://crawler-public-us-west-2/delta/"
+            },
+            "name": "delta_table_1",
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/delta-database/delta_table_1",
+            "created": {
+                "time": 1623248255000
+            },
+            "lastModified": {
+                "time": 1623248255000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1773134921668,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.delta-database.delta_table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,delta_platform_instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1773134921668,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.delta-database.delta_table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "spark.sql.sources.provider": "delta",
-                            "spark.sql.sources.schema.numParts": "1",
-                            "spark.sql.sources.schema.part.0": "this is totally wrong!",
-                            "Location": "s3://crawler-public-us-west-2/delta/"
-                        },
-                        "name": "delta_table_1",
-                        "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/delta-database/delta_table_1",
-                        "created": {
-                            "time": 1623248255000
-                        },
-                        "lastModified": {
-                            "time": 1623248255000
-                        },
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
-                        "platform": "urn:li:dataPlatform:glue",
-                        "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,delta_platform_instance)"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:owner",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpuser:owner",
+                    "type": "DATAOWNER"
                 }
-            ]
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
