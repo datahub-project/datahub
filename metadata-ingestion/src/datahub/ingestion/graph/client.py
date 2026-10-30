@@ -601,7 +601,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     )
             return usage_aspects
         except Exception as e:
-            logger.error("Error while getting usage aspects.", e)
+            logger.error("Error while getting usage aspects: %s", e)
         return None
 
     def list_all_entity_urns(
@@ -625,7 +625,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             json_resp = response.json()
             return json_resp.get("value", {}).get("entities")
         except Exception as e:
-            logger.error("Error while fetching entity urns.", e)
+            logger.error("Error while fetching entity urns: %s", e)
             return None
 
     def get_latest_timeseries_value(

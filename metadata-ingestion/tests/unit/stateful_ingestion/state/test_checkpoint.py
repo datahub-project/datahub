@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import Dict, List
 
@@ -206,3 +207,20 @@ def test_state_forward_compatibility(serde: str) -> None:
     )
 
     _assert_checkpoint_deserialization(checkpoint_state, expected_next_state)
+
+
+def test_to_checkpoint_aspect_logs_error_when_state_too_large(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    checkpoint = Checkpoint(
+        job_name=test_job_name,
+        pipeline_name=test_pipeline_name,
+        run_id=test_run_id,
+        state=_make_sql_alchemy_checkpoint_state(),
+    )
+
+    with caplog.at_level(logging.ERROR):
+        assert checkpoint.to_checkpoint_aspect(max_allowed_state_size=1) is None
+
+    assert "Failed to construct the checkpoint aspect" in caplog.text
+    assert "exceeded the max_allowed_state_size of 1" in caplog.text

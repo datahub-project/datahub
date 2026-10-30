@@ -203,7 +203,8 @@ class Checkpoint(Generic[StateType]):
             return checkpoint_aspect
         except Exception as e:
             logger.error(
-                "Failed to construct the checkpoint aspect from checkpoint object", e
+                "Failed to construct the checkpoint aspect from checkpoint object: %s",
+                e,
             )
 
         return None
