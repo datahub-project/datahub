@@ -109,6 +109,7 @@ def _notebook_source(
     pattern: AllowDenyPattern,
     include_source: bool = True,
     content: str = "print('hello')\n",
+    part_path: str = "notebook-content.py",
 ) -> tuple[MagicMock, FabricWorkspace, FabricNotebook]:
     source = MagicMock()
     source.config.include_notebooks = True
@@ -132,9 +133,7 @@ def _notebook_source(
     )
     source.client.list_folders.return_value = {"folder-shared": ("Shared", None)}
     source.client.list_notebooks.return_value = iter([notebook])
-    source.client.get_notebook_definition.return_value = _definition(
-        "notebook-content.py", content
-    )
+    source.client.get_notebook_definition.return_value = _definition(part_path, content)
     return source, workspace, notebook
 
 
@@ -181,6 +180,19 @@ def test_notebook_source_is_not_emitted_by_default() -> None:
         "language": "python",
     }
     assert dataset.view_definition is None
+
+
+def test_unknown_notebook_language_is_plaintext() -> None:
+    source, workspace, _notebook = _notebook_source(
+        AllowDenyPattern.allow_all(), part_path="notebook-content.ipynb"
+    )
+    datasets = list(FabricOneLakeSource._process_notebooks(source, workspace))
+
+    dataset = datasets[0]
+    assert isinstance(dataset, Dataset)
+    assert dataset.view_definition is not None
+    assert dataset.view_definition.viewLanguage == "plaintext"
+    assert "language" not in dataset.custom_properties
 
 
 def test_notebook_source_masks_credentials() -> None:

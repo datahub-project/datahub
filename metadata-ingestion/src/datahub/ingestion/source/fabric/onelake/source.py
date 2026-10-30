@@ -737,7 +737,8 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             ViewPropertiesClass(
                 materialized=False,
                 viewLogic=scrub_text(content, set()),
-                viewLanguage=language or "text",
+                # Prism's name for unhighlighted text; "text" is not one.
+                viewLanguage=language or "plaintext",
             )
             if content and self.config.include_notebook_source
             else None
