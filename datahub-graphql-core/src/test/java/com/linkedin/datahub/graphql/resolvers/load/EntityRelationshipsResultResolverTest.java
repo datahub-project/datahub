@@ -1035,6 +1035,166 @@ public class EntityRelationshipsResultResolverTest {
   }
 
   /**
+   * When membership edges are stored in both orientations (issue #20735), an INCOMING query on a
+   * corpGroup may encounter edges where the neighbor URN is the group itself or another group. The
+   * resolver must filter out these invalid orientation edges and return only valid user members.
+   */
+  @Test
+  public void testCorpGroupIncomingMembersFiltersInvertedOrientationEdges()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:eng");
+    Urn memberUrn = Urn.createFromString("urn:li:corpuser:member");
+
+    CorpGroup groupSource = new CorpGroup();
+    groupSource.setUrn(groupUrn.toString());
+    when(mockEnv.getSource()).thenReturn(groupSource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder()
+            .graphId("membership")
+            .source(GraphSnapshotSource.GRAPH)
+            .build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.of(binding));
+
+    // Graph returns one valid member and one inverted edge (group pointing to itself)
+    when(entityGraphCache.listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(groupUrn.toString()),
+            eq(TraversalDirection.REVERSE),
+            eq(Set.of("IsMemberOfGroup")),
+            eq(1),
+            eq(0),
+            anyInt(),
+            any(ReadMode.class)))
+        .thenReturn(
+            MembershipNeighborResult.fromNeighbors(
+                List.of(
+                    new MembershipNeighborResult.Neighbor(memberUrn.toString(), "IsMemberOfGroup"),
+                    new MembershipNeighborResult.Neighbor(groupUrn.toString(), "IsMemberOfGroup")),
+                2));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput membersInput = new RelationshipsInput();
+    membersInput.setTypes(List.of("IsMemberOfGroup"));
+    membersInput.setDirection(RelationshipDirection.INCOMING);
+    membersInput.setIncludeSoftDelete(false);
+    membersInput.setStart(0);
+    membersInput.setCount(10);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(membersInput);
+
+    when(_entityService.exists(any(), eq(Set.of(memberUrn)), eq(false)))
+        .thenReturn(Set.of(memberUrn));
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    // Inverted group-to-group edge is filtered; only the user member is returned
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().size(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), memberUrn.toString());
+    assertEquals(result.getRelationships().get(0).getType(), "IsMemberOfGroup");
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  /**
+   * When membership edges are stored in both orientations (issue #20735), an OUTGOING query on a
+   * corpuser may encounter an edge pointing back to the user itself. The resolver must filter out
+   * this inverted self-edge and only return valid group entities.
+   */
+  @Test
+  public void testCorpUserOutgoingGroupsFiltersInvertedSelfEdges()
+      throws ExecutionException, InterruptedException, URISyntaxException {
+    Urn userUrn = Urn.createFromString("urn:li:corpuser:alice");
+    Urn groupUrn = Urn.createFromString("urn:li:corpGroup:dev");
+
+    CorpUser userSource = new CorpUser();
+    userSource.setUrn(userUrn.toString());
+    when(mockEnv.getSource()).thenReturn(userSource);
+
+    EntityGraphCache entityGraphCache = mock(EntityGraphCache.class);
+    EntityGraphBinding binding =
+        EntityGraphBinding.builder()
+            .graphId("membership")
+            .source(GraphSnapshotSource.GRAPH)
+            .build();
+    when(entityGraphCache.bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP))
+        .thenReturn(Optional.of(binding));
+
+    // Graph returns one valid group and one inverted edge pointing to the user itself
+    when(entityGraphCache.listRelated(
+            eq("membership"),
+            eq(GraphSnapshotSource.GRAPH),
+            eq(userUrn.toString()),
+            eq(TraversalDirection.FORWARD),
+            eq(Set.of("IsMemberOfGroup")),
+            eq(1),
+            eq(0),
+            anyInt(),
+            any(ReadMode.class)))
+        .thenReturn(
+            MembershipNeighborResult.fromNeighbors(
+                List.of(
+                    new MembershipNeighborResult.Neighbor(groupUrn.toString(), "IsMemberOfGroup"),
+                    new MembershipNeighborResult.Neighbor(userUrn.toString(), "IsMemberOfGroup")),
+                2));
+
+    QueryContext queryContext = getMockAllowContext();
+    OperationContext baseContext = queryContext.getOperationContext();
+    OperationContext opContext =
+        baseContext.toBuilder()
+            .retrieverContext(
+                RetrieverContext.builder()
+                    .entityGraphCache(entityGraphCache)
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .aspectRetriever(mock(AspectRetriever.class))
+                    .build())
+            .build(baseContext.getSessionAuthentication(), false);
+    when(queryContext.getOperationContext()).thenReturn(opContext);
+    when(mockEnv.getContext()).thenReturn(queryContext);
+
+    RelationshipsInput groupsInput = new RelationshipsInput();
+    groupsInput.setTypes(List.of("IsMemberOfGroup"));
+    groupsInput.setDirection(RelationshipDirection.OUTGOING);
+    groupsInput.setIncludeSoftDelete(false);
+    groupsInput.setStart(0);
+    groupsInput.setCount(10);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(groupsInput);
+
+    when(_entityService.exists(any(), eq(Set.of(groupUrn)), eq(false)))
+        .thenReturn(Set.of(groupUrn));
+
+    EntityRelationshipsResult result = resolver.get(mockEnv).get();
+
+    // Inverted user-to-user edge is filtered; only the corpGroup is returned
+    assertEquals(result.getTotal().intValue(), 1);
+    assertEquals(result.getCount().intValue(), 1);
+    assertEquals(result.getRelationships().size(), 1);
+    assertEquals(result.getRelationships().get(0).getEntity().getUrn(), groupUrn.toString());
+    assertEquals(result.getRelationships().get(0).getType(), "IsMemberOfGroup");
+    verify(_graphClient, never()).getRelatedEntities(any(), any(), any(), any(), any(), any());
+  }
+
+  /**
    * A role's members ({@code IsMemberOfRole} INCOMING) can be both users and groups. The membership
    * graph stores both edge types; reverse listing must be served from the membership path and
    * surface group grants alongside users (not drop groups or bypass to the live graph).

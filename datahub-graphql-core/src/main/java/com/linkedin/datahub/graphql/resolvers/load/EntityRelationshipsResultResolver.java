@@ -261,6 +261,42 @@ public class EntityRelationshipsResultResolver
         && relationshipTypes.equals(ROLE_MEMBERSHIP_RELATIONSHIP_TYPES);
   }
 
+  private static boolean isValidMembershipNeighbor(
+      @Nonnull Urn seedUrn,
+      @Nonnull RelationshipDirection direction,
+      @Nonnull Set<String> relationshipTypes,
+      @Nonnull Urn neighborUrn) {
+    if (seedUrn.equals(neighborUrn)) {
+      return false;
+    }
+    String seedType = seedUrn.getEntityType();
+    String neighborType = neighborUrn.getEntityType();
+
+    if (CORP_USER_ENTITY_NAME.equals(seedType) && direction == RelationshipDirection.OUTGOING) {
+      if (isSubsetOf(relationshipTypes, GROUP_MEMBERSHIP_RELATIONSHIP_TYPES)) {
+        return CORP_GROUP_ENTITY_NAME.equals(neighborType);
+      }
+      if (relationshipTypes.equals(ROLE_MEMBERSHIP_RELATIONSHIP_TYPES)) {
+        return DATAHUB_ROLE_ENTITY_NAME.equals(neighborType);
+      }
+    } else if (CORP_GROUP_ENTITY_NAME.equals(seedType)) {
+      if (direction == RelationshipDirection.INCOMING
+          && isSubsetOf(relationshipTypes, GROUP_MEMBERSHIP_RELATIONSHIP_TYPES)) {
+        return CORP_USER_ENTITY_NAME.equals(neighborType);
+      }
+      if (direction == RelationshipDirection.OUTGOING
+          && relationshipTypes.equals(ROLE_MEMBERSHIP_RELATIONSHIP_TYPES)) {
+        return DATAHUB_ROLE_ENTITY_NAME.equals(neighborType);
+      }
+    } else if (DATAHUB_ROLE_ENTITY_NAME.equals(seedType)
+        && direction == RelationshipDirection.INCOMING
+        && relationshipTypes.equals(ROLE_MEMBERSHIP_RELATIONSHIP_TYPES)) {
+      return CORP_USER_ENTITY_NAME.equals(neighborType)
+          || CORP_GROUP_ENTITY_NAME.equals(neighborType);
+    }
+    return true;
+  }
+
   private static boolean isSubsetOf(@Nonnull Set<String> requested, @Nonnull Set<String> allowed) {
     return !requested.isEmpty() && allowed.containsAll(requested);
   }
@@ -417,7 +453,12 @@ public class EntityRelationshipsResultResolver
                       new EntityRelationship()
                           .setEntity(UrnUtils.getUrn(neighbor.neighborUrn()))
                           .setType(neighbor.relationshipType()))
+              .filter(
+                  rel ->
+                      isValidMembershipNeighbor(
+                          seedUrn, direction, relationshipTypes, rel.getEntity()))
               .collect(Collectors.toList());
+      int invalidNeighborCount = result.neighborsOrEmpty().size() - relationships.size();
       if (filterByRelatedType) {
         // Filtering pages after the fetch, so fetch the full set (capped) and fail closed if it was
         // truncated, to keep filtered totals/pages accurate.
@@ -440,10 +481,14 @@ public class EntityRelationshipsResultResolver
         if (needsDedup) {
           relationships = dedupByNeighborUrn(relationships);
         }
-        // Raw edge total when available (keeps hover/search counts cheap); the page above collapses
-        // same-page duplicates. Falls back to the deduped size when no authoritative total exists.
+        // Raw edge total when available (keeps hover/search counts cheap); subtract inverted or
+        // invalid
+        // orientation edges filtered from the fetched page, and fall back to deduped size if no
+        // hit.
         total =
-            result instanceof MembershipNeighborResult.Hit hit ? hit.total() : relationships.size();
+            result instanceof MembershipNeighborResult.Hit hit
+                ? Math.max(0, hit.total() - invalidNeighborCount)
+                : relationships.size();
       }
     }
 
