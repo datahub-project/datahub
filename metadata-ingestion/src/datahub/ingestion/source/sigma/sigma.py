@@ -228,6 +228,7 @@ _WAREHOUSE_LOWERCASE_PLATFORMS: frozenset[str] = frozenset({"snowflake"})
 
 # Expected root segment of the /files path for warehouse tables.
 _FILES_PATH_ROOT = "Connection Root"
+_FILES_TYPE_TABLE = "table"
 
 
 def _fold_name(name: str) -> str:
@@ -569,6 +570,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Inodes whose /files path already produced an unparseable warning;
         # prevents N identical warnings when the same inode spans N DMs (H3).
         self._files_path_unparseable_seen: Set[str] = set()
+        # urlId -> table looked up for a Data Model element, or None.
+        self._warehouse_ref_by_url_id: Dict[str, Optional[_WarehouseTableRef]] = {}
         # Sigma Dataset url_id -> warehouse tables behind it. One dataset is
         # read by many elements, and the result does not depend on the element
         # asking. [] is a cached negative, so failures are not retried.
@@ -1328,6 +1331,50 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return result
 
+    def _dm_warehouse_ref(
+        self, url_id: str, warehouse_map: Dict[str, _WarehouseTableRef]
+    ) -> Optional[_WarehouseTableRef]:
+        """The table an element's ``inode-<url_id>`` names, looked up on a map miss.
+
+        A Data Model's /lineage does not list every table its elements read, so
+        a url_id absent from the map is looked up directly, unless it is a
+        Sigma Dataset this run ingested. One lookup per url_id.
+        """
+        ref = warehouse_map.get(url_id)
+        if ref is not None or url_id in self.sigma_dataset_urn_by_url_id:
+            return ref
+        if url_id not in self._warehouse_ref_by_url_id:
+            self._warehouse_ref_by_url_id[url_id] = self._lookup_warehouse_ref(url_id)
+        return self._warehouse_ref_by_url_id[url_id]
+
+    def _lookup_warehouse_ref(self, url_id: str) -> Optional[_WarehouseTableRef]:
+        """Resolve a url_id via /files/{urlId}, then /connections/paths/{inodeId}.
+
+        /files names no connection, so its ``id`` (the inodeId) is passed on to
+        /connections/paths, which returns the table's own connectionId.
+        Anything other than a ``table`` entry (e.g. a Sigma Dataset the run did
+        not ingest) is not a warehouse table and is dropped uncounted.
+        """
+        entry = self.sigma_api.get_file_metadata(url_id, by_url_id=True)
+        if entry is None or entry.get("type") != _FILES_TYPE_TABLE:
+            return None
+        inode_id = entry.get("id")
+        if not isinstance(inode_id, str) or not inode_id:
+            self.reporter.dm_element_warehouse_url_id_lookup_failed += 1
+            self.reporter.warning(
+                title="Sigma /files entry for a Data Model table has no id",
+                message=(
+                    "The table cannot be tied to a connection without its "
+                    "inodeId; warehouse lineage to it is skipped."
+                ),
+                context=f"url_id={url_id}",
+            )
+            return None
+        ref = self._resolve_inode_to_warehouse_ref(inode_id)
+        if ref is not None:
+            self.reporter.dm_element_warehouse_resolved_by_url_id += 1
+        return ref
+
     def _resolve_dm_element_warehouse_upstream(
         self,
         *,
@@ -1338,8 +1385,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         warehouse Dataset URN via the connection registry.
 
         Returns None silently (no counter) when:
-          - url_id_suffix is not in warehouse_map — this inode is a Sigma Dataset,
-            not a warehouse table; not a failure, just not applicable here.
+          - url_id_suffix is not in warehouse_map. The Data Model element
+            route looks such ids up via _dm_warehouse_ref instead.
 
         Returns None and bumps the appropriate counter when:
           - connection_id is not in the registry or is_mappable=False
@@ -2285,11 +2332,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # preserves the Sigma-Dataset hop.  Downstream lineage queries
                 # may see the warehouse table as a direct upstream of the DM
                 # element — this is correct for the entity-level graph.
-                warehouse_urn = self._resolve_dm_element_warehouse_upstream(
-                    url_id_suffix=url_id_suffix,
-                    warehouse_map=warehouse_url_id_map,
-                )
                 upstream_urn = self._resolve_dm_element_external_upstream(source_id)
+                wh_ref = self._dm_warehouse_ref(url_id_suffix, warehouse_url_id_map)
+                warehouse_urn = self._warehouse_ref_to_urn(wh_ref) if wh_ref else None
                 shape = "external"
                 # Both URN types use the same ``seen`` set so a warehouse URN
                 # and an SD URN that happen to collide are still deduped.
@@ -2305,7 +2350,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # resolves (which would leave source_id out of unresolved_seen).
                 if (
                     warehouse_urn is None
-                    and url_id_suffix in warehouse_url_id_map
+                    and wh_ref is not None
                     and source_id not in warehouse_failure_seen
                 ):
                     warehouse_failure_seen.add(source_id)
@@ -2320,7 +2365,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     self.reporter.data_model_element_upstreams_unresolved += 1
                     logger.debug(
                         "DM %s element %s: external upstream %r unresolved "
-                        "(target Sigma Dataset filtered out or not ingested)",
+                        "(no ingested Sigma Dataset or warehouse table)",
                         data_model.dataModelId,
                         element.elementId,
                         source_id,
@@ -2509,25 +2554,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if f"inode-{url_id}" not in element.source_ids:
             return None
 
-        # Guard: url_id must resolve in the warehouse map (i.e. /files succeeded).
-        wh_ref = warehouse_url_id_map.get(url_id)
+        wh_ref = self._dm_warehouse_ref(url_id, warehouse_url_id_map)
         if wh_ref is None:
             return None
 
         # Resolve the parent Dataset URN.  This is the only allowed path for
         # URN construction — env, platform_instance, and casing all live here,
         # so bypassing it risks orphan schemaFields on casing or instance drift.
-        parent_urn = self._resolve_dm_element_warehouse_upstream(
-            url_id_suffix=url_id,
-            warehouse_map=warehouse_url_id_map,
-        )
+        parent_urn = self._warehouse_ref_to_urn(wh_ref)
         if parent_urn is None:
             return None
 
         # Normalize column casing to match the platform convention used by the
-        # warehouse connector.  _resolve_dm_element_warehouse_upstream already
-        # resolved the registry record and override, so these lookups are cheap
-        # dict hits on the same objects.
+        # warehouse connector.  _warehouse_ref_to_urn already resolved the
+        # registry record and override, so these lookups are cheap dict hits on
+        # the same objects.
         record = self.connection_registry.get(wh_ref.connection_id)
         if record is None:
             return None
