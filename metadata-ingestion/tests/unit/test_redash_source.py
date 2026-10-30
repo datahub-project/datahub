@@ -11,10 +11,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    ChartSnapshot,
-    DashboardSnapshot,
-)
 from datahub.metadata.schema_classes import ChartInfoClass, DashboardInfoClass
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingDebugInfo
 
@@ -476,122 +472,102 @@ def redash_source() -> RedashSource:
     )
 
 
-def test_get_dashboard_snapshot_before_v10():
-    expected = DashboardSnapshot(
-        urn="urn:li:dashboard:(redash,3)",
-        aspects=[
-            DashboardInfoClass(
-                description="My description",
-                title="My Dashboard",
-                charts=[
-                    "urn:li:chart:(redash,10)",
-                    "urn:li:chart:(redash,9)",
-                    "urn:li:chart:(redash,8)",
-                ],
-                datasets=[],
-                lastModified=ChangeAuditStamps(
-                    created=None,
-                    lastModified=AuditStamp(
-                        time=1628882055288, actor="urn:li:corpuser:unknown"
-                    ),
-                ),
-                dashboardUrl="http://localhost:5000/dashboard/my-dashboard",
-                customProperties={},
-            )
+def test_build_dashboard_info_before_v10():
+    expected = DashboardInfoClass(
+        description="My description",
+        title="My Dashboard",
+        charts=[
+            "urn:li:chart:(redash,10)",
+            "urn:li:chart:(redash,9)",
+            "urn:li:chart:(redash,8)",
         ],
+        datasets=[],
+        lastModified=ChangeAuditStamps(
+            created=None,
+            lastModified=AuditStamp(
+                time=1628882055288, actor="urn:li:corpuser:unknown"
+            ),
+        ),
+        dashboardUrl="http://localhost:5000/dashboard/my-dashboard",
+        customProperties={},
     )
-    result = redash_source()._get_dashboard_snapshot(
+    result = redash_source()._build_dashboard_info(
         mock_dashboard_response, "9.0.0-beta"
     )
     assert result == expected
 
 
-def test_get_dashboard_snapshot_after_v10():
-    expected = DashboardSnapshot(
-        urn="urn:li:dashboard:(redash,3)",
-        aspects=[
-            DashboardInfoClass(
-                description="My description",
-                title="My Dashboard",
-                charts=[
-                    "urn:li:chart:(redash,10)",
-                    "urn:li:chart:(redash,9)",
-                    "urn:li:chart:(redash,8)",
-                ],
-                datasets=[],
-                lastModified=ChangeAuditStamps(
-                    created=None,
-                    lastModified=AuditStamp(
-                        time=1628882055288, actor="urn:li:corpuser:unknown"
-                    ),
-                ),
-                dashboardUrl="http://localhost:5000/dashboards/3",
-                customProperties={},
-            )
+def test_build_dashboard_info_after_v10():
+    expected = DashboardInfoClass(
+        description="My description",
+        title="My Dashboard",
+        charts=[
+            "urn:li:chart:(redash,10)",
+            "urn:li:chart:(redash,9)",
+            "urn:li:chart:(redash,8)",
         ],
+        datasets=[],
+        lastModified=ChangeAuditStamps(
+            created=None,
+            lastModified=AuditStamp(
+                time=1628882055288, actor="urn:li:corpuser:unknown"
+            ),
+        ),
+        dashboardUrl="http://localhost:5000/dashboards/3",
+        customProperties={},
     )
-    result = redash_source()._get_dashboard_snapshot(
+    result = redash_source()._build_dashboard_info(
         mock_dashboard_response, "10.0.0-beta"
     )
     assert result == expected
 
 
 @patch("datahub.ingestion.source.redash.RedashSource._get_chart_data_source")
-def test_get_known_viz_chart_snapshot(mocked_data_source):
+def test_build_known_viz_chart_info(mocked_data_source):
     mocked_data_source.return_value = mock_mysql_data_source_response
-    expected = ChartSnapshot(
-        urn="urn:li:chart:(redash,10)",
-        aspects=[
-            ChartInfoClass(
-                customProperties={},
-                externalUrl=None,
-                title="My Query Chart",
-                description="",
-                lastModified=ChangeAuditStamps(
-                    created=None,
-                    lastModified=AuditStamp(
-                        time=1628882022544, actor="urn:li:corpuser:unknown"
-                    ),
-                ),
-                chartUrl="http://localhost:5000/queries/4#10",
-                inputs=["urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam,PROD)"],
-                type="PIE",
-            )
-        ],
+    expected = ChartInfoClass(
+        customProperties={},
+        externalUrl=None,
+        title="My Query Chart",
+        description="",
+        lastModified=ChangeAuditStamps(
+            created=None,
+            lastModified=AuditStamp(
+                time=1628882022544, actor="urn:li:corpuser:unknown"
+            ),
+        ),
+        chartUrl="http://localhost:5000/queries/4#10",
+        inputs=["urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam,PROD)"],
+        type="PIE",
     )
     viz_data = mock_chart_response.get("visualizations", [])[2]
-    result = redash_source()._get_chart_snapshot(mock_chart_response, viz_data)
+    result = redash_source()._build_chart_info(mock_chart_response, viz_data)
     assert result == expected
 
 
 @patch("datahub.ingestion.source.redash.RedashSource._get_chart_data_source")
-def test_get_unknown_viz_chart_snapshot(mocked_data_source):
+def test_build_unknown_viz_chart_info(mocked_data_source):
     """
     Testing with unmapped visualization type SANKEY
     """
     mocked_data_source.return_value = mock_mysql_data_source_response
-    expected = ChartSnapshot(
-        urn="urn:li:chart:(redash,9)",
-        aspects=[
-            ChartInfoClass(
-                customProperties={},
-                externalUrl=None,
-                title="My Query Sankey",
-                description="",
-                lastModified=ChangeAuditStamps(
-                    created=None,
-                    lastModified=AuditStamp(
-                        time=1628882009571, actor="urn:li:corpuser:unknown"
-                    ),
-                ),
-                chartUrl="http://localhost:5000/queries/4#9",
-                inputs=["urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam,PROD)"],
-                type="TABLE",
-            )
-        ],
+    expected = ChartInfoClass(
+        customProperties={},
+        externalUrl=None,
+        title="My Query Sankey",
+        description="",
+        lastModified=ChangeAuditStamps(
+            created=None,
+            lastModified=AuditStamp(
+                time=1628882009571, actor="urn:li:corpuser:unknown"
+            ),
+        ),
+        chartUrl="http://localhost:5000/queries/4#9",
+        inputs=["urn:li:dataset:(urn:li:dataPlatform:mysql,Rfam,PROD)"],
+        type="TABLE",
     )
     viz_data = mock_chart_response.get("visualizations", [])[1]
-    result = redash_source()._get_chart_snapshot(mock_chart_response, viz_data)
+    result = redash_source()._build_chart_info(mock_chart_response, viz_data)
     assert result == expected
 
 
@@ -693,34 +669,29 @@ def redash_source_parse_table_names_from_sql() -> RedashSource:
 
 
 @patch("datahub.ingestion.source.redash.RedashSource._get_chart_data_source")
-def test_get_chart_snapshot_parse_table_names_from_sql(mocked_data_source):
+def test_build_chart_info_parse_table_names_from_sql(mocked_data_source):
     mocked_data_source.return_value = mock_mysql_data_source_response
-    expected = ChartSnapshot(
-        urn="urn:li:chart:(redash,10)",
-        aspects=[
-            ChartInfoClass(
-                customProperties={},
-                externalUrl=None,
-                title="My Query Chart",
-                description="",
-                lastModified=ChangeAuditStamps(
-                    created=None,
-                    lastModified=AuditStamp(
-                        time=1628882022544, actor="urn:li:corpuser:unknown"
-                    ),
-                ),
-                chartUrl="http://localhost:5000/queries/4#10",
-                inputs=[
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.order_items,PROD)",
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.orders,PROD)",
-                    "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.staffs,PROD)",
-                ],
-                type="PIE",
-            )
+    expected = ChartInfoClass(
+        customProperties={},
+        externalUrl=None,
+        title="My Query Chart",
+        description="",
+        lastModified=ChangeAuditStamps(
+            created=None,
+            lastModified=AuditStamp(
+                time=1628882022544, actor="urn:li:corpuser:unknown"
+            ),
+        ),
+        chartUrl="http://localhost:5000/queries/4#10",
+        inputs=[
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.order_items,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.orders,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,rfam.staffs,PROD)",
         ],
+        type="PIE",
     )
     viz_data = mock_chart_response.get("visualizations", [])[2]
-    result = redash_source_parse_table_names_from_sql()._get_chart_snapshot(
+    result = redash_source_parse_table_names_from_sql()._build_chart_info(
         mock_chart_response, viz_data
     )
 

@@ -57,6 +57,8 @@ class DatasetSubTypes(StrEnum):
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
     CUBE = "Cube"
+    # Langfuse
+    LANGFUSE_PROMPT = "Langfuse Prompt"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -178,6 +180,7 @@ class BIAssetSubTypes(StrEnum):
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
     POWERBI_APP = "App"
+    POWERBI_PAGINATED_REPORT = "PaginatedReport"
 
     # Mode
     MODE_REPORT = "Report"
@@ -215,6 +218,17 @@ class MLAssetSubTypes(StrEnum):
     VERTEX_PIPELINE_TASK = "Task"
     VERTEX_PIPELINE_TASK_RUN = "Task Run"
 
+    FOLDER = "Folder"
+
+    # Langfuse
+    LANGFUSE_PROJECT = "Langfuse Project"
+    LANGFUSE_TRACE = "Langfuse Trace"
+    LANGFUSE_GENERATION = "Langfuse Generation"
+
+
+class DocumentSubTypes(StrEnum):
+    # Documents that stand for a folder in the source system, matching the value
+    # DataHub uses for natively-created folders.
     FOLDER = "Folder"
 
 

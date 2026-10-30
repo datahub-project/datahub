@@ -81,6 +81,16 @@ For cross-account S3 access, refer to the [S3 connector's cross-account document
 
 To capture lineage across Glue jobs and databases, a requirements must be met – otherwise the AWS API is unable to report any lineage. The job must be created in Glue Studio with the "Generate classic script" option turned on (this option can be accessed in the "Script" tab). Any custom scripts that do not have the proper annotations will not have reported lineage.
 
+#### DynamoDB Job Lineage
+
+When a Glue job reads or writes DynamoDB via `create_dynamic_frame.from_options(connection_type="dynamodb", ...)` (or the equivalent sink), the connector emits dataset URNs that match the [DynamoDB source](https://docs.datahub.com/docs/generated/ingestion/sources/dynamodb) (`{region}.{table}`, platform_instance = AWS account id by default). That joins DynamoDB tables into Glue job lineage alongside catalog or S3 sinks — a DynamoDB `DataSource` becomes a job input and a DynamoDB `DataSink` becomes a job output.
+
+This covers `extract_transforms: true` Glue ETL jobs that read from or write to DynamoDB — for example DynamoDB → Glue catalog / Iceberg / Parquet. Catalog sinks already resolve; enable `emit_storage_lineage: true` to link Glue Iceberg tables to their Iceberg/S3 storage.
+
+The account id used as `platform_instance` is resolved in this order: a configured `target_platform_configs.dynamodb.platform_instance`, then the node's `dynamodb.tableArn` account, then a cross-account `dynamodb.sts.roleArn` account, then the `sts:GetCallerIdentity` caller account. The Glue `catalog_id` is not used, because Glue only lists jobs in the caller's account. A node whose table ARN or role ARN cannot be parsed is skipped with a warning. To align URNs when the DynamoDB connector uses a custom `platform_instance`, set the same value under Glue `target_platform_configs.dynamodb`.
+
+For capturing native DynamoDB **Export to S3** jobs (JSON/Ion) rather than Glue ETL, use the DynamoDB source's `include_s3_export_lineage` option instead — that is a DynamoDB-source feature, not a Glue one.
+
 #### JDBC Upstream Lineage
 
 When a Glue job reads from a JDBC source (e.g. PostgreSQL, MySQL, Redshift, Oracle, SQL Server), the plugin automatically extracts upstream lineage to the referenced tables. This works for both:
@@ -146,6 +156,41 @@ source:
   `urn:li:structuredProperty:io.datahubproject.glue.column.<sanitized-key>`, where non-alphanumeric
   characters (except `.`) are replaced with `_`.
 - Partition key columns are also processed.
+
+#### Checking a recipe before ingesting
+
+`datahub recipe probe` lists what the catalog holds and says what your recipe would keep, using
+the same credentials, role assumption and retry settings as ingestion. It never reads table
+data, never returns job arguments or free-form parameters, and needs no IAM permission beyond what
+ingestion needs. Every command but one reads catalog listings only. `job_nodes` reads what
+ingestion reads for the same job: it downloads the job script from S3 (`s3:GetObject`), has Glue
+resolve it into a DAG (`glue:GetDataflowGraph`) and looks up the connections its nodes use
+(`glue:GetConnection`). The script and the node arguments (connection options, S3 paths, SQL) are
+left out of its output.
+
+```shell
+datahub recipe probe run databases --recipe recipe.yml --report-to dbs.json
+datahub recipe probe filter --recipe recipe.yml --from-run dbs.json
+datahub recipe probe run tables --recipe recipe.yml --database sales --report-to t.json
+datahub recipe probe filter --recipe recipe.yml --from-run t.json
+datahub recipe probe run columns --recipe recipe.yml --database sales --table orders
+datahub recipe probe run jobs --recipe recipe.yml
+datahub recipe probe run job_nodes --recipe recipe.yml --job nightly_load
+```
+
+Matching rules worth knowing when writing patterns:
+
+- `database_pattern` is matched against the database name.
+- `table_pattern` is matched against `<database>.<table>`, for views as well as tables, so write
+  `^sales\.orders$` rather than `^orders$`.
+- `ignore_resource_links` and `catalog_id` drop databases and tables by facts that are not in
+  their names. Judge the output of `probe run` with `--from-run` to apply them; with bare `--name`
+  values the probe warns that it could not.
+- Glue jobs are not filtered by any pattern; `extract_transforms: false` turns them all off.
+
+If Lake Formation or IAM denies listing one database's tables, `probe run tables` returns an
+empty list with a warning naming the denied action, as ingestion skips that database's tables
+with a warning.
 
 ### Limitations
 

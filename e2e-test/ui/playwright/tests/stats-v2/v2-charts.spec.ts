@@ -22,6 +22,7 @@ import {
   getNormalizedTimestamp,
 } from '../../factories/mock-responses/stats';
 import { TEST_DATASET_URN, TIME_RANGES, CHART_IDS, TIMESTAMP_OFFSETS } from '../../pages/stats-v2/stats.constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'stats-v2' });
 
@@ -32,7 +33,7 @@ test.describe('Statistics Charts', () => {
     statsPage = new StatsTabPage(page, logger, logDir);
   });
 
-  test('should be available when there is some data', async ({ apiMock }) => {
+  test('should be available when there is some data', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ apiMock }) => {
     const timestamp = getNormalizedTimestamp();
     await setupChartsData(apiMock, timestamp, TEST_DATASET_URN);
 

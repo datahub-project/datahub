@@ -41,7 +41,7 @@ try:
     from thrift.transport import TSocket
     from thrift.protocol import TBinaryProtocol
     from thrift_sasl import TSaslClientTransport
-    from pyhive.sasl_compat import PureSASLClient
+    from impala.sasl_compat import PureSASLClient
     from pymetastore.hive_metastore import ThriftHiveMetastore
 
     socket = TSocket.TSocket('hive-metastore', 9083)

@@ -1,8 +1,10 @@
-import { Text, typography } from '@components';
 import { Modal } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { Text } from '@components/components/Text';
+import { typography } from '@components/theme';
 
 const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};

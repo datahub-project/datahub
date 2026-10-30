@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { SearchCardSlideoutContent } from '@app/searchV2/searchSlideout/SearchCardSlideoutContent';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
-import MatchContext, { PreviewSection } from '@app/shared/MatchesContext';
+import MatchContext, { PreviewSection } from '@app/sharedV2/MatchesContext';
 import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
 
 const MATCHES_CONTAINER_HEIGHT = 52;

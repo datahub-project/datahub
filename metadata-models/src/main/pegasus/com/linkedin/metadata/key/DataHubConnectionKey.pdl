@@ -10,6 +10,10 @@ record DataHubConnectionKey {
   /**
   * A unique identifier for the connection.
   */
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   id: string
 }

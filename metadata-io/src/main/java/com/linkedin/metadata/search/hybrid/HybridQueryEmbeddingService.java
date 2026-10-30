@@ -8,6 +8,7 @@ import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
 import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -18,12 +19,13 @@ public class HybridQueryEmbeddingService {
   private final String modelId;
   private final String modelEmbeddingKey;
   private final int expectedDimension;
+  private final LongSupplier nanoTime;
 
   // A search page and its facet request embed the same query; repeat queries skip the provider
   private final Cache<String, float[]> recentEmbeddings =
       CacheBuilder.newBuilder().maximumSize(1_000).expireAfterWrite(Duration.ofMinutes(1)).build();
 
-  private final AtomicLong lastProviderSuccessNanos = new AtomicLong(System.nanoTime());
+  private final AtomicLong lastProviderSuccessNanos;
 
   public HybridQueryEmbeddingService(
       @Nonnull final EmbeddingProvider embeddingProvider,
@@ -40,10 +42,21 @@ public class HybridQueryEmbeddingService {
       @Nullable final String modelId,
       @Nonnull final String modelEmbeddingKey,
       final int expectedDimension) {
+    this(embeddingProvider, modelId, modelEmbeddingKey, expectedDimension, System::nanoTime);
+  }
+
+  HybridQueryEmbeddingService(
+      @Nonnull final EmbeddingProvider embeddingProvider,
+      @Nullable final String modelId,
+      @Nonnull final String modelEmbeddingKey,
+      final int expectedDimension,
+      @Nonnull final LongSupplier nanoTime) {
     this.embeddingProvider = embeddingProvider;
     this.modelId = modelId;
     this.modelEmbeddingKey = modelEmbeddingKey;
     this.expectedDimension = expectedDimension;
+    this.nanoTime = nanoTime;
+    this.lastProviderSuccessNanos = new AtomicLong(nanoTime.getAsLong());
   }
 
   /**
@@ -75,7 +88,7 @@ public class HybridQueryEmbeddingService {
 
   @Nonnull
   private float[] load(@Nonnull final String query, final long deadlineNanos) {
-    final long remainingNanos = deadlineNanos - System.nanoTime();
+    final long remainingNanos = deadlineNanos - nanoTime.getAsLong();
     if (remainingNanos <= 0) {
       throw new UncheckedTimeoutException("The hybrid deadline passed before the query embedding");
     }
@@ -83,7 +96,7 @@ public class HybridQueryEmbeddingService {
         checkDimension(
             embeddingProvider.embed(
                 query, modelId, EmbeddingTaskType.QUERY, Duration.ofNanos(remainingNanos)));
-    final long answeredNanos = System.nanoTime();
+    final long answeredNanos = nanoTime.getAsLong();
     // An answer after the deadline is cached for repeat queries, but it says the provider is too
     // slow, not that it is healthy
     if (deadlineNanos - answeredNanos > 0) {
