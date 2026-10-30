@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # none is discoverable, so the plugin stays self-contained without a system JDK.
 try:
     import jpype
+    import jpype.imports
 
     if not jpype.isJVMStarted():
         jpype.startJVM(*prepare_jvm_settings())
@@ -106,6 +107,8 @@ class RegexRouterPlugin(TransformPlugin):
         "org.apache.kafka.connect.transforms.RegexRouter",
         "io.confluent.connect.cloud.transforms.TopicRegexRouter",
     }
+    REGEX_CONFIG_KEY = "regex"
+    REPLACEMENT_CONFIG_KEY = "replacement"
 
     @classmethod
     def supports_transform_type(cls, transform_type: str) -> bool:
@@ -119,8 +122,8 @@ class RegexRouterPlugin(TransformPlugin):
                 "Install with: pip install 'acryl-datahub[kafka-connect]'"
             )
 
-        regex_pattern = config.config.get("regex", "")
-        replacement = config.config.get("replacement", "")
+        regex_pattern = config.config.get(self.REGEX_CONFIG_KEY, "")
+        replacement = config.config.get(self.REPLACEMENT_CONFIG_KEY, "")
 
         if not regex_pattern or replacement is None:
             logger.warning(
@@ -138,7 +141,13 @@ class RegexRouterPlugin(TransformPlugin):
             try:
                 pattern = JavaPattern.compile(regex_pattern)
                 matcher = pattern.matcher(topic)
-                transformed_topic = str(matcher.replaceFirst(replacement))
+                if (
+                    not isinstance(self, DebeziumLogicalTopicRouterPlugin)
+                    or matcher.matches()
+                ):
+                    transformed_topic = str(matcher.replaceFirst(replacement))
+                else:
+                    transformed_topic = topic
 
                 if transformed_topic != topic:
                     logger.info(
@@ -182,6 +191,17 @@ class RegexRouterPlugin(TransformPlugin):
     @classmethod
     def should_apply_automatically(cls) -> bool:
         return True  # RegexRouter transforms are predictable and safe to apply
+
+
+class DebeziumLogicalTopicRouterPlugin(RegexRouterPlugin):
+    """Plugin for Debezium logical topic routing transforms."""
+
+    SUPPORTED_TYPES = {
+        "io.debezium.transforms.ByLogicalTableRouter",
+        "io.debezium.transforms.ToLogicalTopicRouter",
+    }
+    REGEX_CONFIG_KEY = "topic.regex"
+    REPLACEMENT_CONFIG_KEY = "topic.replacement"
 
 
 class ComplexTransformPlugin(TransformPlugin):
@@ -251,6 +271,7 @@ class TransformPluginRegistry:
     def _register_default_plugins(self):
         """Register default transform plugins."""
         self.register(RegexRouterPlugin())
+        self.register(DebeziumLogicalTopicRouterPlugin())
         self.register(ComplexTransformPlugin())
         self.register(ReplaceFieldPlugin())
 
