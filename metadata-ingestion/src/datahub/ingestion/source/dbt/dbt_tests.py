@@ -3,7 +3,8 @@ import json
 import re
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
+from enum import Enum, auto
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -47,6 +48,10 @@ class DBTTest:
     qualified_test_name: str
     column_name: Optional[str]
     kw_args: dict
+    # The model the test is declared on (manifest ``attached_node``, dbt 1.5+).
+    attached_node: Optional[str] = None
+    # The test's ``where:`` filter, if any.
+    where: Optional[str] = None
 
 
 @dataclass
@@ -262,7 +267,7 @@ def _map_dbt_freshness_status(
     return AssertionResultTypeClass.FAILURE, AssertionResultSeverityClass.HIGH
 
 
-def _make_custom_assertion_info(
+def make_custom_assertion_info(
     *,
     entity_urn: str,
     scope: Union[DatasetAssertionScopeClass, str],
@@ -513,7 +518,7 @@ def make_assertion_from_test(
             )
             else []
         )
-        custom_assertion = _make_custom_assertion_info(
+        custom_assertion = make_custom_assertion_info(
             entity_urn=upstream_urn,
             scope=assertion_params.scope,
             operator=assertion_params.operator,
@@ -535,7 +540,7 @@ def make_assertion_from_test(
     elif column_name:
         # no match with known test types, column-level test
         fields = [mce_builder.make_schema_field_urn(upstream_urn, column_name)]
-        custom_assertion = _make_custom_assertion_info(
+        custom_assertion = make_custom_assertion_info(
             entity_urn=upstream_urn,
             scope=DatasetAssertionScopeClass.DATASET_COLUMN,
             operator=AssertionStdOperatorClass._NATIVE_,
@@ -547,7 +552,7 @@ def make_assertion_from_test(
         )
     else:
         # no match with known test types, default to row-level test
-        custom_assertion = _make_custom_assertion_info(
+        custom_assertion = make_custom_assertion_info(
             entity_urn=upstream_urn,
             scope=DatasetAssertionScopeClass.DATASET_ROWS,
             operator=AssertionStdOperatorClass._NATIVE_,
@@ -618,6 +623,43 @@ def make_assertion_note_from_test(
             ),
         ),
     )
+
+
+def _execution_time_utc(test_result: DBTTestResult) -> datetime:
+    # dbt writes run_results timestamps in UTC, but some omit the offset. Reading
+    # those as local time would misorder them against offset-aware ones on a
+    # non-UTC host, and comparing naive with aware datetimes raises TypeError.
+    execution_time = test_result.execution_time
+    if execution_time.tzinfo is None:
+        return execution_time.replace(tzinfo=timezone.utc)
+    return execution_time
+
+
+def select_test_results_to_emit(
+    test_results: List[DBTTestResult], latest_only: bool
+) -> List[DBTTestResult]:
+    """Order a test's results chronologically, dropping repeats of the same invocation.
+
+    Each emitted result becomes an AssertionRunEvent, and every run event can fan
+    out into an assertion notification. Emitting results in file order (rather than
+    time order), or re-emitting superseded ones, produces spurious alerts.
+    """
+    latest_by_invocation: Dict[str, DBTTestResult] = {}
+    for result in test_results:
+        existing = latest_by_invocation.get(result.invocation_id)
+        if existing is None or _execution_time_utc(result) >= _execution_time_utc(
+            existing
+        ):
+            latest_by_invocation[result.invocation_id] = result
+    ordered = sorted(latest_by_invocation.values(), key=_execution_time_utc)
+    return ordered[-1:] if latest_only else ordered
+
+
+def is_passing_test_result(
+    test_result: DBTTestResult, test_warnings_are_errors: bool
+) -> bool:
+    result_type, _ = _map_dbt_test_status(test_result.status, test_warnings_are_errors)
+    return result_type == AssertionResultTypeClass.SUCCESS
 
 
 def make_assertion_result_from_test(
@@ -723,4 +765,87 @@ def make_assertion_result_from_freshness(
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,
         aspect=assertion_result,
+    )
+
+
+_CONTRACT_PREFLIGHT_MARKERS = (
+    "enforced contract that failed",
+    "assert_columns_equivalent",
+)
+
+
+def is_contract_preflight_failure(message: Optional[str]) -> bool:
+    """True when a model error message is dbt's schema-contract preflight."""
+    if not message:
+        return False
+    lower = message.lower()
+    return any(marker in lower for marker in _CONTRACT_PREFLIGHT_MARKERS)
+
+
+class ContractRunClassification(Enum):
+    SUCCESS = auto()
+    PREFLIGHT_FAILURE = auto()
+
+
+def classify_contract_model_run(
+    status: str, message: Optional[str]
+) -> Optional[ContractRunClassification]:
+    """Classify a model build for contract AssertionRunEvents.
+
+    ``None`` means the run must not be attributed to the contract (an
+    unrelated SQL / warehouse error, including a DDL constraint violation,
+    which dbt reports as a generic database error).
+    """
+    if status == "success":
+        return ContractRunClassification.SUCCESS
+    if status == "error" and is_contract_preflight_failure(message):
+        return ContractRunClassification.PREFLIGHT_FAILURE
+    return None
+
+
+def make_contract_assertion_info(
+    *,
+    name: Optional[str],
+    custom_properties: Dict[str, str],
+    custom_assertion: CustomAssertionInfoClass,
+) -> AssertionInfoClass:
+    """AssertionInfo for a contract-derived assertion.
+
+    As for dbt tests, ``description`` (the display name) is set only from a
+    user-authored name, i.e. a named dbt constraint. Otherwise the UI builds
+    the title from ``customAssertion``.
+    """
+    return AssertionInfoClass(
+        type=AssertionTypeClass.CUSTOM,
+        customProperties=custom_properties,
+        source=_dbt_assertion_source(),
+        description=name,
+        customAssertion=custom_assertion,
+    )
+
+
+def make_assertion_result_from_model(
+    *,
+    assertion_urn: str,
+    assertee_urn: str,
+    run_id: str,
+    timestamp: datetime,
+    result_type: str,
+    native_results: Optional[Dict[str, str]] = None,
+    external_url: Optional[str] = None,
+) -> MetadataChangeProposalWrapper:
+    return MetadataChangeProposalWrapper(
+        entityUrn=assertion_urn,
+        aspect=AssertionRunEventClass(
+            timestampMillis=int(timestamp.timestamp() * 1000.0),
+            assertionUrn=assertion_urn,
+            asserteeUrn=assertee_urn,
+            runId=run_id,
+            result=AssertionResultClass(
+                type=result_type,
+                nativeResults=native_results or None,
+                externalUrl=external_url,
+            ),
+            status=AssertionRunStatusClass.COMPLETE,
+        ),
     )

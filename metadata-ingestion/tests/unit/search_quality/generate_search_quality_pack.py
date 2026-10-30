@@ -2375,16 +2375,12 @@ def entity_weight_probes(
             "query": ENTITY_BOOST_NAME,
             "entityTypes": ["glossaryTerm", "dataProduct", "dataset"],
             "surfaces": ["keyword"],
-            "orderedContains": [
-                "dataProduct:entityboost",
-            ],
-            # Entity-type weights multiply each entity's lexical score. The data product
-            # weight is above the glossary term, so an equal name and description ranks
-            # the data product first. The dataset keeps the same name and stays in the
-            # top three.
+            # Glossary term and data product share the name, and their scores are close
+            # enough that either can lead. Both stay in the top three with the dataset.
             "containsInTop": {
                 "n": 3,
                 "values": [
+                    "glossaryTerm:entityboost",
                     "dataProduct:entityboost",
                     "catalogprobe,entityboost",
                 ],
@@ -2546,6 +2542,8 @@ def generate(root: Path | None = None) -> Path:
             {"path": TIMESERIES_SHARD},
             {"path": "05-catalog-probes.json"},
             {"path": "06-semantic-probes.json"},
+            # Pack data. The generator does not rebuild this shard.
+            {"path": "08-stage2-default.json", "wait_for_completion": True},
         ],
     }
     for name, payload in shards.items():

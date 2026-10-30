@@ -6,6 +6,7 @@ from botocore.stub import Stubber
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
+from datahub.metadata.schema_classes import DataFlowInfoClass
 
 
 def test_empty_s3_key_handling():
@@ -83,9 +84,13 @@ def test_empty_s3_key_handling():
         # Verify that we still get workunits for the jobs themselves (DataFlow entities)
         # even though their script processing failed
         job_names = {"test-job-empty-key", "test-job-bucket-only"}
-        dataflow_workunits = [wu for wu in workunits if wu.id in job_names]
-        assert (
-            len(dataflow_workunits) == 2
+        dataflow_names = [
+            info.name
+            for wu in workunits
+            if (info := wu.get_aspect_of_type(DataFlowInfoClass)) is not None
+        ]
+        assert sorted(dataflow_names) == sorted(
+            job_names
         )  # Should have DataFlow entities for both jobs
 
         # Verify that no S3 get_object calls were made (since we skip processing empty keys)

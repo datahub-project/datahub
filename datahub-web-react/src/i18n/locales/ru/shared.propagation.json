@@ -1,9 +1,12 @@
 {
     "autoPropagatedDescription": "Это описание было автоматически распространено из вышестоящего столбца. <learnMore>Подробнее</learnMore>",
+    "ingested": "Загружено",
+    "ingestedFrom": "Загружено из {{origin}}",
     "origin": "источник",
     "originLabel": "Источник",
     "propagated": "Распространено",
     "propagatedDescriptionTitle": "Распространённое описание",
+    "sourceLabel": "Источник",
     "via": "через",
     "viaLabel": "Через"
 }

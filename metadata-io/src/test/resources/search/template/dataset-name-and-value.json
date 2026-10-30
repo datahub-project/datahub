@@ -97,7 +97,7 @@
               }
             }, {
               "term" : {
-                "name.keyword" : {
+                "name" : {
                   "boost" : 100.0,
                   "case_insensitive" : true,
                   "value" : "certification status gold"
@@ -105,7 +105,7 @@
               }
             }, {
               "term" : {
-                "qualifiedName.keyword" : {
+                "qualifiedName" : {
                   "boost" : 100.0,
                   "case_insensitive" : true,
                   "value" : "certification status gold"
@@ -172,14 +172,14 @@
           }
         }, {
           "term" : {
-            "structuredProperties._versioned.contract_id.00000000000001.string.keyword" : {
+            "structuredProperties._versioned.contract_id.00000000000001.string" : {
               "boost" : 2.0,
               "value" : "certification status gold"
             }
           }
         }, {
           "term" : {
-            "structuredProperties.certification_status.keyword" : {
+            "structuredProperties.certification_status" : {
               "boost" : 1.2,
               "value" : "certification status gold"
             }
@@ -193,7 +193,7 @@
           }
         }, {
           "term" : {
-            "structuredProperties.summary_notes.keyword" : {
+            "structuredProperties.summary_notes" : {
               "boost" : 0.8,
               "value" : "certification status gold"
             }
@@ -203,7 +203,7 @@
             "boost" : 1.0,
             "queries" : [ {
               "term" : {
-                "structuredProperties.certification_status.keyword" : {
+                "structuredProperties.certification_status" : {
                   "_name" : "nameAndValue",
                   "boost" : 8.0,
                   "value" : "gold"

@@ -9,7 +9,6 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.utils.ESUtils.FIELDS;
 import static com.linkedin.metadata.search.utils.ESUtils.IGNORE_ABOVE;
-import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.TEXT_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
@@ -220,6 +219,18 @@ public final class V3SearchFields {
     return name;
   }
 
+  /**
+   * The V3 field for a name a caller wrote against V2. A V3 keyword root has no {@code .keyword}
+   * multi-field, so a trailing {@code .keyword} names the root itself.
+   */
+  @Nonnull
+  public static String rootPath(@Nonnull final String field) {
+    return field.endsWith(ESUtils.KEYWORD_SUFFIX)
+            && field.length() > ESUtils.KEYWORD_SUFFIX.length()
+        ? field.substring(0, field.length() - ESUtils.KEYWORD_SUFFIX.length())
+        : field;
+  }
+
   public static boolean isIdentity(@Nonnull final String name) {
     return IDENTITY_FIELDS.contains(name);
   }
@@ -297,6 +308,34 @@ public final class V3SearchFields {
   public static boolean isParsedUrnRoot(
       @Nonnull final String name, @Nonnull final Collection<EntitySpec> entitySpecs) {
     return UrnRoots.of(entitySpecs).isParsedUrnRoot(name);
+  }
+
+  /**
+   * The field's own parsed-name root, not a shared search label. The mapping leaves this root off.
+   * Exact and case-insensitive URN match stay on {@code <field>_urn}.
+   */
+  public static boolean dedicatedParsedNameRoot(
+      @Nonnull final String name, @Nonnull final Collection<EntitySpec> entitySpecs) {
+    return isUrnObjectField(name, entitySpecs) && !isParsedKeywordLabel(name, entitySpecs);
+  }
+
+  /**
+   * The aspect {@code __urn_name} keyword exists only to {@code copy_to} a declared search label or
+   * {@code other}. A dedicated root does not need it.
+   */
+  public static boolean keepsAspectParsedName(
+      @Nonnull final SearchableFieldSpec fieldSpec,
+      @Nonnull final Collection<EntitySpec> entitySpecs) {
+    if (!contributesParsedUrn(fieldSpec)) {
+      return false;
+    }
+    final Set<String> declared = labels(fieldSpec);
+    for (String destination : parsedNameDestinations(fieldSpec, entitySpecs)) {
+      if (OTHER.equals(destination) || declared.contains(destination)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -653,7 +692,7 @@ public final class V3SearchFields {
       }
       for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
         for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-          if (!contributesParsedUrn(fieldSpec)) {
+          if (!keepsAspectParsedName(fieldSpec, entitySpecs)) {
             continue;
           }
           final String fieldName =
@@ -680,6 +719,23 @@ public final class V3SearchFields {
    * root is omitted. {@code copy_to} does not write that value into the label's {@code _source}.
    */
   @Nonnull
+  private static String storedParsedName(
+      @Nonnull final Collection<EntitySpec> entitySpecs, @Nonnull final SearchableFieldSpec spec) {
+    final String fieldName = spec.getSearchableAnnotation().getFieldName();
+    for (EntitySpec entitySpec : entitySpecs) {
+      if (entitySpec.getAspectSpecs() == null) {
+        continue;
+      }
+      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+        if (aspectSpec.getSearchableFieldSpecs().stream()
+            .anyMatch(candidate -> candidate == spec)) {
+          return aspectParsedName(aspectSpec.getName(), fieldName);
+        }
+      }
+    }
+    return MappingConstants.ASPECTS_FIELD_NAME + "." + parsedUrnField(fieldName);
+  }
+
   private static String storedAspectField(
       @Nonnull final Collection<EntitySpec> entitySpecs, @Nonnull final SearchableFieldSpec spec) {
     final String fieldName = spec.getSearchableAnnotation().getFieldName();
@@ -857,13 +913,23 @@ public final class V3SearchFields {
               for (String destination : destinations(fieldSpecs, fallbacks)) {
                 // copy_to fills the label in the index only. The value in _source stays on the
                 // aspect when the source root is omitted, which is what matched fields read.
-                if (omitSourceRoot) {
+                if (omitSourceRoot || dedicatedParsedNameRoot(rootField, entitySpecs)) {
                   for (SearchableFieldSpec spec : fieldSpecs) {
-                    if (landsIn(spec, destination, fallbacks, groupHasLabel)) {
-                      sources
-                          .computeIfAbsent(destination, k -> new LinkedHashSet<>())
-                          .add(storedAspectField(entitySpecs, spec));
+                    if (!landsIn(spec, destination, fallbacks, groupHasLabel)) {
+                      continue;
                     }
+                    // A dedicated parsed name is not a root. The aspect keyword is what copies
+                    // into the shared field.
+                    if (dedicatedParsedNameRoot(rootField, entitySpecs)
+                        && !keepsAspectParsedName(spec, entitySpecs)) {
+                      continue;
+                    }
+                    sources
+                        .computeIfAbsent(destination, k -> new LinkedHashSet<>())
+                        .add(
+                            dedicatedParsedNameRoot(rootField, entitySpecs)
+                                ? storedParsedName(entitySpecs, spec)
+                                : storedAspectField(entitySpecs, spec));
                   }
                 } else {
                   sources.computeIfAbsent(destination, k -> new LinkedHashSet<>()).add(rootField);
@@ -880,7 +946,8 @@ public final class V3SearchFields {
             });
     // The catch-all goes last, so a hit's matched fields list the specific fields first.
     // Analyzed URN labels are specific fields, ahead of other.
-    final Set<String> analyzedLabels = analyzedUrnRoots(entitySpecs);
+    final Set<String> analyzedLabels = new LinkedHashSet<>(analyzedUrnRoots(entitySpecs));
+    analyzedLabels.removeIf(name -> dedicatedParsedNameRoot(name, entitySpecs));
     final Map<String, List<SearchableFieldSpec>> roots = rootSourceFieldSpecs(entitySpecs);
     queried.remove(OTHER);
     queried.addAll(analyzedLabels);
@@ -1103,7 +1170,6 @@ public final class V3SearchFields {
     final Map<String, Object> mapping = new HashMap<>();
     mapping.put(TYPE, KEYWORD_FIELD_TYPE);
     if (!fullText || !SEARCH_ONLY_BUILTINS.contains(name)) {
-      mapping.put(NORMALIZER, KEYWORD_NORMALIZER);
       mapping.put(IGNORE_ABOVE, KEYWORD_IGNORE_ABOVE);
     } else {
       mapping.put(ESUtils.INDEX, false);
@@ -1115,9 +1181,6 @@ public final class V3SearchFields {
     final Map<String, Object> subfields = new HashMap<>();
     subfields.put(TEXT, textMapping(TEXT_ANALYZER, TEXT_SEARCH_ANALYZER));
     subfields.put(STEMMED, textMapping(STEMMED_ANALYZER, STEMMED_SEARCH_ANALYZER));
-    if (!SEARCH_ONLY_BUILTINS.contains(name)) {
-      subfields.put(KEYWORD, Map.of(TYPE, KEYWORD_FIELD_TYPE, IGNORE_ABOVE, KEYWORD_IGNORE_ABOVE));
-    }
     mapping.put(FIELDS, subfields);
     return mapping;
   }
