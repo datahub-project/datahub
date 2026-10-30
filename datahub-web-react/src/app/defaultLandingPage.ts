@@ -1,11 +1,5 @@
 import { PageRoutes } from '@conf/Global';
 
 export function getDefaultLandingPage(value?: string): string | undefined {
-    switch (value?.trim().toLowerCase()) {
-        case 'discover':
-            return PageRoutes.SEARCH;
-        case 'home':
-        default:
-            return undefined;
-    }
+    return value?.trim().toLowerCase() === 'discover' ? PageRoutes.SEARCH : undefined;
 }

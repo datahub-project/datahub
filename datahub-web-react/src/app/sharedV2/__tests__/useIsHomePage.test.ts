@@ -101,7 +101,7 @@ describe('useIsHomePage', () => {
         expect(result.current).toBe(false);
     });
 
-    it('should memoize the result and not recompute when pathname stays the same', () => {
+    it('should return the same result when pathname stays the same', () => {
         mockUseLocation.mockReturnValue({ pathname: PageRoutes.HOME });
 
         const { result, rerender } = renderHook(() => useIsHomePage());

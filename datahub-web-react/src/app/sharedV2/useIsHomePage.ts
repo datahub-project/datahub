@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useLocation } from 'react-router';
 
 import { getDefaultLandingPage } from '@app/defaultLandingPage';
@@ -12,7 +11,5 @@ export const useIsHomePage = (): boolean => {
     const { pathname } = useLocation();
     const defaultLandingPage = getDefaultLandingPage(import.meta.env.REACT_APP_DEFAULT_LANDING_PAGE);
 
-    return useMemo(() => {
-        return pathname === PageRoutes.HOME || (pathname === PageRoutes.ROOT && defaultLandingPage === undefined);
-    }, [defaultLandingPage, pathname]);
+    return pathname === PageRoutes.HOME || (pathname === PageRoutes.ROOT && defaultLandingPage === undefined);
 };
