@@ -1571,6 +1571,44 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testNamedQueryDoesNotDuplicateAScannedLabel() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"orders\"}");
+    hit.matchedQueries(new String[] {SearchTemplateMatchReport.queryName("name")});
+    List<MatchedField> matched = matched(queriedNameTemplate("orders"), hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()), List.of("name"));
+    assertEquals(matched.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testNamedQueryStillReportsALabelTheScanMissed() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"unrelated\"}");
+    hit.matchedQueries(new String[] {SearchTemplateMatchReport.queryName("name")});
+    List<MatchedField> matched = matched(queriedNameTemplate("orders"), hit);
+    assertEquals(matched.size(), 1, matched.toString());
+    assertEquals(matched.get(0).getName(), "name");
+    assertEquals(matched.get(0).getValue(), "");
+  }
+
+  @Test
+  public void testReportDropsAPrefixedEmptyLabelWhenTheBareLabelIsPresent() {
+    Map<String, Set<String>> matched = new LinkedHashMap<>();
+    matched.put("name", Set.of("orders"));
+    matched.put(SearchTemplateMatchReport.queryName("name"), Set.of(""));
+    List<MatchedField> fields =
+        SearchTemplateMatchReport.fields(matched, Map.of("name", "orders"), "orders", Map.of());
+    assertEquals(fields.size(), 1);
+    assertEquals(fields.get(0).getName(), "name");
+    assertEquals(fields.get(0).getValue(), "orders");
+  }
+
+  @Test
   public void testReplacedFieldsDoNotReportTheRemovedLabel() {
     SearchHit hit =
         sourceHit(

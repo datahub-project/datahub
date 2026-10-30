@@ -73,6 +73,24 @@ public final class SearchTemplateMatchReport {
     return MATCHED_FIELD_PREFIX + field;
   }
 
+  /**
+   * A source scan records the bare label. {@code matchedField:name} is that same label, so an empty
+   * fallback must not be added beside the scanned value. A named mode such as {@code
+   * matchedField:exact} stays on its own key: the empty value is filled from the clause, and it is
+   * not a field named {@code exact}.
+   */
+  public static boolean labelAlreadyMatched(
+      @Nonnull Map<String, Set<String>> matched, @Nonnull String queryName) {
+    if (matched.containsKey(queryName)) {
+      return true;
+    }
+    if (isNamedMode(queryName)) {
+      return false;
+    }
+    String label = fieldName(queryName);
+    return matched.containsKey(label) || matched.containsKey(queryName(label));
+  }
+
   private static boolean isNamedMode(@Nonnull String name) {
     return name.startsWith(MATCHED_FIELD_PREFIX)
         && MODES.contains(name.substring(MATCHED_FIELD_PREFIX.length()));
@@ -160,6 +178,11 @@ public final class SearchTemplateMatchReport {
     }
     remaining.keySet().removeAll(consumed);
     remaining.keySet().removeIf(name -> isNamedMode(name) || covers(name, covered));
+    remaining
+        .keySet()
+        .removeIf(
+            name ->
+                name.startsWith(MATCHED_FIELD_PREFIX) && remaining.containsKey(fieldName(name)));
     for (Map.Entry<String, Set<String>> entry : remaining.entrySet()) {
       for (String value : entry.getValue()) {
         reported.add(new MatchedField().setName(fieldName(entry.getKey())).setValue(value));

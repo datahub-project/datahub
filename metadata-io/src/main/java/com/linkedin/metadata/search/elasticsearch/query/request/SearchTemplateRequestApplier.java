@@ -289,9 +289,10 @@ public final class SearchTemplateRequestApplier {
     }
     if (template.matchedFields()) {
       for (String queryName : matchedQueries) {
-        if (queryName.startsWith(SearchTemplateMatchReport.MATCHED_FIELD_PREFIX)
-            || callerOptionalFilterFields.contains(queryName)) {
-          matched.putIfAbsent(queryName, Set.of(""));
+        if ((queryName.startsWith(SearchTemplateMatchReport.MATCHED_FIELD_PREFIX)
+                || callerOptionalFilterFields.contains(queryName))
+            && !SearchTemplateMatchReport.labelAlreadyMatched(matched, queryName)) {
+          matched.put(queryName, Set.of(""));
         }
       }
     }
