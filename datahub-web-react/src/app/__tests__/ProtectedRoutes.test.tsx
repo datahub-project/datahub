@@ -17,7 +17,7 @@ vi.mock('@app/identity/user/useUserTitle', () => ({ useSetUserTitle: vi.fn() }))
 vi.mock('@app/onboarding/OnboardingContextProvider', () => ({
     OnboardingContextProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-vi.mock('@app/useSetAppTheme', () => ({ useSetAppTheme: vi.fn() }));
+vi.mock('@app/useSetAppTheme', () => ({ useSetAppTheme: vi.fn(), useCustomThemeId: () => undefined }));
 vi.mock('@app/useShowNavBarRedesign', () => ({ useSetNavBarRedesignEnabled: vi.fn() }));
 
 const CurrentPath = () => <div data-testid="current-path">{useLocation().pathname}</div>;
