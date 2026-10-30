@@ -2,6 +2,7 @@
 names for its target-platform URNs, or siblings and lineage point at entities
 that never exist."""
 
+import logging
 from typing import List, Optional
 
 import pytest
@@ -69,6 +70,13 @@ def test_dremio_target_urn_matches_dremio_source(
     assert node.get_urn("dremio", "DEV", None) == _urn(expected_name)
 
 
+def test_dremio_target_urn_drops_dbt_dremio_no_schema() -> None:
+    # dbt-dremio stores a model with no folder under schema "no_schema" and
+    # leaves it out of the SQL it runs; the dataset is directly in the space.
+    node = _node("model.my_project.orders", "my_space", "no_schema", "orders")
+    assert node.get_urn("dremio", "DEV", None) == _urn("dremio.my_space.orders")
+
+
 def test_dremio_target_urn_keeps_case_without_lowercasing() -> None:
     node = _node("model.my_project.orders", "My_Space", "materialize", "Orders")
     assert node.get_urn("dremio", "DEV", None) == _urn(
@@ -76,11 +84,11 @@ def test_dremio_target_urn_keeps_case_without_lowercasing() -> None:
     )
 
 
-@pytest.mark.parametrize("platform", ["snowflake", "postgres", "dbt"])
-def test_non_dremio_urns_unchanged(platform: str) -> None:
-    node = _node("model.my_project.orders", "my_source_s3", "materialize", "orders")
-    assert node.get_urn(platform, "DEV", None) == _urn(
-        "my_source_s3.materialize.orders", platform
+def test_non_dremio_urns_unchanged() -> None:
+    # "no_schema" is only dbt-dremio's placeholder; elsewhere it is a real schema.
+    node = _node("model.my_project.orders", "my_source_s3", "no_schema", "orders")
+    assert node.get_urn("snowflake", "DEV", None) == _urn(
+        "my_source_s3.no_schema.orders", "snowflake"
     )
 
 
@@ -135,7 +143,8 @@ def test_dremio_cll_upstream_urns_carry_dremio_prefix() -> None:
     ] == [(upstream.dbt_name, "order_id", "order_id")]
 
 
-def test_dremio_cll_through_ephemeral_model() -> None:
+@pytest.mark.parametrize("ephemeral_schema", ["staging", "no_schema"])
+def test_dremio_cll_through_ephemeral_model(ephemeral_schema: str) -> None:
     upstream = _node(
         "source.my_project.my_source_s3.orders",
         "my_source_s3",
@@ -148,7 +157,7 @@ def test_dremio_cll_through_ephemeral_model() -> None:
     ephemeral = _node(
         "model.my_project.stg_orders",
         "my_space",
-        "staging",
+        ephemeral_schema,
         "stg_orders",
         materialization="ephemeral",
         upstream_nodes=[upstream.dbt_name],
@@ -175,3 +184,16 @@ def test_dremio_cll_through_ephemeral_model() -> None:
         (c.upstream_dbt_name, c.upstream_col, c.downstream_col)
         for c in model.upstream_cll
     ] == [(ephemeral.dbt_name, "order_id", "order_id")]
+
+
+def test_dremio_without_database_name_warns(caplog: pytest.LogCaptureFixture) -> None:
+    # The Dremio source names datasets by their full path, so dbt URNs without
+    # the database can't match them.
+    with caplog.at_level(logging.WARNING):
+        DBTCoreConfig(
+            manifest_path="temp/",
+            catalog_path="temp/",
+            target_platform="dremio",
+            include_database_name=False,
+        )
+    assert any("include_database_name" in r.message for r in caplog.records)

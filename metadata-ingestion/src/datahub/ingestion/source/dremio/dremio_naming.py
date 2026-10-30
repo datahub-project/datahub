@@ -1,14 +1,28 @@
 """Dremio dataset naming, kept free of Dremio client dependencies so the dbt
 source can match the Dremio source's URNs."""
 
-from typing import List, Optional
+from typing import Iterable, Optional
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 
+DREMIO_PLATFORM = "dremio"
+
 # Dremio uses 'dremio' as the default database name in all SQL contexts
 DREMIO_DATABASE_NAME = "dremio"
+
+
+def dremio_dataset_name(parts: Iterable[Optional[str]]) -> str:
+    """The name the Dremio source gives the dataset at this path: ``dremio.<path>``.
+
+    A leading ``dremio`` is the default database, not part of the path, so it is
+    dropped rather than doubled.
+    """
+    path = [part for part in parts if part]
+    if path and path[0].lower() == DREMIO_DATABASE_NAME:
+        path = path[1:]
+    return ".".join([DREMIO_DATABASE_NAME, *path])
 
 
 class DremioSchemaResolver(SchemaResolver):
@@ -23,29 +37,13 @@ class DremioSchemaResolver(SchemaResolver):
     dremio_api.DremioAPIOperations.get_dataset_id() for implementation details.
     """
 
-    def _get_table_name_parts(self, table: _TableName) -> List[Optional[str]]:
+    def _construct_table_name(self, table: _TableName) -> str:
         # Up to 3 parts, database/db_schema/table carry the same name. They are also
         # the only reliable fields when a CTE was swapped for a table (dbt
         # ephemeral models): sqlglot then reports just the table in `parts`.
         if table.parts and len(table.parts) > 3:
-            return [DREMIO_DATABASE_NAME, *table.parts]
-        elif table.database and table.database.lower() != DREMIO_DATABASE_NAME:
-            return [
-                DREMIO_DATABASE_NAME,
-                table.database,
-                table.db_schema,
-                table.table,
-            ]
-        else:
-            return [
-                table.database or DREMIO_DATABASE_NAME,
-                table.db_schema,
-                table.table,
-            ]
-
-    def _construct_table_name(self, table: _TableName) -> str:
-        parts = self._get_table_name_parts(table)
-        return ".".join(filter(None, parts))
+            return dremio_dataset_name(table.parts)
+        return dremio_dataset_name([table.database, table.db_schema, table.table])
 
     def get_urn_for_table(
         self, table: _TableName, lower: bool = False, mixed: bool = False
