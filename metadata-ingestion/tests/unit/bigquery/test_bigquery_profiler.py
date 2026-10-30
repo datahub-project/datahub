@@ -2214,6 +2214,34 @@ def test_partition_datetime_window_narrows_discovered_range():
     ]
 
 
+@pytest.mark.parametrize(
+    "discovered, expected",
+    [
+        (
+            "`ts` >= TIMESTAMP('2024-01-01 00:00:00+00:00') AND "
+            "`ts` < TIMESTAMP('2024-02-01 00:00:00+00:00')",
+            "`ts` >= TIMESTAMP('2024-01-25 00:00:00+00:00') AND "
+            "`ts` < TIMESTAMP('2024-02-01 00:00:00+00:00')",
+        ),
+        (
+            "`ts` >= '2024-01-01 00:00:00' AND `ts` < '2024-02-01 00:00:00'",
+            "`ts` >= '2024-01-25 00:00:00' AND `ts` < '2024-02-01 00:00:00'",
+        ),
+    ],
+    ids=["timestamp", "datetime"],
+)
+def test_partition_datetime_window_narrows_timestamp_and_datetime_ranges(
+    discovered: str, expected: str
+) -> None:
+    """Discovery renders TIMESTAMP/DATETIME range bounds with a time component (and a
+    UTC offset for a tz-aware TIMESTAMP); those ranges are narrowed like DATE ones."""
+    config = create_test_config(partition_datetime_window_days=7)
+    profiler = BigqueryProfiler(config, BigQueryV2Report())
+    table = create_test_table()
+
+    assert profiler._apply_partition_date_windowing([discovered], table) == [expected]
+
+
 def test_partition_datetime_window_leaves_narrow_range_untouched():
     """When the window is at least as wide as the discovered range, there is nothing to
     narrow (narrowing would widen the lower bound below the partition), so the range is
