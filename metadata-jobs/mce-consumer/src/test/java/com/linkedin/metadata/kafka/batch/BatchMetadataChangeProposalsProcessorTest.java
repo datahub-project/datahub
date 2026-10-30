@@ -327,7 +327,10 @@ public class BatchMetadataChangeProposalsProcessorTest {
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(unknown);
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord3)).thenReturn(known2);
 
-    processor.consume(List.of(mockConsumerRecord1, mockConsumerRecord2, mockConsumerRecord3));
+    processor.consume(
+        contextWithMetrics(),
+        List.of(mockConsumerRecord1, mockConsumerRecord2, mockConsumerRecord3),
+        null);
 
     // Exactly one failure, carrying only the unknown MCP
     verify(mockKafkaProducer, times(1)).produceFailedMetadataChangeProposal(any(), any(), any());
@@ -336,6 +339,8 @@ public class BatchMetadataChangeProposalsProcessorTest {
     ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
     verify(mockEntityService, times(1)).ingestProposal(any(), batchCaptor.capture(), eq(false));
     assertEquals(batchCaptor.getValue().getItems().size(), 2);
+    verify(metricUtilsMock, never())
+        .incrementMicrometer(BatchMetadataChangeProposalsProcessor.UNKNOWN_DROPPED_METRIC, 1);
   }
 
   @Test
@@ -350,11 +355,15 @@ public class BatchMetadataChangeProposalsProcessorTest {
         .when(mockKafkaProducer)
         .produceFailedMetadataChangeProposal(any(), eq(List.of(unknown)), any());
 
-    processor.consume(List.of(mockConsumerRecord1, mockConsumerRecord2));
+    processor.consume(
+        contextWithMetrics(), List.of(mockConsumerRecord1, mockConsumerRecord2), null);
 
     ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
     verify(mockEntityService, times(1)).ingestProposal(any(), batchCaptor.capture(), eq(false));
     assertEquals(batchCaptor.getValue().getItems().size(), 1);
+    // The unknown MCP couldn't be sent anywhere: it is counted as dropped, not lost silently.
+    verify(metricUtilsMock)
+        .incrementMicrometer(BatchMetadataChangeProposalsProcessor.UNKNOWN_DROPPED_METRIC, 1);
   }
 
   @Test
@@ -389,7 +398,9 @@ public class BatchMetadataChangeProposalsProcessorTest {
   }
 
   @Test
-  public void testMalformedUrnFailsAloneWithoutFailingThePoll() throws Exception {
+  public void testMalformedUrnIsDroppedAloneWithoutFailingThePoll() throws Exception {
+    // The failure topic is keyed by the parsed urn, so a malformed one is dropped and counted, not
+    // sent; the rest of the poll is saved.
     setupBasicConfiguration();
     MetadataChangeProposal known1 = createSimpleMCP();
     MetadataChangeProposal malformed = createSimpleMCP();
@@ -406,40 +417,12 @@ public class BatchMetadataChangeProposalsProcessorTest {
         List.of(mockConsumerRecord1, mockConsumerRecord2, mockConsumerRecord3),
         null);
 
-    verify(mockKafkaProducer, times(1)).produceFailedMetadataChangeProposal(any(), any(), any());
-    verify(mockKafkaProducer)
-        .produceFailedMetadataChangeProposal(any(), eq(List.of(malformed)), any());
+    verify(mockKafkaProducer, never()).produceFailedMetadataChangeProposal(any(), any(), any());
     ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
     verify(mockEntityService, times(1)).ingestProposal(any(), batchCaptor.capture(), eq(false));
     assertEquals(batchCaptor.getValue().getItems().size(), 2);
     verify(metricUtilsMock)
-        .incrementMicrometer(
-            BatchMetadataChangeProposalsProcessor.MALFORMED_URN_METRIC,
-            1,
-            "outcome",
-            "failure_topic");
-  }
-
-  @Test
-  public void testMalformedUrnThatCannotBeSentIsCountedAsDropped() throws Exception {
-    // The failure topic is keyed by the parsed urn, so sending a malformed one throws.
-    setupBasicConfiguration();
-    MetadataChangeProposal malformed = createSimpleMCP();
-    malformed.data().put("entityUrn", "not-a-urn");
-    MetadataChangeProposal known = createSimpleMCP();
-    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(malformed);
-    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(known);
-    doThrow(new RuntimeException("cannot key the record"))
-        .when(mockKafkaProducer)
-        .produceFailedMetadataChangeProposal(any(), eq(List.of(malformed)), any());
-
-    processor.consume(
-        contextWithMetrics(), List.of(mockConsumerRecord1, mockConsumerRecord2), null);
-
-    verify(mockEntityService, times(1)).ingestProposal(any(), any(AspectsBatch.class), eq(false));
-    verify(metricUtilsMock)
-        .incrementMicrometer(
-            BatchMetadataChangeProposalsProcessor.MALFORMED_URN_METRIC, 1, "outcome", "dropped");
+        .incrementMicrometer(BatchMetadataChangeProposalsProcessor.MALFORMED_URN_METRIC, 1);
   }
 
   /** The system context with the mocked metrics, so counters the processor emits can be checked. */

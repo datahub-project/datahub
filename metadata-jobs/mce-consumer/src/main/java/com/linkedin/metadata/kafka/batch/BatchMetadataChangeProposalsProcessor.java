@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,14 +55,24 @@ import org.springframework.stereotype.Component;
 public class BatchMetadataChangeProposalsProcessor {
 
   /**
-   * MCPs whose urn can't be parsed, failed one by one while entity and aspect tolerance is on (with
-   * it off, such an MCP fails the poll as before); tag outcome: failure_topic or dropped.
+   * MCPs whose urn can't be parsed, dropped one by one while entity and aspect tolerance is on
+   * (with it off, such an MCP fails the poll as before). The failure topic is keyed by the parsed
+   * urn, so they can't be sent there.
    */
   static final String MALFORMED_URN_METRIC = "mcp.batch.malformed_urn";
+
+  /**
+   * MCPs for an entity type or aspect this build doesn't know whose send to the failure topic
+   * failed, so they were dropped. The rest of the poll is still processed.
+   */
+  static final String UNKNOWN_DROPPED_METRIC = "mcp.batch.unknown_dropped";
 
   private static final UnknownDataGuard UNKNOWN_DATA =
       UnknownDataGuard.forSite(
           BatchMetadataChangeProposalsProcessor.class, "MCP (sent to the failure topic)");
+
+  private static final UnknownDataGuard MALFORMED =
+      UnknownDataGuard.forSite(BatchMetadataChangeProposalsProcessor.class, "MCP (dropped)");
 
   private static final String AVRO_SYSTEM_METADATA_FIELD = "systemMetadata";
   private static final String AVRO_PROPERTIES_FIELD = "properties";
@@ -247,18 +258,16 @@ public class BatchMetadataChangeProposalsProcessor {
       if (handling().toleratesUnknownEntityAspect()) {
         final Urn urn = UnknownDataGuard.urnOrNull(mcp::getEntityUrn);
         if (urn == null && mcp.data().get("entityUrn") != null) {
-          final boolean sent =
-              sendToFailureTopic(
-                  sliceContext,
-                  mcp,
-                  new IllegalArgumentException(
-                      String.format("Malformed entity urn '%s'", mcp.data().get("entityUrn"))));
+          // The failure topic is keyed by the parsed urn, so this MCP can't be sent there. A urn
+          // that can't be parsed is invalid in every version, so there is nothing to replay.
+          MALFORMED.skippedBecause(
+              Optional.empty(),
+              "malformed urn",
+              "its entity urn can't be parsed",
+              mcp.data().get("entityUrn"));
           sliceContext
               .getMetricUtils()
-              .ifPresent(
-                  m ->
-                      m.incrementMicrometer(
-                          MALFORMED_URN_METRIC, 1, "outcome", sent ? "failure_topic" : "dropped"));
+              .ifPresent(m -> m.incrementMicrometer(MALFORMED_URN_METRIC, 1));
           continue;
         }
         if (!handling()
@@ -269,13 +278,17 @@ public class BatchMetadataChangeProposalsProcessor {
                 urn,
                 mcp.hasEntityType() ? mcp.getEntityType() : null,
                 mcp.hasAspectName() ? mcp.getAspectName() : null)) {
-          sendToFailureTopic(
+          if (!sendToFailureTopic(
               sliceContext,
               mcp,
               new IllegalArgumentException(
                   String.format(
                       "Unknown entity type or aspect '%s/%s' — not in current registry.",
-                      mcp.getEntityType(), mcp.getAspectName())));
+                      mcp.getEntityType(), mcp.getAspectName())))) {
+            sliceContext
+                .getMetricUtils()
+                .ifPresent(m -> m.incrementMicrometer(UNKNOWN_DROPPED_METRIC, 1));
+          }
           continue;
         }
       }
@@ -330,8 +343,8 @@ public class BatchMetadataChangeProposalsProcessor {
       return true;
     } catch (RuntimeException e) {
       // The MCP can't be applied by this build either way; don't let the failure topic abandon
-      // the valid MCPs already collected in this poll. The failure topic is keyed by the parsed
-      // urn, so an MCP whose urn can't be parsed always ends here.
+      // the valid MCPs already collected in this poll. Propagating would make the Kafka error
+      // handler retry and then discard the whole poll.
       log.error("Failed to send MCP to the failure topic: {}", reason.getMessage(), e);
       return false;
     }
