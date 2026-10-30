@@ -287,7 +287,12 @@ class StateProviderWrapper:
         ):
             if self.ctx.pipeline_name is None:
                 raise ConfigurationError(
-                    "pipeline_name must be provided if stateful ingestion is enabled."
+                    "pipeline_name must be set when stateful ingestion is enabled. "
+                    "Ingestion state is stored against it, so it must be unique to this "
+                    "source configuration and stable across runs. Never reuse one "
+                    "pipeline_name for two recipes: they would read and overwrite each "
+                    "other's checkpoints, and stale entity removal would soft-delete "
+                    "each other's entities."
                 )
             checkpointing_state_provider_class = (
                 ingestion_checkpoint_provider_registry.get(
