@@ -3710,13 +3710,19 @@
         },
         {
           "capability": "OWNERSHIP",
-          "description": "Enabled by default",
+          "description": "Disabled by default, configured using `extract_ownership`. In `metadata_api_mode: workspace_apis` owners come from workspace roles.",
           "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "TAGS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `extract_refresh_history`: the latest dataset refresh as an Operation aspect",
           "subtype_modifier": null,
           "supported": true
         },

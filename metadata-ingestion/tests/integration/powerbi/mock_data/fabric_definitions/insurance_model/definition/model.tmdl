@@ -1,0 +1,10 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+
+annotation PBI_QueryOrder = ["Policies","Claims"]
+
+ref table Policies
+ref table Claims
+ref table 'Insurance KPIs'
+ref table 'Claims By State'
