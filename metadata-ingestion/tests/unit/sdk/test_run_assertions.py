@@ -6,6 +6,7 @@ import pytest
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.sdk.assertion_client import AssertionClient
+from datahub.utilities.graphql_query_adapter import minify_graphql_query
 
 
 @pytest.fixture
@@ -317,7 +318,9 @@ class TestReportAssertionResult:
                 type="SUCCESS",
             )
 
-            assert mock_execute.call_args.kwargs["query"] == expected_query
+            assert minify_graphql_query(
+                mock_execute.call_args.kwargs["query"]
+            ) == minify_graphql_query(expected_query)
             assert mock_execute.call_args.kwargs["variables"] == {
                 "assertionUrn": "urn:li:assertion:test123",
                 "timestampMillis": 1700000000000,
@@ -352,6 +355,47 @@ class TestReportAssertionResult:
             assert variables["missingCount"] == 120
             assert "rowCount" not in variables
             assert "unexpectedCount" not in variables
+
+    def test_report_assertion_result_coerces_numpy_values(self, mock_graph):
+        np = pytest.importorskip("numpy")
+        with patch.object(mock_graph, "execute_graphql") as mock_execute:
+            mock_execute.return_value = {"reportAssertionResult": True}
+
+            mock_graph.report_assertion_result(
+                urn="urn:li:assertion:test123",
+                timestamp_millis=1700000000000,
+                type="FAILURE",
+                actual_agg_value=np.float64(0.12),
+                missing_count=np.int64(120),
+            )
+
+            variables = mock_execute.call_args.kwargs["variables"]
+            assert type(variables["actualAggValue"]) is float
+            assert type(variables["missingCount"]) is int
+            assert variables["missingCount"] == 120
+
+    @pytest.mark.parametrize(
+        "kwargs, error",
+        [
+            ({"actual_agg_value": float("nan")}, ValueError),
+            ({"actual_agg_value": float("inf")}, ValueError),
+            ({"actual_agg_value": 1e39}, ValueError),
+            ({"row_count": True}, TypeError),
+            ({"missing_count": 1.5}, TypeError),
+        ],
+    )
+    def test_report_assertion_result_rejects_invalid_numeric_values(
+        self, mock_graph, kwargs, error
+    ):
+        with patch.object(mock_graph, "execute_graphql") as mock_execute:
+            with pytest.raises(error):
+                mock_graph.report_assertion_result(
+                    urn="urn:li:assertion:test123",
+                    timestamp_millis=1700000000000,
+                    type="FAILURE",
+                    **kwargs,
+                )
+            mock_execute.assert_not_called()
 
 
 class TestAssertionClientReportAssertionResult:

@@ -2,6 +2,8 @@ import contextlib
 import functools
 import json
 import logging
+import math
+import operator
 import textwrap
 import time
 from datetime import datetime
@@ -116,6 +118,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
+# Largest finite 32-bit float; AssertionResult.actualAggValue is stored as one.
+_FLOAT32_MAX = 3.4028234663852886e38
 
 # Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
 # survives across short-lived processes and invalidates on server upgrade.
@@ -161,6 +165,19 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
         # so no conversion is needed.
         return entity_type
     return entity_type_to_graphql(entity_type)
+
+
+def _coerce_optional_count(name: str, value: Optional[int]) -> Optional[int]:
+    """Convert an integer-like count (including numpy integers) to ``int``.
+
+    ``bool`` and floats are rejected: GraphQL ``Long`` does not accept ``true``,
+    and silently truncating a float would report a wrong count.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise TypeError(f"{name} must be an integer, not a bool")
+    return operator.index(value)
 
 
 class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
@@ -2205,9 +2222,29 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         only about 7 significant digits are kept; use ``row_count``,
         ``unexpected_count`` and ``missing_count`` for exact counts.
 
+        ``actual_agg_value`` must be finite and within the 32-bit float range,
+        and the counts must be integers; otherwise ``ValueError`` or
+        ``TypeError`` is raised before anything is sent. numpy scalars are
+        accepted.
+
         The numeric fields are added to the request only when set, because
         servers that predate them reject unknown input fields.
         """
+        if actual_agg_value is not None:
+            if isinstance(actual_agg_value, bool):
+                raise TypeError("actual_agg_value must be a number, not a bool")
+            actual_agg_value = float(actual_agg_value)
+            if (
+                not math.isfinite(actual_agg_value)
+                or abs(actual_agg_value) > _FLOAT32_MAX
+            ):
+                raise ValueError(
+                    f"actual_agg_value must be finite and within the 32-bit float range, got {actual_agg_value}"
+                )
+        row_count = _coerce_optional_count("row_count", row_count)
+        unexpected_count = _coerce_optional_count("unexpected_count", unexpected_count)
+        missing_count = _coerce_optional_count("missing_count", missing_count)
+
         # (GraphQL variable name, GraphQL type, value) for the optional numeric
         # fields. Unset ones are left out of the mutation entirely.
         numeric_fields = [

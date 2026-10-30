@@ -116,8 +116,9 @@ class AssertionClient:
         ``missing_count`` are optional values observed during the run. The
         server stores them only for SUCCESS and FAILURE results.
         ``actual_agg_value`` is stored as a 32-bit float (about 7 significant
-        digits); use the count fields for exact counts. They are sent only when
-        set and need a server that supports them.
+        digits) and must be finite and within that range; use the count fields
+        for exact counts. They are sent only when set and need a server that
+        supports them.
         """
         return self._graph.report_assertion_result(
             urn=urn,
