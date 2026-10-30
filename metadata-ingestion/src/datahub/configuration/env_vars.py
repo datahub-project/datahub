@@ -405,8 +405,11 @@ def get_disable_agent_probe_raw_access() -> bool:
 
     On most connectors the typed listings keep working, so recipe diagnosis
     still functions -- this said so unconditionally and was wrong about the
-    two that matter most. Snowflake and BigQuery expose `sql` as their ONLY
-    probe command, so setting this withholds their probe entirely. The
+    two that matter most. Snowflake exposes `sql` as its ONLY probe command, so
+    setting this withholds its probe entirely. BigQuery also declares
+    `projects`, which takes no caller-supplied query or path, so its probe is
+    narrowed rather than withheld: `projects` still authenticates and lists
+    what the recipe would consider. The
     refusal message names what is left for the connector in hand rather than
     promising something in general.
 
