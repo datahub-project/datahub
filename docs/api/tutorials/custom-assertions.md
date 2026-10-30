@@ -281,7 +281,8 @@ To also report the numeric values observed during the run, pass the optional `ac
 `unexpected_count` and `missing_count` arguments. They are sent only when set, and need a DataHub server that supports
 these fields. They are stored only for `SUCCESS` and `FAILURE` results, and `actual_agg_value` keeps only about 7
 significant digits, so use the count arguments for exact counts. `actual_agg_value` must be finite and within the
-32-bit float range (so not `NaN` or infinity); invalid values raise an error before anything is sent.
+32-bit float range (so not `NaN` or infinity), and the counts must be non-negative integers that fit in a signed 64-bit
+integer; invalid values raise an error before anything is sent.
 
 ```python
 graph.report_assertion_result(

@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Literal, NoReturn, Optional
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    List,
+    Literal,
+    NoReturn,
+    Optional,
+    SupportsFloat,
+    SupportsIndex,
+)
 
 from datahub.errors import SdkUsageError
 
@@ -105,10 +114,10 @@ class AssertionClient:
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
         severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
-        actual_agg_value: Optional[float] = None,
-        row_count: Optional[int] = None,
-        unexpected_count: Optional[int] = None,
-        missing_count: Optional[int] = None,
+        actual_agg_value: Optional[SupportsFloat] = None,
+        row_count: Optional[SupportsIndex] = None,
+        unexpected_count: Optional[SupportsIndex] = None,
+        missing_count: Optional[SupportsIndex] = None,
     ) -> bool:
         """Report a run result for an assertion.
 
@@ -117,8 +126,9 @@ class AssertionClient:
         server stores them only for SUCCESS and FAILURE results.
         ``actual_agg_value`` is stored as a 32-bit float (about 7 significant
         digits) and must be finite and within that range; use the count fields
-        for exact counts. They are sent only when set and need a server that
-        supports them.
+        for exact counts, which must be non-negative and fit in a signed 64-bit
+        integer. They are sent only when set and need a server that supports
+        them.
         """
         return self._graph.report_assertion_result(
             urn=urn,

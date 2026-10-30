@@ -382,6 +382,8 @@ class TestReportAssertionResult:
             ({"actual_agg_value": 1e39}, ValueError),
             ({"row_count": True}, TypeError),
             ({"missing_count": 1.5}, TypeError),
+            ({"unexpected_count": -1}, ValueError),
+            ({"row_count": 2**63}, ValueError),
         ],
     )
     def test_report_assertion_result_rejects_invalid_numeric_values(

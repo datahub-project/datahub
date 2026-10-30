@@ -16,9 +16,12 @@ from typing import (
     Iterator,
     List,
     Literal,
+    NamedTuple,
     Optional,
     Sequence,
     Set,
+    SupportsFloat,
+    SupportsIndex,
     Tuple,
     Type,
     Union,
@@ -120,6 +123,8 @@ _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
 # Largest finite 32-bit float; AssertionResult.actualAggValue is stored as one.
 _FLOAT32_MAX = 3.4028234663852886e38
+# Largest value of the GraphQL Long scalar (a Java long).
+_LONG_MAX = 2**63 - 1
 
 # Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
 # survives across short-lived processes and invalidates on server upgrade.
@@ -167,17 +172,31 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
     return entity_type_to_graphql(entity_type)
 
 
-def _coerce_optional_count(name: str, value: Optional[int]) -> Optional[int]:
+def _coerce_optional_count(name: str, value: Optional[SupportsIndex]) -> Optional[int]:
     """Convert an integer-like count (including numpy integers) to ``int``.
 
     ``bool`` and floats are rejected: GraphQL ``Long`` does not accept ``true``,
-    and silently truncating a float would report a wrong count.
+    and silently truncating a float would report a wrong count. Counts must be
+    non-negative and fit in a signed 64-bit ``Long``.
     """
     if value is None:
         return None
     if isinstance(value, bool):
         raise TypeError(f"{name} must be an integer, not a bool")
-    return operator.index(value)
+    count = operator.index(value)
+    if not 0 <= count <= _LONG_MAX:
+        raise ValueError(
+            f"{name} must be between 0 and {_LONG_MAX} (signed 64-bit), got {count}"
+        )
+    return count
+
+
+class _NumericResultField(NamedTuple):
+    """An optional numeric field of the reportAssertionResult mutation."""
+
+    name: str
+    gql_type: str
+    value: Optional[Union[float, int]]
 
 
 class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
@@ -2209,10 +2228,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
         severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
-        actual_agg_value: Optional[float] = None,
-        row_count: Optional[int] = None,
-        unexpected_count: Optional[int] = None,
-        missing_count: Optional[int] = None,
+        actual_agg_value: Optional[SupportsFloat] = None,
+        row_count: Optional[SupportsIndex] = None,
+        unexpected_count: Optional[SupportsIndex] = None,
+        missing_count: Optional[SupportsIndex] = None,
     ) -> bool:
         """Report a run result for an assertion.
 
@@ -2223,46 +2242,49 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         ``unexpected_count`` and ``missing_count`` for exact counts.
 
         ``actual_agg_value`` must be finite and within the 32-bit float range,
-        and the counts must be integers; otherwise ``ValueError`` or
-        ``TypeError`` is raised before anything is sent. numpy scalars are
-        accepted.
+        and the counts must be non-negative integers that fit in a signed
+        64-bit integer; otherwise ``ValueError`` or ``TypeError`` is raised
+        before anything is sent. numpy scalars are accepted.
 
         The numeric fields are added to the request only when set, because
         servers that predate them reject unknown input fields.
         """
+        agg_value: Optional[float] = None
         if actual_agg_value is not None:
             if isinstance(actual_agg_value, bool):
                 raise TypeError("actual_agg_value must be a number, not a bool")
-            actual_agg_value = float(actual_agg_value)
-            if (
-                not math.isfinite(actual_agg_value)
-                or abs(actual_agg_value) > _FLOAT32_MAX
-            ):
+            agg_value = float(actual_agg_value)
+            if not math.isfinite(agg_value) or abs(agg_value) > _FLOAT32_MAX:
                 raise ValueError(
-                    f"actual_agg_value must be finite and within the 32-bit float range, got {actual_agg_value}"
+                    f"actual_agg_value must be finite and within the 32-bit float range, got {agg_value}"
                 )
-        row_count = _coerce_optional_count("row_count", row_count)
-        unexpected_count = _coerce_optional_count("unexpected_count", unexpected_count)
-        missing_count = _coerce_optional_count("missing_count", missing_count)
 
-        # (GraphQL variable name, GraphQL type, value) for the optional numeric
-        # fields. Unset ones are left out of the mutation entirely.
+        # Unset fields are left out of the mutation entirely.
         numeric_fields = [
-            (name, gql_type, value)
-            for name, gql_type, value in (
-                ("actualAggValue", "Float", actual_agg_value),
-                ("rowCount", "Long", row_count),
-                ("unexpectedCount", "Long", unexpected_count),
-                ("missingCount", "Long", missing_count),
+            field
+            for field in (
+                _NumericResultField("actualAggValue", "Float", agg_value),
+                _NumericResultField(
+                    "rowCount", "Long", _coerce_optional_count("row_count", row_count)
+                ),
+                _NumericResultField(
+                    "unexpectedCount",
+                    "Long",
+                    _coerce_optional_count("unexpected_count", unexpected_count),
+                ),
+                _NumericResultField(
+                    "missingCount",
+                    "Long",
+                    _coerce_optional_count("missing_count", missing_count),
+                ),
             )
-            if value is not None
+            if field.value is not None
         ]
         numeric_var_defs = "".join(
-            f"\n                ${name}: {gql_type},"
-            for name, gql_type, _ in numeric_fields
+            f"\n                ${f.name}: {f.gql_type}," for f in numeric_fields
         )
         numeric_input_fields = "".join(
-            f"\n                    {name}: ${name}" for name, _, _ in numeric_fields
+            f"\n                    {f.name}: ${f.name}" for f in numeric_fields
         )
 
         graph_query: str = f"""
@@ -2297,7 +2319,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             ),
             "severity": severity,
         }
-        variables.update({name: value for name, _, value in numeric_fields})
+        variables.update({f.name: f.value for f in numeric_fields})
 
         res = self.execute_graphql(
             query=graph_query,
