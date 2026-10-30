@@ -19,7 +19,7 @@ Most organizations have several tables, dashboards, and documents that look like
 
 1. Someone with the **Certify** privilege certifies an asset or document, optionally with a note explaining why.
 2. DataHub shows a certified seal next to its name: on its page, in search results, in lineage, and wherever it's mentioned. Hovering over the seal shows who certified it, when, and their note.
-3. AI agents treat certified sources as the most trustworthy context available. They use them first, and say so when an answer relies on context nobody has certified.
+3. AI agents see which sources are certified, and build their answers on them first. Ask DataHub also tells users when an answer relies on context nobody has certified, and you can give your own agents [instructions](#using-certification-in-agent-responses) to do the same.
 
 You can certify:
 
@@ -74,14 +74,15 @@ _Screenshot: the Certification page, listing certified assets._
 
 ## How AI agents use certification
 
-When DataHub returns assets and documents to an agent, it tells the agent which ones are certified. The agent builds its answers on certified sources first, and says so when an answer relies on context nobody has certified.
+When DataHub returns assets and documents to an agent, it tells the agent which ones are certified, and the agent builds its answers on certified sources first. Ask DataHub also tells users when an answer relies on context nobody has certified. Agents connected through DataHub's MCP server receive the same information, but whether they tell users depends on their own instructions. See [Using certification in agent responses](#using-certification-in-agent-responses).
 
 This helps agents in the situations where trust matters most:
 
-- **Text-to-SQL:** when several tables could answer a question, the agent builds its query on the certified one, and tells the user when no certified source covers the question.
+- **Text-to-SQL:** when several tables could answer a question, the agent builds its query on the certified one, and Ask DataHub tells the user when no certified source covers the question.
 - **Data discovery:** when someone asks where to find data, the agent points them to the certified asset first, rather than the copy that happens to match their wording.
 
-Certified assets and documents also rank higher when agents search, so the sources your team vouches for are the ones agents find first. See [Certification & Trust Ranking](../../../managed-datahub/build-a-data-agent/key-concepts.md#certification--trust-ranking).
+<!-- TODO(certification-ranking): When certified sources rank higher in search, add:
+"Certified assets and documents also rank higher when agents search, so the sources your team vouches for are easier for agents to find. See [Certification & Trust Ranking](../../../managed-datahub/build-a-data-agent/key-concepts.md#certification--trust-ranking)." -->
 
 <p align="center">
   <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/certification-ask-datahub.png"/>
@@ -91,22 +92,23 @@ _Screenshot: Ask DataHub answering from a certified table, and saying that it's 
 
 ## Using certification in agent responses
 
-Agents use certification out of the box. To control exactly how your agent explains it in its answers, for example to always tell users whether an answer can be shared, add instructions that say how to interpret certification. Add them to a [custom agent's](../agents.md) instructions, or to a [skill](../../../dev-guides/agent-context/skills.md) your own agent uses.
+Ask DataHub uses certification out of the box. Agents connected through DataHub's MCP server see which sources are certified, but how they explain it to users depends on their own instructions. To control exactly how your agent explains certification in its answers, for example to always tell users whether an answer can be shared, add instructions that say how to interpret certification. Add them to a [custom agent's](../agents.md) instructions, or to a [skill](../../../dev-guides/agent-context/skills.md) your own agent uses.
 
 For example:
 
 ```text
 ## Qualifying responses through certification
 
-Each context document and data asset used in this flow is marked as either
-certified or uncertified. Certified assets are those that data team admins have
-explicitly identified as trustworthy.
+Each context document and data asset used in this flow is either certified or
+not. Certified assets are those that data team admins have explicitly identified
+as trustworthy.
 
-## Explaining uncertified sources in answers
+## Explaining unverified sources in answers
 
-When a response depends on uncertified context documents or data assets,
-qualify the response clearly, and say that it should be reviewed before it is
-fully trusted or shared publicly, because it uses uncertified sources.
+When a response depends on sources that DataHub inferred automatically, rather
+than ones a person wrote, curated, or certified, qualify the response clearly,
+and say that it should be reviewed before it is fully trusted or shared
+publicly.
 
 ## Explaining certified sources in answers
 
