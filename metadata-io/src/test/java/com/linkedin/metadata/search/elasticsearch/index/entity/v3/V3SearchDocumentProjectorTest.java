@@ -163,8 +163,9 @@ public class V3SearchDocumentProjectorTest {
 
     V3SearchDocumentProjector.ProjectedAspect fieldProjection =
         realProjector.projectAspect(opContext, event).orElseThrow();
-    assertFalse(fieldProjection.aspectFields().has("parent__urn_name"));
-    assertFalse(fieldProjection.rootFields().path("parent").isNull());
+    assertEquals(
+        fieldProjection.aspectFields().get("parent__urn_name").get(0).asText(), "sales.orders");
+    assertTrue(fieldProjection.rootFields().get("parent").isNull());
     assertEquals(fieldProjection.rootFields().get("urn_name").asText(), "order_id");
   }
 

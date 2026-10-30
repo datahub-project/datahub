@@ -167,6 +167,7 @@ public final class SearchTemplateChecks {
         && !SearchTemplateLoader.emptyHighlights(merged.getHighlightFields())) {
       composed.setHighlightFields(merged.getHighlightFields());
     }
+    composed.setMatchedFields(merged.isMatchedFields());
     if (!merged.getParameters().isEmpty()) {
       composed.setParameters(new StringMap(merged.getParameters()));
     }

@@ -18,11 +18,12 @@ import javax.annotation.Nullable;
 import org.opensearch.index.query.QueryBuilder;
 
 /**
- * Reports a structured-property match from a query {@code _name}. The name is {@code exact}, {@code
- * prefix}, {@code contains}, or {@code nameAndValue}, and it is reported only when that name is on
- * exactly one clause and that clause targets exactly one structured-property field.
+ * Reports a structured-property match from a namespaced query {@code _name}. The mode is {@code
+ * exact}, {@code prefix}, {@code contains}, or {@code nameAndValue}, and it is reported only when
+ * that name is on exactly one clause and that clause targets exactly one structured-property field.
  */
 public final class SearchTemplateMatchReport {
+  public static final String MATCHED_FIELD_PREFIX = "matchedField:";
   public static final String EXACT = "exact";
   public static final String PREFIX = "prefix";
   public static final String CONTAINS = "contains";
@@ -67,6 +68,23 @@ public final class SearchTemplateMatchReport {
 
   private SearchTemplateMatchReport() {}
 
+  @Nonnull
+  public static String queryName(@Nonnull String field) {
+    return MATCHED_FIELD_PREFIX + field;
+  }
+
+  private static boolean isNamedMode(@Nonnull String name) {
+    return name.startsWith(MATCHED_FIELD_PREFIX)
+        && MODES.contains(name.substring(MATCHED_FIELD_PREFIX.length()));
+  }
+
+  @Nonnull
+  private static String fieldName(@Nonnull String name) {
+    return name.startsWith(MATCHED_FIELD_PREFIX)
+        ? name.substring(MATCHED_FIELD_PREFIX.length())
+        : name;
+  }
+
   /**
    * Records unique named clauses on this query. A reused name or a multi-property clause is
    * omitted.
@@ -104,10 +122,11 @@ public final class SearchTemplateMatchReport {
       if (urn == null) {
         continue;
       }
-      String mode = entry.getKey();
+      String name = entry.getKey();
+      String mode = fieldName(name);
       String subfield = fields.size() == 1 ? fields.iterator().next() : subfieldFor(path, mode);
       unique.put(
-          mode,
+          name,
           new RenderedSearchTemplate.NamedClause(
               urn, path, subfield, PREFIX.equals(mode) || CONTAINS.equals(mode)));
     }
@@ -140,10 +159,10 @@ public final class SearchTemplateMatchReport {
       covered.add(clause.path());
     }
     remaining.keySet().removeAll(consumed);
-    remaining.keySet().removeIf(name -> MODES.contains(name) || covers(name, covered));
+    remaining.keySet().removeIf(name -> isNamedMode(name) || covers(name, covered));
     for (Map.Entry<String, Set<String>> entry : remaining.entrySet()) {
       for (String value : entry.getValue()) {
-        reported.add(new MatchedField().setName(entry.getKey()).setValue(value));
+        reported.add(new MatchedField().setName(fieldName(entry.getKey())).setValue(value));
       }
     }
     return reported;
@@ -168,7 +187,7 @@ public final class SearchTemplateMatchReport {
                 clause.urn(),
                 matchedValue(source, query, clause, value),
                 clause.subfield(),
-                entry.getKey(),
+                fieldName(entry.getKey()),
                 query));
       }
     }
@@ -219,7 +238,7 @@ public final class SearchTemplateMatchReport {
       return;
     }
     JsonNode name = node.get("_name");
-    if (name != null && name.isTextual() && MODES.contains(name.asText())) {
+    if (name != null && name.isTextual() && isNamedMode(name.asText())) {
       Set<String> properties = new LinkedHashSet<>();
       addProperty(parentKey, properties);
       collect(node, properties, true);

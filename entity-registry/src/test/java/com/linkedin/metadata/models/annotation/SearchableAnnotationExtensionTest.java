@@ -927,19 +927,22 @@ public class SearchableAnnotationExtensionTest {
   }
 
   @Test
-  public void testCopyToOtherRejectsSearchLabel() {
+  public void testCopyToOtherAllowsADifferentSearchLabel() {
     DataMap v3 = new DataMap();
     v3.put("copyToOther", true);
-    v3.put("searchLabel", "name");
+    v3.put("queryByDefault", false);
+    v3.put("searchLabel", "location");
     DataMap annotationMap = new DataMap();
-    annotationMap.put("fieldType", "URN");
+    annotationMap.put("fieldType", "TEXT_PARTIAL");
     annotationMap.put("v3", v3);
 
-    assertThrows(
-        ModelValidationException.class,
-        () ->
-            SearchableAnnotation.fromPegasusAnnotationObject(
-                annotationMap, "schemaField", DataSchema.Type.STRING, "test context"));
+    SearchableAnnotation annotation =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotationMap, "path", DataSchema.Type.STRING, "test context");
+
+    assertTrue(annotation.isCopyToOther());
+    assertEquals(annotation.resolvedForV3().getSearchLabel().get(), "location");
+    assertEquals(annotation.resolvedForV3().getFieldName(), "path");
   }
 
   @Test

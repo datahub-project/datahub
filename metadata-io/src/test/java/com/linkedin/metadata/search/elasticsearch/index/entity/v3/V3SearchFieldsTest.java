@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.testng.annotations.Test;
 
 public class V3SearchFieldsTest {
@@ -38,7 +37,7 @@ public class V3SearchFieldsTest {
 
     assertEquals(
         fields.keySet(),
-        Set.of(ENTITY_NAME, QUALIFIED_NAME, DESCRIPTION, OTHER, "tags", "glossaryTerms"));
+        Set.of(ENTITY_NAME, QUALIFIED_NAME, DESCRIPTION, OTHER, "tags", "glossaryTerms", "text"));
     // Matched fields follow this order, so the catch-all comes last
     assertEquals(List.copyOf(fields.keySet()).get(fields.size() - 1), OTHER);
     assertTrue(fields.get(ENTITY_NAME).contains("name"), fields.toString());
@@ -71,8 +70,7 @@ public class V3SearchFieldsTest {
                 List.of(
                     "platform",
                     "container",
-                    "domains",
-                    "dataProduct",
+                    "customProperties",
                     "platformInstance",
                     "_aspects.applications.applications__urn_name")),
         fields.get(OTHER).toString());
@@ -134,14 +132,16 @@ public class V3SearchFieldsTest {
   }
 
   /**
-   * Of other, matched fields fetch only what names the entity: a document's text, custom properties
-   * and lists of URNs are not full-text fields and could be any size.
+   * Matched fields are the stored values of the shared fields that were searched. {@code other} is
+   * a copy_to sink and is not fetched, so a hit only there has no matched field. Name, tags, and
+   * glossary terms are fetched because they are searched fields of their own.
    */
   @Test
   public void testMatchedFieldSourcesKeepOnlyNamesAndTagsOfOther() {
     List<String> datasetSources =
         V3SearchFields.matchedFieldSources(V3SearchFields.fullTextFields(List.of(dataset())));
     assertTrue(datasetSources.contains("name"), datasetSources.toString());
+    assertFalse(datasetSources.contains(OTHER), datasetSources.toString());
     assertFalse(datasetSources.contains("editedName"), datasetSources.toString());
     assertTrue(datasetSources.contains("tags"), datasetSources.toString());
     assertTrue(datasetSources.contains("glossaryTerms"), datasetSources.toString());
@@ -152,7 +152,9 @@ public class V3SearchFieldsTest {
 
     Map<String, List<String>> documentFields =
         V3SearchFields.fullTextFields(List.of(REGISTRY.getEntitySpec("document")));
-    List<String> freeText = List.of("text", "semanticText", "customProperties");
+    assertTrue(documentFields.containsKey("text"), documentFields.toString());
+    assertFalse(documentFields.get(OTHER).contains("text"), documentFields.toString());
+    List<String> freeText = List.of("semanticText", "customProperties");
     assertTrue(documentFields.get(OTHER).containsAll(freeText), documentFields.toString());
     List<String> documentSources = V3SearchFields.matchedFieldSources(documentFields);
     assertTrue(documentSources.contains("_aspects.documentInfo.title"), documentSources.toString());
@@ -199,12 +201,42 @@ public class V3SearchFieldsTest {
           V3SearchFields.matchedFieldSources(V3SearchFields.fullTextFields(group)).stream()
               .filter(source -> !List.of("tags", "glossaryTerms").contains(source))
               .filter(
-                  source ->
-                      roots.getOrDefault(source, List.of()).stream()
-                          .anyMatch(SearchableFieldSpec::isArray))
+                  source -> {
+                    List<SearchableFieldSpec> specs = roots.getOrDefault(source, List.of());
+                    return !specs.isEmpty()
+                        && specs.stream().allMatch(SearchableFieldSpec::isArray);
+                  })
               .toList();
       assertTrue(arrays.isEmpty(), group.get(0).getName() + ": " + arrays);
     }
+  }
+
+  @Test
+  public void testLocationCopiesToOtherWithoutJoiningTheDefaultQuery() {
+    List<SearchableFieldSpec> locations =
+        REGISTRY.getEntitySpecs().values().stream()
+            .flatMap(entitySpec -> entitySpec.getAspectSpecs().stream())
+            .flatMap(aspectSpec -> aspectSpec.getSearchableFieldSpecs().stream())
+            .filter(
+                spec ->
+                    "location"
+                        .equals(
+                            spec.getSearchableAnnotation()
+                                .resolvedForV3()
+                                .getSearchLabel()
+                                .orElse(null)))
+            .toList();
+
+    assertFalse(locations.isEmpty());
+    for (SearchableFieldSpec spec : locations) {
+      SearchableAnnotation resolved = spec.getSearchableAnnotation().resolvedForV3();
+      assertTrue(resolved.isCopyToOther(), resolved.getFieldName());
+      assertFalse(resolved.isQueryByDefault(), resolved.getFieldName());
+      assertEquals(V3SearchFields.destinations(List.of(spec), Set.of()), Set.of("location", OTHER));
+    }
+    assertFalse(
+        V3SearchFields.fullTextFields(List.of(REGISTRY.getEntitySpec("dataFlow")))
+            .containsKey("location"));
   }
 
   @Test
@@ -337,11 +369,7 @@ public class V3SearchFieldsTest {
             .flatMap(entitySpec -> entitySpec.getSearchableFieldSpecs().stream())
             .map(fieldSpec -> fieldSpec.getSearchableAnnotation().getFieldName())
             .collect(Collectors.toSet());
-    Set<String> declared =
-        Stream.concat(
-                V3SearchFields.COLUMN_ARRAY_FIELDS.stream(),
-                V3SearchFields.MATCHED_OTHER_FIELDS.stream())
-            .collect(Collectors.toSet());
+    Set<String> declared = V3SearchFields.COLUMN_ARRAY_FIELDS;
 
     assertTrue(
         searchableFieldNames.containsAll(declared),
@@ -387,5 +415,18 @@ public class V3SearchFieldsTest {
     SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
     when(fieldSpec.getSearchableAnnotation()).thenReturn(annotation);
     return fieldSpec;
+  }
+
+  @Test
+  public void testRichTextLabelRootsAreNotIndexed() {
+    SearchFieldResolver resolver = V3SearchFieldModel.forSearchableEntities(REGISTRY).resolver();
+    for (String label : List.of("text", "queryText")) {
+      SearchFieldResolver.Field field =
+          resolver.resolve(label, SearchFieldResolver.Intent.FULL_TEXT);
+      assertFalse(field.isIndexed(), label);
+      assertFalse(field.isDocValues(), label);
+      assertEquals(
+          resolver.analyzedPaths(label), List.of(label + ".text", label + ".stemmed"), label);
+    }
   }
 }

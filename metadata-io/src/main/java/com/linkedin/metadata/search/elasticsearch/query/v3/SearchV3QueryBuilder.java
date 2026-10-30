@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields
 import com.linkedin.metadata.search.elasticsearch.query.request.CustomizedQueryHandler;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.RenderedQueryFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchClauseBudget;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlightSelection;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredPropertySearchCatalog;
@@ -169,7 +170,6 @@ public class SearchV3QueryBuilder {
     List<String> highlights =
         SearchHighlightSelection.resolve(
             SearchTemplateFields.applyHighlight(Set.of(), template.getHighlightFields()), flags);
-    List<String> queriedFields = searchedFields(queried);
 
     TemplateContext builtContext = context(opContext, entitySpecs, query, template, queried);
     Map<String, Object> context = builtContext.values();
@@ -252,16 +252,39 @@ public class SearchV3QueryBuilder {
     Map<String, RenderedSearchTemplate.NamedClause> named =
         SearchTemplateMatchReport.namedClauses(built, properties);
     built = TemplateConfiguredScores.apply(opContext, template, entitySpecs, built);
+    List<String> queriedRoots = RenderedQueryFields.roots(built);
     return new RenderedSearchTemplate(
         built,
         rescore,
         aggregations,
         sorts,
         highlights,
-        queriedFields,
+        template.isMatchedFields(),
+        queriedRoots,
         query,
         named,
-        estimatedClauses);
+        estimatedClauses,
+        queriedFieldSources(opContext, queriedRoots));
+  }
+
+  /**
+   * Stored paths for the labels this render reads. {@link V3SearchFieldModel#fullTextFields()} is
+   * the mapping from label to source, so this filters that cache instead of walking the registry
+   * again.
+   */
+  @Nonnull
+  private static Map<String, List<String>> queriedFieldSources(
+      @Nonnull OperationContext opContext, @Nonnull List<String> queriedRoots) {
+    Map<String, List<String>> fullText =
+        V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).fullTextFields();
+    Map<String, List<String>> selected = new LinkedHashMap<>();
+    for (String root : queriedRoots) {
+      List<String> sources = fullText.get(root);
+      if (sources != null) {
+        selected.put(root, sources);
+      }
+    }
+    return selected;
   }
 
   private record TemplateContext(@Nonnull Map<String, Object> values, int estimatedClauses) {}
@@ -360,7 +383,9 @@ public class SearchV3QueryBuilder {
     List<SearchFieldConfig> queriedFields = withoutStructuredProperties(queried);
     List<String> analyzed = defaultQueryFields(queried);
     List<String> identityFields = SearchTemplateFields.identityAnalyzedFields(queriedFields);
-    List<String> lightFields = shape.nameOnly ? identityFields : analyzed;
+    List<String> defaultWithoutIdentity =
+        SearchTemplateFields.withoutLabels(analyzed, Set.of("name", "qualifiedName", "id"));
+    List<String> lightFields = shape.nameOnly ? List.of() : defaultWithoutIdentity;
     // A spaceless path scores qualifiedName only through the bounded clause. Leaving it in this
     // best_fields list lets one earlier token on a shorter name outrank that segment match.
     if (shape.spacelessDotted) {
@@ -371,8 +396,7 @@ public class SearchV3QueryBuilder {
             queriedFields, SearchTemplateFields.ENTITY_NAME_FIELD);
     List<String> qualifiedNameFields =
         SearchTemplateFields.labelAnalyzedFields(queriedFields, "qualifiedName");
-    List<String> defaultWithoutQualifiedName =
-        SearchTemplateFields.withoutLabel(analyzed, "qualifiedName");
+    List<String> idFields = SearchTemplateFields.labelAnalyzedFields(queriedFields, "id");
     SearchFieldResolver fieldResolver =
         V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
     Map<String, Object> context = new LinkedHashMap<>();
@@ -381,18 +405,26 @@ public class SearchV3QueryBuilder {
         SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS_JSON,
         SearchTemplateMustache.json(analyzed));
     context.put(
-        SearchTemplateContextVariables.DEFAULT_FIELDS_WITHOUT_QUALIFIED_NAME_JSON,
-        SearchTemplateMustache.json(defaultWithoutQualifiedName));
+        SearchTemplateContextVariables.DEFAULT_FIELDS_WITHOUT_IDENTITY_JSON,
+        SearchTemplateMustache.json(defaultWithoutIdentity));
     context.put(
         SearchTemplateContextVariables.IDENTITY_QUERY_FIELDS_JSON,
         SearchTemplateMustache.json(identityFields));
     context.put(
         SearchTemplateContextVariables.NAME_FIELDS_JSON, SearchTemplateMustache.json(nameFields));
+    if (!nameFields.isEmpty()) {
+      context.put(SearchTemplateContextVariables.NAME_FIELDS, Boolean.TRUE);
+    }
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_FIELDS_JSON,
         SearchTemplateMustache.json(qualifiedNameFields));
     if (!qualifiedNameFields.isEmpty()) {
       context.put(SearchTemplateContextVariables.QUALIFIED_NAME_FIELDS, Boolean.TRUE);
+    }
+    context.put(
+        SearchTemplateContextVariables.ID_FIELDS_JSON, SearchTemplateMustache.json(idFields));
+    if (!idFields.isEmpty()) {
+      context.put(SearchTemplateContextVariables.ID_FIELDS, Boolean.TRUE);
     }
     context.put(
         SearchTemplateContextVariables.LIGHT_FIELDS_JSON, SearchTemplateMustache.json(lightFields));
@@ -488,6 +520,9 @@ public class SearchV3QueryBuilder {
     context.put(SearchTemplateContextVariables.URN_FACTOR, exactNumber(partial.getUrnFactor()));
     context.put(SearchTemplateContextVariables.PARTIAL_FACTOR, exactNumber(partial.getFactor()));
     putQueryShape(context, shape, normalization.synonymCap());
+    if (shape.nameOnly) {
+      context.put(SearchTemplateContextVariables.NAME_ONLY, Boolean.TRUE);
+    }
     context.putAll(template.getParameters());
     if (template.isClasspathBridge()) {
       context.put(SearchTemplateViewer.URN, SearchTemplateViewer.urn(opContext));
@@ -1109,18 +1144,6 @@ public class SearchV3QueryBuilder {
       return null;
     }
     return StructuredPropertyNameValue.disMax(query, queried, properties, weight);
-  }
-
-  @Nonnull
-  private static List<String> searchedFields(@Nonnull Set<SearchFieldConfig> queried) {
-    List<String> names = new ArrayList<>();
-    Set<String> seen = new HashSet<>();
-    for (SearchFieldConfig field : queried) {
-      if (seen.add(field.fieldName())) {
-        names.add(field.fieldName());
-      }
-    }
-    return names;
   }
 
   @Nonnull

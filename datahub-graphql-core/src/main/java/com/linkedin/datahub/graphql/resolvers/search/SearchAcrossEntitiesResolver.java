@@ -123,7 +123,11 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             // Execute search and remove default filter fields from aggregations
             SearchResult searchResult =
                 _entityClient.searchAcrossEntities(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withCallerOptionalFilterFields(
+                            DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter)),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,

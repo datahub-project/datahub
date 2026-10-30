@@ -185,9 +185,8 @@ public class V3SearchQueryBuilderTest {
     Map<String, Float> weights =
         find(query, SimpleQueryStringBuilder.class).stream()
             .filter(sqs -> sqs.value().contains("~") && TEXT_SEARCH_ANALYZER.equals(sqs.analyzer()))
-            .findFirst()
-            .orElseThrow()
-            .fields();
+            .flatMap(sqs -> sqs.fields().entrySet().stream())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Math::max));
     assertTrue(weights.get("name.text") > weights.get("description.text"), weights.toString());
     assertTrue(weights.get("description.text") > weights.get("other.text"), weights.toString());
     assertFalse(weights.containsKey("_search.structuredProperties.text"), weights.toString());
@@ -310,22 +309,14 @@ public class V3SearchQueryBuilderTest {
     assertFalse(propertyClause.fields().containsKey("name.text"), propertyClause.toString());
 
     Set<String> singleWord =
-        only(find(
-                queryBuilder.buildQuery(context, dataset, "orders", true, true),
-                MultiMatchQueryBuilder.class))
-            .fields()
-            .keySet();
+        multiMatchFields(queryBuilder.buildQuery(context, dataset, "orders", true, true));
     assertTrue(
         singleWord.stream().noneMatch(field -> field.startsWith("structuredProperties.")),
         singleWord.toString());
     assertFalse(singleWord.contains("customFullTextSearchFields"), singleWord.toString());
 
     Set<String> severalWords =
-        only(find(
-                queryBuilder.buildQuery(context, dataset, "orders table", true, true),
-                MultiMatchQueryBuilder.class))
-            .fields()
-            .keySet();
+        multiMatchFields(queryBuilder.buildQuery(context, dataset, "orders table", true, true));
     assertTrue(
         severalWords.containsAll(
             Set.of(
@@ -451,24 +442,23 @@ public class V3SearchQueryBuilderTest {
   public void testLightQueryReadsSharedFields() {
     V3SearchQueryBuilder builder = builder(null);
 
-    // A single name searches only the shared fields that name the entity
+    // A single name searches only the shared fields that identify the entity
     Set<String> name =
-        only(find(
-                builder.buildQuery(OP_CONTEXT, DATASET, "orders", true, true),
-                MultiMatchQueryBuilder.class))
-            .fields()
-            .keySet();
+        multiMatchFields(builder.buildQuery(OP_CONTEXT, DATASET, "orders", true, true));
     assertEquals(
-        name, Set.of("name.text", "name.stemmed", "qualifiedName.text", "qualifiedName.stemmed"));
+        name,
+        Set.of(
+            "name.text",
+            "name.stemmed",
+            "qualifiedName.text",
+            "qualifiedName.stemmed",
+            "id.text",
+            "id.stemmed"));
     assertFalse(name.contains("customFullTextSearchFields"), name.toString());
 
     // Several words search every shared field
     Set<String> words =
-        only(find(
-                builder.buildQuery(OP_CONTEXT, DATASET, "orders table", true, true),
-                MultiMatchQueryBuilder.class))
-            .fields()
-            .keySet();
+        multiMatchFields(builder.buildQuery(OP_CONTEXT, DATASET, "orders table", true, true));
     assertTrue(words.contains("description.text"), words.toString());
     assertFalse(words.contains("name_1.stemmed"), words.toString());
     assertFalse(words.contains("description_1.text"), words.toString());
@@ -1079,8 +1069,13 @@ public class V3SearchQueryBuilderTest {
                                         ENTITY_NAME,
                                         "name_1",
                                         QUALIFIED_NAME,
+                                        "id",
                                         DESCRIPTION,
                                         "description_1",
+                                        "text",
+                                        "queryText",
+                                        "tool",
+                                        "location",
                                         "tags",
                                         "tags_1",
                                         "glossaryTerms",
@@ -1326,6 +1321,7 @@ public class V3SearchQueryBuilderTest {
     assertTrue(names.contains("tags.text"), names.toString());
     assertFalse(names.contains("platform.urnName.text"), names.toString());
     assertFalse(names.contains("tags.urnName.text"), names.toString());
+    assertFalse(names.stream().anyMatch(name -> name.endsWith(".delimited")), names.toString());
     assertFalse(names.stream().anyMatch(name -> name.endsWith(".ngram")), names.toString());
     assertTrue(
         names.stream()
@@ -1372,5 +1368,12 @@ public class V3SearchQueryBuilderTest {
   private static <T> T only(List<T> found) {
     assertEquals(found.size(), 1, found.toString());
     return found.get(0);
+  }
+
+  /** Identity labels are sibling clauses, so their fields read as one set. */
+  private static Set<String> multiMatchFields(QueryBuilder query) {
+    return find(query, MultiMatchQueryBuilder.class).stream()
+        .flatMap(match -> match.fields().keySet().stream())
+        .collect(Collectors.toSet());
   }
 }

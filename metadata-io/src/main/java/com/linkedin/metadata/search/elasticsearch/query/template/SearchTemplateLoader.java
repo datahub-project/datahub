@@ -351,6 +351,7 @@ public class SearchTemplateLoader {
             : StructuredPropertyReferences.resolver(operationContext, retriever);
     SearchFieldOverrides fields = null;
     HighlightFieldOverrides highlights = null;
+    Boolean matchedFields = null;
     SearchTemplateBoostArray boosts = null;
     StructuredPropertyQuery structuredPropertyQuery = null;
     FieldValueScoreArray fieldValueScores = null;
@@ -386,6 +387,9 @@ public class SearchTemplateLoader {
       if (props.hasHighlightFields()) {
         highlights =
             SearchTemplateFields.mergeHighlights(highlights, props.getHighlightFields(), resolver);
+      }
+      if (props.hasMatchedFields()) {
+        matchedFields = props.isMatchedFields();
       }
       if (props.hasBoosts()) {
         boosts =
@@ -469,6 +473,7 @@ public class SearchTemplateLoader {
     builder.lastModified(lastModified);
     builder.fields(fields);
     builder.highlightFields(highlights);
+    builder.matchedFields(matchedFields == null || matchedFields);
     builder.boosts(boosts);
     builder.structuredPropertyQuery(structuredPropertyQuery);
     builder.fieldValueScores(fieldValueScores);

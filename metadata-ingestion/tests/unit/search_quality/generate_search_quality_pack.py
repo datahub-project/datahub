@@ -460,6 +460,12 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     identity_name_and_qualified = dataset_urn(
         "catalogprobe", "identity_name_and_qualified"
     )
+    # A dataset key name is the name label, so it cannot stand in for id. These flows
+    # keep the same display name and put the query tokens on the id label alone.
+    identity_flow_name_only = "urn:li:dataFlow:(catalogprobe,flow_name_only,prod)"
+    identity_flow_name_and_id = (
+        "urn:li:dataFlow:(catalogprobe,identityprobe_parity,prod)"
+    )
     identity_path = dataset_urn("catalogprobe", "identity_path")
     identity_path_partial = dataset_urn("catalogprobe", "identity_path_partial")
     identity_earlier_segment = dataset_urn("catalogprobe", "identity_earlier_segment")
@@ -563,6 +569,22 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                     "name": "identityprobe parity",
                     "qualifiedName": "catalogprobe.identityprobe.parity",
                     "description": "Name and qualified-name identity comparison asset.",
+                },
+            ),
+            mcp(
+                identity_flow_name_only,
+                "dataFlowInfo",
+                {
+                    "name": "identityprobe parity",
+                    "description": "Name-only identity comparison flow.",
+                },
+            ),
+            mcp(
+                identity_flow_name_and_id,
+                "dataFlowInfo",
+                {
+                    "name": "identityprobe parity",
+                    "description": "Name and id identity comparison flow.",
                 },
             ),
             mcp(
@@ -716,6 +738,26 @@ def catalog_probes() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             "scoreRatioAtMost": {
                 "numerator": identity_name_and_qualified,
                 "denominator": identity_name_only,
+                "max": 1.02,
+            },
+        },
+        {
+            "id": "identity-name-id-parity",
+            "group": "keyword-probe",
+            "query": "identityprobe parity",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataFlow"],
+            "grades": [
+                {"urn": identity_flow_name_only, "relevance": 1},
+                {"urn": identity_flow_name_and_id, "relevance": 1},
+            ],
+            "containsInTop": {
+                "n": 2,
+                "values": [identity_flow_name_only, identity_flow_name_and_id],
+            },
+            "scoreRatioAtMost": {
+                "numerator": identity_flow_name_and_id,
+                "denominator": identity_flow_name_only,
                 "max": 1.02,
             },
         },
@@ -2452,6 +2494,83 @@ def entity_weight_probes(
     return mcps, judgments
 
 
+def shared_label_judgments() -> list[dict[str, Any]]:
+    """Probes for shared labels whose entities live in the ecommerce shard."""
+    return [
+        {
+            "id": "label-tool",
+            "group": "keyword-probe",
+            "query": "sigma",
+            "surfaces": ["keyword"],
+            "entityTypes": ["chart"],
+            "grades": [],
+            "expectNoHits": True,
+        },
+        {
+            "id": "label-id",
+            "group": "keyword-probe",
+            "query": "zqcollarflowid",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataFlow"],
+            "grades": [
+                {
+                    "urn": "urn:li:dataFlow:(prefect,zqcollarflowid,zqcollarcluster)",
+                    "relevance": 4,
+                }
+            ],
+            "containsInTop": {"n": 5, "values": ["zqcollarflowid"]},
+        },
+        {
+            "id": "label-text",
+            "group": "keyword-probe",
+            "query": "zqdocbodypolicy",
+            "surfaces": ["keyword"],
+            "entityTypes": ["document"],
+            "grades": [
+                {"urn": "urn:li:document:collar-returns-policy", "relevance": 4}
+            ],
+            "containsInTop": {"n": 5, "values": ["collar-returns-policy"]},
+        },
+        {
+            "id": "label-description",
+            "group": "keyword-probe",
+            "query": "zqdeprecatednote",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataset"],
+            "grades": [
+                {
+                    "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,jaffle_shop.collar_returns,PROD)",
+                    "relevance": 4,
+                }
+            ],
+            "containsInTop": {"n": 5, "values": ["collar_returns"]},
+        },
+        {
+            "id": "label-name",
+            "group": "keyword-probe",
+            "query": "zqoriginalfilename",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataHubFile"],
+            "grades": [{"urn": "urn:li:dataHubFile:collar-photo", "relevance": 4}],
+            "containsInTop": {"n": 5, "values": ["collar-photo"]},
+        },
+        {
+            "id": "label-custom-properties",
+            "group": "keyword-probe",
+            "query": "zqcustompropvalue",
+            "surfaces": ["keyword"],
+            "entityTypes": ["dataFlow"],
+            "grades": [
+                {
+                    "urn": "urn:li:dataFlow:(prefect,zqcollarflowid,zqcollarcluster)",
+                    "relevance": 4,
+                }
+            ],
+            "containsInTop": {"n": 5, "values": ["zqcollarflowid"]},
+        },
+    ]
+
+
 def generate(root: Path | None = None) -> Path:
     gc.disable()
     root = root or repo_root()
@@ -2575,6 +2694,7 @@ def generate(root: Path | None = None) -> Path:
         + ranking_judgments()
         + interactive_ranking_judgments
         + probe_judgments
+        + shared_label_judgments()
         + boost_judgments
         + [semantic_judgment],
     }

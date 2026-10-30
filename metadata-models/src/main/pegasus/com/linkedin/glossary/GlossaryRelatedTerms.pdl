@@ -25,6 +25,16 @@ record GlossaryRelatedTerms {
       "fieldName": "isRelatedTerms",
       "fieldType": "URN",
       "queryByDefault": false,
+      "hasValuesFieldName": "hasGlossaryTerms",
+      "v3": {
+        "queryByDefault": false,
+        "boostScore": 0.25,
+        "searchLabel": "glossaryTerms",
+        "degree": 1,
+        "mappings": [
+          { "type": "URN" }
+        ]
+      }
     }
   }
   isRelatedTerms: optional array[GlossaryTermUrn]
@@ -43,6 +53,16 @@ record GlossaryRelatedTerms {
       "fieldName": "hasRelatedTerms",
       "fieldType": "URN",
       "queryByDefault": false,
+      "hasValuesFieldName": "hasGlossaryTerms",
+      "v3": {
+        "queryByDefault": false,
+        "boostScore": 0.25,
+        "searchLabel": "glossaryTerms",
+        "degree": 1,
+        "mappings": [
+          { "type": "URN" }
+        ]
+      }
     }
   }
   hasRelatedTerms: optional array[GlossaryTermUrn]
@@ -61,8 +81,16 @@ record GlossaryRelatedTerms {
     "/*": {
       "fieldName": "values",
       "fieldType": "URN",
+      "queryByDefault": false,
+      "hasValuesFieldName": "hasGlossaryTerms",
       "v3": {
-        "copyToOther": true
+        "queryByDefault": false,
+        "boostScore": 0.25,
+        "searchLabel": "glossaryTerms",
+        "degree": 1,
+        "mappings": [
+          { "type": "URN" }
+        ]
       }
     }
   }
@@ -85,8 +113,10 @@ record GlossaryRelatedTerms {
       "boostScore": 0.5,
       "hasValuesFieldName": "hasGlossaryTerms",
       "v3": {
-        "queryByDefault": true,
+        "queryByDefault": false,
+        "boostScore": 0.25,
         "searchLabel": "glossaryTerms",
+        "degree": 1,
         "mappings": [
           { "type": "URN" }
         ]

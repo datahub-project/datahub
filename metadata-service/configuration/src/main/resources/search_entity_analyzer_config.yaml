@@ -23,10 +23,13 @@ entity_analyzer_config:
           # and words shorter than ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH on both sides, as V2
           # does; db_id stays whole although its parts are short. datahub_stop_words,
           # default_syn_graph, stem_override and min_length are the V2 filters that V3 indices
-          # also define.
+          # also define. v3_max_token_length drops a token before it can exceed Lucene's
+          # 32,766-byte term limit. The pattern tokenizer has no max length of its own, and a
+          # RICH_TEXT body copied onto a label is one run when it has no word break.
           v3_text:
             tokenizer: v3_word_tokenizer
             filter:
+              - v3_max_token_length
               - asciifolding
               - lowercase
               - v3_underscore_parts
@@ -36,6 +39,7 @@ entity_analyzer_config:
           v3_text_search:
             tokenizer: v3_word_tokenizer
             filter:
+              - v3_max_token_length
               - asciifolding
               - lowercase
               - default_syn_graph
@@ -46,6 +50,7 @@ entity_analyzer_config:
           v3_stemmed:
             tokenizer: v3_word_tokenizer
             filter:
+              - v3_max_token_length
               - asciifolding
               - lowercase
               - v3_underscore_parts
@@ -57,6 +62,7 @@ entity_analyzer_config:
           v3_stemmed_search:
             tokenizer: v3_word_tokenizer
             filter:
+              - v3_max_token_length
               - asciifolding
               - lowercase
               - default_syn_graph
@@ -67,6 +73,10 @@ entity_analyzer_config:
               - snowball
               - min_length
         filter:
+          # 10,922 chars is under Lucene's 32,766-byte term limit at 3 bytes per char.
+          v3_max_token_length:
+            type: length
+            max: 10922
           # The parts of a token around its underscores, next to the token itself
           v3_underscore_parts:
             type: pattern_capture

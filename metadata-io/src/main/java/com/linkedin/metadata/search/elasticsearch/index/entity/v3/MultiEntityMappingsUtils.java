@@ -396,7 +396,8 @@ public class MultiEntityMappingsUtils {
                   FieldMapping.union(fieldName, entry.getValue()),
                   representative.get(fieldName),
                   partialNgramConfig));
-      if (V3SearchFields.isParsedKeywordLabel(fieldName, entitySpecs)) {
+      if (V3SearchFields.isParsedKeywordLabel(fieldName, entitySpecs)
+          || V3SearchFields.labelKeepsFullUrn(fieldName, entitySpecs)) {
         searchProperties.put(
             V3SearchFields.fullUrnField(fieldName), V3SearchFields.fullUrnRootMapping());
       }

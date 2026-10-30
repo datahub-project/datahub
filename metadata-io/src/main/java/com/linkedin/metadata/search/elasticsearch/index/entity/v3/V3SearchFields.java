@@ -54,11 +54,11 @@ import javax.annotation.Nullable;
  *   <li>a string field queried by default in V3 that names none copies into the root field {@code
  *       other}. A field with {@code v3.queryByDefault: false} is excluded even when V2 queries it
  *       by default. {@code v3.copyToOther: true} also copies into {@code other}, including a URN's
- *       parsed name, and keeps the field's own root. {@code searchLabel} does not: the label
- *       replaces that root. An entity whose fields name no {@code name} sends the field its {@code
- *       _entityName} alias names to {@code name} instead. The urn and fields of an entity a
- *       reference field names ({@code @SearchableRef}) only ever copy into {@code other}, and
- *       matched fields do not report them.
+ *       parsed name. A {@code searchLabel} names the shared root, and {@code copyToOther} still
+ *       adds {@code other} beside that label. An entity whose fields name no {@code name} sends the
+ *       field its {@code _entityName} alias names to {@code name} instead. The urn and fields of an
+ *       entity a reference field names ({@code @SearchableRef}) only ever copy into {@code other},
+ *       and matched fields do not report them.
  * </ul>
  *
  * <p>A field of type {@code URN} or {@code URN_PARTIAL}, or a root mapping of type {@code URN},
@@ -161,11 +161,6 @@ public final class V3SearchFields {
           "fieldGlossaryTerms",
           "editedFieldGlossaryTerms");
 
-  // The fields of other that matched fields report: those that name or tag the entity. The rest of
-  // other, such as a document's text, custom properties or lists of urns, has no size bound
-  static final Set<String> MATCHED_OTHER_FIELDS =
-      Set.of("name", "editedName", "displayName", "fullName", "title", "tags", "glossaryTerms");
-
   // Shared fields that name the entity. Query weights use {@link #WEIGHTS}; the mapping shape comes
   // from the label's resolved root, not from this set.
   private static final Set<String> IDENTITY_FIELDS = Set.of(ENTITY_NAME, QUALIFIED_NAME);
@@ -208,6 +203,7 @@ public final class V3SearchFields {
           FieldType.TEXT,
           FieldType.TEXT_PARTIAL,
           FieldType.WORD_GRAM,
+          FieldType.RICH_TEXT,
           FieldType.URN,
           FieldType.URN_PARTIAL);
 
@@ -292,6 +288,26 @@ public final class V3SearchFields {
   public static boolean isParsedKeywordLabel(
       @Nonnull final String label, @Nonnull final Collection<EntitySpec> entitySpecs) {
     return UrnRoots.of(entitySpecs).parsedKeywordLabels().contains(label);
+  }
+
+  /**
+   * {@code <label>_urn} exists when any source of the label is a URN. A label that is not entirely
+   * URNs still stores those URNs there, and stores every other value on the label.
+   */
+  public static boolean labelKeepsFullUrn(
+      @Nonnull final String label, @Nonnull final Collection<EntitySpec> entitySpecs) {
+    if (isParsedKeywordLabel(label, entitySpecs)) {
+      return false;
+    }
+    final boolean[] urn = {false};
+    forEachFieldSpec(
+        entitySpecs,
+        (aspectSpec, fieldSpec) -> {
+          if (labels(fieldSpec).contains(label) && contributesParsedUrn(fieldSpec)) {
+            urn[0] = true;
+          }
+        });
+    return urn[0];
   }
 
   /**
@@ -594,9 +610,9 @@ public final class V3SearchFields {
     }
     if (contributesParsedUrn(fieldSpec)) {
       for (String label : labels(fieldSpec)) {
-        if (roots.parsedKeywordLabels().contains(label)) {
-          targets.add(fullUrnField(label));
-        }
+        // A URN source still copies to <label>_urn when another source of the label is not a URN.
+        // That other source keeps its value on the label.
+        targets.add(fullUrnField(label));
       }
     }
     return List.copyOf(targets);
@@ -847,8 +863,7 @@ public final class V3SearchFields {
 
   /**
    * The shared fields the root field of these source fields copies into. A label on any source wins
-   * over the fallback to {@code other}. {@code v3.copyToOther} adds {@code other} without replacing
-   * the source root.
+   * over the fallback to {@code other}. {@code v3.copyToOther} adds {@code other} beside a label.
    */
   @Nonnull
   public static Set<String> destinations(
@@ -932,7 +947,27 @@ public final class V3SearchFields {
                                 : storedAspectField(entitySpecs, spec));
                   }
                 } else {
-                  sources.computeIfAbsent(destination, k -> new LinkedHashSet<>()).add(rootField);
+                  // An array is searched through the label. Matched fields do not fetch it whole.
+                  // Tags and glossary terms stay, as the short lists matched fields already show.
+                  final List<SearchableFieldSpec> landing =
+                      fieldSpecs.stream()
+                          .filter(spec -> landsIn(spec, destination, fallbacks, groupHasLabel))
+                          .collect(Collectors.toList());
+                  boolean arrayOnly = landing.stream().allMatch(SearchableFieldSpec::isArray);
+                  // A rich-text body has no length bound, so a hit would carry a whole document
+                  // or query. It is searched through the label and never fetched.
+                  boolean bodyOnly =
+                      !landing.isEmpty()
+                          && landing.stream()
+                              .allMatch(
+                                  spec ->
+                                      spec.getSearchableAnnotation().getFieldType()
+                                          == FieldType.RICH_TEXT);
+                  if ((!arrayOnly && !bodyOnly)
+                      || "tags".equals(destination)
+                      || "glossaryTerms".equals(destination)) {
+                    sources.computeIfAbsent(destination, k -> new LinkedHashSet<>()).add(rootField);
+                  }
                 }
                 if (fieldSpecs.stream()
                     .anyMatch(
@@ -973,23 +1008,20 @@ public final class V3SearchFields {
   }
 
   /**
-   * The root fields of the shared fields a search reads whose values matched fields are found from:
-   * not {@code name_1} or the schema-field arrays, and of {@code other} only the fields that name
-   * or tag the entity, which "Matched on" shows. A fetch cannot cut a value short, so a table with
-   * thousands of fields, a long document or a long list of urns would be sent whole with every hit;
-   * search still reads every shared field.
+   * Stored values of the shared fields a search reads. The caller passes the fields the query
+   * searched. {@code other} is one of those fields and is not fetched: it is a {@code copy_to} sink
+   * with no stored value, so a hit that matches only there has no matched field. {@code name_1} and
+   * the schema-field arrays stay out. A fetch cannot cut a value short, so a table with thousands
+   * of fields would be sent whole with every hit; search still reads every shared field.
    */
   @Nonnull
   public static List<String> matchedFieldSources(
       @Nonnull final Map<String, List<String>> searchedFields) {
     return searchedFields.entrySet().stream()
+        .filter(field -> !OTHER.equals(field.getKey()))
         .filter(
             field -> !SearchableAnnotation.indexedFieldName(ENTITY_NAME, 1).equals(field.getKey()))
-        .flatMap(
-            field ->
-                OTHER.equals(field.getKey())
-                    ? field.getValue().stream().filter(MATCHED_OTHER_FIELDS::contains)
-                    : field.getValue().stream())
+        .flatMap(field -> field.getValue().stream())
         .filter(source -> !isColumnArraySource(source))
         .distinct()
         .collect(Collectors.toList());
@@ -1005,11 +1037,6 @@ public final class V3SearchFields {
     return COLUMN_ARRAY_FIELDS.contains(fieldName);
   }
 
-  /**
-   * The source fields of each root field, by root field name: a root field holds every searchable
-   * field of that name, whichever aspect declares it. The mappings builder copies each root field
-   * into the shared fields of all of them, so the mapping and the query agree.
-   */
   /**
    * The document root keeps the search label, not a second field under the source name. Chart
    * {@code title} labeled {@code name} has no root {@code title}. A field whose label is its own
@@ -1034,6 +1061,11 @@ public final class V3SearchFields {
             });
   }
 
+  /**
+   * The source fields of each root field, by root field name: a root field holds every searchable
+   * field of that name, whichever aspect declares it. The mappings builder copies each root field
+   * into the shared fields of all of them, so the mapping and the query agree.
+   */
   @Nonnull
   public static Map<String, List<SearchableFieldSpec>> rootSourceFieldSpecs(
       @Nonnull final Collection<EntitySpec> entitySpecs) {

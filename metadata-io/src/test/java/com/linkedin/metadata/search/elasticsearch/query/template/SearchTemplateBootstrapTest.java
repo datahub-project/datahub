@@ -203,7 +203,8 @@ public class SearchTemplateBootstrapTest {
 
   /**
    * A compound synonym requires every word. The original one-token query stays lenient. Fulltext
-   * repeats each on the default fields and on qualifiedName, so a path query can drop the latter.
+   * repeats each on the shared fields and on name, qualifiedName, and id. A single word skips the
+   * shared fields on the light query and keeps the three identity clauses.
    */
   @Test
   public void testCompoundSynonymRequiresEveryToken() throws Exception {
@@ -211,14 +212,14 @@ public class SearchTemplateBootstrapTest {
     JsonNode fulltext =
         SearchTemplateFixtures.JSON.readTree(
             render(loader, "urn:li:searchTemplate:fulltext", "dataPlatform"));
-    assertClause(fulltext, "simple_query_string", "data platform", "default_operator", "and", 2);
-    assertClause(fulltext, "simple_query_string", "dataPlatform~2", "default_operator", "or", 2);
+    assertClause(fulltext, "simple_query_string", "data platform", "default_operator", "and", 4);
+    assertClause(fulltext, "simple_query_string", "dataPlatform~2", "default_operator", "or", 4);
 
     JsonNode light =
         SearchTemplateFixtures.JSON.readTree(
             render(loader, "urn:li:searchTemplate:light", "dataPlatform"));
-    assertClause(light, "multi_match", "data platform", "operator", "and", 1);
-    assertClause(light, "multi_match", "dataPlatform", "operator", "or", 1);
+    assertClause(light, "multi_match", "data platform", "operator", "and", 3);
+    assertClause(light, "multi_match", "dataPlatform", "operator", "or", 3);
   }
 
   private String render(SearchTemplateLoader loader, String urn) {

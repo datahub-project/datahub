@@ -531,17 +531,28 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
         clauses);
     assertTrue(clauses.stream().noneMatch(WildcardQueryBuilder.class::isInstance));
     assertTrue(clauses.stream().noneMatch(SimpleQueryStringBuilder.class::isInstance));
-    // A single word searches the name and qualified-name fields
-    MultiMatchQueryBuilder multiMatch =
+    // A single word searches the fields that identify an entity: its name, its qualified name,
+    // and its id. Each is its own clause so one document does not sum their scores.
+    List<MultiMatchQueryBuilder> identity =
         clauses.stream()
             .filter(MultiMatchQueryBuilder.class::isInstance)
             .map(MultiMatchQueryBuilder.class::cast)
-            .findFirst()
-            .orElseThrow();
-    assertEquals(multiMatch.type(), MultiMatchQueryBuilder.Type.BEST_FIELDS);
+            .toList();
+    assertTrue(
+        identity.stream()
+            .allMatch(match -> match.type() == MultiMatchQueryBuilder.Type.BEST_FIELDS),
+        identity.toString());
     assertEquals(
-        multiMatch.fields().keySet(),
-        Set.of("name.text", "name.stemmed", "qualifiedName.text", "qualifiedName.stemmed"));
+        identity.stream()
+            .flatMap(match -> match.fields().keySet().stream())
+            .collect(Collectors.toSet()),
+        Set.of(
+            "name.text",
+            "name.stemmed",
+            "qualifiedName.text",
+            "qualifiedName.stemmed",
+            "id.text",
+            "id.stemmed"));
     // Exact names still score a constant above every partial match
     assertTrue(
         clauses.stream()
@@ -574,8 +585,12 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             "name.stemmed",
             "qualifiedName.text",
             "qualifiedName.stemmed",
+            "id.text",
+            "id.stemmed",
             "description.text",
             "description.stemmed",
+            "text.text",
+            "text.stemmed",
             "tags.text",
             "tags.stemmed",
             "glossaryTerms.text",
@@ -652,9 +667,9 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
     // "cargo2017" splits into "cargo 2017": no multi_match takes a name holding only one part,
     // and the whole run is re-queried on the identity fields
     List<MultiMatchQueryBuilder> split = v3LightMultiMatches("cargo2017");
-    assertEquals(split.size(), 1, split.toString());
-    assertEquals(split.get(0).value(), "cargo2017");
-    assertEquals(split.get(0).operator(), Operator.AND);
+    assertEquals(values(split), Set.of("cargo2017"), split.toString());
+    assertTrue(
+        split.stream().allMatch(match -> match.operator() == Operator.AND), split.toString());
     // Escaping alone keeps matching any part, and re-queries the hyphenated identifier whole
     List<MultiMatchQueryBuilder> escaped = v3LightMultiMatches("load-job");
     assertTrue(
@@ -665,7 +680,11 @@ public class Stage1QueryTest extends AbstractTestNGSpringContextTests {
             .anyMatch(m -> "load-job".equals(m.value()) && m.operator() == Operator.AND),
         escaped.toString());
     // An unchanged word adds no re-query
-    assertEquals(v3LightMultiMatches("cargo").size(), 1);
+    assertEquals(values(v3LightMultiMatches("cargo")), Set.of("cargo"));
+  }
+
+  private static Set<Object> values(List<MultiMatchQueryBuilder> matches) {
+    return matches.stream().map(MultiMatchQueryBuilder::value).collect(Collectors.toSet());
   }
 
   @Test

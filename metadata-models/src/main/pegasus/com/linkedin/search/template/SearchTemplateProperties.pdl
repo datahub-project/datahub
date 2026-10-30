@@ -28,6 +28,7 @@ import com.linkedin.common.Urn
  * inherited on its own.
  * Unset keeps the parent default. A record with a template replaces it. A record with no
  * template clears it.
+ * {@code matchedFields} is inherited. When no template in the chain sets it, it resolves to true.
  *
  * {@code apiVersion} is the template and Mustache-context contract. Unset keeps the parent
  * version. When no ancestor sets it, the resolved version is 1. A value other than 1 is rejected
@@ -254,6 +255,12 @@ record SearchTemplateProperties {
    * Template default for highlight fields.
    */
   highlightFields: optional HighlightFieldOverrides
+
+  /**
+   * Whether this template reports non-highlight matched fields from relevance clauses and
+   * caller-supplied optional filters. Unset inherits; the resolved default is true.
+   */
+  matchedFields: optional boolean
 
   /**
    * User Mustache variables, for example {@code deprecatedBoost}.
