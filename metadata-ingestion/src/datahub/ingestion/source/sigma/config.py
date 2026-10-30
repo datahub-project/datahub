@@ -224,6 +224,20 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # that inherited their upstreams. Moves to resolved from skipped_sibling, or
     # from self_ref_fallback when its formula also has parameters.
     chart_input_fields_sibling_inherited: int = 0
+    # Sub-category of chart_input_fields_resolved: no formula ref resolved by
+    # name, but /workbooks/{id}/schema named another chart's column by id.
+    chart_input_fields_recovered_from_schema: int = 0
+    # /workbooks/{id}/schema calls that answered.
+    workbook_schema_fetched: int = 0
+    # /workbooks/{id}/schema failed; that workbook's charts keep their
+    # self-referential columns.
+    workbook_schema_fetch_failed: int = 0
+    # /workbooks/{id}/schema not called: an earlier 403/404/410, before any
+    # call succeeded, said the endpoint is gone or refused for this token.
+    workbook_schema_skipped: int = 0
+    # /workbooks/{id}/schema answered without an element this run ingested,
+    # so which element renders a sheet cannot be trusted; nothing is read.
+    workbook_schema_incomplete: int = 0
     # Workbooks whose /columns pagination aborted partway through. InputFields
     # for those workbooks may be missing columns that appear after the failure.
     column_formulas_fetch_partial: int = 0
@@ -679,6 +693,16 @@ class SigmaSourceConfig(
         "only issued when ``extract_lineage`` is also ``True`` (so users who opt out "
         "of lineage at the workbook surface don't get a lineage endpoint hit under a "
         "different flag).",
+    )
+    resolve_chart_refs_from_workbook_schema: bool = pydantic.Field(
+        default=True,
+        description="Give a chart column that no formula reference resolves "
+        "to by name column lineage from Sigma's workbook schema "
+        "(``/v2/workbooks/{id}/schema``), which names the referenced column by "
+        "id. Costs at most one call per workbook that has such a column. "
+        "Sigma has deprecated that endpoint; set this to ``False`` to stop "
+        "calling it, and those columns keep pointing at themselves. Requires "
+        "extract_lineage to be enabled.",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

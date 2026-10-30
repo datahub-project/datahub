@@ -1,6 +1,6 @@
 import datetime as _dt
 from contextlib import ExitStack, contextmanager, nullcontext
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
@@ -5195,3 +5195,88 @@ class TestMalformedPageShape:
         context = _contexts(api.report.failures)
         assert "did not have the shape" not in context
         assert "likely a bug in this connector" in context or "Transient" in context
+
+
+class TestGetWorkbookSchema:
+    def test_returns_the_document(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"sheets": {}}
+
+        with patch.object(api, "_get_api_call", return_value=response) as mock_get:
+            assert api.get_workbook_schema("wb-1") == {"sheets": {}}
+
+        assert mock_get.call_args.args[0].endswith("/workbooks/wb-1/schema")
+        assert api.report.workbook_schema_fetch_failed == 0
+
+    def test_a_failure_is_counted_not_raised(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=500)
+        response.raise_for_status.side_effect = requests.HTTPError(response=response)
+
+        with patch.object(api, "_get_api_call", return_value=response):
+            assert api.get_workbook_schema("wb-1") is None
+
+        assert api.report.workbook_schema_fetch_failed == 1
+        assert api.report.api_call_failures_by_status_or_error == {"500": 1}
+        assert len(api.report.warnings) == 1
+
+    @staticmethod
+    def _response(status: int, body: Any = None) -> MagicMock:
+        response = MagicMock(status_code=status)
+        if status >= 400:
+            response.raise_for_status.side_effect = requests.HTTPError(
+                response=response
+            )
+        if isinstance(body, Exception):
+            response.json.side_effect = body
+        else:
+            response.json.return_value = {} if body is None else body
+        return response
+
+    @pytest.mark.parametrize(
+        "first, then_called",
+        [
+            # Gone or refused before anything succeeded: the endpoint, not a
+            # workbook.
+            ([(404, None)], False),
+            ([(403, None)], False),
+            ([(410, None)], False),
+            # Transient: re-asked for the next workbook.
+            ([(500, None)], True),
+            # Permanent, but about that workbook's request or body.
+            ([(400, None)], True),
+            ([(422, None)], True),
+            ([(200, ["not", "an", "object"])], True),
+            ([(200, requests.exceptions.JSONDecodeError("bad", "<html>", 0))], True),
+            # After a success a 404 is that workbook's alone.
+            ([(200, None), (404, None)], True),
+        ],
+    )
+    def test_only_an_unavailable_endpoint_before_any_success_stops_the_call(
+        self, first: List[Tuple[int, Any]], then_called: bool
+    ) -> None:
+        api = _create_sigma_api()
+        responses = [self._response(status, body) for status, body in first]
+        with patch.object(api, "_get_api_call", side_effect=responses):
+            for _ in first:
+                api.get_workbook_schema("wb-1")
+        with patch.object(
+            api, "_get_api_call", return_value=self._response(200)
+        ) as mock_get:
+            result = api.get_workbook_schema("wb-2")
+
+        assert mock_get.called == then_called
+        assert result == ({} if then_called else None)
+        assert api.report.workbook_schema_skipped == (0 if then_called else 1)
+
+    def test_a_body_that_is_not_an_object_is_a_failure(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(
+            api, "_get_api_call", return_value=self._response(200, body=[1, 2])
+        ):
+            assert api.get_workbook_schema("wb-1") is None
+
+        assert api.report.workbook_schema_fetched == 0
+        assert api.report.workbook_schema_fetch_failed == 1
+        assert len(api.report.warnings) == 1
