@@ -412,12 +412,12 @@ public abstract class AbstractEntityCheck implements ConsistencyCheck {
 
   /**
    * A reference to an entity type this registry doesn't know (written by a newer version before a
-   * rollback) can't be checked here: {@code exists()} reports such urns as missing. Treat it as
-   * present so no fix deletes data that version still uses.
+   * rollback), or to a urn whose key holds one, can't be checked here: {@code exists()} reports
+   * such urns as missing. Treat it as present so no fix deletes data that version still uses.
    */
   protected static boolean isUnknownEntityType(@Nonnull CheckContext ctx, @Nonnull Urn urn) {
     return handling()
-        .isUnknown(ctx.getOperationContext().getEntityRegistry(), urn.getEntityType(), null);
+        .referencesUnknownEntityType(ctx.getOperationContext().getEntityRegistry(), urn);
   }
 
   /**
