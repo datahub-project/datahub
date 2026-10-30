@@ -29,6 +29,7 @@ public class SearchableAnnotationValidator {
       ImmutableSet.of(
           SearchableAnnotation.FieldType.KEYWORD,
           SearchableAnnotation.FieldType.TEXT,
+          SearchableAnnotation.FieldType.RICH_TEXT,
           SearchableAnnotation.FieldType.TEXT_PARTIAL,
           SearchableAnnotation.FieldType.WORD_GRAM,
           SearchableAnnotation.FieldType.BROWSE_PATH,

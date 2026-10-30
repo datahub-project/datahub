@@ -60,6 +60,7 @@
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
+    matchedFields: true
     query: |
       {{=<% %>=}}
       {
@@ -70,12 +71,21 @@
               "simple_query_string": {
                 "query": "{{fuzzy}}",
                 "default_operator": "OR",
-                "fields": {{&defaultFieldsWithoutQualifiedNameJson}},
+                "fields": {{&defaultFieldsWithoutIdentityJson}},
                 "fuzzy_max_expansions": {{fuzzyMaxExpansions}},
                 "fuzzy_prefix_length": 0,
                 "fuzzy_transpositions": true
               }
             }
+            {{#nameFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{fuzzy}}",
+                "default_operator": "OR",
+                "fields": {{&nameFieldsJson}}
+              }
+            }
+            {{/nameFields}}
             {{#qualifiedNameFields}}
             {{^spacelessDotted}}
             ,{
@@ -87,15 +97,34 @@
             }
             {{/spacelessDotted}}
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{fuzzy}}",
+                "default_operator": "OR",
+                "fields": {{&idFieldsJson}}
+              }
+            }
+            {{/idFields}}
             {{#synonyms}}
             ,{
               "simple_query_string": {
                 "query": "{{synonym}}",
                 "default_operator": "AND",
-                "fields": {{&defaultFieldsWithoutQualifiedNameJson}},
+                "fields": {{&defaultFieldsWithoutIdentityJson}},
                 "boost": 1.5
               }
             }
+            {{#nameFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{synonym}}",
+                "default_operator": "AND",
+                "fields": {{&nameFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/nameFields}}
             {{#qualifiedNameFields}}
             {{^spacelessDotted}}
             ,{
@@ -108,16 +137,36 @@
             }
             {{/spacelessDotted}}
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{synonym}}",
+                "default_operator": "AND",
+                "fields": {{&idFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/idFields}}
             {{/synonyms}}
             {{#flags.alphanumericSplit}}
             ,{
               "simple_query_string": {
                 "query": "{{broadQuery}}",
                 "default_operator": "OR",
-                "fields": {{&defaultFieldsWithoutQualifiedNameJson}},
+                "fields": {{&defaultFieldsWithoutIdentityJson}},
                 "boost": 1.5
               }
             }
+            {{#nameFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{broadQuery}}",
+                "default_operator": "OR",
+                "fields": {{&nameFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/nameFields}}
             {{#qualifiedNameFields}}
             {{^spacelessDotted}}
             ,{
@@ -130,6 +179,16 @@
             }
             {{/spacelessDotted}}
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{broadQuery}}",
+                "default_operator": "OR",
+                "fields": {{&idFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/idFields}}
             {{/flags.alphanumericSplit}}
             {{#prefixFields}}
             ,{
@@ -147,7 +206,8 @@
                 "{{nameKeyword}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:name"
                 }
               }
             }
@@ -157,7 +217,8 @@
                 "{{nameKeyword}}": {
                   "value": "{{synonym}}",
                   "case_insensitive": true,
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:name"
                 }
               }
             }
@@ -168,11 +229,24 @@
                 "{{qualifiedNameKeyword}}": {
                   "value": "{{normalizedKeyword}}",
                   "case_insensitive": true,
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:qualifiedName"
                 }
               }
             }
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "term": {
+                "{{idKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:id"
+                }
+              }
+            }
+            {{/idFields}}
             {{#wildcardTerm}}
             {{#wildcardFields}}
             ,{
@@ -206,13 +280,24 @@
             }
             {{/spacelessDotted}}
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "default_operator": "AND",
+                "fields": {{&idFieldsJson}},
+                "boost": 3.0
+              }
+            }
+            {{/idFields}}
             {{/multiWord}}
             {{#dotted}}
             ,{
               "term": {
                 "{{idKeyword}}": {
                   "value": "{{unquoted}}",
-                  "case_insensitive": true
+                  "case_insensitive": true,
+                  "_name": "matchedField:id"
                 }
               }
             }
@@ -475,6 +560,7 @@
           "tie_breaker": 0.01,
           "queries": [
             {{^flags.exactNameLetterDigit}}
+            {{^nameOnly}}
             {
               "multi_match": {
                 "query": "{{shortened}}",
@@ -483,13 +569,47 @@
                 "operator": "{{lightOperator}}"
               }
             },
+            {{/nameOnly}}
+            {{#nameFields}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&nameFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/nameFields}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&qualifiedNameFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&idFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/idFields}}
             {{/flags.exactNameLetterDigit}}
             {
               "term": {
                 "{{nameKeyword}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:name"
                 }
               }
             }
@@ -499,12 +619,26 @@
                 "{{qualifiedNameKeyword}}": {
                   "value": "{{normalizedKeyword}}",
                   "case_insensitive": true,
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:qualifiedName"
                 }
               }
             }
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "term": {
+                "{{idKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:id"
+                }
+              }
+            }
+            {{/idFields}}
             {{#synonyms}}
+            {{^nameOnly}}
             ,{
               "multi_match": {
                 "query": "{{synonym}}",
@@ -513,6 +647,39 @@
                 "operator": "AND"
               }
             }
+            {{/nameOnly}}
+            {{#nameFields}}
+            ,{
+              "multi_match": {
+                "query": "{{synonym}}",
+                "type": "best_fields",
+                "fields": {{&nameFieldsJson}},
+                "operator": "AND"
+              }
+            }
+            {{/nameFields}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
+            ,{
+              "multi_match": {
+                "query": "{{synonym}}",
+                "type": "best_fields",
+                "fields": {{&qualifiedNameFieldsJson}},
+                "operator": "AND"
+              }
+            }
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "multi_match": {
+                "query": "{{synonym}}",
+                "type": "best_fields",
+                "fields": {{&idFieldsJson}},
+                "operator": "AND"
+              }
+            }
+            {{/idFields}}
             {{/synonyms}}
             {{#wholeIdentifier}}
             {{^spacelessDotted}}
@@ -677,6 +844,16 @@
             }
             {{/spacelessDotted}}
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "fields": {{&idFieldsJson}},
+                "default_operator": "AND",
+                "boost": 3.0
+              }
+            }
+            {{/idFields}}
             {{/multiWord}}
             {{#spacelessDotted}}
             {{#qualifiedNameFields}}
@@ -867,6 +1044,7 @@
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
+    matchedFields: false
     query: '{ "match_all": {} }'
     functionScore: |
       {
@@ -982,7 +1160,8 @@
                 "{{entityNameField}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": {{exactFactor}}
+                  "boost": {{exactFactor}},
+                  "_name": "matchedField:name"
                 }
               }
             },
@@ -991,7 +1170,7 @@
                 "{{urnFoldedField}}": {
                   "value": "{{normalizedKeyword}}",
                   "boost": {{exactFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -1000,7 +1179,7 @@
                 "{{urnExactField}}": {
                   "value": "{{unquoted}}",
                   "boost": {{caseSensitivityFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             }
@@ -1099,7 +1278,8 @@
                 "{{entityNameField}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": {{exactFactor}}
+                  "boost": {{exactFactor}},
+                  "_name": "matchedField:name"
                 }
               }
             },
@@ -1108,7 +1288,7 @@
                 "{{urnFoldedField}}": {
                   "value": "{{normalizedKeyword}}",
                   "boost": {{exactFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -1117,7 +1297,7 @@
                 "{{urnExactField}}": {
                   "value": "{{unquoted}}",
                   "boost": {{caseSensitivityFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             }
@@ -1213,7 +1393,8 @@
               "term": {
                 "{{urnKeyword}}": {
                   "value": "{{unquoted}}",
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -1221,7 +1402,8 @@
               "term": {
                 "{{urnFoldedField}}": {
                   "value": "{{normalizedKeyword}}",
-                  "boost": 50.0
+                  "boost": 50.0,
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -1246,7 +1428,8 @@
                 "{{nameKeyword}}": {
                   "value": "{{lastSegment}}",
                   "case_insensitive": true,
-                  "boost": 20.0
+                  "boost": 20.0,
+                  "_name": "matchedField:name"
                 }
               }
             }
@@ -1255,7 +1438,8 @@
                 "{{idKeyword}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": 10.0
+                  "boost": 10.0,
+                  "_name": "matchedField:id"
                 }
               }
             }
@@ -1331,6 +1515,7 @@
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
+    matchedFields: false
     query: |
       {{=<% %>=}}
       {

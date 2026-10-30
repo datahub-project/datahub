@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -179,6 +180,23 @@ public class DefaultEntityFiltersUtil {
         entityTypes.contains(DOCUMENT_ENTITY_NAME)
             && AuthorizationUtils.canManageDocuments(context);
     return addDefaultEntityFilters(baseFilter, entityTypes, true, canManageDocs);
+  }
+
+  /** Field names from caller-owned optional OR branches. */
+  @Nonnull
+  public static Set<String> callerOptionalFilterFields(@Nullable Filter filter) {
+    if (filter == null || filter.getOr() == null || filter.getOr().size() < 2) {
+      return Set.of();
+    }
+    Set<String> fields = new LinkedHashSet<>();
+    for (ConjunctiveCriterion branch : filter.getOr()) {
+      if (branch.getAnd() != null) {
+        for (Criterion criterion : branch.getAnd()) {
+          fields.add(criterion.getField());
+        }
+      }
+    }
+    return Set.copyOf(fields);
   }
 
   /**

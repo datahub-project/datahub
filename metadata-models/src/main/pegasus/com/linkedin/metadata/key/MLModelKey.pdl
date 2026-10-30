@@ -7,12 +7,22 @@ import com.linkedin.common.FabricType
  * Key for an ML model
  */
 @Aspect = {
-  "name": "mlModelKey"
+  "name": "mlModelKey",
+  "schemaVersion": 2
 }
 record MLModelKey {
   /**
   * Standardized platform urn for the model
   */
+  @Searchable = {
+    "fieldType": "URN",
+    "queryByDefault": false,
+    "enableAutocomplete": true,
+    "v3": {
+      "searchLabel": "platform",
+      "copyToOther": true
+    }
+  }
   platform: Urn
 
   /**
@@ -44,7 +54,14 @@ record MLModelKey {
     "fieldType": "TEXT_PARTIAL",
     "addToFilters": true,
     "filterNameOverride": "Environment",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "origin",
+      "queryByDefault": false,
+      "mappings": [
+        { "type": "KEYWORD" }
+      ]
+    }
   }
   origin: FabricType
 }

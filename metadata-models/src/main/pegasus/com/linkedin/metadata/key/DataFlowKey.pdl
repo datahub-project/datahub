@@ -12,7 +12,9 @@ record DataFlowKey {
   */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": false,
+      "searchLabel": "tool",
+      "boostScore": 1.0
     },
     "fieldType": "TEXT_PARTIAL"
   }
@@ -23,7 +25,15 @@ record DataFlowKey {
   */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
     },
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true
@@ -35,7 +45,10 @@ record DataFlowKey {
   */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": false,
+      "searchLabel": "location",
+      "copyToOther": true,
+      "boostScore": 1.0
     },
     "fieldType": "TEXT_PARTIAL"
   }

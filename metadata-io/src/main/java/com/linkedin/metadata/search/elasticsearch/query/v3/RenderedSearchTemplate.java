@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.v3;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -16,15 +17,20 @@ public record RenderedSearchTemplate(
     @Nullable List<AggregationBuilder> aggregations,
     @Nullable List<SortBuilder<?>> sorts,
     @Nonnull List<String> highlights,
+    boolean matchedFields,
     @Nonnull List<String> queriedFields,
     @Nonnull String originalQuery,
     @Nonnull Map<String, NamedClause> namedClauses,
-    int estimatedClauses) {
+    int estimatedClauses,
+    @Nonnull Map<String, List<String>> queriedFieldSources) {
 
   public RenderedSearchTemplate {
     highlights = List.copyOf(highlights);
     queriedFields = List.copyOf(queriedFields);
     namedClauses = Map.copyOf(namedClauses);
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    queriedFieldSources.forEach((label, paths) -> sources.put(label, List.copyOf(paths)));
+    queriedFieldSources = Map.copyOf(sources);
     aggregations = aggregations == null ? null : List.copyOf(aggregations);
     sorts = sorts == null ? null : List.copyOf(sorts);
   }

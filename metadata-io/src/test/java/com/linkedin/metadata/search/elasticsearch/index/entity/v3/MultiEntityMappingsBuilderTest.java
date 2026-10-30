@@ -836,8 +836,11 @@ public class MultiEntityMappingsBuilderTest {
                 .get("schemaFieldKey");
     Map<String, Object> schemaFieldKeyFields =
         (Map<String, Object>) schemaFieldKey.get("properties");
-    assertFalse(
-        schemaFieldKeyFields.containsKey("parent__urn_name"), schemaFieldKeyFields.toString());
+    Map<String, Object> schemaFieldParentName =
+        (Map<String, Object>) schemaFieldKeyFields.get("parent__urn_name");
+    assertEquals(
+        schemaFieldParentName.get("copy_to"), List.of("parent"), schemaFieldParentName.toString());
+    assertEquals(schemaFieldParentName.get("normalizer"), "keyword_normalizer");
     assertFalse(schemaFieldKeyFields.containsKey("urnName"), schemaFieldKeyFields.toString());
     Map<String, Object> schemaFieldParent =
         getAspectFieldMapping(
@@ -1920,22 +1923,26 @@ public class MultiEntityMappingsBuilderTest {
     assertTrue(resolver.falseIsMissing("hasParentNode"));
     assertTrue(resolver.contains("hasParentDomain"));
     assertNotNull(dataProductName);
-    assertEquals(dataProductName.get("copy_to"), List.of("other"), dataProductName.toString());
+    assertEquals(dataProductName.get("copy_to"), List.of("parent"), dataProductName.toString());
     assertNotNull(dataProductProperties);
     assertFalse(
         dataProductProperties.containsKey("parentDataProduct"), dataProductProperties.toString());
     assertEquals(
-        ((Map<String, Object>) dataProductProperties.get("parentDataProduct_urn")).get("type"),
-        "keyword");
-    assertNull(dataProductBoolean);
-    assertFalse(dataProductProperties.containsKey("hasParentDataProduct"));
+        ((Map<String, Object>) dataProductProperties.get("parent_urn")).get("type"), "keyword");
+    assertNotNull(dataProductBoolean);
+    assertEquals(dataProductBoolean.get("type"), "boolean");
+    assertEquals(dataProductBoolean.get("copy_to"), List.of("hasParentDataProduct", "hasParent"));
     assertEquals(
-        resolver.exactPath("parentDataProduct", SearchFieldResolver.Intent.EXACT),
-        "parentDataProduct_urn");
-    assertEquals(resolver.hasValuesFieldName("parentDataProduct"), Optional.empty());
+        ((Map<String, Object>) dataProductProperties.get("hasParentDataProduct")).get("type"),
+        "boolean");
     assertEquals(
-        resolver.unlabeledHasValuesSource("hasParentDataProduct"),
-        Optional.of("parentDataProduct"));
+        resolver.exactPath("parentDataProduct", SearchFieldResolver.Intent.EXACT), "parent_urn");
+    assertEquals(
+        resolver.exactPath("hasParentDataProduct", SearchFieldResolver.Intent.FILTER),
+        "hasParentDataProduct");
+    assertTrue(resolver.falseIsMissing("hasParentDataProduct"));
+    assertEquals(resolver.unlabeledHasValuesSource("hasParentDataProduct"), Optional.empty());
+    assertEquals(resolver.hasValuesFieldName("parent"), Optional.of("hasParent"));
   }
 
   @Test

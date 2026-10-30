@@ -82,6 +82,7 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -960,7 +961,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
 
   @Test
   public void testTemplateSearchReportsAMatchedFieldFromSource() throws Exception {
-    SearchTemplateProperties template = body("Fulltext", "{ \"match_all\": {} }", null);
+    SearchTemplateProperties template =
+        body("Fulltext", "{ \"match\": { \"name.text\": { \"query\": \"{{query}}\" } } }", null);
     SearchFieldOverrides fields = new SearchFieldOverrides();
     SearchFieldBoost name = new SearchFieldBoost();
     name.setFieldName("name");
@@ -1043,7 +1045,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         matched.toString());
     assertFalse(
         matched.stream().anyMatch(field -> "tags".equals(field.getName())), matched.toString());
-    assertTrue(
+    assertFalse(
         matched.stream().anyMatch(field -> "exactName".equals(field.getName())),
         matched.toString());
     assertFalse(result.getEntities().get(0).hasExplainMatches());
@@ -1355,10 +1357,12 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             List.of(new FieldSortBuilder("name.keyword")),
             List.of(),
+            true,
             List.of(),
             "orders",
             Map.of(),
-            12);
+            12,
+            Map.of());
     SearchSourceBuilder source = new SearchSourceBuilder();
     SearchFlags flags = new SearchFlags().setSkipHighlighting(true).setSkipAggregates(true);
     applier.apply(opContext, source, flags, null, List.of(), template, false, 10, "orders");
@@ -1395,6 +1399,263 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     assertTrue(matchAll.apply(hit).explain().isEmpty(), matchAll.apply(hit).toString());
   }
 
+  @Test
+  public void testQueriedStoredFieldsAreReportedWithoutHighlighting() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,user_basic_info,PROD)\","
+                + "\"name\":\"user_basic_info\","
+                + "\"qualifiedName\":\"demo_pipeline.public.user_basic_info\"}");
+    List<MatchedField> matched =
+        matched(queriedTemplate("user", List.of(), List.of("name", "qualifiedName")), hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()),
+        List.of("name", "qualifiedName"));
+    assertEquals(matched.get(0).getValue(), "user_basic_info");
+    assertEquals(matched.get(1).getValue(), "demo_pipeline.public.user_basic_info");
+  }
+
+  @Test
+  public void testAHitOnlyInOtherReturnsNoMatchedField() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"unrelated\",\"domains\":[\"orders\"]}");
+    List<MatchedField> matched =
+        matched(
+            queriedTemplate(
+                "orders", List.of("name", "description", "other"), List.of("name", "description")),
+            hit);
+    assertTrue(matched.isEmpty(), matched.toString());
+  }
+
+  @Test
+  public void testAStoredFieldTheQueryDoesNotSearchIsNotReported() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"unrelated\",\"description\":\"orders\"}");
+    List<MatchedField> matched =
+        matched(queriedTemplate("orders", List.of(), List.of("name")), hit);
+    assertTrue(matched.isEmpty(), matched.toString());
+  }
+
+  @Test
+  public void testHighlightOptInSelectsDescription() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"unrelated\",\"description\":\"orders\"}");
+    List<MatchedField> nameOnly =
+        matched(queriedTemplate("orders", List.of("name"), List.of("name")), hit);
+    assertTrue(nameOnly.isEmpty(), nameOnly.toString());
+    List<MatchedField> description =
+        matched(queriedTemplate("orders", List.of("description"), List.of("description")), hit);
+    assertEquals(
+        description.stream().map(MatchedField::getName).collect(Collectors.toList()),
+        List.of("description"));
+    assertEquals(description.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testQueriedLabelReadsTheStoredSourcePath() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"editedDescription\":\"orders\"}");
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    sources.put("description", List.of("editedDescription"));
+    List<MatchedField> matched =
+        matched(
+            new RenderedSearchTemplate(
+                QueryBuilders.matchAllQuery(),
+                null,
+                null,
+                null,
+                List.of("description"),
+                true,
+                List.of("description"),
+                "orders",
+                Map.of(),
+                1,
+                sources),
+            hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()),
+        List.of("description"));
+    assertEquals(matched.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testCopyToOtherReportsTheLabelFromTheStoredSource() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"editedDescription\":\"orders\"}");
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    sources.put("other", List.of("editedDescription"));
+    List<MatchedField> matched =
+        matched(
+            new RenderedSearchTemplate(
+                QueryBuilders.matchAllQuery(),
+                null,
+                null,
+                null,
+                List.of("other"),
+                true,
+                List.of("other"),
+                "orders",
+                Map.of(),
+                1,
+                sources),
+            hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()), List.of("other"));
+    assertEquals(matched.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testALabelMatchStillReportsAnotherLabelsStoredSource() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"orders\",\"editedDescription\":\"orders\",\"alias\":\"orders\"}");
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    sources.put("name", List.of("name", "alias"));
+    sources.put("description", List.of("editedDescription"));
+    List<MatchedField> matched =
+        matched(
+            new RenderedSearchTemplate(
+                QueryBuilders.matchAllQuery(),
+                null,
+                null,
+                null,
+                List.of("name", "description"),
+                true,
+                List.of("name", "description"),
+                "orders",
+                Map.of(),
+                1,
+                sources),
+            hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()),
+        List.of("name", "description"));
+    assertEquals(matched.get(0).getValue(), "orders");
+    assertEquals(matched.get(1).getValue(), "orders");
+  }
+
+  @Test
+  public void testCopyToOtherHasNoStoredMatchedField() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\",\"other\":\"orders\"}");
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    sources.put("other", List.of("editedDescription"));
+    List<MatchedField> matched =
+        matched(
+            new RenderedSearchTemplate(
+                QueryBuilders.matchAllQuery(),
+                null,
+                null,
+                null,
+                List.of("other"),
+                true,
+                List.of("other"),
+                "orders",
+                Map.of(),
+                1,
+                sources),
+            hit);
+    assertTrue(matched.isEmpty(), matched.toString());
+  }
+
+  @Test
+  public void testNamedQueryDoesNotDuplicateAScannedLabel() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"orders\"}");
+    hit.matchedQueries(new String[] {SearchTemplateMatchReport.queryName("name")});
+    List<MatchedField> matched = matched(queriedNameTemplate("orders"), hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()), List.of("name"));
+    assertEquals(matched.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testNamedQueryStillReportsALabelTheScanMissed() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"unrelated\"}");
+    hit.matchedQueries(new String[] {SearchTemplateMatchReport.queryName("name")});
+    List<MatchedField> matched = matched(queriedNameTemplate("orders"), hit);
+    assertEquals(matched.size(), 1, matched.toString());
+    assertEquals(matched.get(0).getName(), "name");
+    assertEquals(matched.get(0).getValue(), "");
+  }
+
+  @Test
+  public void testReportDropsAPrefixedEmptyLabelWhenTheBareLabelIsPresent() {
+    Map<String, Set<String>> matched = new LinkedHashMap<>();
+    matched.put("name", Set.of("orders"));
+    matched.put(SearchTemplateMatchReport.queryName("name"), Set.of(""));
+    List<MatchedField> fields =
+        SearchTemplateMatchReport.fields(matched, Map.of("name", "orders"), "orders", Map.of());
+    assertEquals(fields.size(), 1);
+    assertEquals(fields.get(0).getName(), "name");
+    assertEquals(fields.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testReplacedFieldsDoNotReportTheRemovedLabel() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"orders\",\"description\":\"orders\"}");
+    List<MatchedField> matched =
+        matched(queriedTemplate("orders", List.of("name", "description"), List.of("name")), hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()), List.of("name"));
+  }
+
+  private SearchTemplateRequestApplier datasetApplier() {
+    return new SearchTemplateRequestApplier(
+        mock(AggregationQueryBuilder.class),
+        25,
+        List.of(opContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME)),
+        null,
+        3,
+        new V3SearchQueryBuilder(v3Config().getSearch(), null));
+  }
+
+  private List<MatchedField> matched(RenderedSearchTemplate template, SearchHit hit) {
+    return datasetApplier().matchedFieldsOf(opContext, template).apply(hit).matched();
+  }
+
+  private static SearchHit sourceHit(String source) {
+    SearchHit hit = new SearchHit(1);
+    hit.sourceRef(new BytesArray(source));
+    return hit;
+  }
+
+  private static RenderedSearchTemplate queriedTemplate(
+      String query, List<String> highlights, List<String> queriedFields) {
+    return new RenderedSearchTemplate(
+        QueryBuilders.matchAllQuery(),
+        null,
+        null,
+        null,
+        highlights,
+        true,
+        queriedFields,
+        query,
+        Map.of(),
+        1,
+        identitySources(queriedFields));
+  }
+
   private static RenderedSearchTemplate queriedNameTemplate(String query) {
     return new RenderedSearchTemplate(
         QueryBuilders.matchAllQuery(),
@@ -1402,10 +1663,20 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         null,
         null,
         List.of("name"),
+        true,
         List.of("name"),
         query,
         Map.of(),
-        1);
+        1,
+        identitySources(List.of("name")));
+  }
+
+  private static Map<String, List<String>> identitySources(List<String> fields) {
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    for (String field : fields) {
+      sources.put(field, List.of(field));
+    }
+    return sources;
   }
 
   private static int occurrences(String value, String needle) {

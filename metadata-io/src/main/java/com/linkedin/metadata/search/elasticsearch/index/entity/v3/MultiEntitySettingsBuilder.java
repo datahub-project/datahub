@@ -11,6 +11,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -139,11 +140,69 @@ public class MultiEntitySettingsBuilder implements SettingsBuilder {
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention)
             .buildAnalysisSettings(indexConfiguration);
     if (analyzerConfiguration == null || analyzerConfiguration.isEmpty()) {
-      return new HashMap<>(legacyAnalysis);
+      return withRichTextAnalyzers(new HashMap<>(legacyAnalysis));
     }
-    return withMainTokenizer(
-        mergeAnalysisSections(legacyAnalysis, analyzerConfiguration),
-        indexConfiguration.getMainTokenizer());
+    return withRichTextAnalyzers(
+        withMainTokenizer(
+            mergeAnalysisSections(legacyAnalysis, analyzerConfiguration),
+            indexConfiguration.getMainTokenizer()));
+  }
+
+  /**
+   * Analyzers for a V3 {@code RICH_TEXT} source field. V2 indices do not define them; a V2 mapping
+   * of that type uses the existing text field instead.
+   */
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> withRichTextAnalyzers(
+      @Nonnull final Map<String, Object> analysis) {
+    final Map<String, Object> filters = new HashMap<>();
+    if (analysis.get(V2LegacySettingsBuilder.FILTER) instanceof Map<?, ?> existing) {
+      filters.putAll((Map<String, Object>) existing);
+    }
+    filters.put(
+        FieldTypeMapper.RICH_TEXT_DELIMITER,
+        Map.of(
+            "type",
+            V2LegacySettingsBuilder.WORD_DELIMITER_GRAPH,
+            V2LegacySettingsBuilder.SPLIT_ON_NUMERICS,
+            true,
+            V2LegacySettingsBuilder.SPLIT_ON_CASE_CHANGE,
+            true,
+            V2LegacySettingsBuilder.PRESERVE_ORIGINAL,
+            true));
+
+    final Map<String, Object> analyzers = new HashMap<>();
+    if (analysis.get(V2LegacySettingsBuilder.ANALYZER) instanceof Map<?, ?> existing) {
+      analyzers.putAll((Map<String, Object>) existing);
+    }
+    analyzers.put(
+        FieldTypeMapper.RICH_TEXT_ANALYZER,
+        Map.of(
+            V2LegacySettingsBuilder.TOKENIZER,
+            "standard",
+            V2LegacySettingsBuilder.FILTER,
+            List.of(
+                FieldTypeMapper.RICH_TEXT_DELIMITER,
+                V2LegacySettingsBuilder.FLATTEN_GRAPH,
+                V2LegacySettingsBuilder.LOWERCASE,
+                V2LegacySettingsBuilder.ASCII_FOLDING,
+                V2LegacySettingsBuilder.SNOWBALL)));
+    analyzers.put(
+        FieldTypeMapper.RICH_TEXT_SEARCH_ANALYZER,
+        Map.of(
+            V2LegacySettingsBuilder.TOKENIZER,
+            "standard",
+            V2LegacySettingsBuilder.FILTER,
+            List.of(
+                FieldTypeMapper.RICH_TEXT_DELIMITER,
+                V2LegacySettingsBuilder.LOWERCASE,
+                V2LegacySettingsBuilder.ASCII_FOLDING,
+                V2LegacySettingsBuilder.SNOWBALL)));
+
+    final Map<String, Object> result = new HashMap<>(analysis);
+    result.put(V2LegacySettingsBuilder.FILTER, filters);
+    result.put(V2LegacySettingsBuilder.ANALYZER, analyzers);
+    return result;
   }
 
   /**

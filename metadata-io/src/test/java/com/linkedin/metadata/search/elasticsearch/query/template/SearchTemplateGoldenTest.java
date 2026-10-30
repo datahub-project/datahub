@@ -83,6 +83,28 @@ public class SearchTemplateGoldenTest {
             SearchTemplateFixtures.NAME_AND_VALUE,
             SearchTemplateFixtures.NAME_VALUE_QUERY,
             dataset);
+    // The directory is the shipped template. Another render of that template is another file.
+    Map<String, String> rendered = new LinkedHashMap<>();
+    rendered.put("fulltext/dataset.json", fulltext);
+    rendered.put("fulltext/field-edits.json", fieldEdits);
+    rendered.put("fulltext/name-and-value.json", nameAndValue);
+    rendered.put("structured/dataset.json", structured);
+    rendered.put("light/dataset.json", render("urn:li:searchTemplate:light", "orders", dataset));
+    rendered.put(
+        "exact/dataset.json", render("urn:li:searchTemplate:exact", "\"orders\"", dataset));
+    rendered.put(
+        "structuredExact/dataset.json",
+        render("urn:li:searchTemplate:structuredExact", "\"orders\"", dataset));
+    rendered.put(
+        "identity/dataset.json",
+        render(
+            "urn:li:searchTemplate:identity",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)",
+            dataset));
+    rendered.put("list/dataset.json", render("urn:li:searchTemplate:list", "*", dataset));
+    rendered.put("listUrn/dataset.json", render("urn:li:searchTemplate:listUrn", "*", dataset));
+    rendered.put(
+        "autocomplete/dataset.json", render("urn:li:searchTemplate:autocomplete", "ord", dataset));
     assertDatasetFulltext(fulltext);
     assertFieldEdits(fieldEdits);
     assertNameAndValue(nameAndValue);
@@ -92,16 +114,15 @@ public class SearchTemplateGoldenTest {
     ObjectNode fieldManifest = manifest();
     ArrayNode queried = fieldManifest.putArray("templateFieldRoots");
     Set<String> roots = new TreeSet<>();
-    for (String query : List.of(fulltext, structured, fieldEdits, nameAndValue)) {
+    for (String query : rendered.values()) {
       Set<String> fields = new LinkedHashSet<>();
       collectReferencedFields(SearchTemplateFixtures.JSON.readTree(query), fields);
       fields.forEach(field -> roots.add(fieldRoot(field)));
     }
     roots.forEach(queried::add);
-    compare("dataset-fulltext.json", canonicalize(fulltext));
-    compare("dataset-structured.json", canonicalize(structured));
-    compare("dataset-field-edits.json", canonicalize(fieldEdits));
-    compare("dataset-name-and-value.json", canonicalize(nameAndValue));
+    for (Map.Entry<String, String> entry : rendered.entrySet()) {
+      compare(entry.getKey(), canonicalize(entry.getValue()));
+    }
     compare("field-manifest.json", canonicalize(fieldManifest.toString()));
   }
 
@@ -786,9 +807,10 @@ public class SearchTemplateGoldenTest {
 
   private static void compare(String name, String actual) throws Exception {
     String expected = readGolden(name);
+    Path path = goldenDir().resolve(name);
     if ("1".equals(System.getenv("UPDATE_SEARCH_TEMPLATE_GOLDEN"))) {
-      Files.createDirectories(goldenDir());
-      Files.writeString(goldenDir().resolve(name), actual);
+      Files.createDirectories(path.getParent());
+      Files.writeString(path, actual);
       return;
     }
     if (expected == null) {
@@ -988,10 +1010,10 @@ public class SearchTemplateGoldenTest {
   }
 
   private static Path goldenDir() {
-    Path module = Path.of("metadata-io/src/test/resources/search/template");
+    Path module = Path.of("metadata-io/src/test/resources/search/template/golden");
     if (Files.isDirectory(module) || Files.isDirectory(module.getParent())) {
       return module;
     }
-    return Path.of("src/test/resources/search/template");
+    return Path.of("src/test/resources/search/template/golden");
   }
 }

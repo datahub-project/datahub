@@ -78,11 +78,11 @@
     "valueType" : "string"
   } ],
   "datasetIndexRoots" : [ "_aspects", "_entityType", "_system", "runId", "structuredProperties", "systemCreated", "systemIndexModified", "urn" ],
-  "datasetSharedFields" : [ "description", "glossaryTerms", "name", "other", "qualifiedName", "tags" ],
+  "datasetSharedFields" : [ "description", "glossaryTerms", "name", "other", "qualifiedName", "tags", "text" ],
   "entities" : {
     "agentSkill" : {
       "queryFields" : [ {
-        "boost" : 1.0,
+        "boost" : 2.0,
         "field" : "id"
       }, {
         "boost" : 10.0,
@@ -103,7 +103,7 @@
         "boost" : 0.5,
         "field" : "tags"
       }, {
-        "boost" : 1.0,
+        "boost" : 2.0,
         "field" : "id"
       }, {
         "boost" : 0.5,
@@ -118,7 +118,7 @@
     },
     "api" : {
       "queryFields" : [ {
-        "boost" : 1.0,
+        "boost" : 2.0,
         "field" : "id"
       }, {
         "boost" : 10.0,
@@ -146,9 +146,6 @@
         "field" : "name"
       }, {
         "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
-        "boost" : 1.0,
         "field" : "description"
       } ]
     },
@@ -156,9 +153,6 @@
       "queryFields" : [ {
         "boost" : 1.0,
         "field" : "scope"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
       }, {
         "boost" : 1.0,
         "field" : "aggregation"
@@ -181,9 +175,6 @@
         "boost" : 10.0,
         "field" : "name"
       }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
         "boost" : 0.5,
         "field" : "tags"
       }, {
@@ -199,29 +190,32 @@
         "boost" : 0.5,
         "field" : "tags"
       }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
         "boost" : 10.0,
         "field" : "name"
       }, {
         "boost" : 1.0,
         "field" : "description"
       }, {
+        "boost" : 1.0,
+        "field" : "text"
+      }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
       }, {
-        "boost" : 4.0,
-        "field" : "tool"
+        "boost" : 2.0,
+        "field" : "id"
       } ]
     },
     "container" : {
       "queryFields" : [ {
-        "boost" : 0.5,
-        "field" : "tags"
+        "boost" : 1.0,
+        "field" : "text"
       }, {
         "boost" : 1.0,
         "field" : "description"
+      }, {
+        "boost" : 0.5,
+        "field" : "tags"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -231,9 +225,6 @@
       }, {
         "boost" : 10.0,
         "field" : "name"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
       } ]
     },
     "corpGroup" : {
@@ -263,9 +254,6 @@
         "field" : "tags"
       }, {
         "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
-        "boost" : 1.0,
         "field" : "email"
       }, {
         "boost" : 1.0,
@@ -281,13 +269,13 @@
         "field" : "description"
       }, {
         "boost" : 1.0,
-        "field" : "customProperties"
+        "field" : "text"
       }, {
         "boost" : 10.0,
         "field" : "name"
       }, {
-        "boost" : 4.0,
-        "field" : "tool"
+        "boost" : 2.0,
+        "field" : "id"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -295,9 +283,6 @@
     },
     "dataContract" : {
       "queryFields" : [ {
-        "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
         "boost" : 1.0,
         "field" : "state"
       } ]
@@ -307,23 +292,17 @@
         "boost" : 1.0,
         "field" : "description"
       }, {
+        "boost" : 1.0,
+        "field" : "text"
+      }, {
         "boost" : 10.0,
         "field" : "name"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
       }, {
         "boost" : 0.5,
         "field" : "tags"
       }, {
-        "boost" : 1.0,
-        "field" : "flowId"
-      }, {
-        "boost" : 1.0,
-        "field" : "orchestrator"
-      }, {
-        "boost" : 1.0,
-        "field" : "cluster"
+        "boost" : 2.0,
+        "field" : "id"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -349,7 +328,7 @@
         "boost" : 1.0,
         "field" : "type"
       }, {
-        "boost" : 1.0,
+        "boost" : 2.0,
         "field" : "id"
       } ]
     },
@@ -358,8 +337,8 @@
     },
     "dataHubFile" : {
       "queryFields" : [ {
-        "boost" : 1.0,
-        "field" : "originalFileName"
+        "boost" : 10.0,
+        "field" : "name"
       } ]
     },
     "dataHubIngestionSource" : {
@@ -439,11 +418,11 @@
         "boost" : 1.0,
         "field" : "description"
       }, {
-        "boost" : 1.0,
-        "field" : "jobId"
+        "boost" : 2.0,
+        "field" : "id"
       }, {
         "boost" : 1.0,
-        "field" : "customProperties"
+        "field" : "text"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -464,9 +443,6 @@
         "field" : "name"
       }, {
         "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
-        "boost" : 1.0,
         "field" : "description"
       }, {
         "boost" : 0.5,
@@ -475,18 +451,12 @@
     },
     "dataProcess" : {
       "queryFields" : [ {
-        "boost" : 1.0,
-        "field" : "orchestrator"
-      }, {
-        "boost" : 4.0,
+        "boost" : 10.0,
         "field" : "name"
       } ]
     },
     "dataProcessInstance" : {
       "queryFields" : [ {
-        "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
         "boost" : 1.0,
         "field" : "parentInstance"
       }, {
@@ -504,9 +474,6 @@
       "queryFields" : [ {
         "boost" : 10.0,
         "field" : "name"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
       }, {
         "boost" : 1.0,
         "field" : "description"
@@ -539,13 +506,13 @@
         "field" : "name"
       }, {
         "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
-        "boost" : 1.0,
         "field" : "description"
       }, {
         "boost" : 0.5,
         "field" : "tags"
+      }, {
+        "boost" : 1.0,
+        "field" : "text"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -559,17 +526,14 @@
         "boost" : 10.0,
         "field" : "name"
       }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
+        "boost" : 2.0,
+        "field" : "id"
       }, {
         "boost" : 1.0,
         "field" : "semanticText"
       }, {
         "boost" : 0.5,
         "field" : "tags"
-      }, {
-        "boost" : 1.0,
-        "field" : "id"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -581,15 +545,12 @@
         "field" : "name"
       }, {
         "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
-        "boost" : 1.0,
         "field" : "description"
       } ]
     },
     "entityType" : {
       "queryFields" : [ {
-        "boost" : 1.0,
+        "boost" : 2.0,
         "field" : "id"
       }, {
         "boost" : 10.0,
@@ -606,9 +567,6 @@
       "queryFields" : [ {
         "boost" : 10.0,
         "field" : "name"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
       }, {
         "boost" : 10.0,
         "field" : "destination"
@@ -646,10 +604,7 @@
         "boost" : 1.0,
         "field" : "description"
       }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
-        "boost" : 1.0,
+        "boost" : 2.0,
         "field" : "id"
       }, {
         "boost" : 0.5,
@@ -658,29 +613,26 @@
     },
     "glossaryTerm" : {
       "queryFields" : [ {
+        "boost" : 1.0,
+        "field" : "description"
+      }, {
         "boost" : 0.5,
         "field" : "tags"
       }, {
         "boost" : 10.0,
         "field" : "name"
       }, {
-        "boost" : 1.0,
-        "field" : "description"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
-        "boost" : 1.0,
+        "boost" : 2.0,
         "field" : "id"
-      }, {
-        "boost" : 0.5,
-        "field" : "glossaryTerms"
       } ]
     },
     "incident" : {
       "queryFields" : [ {
         "boost" : 1.0,
-        "field" : "message"
+        "field" : "text"
+      }, {
+        "boost" : 2.0,
+        "field" : "id"
       }, {
         "boost" : 0.5,
         "field" : "tags"
@@ -710,9 +662,6 @@
         "field" : "startedAt"
       }, {
         "boost" : 1.0,
-        "field" : "assignees"
-      }, {
-        "boost" : 1.0,
         "field" : "description"
       } ]
     },
@@ -730,8 +679,11 @@
     },
     "metric" : {
       "queryFields" : [ {
+        "boost" : 2.0,
+        "field" : "id"
+      }, {
         "boost" : 1.0,
-        "field" : "path"
+        "field" : "text"
       }, {
         "boost" : 10.0,
         "field" : "name"
@@ -754,29 +706,26 @@
         "boost" : 1.0,
         "field" : "description"
       }, {
+        "boost" : 1.0,
+        "field" : "text"
+      }, {
         "boost" : 0.5,
         "field" : "tags"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
       }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
         "boost" : 10.0,
         "field" : "name"
-      }, {
-        "boost" : 1.0,
-        "field" : "featureNamespace"
       } ]
     },
     "mlFeatureTable" : {
       "queryFields" : [ {
         "boost" : 1.0,
-        "field" : "description"
+        "field" : "text"
       }, {
         "boost" : 1.0,
-        "field" : "customProperties"
+        "field" : "description"
       }, {
         "boost" : 0.5,
         "field" : "tags"
@@ -796,6 +745,9 @@
         "boost" : 0.5,
         "field" : "tags"
       }, {
+        "boost" : 1.0,
+        "field" : "text"
+      }, {
         "boost" : 10.0,
         "field" : "name"
       }, {
@@ -804,9 +756,6 @@
       }, {
         "boost" : 1.0,
         "field" : "type"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
       } ]
     },
     "mlModelDeployment" : {
@@ -814,32 +763,29 @@
         "boost" : 10.0,
         "field" : "name"
       }, {
+        "boost" : 1.0,
+        "field" : "description"
+      }, {
         "boost" : 0.5,
         "field" : "tags"
       }, {
         "boost" : 1.0,
         "field" : "deploymentStatus"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
-        "boost" : 1.0,
-        "field" : "description"
       } ]
     },
     "mlModelGroup" : {
       "queryFields" : [ {
+        "boost" : 1.0,
+        "field" : "text"
+      }, {
         "boost" : 10.0,
         "field" : "name"
-      }, {
-        "boost" : 0.5,
-        "field" : "tags"
       }, {
         "boost" : 1.0,
         "field" : "description"
       }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
+        "boost" : 0.5,
+        "field" : "tags"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -851,9 +797,6 @@
         "field" : "name"
       }, {
         "boost" : 1.0,
-        "field" : "featureNamespace"
-      }, {
-        "boost" : 1.0,
         "field" : "description"
       }, {
         "boost" : 0.5,
@@ -861,18 +804,15 @@
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
       } ]
     },
     "notebook" : {
       "queryFields" : [ {
+        "boost" : 1.0,
+        "field" : "text"
+      }, {
         "boost" : 0.5,
         "field" : "tags"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
       }, {
         "boost" : 10.0,
         "field" : "name"
@@ -917,9 +857,6 @@
         "field" : "name"
       }, {
         "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
-        "boost" : 1.0,
         "field" : "description"
       }, {
         "boost" : 1.0,
@@ -939,6 +876,9 @@
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
+      }, {
+        "boost" : 2.0,
+        "field" : "id"
       } ]
     },
     "role" : {
@@ -952,8 +892,14 @@
     },
     "schemaField" : {
       "queryFields" : [ {
+        "boost" : 2.0,
+        "field" : "id"
+      }, {
         "boost" : 1.0,
-        "field" : "parent"
+        "field" : "text"
+      }, {
+        "boost" : 1.0,
+        "field" : "description"
       }, {
         "boost" : 0.5,
         "field" : "tags"
@@ -973,17 +919,20 @@
     },
     "semanticModel" : {
       "queryFields" : [ {
+        "boost" : 1.0,
+        "field" : "text"
+      }, {
         "boost" : 0.5,
         "field" : "tags"
       }, {
         "boost" : 1.0,
-        "field" : "path"
+        "field" : "description"
+      }, {
+        "boost" : 2.0,
+        "field" : "id"
       }, {
         "boost" : 10.0,
         "field" : "name"
-      }, {
-        "boost" : 1.0,
-        "field" : "description"
       }, {
         "boost" : 0.5,
         "field" : "glossaryTerms"
@@ -993,9 +942,6 @@
       "queryFields" : [ {
         "boost" : 0.5,
         "field" : "tags"
-      }, {
-        "boost" : 1.0,
-        "field" : "customProperties"
       }, {
         "boost" : 10.0,
         "field" : "name"
@@ -1046,12 +992,9 @@
     "versionSet" : {
       "queryFields" : [ {
         "boost" : 1.0,
-        "field" : "customProperties"
-      }, {
-        "boost" : 1.0,
         "field" : "latest"
       } ]
     }
   },
-  "templateFieldRoots" : [ "deprecated", "description", "glossaryTerms", "name", "other", "qualifiedName", "structuredProperties._versioned.contract_id.00000000000001.string", "structuredProperties.certification_status", "structuredProperties.chart_only", "structuredProperties.hidden_label", "structuredProperties.owner_ref", "structuredProperties.owner_ref__urn_name", "structuredProperties.summary_notes", "tags", "urn" ]
+  "templateFieldRoots" : [ "deprecated", "description", "glossaryTerms", "hasDescription", "hasDomain", "hasGlossaryTerms", "hasOwners", "hasTags", "id", "name", "other", "qualifiedName", "structuredProperties._versioned.contract_id.00000000000001.string", "structuredProperties.certification_status", "structuredProperties.chart_only", "structuredProperties.hidden_label", "structuredProperties.owner_ref", "structuredProperties.owner_ref__urn_name", "structuredProperties.summary_notes", "tags", "text", "urn", "urn_name" ]
 }

@@ -79,6 +79,7 @@ public class MergedSearchTemplate {
 
   @Nullable SearchTemplateBoostArray boosts;
   @Nullable HighlightFieldOverrides highlightFields;
+  @Builder.Default boolean matchedFields = true;
   @Nonnull Map<String, String> parameters;
 
   /**

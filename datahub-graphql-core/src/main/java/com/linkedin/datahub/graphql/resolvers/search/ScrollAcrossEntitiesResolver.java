@@ -118,7 +118,9 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                 _entityClient.scrollAcrossEntities(
                     context
                         .getOperationContext()
-                        .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags),
+                        .withSearchFlags(flags -> searchFlags != null ? searchFlags : flags)
+                        .withCallerOptionalFilterFields(
+                            DefaultEntityFiltersUtil.callerOptionalFilterFields(baseFilter)),
                     finalEntities,
                     sanitizedQuery,
                     combinedFilter,

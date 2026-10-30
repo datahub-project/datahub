@@ -287,7 +287,14 @@ public class SearchDocumentTransformer {
                 } else {
                   hasValue = !fieldValues.isEmpty();
                 }
-                searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode(hasValue));
+                // Several fields in one aspect share this boolean. An empty source must not
+                // clear a true another source in this same aspect already published. A later
+                // aspect is its own document, so this guard cannot see it. Inline column
+                // documentation also declares hasDescription; Search V3 indexes that copy as
+                // hasDescription_1, and this write keeps the declared name.
+                if (hasValue || !searchDocument.path(fieldName).asBoolean(false)) {
+                  searchDocument.set(fieldName, JsonNodeFactory.instance.booleanNode(hasValue));
+                }
               }
             });
 

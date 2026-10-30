@@ -1,0 +1,194 @@
+{
+  "function_score" : {
+    "boost" : 1.0,
+    "boost_mode" : "replace",
+    "functions" : [ {
+      "filter" : {
+        "match_all" : {
+          "boost" : 1.0
+        }
+      },
+      "weight" : 1.0
+    }, {
+      "exp" : {
+        "multi_value_mode" : "MIN",
+        "usagePercentile30d" : {
+          "decay" : 0.71,
+          "origin" : 100,
+          "scale" : 100
+        }
+      },
+      "filter" : {
+        "exists" : {
+          "boost" : 1.0,
+          "field" : "usagePercentile30d"
+        }
+      },
+      "weight" : 1.4
+    }, {
+      "filter" : {
+        "exists" : {
+          "boost" : 1.0,
+          "field" : "activeIncidents_urn"
+        }
+      },
+      "weight" : 6.0
+    }, {
+      "filter" : {
+        "term" : {
+          "hasDescription" : {
+            "boost" : 1.0,
+            "value" : true
+          }
+        }
+      },
+      "weight" : 1.5
+    }, {
+      "filter" : {
+        "term" : {
+          "hasOwners" : {
+            "boost" : 1.0,
+            "value" : true
+          }
+        }
+      },
+      "weight" : 1.5
+    }, {
+      "filter" : {
+        "term" : {
+          "hasDomain" : {
+            "boost" : 1.0,
+            "value" : true
+          }
+        }
+      },
+      "weight" : 1.15
+    }, {
+      "filter" : {
+        "term" : {
+          "hasGlossaryTerms" : {
+            "boost" : 1.0,
+            "value" : true
+          }
+        }
+      },
+      "weight" : 1.15
+    }, {
+      "filter" : {
+        "term" : {
+          "hasTags" : {
+            "boost" : 1.0,
+            "value" : true
+          }
+        }
+      },
+      "weight" : 1.15
+    }, {
+      "filter" : {
+        "exists" : {
+          "boost" : 1.0,
+          "field" : "rowCount"
+        }
+      },
+      "weight" : 1.05
+    }, {
+      "filter" : {
+        "exists" : {
+          "boost" : 1.0,
+          "field" : "columnCount"
+        }
+      },
+      "weight" : 1.05
+    }, {
+      "filter" : {
+        "term" : {
+          "deprecated" : {
+            "boost" : 1.0,
+            "value" : true
+          }
+        }
+      },
+      "weight" : 0.15
+    }, {
+      "filter" : {
+        "terms" : {
+          "boost" : 1.0,
+          "owners_urn" : [ "urn:li:corpuser:testSystemUser" ]
+        }
+      },
+      "weight" : 1.4
+    } ],
+    "max_boost" : 3.4028235E38,
+    "query" : {
+      "bool" : {
+        "adjust_pure_negative" : true,
+        "boost" : 1.0,
+        "minimum_should_match" : "1",
+        "should" : [ {
+          "match_all" : {
+            "boost" : 1.0
+          }
+        }, {
+          "simple_query_string" : {
+            "analyze_wildcard" : false,
+            "analyzer" : "v3_stemmed_search",
+            "auto_generate_synonyms_phrase_query" : true,
+            "boost" : 1.0,
+            "default_operator" : "or",
+            "fields" : [ "structuredProperties._versioned.contract_id.00000000000001.string.stemmed^1.0", "structuredProperties.certification_status.stemmed^0.6", "structuredProperties.owner_ref__urn_name.stemmed^0.3", "structuredProperties.summary_notes.stemmed^0.4" ],
+            "flags" : -1,
+            "fuzzy_max_expansions" : 50,
+            "fuzzy_prefix_length" : 0,
+            "fuzzy_transpositions" : true,
+            "lenient" : true,
+            "query" : "*"
+          }
+        }, {
+          "simple_query_string" : {
+            "analyze_wildcard" : false,
+            "analyzer" : "v3_text_search",
+            "auto_generate_synonyms_phrase_query" : true,
+            "boost" : 1.0,
+            "default_operator" : "or",
+            "fields" : [ "structuredProperties.certification_status.text^1.2", "structuredProperties.summary_notes.text^0.8", "structuredProperties.owner_ref__urn_name.text^0.6", "structuredProperties._versioned.contract_id.00000000000001.string.text^2.0" ],
+            "flags" : -1,
+            "fuzzy_max_expansions" : 50,
+            "fuzzy_prefix_length" : 0,
+            "fuzzy_transpositions" : true,
+            "lenient" : true,
+            "query" : "*"
+          }
+        }, {
+          "term" : {
+            "structuredProperties._versioned.contract_id.00000000000001.string" : {
+              "boost" : 2.0,
+              "value" : "*"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.certification_status" : {
+              "boost" : 1.2,
+              "value" : "*"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.owner_ref" : {
+              "boost" : 0.6,
+              "value" : "*"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.summary_notes" : {
+              "boost" : 0.8,
+              "value" : "*"
+            }
+          }
+        } ]
+      }
+    },
+    "score_mode" : "multiply"
+  }
+}
