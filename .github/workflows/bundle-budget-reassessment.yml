@@ -1,0 +1,298 @@
+name: Bundle budget reassessment
+
+# After nightly build & test uploads bundle-budget-artifacts from frontend-build,
+# this small job classifies the result and opens a PR only when baselines should
+# ratchet down. Soft overages are reported (never auto-raised). Hard cliffs
+# already fail frontend-build, so this workflow only runs on successful
+# scheduled builds. See datahub-web-react/AGENTS.md (Bundle size budgets).
+#
+# Opt-in: set repo variable BUNDLE_BUDGET_REASSESS=true (this workflow is a no-op
+# until then). Downstream forks with a different default branch, paid runners, or
+# their own baselines can enable the same workflow unchanged.
+#
+# Ratchet PRs need a token that can trigger workflow runs on the new PR. Prefer
+# a GitHub App: set vars.BUNDLE_BUDGET_APP_CLIENT_ID and
+# secrets.BUNDLE_BUDGET_APP_PRIVATE_KEY. Falling back to github.token creates the
+# PR but does not start required checks (Actions → GITHUB_TOKEN limitation).
+
+on:
+  workflow_run:
+    workflows:
+      - "build & test"
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "build & test run id that uploaded bundle-budget-artifacts (default: latest successful scheduled run)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: bundle-budget-reassessment
+  cancel-in-progress: true
+
+env:
+  # Defaults match OSS layout; forks override via repo variables without forking this file.
+  BUNDLE_BUDGET_DIR: ${{ vars.BUNDLE_BUDGET_DIR || 'datahub-web-react' }}
+  BUNDLE_EAGER_BUDGET: ${{ vars.BUNDLE_EAGER_BUDGET || '' }}
+  BUNDLE_PAGE_BUDGET: ${{ vars.BUNDLE_PAGE_BUDGET || '' }}
+  BUNDLE_INVENTORY_BASELINE: ${{ vars.BUNDLE_INVENTORY_BASELINE || '' }}
+  BUNDLE_BUDGET_DIST: ${{ vars.BUNDLE_BUDGET_DIST || '' }}
+
+jobs:
+  reassess:
+    if: |
+      vars.BUNDLE_BUDGET_REASSESS == 'true' &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'workflow_run' &&
+          github.event.workflow_run.event == 'schedule' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_branch == github.event.repository.default_branch
+        )
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Mint GitHub App token (optional)
+        id: app-token
+        if: ${{ vars.BUNDLE_BUDGET_APP_CLIENT_ID != '' }}
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          client-id: ${{ vars.BUNDLE_BUDGET_APP_CLIENT_ID }}
+          private-key: ${{ secrets.BUNDLE_BUDGET_APP_PRIVATE_KEY }}
+
+      - name: Resolve PR token
+        id: token
+        run: |
+          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+            echo "value=${{ steps.app-token.outputs.token }}" >> "$GITHUB_OUTPUT"
+            echo "source=app" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ github.token }}" >> "$GITHUB_OUTPUT"
+            echo "source=github.token" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Bundle budget::BUNDLE_BUDGET_APP_CLIENT_ID is unset. The ratchet PR will use github.token and will not trigger required CI checks. Configure a GitHub App (vars.BUNDLE_BUDGET_APP_CLIENT_ID + secrets.BUNDLE_BUDGET_APP_PRIVATE_KEY) so the PR gets checks."
+          fi
+
+      - name: Check out default branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ steps.token.outputs.value }}
+
+      - name: Skip when a ratchet PR is already open
+        id: skip
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.value }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          # Search by title so we are not capped by the default 30-PR page of `gh pr list`
+          # (this repo routinely has far more open PRs). Title is fixed by this workflow.
+          existing=$(gh pr list --base "$DEFAULT_BRANCH" --state open --limit 20 \
+            --search 'in:title "ratchet frontend bundle budgets"' \
+            --json number,headRefName \
+            --jq '[.[] | select(.headRefName | startswith("chore/bundle-budget-ratchet"))][0].number // empty')
+          if [ -n "$existing" ]; then
+            {
+              echo "skip=true"
+            } >> "$GITHUB_OUTPUT"
+            echo "Open ratchet PR #$existing already exists — skipping reassessment to avoid stacking."
+            {
+              echo "### Bundle budget reassessment"
+              echo ""
+              echo "Skipped: open ratchet PR #$existing."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve source build & test run
+        if: steps.skip.outputs.skip != 'true'
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          EVENT_NAME: ${{ github.event_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            echo "run_id=$WORKFLOW_RUN_ID" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -n "$INPUT_RUN_ID" ]; then
+            echo "run_id=$INPUT_RUN_ID" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          run_id=$(gh run list --workflow "build & test" --event schedule --branch "$DEFAULT_BRANCH" --status success --limit 20 --json databaseId,conclusion \
+            --jq '[.[] | select(.conclusion=="success")][0].databaseId // empty')
+          if [ -z "$run_id" ]; then
+            echo "No successful scheduled build & test run found to pull bundle-budget-artifacts from."
+            exit 1
+          fi
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download bundle budget artifacts
+        if: steps.skip.outputs.skip != 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bundle-budget-artifacts
+          path: /tmp/bundle-budget-artifacts
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stage findings into budget dist
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          BUDGET_DIR: ${{ env.BUNDLE_BUDGET_DIR }}
+        run: |
+          DIST="${BUNDLE_BUDGET_DIST:-$BUDGET_DIR/dist}"
+          mkdir -p "$DIST"
+          for f in eager-budget-findings.json page-budget-findings.json eager-budget-report.json; do
+            if [ ! -f "/tmp/bundle-budget-artifacts/$f" ]; then
+              echo "Missing $f in bundle-budget-artifacts from run ${{ steps.source.outputs.run_id }}"
+              ls -la /tmp/bundle-budget-artifacts || true
+              exit 1
+            fi
+            cp "/tmp/bundle-budget-artifacts/$f" "$DIST/$f"
+          done
+          {
+            echo "DIST=$DIST"
+            echo "EAGER_BUDGET=${BUNDLE_EAGER_BUDGET:-$BUDGET_DIR/eager-budget.json}"
+            echo "PAGE_BUDGET=${BUNDLE_PAGE_BUDGET:-$BUDGET_DIR/page-budget.json}"
+            echo "INVENTORY_BASELINE=${BUNDLE_INVENTORY_BASELINE:-$BUDGET_DIR/eager-budget-inventory.json}"
+          } >> "$GITHUB_ENV"
+
+      - name: Classify budgets
+        if: steps.skip.outputs.skip != 'true'
+        id: budgets
+        run: |
+          if ! node datahub-web-react/scripts/bundle-budget-chore.mjs \
+            --budget-dir "$BUNDLE_BUDGET_DIR" \
+            ${BUNDLE_EAGER_BUDGET:+--eager-budget "$BUNDLE_EAGER_BUDGET"} \
+            ${BUNDLE_PAGE_BUDGET:+--page-budget "$BUNDLE_PAGE_BUDGET"} \
+            --dist "$DIST" \
+            > "$RUNNER_TEMP/chore.json"; then
+            echo "bundle-budget-chore.mjs failed before writing a decision."
+            cat "$RUNNER_TEMP/chore.json" 2>/dev/null || true
+            exit 1
+          fi
+          if [ ! -s "$RUNNER_TEMP/chore.json" ]; then
+            echo "bundle-budget-chore.mjs produced an empty decision file."
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/chore.json"
+          if ! decision=$(node -e "const s=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); if(!s.decision) throw new Error('missing decision'); process.stdout.write(s.decision)" "$RUNNER_TEMP/chore.json"); then
+            echo "Could not parse decision from chore.json:"
+            cat "$RUNNER_TEMP/chore.json"
+            exit 1
+          fi
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Bundle budget reassessment"
+            echo ""
+            echo "Source build & test run: \`${{ steps.source.outputs.run_id }}\`"
+            echo ""
+            echo "Decision: \`$decision\`"
+            echo ""
+            if [ -f /tmp/bundle-budget-artifacts/eager-regression.md ]; then
+              cat /tmp/bundle-budget-artifacts/eager-regression.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$decision" = "hard" ]; then
+            exit 1
+          fi
+
+      - name: Ratchet baselines down
+        id: ratchet
+        if: steps.skip.outputs.skip != 'true' && steps.budgets.outputs.decision == 'ratchet-down'
+        run: |
+          if ! node datahub-web-react/scripts/bundle-budget-chore.mjs --apply \
+            --budget-dir "$BUNDLE_BUDGET_DIR" \
+            ${BUNDLE_EAGER_BUDGET:+--eager-budget "$BUNDLE_EAGER_BUDGET"} \
+            ${BUNDLE_PAGE_BUDGET:+--page-budget "$BUNDLE_PAGE_BUDGET"} \
+            --dist "$DIST" \
+            > "$RUNNER_TEMP/ratchet.json"; then
+            echo "bundle-budget-chore.mjs --apply failed."
+            cat "$RUNNER_TEMP/ratchet.json" 2>/dev/null || true
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/ratchet.json"
+          if [ ! -s "$RUNNER_TEMP/ratchet.json" ]; then
+            echo "bundle-budget-chore.mjs --apply produced empty output."
+            exit 1
+          fi
+          changed=$(node -e "const s=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8')); process.stdout.write(String(Boolean(s.applied && s.applied.changed)))" "$RUNNER_TEMP/ratchet.json")
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          if [ "$changed" != "true" ]; then
+            echo "Decision was ratchet-down but no ceiling actually lowered."
+            exit 0
+          fi
+          if [ ! -f /tmp/bundle-budget-artifacts/eager-budget-inventory-measured.json ]; then
+            echo "Missing eager-budget-inventory-measured.json from the nightly artifact; cannot refresh inventory without rebuilding dist."
+            exit 1
+          fi
+          cp /tmp/bundle-budget-artifacts/eager-budget-inventory-measured.json "$INVENTORY_BASELINE"
+
+      - name: Open ratchet PR
+        if: steps.skip.outputs.skip != 'true' && steps.budgets.outputs.decision == 'ratchet-down' && steps.ratchet.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.value }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          BRANCH="chore/bundle-budget-ratchet-${RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add "$EAGER_BUDGET" "$PAGE_BUDGET" "$INVENTORY_BASELINE"
+          if git diff --cached --quiet; then
+            echo "Nothing to commit after ratchet."
+            exit 0
+          fi
+          git commit -m "$(cat <<'EOF'
+          chore(ui): ratchet frontend bundle budgets down to measured defaults
+
+          Nightly reassessment found measured gzip under committed baselines.
+          Lower only the ceilings that shrank and refresh the inventory snapshot.
+          EOF
+          )"
+          # run_id is stable across workflow re-runs; force-with-lease lets a retry
+          # after a successful push + failed `gh pr create` update the same branch.
+          git push -u origin "$BRANCH" --force-with-lease
+          existing=$(gh pr list --head "$BRANCH" --base "$DEFAULT_BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Ratchet PR #$existing already open for $BRANCH — updated branch tip."
+            exit 0
+          fi
+          gh pr create \
+            --title "chore(ui): ratchet frontend bundle budgets down" \
+            --body "$(cat <<'EOF'
+          ## Summary
+
+          Bundle-budget reassessment (from the nightly `build & test` artifact)
+          found measured default-branch gzip under the committed baselines. This
+          PR only **lowers** fields in the eager/page budget JSON (never raises a
+          field that grew within slack) and refreshes the inventory snapshot.
+
+          Soft overages are never auto-raised — those need an explicit follow-up
+          PR (see `datahub-web-react/AGENTS.md`).
+
+          ## Checklist
+
+          - [x] Contributing Guideline / PR title format
+          - [x] Tests N/A (baseline JSON only)
+          - [x] Docs N/A
+          EOF
+          )" \
+            --base "$DEFAULT_BRANCH" \
+            --head "$BRANCH"

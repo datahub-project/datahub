@@ -3,6 +3,8 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 import zlib from 'zlib';
 
+import { resolveBudgetPaths, takeBudgetPathArgs } from './budget-paths.mjs';
+
 export const FORBIDDEN_EAGER_CHUNK = /phosphor-vendor|mui-vendor|mui-icons-catalog/;
 
 /** Soft warn above this; below it size noise is ignored. */
@@ -83,7 +85,9 @@ export function evaluateEagerBudget(report, baseline) {
             actual: report.totalGzip,
             expected: baseline.totalGzip,
             ratchetHint: `Update datahub-web-react/eager-budget.json totalGzip to ${report.totalGzip} so the lower size becomes the new ceiling.`,
-            overageDetail: ' This is the sum of <script> and modulepreload JS in dist/index.html.',
+            overageDetail:
+                ' This is the sum of <script> and modulepreload JS in dist/index.html.' +
+                ' CI diffs packages against datahub-web-react/eager-budget-inventory.json.',
             findings,
         });
     }
@@ -183,12 +187,48 @@ export function printBudgetFindings(findings) {
     }
 }
 
-function main() {
-    const json = process.argv.includes('--json');
-    const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-    const baseline = JSON.parse(fs.readFileSync(path.join(root, 'eager-budget.json'), 'utf8'));
-    const report = readReport(path.join(root, 'dist'));
+/**
+ * Write findings for CI steps that run the inventory only when something moved.
+ * Soft and hard both count — soft overages still need a package breakdown.
+ *
+ * @param {string} distDir
+ * @param {BudgetFindings} findings
+ */
+/**
+ * @param {string} distDir
+ * @param {BudgetFindings} findings
+ * @param {{ totalGzip?: number }} [measured]
+ */
+export function writeBudgetFindings(distDir, findings, measured = {}) {
+    fs.mkdirSync(distDir, { recursive: true });
+    const outPath = path.join(distDir, 'eager-budget-findings.json');
+    fs.writeFileSync(
+        outPath,
+        `${JSON.stringify(
+            {
+                soft: findings.soft,
+                hard: findings.hard,
+                hasFindings: findings.soft.length > 0 || findings.hard.length > 0,
+                measured: {
+                    totalGzip: measured.totalGzip,
+                },
+            },
+            null,
+            2,
+        )}\n`,
+    );
+}
+
+function main(argv = process.argv.slice(2)) {
+    const { rest, paths: pathOverrides } = takeBudgetPathArgs(argv);
+    const json = rest.includes('--json');
+    const paths = resolveBudgetPaths(pathOverrides);
+    const baseline = JSON.parse(fs.readFileSync(paths.eagerBudget, 'utf8'));
+    const report = readReport(paths.dist);
     const findings = evaluateEagerBudget(report, baseline);
+    if (!json) {
+        writeBudgetFindings(paths.dist, findings, { totalGzip: report.totalGzip });
+    }
     if (json) {
         console.log(JSON.stringify(sizeLimitJson(report.totalGzip)));
     } else {

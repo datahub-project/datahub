@@ -267,6 +267,13 @@ jobs:
     timeout-minutes: 30
     needs: setup
     if: ${{ needs.setup.outputs.frontend_change == 'true' }}
+    env:
+      # Forks can relocate baselines via repo variables; OSS keeps the package defaults.
+      BUNDLE_BUDGET_DIR: ${{ vars.BUNDLE_BUDGET_DIR || 'datahub-web-react' }}
+      BUNDLE_EAGER_BUDGET: ${{ vars.BUNDLE_EAGER_BUDGET || '' }}
+      BUNDLE_PAGE_BUDGET: ${{ vars.BUNDLE_PAGE_BUDGET || '' }}
+      BUNDLE_INVENTORY_BASELINE: ${{ vars.BUNDLE_INVENTORY_BASELINE || '' }}
+      BUNDLE_BUDGET_DIST: ${{ vars.BUNDLE_BUDGET_DIST || '' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -312,11 +319,100 @@ jobs:
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --max-workers="$(nproc)" \
             -x :datahub-web-react:yarnTest
-          node --test datahub-web-react/scripts/eager-budget.test.mjs datahub-web-react/scripts/page-bundle-size.test.mjs
-          node datahub-web-react/scripts/eager-budget.mjs
-          node datahub-web-react/scripts/page-bundle-size.mjs --dist datahub-web-react/dist --check
+          node --test datahub-web-react/scripts/eager-budget.test.mjs \
+            datahub-web-react/scripts/page-bundle-size.test.mjs \
+            datahub-web-react/scripts/bundle-budget-chore.test.mjs \
+            e2e-test/perf/vitals/bundle-inventory.test.mjs
+          node datahub-web-react/scripts/check-inventory-sync.mjs
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Resolve budget paths
+        id: budget-paths
+        run: |
+          DIST="${BUNDLE_BUDGET_DIST:-$BUNDLE_BUDGET_DIR/dist}"
+          EAGER="${BUNDLE_EAGER_BUDGET:-$BUNDLE_BUDGET_DIR/eager-budget.json}"
+          PAGE="${BUNDLE_PAGE_BUDGET:-$BUNDLE_BUDGET_DIR/page-budget.json}"
+          INVENTORY="${BUNDLE_INVENTORY_BASELINE:-$BUNDLE_BUDGET_DIR/eager-budget-inventory.json}"
+          {
+            echo "dist=$DIST"
+            echo "eager=$EAGER"
+            echo "page=$PAGE"
+            echo "inventory=$INVENTORY"
+          } >> "$GITHUB_OUTPUT"
+      - name: Eager JS budget
+        id: eager-budget
+        run: |
+          set +e
+          node datahub-web-react/scripts/eager-budget.mjs \
+            --budget-dir "$BUNDLE_BUDGET_DIR" \
+            ${BUNDLE_EAGER_BUDGET:+--eager-budget "$BUNDLE_EAGER_BUDGET"} \
+            --dist "${{ steps.budget-paths.outputs.dist }}"
+          code=$?
+          FINDINGS="${{ steps.budget-paths.outputs.dist }}/eager-budget-findings.json"
+          if [ -f "$FINDINGS" ]; then
+            soft=$(node -e "const f=require(process.argv[1]); process.stdout.write(String(f.soft.length))" "$FINDINGS")
+            hard=$(node -e "const f=require(process.argv[1]); process.stdout.write(String(f.hard.length))" "$FINDINGS")
+            echo "soft=$soft" >> "$GITHUB_OUTPUT"
+            echo "hard=$hard" >> "$GITHUB_OUTPUT"
+            if [ "$soft" != "0" ] || [ "$hard" != "0" ]; then
+              echo "has_findings=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "has_findings=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "has_findings=false" >> "$GITHUB_OUTPUT"
+          fi
+          exit $code
+      - name: Explain eager JS regression
+        if: always() && steps.eager-budget.outputs.has_findings == 'true'
+        run: |
+          node e2e-test/perf/vitals/bundle-inventory.mjs \
+            --dist "${{ steps.budget-paths.outputs.dist }}" \
+            --baseline "${{ steps.budget-paths.outputs.inventory }}" \
+            --regression \
+            --top 20 \
+            --md-out "$RUNNER_TEMP/eager-regression.md"
+          cat "$RUNNER_TEMP/eager-regression.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Logged-in page budget
+        run: |
+          node datahub-web-react/scripts/page-bundle-size.mjs \
+            --dist "${{ steps.budget-paths.outputs.dist }}" \
+            --budget-dir "$BUNDLE_BUDGET_DIR" \
+            ${BUNDLE_PAGE_BUDGET:+--page-budget "$BUNDLE_PAGE_BUDGET"} \
+            --check
+      # Nightly only: small JSON + inventory snapshot for bundle-budget-reassessment.yml.
+      # Keeps write permissions / PR creation out of this workflow and avoids a second frontend build.
+      - name: Bundle budget artifacts for reassessment
+        if: github.event_name == 'schedule'
+        run: |
+          DIST="${{ steps.budget-paths.outputs.dist }}"
+          INVENTORY="${{ steps.budget-paths.outputs.inventory }}"
+          mkdir -p "$RUNNER_TEMP/bundle-budget-artifacts"
+          cp "$DIST/eager-budget-findings.json" \
+            "$DIST/page-budget-findings.json" \
+            "$DIST/eager-budget-report.json" \
+            "$RUNNER_TEMP/bundle-budget-artifacts/"
+          node e2e-test/perf/vitals/bundle-inventory.mjs \
+            --dist "$DIST" \
+            --write-baseline "$RUNNER_TEMP/bundle-budget-artifacts/eager-budget-inventory-measured.json"
+          node e2e-test/perf/vitals/bundle-inventory.mjs \
+            --dist "$DIST" \
+            --baseline "$INVENTORY" \
+            --regression \
+            --top 20 \
+            --md-out "$RUNNER_TEMP/bundle-budget-artifacts/eager-regression.md"
+          {
+            echo "### Scheduled bundle budget snapshot"
+            echo ""
+            cat "$RUNNER_TEMP/bundle-budget-artifacts/eager-regression.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload bundle budget artifacts
+        if: github.event_name == 'schedule'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: bundle-budget-artifacts
+          retention-days: 7
+          path: ${{ runner.temp }}/bundle-budget-artifacts/
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload frontend build artifacts
