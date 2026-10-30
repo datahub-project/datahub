@@ -49,8 +49,8 @@ class _FakeConn:
     def __enter__(self) -> "_FakeConn":
         return self
 
-    def __exit__(self, *_a: Any) -> bool:
-        return False
+    def __exit__(self, *_a: Any) -> None:
+        return None
 
     def execution_options(self, **_k: Any) -> "_FakeConn":
         return self
@@ -117,8 +117,10 @@ class TestSqlTableQueryLogReaderMapping:
 
     def test_unescape_sql_opt_in(self):
         row = {"sql_text": "select \\'x\\'"}
-        assert _reader()._to_entry(row).query == "select \\'x\\'"
-        assert _reader(unescape_sql=True)._to_entry(row).query == "select 'x'"
+        raw = _reader()._to_entry(row)
+        unescaped = _reader(unescape_sql=True)._to_entry(row)
+        assert raw is not None and raw.query == "select \\'x\\'"
+        assert unescaped is not None and unescaped.query == "select 'x'"
 
     def test_decodes_bytes_columns(self):
         # MySQL/MariaDB return BLOB/VARBINARY audit text as bytes; it must be

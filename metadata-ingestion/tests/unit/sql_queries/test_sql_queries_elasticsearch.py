@@ -60,7 +60,7 @@ class TestSqlQueriesSourceConfigQuerySource:
             }
         )
         assert config.query_file is None
-        assert config.query_source is not None
+        assert isinstance(config.query_source, ElasticsearchQuerySourceConfig)
         assert config.query_source.index == "audit-*"
         assert config.query_source.connection.host == "es.internal:9200"
 
