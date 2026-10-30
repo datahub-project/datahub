@@ -290,4 +290,25 @@ public class PropertiesDescriptionChangeEventGeneratorTest {
     assertEquals(tx.getChangeEvents().size(), 1);
     assertEquals(tx.getChangeEvents().get(0).getCategory(), ChangeCategory.PARENT);
   }
+
+  // The timeline diffs the first version against a metadata-less sentinel; creating a node under a
+  // parent must not read as a move.
+  @Test
+  public void testSemanticDiffCreateUnderParentIsNotAMove() {
+    EntityAspect sentinel = storedNode(null, -1);
+    EntityAspect created =
+        storedNode("{\"name\":\"a\",\"parentNode\":\"urn:li:glossaryNode:n1\"}", 0);
+    assertEquals(
+        nodeGenerator()
+            .getSemanticDiff(sentinel, created, ChangeCategory.PARENT, null, false)
+            .getChangeEvents()
+            .size(),
+        0);
+    assertEquals(
+        nodeGenerator()
+            .getSemanticDiff(sentinel, created, ChangeCategory.DOCUMENTATION, null, false)
+            .getChangeEvents()
+            .size(),
+        1);
+  }
 }

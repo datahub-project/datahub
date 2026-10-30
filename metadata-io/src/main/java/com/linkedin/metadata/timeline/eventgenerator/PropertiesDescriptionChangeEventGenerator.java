@@ -151,6 +151,10 @@ public class PropertiesDescriptionChangeEventGenerator<T extends RecordTemplate>
       @Nullable final AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
     for (TrackedField field : trackedFields) {
+      // No previous aspect (timeline sentinel or first write) means creation, not a move.
+      if (field.getKind() == FieldKind.PARENT && baseProperties == null) {
+        continue;
+      }
       Object base = getField(baseProperties, field.getFieldName());
       Object target = getField(targetProperties, field.getFieldName());
       if (field.getKind() == FieldKind.STRING_MAP) {
