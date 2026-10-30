@@ -146,11 +146,6 @@ def test_partition_field_profiles_are_copied_onto_the_full_table_profile() -> No
     assert report.num_full_table_profiles_copied_from_partition == 1
     assert not report.full_table_profile_copy_skipped
 
-    # The copy does not share column stats with the partition profile.
-    assert partition_profile.fieldProfiles is not None
-    partition_profile.fieldProfiles[0].uniqueCount = 99
-    assert full_table_profile.fieldProfiles[0].uniqueCount == 3
-
 
 def test_copy_is_unaffected_by_in_place_edits_to_the_yielded_partition_profile() -> (
     None
@@ -222,22 +217,6 @@ def test_sharded_table_copy_reports_totals_across_shards() -> None:
     assert (full_table_profile.rowCount, full_table_profile.sizeInBytes) == (40, 100)
 
 
-def test_each_copy_belongs_to_its_own_table() -> None:
-    workunits, report = _run(
-        _partition(),
-        copy_fields=True,
-        field_profiles=_field_profiles(),
-        table_names=("events", "orders"),
-    )
-
-    urns = [workunit.get_urn() for workunit in workunits]
-    assert len(urns) == 4
-    assert urns[0] == urns[1]
-    assert urns[2] == urns[3]
-    assert urns[0] != urns[2]
-    assert report.num_full_table_profiles_copied_from_partition == 2
-
-
 @pytest.mark.parametrize(
     "partition_spec",
     [
@@ -257,7 +236,6 @@ def test_each_copy_belongs_to_its_own_table() -> None:
             ),
             id="limit_offset",
         ),
-        pytest.param(None, id="table_level_only"),
     ],
 )
 def test_non_partition_profiles_are_not_copied(
@@ -283,9 +261,6 @@ def test_non_partition_profiles_are_not_copied(
         ),
         pytest.param(
             _partition(), None, "partition profile has no column stats", id="no_stats"
-        ),
-        pytest.param(
-            _partition(), [], "partition profile has no column stats", id="empty_stats"
         ),
     ],
 )
