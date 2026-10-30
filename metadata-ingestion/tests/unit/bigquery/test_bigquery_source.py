@@ -52,6 +52,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
 from datahub.ingestion.source.bigquery_v2.bigquery_sharing import (
     BigQuerySharingHandler,
 )
+from datahub.ingestion.source.bigquery_v2.common import (
+    BigQueryFilter,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdge,
     LineageEdgeColumnMapping,
@@ -59,6 +63,9 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
 from datahub.ingestion.source.bigquery_v2.queries import (
     BigqueryQuery,
     BigqueryTableType,
+)
+from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+    BigQueryQueriesExtractor,
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
@@ -1771,6 +1778,39 @@ def test_bigquery_source_builds_queries_extractor_config_from_usage_fields():
     assert queries_config.user_email_pattern == AllowDenyPattern(
         allow=["^analyst_.*@example\\.com$"]
     )
+
+
+@pytest.mark.parametrize(
+    "recipe, temp_table, non_temp_table",
+    [
+        (
+            {"temp_table_dataset_prefix": "my_temp"},
+            "my-project.my_temp_ds.t",
+            "my-project._script_ds.t",
+        ),
+        ({}, "my-project._script_ds.t", "my-project.my_temp_ds.t"),
+    ],
+)
+def test_bigquery_source_forwards_temp_table_dataset_prefix_to_queries_extractor(
+    recipe: Dict[str, Any], temp_table: str, non_temp_table: str
+) -> None:
+    config = BigQueryV2Config.model_validate(recipe)
+    fake_source = BigqueryV2Source.__new__(BigqueryV2Source)
+    fake_source.config = config
+    queries_config = fake_source._build_queries_extractor_config()
+
+    assert queries_config.temp_table_dataset_prefix == config.temp_table_dataset_prefix
+
+    extractor = BigQueryQueriesExtractor(
+        connection=MagicMock(),
+        schema_api=MagicMock(),
+        config=queries_config,
+        structured_report=MagicMock(),
+        filters=BigQueryFilter(config, MagicMock()),
+        identifiers=BigQueryIdentifierBuilder(config, MagicMock()),
+    )
+    assert extractor.is_temp_table(temp_table)
+    assert not extractor.is_temp_table(non_temp_table)
 
 
 def test_bigquery_source_reports_legacy_only_usage_fields_under_queries_v2():
