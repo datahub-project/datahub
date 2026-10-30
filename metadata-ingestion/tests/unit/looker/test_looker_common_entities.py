@@ -42,7 +42,6 @@ from datahub.ingestion.source.looker.lookml_config import (
 from datahub.metadata.schema_classes import (
     NullTypeClass,
     NumberTypeClass,
-    TagPropertiesClass,
 )
 
 
@@ -185,16 +184,12 @@ class TestExploreFromApiFailures:
 
 class TestTagsAndTypes:
     def test_group_label_tag_definition_is_built_on_the_fly(self) -> None:
-        mce = LookerUtil._get_tag_mce_for_urn("urn:li:tag:looker:group_label:Contact")
-        aspect = mce.proposedSnapshot.aspects[0]
-        assert isinstance(aspect, TagPropertiesClass)
+        aspect = LookerUtil._get_tag_properties("urn:li:tag:looker:group_label:Contact")
         assert aspect.name == "looker:group_label:Contact"
         assert aspect.description is not None and "Contact" in aspect.description
 
     def test_unknown_tag_gets_a_generic_definition(self) -> None:
-        mce = LookerUtil._get_tag_mce_for_urn("urn:li:tag:custom")
-        aspect = mce.proposedSnapshot.aspects[0]
-        assert isinstance(aspect, TagPropertiesClass)
+        aspect = LookerUtil._get_tag_properties("urn:li:tag:custom")
         assert aspect.name == "custom"
 
     def test_group_label_and_explicit_tags_attach_to_schema_field(self) -> None:

@@ -13,11 +13,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.ingestion.source.data_lake_common.config import S3LineageProviderConfig
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.redshift.config import (
-    LineageMode,
-    S3LineageProviderConfig,
-)
+from datahub.ingestion.source.redshift.config import LineageMode
 from datahub.ingestion.source.redshift.lineage import (
     LineageCollectorType,
     LineageDataset,
