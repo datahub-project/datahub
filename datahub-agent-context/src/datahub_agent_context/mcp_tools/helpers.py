@@ -234,6 +234,44 @@ def _select_results_within_budget(
     )
 
 
+def _merge_editable_schema_metadata(response: dict) -> None:
+    """Fold editableSchemaMetadata into the schema fields, under `edited*` keys.
+
+    The GraphQL query fetches `editableSchemaMetadata.editableSchemaFieldInfo`,
+    and `clean_get_entities_response` deletes that block on the grounds that it
+    has "already merged into fields". Nothing performed the merge, so field
+    metadata written through the UI or the API -- which is what the UI shows a
+    reader -- was fetched and then discarded.
+
+    Both values are kept. A caller auditing documentation needs to see that the
+    ingested text and the edited text disagree, which is impossible if one
+    silently overwrites the other. Following the documented contract, an edited
+    value appears only when it differs from the ingested one.
+    """
+    editable = (response.get("editableSchemaMetadata") or {}).get(
+        "editableSchemaFieldInfo"
+    ) or []
+    fields = (response.get("schemaMetadata") or {}).get("fields") or []
+    if not editable or not fields:
+        return
+
+    edits_by_path = {
+        info["fieldPath"]: info for info in editable if info.get("fieldPath")
+    }
+    for field in fields:
+        edit = edits_by_path.get(field.get("fieldPath"))
+        if not edit:
+            continue
+        for source_key, edited_key in (
+            ("description", "editedDescription"),
+            ("tags", "editedTags"),
+            ("glossaryTerms", "editedGlossaryTerms"),
+        ):
+            value = edit.get(source_key)
+            if value and value != field.get(source_key):
+                field[edited_key] = value
+
+
 def clean_get_entities_response(
     raw_response: dict,
     *,
@@ -277,6 +315,11 @@ def clean_get_entities_response(
     from datahub_agent_context.mcp_tools.base import clean_gql_response
 
     response = clean_gql_response(raw_response)
+
+    # Before sorting and pagination, so that keyword scoring, token estimation
+    # and field selection all see the text a reader would actually see.
+    if response:
+        _merge_editable_schema_metadata(response)
 
     if response and (schema_metadata := response.get("schemaMetadata")):
         # Remove empty platformSchema to reduce response clutter
