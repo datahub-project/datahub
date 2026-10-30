@@ -1046,9 +1046,10 @@ public class ConsistencyService {
     Set<Urn> orphans = new HashSet<>(urnsFromEs);
     orphans.removeAll(existingUrns);
     // exists() reports urns of entity types this registry doesn't know (written by a newer version
-    // before a rollback) as missing; their index documents belong to that version, not to orphans.
+    // before a rollback), or whose key holds one (e.g. a schemaField of such an entity), as
+    // missing; their index documents belong to that version, not to orphans.
     orphans.removeIf(
-        urn -> handling().isUnknown(opContext.getEntityRegistry(), urn.getEntityType(), null));
+        urn -> handling().referencesUnknownEntityType(opContext.getEntityRegistry(), urn));
     return orphans;
   }
 
@@ -1168,14 +1169,16 @@ public class ConsistencyService {
             .orElseThrow(() -> new IllegalArgumentException("Unknown check ID: " + checkId));
 
     String entityType = urn.getEntityType();
+    // Skips the urn when its type, or one its key holds, is unknown (written by a newer version
+    // before a rollback): exists() hides such urns, so every check would misread them as missing.
     if (!handling()
-        .admit(
+        .admitEvent(
             UNKNOWN_DATA,
             opContext.getEntityRegistry(),
             opContext.getMetricUtils(),
+            urn,
             urn.getEntityType(),
-            null,
-            urn)) {
+            null)) {
       return java.util.Optional.empty();
     }
 
