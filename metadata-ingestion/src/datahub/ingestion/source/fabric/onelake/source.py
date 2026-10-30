@@ -731,20 +731,15 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             custom_properties["language"] = language
         # Notebooks often embed credentials, so the source is opt-in and
         # credential-shaped values are masked before it leaves the connector.
-        if content and self.config.include_notebook_source:
-            content = scrub_text(content, set())
-            custom_properties["content"] = content
-        else:
-            content = None
-
-        # The View Definition tab reads viewProperties, not custom properties.
+        # It goes only to viewLogic: custom properties are indexed as keyword
+        # terms, which a large notebook would overflow.
         view_definition = (
             ViewPropertiesClass(
                 materialized=False,
-                viewLogic=content,
+                viewLogic=scrub_text(content, set()),
                 viewLanguage=language or "text",
             )
-            if content
+            if content and self.config.include_notebook_source
             else None
         )
 

@@ -152,7 +152,6 @@ def test_process_notebooks_emits_dataset_with_contents() -> None:
     assert dataset.custom_properties == {
         "path": "/Shared/analysis",
         "language": "python",
-        "content": "print('hello')\n",
     }
     assert dataset.view_definition is not None
     assert dataset.view_definition.viewLogic == "print('hello')\n"
@@ -199,9 +198,8 @@ def test_notebook_source_masks_credentials() -> None:
 
     dataset = datasets[0]
     assert isinstance(dataset, Dataset)
-    emitted = dataset.custom_properties["content"]
     assert dataset.view_definition is not None
-    assert dataset.view_definition.viewLogic == emitted
+    emitted = dataset.view_definition.viewLogic
     for secret in (
         "placeholder-account-key",
         "placeholder-sig",

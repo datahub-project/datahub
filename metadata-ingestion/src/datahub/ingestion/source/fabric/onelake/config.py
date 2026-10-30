@@ -336,8 +336,8 @@ class FabricOneLakeSourceConfig(
     include_notebook_source: bool = Field(
         default=False,
         description=(
-            "Emit each notebook's source as the `content` custom property and on "
-            "the View Definition tab. Off by default because notebooks often "
+            "Emit each notebook's source on the View Definition tab "
+            "(`viewProperties.viewLogic`). Off by default because notebooks often "
             "hold connection strings, SAS tokens or keys. When on, common "
             "credential patterns (`password=`, `AccountKey=`, `sig=`, bearer "
             "tokens, URL user info, private keys) are masked before emitting; "
