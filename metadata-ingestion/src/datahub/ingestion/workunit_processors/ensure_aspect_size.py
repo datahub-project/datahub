@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 # `max.request.size` defaults to 5MB. GMS's 16MB AspectSizePayloadValidator
 # is not the binding limit here.
 DEFAULT_QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = 5 * 1024 * 1024  # 5MB
+LARGEST_LINEAGE_SAMPLE_SIZE = 10
 QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES = int(
     os.environ.get(
         "QUERY_PROPERTIES_STATEMENT_MAX_PAYLOAD_BYTES",
@@ -84,6 +85,14 @@ class EnsureAspectSizeProcessorReport(WorkunitProcessorReport):
     # Number of schemaMetadata aspects whose platformSchema blob was dropped
     # wholesale (a coarser, more drastic truncation than dropping fields).
     num_platform_schema_drops: int = 0
+    # How large upstreamLineage aspects get before any size trimming, measured as
+    # the serialized size of their upstreams and fine-grained lineages. Collected so
+    # the lineage count caps and the change-log size threshold can be set from data.
+    max_upstream_lineage_bytes: int = 0
+    max_upstream_lineage_urn: Optional[str] = None
+    num_upstream_lineage_over_1mb: int = 0
+    num_upstream_lineage_over_4mb: int = 0
+    largest_upstream_lineage_aspects: Dict[str, int] = field(default_factory=dict)
 
 
 class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorReport]):
@@ -98,6 +107,25 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         self.report.num_truncations_by_aspect[aspect_name] = (
             self.report.num_truncations_by_aspect.get(aspect_name, 0) + 1
         )
+
+    def _record_upstream_lineage_size(self, entity_urn: str, size_bytes: int) -> None:
+        report = self.report
+        if size_bytes > report.max_upstream_lineage_bytes:
+            report.max_upstream_lineage_bytes = size_bytes
+            report.max_upstream_lineage_urn = entity_urn
+        if size_bytes > 1024 * 1024:
+            report.num_upstream_lineage_over_1mb += 1
+        if size_bytes > 4 * 1024 * 1024:
+            report.num_upstream_lineage_over_4mb += 1
+
+        largest = report.largest_upstream_lineage_aspects
+        if len(largest) < LARGEST_LINEAGE_SAMPLE_SIZE:
+            largest[entity_urn] = size_bytes
+            return
+        smallest_urn = min(largest, key=largest.__getitem__)
+        if size_bytes > largest[smallest_urn]:
+            del largest[smallest_urn]
+            largest[entity_urn] = size_bytes
 
     def process(self, stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
         for wu in stream:
@@ -393,6 +421,19 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                 elif upstream_type_str == "NONE":
                     none_fg_items_with_sizes.append((fg_lineage, fg_lineage_size))
 
+        self._record_upstream_lineage_size(
+            entity_urn,
+            sum(
+                size
+                for _, size in (
+                    upstream_items_with_sizes
+                    + dataset_fg_items_with_sizes
+                    + field_set_fg_items_with_sizes
+                    + none_fg_items_with_sizes
+                )
+            ),
+        )
+
         first_skip_done = False
 
         for item, item_size in upstream_items_with_sizes:
@@ -474,6 +515,7 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
     def ensure_upstream_lineage_patch_size(
         self, entity_urn: str, patch_aspect: GenericAspectClass
     ) -> None:
+        self._record_upstream_lineage_size(entity_urn, len(patch_aspect.value))
         # The patch is sent as an escaped JSON string inside the MCP; measure it that way.
         if len(json.dumps(patch_aspect.value.decode())) < self.schema_size_constraint:
             return

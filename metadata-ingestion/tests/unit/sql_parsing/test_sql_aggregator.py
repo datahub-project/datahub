@@ -2615,3 +2615,42 @@ def test_known_query_lineage_keeps_observed_custom_properties() -> None:
     ]
     assert len(query_properties) == 1
     assert query_properties[0].customProperties == _DAG_A_LABELS
+
+
+def test_lineage_trim_is_reported_with_original_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.sql_parsing import sql_parsing_aggregator as aggregator_module
+
+    monkeypatch.setattr(aggregator_module, "MAX_UPSTREAM_TABLES_COUNT", 2)
+
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    downstream = DatasetUrn("snowflake", "dev.public.target").urn()
+    sources = [DatasetUrn("snowflake", f"dev.public.src_{i}").urn() for i in range(5)]
+    for i, source in enumerate(sources):
+        aggregator.add_preparsed_query(
+            PreparsedQuery(
+                query_id=None,
+                query_text=f"INSERT INTO target SELECT * FROM src_{i}",
+                upstreams=[source],
+                downstream=downstream,
+                timestamp=_ts(i),
+            )
+        )
+
+    lineage = [
+        mcp.aspect
+        for mcp in aggregator.gen_metadata()
+        if mcp.entityUrn == downstream and isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert len(lineage[0].upstreams) == 2
+    assert aggregator.report.num_table_lineage_trimmed_due_to_large_size == 1
+    assert aggregator.report.max_upstream_tables_before_trim == 5
+    assert aggregator.report.lineage_trimmed_downstreams[downstream] == (
+        "5 upstream tables, 0 column edges"
+    )
