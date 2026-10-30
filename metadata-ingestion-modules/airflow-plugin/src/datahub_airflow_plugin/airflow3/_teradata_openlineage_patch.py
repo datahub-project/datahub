@@ -98,16 +98,20 @@ def _enhance_teradata_lineage_with_sql_parsing(
         # SQLParser patch didn't add it - add it manually
         try:
             platform = "teradata"
-            # Teradata uses database.table naming, no separate schema
-            # Get database/schema from operator if available
-            default_database = operator.schema if hasattr(operator, "schema") else None
+            # TeradataOperator keeps no `schema` attribute: it forwards its
+            # `schema` argument to the hook as hook_params["database"].
+            # Teradata dataset names are two-tier (database.table), so that
+            # database is the default schema. As default_db it would prefix
+            # qualified tables too (dw.t -> dw.dw.t).
+            hook_params = getattr(operator, "hook_params", None) or {}
+            default_schema = hook_params.get("database")
 
             # Get multi-statement config flag
             enable_multi_statement = get_enable_multi_statement()
 
             logger.debug(
                 f"Running DataHub SQL parser for Teradata (platform={platform}, "
-                f"default_db={default_database}, multi_statement={enable_multi_statement}): "
+                f"default_schema={default_schema}, multi_statement={enable_multi_statement}): "
                 f"{str(rendered_sql)[:200] if rendered_sql else 'None'}"
             )
 
@@ -116,10 +120,10 @@ def _enhance_teradata_lineage_with_sql_parsing(
             # Use DataHub's SQL parser
             sql_parsing_result = parse_sql_with_datahub(
                 sql=rendered_sql,
-                default_database=default_database,
+                default_database=None,
                 platform=platform,
                 env=env,
-                default_schema=None,
+                default_schema=default_schema,
                 graph=None,
                 enable_multi_statement=enable_multi_statement,
             )
