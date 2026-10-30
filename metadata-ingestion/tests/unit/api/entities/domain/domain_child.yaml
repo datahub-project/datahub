@@ -1,0 +1,4 @@
+id: marketing.campaigns
+display_name: Campaigns
+description: Campaign-level subdomain under Marketing.
+parent_domain: Marketing
