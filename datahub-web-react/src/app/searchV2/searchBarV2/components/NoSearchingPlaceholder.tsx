@@ -17,7 +17,7 @@ export default function NoSearchingPlaceholder() {
     return (
         <Container>
             <Text color="gray" colorLevel={600} size="md">
-                {t('searchBar.placeholder.startSearching')}
+                {`${t('searchBar.placeholder.startSearching')}.`}
             </Text>
             <Text color="gray" size="sm">
                 {t('searchBar.placeholder.description')}
