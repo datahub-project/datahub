@@ -20,7 +20,6 @@ from datahub.ingestion.source.tableau.tableau_common import (
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
-    DatasetSnapshotClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -623,11 +622,6 @@ class VirtualConnectionProcessor:
                 env=self.config.env,
             )
 
-            dataset_snapshot = DatasetSnapshotClass(
-                urn=table_urn,
-                aspects=[self.tableau_source.get_data_platform_instance()],
-            )
-
             table_info: dict = next(
                 (t for t in vc_tables if t.get(c.NAME) == table_name),
                 {},
@@ -639,8 +633,6 @@ class VirtualConnectionProcessor:
                     table_info, [c.LUID]
                 ),
             )
-            dataset_snapshot.aspects.append(dataset_props)
-            dataset_snapshot.aspects.append(schema_metadata)
 
             lineage_result = self._create_table_upstream_lineage(table_info, table_urn)
 
@@ -667,9 +659,16 @@ class VirtualConnectionProcessor:
                 table_urn,
             )
 
-            yield self.tableau_source.get_metadata_change_event(dataset_snapshot)
+            yield from self.tableau_source.gen_aspect_workunits(
+                table_urn,
+                [
+                    self.tableau_source.get_data_platform_instance(),
+                    dataset_props,
+                    schema_metadata,
+                ],
+            )
             yield self.tableau_source.get_metadata_change_proposal(
-                dataset_snapshot.urn,
+                table_urn,
                 SubTypesClass(typeNames=["Virtual Connection Table"]),
             )
 
