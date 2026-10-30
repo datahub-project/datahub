@@ -737,6 +737,41 @@ def test_fill_metadata_handles_workspaces_none_in_scan_response():
     )
 
 
+def test_get_workunits_internal_phase1_failure_is_a_failure_in_workspace_mode():
+    """In workspace_apis mode the per-workspace endpoints are the only source
+    of datasets, so a Phase 1 batch failure must be a report failure: a green
+    run would let stale-entity removal soft-delete the workspace's tables."""
+    workspaces = [_make_workspace("WS-0"), _make_workspace("WS-1")]
+    source = _make_source(
+        workspaces_to_return=workspaces,
+        excluded_ids=set(),
+        scan_batch_size=1,
+        metadata_api_mode="workspace_apis",
+    )
+    source.powerbi_client.fill_metadata_from_definitions = mock.MagicMock(  # type: ignore[method-assign]
+        side_effect=[set(), ValueError("connection reset")]
+    )
+
+    list(source.get_workunits_internal())
+
+    fill_detail = cast(
+        mock.MagicMock, source.powerbi_client.fill_regular_metadata_detail
+    )
+    processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
+    assert processed == ["WS-0", "WS-1"]
+    failed_contexts = [
+        ctx
+        for f in source.reporter.failures
+        if f.title == "Incomplete Scan Metadata"
+        for ctx in f.context
+    ]
+    assert any("WS-1" in c for c in failed_contexts), failed_contexts
+    assert not any("WS-0" in c for c in failed_contexts), failed_contexts
+    assert not any(
+        w.title == "Incomplete Scan Metadata" for w in source.reporter.warnings
+    )
+
+
 def test_get_workunits_internal_phase1_batch_failure_isolates_other_batches(caplog):
     """A scan-timeout (or any exception) in one Phase 1 batch must NOT abort
     the whole ingestion. Other batches must still be scanned, all workspaces

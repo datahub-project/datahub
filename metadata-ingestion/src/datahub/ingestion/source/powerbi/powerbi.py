@@ -2435,12 +2435,21 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 except Exception as e:
                     # Phase 1 must not abort the whole ingestion: an unhandled
                     # exception here would mean zero workunits emitted from any
-                    # batch. Record one "Incomplete Scan Metadata" warning per
-                    # affected workspace (reporter.warning includes the traceback
-                    # via exc=) so the gap is discoverable in the source report,
-                    # then fall through to Phase 2 with empty scan_result.
+                    # batch. Record one "Incomplete Scan Metadata" entry per
+                    # affected workspace (the traceback rides along via exc=)
+                    # so the gap is discoverable in the source report, then
+                    # fall through to Phase 2 with empty scan_result. In
+                    # workspace_apis mode the per-workspace endpoints are the
+                    # only source of datasets, so this is a failure: a green
+                    # run would let stale-entity removal soft-delete the tables.
+                    report_phase1 = (
+                        self.reporter.failure
+                        if self.source_config.metadata_api_mode
+                        == PowerBiMetadataApiMode.WORKSPACE_APIS
+                        else self.reporter.warning
+                    )
                     for ws in batch_workspaces:
-                        self.reporter.warning(
+                        report_phase1(
                             title="Incomplete Scan Metadata",
                             message=(
                                 "Phase 1 (scan or definition fetch) failed for "

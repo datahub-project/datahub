@@ -73,6 +73,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
     PARTITION_KIND_CALCULATED,
     PARTITION_KIND_ENTITY,
     PARTITION_KIND_M,
+    TMDL_TABLES_PREFIX,
     ParsedModel,
     ParsedTable,
     parse_semantic_model,
@@ -1259,11 +1260,24 @@ class PowerBiAPI:
         failed_parts = definition.failed_parts + parsed_model.failed_parts
         if failed_parts:
             self.reporter.tmdl_parts_failed += len(failed_parts)
-            self.reporter.warning(
-                title="TMDL Part Not Parsed",
-                message="Some parts of the semantic-model definition could not be decoded or parsed; the tables they define are missing from DataHub.",
-                context=f"{context}, parts={failed_parts}",
-            )
+            failed_tables = [
+                part for part in failed_parts if part.startswith(TMDL_TABLES_PREFIX)
+            ]
+            if failed_tables:
+                # A table part that did not parse is a table missing from this
+                # run; under stale-entity removal a green run would soft-delete
+                # it, so this is a failure like a refused definition.
+                self.reporter.failure(
+                    title="TMDL Table Not Parsed",
+                    message="Some table parts of the semantic-model definition could not be decoded or parsed; those tables are missing from this run.",
+                    context=f"{context}, parts={failed_tables}",
+                )
+            else:
+                self.reporter.warning(
+                    title="TMDL Part Not Parsed",
+                    message="Some non-table parts of the semantic-model definition could not be decoded or parsed; relationships or DirectLake lineage from them are missing.",
+                    context=f"{context}, parts={failed_parts}",
+                )
         dataset.dependent_on_artifact_id = self._directlake_sql_endpoint_id(
             parsed_model
         )

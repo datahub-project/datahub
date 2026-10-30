@@ -219,6 +219,34 @@ def test_all_definitions_failed_is_judged_across_batches() -> None:
     )
 
 
+def test_unparsed_table_part_is_a_failure_but_other_parts_only_warn() -> None:
+    # A table part that did not parse is a table missing from the run (a
+    # soft-delete under stale-entity removal); a broken relationships part
+    # only loses enrichment.
+    good = _definition()
+    good.failed_parts = ["definition/relationships.tmdl"]
+    bad = _definition()
+    bad.parts.append(
+        DefinitionPart("definition/tables/Broken.tmdl", "annotation Only = 1\n")
+    )
+    api = _api(
+        datasets=[
+            {"id": MODEL_A, "name": "Insurance Model"},
+            {"id": MODEL_B, "name": "Partly Broken Model"},
+        ],
+        definitions={MODEL_A: good, MODEL_B: bad},
+    )
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+
+    assert api.reporter.tmdl_parts_failed == 2
+    assert [w.title for w in api.reporter.warnings] == ["TMDL Part Not Parsed"]
+    assert [f.title for f in api.reporter.failures] == ["TMDL Table Not Parsed"]
+    # The model keeps the tables that did parse.
+    assert [t.name for t in workspace.datasets[MODEL_B].tables] == ["Policies"]
+
+
 def test_fabric_item_listing_failure_keeps_datasets() -> None:
     api = _api()
     api._PowerBiAPI__fabric_resolver.list_items.side_effect = _http_error(500)  # type: ignore[attr-defined]
