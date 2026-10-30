@@ -58,11 +58,13 @@ jobs:
       # frontend commit never published, so a cancelled build is not papered
       # over with the previous bundle.
       - name: Record inherited Meticulous base deployment
-        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.ci-optimize.outputs.frontend-change == 'false') || github.event_name == 'workflow_dispatch' }}
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.ci-optimize.outputs.frontend-change == 'false') || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RECORD_SHA: ${{ inputs.sha }}
+          # pull_request sets this so this branch can record one existing master
+          # commit without merging. workflow_dispatch passes inputs.sha instead.
+          RECORD_SHA: ${{ github.event_name == 'pull_request' && 'e86c271e97ce2dbbd274edf8067def04cc3f9616' || inputs.sha }}
         run: python3 .github/scripts/record_inherited_frontend_deployment.py
       - name: Check if cloudflare api token is available
         id: cloudflare-token-check
