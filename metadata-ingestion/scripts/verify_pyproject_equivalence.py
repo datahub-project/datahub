@@ -73,6 +73,33 @@ def resolve_extra(
     return deps
 
 
+def resolve_setup_plugin_deps(
+    deps: Set[str],
+    plugins: Dict[str, Set[str]],
+    cache: Dict[str, Set[str]] | None = None,
+) -> Set[str]:
+    """Expand self-referencing extras in a setup.py plugin dep set."""
+    if cache is None:
+        cache = {}
+    result: Set[str] = set()
+    for dep in deps:
+        m = SELF_REF_PATTERN.match(dep)
+        if m:
+            for ref in m.group(1).split(","):
+                ref = ref.strip()
+                if ref not in cache:
+                    if ref in plugins:
+                        cache[ref] = resolve_setup_plugin_deps(
+                            plugins[ref], plugins, cache
+                        )
+                    else:
+                        cache[ref] = set()
+                result |= cache[ref]
+        else:
+            result.add(dep)
+    return result
+
+
 def normalize_entry_point(ep: str) -> tuple:
     """Normalize 'name = target' string to (name, target) tuple."""
     parts = ep.split(" = ", 1) if " = " in ep else ep.split("=", 1)
@@ -165,7 +192,8 @@ def main():
         if plugin_name in CIRCULAR_EXTRAS:
             continue
         total += 1
-        setup_total = setup_base | framework_common | plugins[plugin_name]
+        setup_plugin = resolve_setup_plugin_deps(plugins[plugin_name], plugins)
+        setup_total = setup_base | framework_common | setup_plugin
         pyproject_resolved = resolve_extra(plugin_name, optional_deps, resolve_cache)
         pyproject_total = pyproject_base | pyproject_resolved
         if not compare_sets(plugin_name, setup_total, pyproject_total):
@@ -174,9 +202,11 @@ def main():
     # --- Meta extras ---
     print("\n=== Meta extras ===")
     total += 1
-    setup_all = setup_base | framework_common.union(
-        *(deps for name, deps in plugins.items() if name not in all_exclude_plugins)
-    )
+    all_plugin_deps: Set[str] = set()
+    for name, deps in plugins.items():
+        if name not in all_exclude_plugins:
+            all_plugin_deps |= resolve_setup_plugin_deps(deps, plugins)
+    setup_all = setup_base | all_plugin_deps
     pyproject_all = pyproject_base | resolve_extra("all", optional_deps, resolve_cache)
     if not compare_sets("all", setup_all, pyproject_all):
         mismatches += 1
@@ -208,8 +238,9 @@ def main():
     }
     for extra_name, setup_deps in sorted(meta_extras.items()):
         total += 1
+        setup_resolved = resolve_setup_plugin_deps(setup_deps, plugins)
         pyproject_deps = resolve_extra(extra_name, optional_deps, resolve_cache)
-        if not compare_sets(extra_name, setup_deps, pyproject_deps):
+        if not compare_sets(extra_name, setup_resolved, pyproject_deps):
             mismatches += 1
 
     # --- Entry points ---

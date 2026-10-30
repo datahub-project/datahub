@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Tuple, cast
 import pydantic
 import pytest
 
+pytest.importorskip("elasticsearch")
+
 from datahub.ingestion.source.elastic_search import (
     CollapseUrns,
     ElasticsearchSourceConfig,
