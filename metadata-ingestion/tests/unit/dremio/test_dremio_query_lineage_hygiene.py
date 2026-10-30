@@ -154,3 +154,18 @@ def test_out_of_scope_name_still_counted_as_filtered(source):
     assert not source._is_allowed_table("dremio.other_source.sales.orders")
     assert source.report.lineage_dropped_filtered == 1
     assert source.report.lineage_dropped_not_in_catalog == 0
+
+
+def test_incomplete_dataset_fetch_falls_back_to_filters(source):
+    # A missing name may just be one the failed fetch never returned; dropping
+    # its lineage would lose it for good once the query time window advances.
+    source.report.dataset_fetch_incomplete = True
+
+    _run_query(
+        source,
+        "CREATE TABLE my_s3.materialize.orders_blue AS SELECT * FROM SRC_DB.sales.orders",
+        "2024-01-01 12:00:00.000",
+    )
+
+    assert _upstreams(_mcps(source), ORDERS_BLUE) == [SRC_ORDERS]
+    assert not source._is_allowed_table("dremio.other_source.sales.orders")

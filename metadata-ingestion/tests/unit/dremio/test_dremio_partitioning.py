@@ -121,6 +121,7 @@ class TestDremioPartitioning:
         assert tables == []
         dremio_api._get_all_tables_global_chunked.assert_not_called()
         dremio_api.report.failure.assert_called_once()
+        assert dremio_api.report.dataset_fetch_incomplete is True
 
     def test_outer_condition_matches_root_and_nested_paths(self):
         condition = DremioSQLQueries.container_schema_condition(

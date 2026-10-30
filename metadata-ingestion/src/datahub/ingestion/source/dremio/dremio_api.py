@@ -944,6 +944,7 @@ class DremioAPIOperations:
                 "resolved to retry per container; tables/views may be missing.",
                 context="dataset_fetch_fallback",
             )
+            self.report.dataset_fetch_incomplete = True
             return
 
         logger.info(
@@ -1115,6 +1116,7 @@ class DremioAPIOperations:
                     context=f"offset={offset}, chunk_size={chunk_size}.{oom_hint}",
                     exc=e,
                 )
+                self.report.dataset_fetch_incomplete = True
                 break
 
         # Final flush for the EE/Cloud path (Community already emitted).

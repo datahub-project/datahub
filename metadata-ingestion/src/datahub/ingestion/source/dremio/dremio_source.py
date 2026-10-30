@@ -331,6 +331,11 @@ class DremioSource(StatefulIngestionSourceBase):
             dataset_pattern=self.config.dataset_pattern,
             schema_pattern=self.config.schema_pattern,
         ):
+            # After a failed fetch the name may be a live table the walk never
+            # saw; dropping it would lose its lineage for good once the query
+            # time window advances, so fall back to the filters alone.
+            if self.report.dataset_fetch_incomplete:
+                return True
             self.report.lineage_dropped_not_in_catalog += 1
         else:
             self.report.lineage_dropped_filtered += 1
@@ -441,6 +446,13 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
             if self.config.include_query_lineage:
+                if self.report.dataset_fetch_incomplete:
+                    self.report.warning(
+                        message="Dremio dataset fetch was incomplete, so query lineage "
+                        "is not limited to datasets found in the catalog this run. "
+                        "Tables dropped since their jobs ran may reappear until the "
+                        "next complete run.",
+                    )
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     self.get_query_lineage_workunits()
 

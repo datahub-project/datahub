@@ -41,6 +41,9 @@ class DremioSourceReport(
     # Observed CREATE VIEW statements skipped: the catalog's current view
     # definition is authoritative, older DDL would add stale upstreams.
     num_view_ddl_queries_skipped: int = 0
+    # Set when the dataset fetch was cut short, so the catalog walk's names are
+    # not the whole catalog and can't be used to reject query-derived names.
+    dataset_fetch_incomplete: bool = False
 
     api_calls_total: int = 0
     api_calls_by_method_and_path: TopKDict[str, int] = field(
