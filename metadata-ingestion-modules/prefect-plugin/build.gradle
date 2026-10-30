@@ -87,7 +87,7 @@ task testQuick(type: Exec, dependsOn: installDevTest) {
   inputs.file file("setup.py")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest -m 'not slow_integration' -vv ${get_coverage_args('quick')} --continue-on-collection-errors --junit-xml=test-results/junit.quick.xml"
+    "pytest -vv ${get_coverage_args('quick')} --continue-on-collection-errors --junit-xml=test-results/junit.quick.xml"
 }
 
 task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {

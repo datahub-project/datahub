@@ -725,7 +725,7 @@ Operators change a template with the generic entity API (OpenAPI or Rest.li) by 
 
 Served templates emit Micrometer counters and timers under `search.template.*`. The template tag is a shipped id, or `custom` for every other URN. The slot tag is `default`, `elasticsearch8`, `elasticsearch9`, `opensearch2`, `opensearch3`, `postgres`, `caller`, or `other`. Counters cover selection, the rung that was served, shadow renders (`search.template.shadow`, which are not executed), render failure (`select`, `render`, or `shadow`), route and ladder fallback, and clause-budget reductions (`terms`, `fuzzy`, `synonyms`). Timers cover rung latency (`first`, `next`, `deeper`, `parallel`). Distributions cover route depth, ladder depth, and loader cache age. A cache hit is recorded as `hit`.
 
-`SearchFlags.searchTemplate` requires `MANAGE_SYSTEM_OPERATIONS`. The shared selector enforces that privilege for GraphQL, Rest.li, and OpenAPI callers. Shipped system ids can be written only by the system actor, and generic entity authorization still applies to other template writes when API auth is enabled.
+Any caller who can run the search may set `SearchFlags.searchTemplate`. The shared selector honors that field for GraphQL, Rest.li, and OpenAPI. Shipped system ids can be written only by the system actor, and generic entity authorization still applies to other template writes when API auth is enabled.
 
 ### Template contract
 

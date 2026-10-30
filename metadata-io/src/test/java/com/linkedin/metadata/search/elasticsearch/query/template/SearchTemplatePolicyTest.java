@@ -61,7 +61,8 @@ public class SearchTemplatePolicyTest {
     exactOnly.setStructuredPropertyQuery(exact);
     harness.store(PARENT, exactOnly);
     String exactQuery = render(PARENT, "gold");
-    assertTrue(exactQuery.contains(path + ".keyword"), exactQuery);
+    assertTrue(exactQuery.contains(path), exactQuery);
+    assertFalse(exactQuery.contains(path + ".keyword"), exactQuery);
     assertFalse(exactQuery.contains("simple_query_string"), exactQuery);
 
     SearchTemplateProperties analyzed = body("{ \"match_all\": {} }");
@@ -87,10 +88,17 @@ public class SearchTemplatePolicyTest {
     assertFalse(shipped.getQuery().contains("\"query\": \"{{raw}}\""));
 
     String named = render("urn:li:searchTemplate:structured", "name:orders");
-    List<JsonNode> namedClauses = queryStrings(named);
-    assertEquals(namedClauses.size(), 1, named);
-    assertEquals(namedClauses.get(0).get("query").asText(), "name:orders");
-    assertFalse(namedClauses.get(0).path("lenient").asBoolean(false), named);
+    assertTrue(
+        queryStrings(named).stream()
+            .noneMatch(clause -> "name:orders".equals(clause.path("query").asText())),
+        named);
+    assertTrue(
+        terms(named, "name.lowercase").stream()
+            .anyMatch(
+                term ->
+                    "orders".equals(term.path("value").asText())
+                        && !term.path("case_insensitive").asBoolean(false)),
+        named);
     assertFalse(named.contains("\"removed\""), named);
 
     String property =
@@ -102,6 +110,25 @@ public class SearchTemplatePolicyTest {
         propertyClauses.get(0).get("query").asText(),
         "structuredProperties.certification_status:gold");
     assertTrue(propertyClauses.get(0).path("lenient").asBoolean(false), property);
+  }
+
+  @Test
+  public void testStructuredQueryFollowsTheBodyNotTheUrn() {
+    SearchTemplateProperties copied =
+        body(
+            "{ \"bool\": { \"should\": [ {{&structuredQuery}}, { \"match_all\": {} } ], \"minimum_should_match\": 1 } }");
+    harness.store("urn:li:searchTemplate:structuredCopy", copied);
+    String rendered = render("urn:li:searchTemplate:structuredCopy", "name:orders");
+    assertTrue(rendered.contains("\"match_all\""), rendered);
+    assertFalse(rendered.contains("match_phrase_prefix"), rendered);
+    assertTrue(
+        queryStrings(rendered).stream()
+            .noneMatch(clause -> "name:orders".equals(clause.path("query").asText())),
+        rendered);
+    List<JsonNode> nameTerms = terms(rendered, "name.lowercase");
+    assertEquals(nameTerms.size(), 1, rendered);
+    assertEquals(nameTerms.get(0).path("value").asText(), "orders");
+    assertFalse(nameTerms.get(0).path("case_insensitive").asBoolean(false), rendered);
   }
 
   @Test
@@ -253,6 +280,31 @@ public class SearchTemplatePolicyTest {
       return found;
     } catch (Exception e) {
       throw new IllegalStateException(json, e);
+    }
+  }
+
+  private static List<JsonNode> terms(String json, String field) {
+    try {
+      List<JsonNode> found = new ArrayList<>();
+      collectTerms(SearchTemplateFixtures.JSON.readTree(json), field, found);
+      return found;
+    } catch (Exception e) {
+      throw new IllegalStateException(json, e);
+    }
+  }
+
+  private static void collectTerms(JsonNode node, String field, List<JsonNode> found) {
+    if (node == null) {
+      return;
+    }
+    if (node.isObject()) {
+      JsonNode term = node.get("term");
+      if (term != null && term.has(field)) {
+        found.add(term.get(field));
+      }
+      node.fields().forEachRemaining(entry -> collectTerms(entry.getValue(), field, found));
+    } else if (node.isArray()) {
+      node.forEach(child -> collectTerms(child, field, found));
     }
   }
 

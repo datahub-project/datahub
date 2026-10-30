@@ -45,7 +45,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.metadata.context.RetrieverContext;
-import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.List;
@@ -285,10 +284,10 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
   }
 
   @Test
-  public void testCallerTemplateRequiresSystemOperationsPrivilege() {
+  public void testCallerCanSelectSearchTemplate() {
     installShippedRoutes();
     SearchTemplateSelector selector = new SearchTemplateSelector(templates, loader);
-    OperationContext denied =
+    OperationContext caller =
         opContext
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH)
             .withSearchFlags(
@@ -297,7 +296,9 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
                         .setFulltext(true)
                         .setSearchTemplate(UrnUtils.getUrn(SEARCH_TEMPLATE_LIST_URN)));
 
-    assertThrows(ActorAccessException.class, () -> selector.select(denied, "orders", true, null));
+    ResolvedSearchTemplate selected = selector.select(caller, "orders", true, null);
+    assertEquals(selected.getUrn(), SEARCH_TEMPLATE_LIST_URN);
+    assertEquals(selected.getEngineSlot(), SearchTemplateMetrics.SLOT_CALLER);
   }
 
   @Test

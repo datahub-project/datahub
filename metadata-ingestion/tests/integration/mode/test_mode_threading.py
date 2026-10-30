@@ -155,7 +155,7 @@ def make_thread_safe_session(*args: Any, **kwargs: Any) -> ThreadSafeMockSession
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
-    """Threaded execution (max_threads=2) produces the same MCEs as sequential."""
+    """Threaded execution (max_threads=2) produces the same work units as sequential."""
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
         side_effect=make_thread_safe_session,
@@ -176,7 +176,7 @@ def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/mode_mces_threaded.json",
+                        "filename": f"{tmp_path}/mode_threaded.json",
                     },
                 },
             }
@@ -186,9 +186,10 @@ def test_mode_threaded_produces_same_output(pytestconfig, tmp_path):
 
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=f"{tmp_path}/mode_mces_threaded.json",
-            golden_path=test_resources_dir / "mode_mces_golden.json",
+            output_path=f"{tmp_path}/mode_threaded.json",
+            golden_path=test_resources_dir / "mode_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+            fail_on_output_mces=True,
         )
 
 
@@ -215,7 +216,7 @@ def test_mode_threaded_higher_thread_count(pytestconfig, tmp_path):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/mode_mces_threaded_high.json",
+                        "filename": f"{tmp_path}/mode_threaded_high.json",
                     },
                 },
             }
@@ -225,9 +226,10 @@ def test_mode_threaded_higher_thread_count(pytestconfig, tmp_path):
 
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=f"{tmp_path}/mode_mces_threaded_high.json",
-            golden_path=test_resources_dir / "mode_mces_golden.json",
+            output_path=f"{tmp_path}/mode_threaded_high.json",
+            golden_path=test_resources_dir / "mode_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+            fail_on_output_mces=True,
         )
 
 
@@ -572,14 +574,6 @@ def test_threading_produces_same_entities_as_sequential(tmp_path):
         for item in data:
             if "entityUrn" in item:
                 urns.add(item["entityUrn"])
-            elif "proposedSnapshot" in item:
-                snapshot = item["proposedSnapshot"]
-                if isinstance(snapshot, dict):
-                    urn = snapshot.get("urn") or snapshot.get(
-                        list(snapshot.keys())[0], {}
-                    ).get("urn")
-                    if urn:
-                        urns.add(urn)
         return urns
 
     seq_urns = extract_urns(seq_path)
@@ -772,15 +766,7 @@ def test_cross_space_parallelization_speedup(tmp_path):
 
     dashboard_urns = set()
     for item in data:
-        urn: Optional[str] = None
-        if "entityUrn" in item:
-            urn = item["entityUrn"]
-        elif "proposedSnapshot" in item:
-            snapshot = item["proposedSnapshot"]
-            if isinstance(snapshot, dict):
-                urn = snapshot.get("urn") or snapshot.get(
-                    list(snapshot.keys())[0], {}
-                ).get("urn")
+        urn: Optional[str] = item.get("entityUrn")
         if urn and urn.startswith("urn:li:dashboard:"):
             dashboard_urns.add(urn)
 

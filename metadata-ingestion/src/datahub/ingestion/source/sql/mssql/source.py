@@ -804,13 +804,17 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         elif database is None:
             # Without it get_identifier builds `schema.table`, which
             # ingestion -- always carrying current_database on this kind of
-            # recipe -- never matches.
+            # recipe -- never matches. Reported, then handed back: None lets
+            # sql_probe apply the shared rule with the field it resolved for
+            # this kind, so a pattern that filters refuses rather than
+            # inverting its verdict on a two-part name.
             warn(
                 "this recipe sets no `database`, so ingestion qualifies each "
                 "table with the database it was found in; pass that database "
                 "as the first --parent, or the name is judged on 'schema.table', "
                 "which ingestion never matches"
             )
+            return None
         return qualified_identifier(self, database, schema, entity)
 
     @classmethod
@@ -909,6 +913,13 @@ class SQLServerSource(SQLAlchemySource):
     """
 
     report: SQLSourceReport
+    # Class-level so the probe's config-only shim -- built with __new__, so no
+    # __init__ runs -- can call get_identifier before any database is walked.
+    # Without it the shim raised, the probe fell back to the bare fqn, and the
+    # reported target lost the lowercasing convert_urns_to_lowercase applies:
+    # `--parent DBO --name Orders` came back `DBO.Orders` rather than
+    # `dbo.orders`, which is the string ingestion matches.
+    current_database: Optional[str] = None
 
     def __init__(
         self,

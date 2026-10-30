@@ -2,17 +2,25 @@ namespace com.linkedin.search.template
 
 /**
  * Service ranking applied to the keyword page. An explicitly present empty value drops an
- * inherited ranking section. {@code usage}, {@code usageAndMatchTier}, and {@code tokenCurve}
- * are stored here and executed only by a deployment that advertises them.
+ * inherited ranking section. A ranking is a reference or it is inline, never both.
+ * {@code template} unset inherits, empty drops, and a URN replaces. On an inline ranking,
+ * {@code signals} unset inherits, an empty list drops, and a non-empty list replaces.
+ * {@code add} and {@code remove} patch the inherited list by signal name and may sit beside
+ * {@code template}. A non-empty {@code signals} list discards those patches. {@code formula}
+ * unset inherits, and an empty string drops it. {@code preset} is an inline field.
+ * {@code usage}, {@code usageAndMatchTier}, and {@code tokenCurve} are stored here and
+ * executed only by a deployment that advertises them. A non-empty {@code signals} list is the
+ * Java rescore.
  */
 record SearchTemplateRanking {
   /**
-   * Ranking formula. {@code none}, {@code usage}, or {@code usageAndMatchTier}.
+   * Ranking preset. {@code none}, {@code usage}, or {@code usageAndMatchTier}. Unset when
+   * {@code signals} is set. {@code none} means no signals and no {@code template}.
    */
   preset: optional string
 
   /**
-   * How many hits the formula reranks.
+   * How many hits the formula reranks. Passed to {@code windowSizer}.
    */
   window: optional int
 
@@ -25,4 +33,35 @@ record SearchTemplateRanking {
    * Formula parameters, for example a usage weight.
    */
   parameters: optional map[string, string]
+
+  /**
+   * Search-template URN whose inline ranking this query uses. One hop. The target is inline.
+   * The target's query and functionScore are not used.
+   */
+  template: optional string
+
+  /**
+   * Stage 2 signals. Unset when {@code template} is set. A non-empty list replaces the
+   * inherited list. Cannot be combined with {@code add} or {@code remove}.
+   */
+  signals: optional array[RankingSignal]
+
+  /**
+   * Signals merged into the inherited list by {@code name}. A new name is appended. The same
+   * name replaces that signal and keeps its position. A name listed in {@code remove} is put
+   * back. Duplicate names in this list are rejected. May sit beside {@code template}.
+   */
+  add: optional array[RankingSignal]
+
+  /**
+   * Signal names dropped from the inherited list and from inherited {@code add}. May sit beside
+   * {@code template}. A name that is not in the resolved list is rejected.
+   */
+  remove: optional array[string]
+
+  /**
+   * Expression over signal contributions, each name meaning {@code pow(normalized, boost)}.
+   * Unset means the product of every contribution.
+   */
+  formula: optional string
 }
