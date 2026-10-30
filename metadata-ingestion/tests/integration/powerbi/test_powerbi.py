@@ -1,4 +1,5 @@
 import datetime
+import json
 import re
 from typing import Any, Dict, List, Optional, cast
 from unittest import mock
@@ -1609,6 +1610,91 @@ def test_powerbi_app_ingest(
         pytestconfig,
         output_path=f"{tmp_path}/powerbi_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+# Non-UTC local zone: a naive parse of the "Z" timestamp would be shifted by +5:30.
+@pytest.mark.timezone("XXX-5:30")
+@pytest.mark.parametrize(
+    "last_update", ["2024-09-26T04:20:34.513Z", "2024-09-26T04:20:34Z"]
+)
+def test_powerbi_app_ingest_last_update_without_fractional_seconds(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+    last_update: str,
+) -> None:
+    """The PowerBI admin API omits fractional seconds when they are .000, so App
+    lastUpdate arrives as both "...34.513Z" and "...34Z". The hardcoded strptime
+    used to crash on the latter and abort the whole pipeline, and parsed the former
+    as naive local time. Both shapes must now parse to the same UTC timestamp,
+    independent of the host timezone (regression test for the emit_app parse)."""
+    output_mcp_path = f"{tmp_path}/powerbi_mces.json"
+    apps_url = "https://api.powerbi.com/v1.0/myorg/admin/apps?%24skip=0&%24top=1000"
+    override_apps = {
+        apps_url: {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "id": "2A4D0E82-E7A4-45B1-BD72-2A2CF82C9CB6",
+                        "description": "The finance app",
+                        "name": "Finance",
+                        "publishedBy": "Bill",
+                        "lastUpdate": last_update,
+                    }
+                ]
+            },
+        }
+    }
+
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        override_data={
+            **read_mock_data(
+                path=pytestconfig.rootpath
+                / "tests/integration/powerbi/mock_data/workspace_with_app_mock_response.json"
+            ),
+            **override_apps,
+        },
+    )
+
+    config = default_source_config()
+    del config["workspace_id"]
+    config["workspace_id_pattern"] = {"allow": ["8F756DE6-26AD-45FF-A201-44276FF1F561"]}
+    config["extract_app"] = True
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {"type": "powerbi", "config": {**config}},
+            "sink": {"type": "file", "config": {"filename": output_mcp_path}},
+        }
+    )
+    # Before the fix this raised PipelineExecutionError for the no-fractional case.
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    # The app's DashboardInfo.lastModified must carry the correct UTC epoch
+    # (seconds, int-truncated), identical for both timestamp shapes.
+    with open(output_mcp_path) as f:
+        mcps = json.load(f)
+    app_times = [
+        mcp["aspect"]["json"]["lastModified"]["lastModified"]["time"]
+        for mcp in mcps
+        if mcp.get("aspectName") == "dashboardInfo"
+        and "apps." in mcp["entityUrn"]
+        and mcp["aspect"]["json"].get("lastModified", {}).get("lastModified")
+    ]
+    assert 1727324434 in app_times, (
+        f"expected app lastModified 1727324434 in {app_times}"
     )
 
 
