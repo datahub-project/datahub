@@ -34,6 +34,12 @@ SOURCE_ENVIRONMENTS = (
     "datahub-project-web-react (Preview)",
     "datahub-project-web-react (Production)",
 )
+# Same directories as the frontend filter in .github/actions/ci-optimization.
+_FRONTEND_PREFIXES = (
+    "datahub-frontend/",
+    "datahub-web-react/",
+    "docker/datahub-frontend/",
+)
 DEPLOYMENT_DESCRIPTION = "Cloudflare Pages"
 
 _MAX_DEPLOYMENTS = 100
@@ -62,12 +68,23 @@ class DeploymentClient(Protocol):
         self, repo: str, deployment_id: int, body: Mapping[str, Any]
     ) -> dict[str, Any]: ...
 
+    def changed_paths(self, repo: str, base: str, head: str) -> list[str] | None:
+        """Paths changed from base to head.
+
+        None means the compare is not a fast-forward or its file list was
+        truncated, so the caller cannot know whether the UI changed.
+        """
+
+
+def frontend_paths_changed(paths: Sequence[str]) -> bool:
+    return any(path.startswith(_FRONTEND_PREFIXES) for path in paths)
+
 
 @dataclass(frozen=True)
 class RecordResult:
     action: str
-    deployment_id: int
-    environment_url: str
+    deployment_id: int | None = None
+    environment_url: str | None = None
     source_deployment_id: int | None = None
 
 
@@ -143,17 +160,31 @@ def record_inherited_deployment(
 
     source_id: int | None = None
     source_url: str | None = None
+    source_sha: str | None = None
     for deployment in candidates:
         deployment_id = _deployment_id(deployment)
         url = success_environment_url(client.list_statuses(repo, deployment_id))
         if url:
             source_id = deployment_id
             source_url = url
+            source_sha = _sha(deployment)
             break
 
-    if source_id is None or source_url is None:
+    if source_id is None or source_url is None or source_sha is None:
         raise NoPublishedDeploymentError(
             f"No long-lived Pages deployment with an https URL to reuse for {sha}"
+        )
+
+    # A cancelled or failed frontend publish leaves no URL of its own. Reusing
+    # the previous bundle would make Meticulous compare against a stale UI
+    # instead of skipping. Record nothing unless every commit since that
+    # publish stayed outside the frontend.
+    changed = client.changed_paths(repo, source_sha, sha)
+    if changed is None or frontend_paths_changed(changed):
+        return RecordResult(
+            action="skipped_stale_frontend",
+            environment_url=source_url,
+            source_deployment_id=source_id,
         )
 
     if existing_id is None:
@@ -246,6 +277,20 @@ class UrllibDeploymentClient:
             raise GitHubAPIError(f"Expected a status object, got {type(payload).__name__}")
         return payload
 
+    def changed_paths(self, repo: str, base: str, head: str) -> list[str] | None:
+        payload = self._request("GET", f"/repos/{repo}/compare/{base}...{head}")
+        if not isinstance(payload, dict):
+            raise GitHubAPIError(f"Expected a compare object, got {type(payload).__name__}")
+        status = payload.get("status")
+        if status == "identical":
+            return []
+        if status != "ahead":
+            return None
+        files = payload.get("files")
+        if not isinstance(files, list) or len(files) >= 300:
+            return None
+        return [str(item.get("filename") or "") for item in files if isinstance(item, dict)]
+
     def _request(
         self,
         method: str,
@@ -333,6 +378,13 @@ def main() -> int:
         print(f"::error::{error}", file=sys.stderr)
         return 1
 
+    if result.action == "skipped_stale_frontend":
+        print(
+            f"Not recording a base for {sha}: frontend changed since deployment "
+            f"{result.source_deployment_id}. Leaving Meticulous to skip rather than "
+            f"compare against {result.environment_url}"
+        )
+        return 0
     if result.action == "already_recorded":
         print(
             f"SHA {sha} already has {environment} deployment "

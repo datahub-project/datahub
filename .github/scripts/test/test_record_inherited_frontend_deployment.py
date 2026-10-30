@@ -46,6 +46,7 @@ class FakeClient:
         self.statuses: dict[int, list[dict[str, Any]]] = {}
         self.created: list[dict[str, Any]] = []
         self.status_posts: list[tuple[int, dict[str, Any]]] = []
+        self.changed: dict[tuple[str, str], list[str] | None] = {}
         self._next_id = 100
 
     def list_deployments(
@@ -56,6 +57,10 @@ class FakeClient:
         if sha is not None:
             matched = [item for item in matched if item["sha"].lower() == sha.lower()]
         return list(matched)
+
+    def changed_paths(self, repo: str, base: str, head: str) -> list[str] | None:
+        assert repo == "acme/datahub"
+        return self.changed.get((base, head), [])
 
     def list_statuses(self, repo: str, deployment_id: int) -> list[dict[str, Any]]:
         return list(self.statuses.get(deployment_id, []))
@@ -198,6 +203,44 @@ def test_already_recorded_sha_is_left_alone() -> None:
     assert client.status_posts == []
 
 
+def test_skips_when_frontend_changed_since_last_publish() -> None:
+    client = FakeClient()
+    client.deployments = [_deployment(2, "bbbb", created_at="2026-10-02T00:00:00Z")]
+    client.statuses = {2: [_success(PAGES_URL)]}
+    client.changed[("bbbb", "cccc")] = ["datahub-web-react/src/app/App.tsx"]
+
+    result = _record(client, "cccc")
+
+    assert result.action == "skipped_stale_frontend"
+    assert result.source_deployment_id == 2
+    assert client.created == []
+    assert client.status_posts == []
+
+
+def test_backend_only_changes_since_publish_still_inherit() -> None:
+    client = FakeClient()
+    client.deployments = [_deployment(2, "bbbb", created_at="2026-10-02T00:00:00Z")]
+    client.statuses = {2: [_success(PAGES_URL)]}
+    client.changed[("bbbb", "cccc")] = ["metadata-service/src/Main.java"]
+
+    result = _record(client, "cccc")
+
+    assert result.action == "created"
+    assert result.environment_url == PAGES_URL
+
+
+def test_truncated_compare_does_not_inherit() -> None:
+    client = FakeClient()
+    client.deployments = [_deployment(2, "bbbb")]
+    client.statuses = {2: [_success(PAGES_URL)]}
+    client.changed[("bbbb", "cccc")] = None
+
+    result = _record(client, "cccc")
+
+    assert result.action == "skipped_stale_frontend"
+    assert client.created == []
+
+
 def test_missing_source_deployment_raises() -> None:
     client = FakeClient()
     client.deployments = [_deployment(3, "bbbb")]
@@ -206,6 +249,26 @@ def test_missing_source_deployment_raises() -> None:
     with pytest.raises(inherited.NoPublishedDeploymentError):
         _record(client, "cccc")
     assert client.created == []
+
+
+def test_changed_paths_refuses_a_compare_that_is_not_ahead() -> None:
+    client = inherited.UrllibDeploymentClient("token", "https://api.github.com")
+
+    def request(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {"status": "diverged", "files": [{"filename": "README.md"}]}
+
+    client._request = request  # type: ignore[method-assign]
+    assert client.changed_paths("acme/datahub", "aaa", "bbb") is None
+
+
+def test_changed_paths_returns_filenames_when_ahead() -> None:
+    client = inherited.UrllibDeploymentClient("token", "https://api.github.com")
+
+    def request(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {"status": "ahead", "files": [{"filename": "metadata-io/Foo.java"}]}
+
+    client._request = request  # type: ignore[method-assign]
+    assert client.changed_paths("acme/datahub", "aaa", "bbb") == ["metadata-io/Foo.java"]
 
 
 def test_success_url_ignores_older_success_once_latest_is_inactive() -> None:
