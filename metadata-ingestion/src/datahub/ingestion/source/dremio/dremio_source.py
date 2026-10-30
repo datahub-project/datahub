@@ -1,4 +1,5 @@
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set
@@ -81,6 +82,13 @@ logger = logging.getLogger(__name__)
 
 # Dremio uses 'dremio' as the default database name in all SQL contexts
 DREMIO_DATABASE_NAME = "dremio"
+
+# CREATE [OR REPLACE] VIEW|VDS, after any leading comments (dbt adds a header).
+_VIEW_DDL_RE = re.compile(
+    r"\s*(?:(?:--[^\n]*(?:\n|$)|/\*.*?\*/)\s*)*"
+    r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:VIEW|VDS)\b",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def passes_dremio_filters(
@@ -309,15 +317,24 @@ class DremioSource(StatefulIngestionSourceBase):
         self.profiler = DremioProfiler(config, self.report, api, profiling_handler)
 
     def _is_allowed_table(self, name: str) -> bool:
-        allowed = passes_dremio_filters(
+        # The aggregator only calls this after the catalog walk, so a name
+        # that passes the filters but isn't in the catalog was dropped (or was
+        # temporary) since the job ran; letting it through resurrects it.
+        if (
+            name.lower().removeprefix(f"{DREMIO_DATABASE_NAME}.")
+            in self.catalog_dataset_names
+        ):
+            return True
+        if passes_dremio_filters(
             name=name,
             catalog_dataset_names=self.catalog_dataset_names,
             dataset_pattern=self.config.dataset_pattern,
             schema_pattern=self.config.schema_pattern,
-        )
-        if not allowed:
+        ):
+            self.report.lineage_dropped_not_in_catalog += 1
+        else:
             self.report.lineage_dropped_filtered += 1
-        return allowed
+        return False
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
@@ -724,6 +741,12 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
     def process_query(self, query: DremioQuery) -> None:
+        # View lineage comes from the catalog's current definition; an older
+        # CREATE [OR REPLACE] VIEW in job history would add stale upstreams.
+        if _VIEW_DDL_RE.match(query.query):
+            self.report.num_view_ddl_queries_skipped += 1
+            return
+
         self._validate_query_lineage_format(query)
 
         self.sql_parsing_aggregator.add_observed_query(
