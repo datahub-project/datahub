@@ -1,8 +1,9 @@
-import { Tooltip } from '@components';
 import { NodeViewComponentProps } from '@remirror/react';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { Tooltip } from '@components/components/Tooltip';
 
 import { IconStyleType } from '@src/app/entityV2/Entity';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';

@@ -16,7 +16,7 @@
                 "odcs.sourceFile": "quality__column-completeness.odcs.yaml"
             },
             "name": "my_table \u2014 Air_Quality",
-            "description": "Air quality of the city of New York",
+            "description": "Air quality of the city of New York\n\n**Grain:** Raw records",
             "tags": []
         }
     },

@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
@@ -27,6 +27,14 @@ vi.hoisted(() => {
 });
 
 const mockShowSeparateSiblings = vi.fn(() => false);
+const modalPropsMock = vi.fn();
+
+vi.mock('@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal', () => ({
+    EmbeddedListSearchModal: (props: unknown) => {
+        modalPropsMock(props);
+        return null;
+    },
+}));
 
 vi.mock('@src/app/useAppConfig', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@src/app/useAppConfig')>();
@@ -134,5 +142,15 @@ describe('SidebarSiblingsSection', () => {
     it('renders nothing when entity data is absent', () => {
         const { container } = renderSection(null);
         expect(container.firstChild).toBeNull();
+    });
+
+    it('applies the search bar view to "View all"', () => {
+        const { getByText } = renderSection({
+            ...entityDataWithSiblings,
+            siblingsSearch: { ...entityDataWithSiblings.siblingsSearch, total: 4 },
+        });
+        fireEvent.click(getByText(/2 more/));
+
+        expect(modalPropsMock).toHaveBeenLastCalledWith(expect.objectContaining({ applyView: true }));
     });
 });

@@ -17,13 +17,14 @@ import SearchFiltersSection from '@app/searchV2/filters/SearchFiltersSection';
 import useFilterMode from '@app/searchV2/filters/useFilterMode';
 import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
+import { useIsSearchViewReady } from '@app/searchV2/useIsSearchViewReady';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from '@app/searchV2/useSearchAndBrowseVersion';
 import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from '@app/searchV2/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { getSearchCount } from '@app/searchV2/utils/searchUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/searchV2/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
@@ -48,6 +49,7 @@ export const SearchPage = () => {
     const searchVersion = useSearchVersion();
     const history = useHistory();
     const { query, unionType, filters, orFilters, viewUrn, page, sortInput } = useGetSearchQueryInputs();
+    const isViewReady = useIsSearchViewReady();
     const { filterModeRef } = useFilterMode(filters, unionType);
     const selectedSortOption = useSelectedSortOption();
 
@@ -58,10 +60,11 @@ export const SearchPage = () => {
 
     const {
         data,
-        loading,
+        loading: searchLoading,
         error,
         refetch: realRefetch,
     } = useGetSearchResultsForMultipleQuery({
+        skip: !isViewReady,
         variables: {
             input: {
                 types: [],
@@ -84,6 +87,10 @@ export const SearchPage = () => {
         },
         fetchPolicy: 'cache-and-network',
     });
+
+    // A skipped query reports loading=false. Stay in the loading state until the view is
+    // resolved so the page does not paint unfiltered results.
+    const loading = searchLoading || !isViewReady;
 
     const total = data?.searchAcrossEntities?.total || 0;
 

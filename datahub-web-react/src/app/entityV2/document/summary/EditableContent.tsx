@@ -1,8 +1,9 @@
-import { Button, Editor } from '@components';
+import { Button } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
 import useClickOutside from '@components/components/Utils/ClickOutside/useClickOutside';
 
 import { useContextLayout } from '@app/context/ContextLayoutContext';
@@ -12,9 +13,9 @@ import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
 import { categorizeUrns, extractUrnsFromMarkdown, isAllowedRelatedAssetUrn } from '@app/document/utils/documentUtils';
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
-import useFileUpload from '@app/shared/hooks/useFileUpload';
-import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
 import { useDiscardUnsavedChangesConfirmationContext } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
+import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 import { useIsDocumentExplicitSaveEnabled } from '@app/useAppConfig';
 
 import { DocumentRelatedAsset, DocumentRelatedDocument, UploadDownloadScenario } from '@types';
@@ -38,7 +39,8 @@ const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean; $isEmpty?: boolean
             padding: 0px 0;
             ${(props) => props.$isEmpty && `min-height: 460px;`}
         }
-        .remirror-editor.ProseMirror {
+        .remirror-editor.ProseMirror,
+        .datahub-editor-content {
             font-size: 15px;
             line-height: 1.7;
             color: ${(props) => props.theme.colors.text};

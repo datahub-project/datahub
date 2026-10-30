@@ -145,17 +145,25 @@ public class OtelProxyController extends Controller {
       return completed(proxyAdmission.overloadedResult());
     }
 
-    final HttpRequest.Builder builder =
-        HttpRequest.newBuilder()
-            .uri(targetUri)
-            .timeout(FORWARD_TIMEOUT)
-            .header(Http.HeaderNames.CONTENT_TYPE, contentType)
-            .POST(HttpRequest.BodyPublishers.ofByteArray(body));
-    // Preserve the payload encoding so a gzip'd export can be decoded by the collector.
-    request
-        .header(Http.HeaderNames.CONTENT_ENCODING)
-        .ifPresent(enc -> builder.header(Http.HeaderNames.CONTENT_ENCODING, enc));
-    final HttpRequest forwardRequest = builder.build();
+    final HttpRequest forwardRequest;
+    try {
+      final HttpRequest.Builder builder =
+          HttpRequest.newBuilder()
+              .uri(targetUri)
+              .timeout(FORWARD_TIMEOUT)
+              .header(Http.HeaderNames.CONTENT_TYPE, contentType)
+              .POST(HttpRequest.BodyPublishers.ofByteArray(body));
+      // Preserve the payload encoding so a gzip'd export can be decoded by the collector.
+      request
+          .header(Http.HeaderNames.CONTENT_ENCODING)
+          .ifPresent(enc -> builder.header(Http.HeaderNames.CONTENT_ENCODING, enc));
+      forwardRequest = builder.build();
+    } catch (RuntimeException e) {
+      // whenComplete releases these only after sendWithRetry has been called.
+      proxyAdmission.release();
+      inFlight.release();
+      throw e;
+    }
 
     return sendWithRetry(forwardRequest, 1)
         .thenApply(this::toResult)

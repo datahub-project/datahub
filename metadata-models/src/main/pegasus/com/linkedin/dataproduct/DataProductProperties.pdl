@@ -8,7 +8,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "dataProductProperties",
-  "schemaVersion": 3
+  "schemaVersion": 4
 }
 record DataProductProperties includes CustomProperties, ExternalReference  {
   /**
@@ -19,8 +19,16 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
-    "searchTier": 1,
-    "searchLabel": "entityName"
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   name: optional string
 
@@ -30,8 +38,16 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Searchable = {
     "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
-    "searchTier": 2,
-    "sanitizeRichText": true
+    "sanitizeRichText": true,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   description: optional string
 
@@ -41,7 +57,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "DataProductContains",
-      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document", "api" ],
+      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document", "api", "service", "application", "repository", "aiAgent", "agentSkill" ],
     }
   }
   assets: optional array[DataProductAssociation]
@@ -56,7 +72,10 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Searchable = {
     "fieldName": "parentDataProduct",
     "fieldType": "URN",
-    "hasValuesFieldName": "hasParentDataProduct"
+    "hasValuesFieldName": "hasParentDataProduct",
+    "v3": {
+      "copyToOther": true
+    }
   }
   parentDataProduct: optional Urn
 }

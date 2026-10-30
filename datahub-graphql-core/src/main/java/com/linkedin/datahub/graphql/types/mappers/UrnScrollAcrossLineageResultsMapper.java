@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -38,6 +39,9 @@ public class UrnScrollAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         searchResultMetadata.getAggregations().stream()
             .map(f -> mapFacet(context, f))
             .collect(Collectors.toList()));
+    if (searchResultMetadata.hasRouteChain()) {
+      result.setRouteChain(new ArrayList<>(searchResultMetadata.getRouteChain()));
+    }
 
     if (input.hasIsPartial()) {
       result.setIsPartial(input.isIsPartial());
@@ -52,6 +56,10 @@ public class UrnScrollAcrossLineageResultsMapper<T extends RecordTemplate, E ext
         .setEntity(UrnToEntityMapper.map(context, searchEntity.getEntity()))
         .setInsights(getInsightsFromFeatures(searchEntity.getFeatures()))
         .setMatchedFields(getMatchedFieldEntry(context, searchEntity.getMatchedFields()))
+        .setExplainMatches(
+            searchEntity.hasExplainMatches()
+                ? getExplainMatches(searchEntity.getExplainMatches())
+                : null)
         .setPaths(
             searchEntity.getPaths().stream()
                 .map(p -> mapPath(context, p))

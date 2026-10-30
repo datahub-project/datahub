@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from enum import Enum
-from typing import List, Optional, Tuple, Union
+from typing import List, NamedTuple, Optional, Tuple, Union
 
 import parse
 from cached_property import cached_property
@@ -14,6 +14,9 @@ from wcmatch import pathlib
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.azure.abs_utils import is_abs_uri
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    DEFAULT_MAX_ZIP_ENTRY_SIZE,
+)
 from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
 
 # hide annoying debug errors from py4j
@@ -29,12 +32,14 @@ SUPPORTED_FILE_TYPES: List[str] = [
     "avro",
 ]
 
-# These come from the smart_open library.
+# gz and bz2 come from the smart_open library (streamed, transparent decompression).
+# zip is read with zipfile; only the archive's first supported member is used.
 SUPPORTED_COMPRESSIONS: List[str] = [
     "gz",
     "bz2",
     # We have a monkeypatch on smart_open that aliases .gzip to .gz.
     "gzip",
+    "zip",
 ]
 
 java_to_python_mapping = {
@@ -45,6 +50,24 @@ java_to_python_mapping = {
     "mm": "M",
     "ss": "S",
 }
+
+
+class DirFoldResult(NamedTuple):
+    """Outcome of folding a directory prefix to a spec's ``{table}`` boundary.
+
+    ``table_path`` is the folded dataset path, or ``None`` when this spec does not
+    cover the prefix at all. ``denied`` means the prefix *does* lie under the spec
+    but the user's ``exclude`` or ``tables_filter_pattern`` rejects it — callers
+    must then emit nothing rather than trying another spec or falling back to the
+    raw path, otherwise an explicit denial gets silently overridden.
+    """
+
+    table_path: Optional[str] = None
+    denied: bool = False
+
+
+_NO_FOLD = DirFoldResult()
+_FOLD_DENIED = DirFoldResult(denied=True)
 
 
 class SortKeyType(Enum):
@@ -122,7 +145,18 @@ class PathSpec(ConfigModel):
 
     enable_compression: bool = Field(
         True,
-        description="Enable or disable processing compressed files. Currently .gz and .bz files are supported.",
+        description="Enable or disable processing compressed files. Supported formats: .gz, .bz2, and .zip. "
+        "For .zip archives, only the first file with a supported extension is read; archives containing "
+        "multiple files will emit a warning and process only the first matching entry.",
+    )
+
+    max_zip_entry_size: int = Field(
+        DEFAULT_MAX_ZIP_ENTRY_SIZE,
+        ge=1,
+        description="Maximum uncompressed size (in bytes) of a single entry read from a .zip archive. "
+        "Protects against zip-bomb archives that expand to far more than their compressed size and "
+        "could exhaust worker memory. Entries larger than this are skipped with a warning. "
+        "Defaults to 512 MiB.",
     )
 
     sample_files: bool = Field(
@@ -181,45 +215,55 @@ class PathSpec(ConfigModel):
 
         return False
 
-    def allowed(self, path: str, ignore_ext: bool = False) -> bool:
+    def rejection_reason(self, path: str, ignore_ext: bool = False) -> Optional[str]:
+        """The field of this path_spec that drops `path`, or None when it is kept.
+
+        `allowed` is defined as this returning None, so the probe's explanation of
+        a verdict and ingestion's verdict cannot disagree.
+        """
         if self.is_path_hidden(path) and not self.include_hidden_folders:
-            return False
+            return "include_hidden_folders"
 
         if not pathlib.PurePath(path).globmatch(
             self.glob_include, flags=pathlib.GLOBSTAR
         ):
-            return False
+            return "include"
 
         if self.exclude:
             for exclude_path in self.exclude:
                 if pathlib.PurePath(path).globmatch(
                     exclude_path, flags=pathlib.GLOBSTAR
                 ):
-                    return False
+                    return "exclude"
 
         table_name, _ = self.extract_table_name_and_path(path)
         if not self.tables_filter_pattern.allowed(table_name):
-            return False
+            return "tables_filter_pattern"
 
-        if not ignore_ext:
-            # A glob like ``*`` with no explicit extension matches any file type.
-            if os.path.splitext(path)[1].strip(".").lower() == "*":
-                return True
+        if ignore_ext:
+            return None
 
-            fmt = self._recognised_format(path)
-            if fmt is not None:
-                # A recognised format: keep it only if this path_spec wants it.
-                if fmt not in self.file_types:
-                    return False
-            elif self.default_extension is None or self._is_disabled_compression(path):
-                # Nothing to go on: either no real format extension (empty, or a fake
-                # one from a dotted stem like ``foo.bar.baz-<hash>``) with no default
-                # to fall back on, or a compression suffix while ``enable_compression``
-                # is off. In the latter case the file can't be read as its inner
-                # format, so the ``default_extension`` fallback must not admit it.
-                return False
+        # A glob like ``*`` with no explicit extension matches any file type.
+        if os.path.splitext(path)[1].strip(".").lower() == "*":
+            return None
 
-        return True
+        fmt = self._recognised_format(path)
+        if fmt is not None:
+            # A recognised format: keep it only if this path_spec wants it.
+            return "file_types" if fmt not in self.file_types else None
+        if self.default_extension is None:
+            # No real format extension (empty, or a fake one from a dotted stem
+            # like ``foo.bar.baz-<hash>``) and no default to fall back on.
+            return "default_extension"
+        if self._is_disabled_compression(path):
+            # A compression suffix while ``enable_compression`` is off: the file
+            # can't be read as its inner format, so the ``default_extension``
+            # fallback must not admit it.
+            return "enable_compression"
+        return None
+
+    def allowed(self, path: str, ignore_ext: bool = False) -> bool:
+        return self.rejection_reason(path, ignore_ext=ignore_ext) is None
 
     def _is_disabled_compression(self, path: str) -> bool:
         """True if ``path`` ends in a compression suffix but compression is disabled.
@@ -310,22 +354,83 @@ class PathSpec(ConfigModel):
 
         return True
 
-    def folder_allowed(self, path: str) -> bool:
-        """Filter for folders-only traversal. Applies the folder-relevant rules —
-        hidden-folder skipping and `exclude` — but not the file-extension or table-name
-        checks in `allowed`/`dir_allowed`, since folders-only produces no files or datasets.
-        `is_path_hidden` inspects every path component and `exclude` globs match the full
-        path, so filtering a resolved leaf also drops hidden/excluded ancestors."""
+    def folder_rejection_reason(self, path: str) -> Optional[str]:
+        """As rejection_reason, for folders-only traversal (see folder_allowed)."""
         if self.is_path_hidden(path) and not self.include_hidden_folders:
-            return False
+            return "include_hidden_folders"
         if self.exclude:
             candidate = path.rstrip("/")
             for exclude_path in self.exclude:
                 if pathlib.PurePath(candidate).globmatch(
                     exclude_path.rstrip("/"), flags=pathlib.GLOBSTAR
                 ):
-                    return False
-        return True
+                    return "exclude"
+        return None
+
+    def folder_allowed(self, path: str) -> bool:
+        """Filter for folders-only traversal. Applies the folder-relevant rules —
+        hidden-folder skipping and `exclude` — but not the file-extension or table-name
+        checks in `allowed`/`dir_allowed`, since folders-only produces no files or datasets.
+        `is_path_hidden` inspects every path component and `exclude` globs match the full
+        path, so filtering a resolved leaf also drops hidden/excluded ancestors."""
+        return self.folder_rejection_reason(path) is None
+
+    def fold_dir_to_table(self, path: str) -> DirFoldResult:
+        """Fold a directory prefix up to this spec's ``{table}`` component.
+
+        A directory prefix does not satisfy the file-oriented `allowed()` check, so
+        the boundary is first located structurally, then resolved through the same
+        parse that `allowed()` and `extract_table_name_and_path()` use. Going through
+        that parse is what keeps the folded dataset path and the table name identical
+        to the ones file mode produces, even when `{table}` covers only part of a path
+        segment (`tbl_{table}`) or `table_name` composes several variables.
+        """
+        if "{table}" not in self.include:
+            return _NO_FOLD
+        parts = path.rstrip("/").split("/")
+        if len(parts) <= self.table_depth:
+            return _NO_FOLD
+        table_prefix = "/".join(parts[: self.table_depth + 1])
+        table_glob = "/".join(self.glob_include.split("/")[: self.table_depth + 1])
+        if not pathlib.PurePath(table_prefix).globmatch(
+            table_glob, flags=pathlib.GLOBSTAR
+        ):
+            return _NO_FOLD
+        # Hidden folders never become datasets, matching `allowed`/`folder_allowed`.
+        if self.is_path_hidden(table_prefix) and not self.include_hidden_folders:
+            return _NO_FOLD
+        if self._dir_excluded(path, table_prefix):
+            return _FOLD_DENIED
+
+        # Rebuild a synthetic file path that satisfies this spec's glob so the
+        # spec's own parse can extract `{table}`. Same trick as `dir_allowed`.
+        probe_path = table_prefix + "/" + self.get_remaining_glob_include(table_prefix)
+        if self.get_named_vars(probe_path) is None:
+            return _NO_FOLD
+        table_name, table_path = self.extract_table_name_and_path(probe_path)
+        if not self.tables_filter_pattern.allowed(table_name):
+            return _FOLD_DENIED
+        return DirFoldResult(table_path=table_path)
+
+    def _dir_excluded(self, path: str, table_prefix: str) -> bool:
+        """Whether `exclude` rejects this directory prefix.
+
+        Excludes are matched against the original input path, because folding to
+        `table_prefix` strips the very segments a `**` suffix needs to match. That
+        alone misses the table root itself — `s3://lake/internal` does not glob-match
+        `s3://lake/internal/**` — so a `/**` suffix is also tested against the root.
+        """
+        for exclude_path in self.exclude or []:
+            excl = exclude_path.rstrip("/")
+            if pathlib.PurePath(path.rstrip("/")).globmatch(
+                excl, flags=pathlib.GLOBSTAR
+            ):
+                return True
+            if excl.endswith("/**") and pathlib.PurePath(table_prefix).globmatch(
+                excl[: -len("/**")], flags=pathlib.GLOBSTAR
+            ):
+                return True
+        return False
 
     @classmethod
     def get_parsable_include(cls, include: str) -> str:
@@ -643,6 +748,14 @@ class PathSpec(ConfigModel):
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
 
+    @cached_property
+    def table_depth(self):
+        """Number of ``/`` preceding the ``{table}`` component of ``include``.
+
+        Only meaningful when ``include`` contains ``{table}``; callers check first.
+        """
+        return self.include.count("/", 0, self.include.find("{table}"))
+
     def _extract_table_name(self, named_vars: dict) -> str:
         if self.table_name is None:
             raise ValueError("path_spec.table_name is not set")
@@ -692,10 +805,10 @@ class PathSpec(ConfigModel):
         if parsed_vars is None or "table" not in parsed_vars.named:
             return os.path.basename(path.removesuffix("/")), path
         else:
-            include = self.include
-            depth = include.count("/", 0, include.find("{table}"))
             table_path = (
-                "/".join(path.split("/")[:depth]) + "/" + parsed_vars.named["table"]
+                "/".join(path.split("/")[: self.table_depth])
+                + "/"
+                + parsed_vars.named["table"]
             )
         return self._extract_table_name(parsed_vars.named), table_path
 

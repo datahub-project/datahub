@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -75,6 +76,7 @@ import com.linkedin.structured.StructuredPropertyKey;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.ReadPreference;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.common.AttributeKey;
@@ -2056,6 +2058,21 @@ public class EntityServiceImplTest {
     AspectDao dao = mock(AspectDao.class);
     EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
     stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "rollback-run-1");
+    // A hard rollback deletes the entity only when the locked read shows the run owns it.
+    SystemMetadata runMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    runMetadata.setRunId("rollback-run-1");
+    when(dao.getLatestAspectsLocked(any(OperationContext.class), any()))
+        .thenReturn(
+            Map.of(
+                GUARDED_PROPERTY_URN.toString(),
+                Map.of(
+                    STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+                    guardTestAspectRow(
+                        GUARDED_PROPERTY_URN,
+                        STRUCTURED_PROPERTY_KEY_ASPECT_NAME,
+                        RecordUtils.toJsonString(
+                            new StructuredPropertyKey().setId(GUARDED_PROPERTY_URN.getId())),
+                        runMetadata))));
 
     AspectRowSummary row =
         new AspectRowSummary()
@@ -2097,6 +2114,79 @@ public class EntityServiceImplTest {
             eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME),
             anyLong());
     verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  private static final String OWNED_ROLLBACK_RUN_ID = "rollback-ownership-run";
+
+  /**
+   * A corpuser whose latest key row was written by {@code OWNED_ROLLBACK_RUN_ID}, so the rollback
+   * reaches the entity-wide hard delete. Which rows the locked ownership read returns is left to
+   * each test.
+   */
+  private AspectRowSummary stubKeyRowWrittenByRollbackRun(
+      AspectDao dao, Urn urn, String keyAspectName) {
+    when(dao.getLatestAspect(
+            any(OperationContext.class), eq(urn.toString()), eq(keyAspectName), eq(false)))
+        .thenReturn(ownedKeyRow(urn, keyAspectName));
+    when(dao.getVersionRange(any(OperationContext.class), eq(urn.toString()), eq(keyAspectName)))
+        .thenReturn(Pair.of(0L, 0L));
+    when(dao.deleteUrn(any(OperationContext.class), any(), eq(urn.toString()))).thenReturn(1);
+    stubGuardTestTransaction(dao);
+    return new AspectRowSummary()
+        .setUrn(urn.toString())
+        .setAspectName(keyAspectName)
+        .setKeyAspect(true)
+        .setVersion(0)
+        .setTimestamp(0L);
+  }
+
+  private SystemAspect ownedKeyRow(Urn urn, String keyAspectName) {
+    SystemMetadata systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    systemMetadata.setRunId(OWNED_ROLLBACK_RUN_ID);
+    return guardTestAspectRow(
+        urn,
+        keyAspectName,
+        RecordUtils.toJsonString(new CorpUserKey().setUsername(urn.getId())),
+        systemMetadata);
+  }
+
+  @Test
+  public void testHardRollbackKeepsEntityWhenTheLockedReadReturnsNothing() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackLockedReadEmpty");
+    OperationContext userContext = newUserContext();
+    AspectRowSummary keyRow =
+        stubKeyRowWrittenByRollbackRun(dao, urn, userContext.getKeyAspectName(urn));
+    // Nothing comes back from the locked read: ownership cannot be shown, so the entity must stay.
+    when(dao.getLatestAspectsLocked(any(OperationContext.class), any()))
+        .thenReturn(Map.of(urn.toString(), Map.of()));
+
+    RollbackRunResult result =
+        service.rollbackRun(userContext, List.of(keyRow), OWNED_ROLLBACK_RUN_ID, true);
+
+    assertTrue(result.getRowsRolledBack().isEmpty());
+    assertTrue(result.getRollbackResults().isEmpty());
+    verify(dao, never()).deleteUrn(any(OperationContext.class), any(), any(String.class));
+  }
+
+  @Test
+  public void testHardRollbackDeletesEntityWhenTheLockedReadShowsOnlyTheRunsRows() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:rollbackLockedReadOwned");
+    OperationContext userContext = newUserContext();
+    String keyAspectName = userContext.getKeyAspectName(urn);
+    AspectRowSummary keyRow = stubKeyRowWrittenByRollbackRun(dao, urn, keyAspectName);
+    // Control for the test above: the same entity, but the locked read shows the run's key row.
+    when(dao.getLatestAspectsLocked(any(OperationContext.class), any()))
+        .thenReturn(Map.of(urn.toString(), Map.of(keyAspectName, ownedKeyRow(urn, keyAspectName))));
+
+    RollbackRunResult result =
+        service.rollbackRun(userContext, List.of(keyRow), OWNED_ROLLBACK_RUN_ID, true);
+
+    assertEquals(result.getRowsRolledBack().size(), 1);
+    verify(dao).deleteUrn(any(OperationContext.class), any(), eq(urn.toString()));
   }
 
   // Shared setup for the applyRetentionPostCommit tests below — postCommitRetentionEnabled is the
@@ -2247,5 +2337,121 @@ public class EntityServiceImplTest {
     verify(retentionBuffer, times(1)).enqueue(testContext, TEST_URN, STATUS_ASPECT_NAME, 2L);
     verify(mockMetricUtils, times(1))
         .increment(eq(EntityServiceImpl.class), eq("post_commit_retention_failed"), eq(1.0d));
+  }
+
+  /** A replica-reading caller still counts on primary, where the delete ceiling is read. */
+  @Test
+  public void countUrnRowsCountsOnPrimaryEvenWhenTheCallerReadsTheReplica() {
+    AspectDao aspectDao = mock(AspectDao.class);
+    when(aspectDao.countUrnRows(any(), eq(TEST_URN.toString()))).thenReturn(4);
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            aspectDao, mockEventProducer, mock(PreProcessHooks.class), testConfig(), metricUtils);
+
+    assertEquals(
+        service.countUrnRows(opContext.withReadPreference(ReadPreference.READ), TEST_URN), 4);
+
+    verify(aspectDao)
+        .countUrnRows(
+            argThat(
+                ctx ->
+                    ctx.getPrimaryStorageContext().getReadPreference() == ReadPreference.PRIMARY),
+            eq(TEST_URN.toString()));
+  }
+
+  /**
+   * A rollback run as a user records that user on the removed aspect's changelog. It used to be the
+   * system whoever ran it.
+   */
+  @Test
+  public void testRollbackChangelogNamesTheCaller() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service = newSpyServiceForDeleteGuard(dao);
+    stubStructuredPropertyRows(dao, GUARDED_PROPERTY_URN, null, "rollback-run-2");
+    OperationContext userContext = newUserContext();
+
+    AspectRowSummary row =
+        new AspectRowSummary()
+            .setUrn(GUARDED_PROPERTY_URN.toString())
+            .setAspectName(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)
+            .setKeyAspect(false)
+            .setVersion(0)
+            .setTimestamp(0L);
+
+    service.rollbackRun(userContext, List.of(row), "rollback-run-2", false);
+
+    ArgumentCaptor<MetadataChangeLog> changelog = ArgumentCaptor.forClass(MetadataChangeLog.class);
+    verify(service, atLeastOnce())
+        .alwaysProduceMCLAsync(
+            any(OperationContext.class), any(Urn.class), any(), changelog.capture());
+    for (MetadataChangeLog written : changelog.getAllValues()) {
+      assertEquals(
+          written.getCreated().getActor(), userContext.getSessionActorContext().getActorUrn());
+    }
+  }
+
+  /**
+   * A soft delete run as a user writes the removed status with that user's stamp, matching the
+   * delete changelog. It used to be the system whoever ran it.
+   */
+  @Test
+  public void testSoftDeleteStatusIsStampedWithTheCaller() {
+    AspectDao dao = mock(AspectDao.class);
+    EntityServiceImpl service =
+        spy(
+            new EntityServiceImpl(
+                dao,
+                mock(EventProducer.class),
+                mock(PreProcessHooks.class),
+                testConfig(),
+                metricUtils));
+    OperationContext userContext = newUserContext();
+    Urn urn = UrnUtils.getUrn("urn:li:corpuser:softDeleteStamp");
+    String keyAspectName = userContext.getKeyAspectName(urn);
+    SystemAspect latestKey =
+        EbeanSystemAspect.builder()
+            .forUpdate(
+                new EbeanAspectV2(
+                    urn.toString(),
+                    keyAspectName,
+                    0L,
+                    RecordUtils.toJsonString(new CorpUserKey().setUsername("softDeleteStamp")),
+                    new Timestamp(System.currentTimeMillis()),
+                    TEST_AUDIT_STAMP.getActor().toString(),
+                    null,
+                    RecordUtils.toJsonString(SystemMetadataUtils.createDefaultSystemMetadata())),
+                testEntityRegistry);
+    when(dao.getLatestAspect(
+            any(OperationContext.class), eq(urn.toString()), eq(keyAspectName), eq(false)))
+        .thenReturn(latestKey);
+    when(dao.getVersionRange(any(OperationContext.class), eq(urn.toString()), eq(keyAspectName)))
+        .thenReturn(Pair.of(0L, 0L));
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(1);
+              return function.apply(TransactionContext.empty(3)).getResults();
+            })
+        .when(dao)
+        .runInTransactionWithRetry(any(), any(), anyInt());
+    doReturn(null)
+        .when(service)
+        .ingestProposal(
+            any(OperationContext.class),
+            any(MetadataChangeProposal.class),
+            any(AuditStamp.class),
+            anyBoolean());
+
+    service.deleteAspectWithoutMCL(
+        userContext, urn.toString(), keyAspectName, Collections.emptyMap(), false);
+
+    ArgumentCaptor<MetadataChangeProposal> proposal =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    ArgumentCaptor<AuditStamp> stamp = ArgumentCaptor.forClass(AuditStamp.class);
+    verify(service)
+        .ingestProposal(
+            any(OperationContext.class), proposal.capture(), stamp.capture(), eq(false));
+    assertEquals(proposal.getValue().getAspectName(), STATUS_ASPECT_NAME);
+    assertEquals(stamp.getValue().getActor(), userContext.getSessionActorContext().getActorUrn());
   }
 }

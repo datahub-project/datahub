@@ -1,6 +1,6 @@
 ### Overview
 
-The `odcs` module ingests Open Data Contract Standard (ODCS) v3.0 and v3.1 YAML files from
+The `odcs` module ingests Open Data Contract Standard (ODCS) v3.0, v3.1 and v3.2 YAML files from
 a path, directory, or glob, and models each contract as a **logical dataset** on the `odcs`
 platform: dataset properties, canonical schema metadata, ownership, top-level and
 column-level tags, a link to the source document, and the contract's `quality[]` rules as
@@ -21,14 +21,14 @@ this source and is being phased out. To ingest ODCS YAML, use `source.type: odcs
 ### Prerequisites
 
 **A single ODCS file may describe multiple tables.** Each `schema[]` entry becomes its own
-logical `odcs` Dataset. Contract-level metadata (description, owners, top-level tags)
-applies to every logical dataset by default. See the Concept Mapping table on the platform
+logical `odcs` Dataset. Contract-level owners and top-level tags apply to every logical
+dataset by default, and the contract `description` is added to every table's description. See the Concept Mapping table on the platform
 Overview above for per-row semantics, and the [Limitations](#limitations) section below for
 how to disable replication.
 
-- ODCS v3.0 and v3.1 are supported (any `3.0.x` patch level validates against the same
-  v3.0.2 JSON Schema; `3.1.0` against the v3.1 schema). Contracts whose `apiVersion` reports
-  v2.x — or any value outside `odcs_versions` — are skipped with a warning.
+- ODCS v3.0, v3.1 and v3.2 are supported (any `3.0.x` patch level validates against the same
+  v3.0.2 JSON Schema; `3.1.0` and `3.2.0` against their own schemas). Contracts whose
+  `apiVersion` reports v2.x — or any value outside `odcs_versions` — are skipped with a warning.
 - **Filter which datasets are ingested with `dataset_pattern`.** The allow/deny regexes
   match the composed logical dataset name (`{contract_id}.{schema_name}`, per
   `logical_dataset_name_template`). A non-matching `schema[]` entry is skipped along with its
@@ -51,7 +51,7 @@ how to disable replication.
   table's contract — and it requires `emit_logical_parent`.
 - **Physical binding is derived from the contract itself.** The spec requires
   `servers[].type`; the source maps supported types (postgres, mysql, snowflake, bigquery,
-  redshift, databricks, sqlserver, trino) to DataHub platforms and composes fully-qualified
+  redshift, databricks, sqlserver, trino, glue, iceberg) to DataHub platforms and composes fully-qualified
   dataset names from the server's own fields (e.g. `database.schema.table`). Use
   `server_overrides` to refine `env` / `platform_instance`, or `physical_urn_overrides`
   (keyed by contract id, then `schema[]` entry name) for explicit URNs. Binding affects only
@@ -74,9 +74,11 @@ how to disable replication.
   enable `LOGICAL_MODELS_ENABLED` to see the logical models, their assertions, and their
   physical links.
 - Files are loaded leniently by default (`strict_validation: false`) so that contracts with
-  extra or non-conformant fields are accepted with warnings. Spec-valid fields the source
-  does not map (SLA, support, pricing, relationships, …) are summarized once per file as an
-  info; genuinely unknown fields warn individually. Set `strict_validation: true` to fail on
+  extra or non-conformant fields are accepted with warnings. Spec-valid sections the source
+  does not read (SLA, support, pricing, relationships, …) are summarized once per file as an
+  info (`report.spec_fields_ignored`), together with fields the source reads but does not map;
+  genuinely unknown fields warn individually. See [Limitations](#limitations) for the full
+  list and the other lossy mappings that are reported. Set `strict_validation: true` to fail on
   JSON Schema violations — recommended for multi-tenant or untrusted directories.
 - **Stale-metadata removal uses standard stateful ingestion.** Enable it via the
   `stateful_ingestion` block (server-side checkpoints; requires a DataHub graph). When you

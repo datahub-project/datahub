@@ -21,6 +21,7 @@ from datahub.configuration.env_vars import (
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.transform_operation import cap_transform_operation
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -79,6 +80,16 @@ from datahub.utilities.perf_timer import PerfTimer
 logger = logging.getLogger(__name__)
 QueryId = str
 UrnStr = str
+
+
+def strip_platform_instance(name: str, platform_instance: Optional[str]) -> str:
+    """Return a dataset URN name without its platform_instance prefix.
+
+    This is the name form is_allowed_table and is_temp_table receive.
+    """
+    if platform_instance and name.startswith(platform_instance):
+        return name[len(platform_instance) + 1 :]
+    return name
 
 
 class QueryLogSetting(enum.Enum):
@@ -719,13 +730,9 @@ class SqlParsingAggregator(Closeable):
             # If this is external (e.g. s3), we don't know the name.
             return None
 
-        name = urn_obj.name
-        if (
-            platform_instance := self._schema_resolver.platform_instance
-        ) and name.startswith(platform_instance):
-            # Remove the platform instance from the name.
-            name = name[len(platform_instance) + 1 :]
-        return name
+        return strip_platform_instance(
+            urn_obj.name, self._schema_resolver.platform_instance
+        )
 
     def is_temp_table(self, urn: UrnStr) -> bool:
         if self._is_temp_table is None:
@@ -1727,7 +1734,8 @@ class SqlParsingAggregator(Closeable):
                         ],
                         query=self._query_urn_if_emitted(query),
                         confidenceScore=query.confidence_score,
-                        transformOperation=(
+                        # Cut before EnsureAspectSizeProcessor measures it; make_mcp() cuts only later.
+                        transformOperation=cap_transform_operation(
                             (
                                 f"COPY: {column_logic.column_logic}"
                                 if column_logic.is_direct_copy

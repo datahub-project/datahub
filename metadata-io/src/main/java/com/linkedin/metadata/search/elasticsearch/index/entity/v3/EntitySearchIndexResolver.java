@@ -1,11 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
-import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
-
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -13,9 +10,6 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import org.opensearch.index.query.BoolQueryBuilder;
-import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
 
 /**
  * Shared V2 vs V3 entity index list for non-vector (keyword) reads: search, list, browse,
@@ -80,39 +74,5 @@ public final class EntitySearchIndexResolver {
       return convention.getV3EntityIndexPatterns(opContext).get(0);
     }
     return convention.getEntityIndexName(opContext, "*");
-  }
-
-  /**
-   * Restricts a query to the requested entity types via {@code _entityType}.
-   *
-   * <p>V3 documents always store {@code _entityType}, including when the index is named after the
-   * entity rather than a shared search group. Entity-type scoped reads and deletes must still
-   * filter on the field so a shared group index (or leftover documents) cannot leak another type.
-   *
-   * <p>No-op for V2: those documents do not have {@code _entityType} as a real field.
-   */
-  public static void applyEntityTypeFilter(
-      @Nonnull BoolQueryBuilder query,
-      @Nonnull Collection<String> entityNames,
-      @Nullable EntityIndexConfiguration entityIndex) {
-    QueryBuilder entityTypeQuery = entityTypeQuery(entityNames, entityIndex);
-    if (entityTypeQuery != null) {
-      query.filter(entityTypeQuery);
-    }
-  }
-
-  @Nullable
-  public static QueryBuilder entityTypeQuery(
-      @Nonnull Collection<String> entityNames, @Nullable EntityIndexConfiguration entityIndex) {
-    if (!shouldReadV3(entityIndex) || entityNames.isEmpty()) {
-      return null;
-    }
-    // Callers often pass entity registry keys, which are lower-cased (glossaryterm), while V3
-    // stores the entity name (glossaryTerm). Entity names are unique ignoring case.
-    BoolQueryBuilder query = QueryBuilders.boolQuery().minimumShouldMatch(1);
-    for (String entityName : entityNames) {
-      query.should(QueryBuilders.termQuery(INDEX_VIRTUAL_FIELD, entityName).caseInsensitive(true));
-    }
-    return query;
   }
 }

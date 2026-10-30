@@ -16,6 +16,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
@@ -184,18 +185,51 @@ public class OwnershipTypeServiceTest {
   }
 
   @Test
-  private void testDeleteOwnershipTypeSuccess() throws Exception {
+  public void testDeleteOwnershipTypeSuccess() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final EntityClient.ReferencesCleanup references = mock(EntityClient.ReferencesCleanup.class);
+    Mockito.when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
 
     final OwnershipTypeService service = new OwnershipTypeService(mockClient);
 
     service.deleteOwnershipType(opContext, TEST_OWNERSHIP_TYPE_URN, true);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_OWNERSHIP_TYPE_URN));
+        .deleteEntityThenReferences(
+            any(OperationContext.class), Mockito.eq(TEST_OWNERSHIP_TYPE_URN));
+    Mockito.verify(references, Mockito.times(1)).run();
+  }
+
+  /** Without references, only the entity is deleted, so nothing can clean them elsewhere. */
+  @Test
+  public void testDeleteOwnershipTypeWithoutReferences() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+
+    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+
+    service.deleteOwnershipType(opContext, TEST_OWNERSHIP_TYPE_URN, false);
 
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_OWNERSHIP_TYPE_URN));
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_OWNERSHIP_TYPE_URN));
+    Mockito.verify(mockClient, Mockito.never()).deleteEntityThenReferences(any(), any());
+    Mockito.verify(mockClient, Mockito.never()).deleteEntityReferences(any(), any());
+  }
+
+  /** When the entity delete fails the references are not cleaned up, and the failure surfaces. */
+  @Test
+  public void testDeleteOwnershipTypeWithReferencesFailsWhenEntityDeleteFails() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    Mockito.when(mockClient.deleteEntityThenReferences(any(), any()))
+        .thenThrow(new RuntimeException("delete failed"));
+
+    final OwnershipTypeService service = new OwnershipTypeService(mockClient);
+
+    Assert.assertThrows(
+        RuntimeException.class,
+        () -> service.deleteOwnershipType(opContext, TEST_OWNERSHIP_TYPE_URN, true));
+
+    Mockito.verify(mockClient, Mockito.never()).deleteEntity(any(), any());
+    Mockito.verify(mockClient, Mockito.never()).deleteEntityReferences(any(), any());
   }
 
   @Test

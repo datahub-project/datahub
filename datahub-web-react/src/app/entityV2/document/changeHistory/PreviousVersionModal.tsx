@@ -1,10 +1,11 @@
-import { Modal, message } from 'antd';
+import { Modal, toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Editor } from '@components/components/Editor';
+
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import { Button, Editor } from '@src/alchemy-components';
 
 import { useUpdateDocumentContentsMutation } from '@graphql/document.generated';
 
@@ -30,7 +31,8 @@ const StyledEditor = styled(Editor)`
             padding: 0px 0;
             min-height: 400px;
         }
-        .remirror-editor.ProseMirror {
+        .remirror-editor.ProseMirror,
+        .datahub-editor-content {
             font-size: 15px;
             line-height: 1.7;
             color: ${(props) => props.theme.colors.textSecondary};
@@ -45,14 +47,6 @@ const EmptyContent = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};
     font-style: italic;
     padding: 20px;
-`;
-
-const ModalFooter = styled.div`
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding-top: 16px;
-    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 interface PreviousVersionModalProps {
@@ -89,14 +83,14 @@ export const PreviousVersionModal: React.FC<PreviousVersionModalProps> = ({
                 awaitRefetchQueries: true,
             });
 
-            message.success(t('document.documentRestoredSuccess'));
+            toast.success(t('document.documentRestoredSuccess'));
 
             // Close modals
             setShowConfirmRestore(false);
             onClose();
         } catch (error) {
             console.error('Failed to restore document content:', error);
-            message.error(t('document.documentRestoreError'));
+            toast.error(t('document.documentRestoreError'));
         }
     };
 
@@ -107,8 +101,22 @@ export const PreviousVersionModal: React.FC<PreviousVersionModalProps> = ({
                 open={open}
                 onCancel={onClose}
                 width={1200}
-                footer={null}
                 style={{ top: 40 }}
+                buttons={[
+                    {
+                        text: tc('cancel'),
+                        variant: 'text',
+                        color: 'gray',
+                        onClick: onClose,
+                        disabled: restoring,
+                    },
+                    {
+                        text: tc('restore'),
+                        variant: 'filled',
+                        onClick: () => setShowConfirmRestore(true),
+                        disabled: restoring,
+                    },
+                ]}
             >
                 <ModalContent>
                     <ContentPreview>
@@ -123,15 +131,6 @@ export const PreviousVersionModal: React.FC<PreviousVersionModalProps> = ({
                             <EmptyContent>{t('document.emptyContent')}</EmptyContent>
                         )}
                     </ContentPreview>
-
-                    <ModalFooter>
-                        <Button variant="text" color="gray" onClick={onClose} disabled={restoring}>
-                            {tc('cancel')}
-                        </Button>
-                        <Button variant="filled" onClick={() => setShowConfirmRestore(true)} disabled={restoring}>
-                            {tc('restore')}
-                        </Button>
-                    </ModalFooter>
                 </ModalContent>
             </Modal>
 
