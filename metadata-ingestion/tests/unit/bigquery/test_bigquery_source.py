@@ -81,6 +81,7 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
+from tests.unit.bigquery.query_result_fakes import FakeResultPage
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -576,21 +577,10 @@ def test_gen_table_dataset_workunits(
     assert len(mcps) >= 7
 
 
-class _Page:
-    """Stand-in for a BigQuery result page, which exposes num_items without copying rows."""
-
-    def __init__(self, items: list[Any]) -> None:
-        self.num_items = len(items)
-        self._items = items
-
-    def __iter__(self) -> Iterator[Any]:
-        return iter(self._items)
-
-
 def _query_result(items: list[Any]) -> MagicMock:
     rows = MagicMock()
     rows.total_rows = len(items)
-    rows.pages = [_Page(items)]
+    rows.pages = [FakeResultPage(items)]
     return rows
 
 
