@@ -22,6 +22,7 @@ from datahub.executor.execution.runner import (
     VenvReference,
     _bundled_constraints_path,
     _expand_pip_req,
+    _explicit_requirement_names,
     _validate_wheel_url,
     setup_venv,
     validate_dependency_resolution_enabled,
@@ -1095,6 +1096,172 @@ class TestSetupVenvConstraints:
         pass2_cmd = extra_installs[0][0][0]
         assert "--reinstall" not in pass2_cmd
         assert "--reinstall-package" not in pass2_cmd
+
+
+class TestNoDatahubConstraints:
+    """NO_ACRYL_DATAHUB venvs install extra requirements under the executor's lock.
+
+    There is no pass 1 to pin acryl-datahub's tree for these, so the single
+    pass-2 install used to resolve everything from scratch on every fresh
+    executor pod (pyarrow 26.0.0 broke datahub-usage-reporting that way).
+    """
+
+    _CLOUD_REQ = (
+        "acryl-datahub-cloud[datahub-usage-reporting]"
+        "@/metadata-ingestion-modules/acryl-cloud"
+    )
+
+    @pytest.fixture
+    def temp_dir(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            yield Path(tmp_dir)
+
+    @pytest.fixture
+    def executor_constraints(self, temp_dir):
+        f = temp_dir / "executor-constraints.txt"
+        f.write_text(
+            "acryl-datahub-cloud==0.3.14.1 ; python_full_version >= '3.11'\n"
+            "    # via acryl-datahub\n"
+            "pyarrow==18.0.0 ; python_full_version >= '3.11'\n"
+            "setuptools==84.0.0\n"
+        )
+        return f
+
+    def test_explicit_requirement_names(self):
+        names = _explicit_requirement_names(
+            [
+                self._CLOUD_REQ,
+                "Setup_Tools<82.0.0",
+                "pandas==2.1.0 ; python_version >= '3.11'",
+                "-e ./local-pkg",
+                "https://example.com/pkg-1.0-py3-none-any.whl",
+                "# comment",
+            ]
+        )
+        assert names == {"acryl-datahub-cloud", "setup-tools", "pandas"}
+
+    @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
+    async def test_no_datahub_pass2_is_constrained(
+        self, _find_uv, temp_dir, executor_constraints
+    ):
+        config = VenvConfig(
+            version=VENV_NO_DATAHUB,
+            main_plugin="datahub-usage-reporting",
+            extra_pip_requirements=[self._CLOUD_REQ],
+        )
+        runner = SubprocessRunner()
+        mock = AsyncMock(side_effect=_mock_venv_execute)
+
+        with (
+            patch(
+                "datahub.executor.execution.runner._executor_constraints_path",
+                return_value=executor_constraints,
+            ),
+            patch.object(runner, "execute", mock),
+        ):
+            await setup_venv(config, runner, temp_dir)
+
+        installs = _extract_pip_installs(mock)
+        assert len(installs) == 1
+        cmd = installs[0][0][0]
+        assert "--constraint" in cmd
+        written = Path(cmd[cmd.index("--constraint") + 1]).read_text()
+        assert "pyarrow==18.0.0" in written
+        assert "setuptools==84.0.0" in written
+        # The recipe installs acryl-datahub-cloud from a local path; the lock's
+        # PyPI pin for it must not be applied or the two would conflict.
+        assert "acryl-datahub-cloud" not in written
+
+    @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
+    async def test_no_datahub_without_executor_lock_is_unconstrained(
+        self, _find_uv, temp_dir
+    ):
+        config = VenvConfig(
+            version=VENV_NO_DATAHUB,
+            main_plugin="datahub-usage-reporting",
+            extra_pip_requirements=[self._CLOUD_REQ],
+        )
+        runner = SubprocessRunner()
+        mock = AsyncMock(side_effect=_mock_venv_execute)
+
+        with (
+            patch(
+                "datahub.executor.execution.runner._executor_constraints_path",
+                return_value=None,
+            ),
+            patch.object(runner, "execute", mock),
+        ):
+            await setup_venv(config, runner, temp_dir)
+
+        installs = _extract_pip_installs(mock)
+        assert len(installs) == 1
+        assert "--constraint" not in installs[0][0][0]
+
+    @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
+    async def test_no_datahub_falls_back_when_lock_conflicts(
+        self, _find_uv, temp_dir, executor_constraints
+    ):
+        """A lock the recipe cannot satisfy must not take the system source down."""
+
+        async def _execute(command, env=None, cwd=None):
+            await _mock_venv_execute(command, env=env, cwd=cwd)
+            if "--constraint" in command:
+                raise subprocess.CalledProcessError(1, command)
+
+        config = VenvConfig(
+            version=VENV_NO_DATAHUB,
+            main_plugin="datahub-usage-reporting",
+            extra_pip_requirements=[self._CLOUD_REQ],
+        )
+        runner = SubprocessRunner()
+        mock = AsyncMock(side_effect=_execute)
+
+        with (
+            patch(
+                "datahub.executor.execution.runner._executor_constraints_path",
+                return_value=executor_constraints,
+            ),
+            patch.object(runner, "execute", mock),
+        ):
+            await setup_venv(config, runner, temp_dir)
+
+        installs = _extract_pip_installs(mock)
+        assert len(installs) == 2
+        assert "--constraint" in installs[0][0][0]
+        assert "--constraint" not in installs[1][0][0]
+        assert (
+            "retrying extra requirements without constraints" in runner.logs.get_logs()
+        )
+
+    @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
+    async def test_pinned_version_pass2_stays_unconstrained(
+        self, _find_uv, temp_dir, executor_constraints
+    ):
+        """Only the no-datahub path changes; pass 2 after a pass-1 install is untouched."""
+        config = VenvConfig(
+            version="0.12.1",
+            main_plugin="snowflake",
+            extra_pip_requirements=["pandas==2.1.0"],
+        )
+        runner = SubprocessRunner()
+        mock = AsyncMock(side_effect=_mock_venv_execute)
+
+        with (
+            patch(
+                "datahub.executor.execution.runner._bundled_constraints_path",
+                return_value=executor_constraints,
+            ),
+            patch(
+                "datahub.executor.execution.runner._executor_constraints_path"
+            ) as executor_lock,
+            patch.object(runner, "execute", mock),
+        ):
+            await setup_venv(config, runner, temp_dir)
+
+        executor_lock.assert_not_called()
+        pass2 = [c for c in _extract_pip_installs(mock) if "-r" in c[0][0]]
+        assert len(pass2) == 1
+        assert "--constraint" not in pass2[0][0][0]
 
 
 class TestWheelBundledConstraints:
