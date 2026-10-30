@@ -28,6 +28,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     BQ_SAFETY_ROW_LIMIT,
     BQ_SAFETY_ROW_LIMIT_THRESHOLD,
     CUSTOM_SQL_KWARG,
+    DATE_FORMAT_DATETIME_OFFSET,
     DATE_FORMAT_YYYY_MM_DD,
     DATE_LIKE_COLUMN_NAMES,
     DATE_LITERAL_SHAPES,
@@ -1164,7 +1165,7 @@ class BigqueryProfiler(GenericProfiler):
         # Narrow a discovered half-open temporal range (`col >= L AND col < U`) to its
         # last `window_days`, anchored on the discovered upper bound U. Returns the
         # rewritten predicate, or None when either bound can't be parsed as a date literal
-        # (e.g. a full TIMESTAMP with a time component) or the window does not strictly
+        # or the window does not strictly
         # fall inside (L, U) — i.e. it already spans the whole range (window_days wider
         # than the partition) or collapses to an empty range (window_days == 0). In those
         # cases the caller leaves the discovered range untouched.
@@ -1205,7 +1206,8 @@ class BigqueryProfiler(GenericProfiler):
         return None
 
     def _parse_date_literal(self, literal: str) -> Optional[DateLiteralSpec]:
-        # Recognises bare and quoted YYYYMMDD / YYYY-MM-DD / YYYYMMDDHH literals,
+        # Recognises bare and quoted YYYYMMDD / YYYY-MM-DD / YYYYMMDDHH literals and the
+        # `YYYY-MM-DD HH:MM:SS[+HH:MM]` bounds discovery renders for DATETIME/TIMESTAMP,
         # optionally wrapped in DATE()/DATETIME()/TIMESTAMP(). Returns None for
         # anything else so the caller can leave that filter unchanged.
         text = literal.strip()
@@ -1233,7 +1235,11 @@ class BigqueryProfiler(GenericProfiler):
     def _render_date_bound(
         value: datetime, fmt: str, quoted: bool, wrapper: Optional[str]
     ) -> str:
-        rendered = value.strftime(STRFTIME_FORMATS[fmt])
+        if fmt == DATE_FORMAT_DATETIME_OFFSET:
+            # strftime's %z renders "+0000"; keep the "+00:00" form the bound was read in.
+            rendered = value.isoformat(sep=" ", timespec="seconds")
+        else:
+            rendered = value.strftime(STRFTIME_FORMATS[fmt])
         if quoted:
             rendered = f"'{rendered}'"
         if wrapper:

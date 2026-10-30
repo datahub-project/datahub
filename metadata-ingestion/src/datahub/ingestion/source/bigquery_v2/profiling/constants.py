@@ -233,11 +233,15 @@ PARTITION_FILTER_PATTERN = re.compile(
 DATE_FORMAT_YYYYMMDD = "YYYYMMDD"
 DATE_FORMAT_YYYY_MM_DD = "YYYY-MM-DD"
 DATE_FORMAT_YYYYMMDDHH = "YYYYMMDDHH"
+DATE_FORMAT_DATETIME = "YYYY-MM-DD HH:MM:SS"
+DATE_FORMAT_DATETIME_OFFSET = "YYYY-MM-DD HH:MM:SS+HH:MM"
 
 STRFTIME_FORMATS = {
     DATE_FORMAT_YYYYMMDD: "%Y%m%d",
     DATE_FORMAT_YYYY_MM_DD: "%Y-%m-%d",
     DATE_FORMAT_YYYYMMDDHH: "%Y%m%d%H",
+    DATE_FORMAT_DATETIME: "%Y-%m-%d %H:%M:%S",
+    DATE_FORMAT_DATETIME_OFFSET: "%Y-%m-%d %H:%M:%S%z",
 }
 
 # Matches an ISO 8601 date string, used to detect YYYY-MM-DD strings destined for
@@ -246,6 +250,11 @@ ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 # BigQuery partition-id / date-literal shapes normalised by FilterBuilder.
 DATETIME_SECONDS_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+# The TIMESTAMP range bound FilterBuilder._format_bound_literal renders for a
+# tz-aware value, e.g. "2024-01-01 00:00:00+00:00".
+DATETIME_SECONDS_OFFSET_PATTERN = re.compile(
+    r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$"
+)
 # A DATETIME/TIMESTAMP value sampled from BigQuery can carry a 'T' separator,
 # fractional seconds, and/or a trailing UTC offset (e.g.
 # "2025-01-15T10:30:00.123456+00:00"). These are valid literals BigQuery casts, so
@@ -315,6 +324,8 @@ DATE_LITERAL_SHAPES = (
     (DATE_FORMAT_YYYYMMDDHH, PARTITION_ID_YYYYMMDDHH_PATTERN),
     (DATE_FORMAT_YYYY_MM_DD, ISO_DATE_PATTERN),
     (DATE_FORMAT_YYYYMMDD, PARTITION_ID_YYYYMMDD_PATTERN),
+    (DATE_FORMAT_DATETIME, DATETIME_SECONDS_PATTERN),
+    (DATE_FORMAT_DATETIME_OFFSET, DATETIME_SECONDS_OFFSET_PATTERN),
 )
 
 
