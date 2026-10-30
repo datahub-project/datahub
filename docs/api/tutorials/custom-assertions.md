@@ -265,6 +265,31 @@ The full list of supported error types include:
 
 If the result is `true`, the result was successfully reported.
 
+You can also report the numeric values observed during the run with the optional `actualAggValue` (Float), `rowCount`,
+`unexpectedCount` and `missingCount` (Long) fields. They are stored only for `SUCCESS` and `FAILURE` results. For example:
+
+```graphql
+mutation reportAssertionResult {
+  reportAssertionResult(
+    urn: "urn:li:assertion:<your-new-assertion-id>"
+    result: {
+      type: FAILURE
+      actualAggValue: 0.12 # e.g. the observed null fraction (12% of rows are null)
+      rowCount: 1000
+      missingCount: 120
+    }
+  )
+}
+```
+
+`actualAggValue` is stored as a 32-bit float, so only about 7 significant digits are kept (for example `123456789` is
+stored as `123456792`). Use `rowCount`, `unexpectedCount` and `missingCount` for exact counts.
+
+These values are not yet shown in the DataHub UI. They can be read back through the API by requesting the same fields
+on `runEvents { runEvents { result { ... } } }` (see
+[Retrieve Results For Custom Assertions](#retrieve-results-for-custom-assertions)). To also show them alongside the
+result in the UI, include them in `properties` as well.
+
 </TabItem>
 <TabItem value="python" label="Python">
 
