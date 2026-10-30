@@ -198,3 +198,22 @@ def test_events_without_sql_are_skipped() -> None:
     )
     assert entries == []
     assert report.num_entries_failed == 0
+
+
+def test_timestamps_of_different_precision_sort_by_time() -> None:
+    # `.` sorts before `Z`, so string order would put 05.500Z ahead of 05Z.
+    def at(sql: str, ts: str) -> Dict[str, Any]:
+        event = _event(sql, 0)
+        event["udm"]["metadata"]["eventTimestamp"] = ts
+        return event
+
+    events = [
+        at("third", "2026-10-01T00:00:05.500Z"),
+        at("second", "2026-10-01T00:00:05Z"),
+        at("first", "2026-10-01T02:00:04.999999999+02:00"),
+    ]
+    entries, _ = _read(
+        _config(end_time=(START + timedelta(hours=1)).isoformat()),
+        _FakeSession(lambda s, e: (events, False)),
+    )
+    assert [e.query for e in entries] == ["first", "second", "third"]

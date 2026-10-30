@@ -963,8 +963,8 @@ class SecOpsQueryLogReader(QueryLogReader):
                 )
             yield from sorted(
                 events,
-                key=lambda event: str(
-                    self._get(event.get("udm") or {}, timestamp_path) or ""
+                key=lambda event: _event_time(
+                    self._get(event.get("udm") or {}, timestamp_path)
                 ),
             )
 
@@ -984,6 +984,21 @@ class SecOpsQueryLogReader(QueryLogReader):
             )
         finally:
             session.close()
+
+
+def _event_time(value: Any) -> datetime:
+    """A UDM timestamp as a datetime, for ordering.
+
+    Proto JSON timestamps carry 0, 3, 6 or 9 fractional digits, so they can't be
+    compared as strings: `...:05Z` would sort after `...:05.500Z`. A missing or
+    unparseable value sorts first rather than failing the window.
+    """
+    if value:
+        try:
+            return parse_user_datetime(str(value))
+        except (ValueError, OverflowError):
+            pass
+    return datetime.min.replace(tzinfo=timezone.utc)
 
 
 def _rfc3339(value: datetime) -> str:
