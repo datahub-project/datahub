@@ -1,11 +1,15 @@
 import json
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock
 
 import pytest
 
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnection,
+    SnowflakePermissionError,
+)
 from datahub.ingestion.source.snowflake.snowflake_iceberg import (
     SnowflakeIcebergHandler,
     build_storage_location,
@@ -439,7 +443,34 @@ class TestRegisterLineage:
         handler.graph.get_urns_by_filter.assert_not_called()  # type: ignore[union-attr]
 
 
-class TestProcessTablesGating:
+@dataclass
+class _ProcessTablesHarness:
+    gen: SnowflakeSchemaGenerator
+    handler: MagicMock
+    report: MagicMock
+
+    def process(self, tables: List[SnowflakeTable]) -> None:
+        list(self.gen._process_tables(tables, MagicMock(), "MY_DB", "MY_SCHEMA"))
+
+
+def _process_tables_harness(metadata: bool, lineage: bool) -> _ProcessTablesHarness:
+    handler = MagicMock(spec=SnowflakeIcebergHandler)
+    report = MagicMock()
+    gen = SnowflakeSchemaGenerator.__new__(SnowflakeSchemaGenerator)
+    gen.aggregator = None
+    gen.report = report
+    gen.identifiers = MagicMock()
+    gen.filters = MagicMock()
+    gen.config = MagicMock()
+    gen.config.include_technical_schema = False
+    gen.dynamic_table_identifiers = set()
+    gen.include_iceberg_metadata = metadata
+    gen.include_iceberg_external_lineage = lineage
+    gen.iceberg_handler = handler
+    return _ProcessTablesHarness(gen=gen, handler=handler, report=report)
+
+
+class TestProcessTables:
     @pytest.mark.parametrize(
         "metadata,lineage,expect_enrich,expect_lineage",
         [
@@ -451,30 +482,51 @@ class TestProcessTablesGating:
     def test_flags_gate_the_iceberg_handler(
         self, metadata: bool, lineage: bool, expect_enrich: bool, expect_lineage: bool
     ) -> None:
-        gen = SnowflakeSchemaGenerator.__new__(SnowflakeSchemaGenerator)
-        gen.aggregator = None
-        gen.report = MagicMock()
-        gen.identifiers = MagicMock()
-        gen.filters = MagicMock()
-        gen.config = MagicMock()
-        gen.config.include_technical_schema = False
-        gen.dynamic_table_identifiers = set()
-        gen.include_iceberg_metadata = metadata
-        gen.include_iceberg_external_lineage = lineage
-        gen.iceberg_handler = MagicMock(spec=SnowflakeIcebergHandler)
+        harness = _process_tables_harness(metadata, lineage)
         iceberg = _table("EVENTS")
 
-        list(
-            gen._process_tables(
-                [iceberg, _table("PLAIN", is_iceberg=False)],
-                MagicMock(),
-                "MY_DB",
-                "MY_SCHEMA",
-            )
-        )
+        harness.process([iceberg, _table("PLAIN", is_iceberg=False)])
 
-        assert gen.iceberg_handler.enrich_tables.called == expect_enrich
+        assert harness.handler.enrich_tables.called == expect_enrich
         if expect_enrich:
             # Only the Iceberg tables reach the handler.
-            assert gen.iceberg_handler.enrich_tables.call_args.args[0] == [iceberg]
-        assert gen.iceberg_handler.register_lineage.called == expect_lineage
+            assert harness.handler.enrich_tables.call_args.args[0] == [iceberg]
+        assert harness.handler.register_lineage.called == expect_lineage
+
+    @pytest.mark.parametrize(
+        "error,expect_permission_hint",
+        [
+            (SnowflakePermissionError("Insufficient privileges"), True),
+            (RuntimeError("connection reset"), False),
+        ],
+    )
+    def test_enrichment_failure_is_reported_and_does_not_abort_schema(
+        self, error: Exception, expect_permission_hint: bool
+    ) -> None:
+        harness = _process_tables_harness(metadata=True, lineage=True)
+        harness.handler.enrich_tables.side_effect = error
+
+        # Must not raise: this runs inside a per-schema worker.
+        harness.process([_table("EVENTS")])
+
+        warning = harness.report.warning.call_args
+        assert warning.kwargs["title"] == "Failed to fetch Iceberg table details"
+        assert warning.kwargs["context"] == "MY_DB.MY_SCHEMA"
+        assert warning.kwargs["exc"] is error
+        assert ("permissions" in warning.kwargs["message"]) == expect_permission_hint
+        # Lineage is still attempted for the tables (it skips them without info).
+        harness.handler.register_lineage.assert_called_once()
+
+    def test_lineage_failure_is_reported_per_table(self) -> None:
+        harness = _process_tables_harness(metadata=True, lineage=True)
+        error = RuntimeError("aggregator exploded")
+        harness.handler.register_lineage.side_effect = [error, None]
+
+        harness.process([_table("EVENTS"), _table("ORDERS")])
+
+        assert harness.handler.register_lineage.call_count == 2
+        harness.report.warning.assert_called_once_with(
+            "Failed to register Iceberg table lineage",
+            "MY_DB.MY_SCHEMA.EVENTS",
+            exc=error,
+        )
