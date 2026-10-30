@@ -13,7 +13,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterator, List, Optional
+from typing import BinaryIO, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import click
@@ -101,8 +101,21 @@ class IndexFileEntry:
     wait_for_completion: bool = False
 
 
+@dataclass
+class ResolvedIndex:
+    """The data files resolved from a pack file."""
+
+    entries: List[IndexFileEntry]
+    # URLs of listed data files that could not be fetched and were skipped.
+    failed_urls: List[str]
+
+
 def _fetch_url_to_path(url: str, dest: pathlib.Path) -> None:
-    """Fetch a URL (http or file://) and write to dest path."""
+    """Fetch a URL (http or file://) and write to dest path.
+
+    Writes to a temporary file and moves it into place only when the fetch
+    completes, so a failed fetch leaves any existing file at dest unchanged.
+    """
     dest.parent.mkdir(parents=True, exist_ok=True)
     parsed = urlparse(url)
 
@@ -110,24 +123,38 @@ def _fetch_url_to_path(url: str, dest: pathlib.Path) -> None:
         local_path = pathlib.Path(parsed.path)
         if not local_path.exists():
             raise click.ClickException(f"Local file not found: {local_path}")
-        shutil.copy2(local_path, dest)
-    else:
-        with _build_fetch_session() as session:
-            response = session.get(url, stream=True, timeout=120)
-            response.raise_for_status()
 
-            content_length = response.headers.get("content-length")
-            total = int(content_length) if content_length else None
+    fd, tmp_name = tempfile.mkstemp(dir=dest.parent, prefix=f".{dest.name}.")
+    tmp_path = pathlib.Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            if parsed.scheme == "file":
+                with open(local_path, "rb") as src:
+                    shutil.copyfileobj(src, f)
+            else:
+                _stream_url_to_file(url, f)
+        os.replace(tmp_path, dest)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
-            with open(dest, "wb") as f:
-                if total:
-                    with click.progressbar(length=total, label="Downloading") as bar:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                            bar.update(len(chunk))
-                else:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
+
+def _stream_url_to_file(url: str, f: BinaryIO) -> None:
+    with _build_fetch_session() as session:
+        response = session.get(url, stream=True, timeout=120)
+        response.raise_for_status()
+
+        content_length = response.headers.get("content-length")
+        total = int(content_length) if content_length else None
+
+        if total:
+            with click.progressbar(length=total, label="Downloading") as bar:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+                    bar.update(len(chunk))
+        else:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
 
 
 def _cached_index_version(pack: DataPackInfo) -> Optional[str]:
@@ -203,10 +230,10 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
             if not fetch_ok:
                 # Network error — use cache as fallback
                 click.echo("Using cached pack (could not reach remote).")
-                return _resolve_index_file(cache_path, pack, no_cache=False)
+                return _resolve_index_file(cache_path, pack, no_cache=False).entries
             elif remote_version and cached_version and remote_version == cached_version:
                 click.echo(f"Using cached pack (version {cached_version}).")
-                return _resolve_index_file(cache_path, pack, no_cache=False)
+                return _resolve_index_file(cache_path, pack, no_cache=False).entries
             elif remote_version and cached_version:
                 click.echo(
                     f"Pack updated ({cached_version} -> {remote_version}), "
@@ -222,12 +249,12 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
             actual = _sha256_file(cache_path)
             if actual == pack.sha256:
                 click.echo(f"Using cached pack: {cache_path}")
-                return _resolve_index_file(cache_path, pack, no_cache=False)
+                return _resolve_index_file(cache_path, pack, no_cache=False).entries
             else:
                 click.echo("Cached file checksum mismatch, re-downloading...")
         else:
             click.echo(f"Using cached pack: {cache_path}")
-            return _resolve_index_file(cache_path, pack, no_cache=False)
+            return _resolve_index_file(cache_path, pack, no_cache=False).entries
 
     # Download the pack URL
     click.echo(f"Downloading data pack '{pack.name}' from {pack.url}")
@@ -251,9 +278,12 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
 
     # The pack file was just re-downloaded, so its data files may have changed
     # under the same names. Refetch them rather than reusing cached copies.
-    entries = _resolve_index_file(cache_path, pack, no_cache=True)
+    resolved = _resolve_index_file(cache_path, pack, no_cache=True)
 
-    # Save index version if present
+    # Record the new version only when every data file was refetched. Otherwise
+    # the next load would treat the pack as current and skip the missing files.
+    if resolved.failed_urls:
+        return resolved.entries
     try:
         with open(cache_path) as f:
             content = json.load(f)
@@ -262,42 +292,44 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
     except (json.JSONDecodeError, OSError):
         pass
 
-    return entries
+    return resolved.entries
 
 
 def _resolve_index_file(
     cache_path: pathlib.Path,
     pack: DataPackInfo,
     no_cache: bool,
-) -> List[IndexFileEntry]:
+) -> ResolvedIndex:
     """If the downloaded file is an index, fetch listed files and return entries.
 
     Index files are JSON objects with a "files" key. Each entry can be a
     string (filename) or an object with "path" and optional "wait_for_completion".
     Data files (JSON arrays) return a single entry.
 
-    Returns a list of IndexFileEntry objects, one per file to load.
+    Returns one IndexFileEntry per file to load, plus the URLs of listed
+    files that could not be fetched.
     """
     try:
         with open(cache_path) as f:
             content = json.load(f)
     except (json.JSONDecodeError, OSError):
-        return [IndexFileEntry(path=cache_path)]
+        return ResolvedIndex(entries=[IndexFileEntry(path=cache_path)], failed_urls=[])
 
     if isinstance(content, list):
-        return [IndexFileEntry(path=cache_path)]
+        return ResolvedIndex(entries=[IndexFileEntry(path=cache_path)], failed_urls=[])
 
     if not isinstance(content, dict) or "files" not in content:
-        return [IndexFileEntry(path=cache_path)]
+        return ResolvedIndex(entries=[IndexFileEntry(path=cache_path)], failed_urls=[])
 
     file_list = content["files"]
     if not file_list:
-        return [IndexFileEntry(path=cache_path)]
+        return ResolvedIndex(entries=[IndexFileEntry(path=cache_path)], failed_urls=[])
 
     base_url = pack.url.rsplit("/", 1)[0]
     click.echo(f"Index file detected with {len(file_list)} data files.")
 
     entries: List[IndexFileEntry] = []
+    failed_urls: List[str] = []
     for item in file_list:
         # Support both string and object entries
         if isinstance(item, str):
@@ -324,6 +356,7 @@ def _resolve_index_file(
             entries.append(IndexFileEntry(path=cached, wait_for_completion=wait))
         except Exception:
             logger.warning("Failed to fetch %s, skipping", file_url, exc_info=True)
+            failed_urls.append(file_url)
 
     click.echo(f"Resolved {len(entries)} data files from index.")
     if not entries:
@@ -331,7 +364,7 @@ def _resolve_index_file(
             f"Failed to download any data files for pack '{pack.name}'. "
             "Check the URLs and your network connection."
         )
-    return entries
+    return ResolvedIndex(entries=entries, failed_urls=failed_urls)
 
 
 def check_trust(

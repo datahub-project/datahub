@@ -5,7 +5,9 @@ import hashlib
 import json
 import os
 import pathlib
+import shutil
 from datetime import datetime, timezone
+from typing import BinaryIO
 from unittest.mock import MagicMock, patch
 
 import click
@@ -963,7 +965,7 @@ class TestIndexFileResolution:
         data_file.write_text(json.dumps(data))
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{data_file}")
-        entries = _resolve_index_file(data_file, pack, no_cache=False)
+        entries = _resolve_index_file(data_file, pack, no_cache=False).entries
         assert len(entries) == 1
         assert entries[0].path == data_file
         assert not entries[0].wait_for_completion
@@ -984,7 +986,7 @@ class TestIndexFileResolution:
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{index_file}")
         with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
-            entries = _resolve_index_file(index_file, pack, no_cache=False)
+            entries = _resolve_index_file(index_file, pack, no_cache=False).entries
 
         assert len(entries) == 2
         assert all(e.path.exists() for e in entries)
@@ -1008,7 +1010,7 @@ class TestIndexFileResolution:
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{index_file}")
         with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
-            entries = _resolve_index_file(index_file, pack, no_cache=False)
+            entries = _resolve_index_file(index_file, pack, no_cache=False).entries
 
         assert len(entries) == 2
         assert entries[0].wait_for_completion is True
@@ -1027,7 +1029,7 @@ class TestIndexFileResolution:
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{index_file}")
         with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
-            entries = _resolve_index_file(index_file, pack, no_cache=False)
+            entries = _resolve_index_file(index_file, pack, no_cache=False).entries
 
         assert len(entries) == 1
 
@@ -1039,7 +1041,7 @@ class TestIndexFileResolution:
         obj_file.write_text(json.dumps(obj))
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{obj_file}")
-        entries = _resolve_index_file(obj_file, pack, no_cache=False)
+        entries = _resolve_index_file(obj_file, pack, no_cache=False).entries
         assert len(entries) == 1
         assert entries[0].path == obj_file
 
@@ -1190,6 +1192,57 @@ class TestIndexVersionCache:
 
         assert [e.path for e in entries] == [cached_child]
         assert cached_child.read_text() == expected_content
+
+    def test_failed_refetch_keeps_cache_and_retries(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """A refetch that fails partway leaves the cached file intact and is retried next load."""
+        from datahub.cli.datapack.loader import _cached_index_version
+
+        remote = tmp_path / "remote"
+        remote.mkdir()
+        (remote / "index.json").write_text(
+            json.dumps({"version": "5", "files": ["01-data.json", "04-queries.json"]})
+        )
+        (remote / "01-data.json").write_text("data")
+        (remote / "04-queries.json").write_text("new")
+
+        pack = DataPackInfo(
+            name="upgraded", description="t", url=f"file://{remote / 'index.json'}"
+        )
+        real_copyfileobj = shutil.copyfileobj
+
+        def fail_on_queries(src: BinaryIO, dst: BinaryIO) -> None:
+            if src.name.endswith("04-queries.json"):
+                dst.write(b"ne")
+                raise OSError("connection reset")
+            real_copyfileobj(src, dst)
+
+        cache_dir = tmp_path / "cache"
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
+            cached_child = self._seed_cache_at_version(
+                pack,
+                child_url=f"file://{remote / '04-queries.json'}",
+                version="4",
+                child_content="old",
+            )
+
+            with patch(
+                "datahub.cli.datapack.loader.shutil.copyfileobj",
+                side_effect=fail_on_queries,
+            ):
+                entries = download_pack(pack)
+
+            assert cached_child not in [e.path for e in entries]
+            assert cached_child.read_text() == "old"
+            assert _cached_index_version(pack) == "4"
+            assert not [p for p in cache_dir.iterdir() if p.name.startswith(".")]
+
+            entries = download_pack(pack)
+
+            assert cached_child in [e.path for e in entries]
+            assert cached_child.read_text() == "new"
+            assert _cached_index_version(pack) == "5"
 
     def test_non_index_pack_unchanged(self, tmp_path: pathlib.Path) -> None:
         """Non-index packs (direct data files) use existing cache behavior."""
