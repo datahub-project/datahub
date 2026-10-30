@@ -32,7 +32,12 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
 
 # Setup the PPA for alternative Python versions.
 # TODO: Eventually we should switch to using uv's support for python-build-standalone.
-RUN apt-get update && apt-get install -y \
+# Cache-bust the apt layer so a cached build cannot keep a stale ca-certificates
+# package. Bump UBUNTU_PKG_REFRESH to force a fresh `apt-get install` whenever base
+# packages need refreshing.
+ARG UBUNTU_PKG_REFRESH=2026-10-27
+RUN echo "ubuntu pkg refresh: ${UBUNTU_PKG_REFRESH}" && \
+    apt-get update && apt-get install -y \
     software-properties-common \
     lsb-release \
     gnupg \
@@ -81,3 +86,5 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 # uv uses a different mechanism. See https://github.com/astral-sh/uv/issues/1474.
 ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
+# gRPC ignores SSL_CERT_FILE and trusts its own bundled roots.pem by default.
+ENV GRPC_DEFAULT_SSL_ROOTS_FILE_PATH="/etc/ssl/certs/ca-certificates.crt"

@@ -89,8 +89,6 @@ public class SampleDataFixtureConfiguration {
 
   @Autowired private SearchClientShim<?> _searchClient;
 
-  @Autowired private SearchClientShim<?> _longTailSearchClient;
-
   @Autowired
   @Qualifier("fixtureCustomSearchConfig")
   private CustomSearchConfiguration _customSearchConfiguration;
@@ -102,21 +100,8 @@ public class SampleDataFixtureConfiguration {
     return "smpldat";
   }
 
-  @Bean(name = "longTailPrefix")
-  protected String longTailIndexPrefix() {
-    return "lngtl";
-  }
-
   @Bean(name = "sampleDataIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("sampleDataPrefix") String prefix) {
-    return new IndexConventionImpl(
-        IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
-        new ConfiguredIndexPrefixResolver(prefix),
-        SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
-  }
-
-  @Bean(name = "longTailIndexConvention")
-  protected IndexConvention longTailIndexConvention(@Qualifier("longTailPrefix") String prefix) {
     return new IndexConventionImpl(
         IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
         new ConfiguredIndexPrefixResolver(prefix),
@@ -126,11 +111,6 @@ public class SampleDataFixtureConfiguration {
   @Bean(name = "sampleDataFixtureName")
   protected String sampleDataFixtureName() {
     return "sample_data";
-  }
-
-  @Bean(name = "longTailFixtureName")
-  protected String longTailFixtureName() {
-    return "long_tail";
   }
 
   @Bean(name = "sampleDataOperationContext")
@@ -150,30 +130,6 @@ public class SampleDataFixtureConfiguration {
             .searchableFieldPaths(
                 ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
             .searchClusterAccess(SearchClusterAccess.fixed(_searchClient))
-            .build();
-
-    return testOpContext.toBuilder()
-        .searchContext(searchContext)
-        .build(testOpContext.getSessionAuthentication(), true);
-  }
-
-  @Bean(name = "longTailOperationContext")
-  protected OperationContext longTailOperationContext(
-      @Qualifier("longTailIndexConvention") IndexConvention indexConvention) {
-
-    OperationContext testOpContext = TestOperationContexts.systemContextNoSearchAuthorization();
-
-    // Create real SearchContext using ESUtils methods
-    MappingsBuilder mappingsBuilder = createMappingsBuilder();
-    SearchContext searchContext =
-        SearchContext.builder()
-            .indexConvention(indexConvention)
-            .searchableFieldTypes(
-                ESUtils.buildSearchableFieldTypes(
-                    testOpContext.getEntityRegistry(), mappingsBuilder))
-            .searchableFieldPaths(
-                ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
-            .searchClusterAccess(SearchClusterAccess.fixed(_longTailSearchClient))
             .build();
 
     return testOpContext.toBuilder()
@@ -288,15 +244,6 @@ public class SampleDataFixtureConfiguration {
     return entitySearchServiceHelper(opContext, esWriteDAO, indexBuilder);
   }
 
-  @Bean(name = "longTailEntitySearchService")
-  protected ElasticSearchService longTailEntitySearchService(
-      @Qualifier("longTailOperationContext") OperationContext longtailOperationContext,
-      ESWriteDAO esWriteDAO,
-      @Qualifier("sampleDataESIndexBuilder") ESIndexBuilder indexBuilder)
-      throws IOException {
-    return entitySearchServiceHelper(longtailOperationContext, esWriteDAO, indexBuilder);
-  }
-
   @Bean(name = "sampleDataSearchService")
   @Nonnull
   protected SearchService searchService(
@@ -307,18 +254,6 @@ public class SampleDataFixtureConfiguration {
       throws IOException {
     return searchServiceHelper(
         sampleDataOperationContext, entitySearchService, prefix, sampleDataFixtureName);
-  }
-
-  @Bean(name = "longTailSearchService")
-  @Nonnull
-  protected SearchService longTailSearchService(
-      @Qualifier("longTailOperationContext") OperationContext longtailOperationContext,
-      @Qualifier("longTailEntitySearchService") ElasticSearchService longTailEntitySearchService,
-      @Qualifier("longTailPrefix") String longTailPrefix,
-      @Qualifier("longTailFixtureName") String longTailFixtureName)
-      throws IOException {
-    return searchServiceHelper(
-        longtailOperationContext, longTailEntitySearchService, longTailPrefix, longTailFixtureName);
   }
 
   public SearchService searchServiceHelper(
@@ -361,14 +296,6 @@ public class SampleDataFixtureConfiguration {
   @Bean(name = "sampleDataEntityClient")
   @Nonnull
   protected EntityClient entityClient(
-      @Qualifier("sampleDataSearchService") SearchService searchService,
-      @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService) {
-    return entityClientHelper(searchService, entitySearchService);
-  }
-
-  @Bean(name = "longTailEntityClient")
-  @Nonnull
-  protected EntityClient longTailEntityClient(
       @Qualifier("sampleDataSearchService") SearchService searchService,
       @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService) {
     return entityClientHelper(searchService, entitySearchService);

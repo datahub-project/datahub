@@ -24,7 +24,10 @@ record Applications {
       "fieldType": "URN",
       "hasValuesFieldName": "hasApplication",
       "addToFilters": true,
-      "filterNameOverride": "Application"
+      "filterNameOverride": "Application",
+      "v3": {
+        "copyToOther": true
+      }
     }
   }
   applications: array[Urn]

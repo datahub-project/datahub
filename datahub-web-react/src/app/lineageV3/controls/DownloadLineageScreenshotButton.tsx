@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { getRectOfNodes, getTransformForBounds, useReactFlow, useStoreApi } from 'reactflow';
 import { useTheme } from 'styled-components';
 
-import LineageControlIcon from '@app/lineage/controls/LineageControlIcon';
 import { LineageNodesContext } from '@app/lineageV3/common';
+import LineageControlIcon from '@app/lineageV3/controls/LineageControlIcon';
 import { StyledPanelButton } from '@app/lineageV3/controls/StyledPanelButton';
 import { downloadImage } from '@app/lineageV3/utils/lineageUtils';
 

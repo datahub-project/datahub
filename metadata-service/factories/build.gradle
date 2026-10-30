@@ -84,6 +84,8 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
   testImplementation externalDependency.hazelcastTest
+  testImplementation externalDependency.bucket4jCore
+  testImplementation externalDependency.bucket4jHazelcast
   testImplementation externalDependency.javatuples
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.testContainersElasticsearch

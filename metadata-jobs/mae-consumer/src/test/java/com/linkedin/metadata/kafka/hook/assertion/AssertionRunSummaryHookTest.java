@@ -1,6 +1,7 @@
 package com.linkedin.metadata.kafka.hook.assertion;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -25,6 +26,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.AssertionRunSummaryPatchBuilder;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -76,7 +78,7 @@ public class AssertionRunSummaryHookTest {
 
     verify(assertionService)
         .patchAssertionRunSummary(
-            eq(operationContext), eq(expectedPatch(resultType, expectedStatus, 1000L)));
+            eq(operationContext), patchMatching(expectedPatch(resultType, expectedStatus, 1000L)));
   }
 
   @Test(dataProvider = "resultTypes")
@@ -92,6 +94,49 @@ public class AssertionRunSummaryHookTest {
     verify(assertionService, never())
         .patchAssertionRunSummary(
             any(OperationContext.class), any(AssertionRunSummaryPatchBuilder.class));
+  }
+
+  @Test
+  public void testBackfilledOlderFailureDoesNotOverrideNewerPass() throws Exception {
+    when(assertionService.getAssertionRunSummary(operationContext, TEST_ASSERTION_URN))
+        .thenReturn(
+            new AssertionRunSummary()
+                .setLastPassedAtMillis(2000L)
+                .setAssertionStatus(AssertionStatus.PASSING));
+    when(event.getAspect())
+        .thenReturn(
+            GenericRecordUtils.serializeAspect(runEvent(AssertionResultType.FAILURE, 1000L)));
+
+    hook.invoke(operationContext, event);
+
+    verify(assertionService)
+        .patchAssertionRunSummary(
+            eq(operationContext),
+            patchMatching(
+                expectedPatch(AssertionResultType.FAILURE, AssertionStatus.PASSING, 1000L)));
+  }
+
+  @Test
+  public void testStaleEventRepairsInconsistentStatus() throws Exception {
+    // A summary left FAILING by an out-of-order backfill even though the latest run passed.
+    when(assertionService.getAssertionRunSummary(operationContext, TEST_ASSERTION_URN))
+        .thenReturn(
+            new AssertionRunSummary()
+                .setLastPassedAtMillis(2000L)
+                .setLastFailedAtMillis(1000L)
+                .setAssertionStatus(AssertionStatus.FAILING));
+    when(event.getAspect())
+        .thenReturn(
+            GenericRecordUtils.serializeAspect(runEvent(AssertionResultType.SUCCESS, 2000L)));
+
+    hook.invoke(operationContext, event);
+
+    verify(assertionService)
+        .patchAssertionRunSummary(
+            eq(operationContext),
+            patchMatching(
+                new AssertionRunSummaryPatchBuilder()
+                    .setAssertionStatus(AssertionStatus.PASSING.name())));
   }
 
   @Test
@@ -194,20 +239,31 @@ public class AssertionRunSummaryHookTest {
 
   private AssertionRunSummaryPatchBuilder expectedPatch(
       AssertionResultType resultType, AssertionStatus status, long timestamp) {
-    AssertionRunSummaryPatchBuilder builder =
-        new AssertionRunSummaryPatchBuilder().setAssertionStatus(status.name());
-    builder.urn(TEST_ASSERTION_URN);
+    AssertionRunSummaryPatchBuilder builder = new AssertionRunSummaryPatchBuilder();
     switch (resultType) {
       case SUCCESS:
-        return builder.setLastPassedAt(timestamp);
+        builder.setLastPassedAt(timestamp);
+        break;
       case FAILURE:
-        return builder.setLastFailedAt(timestamp);
+        builder.setLastFailedAt(timestamp);
+        break;
       case ERROR:
-        return builder.setLastErroredAt(timestamp);
+        builder.setLastErroredAt(timestamp);
+        break;
       case INIT:
-        return builder.setLastInitializedAt(timestamp);
+        builder.setLastInitializedAt(timestamp);
+        break;
       default:
         throw new IllegalArgumentException("Unsupported result type " + resultType);
     }
+    return builder.setAssertionStatus(status.name());
+  }
+
+  // AssertionRunSummaryPatchBuilder's equals() ignores the patch operations, so compare the built
+  // patch payloads instead.
+  private static AssertionRunSummaryPatchBuilder patchMatching(
+      AssertionRunSummaryPatchBuilder expected) {
+    GenericAspect expectedPatch = expected.urn(TEST_ASSERTION_URN).build().getAspect();
+    return argThat(actual -> expectedPatch.equals(actual.build().getAspect()));
   }
 }

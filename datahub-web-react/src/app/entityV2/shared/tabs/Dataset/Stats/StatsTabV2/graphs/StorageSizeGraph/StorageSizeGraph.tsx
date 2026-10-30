@@ -18,7 +18,7 @@ import useProfileGraphLookback, {
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useProfileGraphLookback';
 import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
-import { formatBytes, formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
+import { formatBytes, formatNumberWithoutAbbreviation } from '@src/app/sharedV2/formatNumber';
 import dayjs from '@utils/dayjs';
 
 // dayjs format tokens (localized date strings), not user-visible text.

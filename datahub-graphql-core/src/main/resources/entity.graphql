@@ -1439,6 +1439,11 @@ enum EntityType {
   A Semantic Model entity that groups datasets and defines metrics context.
   """
   SEMANTIC_MODEL
+
+  """
+  A source-code repository (GitHub, GitLab, internal SCM, etc.)
+  """
+  REPOSITORY
 }
 
 """
@@ -3463,6 +3468,11 @@ type ContainerProperties {
   Fully-qualified name of the Container
   """
   qualifiedName: String
+
+  """
+  When the Container was created in the source platform
+  """
+  created: AuditStamp
 }
 
 """
@@ -13631,6 +13641,11 @@ type QueryEntity implements Entity {
   Platform from which the Query was detected
   """
   platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges @noAspects
 }
 
 """

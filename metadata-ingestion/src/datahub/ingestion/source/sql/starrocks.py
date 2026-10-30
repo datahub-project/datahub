@@ -121,6 +121,10 @@ class StarRocksConfig(StarRocksConnectionConfig, BasicSQLAlchemyConfig):
         SourceCapabilityModifier.DATABASE,
     ],
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class StarRocksSource(SQLAlchemySource):
     """
     DataHub ingestion source for StarRocks with multi-catalog support.
