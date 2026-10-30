@@ -47,7 +47,7 @@ public class BootstrapMCPUtilTest {
     BootstrapMCPConfigFile initConfig =
         BootstrapMCPUtil.resolveYamlConf(
             OP_CONTEXT, "bootstrapmcp/test.yaml", BootstrapMCPConfigFile.class);
-    assertEquals(initConfig.getBootstrap().getTemplates().size(), 1);
+    assertEquals(initConfig.getBootstrap().getTemplates().size(), 3);
 
     BootstrapMCPConfigFile.MCPTemplate template = initConfig.getBootstrap().getTemplates().get(0);
     assertEquals(template.getName(), "datahub-test");
@@ -67,7 +67,7 @@ public class BootstrapMCPUtilTest {
     BootstrapMCPConfigFile initConfig =
         BootstrapMCPUtil.resolveYamlConf(
             OP_CONTEXT, "bootstrapmcp/test.yaml", BootstrapMCPConfigFile.class);
-    assertEquals(initConfig.getBootstrap().getTemplates().size(), 1);
+    assertEquals(initConfig.getBootstrap().getTemplates().size(), 3);
 
     BootstrapMCPConfigFile.MCPTemplate template =
         initConfig.getBootstrap().getTemplates().get(0).withOverride(new ObjectMapper());

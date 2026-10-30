@@ -15,6 +15,8 @@ import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.function.Function;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -76,9 +78,51 @@ public class BootstrapMCPStep implements UpgradeStep {
     return mcpTemplate.isOptional();
   }
 
-  /** Returns whether the upgrade should be skipped. */
+  /**
+   * Values that count as "off" for {@code enabledEnvVar}, matching Spring's {@code
+   * StringToBooleanConverter}. The variables named by {@code enabledEnvVar} are typically the same
+   * ones bound to boolean properties elsewhere in the app (for example {@code
+   * ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED} in {@code application.yaml}), so the two readings must
+   * agree — otherwise {@code =0} would disable the feature but leave its bootstrap enabled.
+   */
+  private static final Set<String> FALSEY_VALUES = Set.of("false", "off", "no", "0");
+
+  /**
+   * Resolve an environment variable. Extracted so tests can override env-var resolution without
+   * manipulating the JVM's process environment (which is effectively immutable from inside the
+   * JVM). Production code reads straight from {@link System#getenv(String)}.
+   */
+  protected String resolveEnvValue(String name) {
+    return System.getenv(name);
+  }
+
+  /**
+   * An unset variable is deliberately not falsey: templates that do not opt into a kill switch
+   * never set one, and treating absent as "off" would disable the whole bootstrap.
+   */
+  private static boolean isFalsey(String envValue) {
+    return envValue != null && FALSEY_VALUES.contains(envValue.trim().toLowerCase(Locale.ROOT));
+  }
+
+  /**
+   * Returns whether the upgrade should be skipped.
+   *
+   * <p>The {@code enabledEnvVar} kill switch is evaluated before the forced-run branch, so a
+   * template that is switched off stays off even when it declares {@code force: true}. {@code
+   * force} means "re-run even if already run", not "ignore the kill switch".
+   */
   @Override
   public boolean skip(UpgradeContext context) {
+    // Per-template kill switch: when the template names an enabledEnvVar and
+    // that env var is off, skip the step entirely (no DB write).
+    if (mcpTemplate.getEnabledEnvVar() != null && !mcpTemplate.getEnabledEnvVar().isEmpty()) {
+      String envValue = resolveEnvValue(mcpTemplate.getEnabledEnvVar());
+      if (isFalsey(envValue)) {
+        log.info(
+            "{} skipped — {} resolves to '{}'.", id(), mcpTemplate.getEnabledEnvVar(), envValue);
+        return true;
+      }
+    }
     if (!mcpTemplate.isForce()) {
       boolean previouslyRun =
           entityService.exists(
