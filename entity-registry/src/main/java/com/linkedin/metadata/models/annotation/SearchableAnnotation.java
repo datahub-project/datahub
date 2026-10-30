@@ -37,8 +37,8 @@ public class SearchableAnnotation {
   String fieldName;
   // Type of the field. Defines how the field is indexed and matched
   FieldType fieldType;
-  // Whether Search V2 matches the field in an unqualified query. Search V3 uses
-  // {@link #v3QueryByDefault} when that is set.
+  // Whether Search V2 matches the field in an unqualified query. Search V3 matches
+  // the field only when {@link #v3QueryByDefault} is true.
   boolean queryByDefault;
   // Whether we should use the field for default autocomplete
   boolean enableAutocomplete;
@@ -113,8 +113,8 @@ public class SearchableAnnotation {
   Optional<Double> v3BoostScore;
 
   /**
-   * Whether Search V3 matches the field in an unqualified query. Empty means V3 uses {@link
-   * #queryByDefault}. V2 always reads {@link #queryByDefault}.
+   * Whether Search V3 matches the field in an unqualified query. Empty means it does not. V2 always
+   * reads {@link #queryByDefault}.
    */
   Optional<Boolean> v3QueryByDefault;
 
@@ -132,8 +132,31 @@ public class SearchableAnnotation {
   Optional<Boolean> sourceDocValues;
 
   /**
-   * Constructor for annotations with no V3 overlay. V3 searches the field with the top-level
-   * settings.
+   * Copy this field's text into the shared field {@code other} and keep its own root. A {@code
+   * searchLabel} that names a different field replaces the root and cannot be combined with this. A
+   * label that is this field's own name can. A URN copies its parsed name.
+   */
+  boolean copyToOther;
+
+  /**
+   * Additional Search V3 has-values boolean. {@link #hasValuesFieldName} stays indexed under its
+   * own name. Contributors of one label set this to the same name, such as {@code hasParent} beside
+   * {@code hasParentNode}, and a true copies there too. Empty means V3 indexes only the top-level
+   * name. V2 never reads this.
+   */
+  Optional<String> v3HasValuesFieldName;
+
+  /**
+   * Search V3 only. When true, an indexed KEYWORD root also maps {@code <field>.lowercase}, folded
+   * with {@code keyword_normalizer}. A WORD_GRAM or TEXT field qualifies when its V3 root mapping
+   * is that keyword. Case-insensitive contains, prefix, and suffix read that subfield. False leaves
+   * the keyword case-sensitive and does not map the subfield. V2 never reads this.
+   */
+  boolean v3Lowercase;
+
+  /**
+   * Constructor for annotations with no V3 overlay. Search V2 uses these settings. Search V3 leaves
+   * the field out of an unqualified query until {@code v3.queryByDefault} is set.
    */
   public SearchableAnnotation(
       String fieldName,
@@ -187,7 +210,10 @@ public class SearchableAnnotation {
         Optional.empty(),
         Optional.empty(),
         Optional.empty(),
-        Optional.empty());
+        Optional.empty(),
+        false,
+        Optional.empty(),
+        false);
   }
 
   /**
@@ -200,14 +226,15 @@ public class SearchableAnnotation {
         && v3SearchLabel.isEmpty()
         && v3IncludeSystemModifiedAt.isEmpty()
         && v3BoostScore.isEmpty()
-        && v3QueryByDefault.isEmpty()) {
+        && v3QueryByDefault.isEmpty()
+        && !queryByDefault) {
       return this;
     }
     final boolean includeModified = v3IncludeSystemModifiedAt.orElse(includeSystemModifiedAt);
     return new SearchableAnnotation(
         fieldName,
         fieldType,
-        v3QueryByDefault.orElse(queryByDefault),
+        v3QueryByDefault.orElse(false),
         enableAutocomplete,
         addToFilters,
         addHasValuesToFilters,
@@ -221,7 +248,7 @@ public class SearchableAnnotation {
         includeQueryEmptyAggregation,
         includeModified,
         includeModified ? systemModifiedAtFieldName : Optional.empty(),
-        v3SearchLabel,
+        v3SearchLabel.or(() -> searchLabel),
         searchIndexed,
         entityFieldName,
         eagerGlobalOrdinals,
@@ -234,7 +261,10 @@ public class SearchableAnnotation {
         Optional.empty(),
         Optional.empty(),
         sourceIndex,
-        sourceDocValues);
+        sourceDocValues,
+        copyToOther,
+        v3HasValuesFieldName,
+        v3Lowercase);
   }
 
   /**
@@ -313,6 +343,25 @@ public class SearchableAnnotation {
     return hasValuesFieldName
         .filter(name -> !name.isEmpty())
         .map(name -> indexedFieldName(name, degree));
+  }
+
+  /**
+   * Degree-qualified {@link #v3HasValuesFieldName}. Degree 0 keeps the declared name ({@code
+   * hasParent}). Degree n is {@code <name>_<n>}.
+   */
+  @Nonnull
+  public Optional<String> indexedSharedHasValuesFieldName() {
+    if (v3HasValuesFieldName == null || v3HasValuesFieldName.isEmpty()) {
+      return Optional.empty();
+    }
+    return v3HasValuesFieldName.map(name -> indexedFieldName(name, degree));
+  }
+
+  /** {@link #indexedSharedHasValuesFieldName()} that treats an unstubbed mock as absent. */
+  @Nonnull
+  public static Optional<String> sharedHasValuesName(@Nonnull SearchableAnnotation annotation) {
+    Optional<String> name = annotation.indexedSharedHasValuesFieldName();
+    return name == null ? Optional.empty() : name;
   }
 
   public enum FieldType {
@@ -408,6 +457,34 @@ public class SearchableAnnotation {
     final Optional<Boolean> v3QueryByDefault =
         v3Overlay.flatMap(
             overlay -> AnnotationUtils.getField(overlay, "queryByDefault", Boolean.class));
+    final boolean copyToOther =
+        v3Overlay
+            .flatMap(overlay -> AnnotationUtils.getField(overlay, "copyToOther", Boolean.class))
+            .orElse(false);
+    final Optional<String> v3HasValuesFieldName =
+        v3Overlay.flatMap(
+            overlay -> AnnotationUtils.getField(overlay, "hasValuesFieldName", String.class));
+    final boolean v3Lowercase =
+        v3Overlay
+            .flatMap(overlay -> AnnotationUtils.getField(overlay, "lowercase", Boolean.class))
+            .orElse(false);
+    if (copyToOther && v3SearchLabel.filter(label -> !label.isEmpty()).isPresent()) {
+      final String indexed = indexedFieldName(v3SearchLabel.get(), degree);
+      if (!indexed.equals(fieldName.orElse(schemaFieldName))) {
+        throw new ModelValidationException(
+            String.format(
+                "Failed to validate @%s annotation declared at %s: v3.copyToOther keeps this"
+                    + " field's root, and v3.searchLabel '%s' replaces it",
+                ANNOTATION_NAME, context, indexed));
+      }
+    }
+    if (copyToOther && !canCopyToOther(resolvedFieldType)) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: v3.copyToOther requires a string"
+                  + " or URN field, but fieldType is %s",
+              ANNOTATION_NAME, context, resolvedFieldType));
+    }
     final Optional<Boolean> sourceIndex = sourceFlag(v3Overlay, "index", context);
     final Optional<Boolean> sourceDocValues = sourceFlag(v3Overlay, "docValues", context);
     final Optional<String> entityFieldName =
@@ -421,6 +498,13 @@ public class SearchableAnnotation {
                 .map(raw -> FieldMapping.parse(raw, context))
                 .orElseGet(() -> FieldMapping.fallback(resolvedFieldType, hasSearchDestination))
             : List.of();
+    if (v3Lowercase && !allowsLowercaseSubfield(v3Mappings, resolvedFieldType)) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared at %s: v3.lowercase requires an indexed"
+                  + " KEYWORD root, but fieldType is %s",
+              ANNOTATION_NAME, context, resolvedFieldType));
+    }
     if (!hasSearchDestination && v3Mappings.stream().anyMatch(mapping -> !mapping.isRoot())) {
       throw new ModelValidationException(
           String.format(
@@ -438,6 +522,7 @@ public class SearchableAnnotation {
     // Validate new fields
     validateSearchIndexed(searchIndexed, resolvedFieldType, context);
     validateElasticsearchFieldName(v3SearchLabel, "searchLabel", context);
+    validateElasticsearchFieldName(v3HasValuesFieldName, "v3.hasValuesFieldName", context);
     validateElasticsearchFieldName(entityFieldName, "entityFieldName", context);
     validateEagerGlobalOrdinals(eagerGlobalOrdinals, resolvedFieldType, context);
     validateSanitizeRichText(sanitizeRichText, resolvedFieldType, context);
@@ -472,7 +557,34 @@ public class SearchableAnnotation {
         v3BoostScore,
         v3QueryByDefault,
         sourceIndex,
-        sourceDocValues);
+        sourceDocValues,
+        copyToOther,
+        v3HasValuesFieldName,
+        v3Lowercase);
+  }
+
+  /**
+   * {@code v3.lowercase} sits on an indexed keyword root. A WORD_GRAM or TEXT field qualifies when
+   * its V3 mappings declare that root. A URN root keeps its own normalizer.
+   */
+  private static boolean allowsLowercaseSubfield(
+      @Nonnull List<FieldMapping> v3Mappings, @Nonnull FieldType fieldType) {
+    if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
+      return false;
+    }
+    List<FieldMapping> mappings =
+        v3Mappings.isEmpty() ? FieldMapping.fallback(fieldType, false) : v3Mappings;
+    FieldMapping root = FieldMapping.rootOf(mappings);
+    return root.getType() == FieldMapping.Type.KEYWORD && root.isIndex();
+  }
+
+  private static boolean canCopyToOther(@Nonnull FieldType fieldType) {
+    return fieldType == FieldType.KEYWORD
+        || fieldType == FieldType.TEXT
+        || fieldType == FieldType.TEXT_PARTIAL
+        || fieldType == FieldType.WORD_GRAM
+        || fieldType == FieldType.URN
+        || fieldType == FieldType.URN_PARTIAL;
   }
 
   private static Optional<Boolean> sourceFlag(

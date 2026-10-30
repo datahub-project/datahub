@@ -52,6 +52,7 @@ from datahub.ingestion.source.unity.config import (
     UsageDataSource,
 )
 from datahub.ingestion.source.unity.connection import get_sql_connection_params
+from datahub.ingestion.source.unity.genie_client import GenieSpaceClient
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy_profiling import (
@@ -314,6 +315,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         databricks_api_page_size: int = 0,
     ):
         self._workspace_client = workspace_client
+        self.genie = GenieSpaceClient(workspace_client.api_client)
         self.warehouse_id = self._workspace_client.config.warehouse_id
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
@@ -1049,7 +1051,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 if target_full_name and target_full_name.startswith(f"{catalog}."):
                     # Handle table upstreams
                     if (
-                        source_type in ["TABLE", "VIEW"]
+                        source_type
+                        in ["TABLE", "VIEW", "STREAMING_TABLE", "MATERIALIZED_VIEW"]
                         and source_full_name != target_full_name
                     ):
                         upstream = TableUpstream(

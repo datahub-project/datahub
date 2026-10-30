@@ -8,7 +8,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "dataProductProperties",
-  "schemaVersion": 3
+  "schemaVersion": 4
 }
 record DataProductProperties includes CustomProperties, ExternalReference  {
   /**
@@ -20,7 +20,9 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
+      "lowercase": true,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },
@@ -38,6 +40,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
     "hasValuesFieldName": "hasDescription",
     "sanitizeRichText": true,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -54,7 +57,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Relationship = {
     "/*/destinationUrn": {
       "name": "DataProductContains",
-      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document", "api" ],
+      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey", "document", "api", "service", "application", "repository", "aiAgent", "agentSkill" ],
     }
   }
   assets: optional array[DataProductAssociation]
@@ -69,7 +72,10 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   @Searchable = {
     "fieldName": "parentDataProduct",
     "fieldType": "URN",
-    "hasValuesFieldName": "hasParentDataProduct"
+    "hasValuesFieldName": "hasParentDataProduct",
+    "v3": {
+      "copyToOther": true
+    }
   }
   parentDataProduct: optional Urn
 }

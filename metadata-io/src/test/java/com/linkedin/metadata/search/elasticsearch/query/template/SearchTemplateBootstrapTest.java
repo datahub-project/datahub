@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -131,6 +132,7 @@ public class SearchTemplateBootstrapTest {
     assertFalse(urns.contains("urn:li:searchTemplate:browseV2"));
     assertFalse(urns.contains("urn:li:searchTemplate:browseV2List"));
     assertFalse(urns.contains("urn:li:searchTemplate:browseV2Fulltext"));
+    assertTrue(urns.contains("urn:li:searchTemplate:listUrn"));
     for (String urn : urns) {
       SearchTemplateProperties shipped = SearchTemplateBootstrap.get(urn);
       SearchTemplateChecks.check(shipped, 1024);
@@ -139,6 +141,17 @@ public class SearchTemplateBootstrapTest {
 
     SearchTemplateProperties fulltext =
         SearchTemplateBootstrap.get("urn:li:searchTemplate:fulltext");
+    MergedSearchTemplate list = loader.load(harness.opContext, "urn:li:searchTemplate:list");
+    MergedSearchTemplate listUrn = loader.load(harness.opContext, "urn:li:searchTemplate:listUrn");
+    MergedSearchTemplate autocomplete =
+        loader.load(harness.opContext, "urn:li:searchTemplate:autocomplete");
+    assertNull(list.getEntityTypeBoosts());
+    assertNull(listUrn.getEntityTypeBoosts());
+    assertNull(autocomplete.getEntityTypeBoosts());
+    assertNull(listUrn.getFunctionScore());
+    assertNull(listUrn.getBoosts());
+    assertTrue(fulltext.hasEntityTypeBoosts());
+    assertTrue(listUrn.getSort().contains("\"urn\""));
     Map<String, Object> context =
         SearchTemplateMustache.validationContext(fulltext.getFunctionScore());
     @SuppressWarnings("unchecked")
@@ -188,21 +201,24 @@ public class SearchTemplateBootstrapTest {
     assertFalse(name.toString().contains("description"));
   }
 
-  /** A compound synonym requires every word. The original one-token query stays lenient. */
+  /**
+   * A compound synonym requires every word. The original one-token query stays lenient. Fulltext
+   * repeats each on the default fields and on qualifiedName, so a path query can drop the latter.
+   */
   @Test
   public void testCompoundSynonymRequiresEveryToken() throws Exception {
     SearchTemplateLoader loader = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
     JsonNode fulltext =
         SearchTemplateFixtures.JSON.readTree(
             render(loader, "urn:li:searchTemplate:fulltext", "dataPlatform"));
-    assertClause(fulltext, "simple_query_string", "data platform", "default_operator", "and");
-    assertClause(fulltext, "simple_query_string", "dataPlatform~2", "default_operator", "or");
+    assertClause(fulltext, "simple_query_string", "data platform", "default_operator", "and", 2);
+    assertClause(fulltext, "simple_query_string", "dataPlatform~2", "default_operator", "or", 2);
 
     JsonNode light =
         SearchTemplateFixtures.JSON.readTree(
             render(loader, "urn:li:searchTemplate:light", "dataPlatform"));
-    assertClause(light, "multi_match", "data platform", "operator", "and");
-    assertClause(light, "multi_match", "dataPlatform", "operator", "or");
+    assertClause(light, "multi_match", "data platform", "operator", "and", 1);
+    assertClause(light, "multi_match", "dataPlatform", "operator", "or", 1);
   }
 
   private String render(SearchTemplateLoader loader, String urn) {
@@ -232,11 +248,18 @@ public class SearchTemplateBootstrapTest {
   }
 
   private static void assertClause(
-      JsonNode node, String clause, String query, String operatorField, String operator) {
+      JsonNode node,
+      String clause,
+      String query,
+      String operatorField,
+      String operator,
+      int expected) {
     List<JsonNode> matches = new ArrayList<>();
     collectClauses(node, clause, query, matches);
-    assertEquals(matches.size(), 1, clause + " " + query);
-    assertEquals(matches.get(0).path(operatorField).asText().toLowerCase(Locale.ROOT), operator);
+    assertEquals(matches.size(), expected, clause + " " + query);
+    for (JsonNode match : matches) {
+      assertEquals(match.path(operatorField).asText().toLowerCase(Locale.ROOT), operator);
+    }
   }
 
   private static void collectClauses(

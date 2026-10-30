@@ -131,6 +131,9 @@ from datahub.utilities.file_backed_collections import FileBackedList
 
 if TYPE_CHECKING:
     from datahub.ingestion.agent.sql_passthrough import QueryBudget
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -801,13 +804,17 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         elif database is None:
             # Without it get_identifier builds `schema.table`, which
             # ingestion -- always carrying current_database on this kind of
-            # recipe -- never matches.
+            # recipe -- never matches. Reported, then handed back: None lets
+            # sql_probe apply the shared rule with the field it resolved for
+            # this kind, so a pattern that filters refuses rather than
+            # inverting its verdict on a two-part name.
             warn(
                 "this recipe sets no `database`, so ingestion qualifies each "
                 "table with the database it was found in; pass that database "
                 "as the first --parent, or the name is judged on 'schema.table', "
                 "which ingestion never matches"
             )
+            return None
         return qualified_identifier(self, database, schema, entity)
 
     @classmethod
@@ -906,6 +913,13 @@ class SQLServerSource(SQLAlchemySource):
     """
 
     report: SQLSourceReport
+    # Class-level so the probe's config-only shim -- built with __new__, so no
+    # __init__ runs -- can call get_identifier before any database is walked.
+    # Without it the shim raised, the probe fell back to the bare fqn, and the
+    # reported target lost the lowercasing convert_urns_to_lowercase applies:
+    # `--parent DBO --name Orders` came back `DBO.Orders` rather than
+    # `dbo.orders`, which is the string ingestion matches.
+    current_database: Optional[str] = None
 
     def __init__(
         self,
@@ -1089,6 +1103,31 @@ class SQLServerSource(SQLAlchemySource):
             for field in schema_fields:
                 field.fieldPath = field.fieldPath.lower()
         return schema_fields
+
+    def get_profiler_instance(self, inspector: Inspector) -> "SQLAlchemyProfiler":
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
+        # Profiles attach to schemaMetadata by exact fieldPath match. The schema
+        # is lowercased in get_schema_fields when convert_column_urns_to_lowercase
+        # is on, so the profiler must emit the same casing or every column
+        # profile (and any assertion evaluated against it) fails to resolve.
+        field_path_transform: Optional[Callable[[str], str]] = (
+            str.lower if self.config.convert_column_urns_to_lowercase else None
+        )
+
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+            field_path_transform=field_path_transform,
+        )
 
     def get_database_level_workunits(
         self,

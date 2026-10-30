@@ -283,7 +283,17 @@ class UnityCatalogSourceConfig(
         description="Regex patterns for schemas to filter in ingestion. Specify regex to the full `metastore.catalog.schema` name. e.g. to match all tables in schema analytics, use the regex `^mymetastore\\.mycatalog\\.analytics$`.",
     )
 
-    table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
+    # also_filters: process_tables checks table_pattern first whatever the
+    # kind, so a view or metric view can be decided by it. `view_pattern` and
+    # `metric_view_pattern` stay the fields a caller edits for those kinds;
+    # this only tells the probe which patterns a verdict may have consulted.
+    table_pattern: Annotated[
+        AllowDenyPattern,
+        Filters(
+            DatasetSubTypes.TABLE,
+            also_filters=[DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW],
+        ),
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )
@@ -311,6 +321,16 @@ class UnityCatalogSourceConfig(
             " Specify regex to match the full `catalog.schema.metric_view_name`."
             " Only applies when `include_metric_views` is True."
         ),
+    )
+
+    include_genie_spaces: bool = Field(
+        default=False,
+        description="Ingest Genie spaces as external AI agents, including text instructions and declared dataset lineage. Requires CAN EDIT permission on each space. Requires a DataHub server with the aiAgent entity (v1.7.0 or later).",
+    )
+
+    genie_space_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for Genie agent IDs. Only applies when include_genie_spaces is enabled.",
     )
 
     include_metric_views: bool = pydantic.Field(

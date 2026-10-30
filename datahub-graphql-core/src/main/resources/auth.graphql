@@ -459,6 +459,11 @@ type EntityPrivileges {
   Whether the user can manage asset summary
   """
   canManageAssetSummary: Boolean
+
+  """
+  Whether the user can set this entity's lifecycle stage directly, without a proposal.
+  """
+  canEditLifecycleStage: Boolean
 }
 
 """

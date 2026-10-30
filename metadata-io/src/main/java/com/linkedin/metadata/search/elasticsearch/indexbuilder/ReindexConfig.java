@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
+import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.elasticsearch.IndexSettingsComparison;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.util.Pair;
@@ -435,6 +436,57 @@ public class ReindexConfig {
   }
 
   /**
+   * Leaf changes between two already-normalized property maps. Added and removed fields are named;
+   * a changed field is reported as {@code path: before -> after} down to the value that differs, so
+   * a shared V3 mapping does not have to be printed twice.
+   */
+  static List<String> compactMappingDiff(MapDifference<String, Object> diff) {
+    List<String> lines = new ArrayList<>();
+    appendMappingDiff("", diff, lines);
+    return lines;
+  }
+
+  static List<String> compactMappingDiff(
+      Map<String, Object> currentProperties, Map<String, Object> targetProperties) {
+    return compactMappingDiff(
+        CalculatedBuilder.calculateMapDifference(
+            ReindexConfigBuilder.normalizeMapForComparison(currentProperties),
+            ReindexConfigBuilder.normalizeMapForComparison(targetProperties)));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void appendMappingDiff(
+      String prefix, MapDifference<String, Object> diff, List<String> lines) {
+    diff.entriesOnlyOnLeft().keySet().stream()
+        .sorted()
+        .forEach(key -> lines.add("- " + qualify(prefix, key)));
+    diff.entriesOnlyOnRight().entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .forEach(
+            entry -> lines.add("+ " + qualify(prefix, entry.getKey()) + ": " + entry.getValue()));
+    diff.entriesDiffering().entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .forEach(
+            entry -> {
+              Object left = entry.getValue().leftValue();
+              Object right = entry.getValue().rightValue();
+              String path = qualify(prefix, entry.getKey());
+              if (left instanceof Map && right instanceof Map) {
+                appendMappingDiff(
+                    path,
+                    Maps.difference((Map<String, Object>) left, (Map<String, Object>) right),
+                    lines);
+              } else {
+                lines.add(path + ": " + left + " -> " + right);
+              }
+            });
+  }
+
+  private static String qualify(String prefix, String key) {
+    return prefix.isEmpty() ? key : prefix + "." + key;
+  }
+
+  /**
    * Whether {@code currentMappings} still carry {@code targetMappings}' declared field types. Used
    * to validate a reindex destination created by an earlier run before adopting it: the question is
    * whether the destination is DataHub's index or one the engine recreated by dynamic mapping, and
@@ -614,7 +666,22 @@ public class ReindexConfig {
             !newNonStructuredPropertyFields.isEmpty()
                 || !modifiedNonStructuredPropertyFields.isEmpty();
 
-        if (super.requiresApplyMappings && super.isPureMappingsAddition) {
+        if (super.requiresApplyMappings && EntityIndexVersion.V3.matches(super.name)) {
+          // Every V3 index carries the same mapping, so the change is the leaf diff rather than
+          // both full documents.
+          String diff = String.join("\n", compactMappingDiff(mappingsDiff));
+          if (!diff.isEmpty() && super.isPureMappingsAddition) {
+            log.info(
+                "Index: {} - New fields have been added to index. Adding:\n{}", super.name, diff);
+          } else if (!diff.isEmpty() && super.isInPlaceMappingParameterUpdate) {
+            log.info(
+                "Index: {} - Mapping parameter change applyable in place, no reindex required.\n{}",
+                super.name,
+                diff);
+          } else if (!diff.isEmpty()) {
+            log.info("Index: {} - Mapping diff:\n{}", super.name, diff);
+          }
+        } else if (super.requiresApplyMappings && super.isPureMappingsAddition) {
           log.info(
               "Index: {} - New fields have been added to index. Adding: {}",
               super.name,
@@ -812,28 +879,8 @@ public class ReindexConfig {
      */
     private static Pair<Long, Long> structuredPropertiesDiffCount(
         Map<String, Object> current, Map<String, Object> target) {
-      Set<String> currentStructuredProperties = new HashSet<>();
-      Set<String> targetStructuredProperties = new HashSet<>();
-
-      // add non-versioned property ids
-      currentStructuredProperties.addAll(
-          getOrDefault(
-                  current, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
-              .keySet()
-              .stream()
-              .filter(k -> !STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(k))
-              .collect(Collectors.toSet()));
-      targetStructuredProperties.addAll(
-          getOrDefault(
-                  target, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
-              .keySet()
-              .stream()
-              .filter(k -> !STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(k))
-              .collect(Collectors.toSet()));
-
-      // Extract versioned/typed property ids
-      currentStructuredProperties.addAll(getVersionedStructuredPropertyIds(current));
-      targetStructuredProperties.addAll(getVersionedStructuredPropertyIds(target));
+      Set<String> currentStructuredProperties = structuredPropertyFieldMappings(current).keySet();
+      Set<String> targetStructuredProperties = structuredPropertyFieldMappings(target).keySet();
 
       return Pair.of(
           currentStructuredProperties.stream()
@@ -937,40 +984,44 @@ public class ReindexConfig {
     }
 
     /**
-     * Structured-property field ids to their mapping objects. Unversioned keys are the qualified
-     * name. Versioned fields are flattened the same way {@link #structuredPropertyFieldTypes}
-     * historically walked them.
+     * Structured-property field ids to their mapping objects, keyed the way the mappings builder
+     * names them: the sanitized qualified name, or {@code _versioned.<name>.<version>.<type>} for a
+     * versioned property. The builder emits a versioned field under that single dotted key, while
+     * Elasticsearch returns the same field as nested objects, so both shapes must resolve to the
+     * same id. Otherwise every versioned property looks removed on every system update and the
+     * index is rebuilt each time, and type and copy_to mismatches are never detected for it.
      */
     private static Map<String, Object> structuredPropertyFieldMappings(
         Map<String, Object> mappings) {
       Map<String, Object> fields = new LinkedHashMap<>();
-
-      Map<String, Object> structuredPropertyFields =
-          getOrDefault(
-              mappings, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"));
-
-      for (Map.Entry<String, Object> entry : structuredPropertyFields.entrySet()) {
-        if (STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.equals(entry.getKey())) {
-          continue;
-        }
-        fields.put(entry.getKey(), entry.getValue());
-      }
-
-      Map<String, Object> versionedMappings =
-          getOrDefault(
-              mappings,
-              List.of(
-                  "properties",
-                  STRUCTURED_PROPERTY_MAPPING_FIELD,
-                  "properties",
-                  STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD,
-                  "properties"));
-
-      flattenStructuredPropertyMappings(
-              Map.entry(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, versionedMappings), 0)
-          .forEach(entry -> fields.put(entry.getKey(), entry.getValue()));
-
+      getOrDefault(mappings, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
+          .forEach((key, value) -> collectStructuredPropertyFields(key, value, fields));
       return fields;
+    }
+
+    /**
+     * Adds the field mapping at {@code path}, descending from {@code _versioned} through the name
+     * and version objects to the type-named field. Elasticsearch nests those objects under {@code
+     * properties}; an object with neither {@code properties} nor a {@code type} is descended
+     * directly. A field mapping (one with a {@code type}) is where the walk stops.
+     */
+    @SuppressWarnings("unchecked")
+    private static void collectStructuredPropertyFields(
+        String path, Object mapping, Map<String, Object> fields) {
+      if (!(mapping instanceof Map<?, ?> fieldMapping)) {
+        return;
+      }
+      Map<String, Object> children;
+      if (fieldMapping.get(PROPERTIES) instanceof Map<?, ?> nested) {
+        children = (Map<String, Object>) nested;
+      } else if (fieldMapping.get(TYPE) == null) {
+        children = (Map<String, Object>) fieldMapping;
+      } else {
+        fields.put(path, mapping);
+        return;
+      }
+      children.forEach(
+          (key, value) -> collectStructuredPropertyFields(path + "." + key, value, fields));
     }
 
     private static Set<String> extractCopyTo(@Nullable Object mapping) {
@@ -994,30 +1045,6 @@ public class ReindexConfig {
         return values;
       }
       return Set.of();
-    }
-
-    /**
-     * Flatten nested versioned structured-property mappings down to field-mapping objects (maps
-     * that declare a scalar {@code type}), without descending into the {@code type} value itself.
-     */
-    private static Stream<Map.Entry<String, Object>> flattenStructuredPropertyMappings(
-        Map.Entry<String, Object> entry, int depth) {
-      if (entry.getValue() instanceof Map<?, ?> && depth < 5) {
-        Map<String, Object> nested = (Map<String, Object>) entry.getValue();
-        Object typeValue = nested.get(TYPE);
-        boolean hasScalarType = typeValue != null && !(typeValue instanceof Map);
-        boolean hasNestedProperties = nested.get(PROPERTIES) instanceof Map;
-        if (hasScalarType && !hasNestedProperties) {
-          return Stream.of(entry);
-        }
-        return nested.entrySet().stream()
-            .map(
-                e ->
-                    new AbstractMap.SimpleEntry<String, Object>(
-                        entry.getKey() + "." + e.getKey(), e.getValue()))
-            .flatMap(e -> flattenStructuredPropertyMappings(e, depth + 1));
-      }
-      return Stream.of(entry);
     }
 
     @Nullable
@@ -1108,7 +1135,7 @@ public class ReindexConfig {
       Set<String> targetDynamicFields = findDynamicFields(targetMappings, "");
 
       if (!targetDynamicFields.isEmpty()) {
-        log.info("Dynamic fields filtered from comparison: {}", targetDynamicFields);
+        log.debug("Dynamic fields filtered from comparison: {}", targetDynamicFields);
         Map<String, Object> filteredCurrentMappings =
             removeDynamicFields(currentMappings, targetDynamicFields);
         Map<String, Object> filteredTargetMappings =
@@ -1116,21 +1143,27 @@ public class ReindexConfig {
 
         MapDifference<String, Object> diff =
             Maps.difference(filteredCurrentMappings, filteredTargetMappings);
-        log.info(
-            "Map difference - entriesOnlyOnLeft: {}, entriesOnlyOnRight: {}, entriesDiffering: {}",
-            diff.entriesOnlyOnLeft().keySet(),
-            diff.entriesOnlyOnRight().keySet(),
-            diff.entriesDiffering().keySet());
+        logMappingDifference(diff);
         return diff;
       }
 
       MapDifference<String, Object> diff = Maps.difference(currentMappings, targetMappings);
-      log.info(
-          "No dynamic fields found. Map difference - entriesOnlyOnLeft: {}, entriesOnlyOnRight: {}, entriesDiffering: {}",
+      logMappingDifference(diff);
+      return diff;
+    }
+
+    /** An empty difference is the steady state for every index and is not worth a log line. */
+    private static void logMappingDifference(MapDifference<String, Object> diff) {
+      if (diff.entriesOnlyOnLeft().isEmpty()
+          && diff.entriesOnlyOnRight().isEmpty()
+          && diff.entriesDiffering().isEmpty()) {
+        return;
+      }
+      log.debug(
+          "Map difference - entriesOnlyOnLeft: {}, entriesOnlyOnRight: {}, entriesDiffering: {}",
           diff.entriesOnlyOnLeft().keySet(),
           diff.entriesOnlyOnRight().keySet(),
           diff.entriesDiffering().keySet());
-      return diff;
     }
 
     /**
@@ -1247,29 +1280,6 @@ public class ReindexConfig {
         current.remove(pathParts[pathParts.length - 1]);
       }
     }
-
-    /**
-     * Given a mapping return a unique string for each version/typed structured property
-     *
-     * @param mappings Elastic mappings
-     * @return set of unique ids for each versioned/typed structured property
-     */
-    private static Set<String> getVersionedStructuredPropertyIds(Map<String, Object> mappings) {
-      Map<String, Object> versionedMappings =
-          getOrDefault(
-              mappings,
-              List.of(
-                  "properties",
-                  STRUCTURED_PROPERTY_MAPPING_FIELD,
-                  "properties",
-                  STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD,
-                  "properties"));
-
-      return flattenStructuredPropertyPath(
-              Map.entry(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, versionedMappings), 0)
-          .map(Map.Entry::getKey)
-          .collect(Collectors.toSet());
-    }
   }
 
   private static Map<String, Object> removeKeys(
@@ -1315,23 +1325,5 @@ public class ReindexConfig {
       }
     }
     return true;
-  }
-
-  /**
-   * Return a map with dot delimited path as keys
-   *
-   * @param entry for root map
-   * @return dot delimited key path map
-   */
-  private static Stream<Map.Entry<String, Object>> flattenStructuredPropertyPath(
-      Map.Entry<String, Object> entry, int depth) {
-    if (entry.getValue() instanceof Map<?, ?> && depth < 5) {
-      Map<String, Object> nested = (Map<String, Object>) entry.getValue();
-
-      return nested.entrySet().stream()
-          .map(e -> new AbstractMap.SimpleEntry(entry.getKey() + "." + e.getKey(), e.getValue()))
-          .flatMap(e -> flattenStructuredPropertyPath(e, depth + 1));
-    }
-    return Stream.of(entry);
   }
 }

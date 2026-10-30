@@ -1,4 +1,4 @@
-import { Alert, Space, Typography, message } from 'antd';
+import { Alert, Button, Heading, Text, toast } from '@components';
 import React, { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -15,7 +15,6 @@ import {
     getSourceConfigs,
     jsonToYaml,
 } from '@app/ingestV2/source/utils';
-import { Button } from '@src/alchemy-components';
 
 const LOOKML_DOC_LINK = 'https://docs.datahub.com/docs/generated/ingestion/sources/looker#module-lookml';
 
@@ -29,10 +28,8 @@ const BorderedSection = styled(Section)`
     border: solid ${(props) => props.theme.colors.border} 0.5px;
 `;
 
-const SelectTemplateHeader = styled(Typography.Title)`
-    && {
-        margin-bottom: 8px;
-    }
+const SelectTemplateHeader = styled.div`
+    margin-bottom: 8px;
 `;
 
 const ControlsContainer = styled.div`
@@ -94,10 +91,7 @@ export const DefineRecipeStep = ({
         if (!recipeJson) return;
 
         if (!JSON.parse(recipeJson).source?.type) {
-            message.warning({
-                content: t('defineRecipe.invalidIngestionType'),
-                duration: 3,
-            });
+            toast.warning(t('defineRecipe.invalidIngestionType'), { duration: 3 });
             return;
         }
 
@@ -134,22 +128,17 @@ export const DefineRecipeStep = ({
     return (
         <>
             <Section>
-                <SelectTemplateHeader level={5}>
-                    {t('defineRecipe.title', { displayName: sourceDisplayName })}
+                <SelectTemplateHeader>
+                    <Heading type="h5" size="md" weight="bold">
+                        {t('defineRecipe.title', { displayName: sourceDisplayName })}
+                    </Heading>
                 </SelectTemplateHeader>
                 {showLookerBanner && (
                     <Alert
-                        type="warning"
-                        banner
-                        message={
+                        variant="warning"
+                        title={t('defineRecipe.lookerBanner.acknowledge')}
+                        description={
                             <>
-                                <big>
-                                    <i>
-                                        <b>{t('defineRecipe.lookerBanner.acknowledge')}</b>
-                                    </i>
-                                </big>
-                                <br />
-                                <br />
                                 <Trans
                                     t={t}
                                     i18nKey="defineRecipe.lookerBanner.integration"
@@ -169,18 +158,16 @@ export const DefineRecipeStep = ({
                                     i18nKey="defineRecipe.lookerBanner.uiUnsupported"
                                     components={{ bold: <b /> }}
                                 />
-                                <br />
-                                <Space direction="horizontal" style={{ width: '100%', justifyContent: 'center' }}>
-                                    <Button variant="text" onClick={() => setShowLookerBanner(false)}>
-                                        {t('defineRecipe.lookerBanner.acknowledgeButton')}
-                                    </Button>
-                                </Space>
                             </>
                         }
-                        afterClose={() => setShowLookerBanner(false)}
+                        action={{
+                            label: t('defineRecipe.lookerBanner.acknowledgeButton'),
+                            onClick: () => setShowLookerBanner(false),
+                        }}
+                        onClose={() => setShowLookerBanner(false)}
                     />
                 )}
-                <Typography.Text>
+                <Text type="span">
                     {showLookerBanner && <br />}
                     <Trans
                         t={t}
@@ -194,7 +181,7 @@ export const DefineRecipeStep = ({
                             ),
                         }}
                     />
-                </Typography.Text>
+                </Text>
             </Section>
             <BorderedSection>
                 <YamlEditor initialText={displayRecipe} onChange={setStagedRecipeYml} />
