@@ -1087,6 +1087,261 @@ def test_icon_dispatcher_unknown_types_preserves_known_types():
     assert isinstance(file_result, FileIcon)
 
 
+def _notion_block_payload(block_type: str, body: dict) -> dict:
+    user = {"object": "user", "id": "11111111-1111-1111-1111-111111111111"}
+    return {
+        "object": "block",
+        "id": "22222222-2222-2222-2222-222222222222",
+        "type": block_type,
+        block_type: body,
+        "created_time": "2026-01-01T00:00:00.000Z",
+        "created_by": dict(user),
+        "last_edited_time": "2026-01-01T00:00:00.000Z",
+        "last_edited_by": dict(user),
+        "archived": False,
+        "in_trash": False,
+        "has_children": False,
+        "parent": {
+            "type": "page_id",
+            "page_id": "33333333-3333-3333-3333-333333333333",
+        },
+    }
+
+
+def _notion_text(content: str) -> dict:
+    return {
+        "type": "text",
+        "text": {"content": content, "link": None},
+        "annotations": {
+            "bold": False,
+            "italic": False,
+            "strikethrough": False,
+            "underline": False,
+            "code": False,
+            "color": "default",
+        },
+        "plain_text": content,
+        "href": None,
+    }
+
+
+def test_block_type_mapping_keeps_heading_4_text():
+    """Notion's heading_4 isn't in unstructured-ingest 1.4.28's block table; the
+    KeyError aborted the whole pipeline (every page, not just the one with the
+    heading). The heading's text must survive."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.block import Block
+    from unstructured_ingest.processes.connectors.notion.types.blocks import Heading
+
+    NotionSource._monkeypatch_block_type_mapping_unknown_types()
+
+    block = Block.from_dict(
+        _notion_block_payload(
+            "heading_4",
+            {
+                "rich_text": [_notion_text("Figure 2: Operating Model diagram")],
+                "color": "default",
+                "is_toggleable": False,
+            },
+        )
+    )
+
+    assert isinstance(block.block, Heading)
+    assert "Figure 2: Operating Model diagram" in block.get_html().render()
+
+
+def test_block_type_mapping_degrades_unknown_block_type():
+    """A block type Notion adds later must cost that block's text, not the run."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.block import Block
+    from unstructured_ingest.processes.connectors.notion.types.blocks import (
+        Unsupported,
+    )
+
+    NotionSource._monkeypatch_block_type_mapping_unknown_types()
+
+    block = Block.from_dict(_notion_block_payload("heading_9", {"rich_text": []}))
+
+    assert isinstance(block.block, Unsupported)
+    assert block.get_html() is None
+
+
+def test_block_type_mapping_preserves_known_types_and_is_idempotent():
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types import (
+        block as block_module,
+    )
+    from unstructured_ingest.processes.connectors.notion.types.blocks import Divider
+
+    NotionSource._monkeypatch_block_type_mapping_unknown_types()
+    first = block_module.block_type_mapping
+    NotionSource._monkeypatch_block_type_mapping_unknown_types()
+
+    assert block_module.block_type_mapping is first
+    assert first["divider"] is Divider
+    assert "heading_4" in first
+
+
+def _titles(entries) -> list:
+    return [e.title for e in entries]
+
+
+def test_validate_page_accessibility_skips_unshared_pages_with_a_warning(
+    notion_source,
+):
+    """One unshared page used to stop the whole run. It's now skipped and reported
+    with how to fix it, and the readable pages are kept."""
+    shared, unshared = (
+        "11111111-1111-1111-1111-111111111111",
+        "22222222-2222-2222-2222-222222222222",
+    )
+
+    def retrieve(page_id):
+        if page_id == unshared:
+            raise Exception("Could not find page")
+        return {}
+
+    client = MagicMock()
+    client.pages.retrieve.side_effect = retrieve
+    with patch("notion_client.Client", return_value=client):
+        pages, databases = notion_source._validate_page_accessibility(
+            [shared, unshared], []
+        )
+
+    assert pages == [shared]
+    assert databases == []
+    warning = notion_source.report.warnings[0]
+    assert warning.title == "Notion page not shared with the integration"
+    assert "Add connections" in warning.message
+    assert unshared.replace("-", "") in str(warning.context)
+
+
+def test_validate_page_accessibility_fails_clearly_when_nothing_is_readable(
+    notion_source,
+):
+    from datahub.ingestion.source.notion.notion_source import NotionAccessError
+
+    client = MagicMock()
+    client.pages.retrieve.side_effect = Exception("Could not find page")
+    with patch("notion_client.Client", return_value=client):
+        with pytest.raises(NotionAccessError, match="Add connections"):
+            notion_source._validate_page_accessibility(
+                ["11111111-1111-1111-1111-111111111111"], []
+            )
+
+
+def test_nothing_readable_is_reported_as_a_failure_not_a_pipeline_error(
+    notion_source,
+):
+    from datahub.ingestion.source.notion.notion_source import NotionAccessError
+
+    with patch.object(
+        notion_source,
+        "_run_unstructured_pipeline",
+        side_effect=NotionAccessError("none readable"),
+    ):
+        list(notion_source.get_workunits_internal())
+
+    assert _titles(notion_source.report.failures) == [
+        "Notion pages not shared with the integration"
+    ]
+
+
+def test_block_from_dict_records_unsupported_blocks():
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.block import Block
+
+    from datahub.ingestion.source.notion import notion_source as module
+
+    NotionSource._monkeypatch_block_type_mapping_unknown_types()
+    module._unsupported_blocks.drain()
+
+    payload = _notion_block_payload("unsupported", {})
+    payload["parent"] = {
+        "type": "block_id",
+        "block_id": "44444444-4444-4444-4444-444444444444",
+    }
+    Block.from_dict(data=payload)
+    Block.from_dict(
+        data=_notion_block_payload("paragraph", {"rich_text": [], "color": "default"})
+    )
+
+    records = module._unsupported_blocks.drain()
+    assert [(r["type"], r["parent_id"]) for r in records] == [
+        ("unsupported", "44444444-4444-4444-4444-444444444444")
+    ]
+
+
+def test_unsupported_blocks_collector_merges_processes_and_dedupes(tmp_path):
+    """The library may download in worker processes; records written there reach
+    the parent through the file."""
+    from datahub.ingestion.source.notion.notion_source import _UnsupportedBlocks
+
+    path = str(tmp_path / "blocks.jsonl")
+    parent = _UnsupportedBlocks()
+    parent.start(path)
+    parent.record("a", "unsupported", "block_id", "p1")
+
+    worker = _UnsupportedBlocks()
+    worker._path = path
+    worker.record("b", "unsupported", "page_id", "p2")
+    worker.record("a", "unsupported", "block_id", "p1")
+
+    assert sorted(r["id"] for r in parent.drain()) == ["a", "b"]
+    assert parent.drain() == []
+
+
+def test_report_unsupported_blocks_names_the_owning_page(notion_source):
+    from datahub.ingestion.source.notion import notion_source as module
+
+    page = "55555555-5555-5555-5555-555555555555"
+    module._unsupported_blocks.start("/nonexistent-dir/blocks.jsonl")
+    module._unsupported_blocks.record("b1", "unsupported", "block_id", "toggle")
+    module._unsupported_blocks.record("b2", "heading_9", "page_id", page)
+
+    client = MagicMock()
+    client.blocks.retrieve.return_value = {
+        "parent": {"type": "page_id", "page_id": page}
+    }
+    with patch("notion_client.Client", return_value=client):
+        notion_source._report_unsupported_blocks()
+
+    by_title = {w.title: w for w in notion_source.report.warnings}
+    alias = by_title["Notion blocks the API can't return"]
+    assert page.replace("-", "") in str(alias.context)
+    assert "blocks=1" in str(alias.context)
+    assert "alias" in alias.message
+    unknown = by_title["Unknown Notion block type"]
+    assert "heading_9" in str(unknown.context)
+
+
+def test_report_unsupported_blocks_is_quiet_when_there_are_none(notion_source):
+    from datahub.ingestion.source.notion import notion_source as module
+
+    module._unsupported_blocks.start("/nonexistent-dir/blocks.jsonl")
+    notion_source._report_unsupported_blocks()
+
+    assert not notion_source.report.warnings
+
+
+def test_should_skip_file_warns_about_a_page_with_no_text(notion_source):
+    data = {
+        "elements": [{"text": ""}],
+        "metadata": {
+            "filename": "page.json",
+            "data_source": {
+                "record_locator": {"page_id": "66666666-6666-6666-6666-666666666666"}
+            },
+        },
+    }
+
+    assert notion_source._should_skip_file(data) is True
+
+    warning = notion_source.report.warnings[0]
+    assert warning.title == "Notion page has no text"
+    assert "666666666666666666666666" in str(warning.context)
+
+
 def test_unstructured_ingest_syncblock_handles_null_synced_from():
     """1.4.28 already treats synced_from=null as an original block; do not re-patch."""
     pytest.importorskip("unstructured_ingest")

@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, Union
@@ -34,6 +35,110 @@ from datahub.ingestion.source.unstructured.document_builder import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+_NOT_SHARED_FIX = (
+    "Make sure these pages/databases are shared with your Notion integration. "
+    "To share a page or database with your integration:\n"
+    "1. Open the page in Notion\n"
+    "2. Click the '...' menu in the top right\n"
+    "3. Select 'Add connections'\n"
+    "4. Choose your integration"
+)
+
+# A page with less text than this is reported, since it usually means content the
+# connector can't read (images, embeds, alias blocks).
+_THIN_PAGE_CHARS = 200
+
+
+def _notion_url(notion_id: str) -> str:
+    return f"https://www.notion.so/{notion_id.replace('-', '')}"
+
+
+class NotionAccessError(ValueError):
+    """None of the configured pages or databases can be read by the integration."""
+
+
+class _UnsupportedBlocks:
+    """Blocks the Notion API (or this connector) couldn't read, noted while pages download.
+
+    The library gives no page context for a block, so each record keeps the block's
+    parent, and the source walks up to the owning page when it reports. The library may
+    download in worker processes, so records also go to a file that every process can
+    append to; in-memory records alone would be lost with the worker.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._path: Optional[str] = None
+        self._records: List[Dict[str, str]] = []
+
+    def start(self, path: str) -> None:
+        """Begin a run: forget earlier records and collect into ``path``."""
+        with self._lock:
+            self._records = []
+            self._path = path
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+
+    def record(
+        self, block_id: str, block_type: str, parent_type: str, parent_id: str
+    ) -> None:
+        record = {
+            "id": block_id,
+            "type": block_type,
+            "parent_type": parent_type,
+            "parent_id": parent_id,
+        }
+        with self._lock:
+            self._records.append(record)
+            path = self._path
+        if path:
+            try:
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(record) + "\n")
+            except OSError:
+                logger.debug("Couldn't note an unsupported Notion block", exc_info=True)
+
+    def drain(self) -> List[Dict[str, str]]:
+        """Return the distinct records from every process, and clear them."""
+        with self._lock:
+            records, self._records = self._records, []
+            path = self._path
+        if path and os.path.exists(path):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    records += [json.loads(line) for line in f if line.strip()]
+                os.remove(path)
+            except (OSError, ValueError):
+                logger.debug("Couldn't read noted Notion blocks", exc_info=True)
+        distinct: Dict[str, Dict[str, str]] = {}
+        for record in records:
+            distinct[record["id"]] = record
+        return list(distinct.values())
+
+
+_unsupported_blocks = _UnsupportedBlocks()
+
+
+class _TolerantBlockTypeMapping(dict):
+    """A block-type table that answers ``fallback`` for a type it doesn't list."""
+
+    def __init__(self, mapping: Dict[str, Any], fallback: Any) -> None:
+        super().__init__(mapping)
+        self._fallback = fallback
+        self._warned: Set[str] = set()
+
+    def __missing__(self, key: str) -> Any:
+        if key not in self._warned:
+            self._warned.add(key)
+            logger.warning(
+                f"Notion API returned unknown block type '{key}' - skipping its "
+                f"text. The rest of the page is kept."
+            )
+        return self._fallback
 
 
 @platform_name("Notion")
@@ -510,6 +615,67 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning(f"Icon dispatcher not found - skipping monkeypatch: {e}")
         except Exception as e:
             logger.warning(f"Failed to apply Icon dispatcher monkeypatch: {e}")
+
+    @staticmethod
+    def _monkeypatch_block_type_mapping_unknown_types() -> None:
+        """Keep a page walk alive when Notion returns a block type the library lacks.
+
+        unstructured-ingest 1.4.28's ``block_type_mapping`` lists ``heading_1`` to
+        ``heading_3``. Notion also emits ``heading_4``, and ``Block.from_dict`` raises
+        ``KeyError`` for it, which aborts the whole pipeline and leaves no documents
+        from any page.
+
+        ``heading_4`` is mapped to ``Heading``, which renders the rich text without
+        regard to level, so the text is kept. Any other unknown block type is mapped
+        to ``Unsupported`` (no text) with a one-time warning, so a block type added
+        later costs that block's text rather than the run.
+        """
+        try:
+            from unstructured_ingest.processes.connectors.notion.types import (
+                block as block_module,
+                blocks,
+            )
+
+            if isinstance(block_module.block_type_mapping, _TolerantBlockTypeMapping):
+                return
+
+            original = dict(block_module.block_type_mapping)
+            original.setdefault("heading_4", blocks.Heading)
+            block_module.block_type_mapping = _TolerantBlockTypeMapping(
+                original, blocks.Unsupported
+            )
+
+            # Note every block that comes back as Unsupported, so the run can say which
+            # pages lost content and why.
+            block_cls = block_module.Block
+            original_from_dict = block_cls.from_dict.__func__
+
+            def patched_from_dict(cls: Type[Any], data: dict) -> Any:
+                block = original_from_dict(cls, data)
+                if isinstance(block.block, blocks.Unsupported):
+                    parent = block.parent
+                    parent_id = (
+                        getattr(parent, "page_id", None)
+                        or getattr(parent, "database_id", None)
+                        or getattr(parent, "block_id", None)
+                        or ""
+                    )
+                    _unsupported_blocks.record(
+                        block.id, block.type, getattr(parent, "type", ""), parent_id
+                    )
+                return block
+
+            block_cls.from_dict = classmethod(patched_from_dict)
+            logger.info(
+                "Applied monkeypatch to Notion block type mapping for heading_4 "
+                "and unknown block types"
+            )
+        except ImportError as e:
+            logger.warning(f"Notion block type mapping not found - skipping: {e}")
+        except Exception as e:
+            logger.warning(
+                f"Failed to apply Notion block type mapping monkeypatch: {e}"
+            )
 
     @staticmethod
     def _monkeypatch_notion_types_filter_unknown_fields() -> None:
@@ -1024,6 +1190,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         try:
             # Run Unstructured.io pipeline
             output_dir = self._run_unstructured_pipeline()
+            self._report_unsupported_blocks()
 
             # Process output files
             # The stale_entity_removal_handler.workunit_processor registered in
@@ -1038,6 +1205,19 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 self._save_state()
                 logger.info(f"Saved state for {len(self.document_state)} documents")
 
+        except NotionAccessError as e:
+            logger.error(str(e))
+            self.report.failure(
+                title="Notion pages not shared with the integration",
+                message=(
+                    "None of the configured pages or databases could be read, so "
+                    "nothing was ingested. Share them with the integration (Add "
+                    "connections in Notion) and run again."
+                ),
+                context=str(e),
+            )
+            if self.config.advanced.raise_on_error:
+                raise
         except Exception as e:
             logger.error(f"Failed to run Unstructured pipeline: {e}", exc_info=True)
             self.report.failure(message="Failed to run Unstructured pipeline", exc=e)
@@ -1046,74 +1226,140 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
 
     def _validate_page_accessibility(
         self, page_ids: list[str], database_ids: list[str]
-    ) -> None:
-        """Validate that provided page_ids and database_ids are accessible to the integration.
+    ) -> tuple[list[str], list[str]]:
+        """Return the configured page_ids and database_ids the integration can read.
+
+        A page or database the integration can't read is reported as a warning with
+        how to fix it, and skipped, so one unshared page doesn't cost the run.
 
         Raises:
-            ValueError: If any provided page or database is not accessible
+            NotionAccessError: If none of the configured pages or databases is readable
         """
         from notion_client import Client
 
         if not page_ids and not database_ids:
-            return  # Nothing to validate
+            return page_ids, database_ids  # Nothing to validate
 
         logger.info("Validating accessibility of provided pages and databases...")
 
         client = Client(auth=self.config.api_key.get_secret_value())
-        inaccessible_pages = []
-        inaccessible_databases = []
+        accessible_pages: list[str] = []
+        accessible_databases: list[str] = []
+        inaccessible: list[str] = []
 
-        # Validate pages
         for page_id in page_ids:
             try:
                 client.pages.retrieve(page_id)
+                accessible_pages.append(page_id)
                 logger.debug(f"Validated access to page: {page_id}")
             except Exception as e:
-                inaccessible_pages.append((page_id, str(e)))
-                logger.warning(
-                    f"Page {page_id} is not accessible: {e.__class__.__name__}: {e}"
-                )
+                inaccessible.append(page_id)
+                self._report_not_shared(page_id, "page", e)
 
-        # Validate databases
         for db_id in database_ids:
             try:
                 client.databases.retrieve(db_id)
+                accessible_databases.append(db_id)
                 logger.debug(f"Validated access to database: {db_id}")
             except Exception as e:
-                inaccessible_databases.append((db_id, str(e)))
-                logger.warning(
-                    f"Database {db_id} is not accessible: {e.__class__.__name__}: {e}"
-                )
+                inaccessible.append(db_id)
+                self._report_not_shared(db_id, "database", e)
 
-        # Raise error if any pages or databases are inaccessible
-        if inaccessible_pages or inaccessible_databases:
-            error_msg_parts = []
-
-            if inaccessible_pages:
-                page_ids_str = ", ".join([pid for pid, _ in inaccessible_pages])
-                error_msg_parts.append(
-                    f"The following page IDs are not accessible: {page_ids_str}"
-                )
-
-            if inaccessible_databases:
-                db_ids_str = ", ".join([did for did, _ in inaccessible_databases])
-                error_msg_parts.append(
-                    f"The following database IDs are not accessible: {db_ids_str}"
-                )
-
-            error_msg_parts.append(
-                "\n\nMake sure these pages/databases are shared with your Notion integration. "
-                "To share a page or database with your integration:\n"
-                "1. Open the page in Notion\n"
-                "2. Click the '...' menu in the top right\n"
-                "3. Select 'Add connections'\n"
-                "4. Choose your integration"
+        if not accessible_pages and not accessible_databases:
+            raise NotionAccessError(
+                "None of the configured pages or databases are accessible: "
+                + ", ".join(inaccessible)
+                + "\n\n"
+                + _NOT_SHARED_FIX
             )
 
-            raise ValueError("\n\n".join(error_msg_parts))
-
         logger.info(
-            f"Successfully validated access to {len(page_ids)} pages and {len(database_ids)} databases"
+            f"Validated access to {len(accessible_pages)} of {len(page_ids)} pages "
+            f"and {len(accessible_databases)} of {len(database_ids)} databases"
+        )
+        return accessible_pages, accessible_databases
+
+    def _owning_page_id(
+        self, client: Any, parent_type: str, parent_id: str, cache: Dict[str, str]
+    ) -> str:
+        """Walk up from a block's parent to the page it sits on (best effort)."""
+        seen = parent_id
+        for _ in range(10):
+            if parent_type in ("page_id", "database_id", "workspace") or not parent_id:
+                return parent_id
+            if parent_id in cache:
+                return cache[parent_id]
+            try:
+                block = client.blocks.retrieve(block_id=parent_id)
+            except Exception:
+                return seen
+            parent = block.get("parent", {})
+            parent_type = parent.get("type", "")
+            parent_id = parent.get(parent_type, "") if parent_type else ""
+        return seen
+
+    def _report_unsupported_blocks(self) -> None:
+        """Warn, per page, about blocks that came back empty and say how to fix them."""
+        records = _unsupported_blocks.drain()
+        if not records:
+            return
+
+        from notion_client import Client
+
+        client = Client(auth=self.config.api_key.get_secret_value())
+        cache: Dict[str, str] = {}
+        by_page: Dict[str, Dict[str, int]] = {}
+        # Bound the API calls spent on attribution; the rest are grouped by parent.
+        for record in records[:200]:
+            page = self._owning_page_id(
+                client, record["parent_type"], record["parent_id"], cache
+            )
+            cache[record["parent_id"]] = page
+            kinds = by_page.setdefault(page or "unknown", {})
+            kinds[record["type"]] = kinds.get(record["type"], 0) + 1
+
+        for page, kinds in by_page.items():
+            where = _notion_url(page) if page != "unknown" else "unknown page"
+            unsupported = kinds.pop("unsupported", 0)
+            if unsupported:
+                self.report.warning(
+                    title="Notion blocks the API can't return",
+                    message=(
+                        "The Notion API returned these blocks as 'unsupported', so "
+                        "their text is missing. This is usually an alias: a page "
+                        "shown here that lives somewhere else. Share the original "
+                        "page with the integration and add it to page_ids, or open "
+                        "the block in Notion to see what it is."
+                    ),
+                    context=f"page={where} blocks={unsupported}",
+                    log=False,
+                )
+            if kinds:
+                self.report.warning(
+                    title="Unknown Notion block type",
+                    message=(
+                        "Notion returned a block type this connector version doesn't "
+                        "know, so that block's text was skipped. The rest of the "
+                        "page is ingested. Upgrade the connector if this persists."
+                    ),
+                    context=f"page={where} types={sorted(kinds)}",
+                    log=False,
+                )
+
+    def _report_not_shared(self, notion_id: str, kind: str, exc: Exception) -> None:
+        logger.warning(
+            f"Notion {kind} {notion_id} is not accessible: {exc.__class__.__name__}: {exc}"
+        )
+        self.report.warning(
+            title="Notion page not shared with the integration",
+            message=(
+                "The integration can't read this page or database, so it was "
+                "skipped and the rest of the run continues. In Notion, open it, "
+                "click the ... menu, choose Add connections, pick your integration, "
+                "then run again. Pages under it are included once it is shared."
+            ),
+            context=f"{kind}={_notion_url(notion_id)}",
+            log=False,
         )
 
     def _discover_all_accessible_pages(self) -> tuple[list[str], list[str]]:
@@ -1195,6 +1441,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # and iterate_query were removed because 1.4.28 already implements those.
         self._monkeypatch_database_title_extraction()
         self._monkeypatch_icon_dispatcher_unknown_types()
+        self._monkeypatch_block_type_mapping_unknown_types()
         self._monkeypatch_notion_types_filter_unknown_fields()
         self._warn_on_empty_original_synced_blocks()
 
@@ -1215,7 +1462,9 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 )
         else:
             # Validate that provided pages/databases are accessible
-            self._validate_page_accessibility(page_ids, database_ids)
+            page_ids, database_ids = self._validate_page_accessibility(
+                page_ids, database_ids
+            )
 
         if not page_ids and database_ids:
             logger.info(f"Using configured database_ids: {len(database_ids)} databases")
@@ -1233,6 +1482,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         # Create output directory
         output_dir = work_dir / "output"
         output_dir.mkdir(exist_ok=True)
+        _unsupported_blocks.start(str(work_dir / "unsupported_blocks.jsonl"))
 
         try:
             from unstructured_ingest.interfaces.processor import ProcessorConfig
@@ -1423,6 +1673,18 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                 page_id = record_locator.get("page_id")
                 if page_id:
                     ingested_page_ids.add(page_id)
+                    text_chars = sum(len(e.get("text", "")) for e in elements)
+                    if text_chars < _THIN_PAGE_CHARS and page_id not in parent_page_ids:
+                        self.report.warning(
+                            title="Notion page has very little text",
+                            message=(
+                                "This page was ingested with very little text. If it "
+                                "should have more, it may hold images, embeds, links "
+                                "or alias blocks that can't be ingested."
+                            ),
+                            context=f"page={_notion_url(page_id)} chars={text_chars}",
+                            log=False,
+                        )
 
                     # Pre-compute the title so browse-path ancestor labels match
                     # the titles emitted on the ancestor documents themselves.
@@ -1521,6 +1783,16 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             if not elements or total_text_length == 0:
                 self.report.report_file_skipped(
                     metadata.get("filename", "unknown"), "No text content"
+                )
+                self.report.warning(
+                    title="Notion page has no text",
+                    message=(
+                        "This page produced no text, so no document was created. It "
+                        "may hold only images or embeds, or content the API can't "
+                        "return, such as alias blocks."
+                    ),
+                    context=f"page={_notion_url(current_page_id or 'unknown')}",
+                    log=False,
                 )
                 return True
 
