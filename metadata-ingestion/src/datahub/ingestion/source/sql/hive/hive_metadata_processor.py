@@ -36,7 +36,12 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.presto_view_decoder import decode_presto_view
+from datahub.ingestion.source.common.presto_view_decoder import (
+    FALLBACK_HIVE_TYPE,
+    decode_presto_view,
+    get_presto_view_columns,
+    trino_type_to_hive_type,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -235,12 +240,18 @@ class HiveMetadataProcessor:
         Returns:
             List of SchemaField objects (may be multiple for complex types)
         """
-        return get_schema_fields_for_hive_column(
+        schema_fields = get_schema_fields_for_hive_column(
             column["col_name"],
             column["col_type"],
             description=column.get("col_description", ""),
             default_nullable=True,
         )
+        native_type = column.get("col_native_type")
+        if native_type and schema_fields:
+            # col_type is a Hive approximation used only for parsing; keep the
+            # engine's own type (e.g. `timestamp(3) with time zone`).
+            schema_fields[0].nativeDataType = native_type
+        return schema_fields
 
     def get_schema_fields(
         self, dataset_name: str, columns: List[Dict[str, Any]]
@@ -279,17 +290,52 @@ class HiveMetadataProcessor:
                 schema_field.isPartitioningKey = True
 
     def _get_presto_view_column_metadata(
-        self, view_original_text: str
+        self, dataset_name: str, view_original_text: str
     ) -> Tuple[List[Dict[str, Any]], str]:
-        """Extract column metadata from base64-encoded Presto view definition."""
+        """Extract column metadata from base64-encoded Presto view definition.
+
+        Raises ``ValueError`` when the definition cannot be decoded, has no SQL,
+        or has a malformed ``columns`` list.
+        """
         decoded_view_info = decode_presto_view(view_original_text)
-        view_definition = decoded_view_info["originalSql"]
+        view_definition = decoded_view_info.get("originalSql")
+        if not isinstance(view_definition, str) or not view_definition:
+            raise ValueError("Presto view definition has no 'originalSql'")
 
-        columns = decoded_view_info["columns"]
-        for col in columns:
-            col["col_name"], col["col_type"] = col["name"], col["type"]
+        # An empty list is a view without column information, which the caller
+        # reports separately; anything else invalid is a malformed definition.
+        if decoded_view_info.get("columns") == []:
+            return [], view_definition
+        view_columns = get_presto_view_columns(decoded_view_info)
+        if view_columns is None:
+            raise ValueError("Presto view definition has no valid 'columns' list")
 
-        return list(columns), view_definition
+        columns: List[Dict[str, Any]] = []
+        unconverted_columns: List[str] = []
+        for view_column in view_columns:
+            try:
+                hive_type = trino_type_to_hive_type(view_column["type"])
+            except ValueError:
+                hive_type = FALLBACK_HIVE_TYPE
+                unconverted_columns.append(view_column["name"])
+            columns.append(
+                {
+                    "col_name": view_column["name"],
+                    "col_type": hive_type,
+                    "col_native_type": view_column["type"],
+                }
+            )
+
+        if unconverted_columns:
+            self.report.warning(
+                title="Presto view column types could not be converted",
+                message="Some Presto view columns have a type DataHub could not "
+                "convert, so they are typed as string.",
+                context=f"{dataset_name}: {', '.join(unconverted_columns)}",
+                log=False,
+            )
+
+        return columns, view_definition
 
     # =========================================================================
     # WorkUnit Generation Methods
@@ -631,7 +677,7 @@ class HiveMetadataProcessor:
 
             try:
                 columns, view_definition = self._get_presto_view_column_metadata(
-                    row["view_original_text"]
+                    dataset_name, row["view_original_text"]
                 )
             except Exception as e:
                 # A single malformed Presto view must not abort the whole database.
