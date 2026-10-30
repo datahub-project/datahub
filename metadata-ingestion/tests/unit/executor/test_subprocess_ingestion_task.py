@@ -23,16 +23,13 @@ from datahub.executor.execution.runner import (
     referenced_env_values,
 )
 from datahub.executor.execution.sub_process_ingestion_task import (
+    IngestionMemoryInfo,
     SubProcessIngestionTask,
     SubProcessIngestionTaskArgs,
     SubProcessIngestionTaskConfig,
 )
 from datahub.executor.execution.sub_process_task_common import SubProcessTaskUtil
 from datahub.executor.execution.task import TaskError
-from datahub.executor.execution.worker_memory import (
-    IngestionMemoryInfo,
-    MemoryLimit,
-)
 from datahub.executor.report.execution_report import ExecutionReport
 from datahub.executor.request.execution_request import ExecutionRequest
 from datahub.masking.constants import MASKING_ERROR_MESSAGE
@@ -49,9 +46,6 @@ _GET_PLUGIN = (
 _REMOVE_DIRECTORY = (
     "datahub.executor.execution.sub_process_task_common"
     ".SubProcessTaskUtil._remove_directory"
-)
-_READ_MEMORY_LIMIT = (
-    "datahub.executor.execution.sub_process_ingestion_task.read_memory_limit"
 )
 _FORMAT_LOG_LINES = (
     "datahub.executor.execution.sub_process_task_common"
@@ -794,9 +788,6 @@ class TestSubProcessIngestionTaskCompletion:
             patch("os.path.exists", return_value=False),
             patch(_REMOVE_DIRECTORY),
             patch(_FORMAT_LOG_LINES),
-            patch(
-                _READ_MEMORY_LIMIT, return_value=MemoryLimit(64424509440, "cgroup v2")
-            ),
         ):
             with pytest.raises(TaskError, match="Failed to execute 'datahub ingest'"):
                 ingestion_task._handle_subprocess_completion(
@@ -816,7 +807,6 @@ class TestSubProcessIngestionTaskCompletion:
             ][0]
             assert "killed by signal SIGKILL" in error_message
             assert "last reported a peak memory usage of 59.1 GB" in error_message
-            assert "worker memory limit is 64.42 GB (cgroup v2)" in error_message
             assert "datahub-actions" not in error_message
 
     def test_handle_subprocess_completion_oom_exit_code_137(
@@ -829,7 +819,6 @@ class TestSubProcessIngestionTaskCompletion:
             patch("os.path.exists", return_value=False),
             patch(_REMOVE_DIRECTORY),
             patch(_FORMAT_LOG_LINES),
-            patch(_READ_MEMORY_LIMIT, return_value=MemoryLimit(None, "unknown")),
         ):
             with pytest.raises(TaskError, match="Failed to execute 'datahub ingest'"):
                 ingestion_task._handle_subprocess_completion(
@@ -848,9 +837,8 @@ class TestSubProcessIngestionTaskCompletion:
             ][0]
             assert "exit code 137" in error_message
             assert "ran out of memory" in error_message
-            # Nothing measured, nothing quoted.
+            # Nothing reported, nothing quoted.
             assert "peak memory usage" not in error_message
-            assert "memory limit is" not in error_message
 
     def test_handle_subprocess_completion_cancelled_does_not_raise(
         self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
@@ -1774,3 +1762,21 @@ async def test_execute_refuses_credential_redirect_before_setup(
             await ingestion_task.execute(args, mock_execution_context)
     mock_setup_dirs.assert_not_called()
     mock_setup_venv.assert_not_called()
+
+
+class TestIngestionMemoryInfo:
+    def test_remembers_the_latest_peak_from_the_cli_report(self) -> None:
+        """The pipeline prints its CLI report every minute; the last peak wins."""
+        info = IngestionMemoryInfo()
+        info.record_log_line(" 'mem_info': '1.2 GB',\n")
+        assert info.last_reported_peak is None
+
+        info.record_log_line(" 'peak_memory_usage': '1.5 GB',\n")
+        info.record_log_line("[2026-10-16 08:37:50,431] INFO some other line\n")
+        info.record_log_line(" 'peak_memory_usage': '59.1 GB',\n")
+        assert info.last_reported_peak == "59.1 GB"
+
+    def test_ignores_a_report_without_a_value(self) -> None:
+        info = IngestionMemoryInfo()
+        info.record_log_line(" 'peak_memory_usage': None,\n")
+        assert info.last_reported_peak is None

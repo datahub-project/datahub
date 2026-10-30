@@ -17,11 +17,13 @@ import asyncio.exceptions
 import json
 import logging
 import os
+import re
 import signal
 import sys
 from asyncio import tasks
 from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import IO, Any, Optional
@@ -49,13 +51,31 @@ from datahub.executor.execution.sub_process_task_common import (
     resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
-from datahub.executor.execution.worker_memory import (
-    IngestionMemoryInfo,
-    read_memory_limit,
-)
 from datahub.masking.masking_filter import SecretMaskingFilter
 
 logger = logging.getLogger(__name__)
+
+# Matches the pipeline's periodic CLI report, e.g. "'peak_memory_usage': '12.3 GB',".
+_PEAK_MEMORY_RE = re.compile(r"'peak_memory_usage': '([^']+)'")
+
+
+@dataclass
+class IngestionMemoryInfo:
+    """The peak memory the ingestion subprocess last reported about itself.
+
+    A run killed for running out of memory never writes its report file, so the
+    periodic CLI report in its output is the only record of what it used.
+    """
+
+    last_reported_peak: Optional[str] = None
+
+    def record_log_line(self, line: str) -> None:
+        if "peak_memory_usage" not in line:
+            return
+        match = _PEAK_MEMORY_RE.search(line)
+        if match:
+            self.last_reported_peak = match.group(1)
+
 
 ARTIFACTS_DIR_NAME = "artifacts"
 
@@ -678,31 +698,25 @@ class SubProcessIngestionTask(Task):
     def _format_oom_error(
         how_it_ended: str, memory_info: Optional[IngestionMemoryInfo]
     ) -> str:
-        """An OOM error that states what the run used and what it could use.
+        """An OOM error that quotes the run's last reported peak memory.
 
-        The peak comes from the pipeline's own periodic CLI report, so it is the
-        last value printed before the kill, not the true peak. The limit is the
-        executor worker's cgroup limit, shared by every ingestion running on it.
+        The peak is the last value the pipeline printed before the kill, not the
+        true peak. The memory limit applies to the whole executor and is shown
+        with its memory use on the executor's status, so it is not repeated here.
         """
         peak = memory_info.last_reported_peak if memory_info is not None else None
-        limit = read_memory_limit().text
-
-        details = []
-        if peak is not None:
-            details.append(f"the run last reported a peak memory usage of {peak}")
-        if limit is not None:
-            details.append(f"the executor worker memory limit is {limit}")
-        measured = ""
-        if details:
-            sentence = "; ".join(details)
-            measured = f" {sentence[0].upper()}{sentence[1:]}."
-
+        measured = (
+            f" This run last reported a peak memory usage of {peak}."
+            if peak is not None
+            else ""
+        )
         return (
             f"The ingestion process {how_it_ended}, most likely because the "
-            f"executor worker ran out of memory.{measured} The limit is shared by "
-            "every ingestion running on the worker. Reduce this ingestion's memory "
-            "use, run fewer ingestions concurrently on the worker, or allocate more "
-            "memory to the executor worker."
+            f"executor ran out of memory.{measured} The executor's memory limit is "
+            "shared by every ingestion running on it; its memory use and limit are "
+            "shown under Data Sources > Executors. Reduce this ingestion's memory "
+            "use, run fewer ingestions at once on the executor, or give the "
+            "executor more memory."
         )
 
     def close(self) -> None:
