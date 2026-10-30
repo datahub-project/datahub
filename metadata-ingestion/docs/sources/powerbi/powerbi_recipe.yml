@@ -16,6 +16,16 @@ source:
       deny:
         - PrivateWorkspace
 
+    # Optional -- ingest without tenant admin API access. Needs the Contributor role on
+    # each workspace and the tenant setting "Service principals can use Fabric APIs".
+    # Endorsements, apps and modified_since are not available in this mode.
+    # metadata_api_mode: workspace_apis
+    # Enrichment read from the semantic-model and report definitions (workspace_apis only)
+    # extract_model_relationships: true
+    # extract_report_field_usage: true
+    # Latest dataset refresh as an Operation aspect (works in both modes)
+    # extract_refresh_history: true
+
     # Enable / Disable ingestion of ownership information for dashboards
     extract_ownership: true
     

@@ -15,15 +15,20 @@ from typing import (
 )
 
 import requests
+from typing_extensions import LiteralString
 
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     PowerBiEnvironment,
+    PowerBiMetadataApiMode,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    FABRIC_ARTIFACT_LAKEHOUSE,
+    FABRIC_ARTIFACT_SQL_ANALYTICS_ENDPOINT,
+    FABRIC_ARTIFACT_WAREHOUSE,
     FIELD_TYPE_MAPPING,
     App,
     AppDashboard,
@@ -46,6 +51,32 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
     DataResolverBase,
     RegularAPIResolver,
+)
+from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
+    FABRIC_FORMAT_TMDL,
+    FABRIC_ITEM_LAKEHOUSE,
+    FABRIC_ITEM_SQL_ENDPOINT,
+    FABRIC_ITEM_WAREHOUSE,
+    FABRIC_KIND_PAGINATED_REPORTS,
+    FABRIC_KIND_REPORTS,
+    FABRIC_KIND_SEMANTIC_MODELS,
+    FabricDefinitionResolver,
+    FabricItem,
+    FabricLroTimeoutError,
+)
+from datahub.ingestion.source.powerbi.rest_api_wrapper.report_definition_parser import (
+    ParsedPage,
+    parse_rdl_dataset_binding,
+    parse_report_definition,
+)
+from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
+    PARTITION_KIND_CALCULATED,
+    PARTITION_KIND_ENTITY,
+    PARTITION_KIND_M,
+    TMDL_TABLES_PREFIX,
+    ParsedModel,
+    ParsedTable,
+    parse_semantic_model,
 )
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
@@ -136,6 +167,21 @@ class PowerBiAPI:
         self.__regular_api_resolver = make_resolver(config, RegularAPIResolver)
 
         self.__admin_api_resolver = make_resolver(config, AdminAPIResolver)
+
+        self.__fabric_resolver: Optional[FabricDefinitionResolver] = None
+        if config.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS:
+            self.__fabric_resolver = FabricDefinitionResolver(
+                msal_client=self.__regular_api_resolver.msal_client,
+                request_session=self.__regular_api_resolver.request_session,
+                lro_timeout_seconds=config.scan_timeout,
+            )
+            # Fail fast, like the Power BI token in DataResolverBase: without
+            # a Fabric token this mode cannot ingest a single semantic model.
+            self.__fabric_resolver.get_access_token()
+
+        # Workspace roles stand in for per-item users in workspace_apis mode;
+        # fetched once per workspace.
+        self.__workspace_users: Dict[str, List[User]] = {}
 
         self.reporter: PowerBiDashboardSourceReport = reporter
 
@@ -247,6 +293,9 @@ class PowerBiAPI:
             )
             return users
 
+        if self.__config.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS:
+            return self.get_workspace_users(workspace_id)
+
         try:
             users = self.__admin_api_resolver.get_users(
                 workspace_id=workspace_id,
@@ -286,6 +335,23 @@ class PowerBiAPI:
             f"workspace={workspace.name}, "
             f"report_name={report.name}, report_id={report.id}"
         )
+        if self.__config.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS:
+            bound_from_rdl = self._paginated_report_binding_from_rdl(report, workspace)
+            if bound_from_rdl is not None:
+                report.dataset_id = bound_from_rdl
+                report.dataset = self.dataset_registry.get(bound_from_rdl)
+                if report.dataset is None:
+                    self.reporter.info(
+                        title="Missing Lineage For Paginated Report",
+                        message=(
+                            "Paginated report is bound to a Power BI dataset that "
+                            "was not found in any ingested workspace (likely a "
+                            "cross-workspace reference filtered by "
+                            "workspace_id_pattern); lineage will be missing."
+                        ),
+                        context=f"{context}, dataset_id={bound_from_rdl}",
+                    )
+                return
         if self.__config.admin_apis_only:
             # /reports/{id}/datasources has no admin-API variant, so paginated
             # report lineage cannot be fetched in this mode.
@@ -359,6 +425,16 @@ class PowerBiAPI:
                 context=context,
             )
 
+    def _report_scan_fallback(
+        self, workspace: Workspace, title: LiteralString, message: LiteralString
+    ) -> None:
+        # In workspace_apis mode the per-workspace endpoints are the primary
+        # path, not a fallback, so the info would only be noise there.
+        if self.__config.metadata_api_mode == PowerBiMetadataApiMode.ADMIN_SCAN:
+            self.reporter.info(
+                title=title, message=message, context=f"workspace={workspace.name}"
+            )
+
     def get_reports(self, workspace: Workspace) -> Dict[str, Report]:
         """
         Fetch the report from PowerBi for the given Workspace
@@ -400,10 +476,10 @@ class PowerBiAPI:
                     context=f"workspace={workspace.name}",
                 )
         else:
-            self.reporter.info(
+            self._report_scan_fallback(
+                workspace,
                 title="Report Scan Fallback Active",
                 message="Workspace scan returned no data; falling back to per-workspace reports endpoint.",
-                context=f"workspace={workspace.name}",
             )
             try:
                 reports = {
@@ -414,11 +490,24 @@ class PowerBiAPI:
                 self.log_http_error(
                     message=f"Unable to fetch reports for workspace {workspace.name}"
                 )
-                self.reporter.warning(
-                    title="Reports Fetch Failed",
-                    message="Unable to fetch reports for workspace; reports will be empty.",
-                    context=f"workspace={workspace.name}",
-                )
+                if (
+                    self.__config.metadata_api_mode
+                    == PowerBiMetadataApiMode.WORKSPACE_APIS
+                ):
+                    # The per-workspace endpoint is the only source of reports
+                    # here; an empty result would soft-delete them under
+                    # stale-entity removal.
+                    self.reporter.failure(
+                        title="Reports Fetch Failed",
+                        message="Unable to fetch reports for workspace; its reports are missing from this run.",
+                        context=f"workspace={workspace.name}",
+                    )
+                else:
+                    self.reporter.warning(
+                        title="Reports Fetch Failed",
+                        message="Unable to fetch reports for workspace; reports will be empty.",
+                        context=f"workspace={workspace.name}",
+                    )
             for report in reports.values():
                 # _get_entity_users (called by get_report_users) already handles and swallows
                 # HTTP/network exceptions internally, so no outer try/except is needed here.
@@ -439,6 +528,8 @@ class PowerBiAPI:
                     context=f"workspace={workspace.name}, report_name={report.name}, report_id={report.id}",
                 )
                 report.pages = []
+            if self.__config.extract_report_field_usage:
+                self._fill_report_field_usage(workspace, report)
             if report.dataset_id:
                 report.dataset = self.dataset_registry.get(report.dataset_id)
                 if report.dataset is None:
@@ -669,6 +760,8 @@ class PowerBiAPI:
                     dataset_dict.get(Constant.ENDORSEMENT_DETAIL)
                 )
 
+            self._fill_refresh_history(workspace, dataset_instance)
+
             dataset_map[dataset_instance.id] = dataset_instance
             # set dataset-name
             dataset_name: str = (
@@ -820,6 +913,511 @@ class PowerBiAPI:
         app.reports = app_reports
         app.dashboards = app_dashboards
         workspace.app = app
+
+    def _require_fabric_resolver(self) -> FabricDefinitionResolver:
+        if self.__fabric_resolver is None:
+            raise RuntimeError(
+                "Fabric resolver is only created for metadata_api_mode: workspace_apis"
+            )
+        return self.__fabric_resolver
+
+    def get_workspace_users(self, workspace_id: str) -> List[User]:
+        if workspace_id in self.__workspace_users:
+            return self.__workspace_users[workspace_id]
+        users: List[User] = []
+        try:
+            users = self.__regular_api_resolver.get_workspace_users(workspace_id)
+        except Exception as e:
+            self.log_http_error(
+                message=f"Unable to fetch users for workspace {workspace_id}."
+            )
+            self.reporter.warning(
+                title="Workspace Users Not Fetched",
+                message="Workspace role assignments could not be fetched; assets in this workspace will have no owners.",
+                context=f"workspace_id={workspace_id}",
+                exc=e,
+            )
+        self.__workspace_users[workspace_id] = users
+        return users
+
+    def _fill_refresh_history(
+        self, workspace: Workspace, dataset: PowerBIDataset
+    ) -> None:
+        if not self.__config.extract_refresh_history:
+            return
+        try:
+            dataset.last_refresh = (
+                self.__regular_api_resolver.get_latest_dataset_refresh(
+                    workspace_id=workspace.id, dataset_id=dataset.id
+                )
+            )
+            self.reporter.refresh_history_fetched += 1
+        except Exception as e:
+            self.log_http_error(
+                message=f"Unable to fetch refresh history for dataset {dataset.id}"
+            )
+            self.reporter.warning(
+                title="Refresh History Not Fetched",
+                message="Dataset refresh history could not be fetched; no Operation aspect will be emitted for its tables.",
+                context=f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}",
+                exc=e,
+            )
+
+    def _paginated_report_binding_from_rdl(
+        self, report: Report, workspace: Workspace
+    ) -> Optional[str]:
+        try:
+            definition = self._require_fabric_resolver().get_item_definition(
+                workspace_id=workspace.id,
+                item_id=report.id,
+                item_kind=FABRIC_KIND_PAGINATED_REPORTS,
+            )
+            self.reporter.fabric_definitions_fetched += 1
+        except Exception as e:
+            self._report_definition_failure(
+                e,
+                f"workspace={workspace.name}, report={report.name} id={report.id}",
+                FABRIC_KIND_PAGINATED_REPORTS,
+            )
+            return None
+        return parse_rdl_dataset_binding(definition.parts)
+
+    def _report_definition_failure(
+        self, e: Exception, context: str, item_kind: str
+    ) -> None:
+        self.reporter.fabric_definitions_failed += 1
+        if isinstance(e, FabricLroTimeoutError):
+            self.reporter.fabric_lro_timeouts += 1
+        self.log_http_error(
+            message=f"Unable to fetch Fabric item definition ({context})"
+        )
+        permission_hint = (
+            "Grant the service principal the Contributor role on the workspace, "
+            "enable the tenant setting 'Service principals can use Fabric APIs', "
+            "and check for an encrypted sensitivity label on the item."
+        )
+        if item_kind == FABRIC_KIND_SEMANTIC_MODELS:
+            # Without its definition a semantic model has no tables this run;
+            # with stale-entity removal a green run would soft-delete them, so
+            # any cause (refused, failed operation, timeout) is a failure.
+            if data_resolver.is_permission_error(e):
+                self.reporter.failure(
+                    title="Fabric API Permission Denied",
+                    message=f"getDefinition was refused for this semantic model. {permission_hint}",
+                    context=context,
+                    exc=e,
+                )
+            else:
+                self.reporter.failure(
+                    title="Semantic Model Definition Not Fetched",
+                    message=(
+                        "getDefinition failed for this semantic model; its tables, "
+                        "schema and lineage are missing from this run. If the "
+                        "long-running operation timed out, increase scan_timeout."
+                    ),
+                    context=context,
+                    exc=e,
+                )
+            return
+        # Report definitions only enrich existing entities (visual field usage,
+        # paginated-report dataset binding); losing them does not lose entities.
+        if data_resolver.is_permission_error(e):
+            self.reporter.fabric_report_definitions_denied += 1
+            self.reporter.warning(
+                title="Report Definition Permission Denied",
+                message=f"getDefinition was refused for this report; its visual field usage or dataset binding is skipped. {permission_hint}",
+                context=context,
+                exc=e,
+            )
+            return
+        self.reporter.warning(
+            title="Report Definition Not Fetched",
+            message=(
+                "getDefinition failed for this report; its visual field usage or "
+                "dataset binding is skipped. If the long-running operation timed "
+                "out, increase scan_timeout."
+            ),
+            context=context,
+            exc=e,
+        )
+
+    def _fill_report_field_usage(self, workspace: Workspace, report: Report) -> None:
+        if report.type is ReportType.PaginatedReport or not report.pages:
+            return
+        context = f"workspace={workspace.name}, report={report.name} id={report.id}"
+        try:
+            definition = self._require_fabric_resolver().get_item_definition(
+                workspace_id=workspace.id,
+                item_id=report.id,
+                item_kind=FABRIC_KIND_REPORTS,
+            )
+            self.reporter.fabric_definitions_fetched += 1
+        except Exception as e:
+            self._report_definition_failure(e, context, FABRIC_KIND_REPORTS)
+            return
+
+        parsed = parse_report_definition(definition.parts)
+        self.reporter.report_definitions_parsed += 1
+        failed_parts = definition.failed_parts + parsed.failed_parts
+        if failed_parts:
+            self.reporter.report_definition_parts_failed += len(failed_parts)
+            self.reporter.warning(
+                title="Report Definition Part Not Parsed",
+                message="Some parts of the report definition were not valid JSON; the visuals they describe are missing from the page's inputFields.",
+                context=f"{context}, parts={failed_parts}",
+            )
+        for page in report.pages:
+            parsed_page: Optional[ParsedPage] = parsed.pages.get(page.name)
+            if parsed_page is None and page.displayName:
+                parsed_page = parsed.page_by_display_name(page.displayName)
+            if parsed_page is None:
+                self.reporter.report_pages_unmatched += 1
+                logger.debug(
+                    "Page %s of report %s not found in its definition",
+                    page.name,
+                    report.id,
+                )
+                continue
+            page.visual_count = len(parsed_page.visuals)
+            page.visual_types = parsed_page.visual_types
+            page.field_references = parsed_page.field_refs
+
+    def _fabric_artifacts_from_items(
+        self, workspace: Workspace, items: List[FabricItem]
+    ) -> Dict[str, FabricArtifact]:
+        """Lakehouse / Warehouse items plus their SQL analytics endpoints.
+
+        A DirectLake model's shared expression names the SQL endpoint id, not
+        the lakehouse, so each endpoint is registered as a SQLAnalyticsEndpoint
+        artifact whose physical_item_ids point at the lakehouse; the existing
+        DirectLake lineage path then resolves it exactly as it does for scan
+        results. A warehouse's endpoint id is the warehouse id itself.
+        """
+        artifacts: Dict[str, FabricArtifact] = {}
+        for item in items:
+            if item.type == FABRIC_ITEM_LAKEHOUSE:
+                artifacts[item.id] = FabricArtifact(
+                    id=item.id,
+                    name=item.display_name,
+                    artifact_type=FABRIC_ARTIFACT_LAKEHOUSE,
+                    workspace_id=workspace.id,
+                )
+                endpoint_id = self._lakehouse_sql_endpoint_id(workspace, item)
+                if endpoint_id:
+                    artifacts[endpoint_id] = FabricArtifact(
+                        id=endpoint_id,
+                        name=item.display_name,
+                        artifact_type=FABRIC_ARTIFACT_SQL_ANALYTICS_ENDPOINT,
+                        workspace_id=workspace.id,
+                        relation_dependent_ids=[item.id],
+                        physical_item_ids=[item.id],
+                    )
+            elif item.type == FABRIC_ITEM_WAREHOUSE:
+                artifacts[item.id] = FabricArtifact(
+                    id=item.id,
+                    name=item.display_name,
+                    artifact_type=FABRIC_ARTIFACT_WAREHOUSE,
+                    workspace_id=workspace.id,
+                )
+        for item in items:
+            if item.type == FABRIC_ITEM_SQL_ENDPOINT and item.id not in artifacts:
+                # Endpoint whose lakehouse is not in this workspace listing (or
+                # whose properties call failed); kept so the skip is explicit.
+                artifacts[item.id] = FabricArtifact(
+                    id=item.id,
+                    name=item.display_name,
+                    artifact_type=FABRIC_ARTIFACT_SQL_ANALYTICS_ENDPOINT,
+                    workspace_id=workspace.id,
+                )
+        return artifacts
+
+    def _lakehouse_sql_endpoint_id(
+        self, workspace: Workspace, item: FabricItem
+    ) -> Optional[str]:
+        try:
+            return self._require_fabric_resolver().get_lakehouse_sql_endpoint_id(
+                workspace_id=workspace.id, lakehouse_id=item.id
+            )
+        except Exception as e:
+            self.log_http_error(
+                message=f"Unable to fetch lakehouse {item.id} properties"
+            )
+            self.reporter.warning(
+                title="Lakehouse SQL Endpoint Not Resolved",
+                message="Lakehouse properties could not be fetched; DirectLake tables over it will have no lineage.",
+                context=f"workspace={workspace.name}, lakehouse={item.display_name} id={item.id}",
+                exc=e,
+            )
+            return None
+
+    def _table_from_parsed(
+        self,
+        workspace: Workspace,
+        dataset: PowerBIDataset,
+        dataset_name: str,
+        parsed_table: ParsedTable,
+    ) -> Table:
+        partition = parsed_table.partition
+        expression: Optional[str] = None
+        calculated_expression: Optional[str] = None
+        storage_mode: Optional[str] = None
+        source_schema: Optional[str] = None
+        source_expression: Optional[str] = None
+        if partition is not None:
+            if partition.kind == PARTITION_KIND_M:
+                expression = partition.source
+            elif partition.kind == PARTITION_KIND_CALCULATED:
+                calculated_expression = partition.source
+            elif partition.kind == PARTITION_KIND_ENTITY:
+                storage_mode = Constant.DIRECT_LAKE
+                source_schema = partition.schema_name
+                source_expression = partition.entity_name
+            # `query` partitions hold native SQL, which the M parser cannot
+            # consume; the table is emitted without an expression or lineage.
+
+        columns = [
+            Column(
+                name=column.name,
+                dataType=column.data_type or Constant.NULL_DATA_TYPE,
+                isHidden=column.is_hidden,
+                datahubDataType=FIELD_TYPE_MAPPING.get(
+                    column.data_type or Constant.NULL_DATA_TYPE,
+                    FIELD_TYPE_MAPPING[Constant.NULL_DATA_TYPE],
+                ),
+                columnType=Constant.COLUMN_TYPE_CALCULATED
+                if column.expression
+                else Constant.COLUMN_TYPE_DATA,
+                expression=column.expression,
+                description=column.description,
+            )
+            for column in parsed_table.columns
+        ]
+        measures = [
+            Measure(
+                name=measure.name,
+                expression=measure.expression,
+                isHidden=measure.is_hidden,
+                description=measure.description,
+                references=measure.references,
+            )
+            for measure in parsed_table.measures
+        ]
+        return Table(
+            name=parsed_table.name,
+            full_name=form_full_table_name(
+                config=self.__config,
+                workspace=workspace,
+                dataset_name=dataset_name,
+                table_name=parsed_table.name,
+            ),
+            expression=expression,
+            columns=columns,
+            measures=measures,
+            dataset=dataset,
+            row_count=None,
+            column_count=None,
+            storage_mode=storage_mode,
+            source_schema=source_schema,
+            source_expression=source_expression,
+            calculated_expression=calculated_expression,
+            description=parsed_table.description,
+        )
+
+    @staticmethod
+    def _directlake_sql_endpoint_id(parsed_model: ParsedModel) -> Optional[str]:
+        """SQL analytics endpoint referenced by the model's DirectLake
+        partitions through their shared `expressionSource`."""
+        for table in parsed_model.tables:
+            partition = table.partition
+            if partition is None or partition.kind != PARTITION_KIND_ENTITY:
+                continue
+            shared = (
+                parsed_model.shared_expressions.get(partition.expression_source)
+                if partition.expression_source
+                else None
+            )
+            if shared is not None and shared.sql_endpoint_id:
+                return shared.sql_endpoint_id
+        return None
+
+    def _fill_dataset_from_definition(
+        self, workspace: Workspace, dataset: PowerBIDataset
+    ) -> None:
+        context = f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}"
+        try:
+            definition = self._require_fabric_resolver().get_item_definition(
+                workspace_id=workspace.id,
+                item_id=dataset.id,
+                item_kind=FABRIC_KIND_SEMANTIC_MODELS,
+                definition_format=FABRIC_FORMAT_TMDL,
+            )
+            self.reporter.fabric_definitions_fetched += 1
+        except Exception as e:
+            self._report_definition_failure(e, context, FABRIC_KIND_SEMANTIC_MODELS)
+            return
+
+        parsed_model = parse_semantic_model(definition.parts)
+        failed_parts = definition.failed_parts + parsed_model.failed_parts
+        if failed_parts:
+            self.reporter.tmdl_parts_failed += len(failed_parts)
+            failed_tables = [
+                part for part in failed_parts if part.startswith(TMDL_TABLES_PREFIX)
+            ]
+            if failed_tables:
+                # A table part that did not parse is a table missing from this
+                # run; under stale-entity removal a green run would soft-delete
+                # it, so this is a failure like a refused definition.
+                self.reporter.failure(
+                    title="TMDL Table Not Parsed",
+                    message="Some table parts of the semantic-model definition could not be decoded or parsed; those tables are missing from this run.",
+                    context=f"{context}, parts={failed_tables}",
+                )
+            else:
+                self.reporter.warning(
+                    title="TMDL Part Not Parsed",
+                    message="Some non-table parts of the semantic-model definition could not be decoded or parsed; relationships or DirectLake lineage from them are missing.",
+                    context=f"{context}, parts={failed_parts}",
+                )
+        dataset.dependent_on_artifact_id = self._directlake_sql_endpoint_id(
+            parsed_model
+        )
+        dataset_name = dataset.name if dataset.name is not None else dataset.id
+        for parsed_table in parsed_model.tables:
+            table = self._table_from_parsed(
+                workspace, dataset, dataset_name, parsed_table
+            )
+            if self.__config.profiling.enabled:
+                self.__regular_api_resolver.profile_dataset(
+                    dataset, table, workspace.name, self.__config.profile_pattern
+                )
+            dataset.tables.append(table)
+            self.reporter.tmdl_tables_parsed += 1
+        if self.__config.extract_model_relationships:
+            dataset.relationships = parsed_model.relationships
+            self.reporter.relationships_parsed += len(dataset.relationships)
+            if parsed_model.skipped_relationships:
+                self.reporter.relationships_skipped += len(
+                    parsed_model.skipped_relationships
+                )
+                self.reporter.warning(
+                    title="Relationship Not Parsed",
+                    message="Some semantic-model relationships had unparseable fromColumn/toColumn references and are not emitted as foreign keys.",
+                    context=f"{context}, relationships={parsed_model.skipped_relationships}",
+                )
+
+    def _fill_workspace_datasets_from_definitions(self, workspace: Workspace) -> None:
+        try:
+            raw_datasets = self.__regular_api_resolver.get_datasets(workspace)
+        except Exception as e:
+            self.log_http_error(
+                message=f"Unable to list datasets for workspace {workspace.name}"
+            )
+            if data_resolver.is_permission_error(e):
+                self.reporter.failure(
+                    title="Workspace Datasets Permission Denied",
+                    message="GET /groups/{id}/datasets was refused; the workspace is ingested without datasets or lineage. Grant the service principal the Contributor role on the workspace.",
+                    context=f"workspace={workspace.name} id={workspace.id}",
+                    exc=e,
+                )
+            else:
+                # Same stale-entity reasoning as the permission case: the
+                # workspace's tables would be soft-deleted on a green run.
+                self.reporter.failure(
+                    title="Datasets Not Listed",
+                    message="GET /groups/{id}/datasets failed; the workspace is ingested without datasets or lineage.",
+                    context=f"workspace={workspace.name} id={workspace.id}",
+                    exc=e,
+                )
+            return
+
+        workspace.datasets = {}
+        for raw_dataset in raw_datasets:
+            if not raw_dataset.get(Constant.ID):
+                continue
+            dataset = new_powerbi_dataset(workspace, raw_dataset)
+            # One malformed or unreadable model must not take the rest of the
+            # workspace (or the batch) down with it.
+            try:
+                try:
+                    dataset.parameters = (
+                        self.__regular_api_resolver.get_dataset_parameters(
+                            workspace_id=workspace.id, dataset_id=dataset.id
+                        )
+                    )
+                except Exception as e:
+                    self.reporter.dataset_parameters_failed += 1
+                    self.reporter.warning(
+                        title="Dataset Parameters Not Fetched",
+                        message="Dataset parameters could not be fetched; M-Query parameters in this model's sources are not resolved, which can drop lineage for parameterized sources.",
+                        context=f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}",
+                        exc=e,
+                    )
+                self._fill_dataset_from_definition(workspace, dataset)
+                self._fill_refresh_history(workspace, dataset)
+            except Exception as e:
+                self.reporter.semantic_models_not_processed += 1
+                self.reporter.failure(
+                    title="Semantic Model Not Processed",
+                    message="Unexpected error while building this semantic model's tables; it is skipped.",
+                    context=f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}",
+                    exc=e,
+                )
+                continue
+            workspace.datasets[dataset.id] = dataset
+        self.dataset_registry.update(workspace.datasets)
+
+    def fill_metadata_from_definitions(self, workspaces: List[Workspace]) -> Set[str]:
+        """workspace_apis-mode counterpart of fill_metadata_from_scan_result.
+
+        Populates datasets (from GET /groups/{id}/datasets plus each model's
+        TMDL definition) and fabric_artifacts (from the Fabric item listing)
+        in place, registers the datasets for cross-workspace lookups, and
+        returns the ids of workspaces excluded by workspace_type_filter.
+        """
+        excluded_ids: Set[str] = set()
+        for workspace in workspaces:
+            if workspace.type not in self.__config.workspace_type_filter:
+                self.reporter.info(
+                    title="Skipped Workspace",
+                    message="Workspace was skipped due to the workspace_type_filter",
+                    context=f"workspace={workspace.name}",
+                )
+                excluded_ids.add(workspace.id)
+                continue
+
+            try:
+                items = self._require_fabric_resolver().list_items(workspace.id)
+                workspace.fabric_artifacts = self._fabric_artifacts_from_items(
+                    workspace, items
+                )
+            except Exception as e:
+                self.log_http_error(
+                    message=f"Unable to list Fabric items for workspace {workspace.name}"
+                )
+                self.reporter.warning(
+                    title="Fabric Items Not Listed",
+                    message="The Fabric item listing failed; DirectLake lineage will be missing for this workspace.",
+                    context=f"workspace={workspace.name} id={workspace.id}",
+                    exc=e,
+                )
+
+            self._fill_workspace_datasets_from_definitions(workspace)
+
+        return excluded_ids
+
+    def report_if_no_definitions_fetched(self) -> None:
+        """Call once after every batch has been processed: with every
+        getDefinition failed the run would otherwise emit no semantic-model
+        metadata at all while looking healthy."""
+        if (
+            self.reporter.fabric_definitions_failed
+            and not self.reporter.fabric_definitions_fetched
+        ):
+            self.reporter.failure(
+                title="No Item Definitions Fetched",
+                message="Every Fabric getDefinition call failed; no semantic-model schema or lineage has been ingested. Check the Contributor role, the 'Service principals can use Fabric APIs' tenant setting and scan_timeout.",
+                context=f"failed={self.reporter.fabric_definitions_failed}",
+            )
 
     def fill_metadata_from_scan_result(
         self,
@@ -996,10 +1594,10 @@ class PowerBiAPI:
                     )
                 workspace.dashboards = {d.id: d for d in dashboards_list}
             else:
-                self.__reporter.info(
+                self._report_scan_fallback(
+                    workspace,
                     title="Dashboard Scan Fallback Active",
                     message="Workspace scan returned no data; falling back to per-dashboard get_dashboards/get_tiles/get_dashboard_users calls.",
-                    context=f"workspace={workspace.name}",
                 )
                 workspace.dashboards = {
                     dashboard.id: dashboard

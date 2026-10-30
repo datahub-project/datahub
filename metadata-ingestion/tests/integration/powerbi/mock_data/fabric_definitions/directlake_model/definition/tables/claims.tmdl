@@ -1,0 +1,30 @@
+/// DirectLake table over the lakehouse 'claims' delta table.
+table claims
+	lineageTag: 00000019-1111-4222-8333-000000000019
+	sourceLineageTag: [dbo].[claims]
+
+	measure 'Paid Total' = SUM('claims'[paid_amount])
+		lineageTag: 00000004-1111-4222-8333-000000000004
+
+	column claim_id
+		dataType: int64
+		sourceProviderType: bigint
+		lineageTag: 0000001a-1111-4222-8333-00000000001a
+		sourceLineageTag: claim_id
+		summarizeBy: none
+		sourceColumn: claim_id
+
+	column paid_amount
+		dataType: double
+		sourceProviderType: float
+		lineageTag: 00000009-1111-4222-8333-000000000009
+		sourceLineageTag: paid_amount
+		summarizeBy: sum
+		sourceColumn: paid_amount
+
+	partition claims = entity
+		mode: directLake
+		source
+			entityName: claims
+			schemaName: dbo
+			expressionSource: DatabaseQuery

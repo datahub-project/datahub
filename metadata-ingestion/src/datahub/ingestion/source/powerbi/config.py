@@ -178,6 +178,23 @@ class Constant:
     # Storage mode values
     DIRECT_LAKE = "DirectLake"
 
+    # workspace_apis mode: regular-API endpoints and refresh-history keys
+    DATASET_REFRESHES = "DATASET_REFRESHES"
+    WORKSPACE_USERS = "WORKSPACE_USERS"
+    REQUEST_ID = "requestId"
+    REFRESH_TYPE = "refreshType"
+    START_TIME = "startTime"
+    END_TIME = "endTime"
+    REFRESH_STATUS_COMPLETED = "Completed"
+    CUSTOM_OPERATION_REFRESH = "REFRESH"
+    VISUAL_COUNT = "visualCount"
+    VISUAL_TYPES = "visualTypes"
+    TOP = "$top"
+    # Scan-API column types reproduced for TMDL-sourced columns
+    COLUMN_TYPE_DATA = "Data"
+    COLUMN_TYPE_CALCULATED = "Calculated"
+    NULL_DATA_TYPE = "Null"
+
 
 @dataclass
 class DataPlatformPair:
@@ -296,6 +313,27 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_external_query_connections_resolved: int = 0
     m_query_external_query_connections_unmapped: int = 0
     m_query_external_query_failures: int = 0
+
+    # workspace_apis mode (Fabric item definitions)
+    fabric_definitions_fetched: int = 0
+    fabric_definitions_failed: int = 0
+    fabric_report_definitions_denied: int = 0
+    dataset_parameters_failed: int = 0
+    fabric_lro_timeouts: int = 0
+    tmdl_tables_parsed: int = 0
+    tmdl_parts_failed: int = 0
+    report_definitions_parsed: int = 0
+    report_definition_parts_failed: int = 0
+    report_pages_unmatched: int = 0
+    report_field_references_resolved: int = 0
+    report_field_references_unresolved: int = 0
+    relationships_parsed: int = 0
+    relationships_skipped: int = 0
+    relationships_unresolved: int = 0
+    measure_references_unresolved: int = 0
+    semantic_models_not_processed: int = 0
+    refresh_history_fetched: int = 0
+    refresh_history_unparseable: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -537,6 +575,15 @@ class PowerBiAppUrlPattern(ConfigEnum):
     REDIRECT_BASED = "REDIRECT_BASED"
 
 
+class PowerBiMetadataApiMode(ConfigEnum):
+    # Admin Scanner API (POST /admin/workspaces/getInfo): needs tenant-admin
+    # API access; the only source of endorsements, apps and per-item users.
+    ADMIN_SCAN = "ADMIN_SCAN"
+    # Workspace-scoped Power BI + Fabric APIs (semantic-model TMDL and report
+    # definitions): needs the Contributor role on each workspace instead.
+    WORKSPACE_APIS = "WORKSPACE_APIS"
+
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
@@ -664,7 +711,9 @@ class PowerBiDashboardSourceConfig(
     )
     # timeout for meta-data scanning
     scan_timeout: int = pydantic.Field(
-        default=60, description="timeout for PowerBI metadata scanning"
+        default=60,
+        description="Seconds to wait for a PowerBI admin scan to complete, and, with "
+        "`metadata_api_mode: workspace_apis`, for each Fabric getDefinition operation.",
     )
     scan_batch_size: int = pydantic.Field(
         default=1,
@@ -680,7 +729,8 @@ class PowerBiDashboardSourceConfig(
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
         default=False,
-        description="Whether ownership should be ingested. Admin API access is required if this setting is enabled. "
+        description="Whether ownership should be ingested. Admin API access is required if this setting is enabled, "
+        "except with `metadata_api_mode: workspace_apis`, where owners are derived from workspace role assignments. "
         "Note that enabling this may overwrite owners that you've added inside DataHub's web application.",
     )
     # Enable/Disable extracting report information. When off,
@@ -847,6 +897,39 @@ class PowerBiDashboardSourceConfig(
         description="timeout in seconds for Metadata Rest Api.",
     )
 
+    metadata_api_mode: PowerBiMetadataApiMode = pydantic.Field(
+        default=PowerBiMetadataApiMode.ADMIN_SCAN,
+        description="Which API family supplies semantic-model metadata (tables, columns, "
+        "measures, M expressions, lineage). `admin_scan` (default) uses the Admin Scanner "
+        "API and requires tenant-level admin API access. `workspace_apis` instead reads "
+        "semantic-model (TMDL) and report definitions through the Fabric item APIs and "
+        "needs only the Contributor role on each ingested workspace plus the tenant "
+        "setting 'Service principals can use Fabric APIs'. In `workspace_apis` mode "
+        "endorsements, apps, `modified_since` and per-report owners are unavailable "
+        "(ownership comes from workspace roles), and the `environment` must be COMMERCIAL.",
+    )
+    extract_model_relationships: bool = pydantic.Field(
+        default=False,
+        description="Emit semantic-model relationships as foreign-key constraints on the "
+        "`from` table's schema. Requires `metadata_api_mode: workspace_apis` and "
+        "`extract_dataset_schema`.",
+    )
+    extract_report_field_usage: bool = pydantic.Field(
+        default=False,
+        description="Read each report's definition to record which model columns and "
+        "measures its visuals use, emitted as `inputFields` on the page charts together "
+        "with visual counts and types. Adds one Fabric getDefinition call per report. "
+        "Requires `metadata_api_mode: workspace_apis`, `extract_reports` and "
+        "`extract_dataset_schema`.",
+    )
+    extract_refresh_history: bool = pydantic.Field(
+        default=False,
+        description="Fetch each dataset's most recent refresh and emit it as an Operation "
+        "aspect on the dataset's tables. Adds one API call per dataset; works in both "
+        "metadata API modes and needs only the Viewer role, but uses the workspace "
+        "API, so it cannot be combined with `admin_apis_only`.",
+    )
+
     @classmethod
     def probe_provider_class(cls) -> type:
         # Late import: powerbi_probe imports this module, so a top-level import
@@ -886,6 +969,72 @@ class PowerBiDashboardSourceConfig(
             workspace_kind=str(BIContainerSubTypes.POWERBI_WORKSPACE),
             child_kinds=self.probe_unfiltered_kinds(),
         )
+
+    @model_validator(mode="after")
+    def validate_workspace_apis_mode(self) -> "PowerBiDashboardSourceConfig":
+        if self.metadata_api_mode != PowerBiMetadataApiMode.WORKSPACE_APIS:
+            return self
+        if self.admin_apis_only:
+            raise ValueError(
+                "metadata_api_mode: workspace_apis cannot be combined with "
+                "admin_apis_only: true; the two modes use disjoint API families."
+            )
+        admin_only_features = [
+            name
+            for name, enabled in (
+                ("modified_since", self.modified_since is not None),
+                ("extract_app", self.extract_app),
+                ("extract_endorsements_to_tags", self.extract_endorsements_to_tags),
+                (
+                    "filter_dataset_endorsements",
+                    self.filter_dataset_endorsements != AllowDenyPattern.allow_all(),
+                ),
+            )
+            if enabled
+        ]
+        if admin_only_features:
+            raise ValueError(
+                f"{admin_only_features} require the Admin Scanner API and are not "
+                "available with metadata_api_mode: workspace_apis."
+            )
+        if self.environment == PowerBiEnvironment.GOVERNMENT:
+            raise ValueError(
+                "metadata_api_mode: workspace_apis is only supported for the "
+                "COMMERCIAL environment; the Fabric API has no verified GCC endpoint."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_refresh_history_needs_workspace_api(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        # /groups/{id}/datasets/{id}/refreshes has no admin-API variant.
+        if self.extract_refresh_history and self.admin_apis_only:
+            raise ValueError(
+                "extract_refresh_history requires the workspace API and cannot be "
+                "combined with admin_apis_only: true."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_definition_enrichment_flags(self) -> "PowerBiDashboardSourceConfig":
+        # Both flags are derived from TMDL / report definitions, which only the
+        # workspace_apis mode fetches, and attach to schema fields.
+        for flag, extra_requirements in (
+            ("extract_model_relationships", ("extract_dataset_schema",)),
+            (
+                "extract_report_field_usage",
+                ("extract_dataset_schema", "extract_reports"),
+            ),
+        ):
+            if not getattr(self, flag):
+                continue
+            if self.metadata_api_mode != PowerBiMetadataApiMode.WORKSPACE_APIS:
+                raise ValueError(f"{flag} requires metadata_api_mode: workspace_apis.")
+            missing = [name for name in extra_requirements if not getattr(self, name)]
+            if missing:
+                raise ValueError(f"{flag} requires these flags enabled: {missing}")
+        return self
 
     @model_validator(mode="after")
     def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":

@@ -1,0 +1,53 @@
+/// One row per insurance policy, loaded from the Snowflake analytics layer.
+table Policies
+	lineageTag: 0000000f-1111-4222-8333-00000000000f
+
+	/// Surrogate key for the policy.
+	column PolicyId
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 00000008-1111-4222-8333-000000000008
+		summarizeBy: none
+		sourceColumn: POLICY_ID
+
+	column State
+		dataType: string
+		lineageTag: 00000013-1111-4222-8333-000000000013
+		dataCategory: StateOrProvince
+		summarizeBy: none
+		sourceColumn: STATE_CODE
+
+	column EffectiveDate
+		dataType: dateTime
+		formatString: yyyy-MM-dd
+		lineageTag: 00000006-1111-4222-8333-000000000006
+		summarizeBy: none
+		sourceColumn: EFFECTIVE_DATE
+
+	/// Annual written premium in USD.
+	column WrittenPremium
+		dataType: double
+		formatString: $#,##0.00
+		lineageTag: 00000007-1111-4222-8333-000000000007
+		summarizeBy: sum
+		sourceColumn: WRITTEN_PREMIUM
+
+	/// Calculated column: premium band used by underwriting.
+	column PremiumBand = IF('Policies'[WrittenPremium] >= 5000, "High", IF('Policies'[WrittenPremium] >= 1000, "Mid", "Low"))
+		dataType: string
+		lineageTag: 0000000a-1111-4222-8333-00000000000a
+		summarizeBy: none
+
+	partition Policies = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases("my-account.snowflakecomputing.com","COMPUTE_WH",[Implementation="2.0"]),
+				    Db = Source{[Name="INSURANCE_DB",Kind="Database"]}[Data],
+				    Sch = Db{[Name="ANALYTICS",Kind="Schema"]}[Data],
+				    Tbl = Sch{[Name="POLICIES",Kind="Table"]}[Data]
+				in
+				    Tbl
+
+	annotation PBI_ResultType = Table

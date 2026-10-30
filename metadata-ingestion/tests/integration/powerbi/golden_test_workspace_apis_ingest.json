@@ -1,0 +1,3537 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Claims By State",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "State",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ClaimCount",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
+            "name": "Claims By State",
+            "description": "Calculated table derived from Policies and Claims.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643749025053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Completed",
+                "requestId": "0000000d-1111-4222-8333-00000000000d",
+                "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                },
+                {
+                    "id": "Insurance Model"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let\n    Source = Snowflake.Databases(\"my-account.snowflakecomputing.com\",\"COMPUTE_WH\",[Implementation=\"2.0\"]),\n    Db = Source{[Name=\"INSURANCE_DB\",Kind=\"Database\"]}[Data],\n    Sch = Db{[Name=\"ANALYTICS\",Kind=\"Schema\"]}[Data],\n    Tbl = Sch{[Name=\"CLAIMS\",Kind=\"Table\"]}[Data]\nin\n    Tbl\n",
+            "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Claims",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "ClaimId",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "PolicyId",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Status",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "PaidAmount",
+                    "nullable": false,
+                    "description": "Amount paid out on the claim in USD.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "foreignKeys": [
+                {
+                    "name": "Claims.PolicyId -> Policies.PolicyId",
+                    "foreignFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),PolicyId)"
+                    ],
+                    "sourceFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),PolicyId)"
+                    ],
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
+            "name": "Claims",
+            "description": "Claims filed against policies.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.claims,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.claims,PROD),ClaimId)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),ClaimId)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.claims,PROD),PolicyId)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),PolicyId)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.claims,PROD),Status)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),Status)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.claims,PROD),PaidAmount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),PaidAmount)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643749025053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Completed",
+                "requestId": "0000000d-1111-4222-8333-00000000000d",
+                "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                },
+                {
+                    "id": "Insurance Model"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Insurance KPIs",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Value",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Total Premium",
+                    "nullable": false,
+                    "description": "SUM('Policies'[WrittenPremium]) Sum of written premium.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Total Paid Losses",
+                    "nullable": false,
+                    "description": "SUM('Claims'[PaidAmount])",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Loss Ratio",
+                    "nullable": false,
+                    "description": "VAR Losses = [Total Paid Losses]\nRETURN DIVIDE(Losses, [Total Premium], 0) Measure-to-measure dependency: losses / premium.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Open Claims",
+                    "nullable": false,
+                    "description": "CALCULATE(COUNTROWS('Claims'), 'Claims'[Status] = \"Open\")",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
+            "name": "Insurance KPIs",
+            "description": "Home for KPI measures; has no data of its own.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),WrittenPremium)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV),Total Premium)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),PaidAmount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV),Total Paid Losses)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),Status)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV),Open Claims)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643749025053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Completed",
+                "requestId": "0000000d-1111-4222-8333-00000000000d",
+                "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                },
+                {
+                    "id": "Insurance Model"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let\n    Source = Snowflake.Databases(\"my-account.snowflakecomputing.com\",\"COMPUTE_WH\",[Implementation=\"2.0\"]),\n    Db = Source{[Name=\"INSURANCE_DB\",Kind=\"Database\"]}[Data],\n    Sch = Db{[Name=\"ANALYTICS\",Kind=\"Schema\"]}[Data],\n    Tbl = Sch{[Name=\"POLICIES\",Kind=\"Table\"]}[Data]\nin\n    Tbl\n",
+            "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Policies",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "PolicyId",
+                    "nullable": false,
+                    "description": "Surrogate key for the policy.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "State",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "EffectiveDate",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DateTime",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "WrittenPremium",
+                    "nullable": false,
+                    "description": "Annual written premium in USD.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "PremiumBand",
+                    "nullable": false,
+                    "description": "Calculated column: premium band used by underwriting.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "foreignKeys": [
+                {
+                    "name": "Policies.EffectiveDate -> Claims By State.State (inactive)",
+                    "foreignFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV),State)"
+                    ],
+                    "sourceFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),EffectiveDate)"
+                    ],
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
+            "name": "Policies",
+            "description": "One row per insurance policy, loaded from the Snowflake analytics layer.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD),PolicyId)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),PolicyId)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD),State)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),State)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD),EffectiveDate)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),EffectiveDate)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD),WrittenPremium)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),WrittenPremium)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD),PremiumBand)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),PremiumBand)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643749025053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Completed",
+                "requestId": "0000000d-1111-4222-8333-00000000000d",
+                "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                },
+                {
+                    "id": "Insurance Model"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "createdFrom": "Report",
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "datasetWebUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
+                "reportId": "5b218778-e7a5-4d73-8187-f10824047715"
+            },
+            "title": "test_tile",
+            "description": "test_tile",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "PowerBI Tile"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+    "changeType": "UPSERT",
+    "aspectName": "chartKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "chartId": "charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                },
+                {
+                    "id": "test_dashboard",
+                    "urn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "createdFrom": "Dataset",
+                "datasetId": "ba0130a1-5b03-40de-9535-b34e778ea6ed"
+            },
+            "title": "yearly_sales",
+            "description": "yearly_sales",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "PowerBI Tile"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+    "changeType": "UPSERT",
+    "aspectName": "chartKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "chartId": "charts.23212598-23b5-4980-87cc-5fc0ecd84385"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                },
+                {
+                    "id": "test_dashboard",
+                    "urn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "PATCH",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/customProperties/chartCount",
+                "value": "2"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/workspaceName",
+                "value": "demo-workspace"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/workspaceId",
+                "value": "64ED5CAD-7C10-4684-8180-826122881108"
+            },
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "test_dashboard"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "Description of test dashboard"
+            },
+            {
+                "op": "add",
+                "path": "/charts/urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)",
+                "value": "urn:li:chart:(powerbi,charts.B8E293DC-0C83-4AA0-9BB9-0A8738DF24A0)"
+            },
+            {
+                "op": "add",
+                "path": "/charts/urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)",
+                "value": "urn:li:chart:(powerbi,charts.23212598-23b5-4980-87cc-5fc0ecd84385)"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://localhost/dashboards/web/1"
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "dashboardId": "powerbi.linkedin.com/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:User1@foo.com",
+                    "type": "NONE"
+                },
+                {
+                    "owner": "urn:li:corpuser:User2@foo.com",
+                    "type": "NONE"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-7FFC-4505-9215-655BCA5BEBAE)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User1@foo.com"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "user1",
+            "email": "User1@foo.com",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User2@foo.com"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "user2",
+            "email": "User2@foo.com",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Claims By State",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "State",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "ClaimCount",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
+            "name": "Claims By State",
+            "description": "Calculated table derived from Policies and Claims.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643749025053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Completed",
+                "requestId": "0000000d-1111-4222-8333-00000000000d",
+                "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let\n    Source = Snowflake.Databases(\"my-account.snowflakecomputing.com\",\"COMPUTE_WH\",[Implementation=\"2.0\"]),\n    Db = Source{[Name=\"INSURANCE_DB\",Kind=\"Database\"]}[Data],\n    Sch = Db{[Name=\"ANALYTICS\",Kind=\"Schema\"]}[Data],\n    Tbl = Sch{[Name=\"CLAIMS\",Kind=\"Table\"]}[Data]\nin\n    Tbl\n",
+            "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Claims",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "ClaimId",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "PolicyId",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Status",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "PaidAmount",
+                    "nullable": false,
+                    "description": "Amount paid out on the claim in USD.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "foreignKeys": [
+                {
+                    "name": "Claims.PolicyId -> Policies.PolicyId",
+                    "foreignFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),PolicyId)"
+                    ],
+                    "sourceFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),PolicyId)"
+                    ],
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
+            "name": "Claims",
+            "description": "Claims filed against policies.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.claims,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.claims,PROD),ClaimId)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),ClaimId)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.claims,PROD),PolicyId)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),PolicyId)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.claims,PROD),Status)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),Status)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.claims,PROD),PaidAmount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),PaidAmount)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643749025053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Completed",
+                "requestId": "0000000d-1111-4222-8333-00000000000d",
+                "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Insurance KPIs",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "Value",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Total Premium",
+                    "nullable": false,
+                    "description": "SUM('Policies'[WrittenPremium]) Sum of written premium.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Total Paid Losses",
+                    "nullable": false,
+                    "description": "SUM('Claims'[PaidAmount])",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Loss Ratio",
+                    "nullable": false,
+                    "description": "VAR Losses = [Total Paid Losses]\nRETURN DIVIDE(Losses, [Total Premium], 0) Measure-to-measure dependency: losses / premium.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Open Claims",
+                    "nullable": false,
+                    "description": "CALCULATE(COUNTROWS('Claims'), 'Claims'[Status] = \"Open\")",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
+            "name": "Insurance KPIs",
+            "description": "Home for KPI measures; has no data of its own.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+                    "type": "TRANSFORMED"
+                },
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),WrittenPremium)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV),Total Premium)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),PaidAmount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV),Total Paid Losses)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),Status)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV),Open Claims)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643749025053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Completed",
+                "requestId": "0000000d-1111-4222-8333-00000000000d",
+                "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let\n    Source = Snowflake.Databases(\"my-account.snowflakecomputing.com\",\"COMPUTE_WH\",[Implementation=\"2.0\"]),\n    Db = Source{[Name=\"INSURANCE_DB\",Kind=\"Database\"]}[Data],\n    Sch = Db{[Name=\"ANALYTICS\",Kind=\"Schema\"]}[Data],\n    Tbl = Sch{[Name=\"POLICIES\",Kind=\"Table\"]}[Data]\nin\n    Tbl\n",
+            "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "Policies",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "PolicyId",
+                    "nullable": false,
+                    "description": "Surrogate key for the policy.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "State",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "EffectiveDate",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "DateTime",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "WrittenPremium",
+                    "nullable": false,
+                    "description": "Annual written premium in USD.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "PremiumBand",
+                    "nullable": false,
+                    "description": "Calculated column: premium band used by underwriting.",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ],
+            "foreignKeys": [
+                {
+                    "name": "Policies.EffectiveDate -> Claims By State.State (inactive)",
+                    "foreignFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV),State)"
+                    ],
+                    "sourceFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),EffectiveDate)"
+                    ],
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
+            "name": "Policies",
+            "description": "One row per insurance policy, loaded from the Snowflake analytics layer.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD),PolicyId)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),PolicyId)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD),State)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),State)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD),EffectiveDate)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),EffectiveDate)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD),WrittenPremium)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),WrittenPremium)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,insurance_db.analytics.policies,PROD),PremiumBand)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),PremiumBand)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643749025053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Completed",
+                "requestId": "0000000d-1111-4222-8333-00000000000d",
+                "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "order": "0",
+                "visualCount": "3",
+                "visualTypes": "card, clusteredBarChart, tableEx"
+            },
+            "title": "Loss Overview",
+            "description": "Loss Overview",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
+                },
+                {
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "PowerBI Page"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV),Loss Ratio)",
+                    "schemaField": {
+                        "fieldPath": "Loss Ratio",
+                        "nullable": false,
+                        "description": "VAR Losses = [Total Paid Losses]\nRETURN DIVIDE(Losses, [Total Premium], 0) Measure-to-measure dependency: losses / premium.",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "measure",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),State)",
+                    "schemaField": {
+                        "fieldPath": "State",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV),Total Paid Losses)",
+                    "schemaField": {
+                        "fieldPath": "Total Paid Losses",
+                        "nullable": false,
+                        "description": "SUM('Claims'[PaidAmount])",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NullType": {}
+                            }
+                        },
+                        "nativeDataType": "measure",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),Status)",
+                    "schemaField": {
+                        "fieldPath": "Status",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                },
+                {
+                    "id": "Loss Report",
+                    "urn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "PATCH",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "Loss Report"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "Loss ratio by state"
+            },
+            {
+                "op": "add",
+                "path": "/charts/urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)",
+                "value": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163"
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "dashboardId": "powerbi.linkedin.com/dashboards/584cf13a-1485-41c2-a514-b1bb66fff163"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Report"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:User1@foo.com",
+                    "type": "NONE"
+                },
+                {
+                    "owner": "urn:li:corpuser:User2@foo.com",
+                    "type": "NONE"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User1@foo.com"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "user1",
+            "email": "User1@foo.com",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User2@foo.com"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "active": true,
+            "displayName": "user2",
+            "email": "User2@foo.com",
+            "system": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserStatus",
+    "aspect": {
+        "json": {
+            "status": "ACTIVE",
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Claims_DirectLake_Model.claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "claims",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "claim_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "paid_amount",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Paid Total",
+                    "nullable": false,
+                    "description": "SUM('claims'[paid_amount])",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "measure",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Claims_DirectLake_Model.claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "7A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/7A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D/details",
+            "name": "claims",
+            "description": "DirectLake table over the lakehouse 'claims' delta table.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Claims_DirectLake_Model.claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Claims_DirectLake_Model.claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Claims_DirectLake_Model.claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Claims_DirectLake_Model.claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,64ed5cad-7c10-4684-8180-826122881108.3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f.dbo.claims,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Claims_DirectLake_Model.claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                },
+                {
+                    "id": "Claims DirectLake Model"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1643749025053
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1643749025053
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1643749025053
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1643749025053
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
