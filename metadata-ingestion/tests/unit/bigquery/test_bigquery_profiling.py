@@ -1727,7 +1727,9 @@ def test_find_max_component_orders_numerically_for_string_components():
 def test_test_date_candidate_untyped_component_scans_column():
     """An untyped date component (e.g. `month` with no known type) must fall back to
     IS NOT NULL rather than an unquoted/quoted-mismatch literal, matching the fallback
-    path (create_safe_filter would emit month = '03', rejected on an INT64 column).
+    path (create_safe_filter would emit month = '03', rejected on an INT64 column). A
+    candidate that pins nothing else is no candidate: it prunes nothing, and its
+    existence check would pass on any populated table and win with a full scan.
     """
 
     class LiveProbe(PartitionDiscovery):
@@ -1747,17 +1749,31 @@ def test_test_date_candidate_untyped_component_scans_column():
             return initial_filters
 
     discovery = LiveProbe(make_config())
-    result = discovery._test_date_candidate(
+    when = datetime(2024, 3, 9, tzinfo=timezone.utc)
+    pinned = discovery._test_date_candidate(
         make_table(),
         "test-project-123456",
         "ds",
-        datetime(2024, 3, 9, tzinfo=timezone.utc),
+        when,
         "strategic candidate",
-        ["month"],
-        {},  # empty type map — month has no known type
+        ["event_date", "month"],
+        {"event_date": "DATE"},  # month has no known type
         lambda q, j, c: [],
     )
-    assert result == ["`month` IS NOT NULL"]
+    assert pinned is not None and "`month` IS NOT NULL" in pinned
+    assert any("event_date" in f for f in pinned)
+
+    unpinned = discovery._test_date_candidate(
+        make_table(),
+        "test-project-123456",
+        "ds",
+        when,
+        "strategic candidate",
+        ["year", "month"],
+        {},  # nothing typed: every column degrades to IS NOT NULL
+        lambda q, j, c: [],
+    )
+    assert unpinned is None
 
 
 def test_verify_partition_has_data_bounds_probe_with_fetch_config():

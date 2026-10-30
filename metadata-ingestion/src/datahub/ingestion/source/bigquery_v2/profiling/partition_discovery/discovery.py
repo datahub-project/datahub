@@ -1463,6 +1463,14 @@ class PartitionDiscovery:
                 logger.warning(f"Skipping invalid filter for column {col}: {e}")
                 filters.append(FilterBuilder.is_not_null(col))
 
+        # A candidate that pins no column (every filter degraded to IS NOT NULL, e.g.
+        # untyped year/month/day components) prunes nothing: its existence check passes
+        # on any populated table, so it would win and full-scan instead of letting
+        # sampling or the require-filter skip run. It is not a candidate at all.
+        unpinned = {FilterBuilder.is_not_null(col) for col in required_columns}
+        if all(f in unpinned for f in filters):
+            return None
+
         try:
             if self._verify_partition_has_data(
                 table, project, schema, filters, execute_query_func
