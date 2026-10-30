@@ -1,8 +1,6 @@
 import '@src/App.less';
 import '@src/AppV2.less';
 
-// Frontend touch so Preview publishes this commit for a Meticulous comparison.
-
 import { ApolloClient, ApolloLink, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
