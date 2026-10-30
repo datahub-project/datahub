@@ -3,6 +3,8 @@
 import base64
 from unittest.mock import MagicMock
 
+import pytest
+
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -13,6 +15,7 @@ from datahub.ingestion.source.fabric.onelake.notebooks import (
     FabricNotebook,
     decode_notebook_definition,
     notebook_path,
+    notebook_view_logic,
 )
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.ingestion.source.fabric.onelake.source import FabricOneLakeSource
@@ -20,6 +23,7 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DataJobInputOutputClass,
     SubTypesClass,
+    ViewPropertiesClass,
 )
 from datahub.sdk.dataset import Dataset
 
@@ -68,6 +72,185 @@ def test_decode_sql_notebook_language() -> None:
     )
     assert content == "SELECT 1"
     assert language == "sql"
+
+
+def test_decode_unknown_suffix_has_no_language() -> None:
+    content, language = decode_notebook_definition(
+        _definition("notebook-content.txt", "whatever")
+    )
+    assert content == "whatever"
+    assert language is None
+
+
+def test_decode_handles_parts_without_definition_wrapper() -> None:
+    # Some responses put parts at the top level rather than under "definition".
+    payload = base64.b64encode(b"print(1)").decode("ascii")
+    content, language = decode_notebook_definition(
+        {"parts": [{"path": "notebook-content.py", "payload": payload}]}
+    )
+    assert content == "print(1)"
+    assert language == "python"
+
+
+def test_decode_skips_platform_part_before_content() -> None:
+    content_payload = base64.b64encode(b"print(1)").decode("ascii")
+    platform_payload = base64.b64encode(b"{}").decode("ascii")
+    content, _language = decode_notebook_definition(
+        {
+            "definition": {
+                "parts": [
+                    {"path": ".platform", "payload": platform_payload},
+                    {"path": "notebook-content.py", "payload": content_payload},
+                ]
+            }
+        }
+    )
+    assert content == "print(1)"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        {"definition": {"parts": []}},
+        {"definition": {"parts": ["not-a-dict"]}},
+        {"definition": {"parts": [{"path": "notebook-content.py"}]}},
+    ],
+)
+def test_decode_returns_none_for_unusable_payloads(payload: dict) -> None:
+    assert decode_notebook_definition(payload) == (None, None)
+
+
+def test_notebook_path_stops_at_missing_folder() -> None:
+    # A folder id the listing did not return stops the walk; the display name is
+    # still usable for notebook_pattern.
+    assert notebook_path("analysis", "folder-unknown", {}) == "/analysis"
+
+
+_FABRIC_SOURCE = """# Fabric notebook source
+
+# METADATA ********************
+
+# META {
+# META   "language_info": { "name": "python" }
+# META }
+
+# CELL ********************
+
+# load the source  # noqa: E501
+df = spark.read.table("bronze.events")
+
+# MARKDOWN ********************
+
+# MAGIC %md
+# MAGIC ## Write results
+
+# CELL ********************
+
+df.write.saveAsTable("silver.events")
+"""
+
+
+def test_notebook_view_logic_strips_meta_and_splits_cells() -> None:
+    logic = notebook_view_logic(_FABRIC_SOURCE, "python")
+    assert logic is not None
+    # No Fabric scaffolding survives.
+    assert "META" not in logic
+    assert "********" not in logic
+    # Code cells are delimited and the user's in-code comment is kept.
+    assert "# \u2500\u2500 Cell 1 \u2500\u2500" in logic
+    assert (
+        '# load the source  # noqa: E501\ndf = spark.read.table("bronze.events")'
+        in logic
+    )
+    assert "# \u2500\u2500 Cell 2 \u2500\u2500" in logic
+    assert 'df.write.saveAsTable("silver.events")' in logic
+    # Markdown is preserved as a labelled comment block.
+    assert "# \u2500\u2500 Markdown \u2500\u2500" in logic
+    assert "# ## Write results" in logic
+
+
+def test_notebook_view_logic_sql_uses_sql_comment_prefix() -> None:
+    source = """# CELL ********************
+
+SELECT 1
+
+# CELL ********************
+
+SELECT 2
+"""
+    logic = notebook_view_logic(source, "sql")
+    assert logic is not None
+    assert "-- \u2500\u2500 Cell 1 \u2500\u2500" in logic
+    assert "-- \u2500\u2500 Cell 2 \u2500\u2500" in logic
+
+
+def test_parameters_cell_is_kept_as_code() -> None:
+    # Fabric marks pipeline-input cells "# PARAMETERS CELL"; its assignments
+    # must reach the view, not be swallowed by the preceding block.
+    source = """# CELL ********************
+
+df = spark.read.table("bronze.events")
+
+# PARAMETERS CELL ********************
+
+catalog = "prod"
+
+# METADATA ********************
+
+# META { "language": "python" }
+"""
+    logic = notebook_view_logic(source, "python")
+    assert logic is not None
+    assert 'catalog = "prod"' in logic
+
+
+def test_executable_leading_magics_kept_language_selectors_dropped() -> None:
+    source = """# CELL ********************
+
+%pip install great_expectations -q
+
+# CELL ********************
+
+%run Shared/InitEnv
+
+# CELL ********************
+
+%%sql
+SELECT 1
+"""
+    logic = notebook_view_logic(source, "python")
+    assert logic is not None
+    # Executable magics the user wrote are preserved...
+    assert "%pip install great_expectations -q" in logic
+    assert "%run Shared/InitEnv" in logic
+    # ...but a pure language-selector magic is still dropped.
+    assert "%%sql" not in logic
+    assert "SELECT 1" in logic
+
+
+def test_inline_content_after_language_selector_is_kept() -> None:
+    # A selector with content on the same line keeps the content; only the
+    # selector token is dropped (not the rest of the line).
+    source = """# MARKDOWN ********************
+
+# MAGIC %md # Dashboard overview
+
+# CELL ********************
+
+%%sql SELECT 1
+"""
+    logic = notebook_view_logic(source, "python")
+    assert logic is not None
+    assert "# Dashboard overview" in logic
+    assert "%md" not in logic
+    assert "SELECT 1" in logic
+    assert "%%sql" not in logic
+
+
+def test_notebook_view_logic_empty_is_none() -> None:
+    assert notebook_view_logic(None, "python") is None
+    assert notebook_view_logic("   ", "python") is None
 
 
 def test_get_notebook_definition_polls_long_running_operation() -> None:
@@ -146,14 +329,20 @@ def test_process_notebooks_emits_dataset_with_contents() -> None:
     assert dataset.external_url == (
         "https://app.fabric.microsoft.com/groups/ws-1/synapsenotebooks/nb-1"
     )
+    # The decoded source is carried as the view definition, not a custom property.
     assert dataset.custom_properties == {
         "path": "/Shared/analysis",
         "language": "python",
-        "content": "print('hello')\n",
     }
     subtypes = dataset._get_aspect(SubTypesClass)
     assert subtypes is not None
-    assert subtypes.typeNames == ["Notebook"]
+    assert subtypes.typeNames == ["View", "Notebook"]
+    view_properties = dataset._get_aspect(ViewPropertiesClass)
+    assert view_properties is not None
+    # A bare single-cell export has no cell structure to annotate.
+    assert view_properties.viewLogic == "print('hello')"
+    assert view_properties.viewLanguage == "PYTHON"
+    assert view_properties.materialized is False
     assert source.report.notebooks_scanned == 1
     assert "ws-1.nb-1" in str(dataset.urn)
 
