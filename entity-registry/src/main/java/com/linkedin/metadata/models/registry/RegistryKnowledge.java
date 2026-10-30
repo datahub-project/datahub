@@ -117,8 +117,12 @@ public final class RegistryKnowledge {
       @Nonnull final Urn urn,
       @Nonnull final EntitySpec entitySpec,
       @Nonnull final Predicate<String> newerVersionType) {
-    final List<RecordDataSchema.Field> keyFields =
-        entitySpec.getKeyAspectSpec().getPegasusSchema().getFields();
+    final AspectSpec keyAspectSpec = entitySpec.getKeyAspectSpec();
+    // Without a key schema there are no urn-typed key fields to hold a reference.
+    if (keyAspectSpec == null) {
+      return false;
+    }
+    final List<RecordDataSchema.Field> keyFields = keyAspectSpec.getPegasusSchema().getFields();
     final List<String> parts = urn.getEntityKey().getParts();
     // A key that doesn't match its schema is malformed; validation reports it.
     if (parts.size() != keyFields.size()) {

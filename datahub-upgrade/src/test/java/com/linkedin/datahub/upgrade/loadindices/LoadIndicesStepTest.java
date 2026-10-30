@@ -7,6 +7,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -28,6 +29,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.BackfillHeader
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -523,6 +525,70 @@ public class LoadIndicesStepTest {
       fail("Expected conversion error to fail the run when skipConversionErrors is off");
     } catch (RuntimeException expected) {
     }
+  }
+
+  @Test
+  public void testProcessAllDataDirectlySkipsARowThatCannotBeClassifiedWhenEnabled()
+      throws Exception {
+    // Classifying the row (known vs a newer version's) throws: skipConversionErrors keeps the run
+    // going past it, as it does for a row that can't be converted.
+    UnknownDataHandling failingClassification = mock(UnknownDataHandling.class);
+    when(failingClassification.admitUrn(any(), any(), any(), any(), any()))
+        .thenThrow(new IllegalStateException("cannot classify"));
+    UnknownDataHandlings.use(failingClassification);
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,UnclassifiableRow,PROD)",
+        "status",
+        0,
+        Instant.now(),
+        "testUser");
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("status");
+    args.skipConversionErrors = true;
+
+    LoadIndicesResult result =
+        loader.load(
+            mockOperationContext,
+            args,
+            msg -> null,
+            null,
+            mockUpdateIndicesService::handleChangeEvents);
+
+    assertEquals(result.conversionErrorsSkipped, 1L);
+    assertEquals(result.unknownToRegistrySkipped, 0L);
+  }
+
+  @Test
+  public void testProcessAllDataDirectlyFailsOnARowThatCannotBeClassifiedByDefault()
+      throws Exception {
+    UnknownDataHandling failingClassification = mock(UnknownDataHandling.class);
+    when(failingClassification.admitUrn(any(), any(), any(), any(), any()))
+        .thenThrow(new IllegalStateException("cannot classify"));
+    UnknownDataHandlings.use(failingClassification);
+    insertTestRow(
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,UnclassifiableRow,PROD)",
+        "status",
+        0,
+        Instant.now(),
+        "testUser");
+
+    LoadIndicesArgs args = new LoadIndicesArgs();
+    args.batchSize = 100;
+    args.limit = 10;
+    args.aspectNames = java.util.List.of("status");
+
+    expectThrows(
+        RuntimeException.class,
+        () ->
+            loader.load(
+                mockOperationContext,
+                args,
+                msg -> null,
+                null,
+                mockUpdateIndicesService::handleChangeEvents));
   }
 
   @Test
