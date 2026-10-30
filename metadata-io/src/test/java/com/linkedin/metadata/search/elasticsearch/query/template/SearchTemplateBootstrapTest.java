@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.search.SearchTemplateSource;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateSearchType;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
@@ -75,6 +76,21 @@ public class SearchTemplateBootstrapTest {
     expectThrows(
         SearchTemplateException.class,
         () -> loader.load(harness.opContext, "urn:li:searchTemplate:does-not-exist"));
+  }
+
+  @Test
+  public void testShippedListSkipsDfsAndTextTemplatesLeaveItUnset() {
+    SearchTemplateLoader loader = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
+    assertEquals(
+        loader.load(harness.opContext, "urn:li:searchTemplate:list").getSearchType(),
+        SearchTemplateSearchType.QUERY_THEN_FETCH);
+    assertEquals(
+        loader.load(harness.opContext, "urn:li:searchTemplate:listUrn").getSearchType(),
+        SearchTemplateSearchType.QUERY_THEN_FETCH);
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:fulltext").getSearchType());
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:light").getSearchType());
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:exact").getSearchType());
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:identity").getSearchType());
   }
 
   @Test

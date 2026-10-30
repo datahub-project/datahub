@@ -530,7 +530,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
       boolean scroll) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new SearchRequest();
-    applySearchType(searchRequest, opContext);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
@@ -543,6 +542,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
             Boolean.TRUE.equals(searchFlags.isFulltext()),
             renderUrn,
             scroll);
+    applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
     templateRequests.apply(
@@ -577,7 +577,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
       boolean scroll) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new PITAwareSearchRequest();
-    applySearchType(searchRequest, opContext);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
     ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
@@ -591,6 +590,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
             Boolean.TRUE.equals(searchFlags.isFulltext()),
             renderUrn,
             scroll);
+    applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
     templateRequests.apply(
@@ -624,15 +624,27 @@ public class SearchRequestHandler extends BaseRequestHandler {
     return true;
   }
 
-  /**
-   * Applies search type from SearchFlags to the SearchRequest.
-   *
-   * @param searchRequest the search request to configure
-   * @param opContext operation context holding the search flags
-   */
+  /** The Java query builder uses {@code SearchFlags.searchType}. */
   private void applySearchType(SearchRequest searchRequest, OperationContext opContext) {
-    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-    String searchType = searchFlags.getSearchType();
+    applyResolvedSearchType(
+        searchRequest, opContext.getSearchContext().getSearchFlags().getSearchType());
+  }
+
+  /**
+   * A template request uses the resolved template search type. Unset is query-then-fetch, so DFS
+   * stays off unless the template sets it. The request flag is not consulted.
+   */
+  private void applyTemplateSearchType(
+      SearchRequest searchRequest, @Nullable RenderedSearchTemplate template) {
+    String searchType =
+        template != null && template.searchType() != null
+            ? template.searchType().name()
+            : SearchType.QUERY_THEN_FETCH.name();
+    applyResolvedSearchType(searchRequest, searchType);
+  }
+
+  private static void applyResolvedSearchType(
+      SearchRequest searchRequest, @Nullable String searchType) {
     if (SearchType.DFS_QUERY_THEN_FETCH.name().equalsIgnoreCase(searchType)) {
       searchRequest.searchType(SearchType.DFS_QUERY_THEN_FETCH);
     } else {

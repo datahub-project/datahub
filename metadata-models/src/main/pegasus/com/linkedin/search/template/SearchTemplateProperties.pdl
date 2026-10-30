@@ -12,7 +12,7 @@ import com.linkedin.common.Urn
  * {@code aggregations}, or {@code sort} drops the inherited override and falls back to the schema
  * or Java default. An explicitly present empty {@code boosts}, {@code fieldValueScores},
  * {@code fieldFactors}, {@code termWeights}, or {@code entityTypeBoosts} drops an inherited
- * list. Unset {@code scoreMode} and {@code boostMode} keep the parent mode.
+ * list. Unset {@code scoreMode}, {@code boostMode}, and {@code searchType} keep the parent value.
  * An explicitly present empty {@code structuredPropertyQuery} drops an inherited section.
  * A child replaces only the structured-property clauses it sets. An explicitly present
  * empty {@code normalization} drops inherited query-normalization settings. A child
@@ -50,7 +50,7 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "searchTemplateProperties",
   "aspectJson": true,
-  "schemaVersion": 3
+  "schemaVersion": 4
 }
 record SearchTemplateProperties {
   /**
@@ -138,6 +138,14 @@ record SearchTemplateProperties {
    * no ancestor sets this, the mode in {@code functionScore} stands.
    */
   boostMode: optional SearchTemplateBoostMode
+
+  /**
+   * Elasticsearch search type for this template. Unset keeps the parent type. When no ancestor
+   * sets it, the template request uses {@code QUERY_THEN_FETCH}. A set value applies to that
+   * template, including each ladder step that selects it. The request flag is not consulted.
+   * The value is not part of the query JSON.
+   */
+  searchType: optional SearchTemplateSearchType
 
   /**
    * Numeric field factors appended inside the function score. Each entry names an index

@@ -400,6 +400,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     }
     append(bodies, template.getScoreMode() == null ? null : template.getScoreMode().name());
     append(bodies, template.getBoostMode() == null ? null : template.getBoostMode().name());
+    append(bodies, template.getSearchType() == null ? null : template.getSearchType().name());
     if (template.getFieldFactors() != null) {
       template.getFieldFactors().forEach(factor -> append(bodies, factor.data().toString()));
     }

@@ -28,6 +28,7 @@ import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateLadder;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRanking;
+import com.linkedin.search.template.SearchTemplateSearchType;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.LinkedHashMap;
@@ -71,6 +72,30 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
     assertTrue(loader.load(opContext, child).getQuery().contains("bool"));
     expire();
     assertTrue(loader.load(opContext, child).getQuery().contains("term"));
+  }
+
+  @Test
+  public void testSearchTypeInheritsUntilTheChildSetsIt() {
+    String parent = "urn:li:searchTemplate:searchTypeParent";
+    String child = "urn:li:searchTemplate:searchTypeChild";
+    SearchTemplateProperties parentBody = body("Parent", "{ \"match_all\": {} }", null);
+    store(parent, parentBody);
+    assertNull(loader.load(opContext, parent).getSearchType());
+
+    parentBody.setSearchType(SearchTemplateSearchType.DFS_QUERY_THEN_FETCH);
+    store(parent, parentBody);
+    store(child, parentOf("Child", parent));
+    expire();
+    assertEquals(
+        loader.load(opContext, child).getSearchType(),
+        SearchTemplateSearchType.DFS_QUERY_THEN_FETCH);
+
+    SearchTemplateProperties override = parentOf("Child", parent);
+    override.setSearchType(SearchTemplateSearchType.QUERY_THEN_FETCH);
+    store(child, override);
+    expire();
+    assertEquals(
+        loader.load(opContext, child).getSearchType(), SearchTemplateSearchType.QUERY_THEN_FETCH);
   }
 
   @Test

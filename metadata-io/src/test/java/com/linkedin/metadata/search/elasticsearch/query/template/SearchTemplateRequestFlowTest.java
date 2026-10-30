@@ -77,6 +77,7 @@ import com.linkedin.search.template.SearchFieldOverrides;
 import com.linkedin.search.template.SearchTemplateBoost;
 import com.linkedin.search.template.SearchTemplateBoostArray;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateSearchType;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
@@ -92,6 +93,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchType;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.index.query.QueryBuilders;
@@ -1362,7 +1364,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             "orders",
             Map.of(),
             12,
-            Map.of());
+            Map.of(),
+            null);
     SearchSourceBuilder source = new SearchSourceBuilder();
     SearchFlags flags = new SearchFlags().setSkipHighlighting(true).setSkipAggregates(true);
     applier.apply(opContext, source, flags, null, List.of(), template, false, 10, "orders");
@@ -1478,7 +1481,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
                 "orders",
                 Map.of(),
                 1,
-                sources),
+                sources,
+                null),
             hit);
     assertEquals(
         matched.stream().map(MatchedField::getName).collect(Collectors.toList()),
@@ -1507,7 +1511,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
                 "orders",
                 Map.of(),
                 1,
-                sources),
+                sources,
+                null),
             hit);
     assertEquals(
         matched.stream().map(MatchedField::getName).collect(Collectors.toList()), List.of("other"));
@@ -1536,7 +1541,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
                 "orders",
                 Map.of(),
                 1,
-                sources),
+                sources,
+                null),
             hit);
     assertEquals(
         matched.stream().map(MatchedField::getName).collect(Collectors.toList()),
@@ -1565,7 +1571,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
                 "orders",
                 Map.of(),
                 1,
-                sources),
+                sources,
+                null),
             hit);
     assertTrue(matched.isEmpty(), matched.toString());
   }
@@ -1620,6 +1627,64 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         matched.stream().map(MatchedField::getName).collect(Collectors.toList()), List.of("name"));
   }
 
+  @Test
+  public void testTemplateSearchTypeIgnoresTheRequestFlag() {
+    SearchTemplateProperties queryThenFetch = body("List", "{ \"match_all\": {} }", null);
+    queryThenFetch.setSearchType(SearchTemplateSearchType.QUERY_THEN_FETCH);
+    store(SEARCH_TEMPLATE_LIST_URN, queryThenFetch);
+    assertEquals(
+        preparedSearch("orders", "DFS_QUERY_THEN_FETCH", SEARCH_TEMPLATE_LIST_URN).searchType(),
+        SearchType.QUERY_THEN_FETCH);
+
+    SearchTemplateProperties dfs = body("Fulltext", "{ \"match_all\": {} }", null);
+    dfs.setSearchType(SearchTemplateSearchType.DFS_QUERY_THEN_FETCH);
+    store(SEARCH_TEMPLATE_FULLTEXT_URN, dfs);
+    expire();
+    assertEquals(
+        preparedSearch("orders", null, SEARCH_TEMPLATE_FULLTEXT_URN).searchType(),
+        SearchType.DFS_QUERY_THEN_FETCH);
+
+    store(SEARCH_TEMPLATE_FULLTEXT_URN, body("Fulltext", "{ \"match_all\": {} }", null));
+    expire();
+    assertEquals(
+        preparedSearch("orders", null, SEARCH_TEMPLATE_FULLTEXT_URN).searchType(),
+        SearchType.QUERY_THEN_FETCH);
+    assertEquals(
+        preparedSearch("orders", "DFS_QUERY_THEN_FETCH", SEARCH_TEMPLATE_FULLTEXT_URN).searchType(),
+        SearchType.QUERY_THEN_FETCH);
+  }
+
+  private SearchRequest preparedSearch(String query, String flagSearchType, String templateUrn) {
+    useRuntime(
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
+    OperationContext searching =
+        opContext
+            .withSearchFlags(
+                flags -> {
+                  flags.setFulltext(true).setSkipAggregates(true);
+                  if (flagSearchType != null) {
+                    flags.setSearchType(flagSearchType);
+                  }
+                  return flags;
+                })
+            .withResolvedSearchTemplate(
+                new ResolvedSearchTemplate(templateUrn, 1L, "template", null));
+    return SearchRequestHandler.getBuilder(
+            searching,
+            registry.getEntitySpec(DATASET_ENTITY_NAME),
+            v3Config(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .prepareSearchRequest(searching, query, null, null, 0, 10, List.of(), null, false)
+        .request();
+  }
+
   private SearchTemplateRequestApplier datasetApplier() {
     return new SearchTemplateRequestApplier(
         mock(AggregationQueryBuilder.class),
@@ -1653,7 +1718,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         query,
         Map.of(),
         1,
-        identitySources(queriedFields));
+        identitySources(queriedFields),
+        null);
   }
 
   private static RenderedSearchTemplate queriedNameTemplate(String query) {
@@ -1668,7 +1734,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         query,
         Map.of(),
         1,
-        identitySources(List.of("name")));
+        identitySources(List.of("name")),
+        null);
   }
 
   private static Map<String, List<String>> identitySources(List<String> fields) {
