@@ -569,6 +569,24 @@ public class ESSearchDAO {
     return new AggregationMetadataArray(newAggs);
   }
 
+  /**
+   * Closes the scroll's point-in-time once the last page has been read, instead of leaving it open
+   * for the full keep-alive. Best effort: a failed close is logged and the page is still returned.
+   */
+  void cleanupPointInTimeAfterLastPage(
+      @Nonnull OperationContext opContext,
+      @Nonnull final SearchRequest searchRequest,
+      @Nonnull final SearchResponse searchResponse,
+      @Nonnull final ScrollResult page) {
+    if (page.getScrollId() == null) {
+      ESUtils.cleanupPointInTime(
+          opContext,
+          searchClient(opContext, searchRequest),
+          searchResponse.pointInTimeId(),
+          "entity scroll");
+    }
+  }
+
   @Nonnull
   @WithSpan
   private ScrollResult executeAndExtract(
@@ -591,24 +609,27 @@ public class ESSearchDAO {
                         searchClient(opContext, searchRequest)
                             .search(opContext, searchRequest, RequestOptions.DEFAULT));
             // extract results, validated against document model as well
-            return transformIndexIntoEntityName(
-                opContext,
-                opContext.getSearchContext().getIndexConvention(),
-                SearchRequestHandler.getBuilder(
-                        opContext,
-                        entitySpecs,
-                        searchConfiguration,
-                        customSearchConfiguration,
-                        queryFilterRewriteChain,
-                        searchServiceConfig)
-                    .extractScrollResult(
-                        opContext,
-                        searchResponse,
-                        filter,
-                        keepAlive,
-                        ConfigUtils.applyLimit(searchServiceConfig, size),
-                        pointInTimeCreationEnabled,
-                        input));
+            final ScrollResult page =
+                transformIndexIntoEntityName(
+                    opContext,
+                    opContext.getSearchContext().getIndexConvention(),
+                    SearchRequestHandler.getBuilder(
+                            opContext,
+                            entitySpecs,
+                            searchConfiguration,
+                            customSearchConfiguration,
+                            queryFilterRewriteChain,
+                            searchServiceConfig)
+                        .extractScrollResult(
+                            opContext,
+                            searchResponse,
+                            filter,
+                            keepAlive,
+                            ConfigUtils.applyLimit(searchServiceConfig, size),
+                            pointInTimeCreationEnabled,
+                            input));
+            cleanupPointInTimeAfterLastPage(opContext, searchRequest, searchResponse, page);
+            return page;
           } catch (Exception e) {
             log.error("Search query failed: {}", searchRequest, e);
             throw new ESQueryException("Search query failed:", e);

@@ -645,6 +645,7 @@ final class TemplateSearchExecutor {
                       size,
                       dao.pointInTimeCreationEnabled,
                       template));
+      dao.cleanupPointInTimeAfterLastPage(opContext, searchRequest, searchResponse, page);
       return new SearchExecution<>(
           page, searchResponse.getFailedShards() > 0 || searchResponse.isTimedOut(), template);
     } catch (Exception e) {

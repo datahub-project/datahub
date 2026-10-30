@@ -8,12 +8,15 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -22,10 +25,13 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.apache.lucene.search.TotalHits;
+import org.mockito.ArgumentCaptor;
 import org.opensearch.action.search.CreatePitResponse;
+import org.opensearch.action.search.DeletePitRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.client.core.CountResponse;
+import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.testng.annotations.Test;
@@ -154,6 +160,61 @@ public class ESSearchDAOSearchClusterAccessTest {
     verify(v2, never()).search(any(), any(), any());
     verify(primary, never()).createPit(any(), any(), any());
     verify(primary, never()).search(any(), any(), any());
+  }
+
+  @Test
+  public void testLastPitScrollPageClosesPointInTime() throws Exception {
+    SearchClientShim<?> v3 = pitClient(searchResponse("pit-1", new SearchHit[0]));
+    ESSearchDAO dao = dao(v3, false);
+
+    ScrollResult page =
+        dao.scroll(v3Context(v3), List.of("dataset"), "*", null, null, null, "1m", 10);
+
+    assertNull(page.getScrollId());
+    ArgumentCaptor<DeletePitRequest> deleted = ArgumentCaptor.forClass(DeletePitRequest.class);
+    verify(v3).deletePit(any(), deleted.capture(), any());
+    assertEquals(deleted.getValue().getPitIds(), List.of("pit-1"));
+  }
+
+  @Test
+  public void testNonLastPitScrollPageKeepsPointInTimeOpen() throws Exception {
+    SearchHit hit = new SearchHit(1);
+    hit.sortValues(new Object[] {"urn:li:corpuser:a"}, new DocValueFormat[] {DocValueFormat.RAW});
+    SearchClientShim<?> v3 = pitClient(searchResponse("pit-1", new SearchHit[] {hit}));
+    ESSearchDAO dao = dao(v3, false);
+
+    ScrollResult page =
+        dao.scroll(v3Context(v3), List.of("dataset"), "*", null, null, null, "1m", 1);
+
+    assertNotNull(page.getScrollId());
+    verify(v3, never()).deletePit(any(), any(), any());
+  }
+
+  private static SearchClientShim<?> pitClient(SearchResponse searchResponse) throws Exception {
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    CreatePitResponse pitResponse = mock(CreatePitResponse.class);
+    when(pitResponse.getId()).thenReturn("pit-1");
+    when(client.createPit(any(), any(), any())).thenReturn(pitResponse);
+    when(client.search(any(), any(), any())).thenReturn(searchResponse);
+    return client;
+  }
+
+  private static OperationContext v3Context(SearchClientShim<?> v3) {
+    return TestOperationContexts.withSearchClusterAccess(
+        TestOperationContexts.systemContextNoSearchAuthorization(), component -> v3);
+  }
+
+  private static SearchResponse searchResponse(String pitId, SearchHit[] searchHits) {
+    SearchHits hits = mock(SearchHits.class);
+    when(hits.getHits()).thenReturn(searchHits);
+    when(hits.getTotalHits())
+        .thenReturn(new TotalHits(searchHits.length, TotalHits.Relation.EQUAL_TO));
+    SearchResponse response = mock(SearchResponse.class);
+    when(response.getHits()).thenReturn(hits);
+    when(response.getShardFailures()).thenReturn(new ShardSearchFailure[0]);
+    when(response.pointInTimeId()).thenReturn(pitId);
+    return response;
   }
 
   private static SearchResponse emptySearchResponse() {
