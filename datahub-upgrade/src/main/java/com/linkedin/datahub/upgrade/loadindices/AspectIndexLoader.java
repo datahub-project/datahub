@@ -201,20 +201,21 @@ public class AspectIndexLoader {
         for (EbeanAspectV2 aspect : page) {
           final boolean completeEntity =
               wholeEntities && (lastEntityComplete || !lastUrn.equals(aspect.getKey().getUrn()));
-          // Rows written by a newer version (entity type or aspect this registry does not know,
-          // e.g. after a rollback) cannot be indexed here. They are left in the database for the
-          // newer version to index.
-          if (!handling()
-              .admitUrn(
-                  UNKNOWN_DATA,
-                  opContext.getEntityRegistry(),
-                  opContext.getMetricUtils(),
-                  aspect.getKey().getUrn(),
-                  aspect.getKey().getAspect())) {
-            result.unknownToRegistrySkipped++;
-            continue;
-          }
           try {
+            // Rows written by a newer version (entity type or aspect this registry does not know,
+            // e.g. after a rollback) cannot be indexed here. They are left in the database for the
+            // newer version to index. Checked inside the try, so skipConversionErrors also covers
+            // a row that can't be classified.
+            if (!handling()
+                .admitUrn(
+                    UNKNOWN_DATA,
+                    opContext.getEntityRegistry(),
+                    opContext.getMetricUtils(),
+                    aspect.getKey().getUrn(),
+                    aspect.getKey().getAspect())) {
+              result.unknownToRegistrySkipped++;
+              continue;
+            }
             mclBatch.add(convertToMetadataChangeLog(opContext, aspect, args, completeEntity));
           } catch (Exception e) {
             if (args.skipConversionErrors) {

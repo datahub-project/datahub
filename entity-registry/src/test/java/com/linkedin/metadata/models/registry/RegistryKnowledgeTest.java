@@ -1,5 +1,7 @@
 package com.linkedin.metadata.models.registry;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -9,9 +11,11 @@ import com.datahub.test.TestEntityProfile;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import com.linkedin.mxe.SystemMetadata;
+import java.util.Optional;
 import java.util.function.Predicate;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -115,6 +119,19 @@ public class RegistryKnowledgeTest {
         RegistryKnowledge.referencesUnknownEntityType(
             registry,
             UrnUtils.getUrn("urn:li:dataset:(urn:li:entityFromNewerBuild:x,name)"),
+            NEWER_VERSION_TYPE));
+  }
+
+  @Test
+  public void testReferencesUnknownEntityTypeWithoutAKeyAspect() {
+    // A spec without a key aspect has no urn-typed key fields, so nothing nested is a reference.
+    EntityRegistry noKeyRegistry = mock(EntityRegistry.class);
+    when(noKeyRegistry.findEntitySpec("dataset")).thenReturn(Optional.of(mock(EntitySpec.class)));
+
+    assertFalse(
+        RegistryKnowledge.referencesUnknownEntityType(
+            noKeyRegistry,
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:entityFromNewerBuild:x,name,PROD)"),
             NEWER_VERSION_TYPE));
   }
 
