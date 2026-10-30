@@ -748,17 +748,6 @@ class HiveMetadataProcessor:
             if dpi_aspect:
                 yield dpi_aspect
 
-            # Emit view properties again
-            view_properties_aspect = ViewPropertiesClass(
-                materialized=False,
-                viewLanguage="SQL",
-                viewLogic=dataset.view_definition if dataset.view_definition else "",
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=view_properties_aspect,
-            ).as_workunit()
-
             # Emit domain
             if self.config.domain and self.domain_registry:
                 yield from get_domain_wu(
