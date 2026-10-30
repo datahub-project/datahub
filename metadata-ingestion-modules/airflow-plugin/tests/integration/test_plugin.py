@@ -624,6 +624,8 @@ def check_golden_file(
         golden_path=golden_path,
         ignore_paths=ignore_paths,
         ignore_order=True,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
 
 

@@ -8,6 +8,7 @@ import pytest
 from airflow.models import Connection, DagBag
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin.entities import Dataset, Urn
@@ -97,7 +98,7 @@ def test_datahub_rest_hook(mock_emitter):
             datahub_component="airflow-plugin",
         )
         instance = mock_emitter.return_value
-        instance.emit.assert_called_with(lineage_mce)
+        instance.emit.assert_called_with(next(iter(mcps_from_mce(lineage_mce))))
 
 
 @mock.patch("datahub.emitter.rest_emitter.DataHubRestEmitter", autospec=True)
@@ -117,7 +118,7 @@ def test_datahub_rest_hook_with_timeout(mock_emitter):
             datahub_component="airflow-plugin",
         )
         instance = mock_emitter.return_value
-        instance.emit.assert_called_with(lineage_mce)
+        instance.emit.assert_called_with(next(iter(mcps_from_mce(lineage_mce))))
 
 
 @mock.patch("datahub.emitter.kafka_emitter.DatahubKafkaEmitter", autospec=True)
