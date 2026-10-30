@@ -169,3 +169,19 @@ def test_incomplete_dataset_fetch_falls_back_to_filters(source):
 
     assert _upstreams(_mcps(source), ORDERS_BLUE) == [SRC_ORDERS]
     assert not source._is_allowed_table("dremio.other_source.sales.orders")
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        # Only a statement that is itself a CREATE VIEW is skipped, not one
+        # that mentions it in a comment or a string.
+        "/* hdr */ SELECT '*/ create view x' AS note FROM src_db.sales.orders",
+        # Unparsable text is left to the aggregator, which reports it.
+        "CREATE VIEW (",
+    ],
+)
+def test_non_view_ddl_is_not_skipped(source, sql):
+    _run_query(source, sql, "2024-01-01 12:00:00.000")
+
+    assert source.report.num_view_ddl_queries_skipped == 0

@@ -1,5 +1,4 @@
 import logging
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set
@@ -71,24 +70,20 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
 # Dremio uses 'dremio' as the default database name in all SQL contexts
 DREMIO_DATABASE_NAME = "dremio"
-
-# CREATE [OR REPLACE] VIEW|VDS, after any leading comments (dbt adds a header).
-_VIEW_DDL_RE = re.compile(
-    r"\s*(?:(?:--[^\n]*(?:\n|$)|/\*.*?\*/)\s*)*"
-    r"CREATE\s+(?:OR\s+REPLACE\s+)?(?:VIEW|VDS)\b",
-    re.IGNORECASE | re.DOTALL,
-)
 
 
 def passes_dremio_filters(
@@ -752,10 +747,23 @@ class DremioSource(StatefulIngestionSourceBase):
                         f"This may be expected for cross-source references or if the dataset was filtered out."
                     )
 
+    def _is_view_ddl(self, sql: str) -> bool:
+        # The aggregator parses the same text with the same dialect next, so
+        # this hits the parse cache. CREATE VDS isn't parsed as a view, but it
+        # yields no lineage either, so it can't add stale upstreams.
+        dialect = get_dialect(self.get_platform())
+        try:
+            statement = parse_statement(sql, dialect)
+        except Exception:
+            # Leave unparsable text to the aggregator, which reports it.
+            return False
+        query_type, _ = get_query_type_of_sql(statement, dialect)
+        return query_type == QueryType.CREATE_VIEW
+
     def process_query(self, query: DremioQuery) -> None:
         # View lineage comes from the catalog's current definition; an older
         # CREATE [OR REPLACE] VIEW in job history would add stale upstreams.
-        if _VIEW_DDL_RE.match(query.query):
+        if self._is_view_ddl(query.query):
             self.report.num_view_ddl_queries_skipped += 1
             return
 
