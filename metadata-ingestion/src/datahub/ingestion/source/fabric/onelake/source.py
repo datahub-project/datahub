@@ -1363,6 +1363,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             env=self.config.env,
             execution_history_days=self.config.notebook_execution.history_days,
             reconcile_code=self.config.notebook_execution.reconcile_code,
+            case_sensitive_columns=self.config.notebook_execution.case_sensitive_columns,
             report=self.report,
             client=self.client,
             known_table_urns=self._notebook_known_table_urns,
