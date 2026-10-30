@@ -44,9 +44,9 @@ _A_DATASETS = 2
 _B_DATASETS = 3
 _A_DATA_PRODUCTS = 1
 
-# Expected total entities (datasets + data products) and data-product-only counts.
+# Expected total entities (excluding data products and sub-domains) and data-product-only counts.
 _EXPECTED = {
-    _DOMAIN_A: {"entities": _A_DATASETS + _A_DATA_PRODUCTS, "dataProducts": 1},
+    _DOMAIN_A: {"entities": _A_DATASETS, "dataProducts": _A_DATA_PRODUCTS},
     _DOMAIN_B: {"entities": _B_DATASETS, "dataProducts": 0},
     _DOMAIN_C: {"entities": 0, "dataProducts": 0},
 }
@@ -143,7 +143,13 @@ def ingest_cleanup_data(auth_session, graph_client):
 # this exercises the batched fast path (and per-domain attribution) end to end.
 _COUNTS_FRAGMENT = """
     urn
-    entities(input: { start: 0, count: 0 }) {
+    entities(
+      input: {
+        start: 0
+        count: 0
+        filters: [{ field: "_entityType", negated: true, values: ["DATA_PRODUCT", "DOMAIN"] }]
+      }
+    ) {
       total
     }
     dataProducts: entities(
