@@ -1,5 +1,9 @@
+import pytest
+import sqlglot
+from packaging.version import Version
+
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 
 # A LATERAL FLATTEN of an *unqualified* column (`items`) whose base table
 # (`my_db.raw_schema.events`) is not fully described by the schema. On
@@ -63,3 +67,60 @@ def test_risky_unnest_does_not_crash_when_flatten_column_missing() -> None:
     )
     assert result.debug_info.table_error is None
     assert result.debug_info.column_error is None
+
+
+def _deep_cte_unnest_sql(depth: int, unnest: str) -> str:
+    # Each CTE joins the previous two, so many scope paths lead back to c0.
+    ctes = [
+        "c0 AS (SELECT t.k, t.arr FROM `my_db._SESSION.tmp` AS t)",
+        "c1 AS (SELECT a.k, a.arr FROM c0 AS a JOIN c0 AS b ON a.k = b.k)",
+    ]
+    for i in range(2, depth + 1):
+        ctes.append(
+            f"c{i} AS (SELECT a.k, a.arr FROM c{i - 1} AS a "
+            f"JOIN c{i - 2} AS b ON a.k = b.k)"
+        )
+    return (
+        f"CREATE TABLE `my_db.my_schema.out` AS WITH {', '.join(ctes)} "
+        f"SELECT f.k, ({unnest}) AS v FROM c{depth} AS f"
+    )
+
+
+@pytest.mark.xfail(
+    Version(sqlglot.__version__) < Version("30.13.0"),
+    reason="needs sqlglot >= 30.13.0",
+    run=False,
+)
+@pytest.mark.parametrize(
+    "unnest",
+    [
+        pytest.param("SELECT MAX(name) FROM UNNEST(arr)", id="unqualified"),
+        pytest.param(
+            "SELECT ARRAY_AGG(u.name) FROM UNNEST(f.arr) AS u", id="qualified"
+        ),
+    ],
+)
+def test_unnest_over_deep_reconverging_ctes_keeps_column_lineage(
+    monkeypatch: pytest.MonkeyPatch, unnest: str
+) -> None:
+    # sqlglot 30.12.0 typed this UNNEST by walking every CTE path
+    # (tobymao/sqlglot#7821), far past the default lineage timeout.
+    def run(depth: int) -> SqlParsingResult:
+        return sqlglot_lineage(
+            _deep_cte_unnest_sql(depth=depth, unnest=unnest),
+            schema_resolver=SchemaResolver(platform="bigquery"),
+            default_db="my_db",
+            default_schema="_SESSION",
+        )
+
+    # A shallow run first, so sqlglot's one-time load cost stays out of the budget.
+    run(depth=2)
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_ENABLED", True
+    )
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_SECONDS", 10
+    )
+    result = run(depth=17)
+    assert result.debug_info.column_error is None
+    assert result.column_lineage
