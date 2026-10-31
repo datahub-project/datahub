@@ -378,6 +378,7 @@ fragment datasetSchema on Dataset {
         ...schemaMetadataFields
     }
     editableSchemaMetadata {
+        primaryKeys
         editableSchemaFieldInfo {
             fieldPath
             description
