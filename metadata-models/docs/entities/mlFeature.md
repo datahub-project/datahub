@@ -339,6 +339,8 @@ Features are accessible through DataHub's GraphQL API via the `MLFeatureType` cl
 
 ML Features participate in the shared incidents subsystem. Incidents can be raised on a feature via the `raiseIncident` GraphQL mutation (or the Python SDK), listed back through the `incidents` field on the `MLFeature` GraphQL type, and the feature carries a rolled-up `incidentsSummary` aspect that is maintained automatically as incidents are raised and resolved.
 
+Active incidents also roll up into the feature's health badge, which shows on the feature's profile page, on its node in the lineage graph, and on search result cards. Health for ML Features is derived from incidents only, so assertions and tests do not contribute to the badge.
+
 ## Notable Exceptions
 
 ### Feature Namespace vs Feature Table
