@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkdocs_website=globalThis.webpackChunkdocs_website||[]).push([[64884],{88384(s){s.exports=JSON.parse('{"label":"Data Freshness","permalink":"/learn/tags/data-freshness","allTagsPath":"/learn/tags","count":1}')}}]);
