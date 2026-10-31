@@ -2102,6 +2102,10 @@ constraint-dependencies = [
     # dask; not in setup.py. s3fs pins fsspec to its own version, so this also moves
     # s3fs/adlfs. Docker snippet: docker/snippets/ingestion/constraints.txt.
     "fsspec>=2026.6.0",
+    # pyasn1: CVE-2026-119194, CVE-2026-119195, CVE-2026-119196, CVE-2026-119197;
+    # fixed in 0.6.5. Transitive via rsa / pyasn1-modules (google-auth, ldap); not in
+    # setup.py. Docker snippet: docker/snippets/ingestion/constraints.txt.
+    "pyasn1>=0.6.5,<0.7.0",
     # numpy 1.x ships no 3.13 wheels and does not build there. setup.py only caps
     # numpy<2 below 3.13, but without this uv still reuses the <3.13 fork's 1.26.4
     # for 3.13 (numpy comes in through extras such as file_profiling and feast).

@@ -1047,7 +1047,7 @@ pyarrow==18.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   deltalake
     #   feast
     #   pyiceberg
-pyasn1==0.6.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
+pyasn1==0.6.5 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   pyasn1-modules
     #   python-jose
