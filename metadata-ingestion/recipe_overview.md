@@ -39,7 +39,7 @@ source:
     password: ${MYSQL_PASSWORD}
 ```
 
-With no `sink`, metadata is written to `datahub-rest` at the DataHub instance configured by `datahub init`. To be explicit, name the sink yourself:
+With no `sink`, metadata is by default written to `datahub-rest` at the DataHub instance configured by `datahub init`. To be explicit, name the sink yourself:
 
 ```yaml
 # recipe.dhub.yaml
@@ -127,15 +127,15 @@ The sink is where extracted metadata is written. If you omit `sink`, DataHub use
 
 Fields for `datahub-rest`:
 
-| Field                      | Type    | Required | Default       | Description                                                     | Example                 |
-| -------------------------- | ------- | -------- | ------------- | --------------------------------------------------------------- | ----------------------- |
-| `server`                   | string  | Yes      | —             | GMS endpoint of your DataHub instance.                          | `http://localhost:8080` |
-| `token`                    | string  | No       | none          | Personal access token. Required when authentication is enabled. | `${DATAHUB_TOKEN}`      |
-| `timeout_sec`              | float   | No       | none          | Per-request timeout in seconds.                                 | `30`                    |
-| `retry_max_times`          | integer | No       | none          | How many times to retry a failed request.                       | `3`                     |
-| `max_threads`              | integer | No       | CPU-dependent | Concurrent requests, in async modes.                            | `15`                    |
-| `ca_certificate_path`      | string  | No       | none          | Custom CA bundle for TLS verification.                          | `/etc/ssl/ca.pem`       |
-| `disable_ssl_verification` | boolean | No       | `false`       | Skip TLS verification. Not recommended outside local testing.   | `false`                 |
+| Field                      | Type    | Required | Default | Description                                                     | Example                 |
+| -------------------------- | ------- | -------- | ------- | --------------------------------------------------------------- | ----------------------- |
+| `server`                   | string  | Yes      | —       | GMS endpoint of your DataHub instance.                          | `http://localhost:8080` |
+| `token`                    | string  | No       | none    | Personal access token. Required when authentication is enabled. | `${DATAHUB_TOKEN}`      |
+| `timeout_sec`              | float   | No       | none    | Per-request timeout in seconds.                                 | `30`                    |
+| `retry_max_times`          | integer | No       | none    | How many times to retry a failed request.                       | `3`                     |
+| `max_threads`              | integer | No       | `15`    | Concurrent requests, in async modes.                            | `15`                    |
+| `ca_certificate_path`      | string  | No       | none    | Custom CA bundle for TLS verification.                          | `/etc/ssl/ca.pem`       |
+| `disable_ssl_verification` | boolean | No       | `false` | Skip TLS verification. Not recommended outside local testing.   | `false`                 |
 
 <Tabs>
 <TabItem value="oss" label="Self-hosted" default>
