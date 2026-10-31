@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Literal, Optional, Union
 
 import smart_open
 from pydantic import (
@@ -18,7 +18,7 @@ from pydantic import (
     model_validator,
 )
 
-from datahub.configuration.common import HiddenFromDocs
+from datahub.configuration.common import ConfigModel, HiddenFromDocs
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -50,6 +50,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
+from datahub.ingestion.source.elastic_search_common import ElasticsearchConnectionConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
@@ -74,10 +75,90 @@ from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 logger = logging.getLogger(__name__)
 
 
+class ElasticsearchQueryFieldMappings(ConfigModel):
+    """Maps QueryEntry fields to Elasticsearch document fields (dotted paths allowed)."""
+
+    query: str = Field(
+        "query", description="Document field holding the SQL query text."
+    )
+    timestamp: Optional[str] = Field(
+        "@timestamp", description="Document field holding the query timestamp."
+    )
+    user: Optional[str] = Field(
+        None, description="Document field holding the executing user."
+    )
+    session_id: Optional[str] = Field(
+        None, description="Document field holding the session/connection id."
+    )
+    default_db: Optional[str] = Field(
+        None,
+        description="Document field holding the default database for unqualified table names.",
+    )
+    default_schema: Optional[str] = Field(
+        None,
+        description="Document field holding the default schema for unqualified table names.",
+    )
+
+
+class ElasticsearchQuerySourceConfig(ConfigModel):
+    type: Literal["elasticsearch"] = "elasticsearch"
+    connection: ElasticsearchConnectionConfig = Field(
+        default_factory=ElasticsearchConnectionConfig,
+        description="Elasticsearch/OpenSearch connection settings.",
+    )
+    index: str = Field(
+        description="Index, alias, or index pattern to read query records from."
+    )
+    field_mappings: ElasticsearchQueryFieldMappings = Field(
+        default_factory=ElasticsearchQueryFieldMappings,
+        description="Maps QueryEntry fields to document fields.",
+    )
+    query_filter: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Additional Elasticsearch query DSL merged into the bool filter, "
+        "e.g. a time range or a term filter to scope which records are read.",
+    )
+    unescape_sql: bool = Field(
+        True,
+        description="Unescape backslash-escaped quotes in the SQL text. "
+        "Audit logs commonly store SQL with escaped quotes (\\' and \\\").",
+    )
+    email_domain: Optional[str] = Field(
+        None,
+        description="If set, bare user values are turned into CorpUser URNs by "
+        "appending '@' and this domain (e.g. a user value of 'alice' with "
+        "email_domain 'example.com' becomes alice@example.com).",
+    )
+    batch_size: int = Field(
+        1000,
+        description="Scroll size, i.e. the number of hits fetched per shard per "
+        "scroll request (standard Elasticsearch scroll semantics). Against a "
+        "multi-shard index or an index pattern, a scroll page holds up to "
+        "batch_size times the number of matching shards, so size scroll_keepalive "
+        "for that effective page rather than for batch_size alone.",
+    )
+    scroll_keepalive: str = Field(
+        "5m",
+        description="How long each scroll page is kept alive server-side. Raise it "
+        "if parsing a scroll page downstream can take longer than this, otherwise "
+        "the scroll can expire mid-run. See batch_size for how shard count affects "
+        "the page size this must cover.",
+    )
+
+
 class SqlQueriesSourceConfig(
     PlatformInstanceConfigMixin, EnvConfigMixin, IncrementalLineageConfigMixin
 ):
-    query_file: str = Field(description="Path to file to ingest")
+    query_file: Optional[str] = Field(
+        None,
+        description="Path to a newline-delimited JSON file of query records "
+        "(local path or s3:// URI). Mutually exclusive with query_source.",
+    )
+    query_source: Optional[ElasticsearchQuerySourceConfig] = Field(
+        None,
+        description="A non-file backend to read query records from. "
+        "Mutually exclusive with query_file.",
+    )
 
     platform: str = Field(
         description="The platform for which to generate data, e.g. snowflake"
@@ -136,8 +217,10 @@ class SqlQueriesSourceConfig(
         return v
 
     @model_validator(mode="after")
-    def validate_s3_config(self) -> "SqlQueriesSourceConfig":
-        if is_s3_uri(self.query_file) and not self.aws_config:
+    def validate_query_source(self) -> "SqlQueriesSourceConfig":
+        if bool(self.query_file) == bool(self.query_source):
+            raise ValueError("Exactly one of query_file or query_source must be set.")
+        if self.query_file and is_s3_uri(self.query_file) and not self.aws_config:
             raise ValueError(
                 "aws_config is required when query_file is an S3 URI (s3://)"
             )
@@ -185,6 +268,9 @@ class FileQueryLogReader(QueryLogReader):
         self.report = report
 
     def get_query_entries(self) -> Iterable["QueryEntry"]:
+        # Guaranteed by the config validator (exactly one of query_file /
+        # query_source, and this reader is only built for the file case).
+        assert self.config.query_file is not None
         logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
         if not is_s3_uri(self.config.query_file):
             yield from self._parse_local_query_file()
@@ -192,7 +278,7 @@ class FileQueryLogReader(QueryLogReader):
 
         aws_config = self.config.aws_config
         if aws_config is None:
-            # validate_s3_config rejects this at config time, so this only
+            # validate_query_source rejects this at config time, so this only
             # trips if the config was mutated after construction.
             raise ValueError(f"aws_config is required to read {self.config.query_file}")
         yield from self._parse_s3_query_file(aws_config)
@@ -200,6 +286,7 @@ class FileQueryLogReader(QueryLogReader):
     def _parse_s3_query_file(
         self, aws_config: AwsConnectionConfig
     ) -> Iterable["QueryEntry"]:
+        assert self.config.query_file is not None
         logger.info(f"Reading query file from S3: {self.config.query_file}")
 
         try:
@@ -243,6 +330,7 @@ class FileQueryLogReader(QueryLogReader):
             yield line
 
     def _parse_local_query_file(self) -> Iterable["QueryEntry"]:
+        assert self.config.query_file is not None
         try:
             f = open(self.config.query_file)
         except OSError as e:
@@ -295,6 +383,142 @@ class FileQueryLogReader(QueryLogReader):
             if self.report.num_entries_processed % 1000 == 0:
                 logger.info(
                     f"Processed {self.report.num_entries_processed} query entries"
+                )
+            yield entry
+
+
+class ElasticsearchQueryLogReader(QueryLogReader):
+    """Reads query records from an Elasticsearch/OpenSearch index.
+
+    Documents with no SQL in the query field are skipped, so an index that mixes
+    query records with other audit events can be read directly.
+    """
+
+    def __init__(
+        self,
+        config: ElasticsearchQuerySourceConfig,
+        report: SqlQueriesSourceReport,
+    ) -> None:
+        self.config = config
+        self.report = report
+
+    @staticmethod
+    def _get(source: Dict[str, Any], path: Optional[str]) -> Any:
+        """Look up a dotted field path in a document source."""
+        if not path:
+            return None
+        current: Any = source
+        for part in path.split("."):
+            if not isinstance(current, dict):
+                return None
+            current = current.get(part)
+        return current
+
+    def _to_entry(self, source: Dict[str, Any]) -> Optional["QueryEntry"]:
+        fm = self.config.field_mappings
+        raw_sql = self._get(source, fm.query)
+        if raw_sql is None or not str(raw_sql).strip():
+            return None
+
+        sql = str(raw_sql)
+        if self.config.unescape_sql:
+            # Audit logs often store SQL with escaped quotes; undo so it parses.
+            sql = sql.replace("\\'", "'").replace('\\"', '"')
+
+        user = self._get(source, fm.user)
+        # Treat blank/whitespace users as absent so a system/background row with no
+        # actor doesn't become a domain-only "@<email_domain>" corp user.
+        user = str(user).strip() if user is not None else ""
+        if user and self.config.email_domain and "@" not in user:
+            user = f"{user}@{self.config.email_domain}"
+        user = user or None
+
+        session_id = self._get(source, fm.session_id)
+        # Validate via the model so QueryEntry's field validators run. No config
+        # context needed: query records carry no table-name hints.
+        return QueryEntry.model_validate(
+            {
+                "query": sql,
+                "timestamp": self._get(source, fm.timestamp),
+                "user": user,
+                "session_id": str(session_id) if session_id is not None else None,
+                "default_db": self._get(source, fm.default_db),
+                "default_schema": self._get(source, fm.default_schema),
+            },
+            context={"report": self.report},
+        )
+
+    def get_query_entries(self) -> Iterable["QueryEntry"]:
+        try:
+            from opensearchpy.helpers import scan
+        except ImportError as e:
+            raise ImportError(
+                "The Elasticsearch query_source backend requires opensearch-py, "
+                "which is not installed by default. Install it with: "
+                "pip install 'acryl-datahub[elasticsearch]'"
+            ) from e
+
+        fm = self.config.field_mappings
+        client = self.config.connection.get_client()
+        filters: List[Dict[str, Any]] = [{"exists": {"field": fm.query}}]
+        if self.config.query_filter:
+            filters.append(self.config.query_filter)
+        query: Dict[str, Any] = {"query": {"bool": {"filter": filters}}}
+
+        # The aggregator resolves session temp tables from earlier statements, so
+        # records must arrive in ascending timestamp order. When a timestamp is
+        # mapped, sort on it server-side (preserve_order keeps the scroll in that
+        # order, at the cost of the parallel-scroll optimisation); _doc is a stable
+        # tiebreaker so records sharing a timestamp keep a deterministic order.
+        # Without a timestamp we can't order, so use the faster unordered scroll.
+        preserve_order = fm.timestamp is not None
+        if preserve_order:
+            query["sort"] = [{fm.timestamp: {"order": "asc"}}, {"_doc": "asc"}]
+
+        logger.info(
+            f"Reading query records from Elasticsearch index '{self.config.index}'"
+        )
+        # The scroll keepalive must outlast downstream processing of one scroll page
+        # (batch_size * matching shards, not batch_size); a page slower than
+        # scroll_keepalive still fails. The upgrade path for very large/slow runs is
+        # PIT + search_after, which is stateless per page.
+        for hit in scan(
+            client,
+            index=self.config.index,
+            query=query,
+            size=self.config.batch_size,
+            preserve_order=preserve_order,
+            scroll=self.config.scroll_keepalive,
+        ):
+            source = hit.get("_source", {})
+            try:
+                entry = self._to_entry(source)
+            except (MemoryError, SystemExit, KeyboardInterrupt):
+                raise
+            except Exception as e:
+                # One malformed document must never abort the run; mirror the
+                # per-row tolerance of the file reader.
+                self.report.num_entries_failed += 1
+                self.report.warning(
+                    title="Error processing query record",
+                    message="Query record skipped due to parsing error",
+                    context=str(hit.get("_id")),
+                    exc=e,
+                    log=False,
+                )
+                if self.report.num_entries_failed % 1000 == 0:
+                    # Warnings are sampled; without this the true volume of a
+                    # systematically-malformed index never reaches the log.
+                    logger.warning(
+                        f"{self.report.num_entries_failed} query records have failed to parse"
+                    )
+                continue
+            if entry is None:
+                continue
+            self.report.num_entries_processed += 1
+            if self.report.num_entries_processed % 1000 == 0:
+                logger.info(
+                    f"Processed {self.report.num_entries_processed} query records"
                 )
             yield entry
 
@@ -363,7 +587,12 @@ class SqlQueriesSource(Source):
         )
         self.report.sql_aggregator = self.aggregator.report
 
-        self.reader: QueryLogReader = FileQueryLogReader(self.config, self.report)
+        self.reader: QueryLogReader = self._create_reader()
+
+    def _create_reader(self) -> QueryLogReader:
+        if self.config.query_source is not None:
+            return ElasticsearchQueryLogReader(self.config.query_source, self.report)
+        return FileQueryLogReader(self.config, self.report)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlQueriesSource":
@@ -414,17 +643,26 @@ class SqlQueriesSource(Source):
         """
         if self.report.num_entries_processed == 0:
             if self.report.num_entries_failed > 0:
+                hint = (
+                    "check the file format (expected newline-delimited JSON)"
+                    if self.config.query_file
+                    else "check the query_source field mappings and record format"
+                )
                 self.report.failure(
                     title="All entries failed to parse",
-                    message="Every entry in the input file failed to parse — "
-                    "check the file format (expected newline-delimited JSON)",
+                    message=f"Every input record failed to parse — {hint}",
                     context=f"{self.report.num_entries_failed} entries failed",
                 )
             else:
                 self.report.warning(
                     title="Empty input",
-                    message="No query entries found in input file",
-                    context=self.config.query_file,
+                    message="No query entries found in input",
+                    context=self.config.query_file
+                    or (
+                        f"elasticsearch:{self.config.query_source.index}"
+                        if self.config.query_source
+                        else "unknown"
+                    ),
                 )
             return
 
