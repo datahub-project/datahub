@@ -12,14 +12,14 @@ import { GetColumnLineageCountsDocument } from '@graphql/lineage.generated';
 import { EntityType, FilterOperator } from '@types';
 
 describe('buildRelatedColumnFilters', () => {
-    it('counts only direct relations, excluding columns on dbt nodes', () => {
+    it('counts only direct relations, excluding columns on dbt and SQLMesh nodes', () => {
         const and = buildRelatedColumnFilters()[0].and ?? [];
 
         expect(and).toHaveLength(2);
         expect(and[0]).toEqual({ field: 'degree', values: ['1'] });
         expect(and[1]).toEqual({
             field: 'parent',
-            values: ['urn:li:dataPlatform:dbt'],
+            values: ['urn:li:dataPlatform:dbt', 'urn:li:dataPlatform:sqlmesh'],
             condition: FilterOperator.Contain,
             negated: true,
         });

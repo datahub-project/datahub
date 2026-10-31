@@ -152,7 +152,7 @@ class SchemaMixin(SqlmeshSourceBase):
             )
             fields.append(
                 SchemaField(
-                    fieldPath=col_name,
+                    fieldPath=self._normalize_column_name(col_name, effective),
                     type=SchemaFieldDataType(type=resolved or NullTypeClass()),
                     nativeDataType=type_str,
                     nullable=True,
