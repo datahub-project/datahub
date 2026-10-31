@@ -582,6 +582,10 @@ class SnowflakeIdentifierBuilder:
         return f'"{db_name}"'
 
     @staticmethod
+    def get_quoted_identifier_for_external_volume(volume_name: str) -> str:
+        return f'"{SnowflakeIdentifierBuilder._escape_identifier(volume_name)}"'
+
+    @staticmethod
     def get_quoted_identifier_for_schema(db_name: str, schema_name: str) -> str:
         db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
         schema_name = SnowflakeIdentifierBuilder._escape_identifier(schema_name)

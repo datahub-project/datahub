@@ -26,7 +26,13 @@ from datahub.configuration.env_vars import get_snowflake_schema_parallelism
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import (
+    EXTERNAL_VOLUME_ACTIVE_PROPERTY,
+    EXTERNAL_VOLUME_LOCATION_NAME_KEY,
+    EXTERNAL_VOLUME_STORAGE_BASE_URL_KEY,
+    EXTERNAL_VOLUME_STORAGE_LOCATION_PREFIX,
+    EXTERNAL_VOLUME_STORAGE_LOCATIONS_PARENT,
     SemanticViewColumnSubtype,
+    SnowflakeIcebergTableType,
     SnowflakeObjectDomain,
     SnowflakeShowKind,
 )
@@ -76,6 +82,10 @@ def _needs_definition(table: "SnowflakeTable") -> TypeGuard["SnowflakeDynamicTab
 _ShowRowT = TypeVar("_ShowRowT")
 
 SCHEMA_PARALLELISM = get_snowflake_schema_parallelism()
+
+# External volumes are account-level objects shared by many Iceberg tables; an account
+# rarely has more than a handful, so this just has to exceed that comfortably.
+EXTERNAL_VOLUME_CACHE_SIZE = 256
 
 # JSON structure characters that never appear in a Snowflake column identifier,
 # even a quoted one. Their presence means a parsed "key" is actually a serialized
@@ -242,6 +252,42 @@ class SnowflakeColumn(BaseColumn):
 
 
 @dataclass
+class SnowflakeExternalVolumeLocation:
+    """One STORAGE_LOCATION entry of DESC EXTERNAL VOLUME."""
+
+    volume_name: str
+    name: str
+    # Cloud URL the volume is rooted at, e.g. s3://bucket/prefix/ (Snowflake keeps the
+    # trailing slash). Table base locations are relative to this.
+    storage_base_url: str
+
+
+@dataclass
+class SnowflakeIcebergTableInfo:
+    """Iceberg-specific details from SHOW ICEBERG TABLES; absent for non-Iceberg tables."""
+
+    external_volume_name: Optional[str] = None
+    catalog_name: Optional[str] = None
+    # SNOWFLAKE or UNMANAGED (externally managed, i.e. another engine writes the data)
+    iceberg_table_type: Optional[str] = None
+    # Relative to the external volume's STORAGE_BASE_URL. Snowflake reports it with a
+    # trailing slash (e.g. "my_table/").
+    base_location: Optional[str] = None
+    catalog_namespace: Optional[str] = None
+    catalog_table_name: Optional[str] = None
+    # Resolved by the Iceberg handler: STORAGE_BASE_URL + base_location, without a
+    # trailing slash so it compares equal to the path other connectors record.
+    storage_location: Optional[str] = None
+
+    @property
+    def is_externally_managed(self) -> bool:
+        return (
+            self.iceberg_table_type is not None
+            and self.iceberg_table_type.upper() == SnowflakeIcebergTableType.UNMANAGED
+        )
+
+
+@dataclass
 class SnowflakeTable(BaseTable):
     type: Optional[str] = None
     clustering_key: Optional[str] = None
@@ -254,6 +300,8 @@ class SnowflakeTable(BaseTable):
     is_iceberg: bool = False
     is_hybrid: bool = False
     retention_time: Optional[int] = None  # number of days
+    # Populated only when is_iceberg and Iceberg metadata extraction is enabled.
+    iceberg: Optional[SnowflakeIcebergTableInfo] = None
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.TABLE
@@ -1156,6 +1204,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         db_name: str,
         schema_name: str,
         page_limit: int,
+        incomplete_is_failure: bool = True,
     ) -> Iterable[Dict[str, Any]]:
         """Yield rows of a schema-scoped SHOW, paging by object name.
 
@@ -1167,7 +1216,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
         whether a full page yielded a name not already seen. Deliberately not by comparing
         markers: that re-derives Snowflake's collation in Python and could call a working
         cursor stalled on mixed-case identifiers. A short result plus a failure beats a hang.
+
+        `incomplete_is_failure` is for SHOWs that list entities (views, streams, dynamic
+        tables): see the comment on the failure below. A SHOW that only enriches entities
+        listed elsewhere (Iceberg table details) passes False, since nothing is at risk
+        of being soft-deleted when it comes back short.
         """
+        report_incomplete = (
+            self.report.failure if incomplete_is_failure else self.report.warning
+        )
         context = f"{db_name}.{schema_name}"
         seen_names: Set[str] = set()
         marker: Optional[str] = None
@@ -1197,7 +1254,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 # would let the schema's missing objects be soft-deleted as if they were gone
                 # from Snowflake - and the fail-safe threshold (75% by default) is far too
                 # coarse to catch one schema out of hundreds.
-                self.report.failure(
+                report_incomplete(
                     message="Paginated 'SHOW' failed for schema; "
                     "results may be incomplete",
                     context=f"SHOW {object_kind} in {context} (kept {len(seen_names)})",
@@ -1220,7 +1277,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             if new_in_page == 0:
                 # Same incompleteness, same severity as the failed-page case above: a cursor
                 # Snowflake ignores leaves objects unlisted, so soft-deletion must not run.
-                self.report.failure(
+                report_incomplete(
                     message="Paginated 'SHOW' stopped early because Snowflake did not "
                     "honour the pagination cursor; some objects may be missing.",
                     context=f"SHOW {object_kind} in {context} after {marker}",
@@ -2530,6 +2587,116 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 page_limit=SHOW_STREAM_MAX_PAGE_SIZE,
             )
         ]
+
+    def get_iceberg_tables_for_schema(
+        self, *, db_name: str, schema_name: str
+    ) -> Dict[str, SnowflakeIcebergTableInfo]:
+        """SHOW ICEBERG TABLES for one schema, keyed by table name. Any privilege on a
+        table makes it visible; the Iceberg handler calls this only for schemas whose
+        information_schema listing flagged at least one Iceberg table."""
+        return {
+            row["name"]: self._map_show_iceberg_table(row)
+            for row in self._iter_show_rows_for_schema(
+                object_kind=SnowflakeShowKind.ICEBERG_TABLES,
+                db_name=db_name,
+                schema_name=schema_name,
+                page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
+                incomplete_is_failure=False,
+            )
+        }
+
+    @staticmethod
+    def _map_show_iceberg_table(row: Dict[str, Any]) -> SnowflakeIcebergTableInfo:
+        return SnowflakeIcebergTableInfo(
+            external_volume_name=row.get("external_volume_name") or None,
+            catalog_name=row.get("catalog_name") or None,
+            iceberg_table_type=row.get("iceberg_table_type") or None,
+            base_location=row.get("base_location") or None,
+            catalog_namespace=row.get("catalog_namespace") or None,
+            catalog_table_name=row.get("catalog_table_name") or None,
+        )
+
+    # Many Iceberg tables share one volume, and schemas are processed by parallel workers,
+    # so the lookup is cached and serialized per volume (one DESC, one warning). A failed
+    # describe is cached too, as None: the cache sees a normal return, not an exception.
+    @serialized_lru_cache(maxsize=EXTERNAL_VOLUME_CACHE_SIZE)
+    def get_external_volume_location(
+        self, volume_name: str
+    ) -> Optional[SnowflakeExternalVolumeLocation]:
+        """The active storage location of an external volume, or None when the volume
+        cannot be described (typically missing USAGE) or has no usable location."""
+        try:
+            rows = list(
+                self.connection.query(
+                    SnowflakeQuery.describe_external_volume(volume_name)
+                )
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Could not describe external volume",
+                message="Iceberg tables on this volume get no storage location or "
+                "external lineage. Grant USAGE on the external volume to the ingestion role.",
+                context=volume_name,
+                exc=e,
+            )
+            return None
+
+        location = self._parse_external_volume_description(volume_name, rows)
+        if location is None:
+            self.report.warning(
+                title="External volume has no usable storage location",
+                message="DESC EXTERNAL VOLUME listed no storage location with a "
+                "STORAGE_BASE_URL, so Iceberg tables on this volume get no storage "
+                "location or external lineage.",
+                context=volume_name,
+            )
+        return location
+
+    def _parse_external_volume_description(
+        self, volume_name: str, rows: List[Dict[str, Any]]
+    ) -> Optional[SnowflakeExternalVolumeLocation]:
+        locations: List[SnowflakeExternalVolumeLocation] = []
+        active_name: Optional[str] = None
+        for row in rows:
+            if row.get("parent_property") != EXTERNAL_VOLUME_STORAGE_LOCATIONS_PARENT:
+                continue
+            prop = row.get("property") or ""
+            value = row.get("property_value") or ""
+            if prop == EXTERNAL_VOLUME_ACTIVE_PROPERTY:
+                active_name = value or None
+            elif prop.startswith(EXTERNAL_VOLUME_STORAGE_LOCATION_PREFIX):
+                try:
+                    blob = json.loads(value)
+                except (TypeError, ValueError):
+                    blob = None
+                base_url = (
+                    blob.get(EXTERNAL_VOLUME_STORAGE_BASE_URL_KEY)
+                    if isinstance(blob, dict)
+                    else None
+                )
+                if not base_url:
+                    self.report.warning(
+                        title="Unreadable external volume storage location",
+                        message="A storage location of this volume is not a JSON object "
+                        "with a STORAGE_BASE_URL and is ignored; tables stored there get "
+                        "no storage location or external lineage.",
+                        context=f"{volume_name}.{prop}",
+                    )
+                    continue
+                locations.append(
+                    SnowflakeExternalVolumeLocation(
+                        volume_name=volume_name,
+                        name=blob.get(EXTERNAL_VOLUME_LOCATION_NAME_KEY) or prop,
+                        storage_base_url=base_url,
+                    )
+                )
+        if not locations:
+            return None
+        if active_name:
+            for location in locations:
+                if location.name == active_name:
+                    return location
+        return locations[0]
 
     def _map_show_stream(self, row: Dict[str, Any]) -> SnowflakeStream:
         return SnowflakeStream(
