@@ -18,10 +18,34 @@ This module:
 The OpenLineage version is defined in the root `build.gradle`:
 
 ```gradle
-ext.openLineageVersion = '1.53.0'
+ext.openLineageVersion = '1.55.0'
 ```
 
-**Last upgraded:** September 2, 2026 (from 1.50.0 to 1.53.0)
+**Last upgraded:** October 31, 2026 (from 1.53.0 to 1.55.0)
+
+**Key changes across 1.54.0 → 1.55.0:**
+
+- ✅ Delta MERGE sources behind joins, filters, aggregates and temp views are traversed upstream
+  (`MergeSourceDatasetTraversal`, OpenLineage #5080), so DataHub's shadowed MERGE input builders
+  were dropped. Pinned by `SparkDeltaMergeJoinSourceSmokeTest` (1.55)
+- ✅ Upstream's `RddDatasetInfoExtractor` adopted the null-safe Spark 3.4+ `filePath` lookup and
+  debug-level extraction misses (OpenLineage #5082), so DataHub's shadowed copy was dropped (1.55)
+- ✅ Kafka streaming inputs on Databricks, which ships the shaded
+  `kafkashaded.org.apache.kafka.common.TopicPartition` (OpenLineage #5101), merged into DataHub's
+  `TopicPartitionProxy` (1.55)
+- ✅ JDBC: fully qualified `dbtable` names are no longer prefixed with the URL database, and column
+  lineage inputs use the same qualified names as the event inputs (1.54)
+- ✅ Non-Kafka Structured Streaming V2 writes (e.g. Iceberg sinks) emit catalog-aware outputs
+  through `WriteToDataSourceV2DatasetBuilder` on Spark 3.2+ when the write carries a
+  `DataSourceV2Relation` (`toTable()`-style writes) (1.54)
+- ✅ Column lineage for CTAS/RTAS, computed MERGE assignments and Iceberg MERGE source columns;
+  Iceberg `rewrite_data_files` datasets on Spark 4.1 (1.54-1.55)
+- ⚡ Metadata-only DELETEs on DSv2 tables get the target table in the job name
+  (`<app>.delete_from_table.<table>`); only visible in DataHub with `coalesce_jobs=false` (1.54)
+- 🐛 Iceberg metrics fixes, Iceberg input statistics skipped when the facet is disabled,
+  facet-builder failures isolated, V2 datasets kept when the version lookup fails (1.54-1.55)
+- 🔌 Java client: HTTP proxy, Unix domain socket and OAuth 2.0 transports (1.54); string settings
+  that look like numbers or booleans stay text (1.55). The agent's DataHub emitters are unaffected
 
 **Key changes across 1.51.0 → 1.53.0:**
 
@@ -49,7 +73,8 @@ DataHub maintains customizations to OpenLineage through a **version-organized pa
 ```
 patches/
 └── datahub-customizations/      # Versioned patch files (committed to git)
-    ├── v1.53.0/                 # Patches for OpenLineage 1.53.0 (current)
+    ├── v1.55.0/                 # Patches for OpenLineage 1.55.0 (current)
+    ├── v1.53.0/                 # Patches for OpenLineage 1.53.0 (historical)
     │   ├── Vendors.patch
     │   ├── PathUtils.patch
     │   └── ...
@@ -64,7 +89,7 @@ patches/upstream-<version>/      # Original OpenLineage files
 patches/backup-<timestamp>/      # Automatic backups during upgrades
 ```
 
-**Important**: Only `patches/datahub-customizations/` is version controlled. Each OpenLineage version has its own subdirectory (e.g., `v1.53.0/`) containing patches specific to that version. Upstream and backup files are temporary and excluded via `.gitignore`.
+**Important**: Only `patches/datahub-customizations/` is version controlled. Each OpenLineage version has its own subdirectory (e.g., `v1.55.0/`) containing patches specific to that version. Upstream and backup files are temporary and excluded via `.gitignore`.
 
 ### Shadowed Classes Location
 
@@ -76,30 +101,53 @@ src/main/java/io/openlineage/
 
 These files are OpenLineage source files with DataHub-specific modifications applied via patches.
 
-### Known Customizations (v1.53.0)
+### Known Customizations (v1.55.0)
 
-Tracked via patch files in `patches/datahub-customizations/v1.53.0/`:
+Tracked via patch files in `patches/datahub-customizations/v1.55.0/`:
 
-1. **`Vendors.patch`**: Adds `RedshiftVendor` to the vendors list
-2. **`PathUtils.patch`**: "Table outside warehouse" symlink handling
-3. **`PlanUtils.patch`**: Custom directory path handling with DataHub's HdfsPathDataset
-4. **`RemovePathPatternUtils.patch`**: DataHub-specific PathSpec transformations
-5. **`SaveIntoDataSourceCommandVisitor.patch`**: JDBC / Delta write output-dataset handling
-6. **`StreamingDataSourceV2RelationVisitor.patch`**: File-based streaming source support
-7. **`WriteToDataSourceV2Visitor.patch`**: ForeachBatch streaming write support
-8. **`MergeIntoCommandEdgeInputDatasetBuilder.patch`**: Delta Lake merge command complex subquery handling
-9. **`MergeIntoCommandInputDatasetBuilder.patch`**: Enables recursive traversal for merge command subqueries
-10. **`SparkOpenLineageExtensionVisitorWrapper.patch`**: Extension visitor customizations
-11. **`TopicPartitionProxy.patch`**: Assembles the expected `org.apache.kafka.common.TopicPartition`
-    name at runtime so the shadow-jar relocator cannot rewrite it (issue #19005) — see
-    "Shading vs. reflection by class name" below
+1. **`Vendors.patch`**: Adds `RedshiftVendor` to the vendors list. Upstream has no Spark Redshift
+   vendor, and vendors load only from this list. Guarded by `VendorsTest`
+2. **`PathUtils.patch`**: "Table outside warehouse" symlink handling. Upstream removed this symlink
+   on purpose (OpenLineage #2767), so without it Delta `LOCATION` tables outside the warehouse get
+   only path URNs when no metastore, Glue or Unity Catalog is configured. Guarded by
+   `PathUtilsTest.tableOutsideWarehouseKeepsLocationBasedSymlink`
+3. **`PlanUtils.patch`**: Maps scanned file paths to their `path_spec` table inside the agent
+   (DataHub's `HdfsPathDataset`), so the partition files of one table collapse into one input.
+   Upstream only turns a file into its parent directory. Guarded by `PlanUtilsPathSpecSmokeTest`
+4. **`TopicPartitionProxy.patch`**: Assembles the expected `org.apache.kafka.common.TopicPartition`
+   name at runtime so the shadow-jar relocator cannot rewrite it (issue #19005) — see
+   "Shading vs. reflection by class name" below. Upstream's Databricks `kafkashaded.` alias is
+   derived from that runtime value, so it is not a single literal either. Guarded by
+   `ShadedReflectionClassNameTest` and `KafkaStreamingLineageTest` (`sparkSmoke4Test`)
 
-**DataHub-specific files (not patch-tracked — no upstream equivalent to diff against):**
+Each guard test above fails when our copy is deleted and upstream's ships instead (checked for
+the 1.55 upgrade). Repeat that check on an upgrade: delete one shadowed file, run `test`,
+`sparkRealSmokeTest` and `sparkSmoke4Test`, and restore it.
 
-- **`RddDatasetInfoExtractor`** (`spark/agent/util/`): a fork of upstream's former `RddPathUtils`,
-  renamed and heavily rewritten; upstream no longer ships `RddPathUtils` at the tracked path, so it
-  is maintained as a standalone DataHub file rather than a patch.
-- **`JdbcSparkUtils`**, **`FileStreamMicroBatchStreamStrategy`**: DataHub additions.
+**The rule for keeping a customization:** a shadowed copy stays only while it changes the lineage
+we emit, and a test shows that change. Every shadowed class is a standing runtime risk: upstream's
+precompiled classes keep calling into whatever class sits at that path, so a method upstream adds
+and our copy lacks becomes a `NoSuchMethodError` in production. Before carrying a patch through an
+upgrade, check that upstream still lacks the behaviour.
+
+**Removed customizations.** These were deleted in
+the OpenLineage 1.55 upgrade ([#20404](https://github.com/datahub-project/datahub/pull/20404)), because
+upstream OpenLineage already covers them, or they never ran. Do not re-vendor them on an upgrade:
+
+| Removed                                                                          | Why it was redundant                                                                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SaveIntoDataSourceCommandVisitor`                                               | The Delta `saveAsTable` branches were unreachable: Spark plans a Delta `saveAsTable` as `CreateTableAsSelect`, never as `SaveIntoDataSourceCommand`, and `QueryExecution.sqlText()` does not exist. The JDBC guard duplicated `PlanUtils.safeApply`. Pinned by `SparkDeltaSaveAsTableSmokeTest`.                                          |
+| `WriteToDataSourceV2Visitor`                                                     | Its sink-name match never fired: file, `foreachBatch` and Delta sinks are V1 sinks, handled by upstream's `WriteToMicroBatchDataSourceV1DatasetBuilder`.                                                                                                                                                                                  |
+| `StreamingDataSourceV2RelationVisitor`, `FileStreamMicroBatchStreamStrategy`     | File stream sources are V1; each micro-batch is a `LogicalRelation` that upstream reports. Pinned by `SparkFileStreamSourceSmokeTest`.                                                                                                                                                                                                    |
+| `RemovePathPatternUtils`                                                         | A no-op: OpenLineage dataset names carry no scheme, so its `HdfsPathDataset` call always fell back to the input. It also disabled upstream's `spark.openlineage.dataset.removePath.pattern`. PathSpec is applied by the converter.                                                                                                        |
+| `VendorsContext`, `VendorsImpl`                                                  | Byte-identical to upstream.                                                                                                                                                                                                                                                                                                               |
+| `JdbcSparkUtils`                                                                 | A stale fork of upstream 1.39. Aliased and join `dbtable`s became table names the converter could not turn into URIs, so those reads lost their inputs. Pinned by `SparkJdbcAliasDbtableSmokeTest` and `SparkJdbcJoinDbtableSmokeTest`; `SparkJdbcQuotedDbtableSmokeTest` pins the quoted-identifier case that 1.55 still drops.          |
+| `SparkOpenLineageExtensionVisitorWrapper`                                        | Only changed logging, and in doing so disabled upstream's class-loader injection (OpenLineage #3407) for connectors loaded by another class loader. On Java 17+ that injection also needs `--add-opens=java.base/java.security`; without it upstream logs a warning and carries on. Pinned by `SparkExtensionProviderInjectionSmokeTest`. |
+| `MergeIntoCommandInputDatasetBuilder`, `MergeIntoCommandEdgeInputDatasetBuilder` | Upstream 1.55's `MergeSourceDatasetTraversal` (OpenLineage #5080) walks a MERGE source the way our copies did: delegate the node, and recurse into its children when nothing resolves. Pinned by `SparkDeltaMergeJoinSourceSmokeTest`.                                                                                                    |
+| `RddDatasetInfoExtractor`                                                        | Upstream 1.55 (OpenLineage #5082) adopted the null-safe Spark 3.4+ `filePath` lookup and debug-level extraction misses. The rest only made our copy compile against Spark 3.5, and one rare warning stays at WARN.                                                                                                                        |
+
+**DataHub-specific files (no upstream equivalent):**
+
 - **Redshift vendor** (`spark/agent/vendor/redshift/*`): Complete custom implementation.
 
 ### Shading vs. reflection by class name (recurring hazard)
@@ -166,17 +214,17 @@ the winning copy must be compiled for the artifact's Scala binary version.
 
 **Keeping the two classpaths in step.** The 2.13 declarations mirror the `main` ones with `_2.13`
 coordinates. Spark 3.5.0 publishes both cross-builds, so both compilations target the same Spark API
-baseline. Two `compileOnly` reference points have no 2.13 release at the version the 2.12 side pins,
-so the nearest published 2.13 builds are used non-transitively (`delta-core_2.13`,
-`spark-redshift_2.13`); neither contributes a Scala-collection descriptor, so the exact versions do
-not affect the shipped bytecode. `scala213*` configurations are excluded from dependency locking, for
+baseline. One `compileOnly` reference point, `spark-redshift`, has no 2.13 release at the version the
+2.12 side pins, so the nearest published 2.13 build is used non-transitively; it contributes no
+Scala-collection descriptor, so the exact version does not affect the shipped bytecode. `scala213*` configurations are excluded from dependency locking, for
 the same reason the per-Scala shadow jars use detached configurations.
 
 **Enforcement.** `scripts/check_jar.sh` asserts the discriminator `()Lscala/collection/Seq;` is
 _present_ in this project's classes in `_2.12` and _absent_ everywhere in `_2.13` — both directions,
 so the two assertions are mutually exclusive and one output feeding both jars cannot pass.
 `ShadedScalaBinaryVersionTest` (in `sparkSmoke4`) covers it behaviourally on a real Spark 4 runtime,
-driving `RddDatasetInfoExtractor` over a genuine `FileScanRDD` and `UnionRDD`. Descriptors live in
+driving upstream's `RddDatasetInfoExtractor` over a genuine `FileScanRDD` and `UnionRDD`; the
+extractor calls into DataHub's shadowed `PathUtils` and `PlanUtils`. Descriptors live in
 the constant pool as plain UTF-8, so `grep -a '()Lscala/collection/Seq;'` over a `.class` file is a
 valid hand check — but the mirror image is not: `ScalaConversionUtils.asScalaSeqEmpty()` returns
 `immutable.Seq` in _both_ cross-builds.
@@ -203,19 +251,21 @@ default). Override explicitly with `spark.datahub.metadata.dataset.openLineageTr
 (`true` forces them on, `false` forces them off); a directly-set
 `spark.openlineage.dataset.disabledTrimmers` always wins.
 
-**Known gap — column-level lineage (CLL) can point at untrimmed URNs.** DataHub's
-`RemovePathPatternUtils` rewrites dataset names on the `Input`/`OutputDataset`, but upstream builds
-CLL field references in `ColumnLevelLineageBuilder` _before_ that rewrite runs — so CLL
-`schemaField` URNs can reference the **untrimmed** dataset name and fail to match the emitted dataset
-entity (CLL looks broken in the UI). Upstream trimmers avoid this because they run inside
-`ColumnLevelLineageBuilder` (`DatasetReducerUtils.trimDatasetIdentifier`). The strategic fix is to
-apply PathSpec at the trimmer layer (a DataHub `DatasetNameTrimmer`) so CLL consistency comes for
-free and the two hardest patches (`PlanUtils`, `RemovePathPatternUtils`) can eventually be dropped.
-See ING-2959 for the phased plan.
+**Known gap — column-level lineage (CLL) can point at untrimmed URNs.** The converter applies
+PathSpec to both dataset names and CLL input fields (`OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn`),
+so the two normally agree. They diverge where the `PlanUtils` patch has already rewritten a dataset
+path inside the agent while upstream builds CLL from the raw root paths: PathSpecs written with an
+`s3a`/`abfs`/`wasb` scheme, which match the raw Hadoop path before OpenLineage normalizes the scheme,
+and file-vs-directory differences. CLL `schemaField` URNs can then reference a name that doesn't
+match the emitted dataset entity (CLL looks broken in the UI). Upstream trimmers avoid this because
+they run inside `ColumnLevelLineageBuilder` (`DatasetReducerUtils.trimDatasetIdentifier`). The
+strategic fix is to apply PathSpec at the trimmer layer (a DataHub `DatasetNameTrimmer`) so CLL
+consistency comes for free and the `PlanUtils` patch can eventually be dropped. See ING-2959 for
+the phased plan.
 
 ### Upgrade Process (3-way merge — the reliable path)
 
-The 1.33→1.38→1.45→1.50→1.53 upgrades showed that the only robust way to move a **patch-tracked**
+The 1.33→1.38→1.45→1.50→1.53→1.55 upgrades showed that the only robust way to move a **patch-tracked**
 vendored file forward is a **3-way merge**: replay upstream's `old→new` delta on top of our
 customized copy. Blindly copying new upstream and replaying the old patch (what
 `upgrade-openlineage.sh` attempts) breaks whenever upstream changed a patched file — e.g. OL 1.48's
@@ -226,8 +276,8 @@ optional first pass only.
 1. **Fetch both the old and new upstream** (the old version is the merge base):
 
    ```bash
-   ./scripts/fetch-upstream.sh <old-version>   # e.g. 1.50.0
-   ./scripts/fetch-upstream.sh <new-version>   # e.g. 1.53.0
+   ./scripts/fetch-upstream.sh <old-version>   # e.g. 1.53.0
+   ./scripts/fetch-upstream.sh <new-version>   # e.g. 1.55.0
    ```
 
 2. **3-way merge each patch-tracked file** (see "Known Customizations" for the list). `git merge-file`
@@ -243,9 +293,8 @@ optional first pass only.
 
    Files upstream didn't touch merge cleanly (empty delta). Resolve any conflict markers by hand.
 
-3. **Port the DataHub-specific files by hand** — `RddDatasetInfoExtractor`, `JdbcSparkUtils`,
-   `FileStreamMicroBatchStreamStrategy`, and the redshift vendor have **no upstream** to merge
-   against, so adapt them directly to any changed OL/Spark APIs (see step 6).
+3. **Port the DataHub-specific files by hand** — the redshift vendor has **no upstream** to merge
+   against, so adapt it directly to any changed OL/Spark APIs (see step 6).
 
 4. **Bump the version** in the root `build.gradle`:
 
@@ -263,6 +312,13 @@ optional first pass only.
    config, silently dropping its locked deps (`google-java-format`, `guava`, `error_prone`, …). After
    regenerating, `git diff` the lockfiles: the only changes should be the genuine OL dependency
    updates. If the `spotless<hash>` entries disappeared, restore them from the pre-change lockfiles.
+
+   ⚠️ The lock task only _warns_ when a configuration fails to resolve, and leaves that
+   configuration's old entries in place. In the 1.55 upgrade the `metadata-service` test
+   classpaths failed this way, splitting `openlineage-java` into a new-version line for the runtime
+   configurations and an old-version line for `testCompileClasspath`/`testRuntimeClasspath`. Run
+   without `-q` to see the warnings. Every lockfile should end up with one `openlineage-*` line
+   per artifact, on the new version.
 
 6. **Compile-driven fix of breaking API changes** — compile, fix what breaks, repeat:
 
@@ -319,8 +375,8 @@ excluded from dependency locking (its Spark 4 deps are test-only, not part of th
 Patch files show exactly what DataHub customized:
 
 ```bash
-# View a specific customization for v1.53.0
-cat patches/datahub-customizations/v1.53.0/Vendors.patch
+# View a specific customization for v1.55.0
+cat patches/datahub-customizations/v1.55.0/Vendors.patch
 
 # Example output shows:
 # - Lines removed from upstream (-)
@@ -351,7 +407,6 @@ If you need to customize additional files:
 
 **Files that are entirely DataHub-specific:**
 
-- `FileStreamMicroBatchStreamStrategy.java` - Custom file-based streaming
 - Redshift vendor files - Complete custom Redshift support
 - These have `.note` files instead of `.patch` files
 
@@ -360,11 +415,11 @@ If you need to customize additional files:
 ```bash
 # Dry-run to see if patch will apply cleanly
 patch --dry-run src/main/java/io/openlineage/spark/api/Vendors.java \
-  < patches/datahub-customizations/v1.53.0/Vendors.patch
+  < patches/datahub-customizations/v1.55.0/Vendors.patch
 
 # See what a patch would change
 patch --dry-run src/main/java/io/openlineage/spark/api/Vendors.java \
-  < patches/datahub-customizations/v1.53.0/Vendors.patch | less
+  < patches/datahub-customizations/v1.55.0/Vendors.patch | less
 ```
 
 ### Debugging

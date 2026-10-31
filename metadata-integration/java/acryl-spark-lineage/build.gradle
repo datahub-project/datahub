@@ -132,7 +132,6 @@ dependencies {
   implementation project(path: ':metadata-integration:java:datahub-client')
 
   implementation project(path: ':metadata-integration:java:openlineage-converter')
-  compileOnly("io.delta:delta-core_2.12:1.0.0")
 
   // Default to Scala 2.12 for main compilation
   implementation "io.openlineage:openlineage-spark_2.12:$openLineageVersion"
@@ -169,13 +168,12 @@ dependencies {
   scala213CompileOnly("org.apache.spark:spark-hive_2.13:3.5.0") {
     exclude group: 'org.apache.velocity', module: 'velocity'
   }
-  // Delta and spark-redshift-community are reference points only: never bundled, always supplied by
-  // the user's cluster. The versions the 2.12 side pins have no Scala 2.13 release, so these use the
-  // nearest published 2.13 builds, non-transitively so their own (older/newer) Spark does not
-  // displace spark-sql_2.13:3.5.0 above. Only the signatures this module touches matter --
-  // MergeIntoCommand.target()/source() and Parameters/RedshiftRelation/TableName -- and none of them
-  // returns a Scala collection, so no descriptor depends on these exact versions.
-  scala213CompileOnly("io.delta:delta-core_2.13:2.4.0") { transitive = false }
+  // spark-redshift-community is a reference point only: never bundled, always supplied by the
+  // user's cluster. The version the 2.12 side pins has no Scala 2.13 release, so this uses the
+  // nearest published 2.13 build, non-transitively so its own Spark does not displace
+  // spark-sql_2.13:3.5.0 above. Only the signatures this module touches matter --
+  // Parameters/RedshiftRelation/TableName -- and none of them returns a Scala collection, so no
+  // descriptor depends on this exact version.
   scala213CompileOnly("io.github.spark-redshift-community:spark-redshift_2.13:6.6.1-spark_4.0") {
     transitive = false
   }
@@ -232,6 +230,15 @@ dependencies {
   testImplementation "software.amazon.awssdk:dynamodb"
   testImplementation "software.amazon.awssdk:url-connection-client"
   testImplementation "software.amazon.awssdk:apache-client"
+
+  // Real Delta for the saveAsTable smoke tests. 3.1.0 is the Delta line built against Spark 3.5.
+  testImplementation "io.delta:delta-spark_2.12:3.1.0"
+
+  // Puts spark-redshift's DefaultSource on the test classpath so the Redshift vendor reports itself
+  // available (VendorsTest). Non-transitive: only the class's presence matters.
+  testImplementation("io.github.spark-redshift-community:spark-redshift_2.12:6.2.0-spark_3.5") {
+    transitive = false
+  }
 
   // Spark 4.x compatibility smoke test (Scala 2.13, first stable Spark 4 release). OpenLineage's
   // spark40 module + our plugin come from the shaded shadowJar_2_13 (added as a runtime file below),
@@ -441,8 +448,8 @@ scalaVersions.each { sv ->
     relocate 'org.apache.commons.lang3', 'io.acryl.shaded.org.apache.commons.lang3'
     // commons-io was the one sibling left unrelocated, so the agent shipped 2.22.0 at the canonical
     // path against Spark's 2.18.0 and whichever loaded first won. Relocating rather than excluding is
-    // the safer fix: its 51 consumers here (one of them a DataHub-patched OpenLineage class) keep the
-    // exact version we bundle, so there is no cross-version resolution to get wrong. Verified safe --
+    // the safer fix: its 51 consumers here (one of them OpenLineage's extension visitor wrapper) keep
+    // the exact version we bundle, so there is no cross-version resolution to get wrong. Verified safe --
     // nothing in the jar names a commons-io class in a string constant (see issue #19005).
     relocate 'org.apache.commons.io', 'io.acryl.shaded.org.apache.commons.io'
     relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
