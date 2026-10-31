@@ -3,7 +3,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import ModulePillRow from '@app/homeV3/module/components/ModulePillRow';
 import { ModuleProps } from '@app/homeV3/module/types';

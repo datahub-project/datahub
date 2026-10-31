@@ -10,7 +10,7 @@ import { EntityType } from '@types';
 
 const useEntityDataMock = vi.fn();
 const useAppConfigMock = vi.fn();
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => useEntityDataMock(),
     useRefetch: () => vi.fn(),
 }));

@@ -3,23 +3,23 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import TabHeader from '@app/entity/shared/tabs/Properties/TabHeader';
 import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
-import useUpdateExpandedRowsFromFilter from '@app/entity/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
 import {
     getFilteredCustomProperties,
     mapCustomPropertiesToPropertyRows,
 } from '@app/entity/shared/tabs/Properties/utils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
+import TabHeader from '@app/entityV2/shared/tabs/Properties/TabHeader';
 import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import useUpdateExpandedRowsFromFilter from '@app/entityV2/shared/tabs/Properties/useUpdateExpandedRowsFromFilter';
 import { filterHiddenProperties } from '@app/entityV2/shared/tabs/Properties/utils';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import Loading from '@app/sharedV2/Loading';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
+import { EditColumn } from '@src/app/entityV2/shared/tabs/Properties/Edit/EditColumn';
 import { Maybe, SchemaFieldEntity } from '@src/types.generated';
 
 const PROPERTY_ROW_KEY = 'qualifiedName';

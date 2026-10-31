@@ -1,7 +1,7 @@
 import cloneDeep from 'lodash/cloneDeep';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '@app/entityV2/shared/siblingUtils';
 
 import { useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
 import { EntityType } from '@types';

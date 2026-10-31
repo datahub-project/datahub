@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { LinkFormData } from '@app/entityV2/shared/components/links/types';
 import { getGeneralizedLinkFormDataFromFormData } from '@app/entityV2/shared/components/links/utils';
 

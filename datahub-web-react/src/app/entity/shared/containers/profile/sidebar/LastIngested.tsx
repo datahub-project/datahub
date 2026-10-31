@@ -6,9 +6,9 @@ import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/utils';
 import { getPlatformName } from '@app/entity/shared/utils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import dayjs from '@utils/dayjs';

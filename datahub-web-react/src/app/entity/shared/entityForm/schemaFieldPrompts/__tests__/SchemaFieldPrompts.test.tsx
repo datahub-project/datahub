@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import SchemaFieldPrompts from '@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldPrompts';
+import SchemaFieldPrompts from '@app/entityV2/shared/entityForm/schemaFieldPrompts/SchemaFieldPrompts';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 
 import { FormPrompt } from '@types';
@@ -15,7 +15,7 @@ vi.mock('@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema', () => ({
 
 // The row itself is covered by its own component; here we only care which rows the filter shows.
 // The uncontrolled input stands in for an unsaved answer held in the row's own state.
-vi.mock('@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldDropdown', () => ({
+vi.mock('@app/entityV2/shared/entityForm/schemaFieldPrompts/SchemaFieldDropdown', () => ({
     default: ({ field }: { field: { fieldPath: string } }) => (
         <div>
             <span>row:{field.fieldPath}</span>

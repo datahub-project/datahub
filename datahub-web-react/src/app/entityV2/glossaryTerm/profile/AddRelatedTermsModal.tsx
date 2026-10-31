@@ -6,8 +6,8 @@ import styled from 'styled-components/macro';
 
 import { SelectOption } from '@components/components/Select/types';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { refreshRelatedTerms } from '@app/entityV2/glossaryTerm/profile/relatedTermsQuery';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';

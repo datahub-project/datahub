@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import TableOfMlFeatures from '@app/entityV2/mlFeatureTable/profile/features/TableOfMlFeatures';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 
 import { GetMlModelQuery } from '@graphql/mlModel.generated';
 import { MlFeature, MlPrimaryKey } from '@types';

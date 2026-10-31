@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { useHistory } from 'react-router';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { navigateToDomainEntities } from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { DOMAINS_FILTER_NAME, ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';

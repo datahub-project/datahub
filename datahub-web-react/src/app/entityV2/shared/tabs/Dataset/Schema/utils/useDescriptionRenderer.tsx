@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 
 import { sanitizeRichText } from '@components/components/Editor/utils';
 
-import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
 import DescriptionField from '@app/entityV2/dataset/profile/schema/components/SchemaDescriptionField';
+import { useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { useSchemaRefetch } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import useEditableSchemaFieldInfoMaps, {
     EditableFieldInfoMaps,

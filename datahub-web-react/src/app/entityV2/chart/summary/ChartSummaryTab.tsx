@@ -3,12 +3,12 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import ChartSummaryOverview from '@app/entityV2/chart/summary/ChartSummaryOverview';
 import EmbedPreview from '@app/entityV2/chart/summary/EmbedPreview';
 import FieldTableByTag from '@app/entityV2/chart/summary/FieldTableByTag';
 import TableauEmbed from '@app/entityV2/chart/summary/TableauEmbed';
 import { useGetTagFields } from '@app/entityV2/chart/summary/useGetTagFields';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SummaryTabWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
 import { SummaryColumns } from '@app/entityV2/shared/summary/ListComponents';
 import SummaryAboutSection from '@app/entityV2/shared/summary/SummaryAboutSection';

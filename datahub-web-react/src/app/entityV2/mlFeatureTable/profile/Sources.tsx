@@ -3,8 +3,8 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { PreviewType } from '@app/entityV2/Entity';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import { notEmpty } from '@app/entityV2/shared/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

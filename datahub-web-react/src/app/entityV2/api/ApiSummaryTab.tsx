@@ -4,8 +4,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import SignatureTab from '@app/entityV2/api/SignatureTab';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import {
     SectionContainer,
     SummaryTabHeaderTitle,

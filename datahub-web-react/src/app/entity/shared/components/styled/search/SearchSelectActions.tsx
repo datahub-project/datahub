@@ -7,9 +7,9 @@ import DomainDropdown from '@app/entity/shared/components/styled/search/action/D
 import GlossaryTermDropdown from '@app/entity/shared/components/styled/search/action/GlossaryTermsDropdown';
 import OwnersDropdown from '@app/entity/shared/components/styled/search/action/OwnersDropdown';
 import TagsDropdown from '@app/entity/shared/components/styled/search/action/TagsDropdown';
-import { SelectActionGroups } from '@app/entity/shared/components/styled/search/types';
 import { EntityAndType } from '@app/entity/shared/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { SelectActionGroups } from '@app/entityV2/shared/components/styled/search/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';

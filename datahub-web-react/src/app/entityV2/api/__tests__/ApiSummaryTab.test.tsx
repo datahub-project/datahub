@@ -6,7 +6,7 @@ import { ApiSummaryTab } from '@app/entityV2/api/ApiSummaryTab';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 
 const mockUseBaseEntity = vi.fn();
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useBaseEntity: () => mockUseBaseEntity(),
 }));
 vi.mock('react-i18next', () => ({

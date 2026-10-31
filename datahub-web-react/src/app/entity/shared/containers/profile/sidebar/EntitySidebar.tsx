@@ -3,9 +3,9 @@ import { Divider, Skeleton } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import LastIngested from '@app/entity/shared/containers/profile/sidebar/LastIngested';
 import { EntitySidebarSection } from '@app/entity/shared/types';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
 
 function sidebarComponentKey(component: { displayName?: string; name: string }) {
     return component.displayName || component.name;

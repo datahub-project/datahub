@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import NotesSection from '@app/entityV2/shared/notes/NotesSection';
 import dayjs from '@utils/dayjs';
 

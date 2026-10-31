@@ -3,7 +3,7 @@ import { useContext } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 
 // used to determine whether sibling entities should be shown merged or not

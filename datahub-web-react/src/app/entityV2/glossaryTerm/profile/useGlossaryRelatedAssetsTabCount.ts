@@ -1,4 +1,4 @@
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 
 export default function useGlossaryRelatedAssetsTabCount() {

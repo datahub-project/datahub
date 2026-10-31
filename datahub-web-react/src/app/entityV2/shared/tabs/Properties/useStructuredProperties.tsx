@@ -1,8 +1,8 @@
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { isPropagated } from '@app/entity/shared/propagation/utils';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { isPropagated } from '@app/entityV2/shared/propagation/utils';
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { filterStructuredProperties } from '@app/entityV2/shared/tabs/Properties/utils';

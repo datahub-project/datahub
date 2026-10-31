@@ -8,7 +8,7 @@ import styled from 'styled-components';
 import { Editor } from '@components/components/Editor';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import UpdateDescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';

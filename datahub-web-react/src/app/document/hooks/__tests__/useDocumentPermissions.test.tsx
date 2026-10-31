@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 
 import { DocumentSourceType } from '@types';
 
@@ -12,7 +12,7 @@ vi.mock('@app/context/useUserContext', () => ({
     useUserContext: vi.fn(),
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
 }));
 

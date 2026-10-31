@@ -10,7 +10,7 @@ import { IncidentListFilter, IncidentTable } from '@app/entityV2/shared/tabs/Inc
 import { getSortedIncidents } from '@app/entityV2/shared/tabs/Incident/utils';
 import { Table } from '@src/alchemy-components';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 import { EntityPrivileges } from '@src/types.generated';
 
 type Props = {

@@ -19,8 +19,8 @@ import {
     LEGACY_ENTITY_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
 import { Button } from '@src/alchemy-components';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/siblingUtils';
 import { useSearchAssertionsQuery } from '@src/graphql/assertion.generated';
 
 import { AssertionType, EntityType, FacetFilterInput, FilterOperator } from '@types';

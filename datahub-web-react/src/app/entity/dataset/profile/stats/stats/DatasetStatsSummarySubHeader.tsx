@@ -1,8 +1,8 @@
 import React from 'react';
 
 import { DatasetStatsSummary } from '@app/entity/dataset/shared/DatasetStatsSummary';
-import { getLastUpdatedMs } from '@app/entity/dataset/shared/utils';
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { getLastUpdatedMs } from '@app/entityV2/dataset/shared/utils';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { DatasetStatsSummary as DatasetStatsSummaryObj } from '@types';
