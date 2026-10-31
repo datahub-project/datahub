@@ -5,6 +5,10 @@ from typing import List, Optional
 
 import sqlalchemy as sa
 
+# Appended to the partition id of a sampled partition profile, which keeps the
+# PARTITION type, e.g. "20261010 SAMPLE".
+SAMPLED_PARTITION_SUFFIX = " SAMPLE"
+
 
 @dataclass
 class ProfilingContext:
