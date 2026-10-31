@@ -103,6 +103,10 @@ public class EntityIncidentsResolver
                 entityResult.stream()
                     .filter(Objects::nonNull)
                     .map(i -> IncidentMapper.map(context, i))
+                    // Incident.entity is non-null: an incident none of whose entities GraphQL can
+                    // represent (e.g. all of a type only a newer version knows) would null itself
+                    // and this list, so it is left out. Only tolerant handling leaves entity unset.
+                    .filter(incident -> incident.getEntity() != null)
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
