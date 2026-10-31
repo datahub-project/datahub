@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 import re
@@ -6,22 +5,18 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Generator, Iterable, List, Optional, Type
 
-from opensearchpy import OpenSearch
-from pydantic import field_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
-    TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.configuration.validate_host_port import validate_host_port
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -39,6 +34,9 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.elastic_search_common import (
+    ElasticsearchConnectionConfig,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -72,7 +70,6 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
 )
-from datahub.utilities.config_clean import remove_protocol
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -255,56 +252,8 @@ class ElasticsearchSourceConfig(
     StatefulIngestionConfigBase,
     PlatformInstanceConfigMixin,
     EnvConfigMixin,
+    ElasticsearchConnectionConfig,
 ):
-    host: str = Field(
-        default="localhost:9200", description="The elastic search host URI."
-    )
-    username: Optional[str] = Field(
-        default=None, description="The username credential."
-    )
-    password: Optional[TransparentSecretStr] = Field(
-        default=None, description="The password credential."
-    )
-    api_key: Optional[Union[Tuple[str, str], str]] = Field(
-        default=None,
-        description="API Key authentication. Accepts either a list with id and api_key (UTF-8 representation), or a base64 encoded string of id and api_key combined by ':'.",
-    )
-
-    use_ssl: bool = Field(
-        default=False, description="Whether to use SSL for the connection or not."
-    )
-
-    verify_certs: bool = Field(
-        default=False, description="Whether to verify SSL certificates."
-    )
-
-    ca_certs: Optional[str] = Field(
-        default=None, description="Path to a certificate authority (CA) certificate."
-    )
-
-    client_cert: Optional[str] = Field(
-        default=None,
-        description="Path to the file containing the private key and the certificate, or cert only if using client_key.",
-    )
-
-    client_key: Optional[str] = Field(
-        default=None,
-        description="Path to the file containing the private key if using separate cert and key files.",
-    )
-
-    ssl_assert_hostname: bool = Field(
-        default=False, description="Use hostname verification if not False."
-    )
-
-    ssl_assert_fingerprint: Optional[str] = Field(
-        default=None,
-        description="Verify the supplied certificate fingerprint if not None.",
-    )
-
-    url_prefix: str = Field(
-        default="",
-        description="There are cases where an enterprise would have multiple elastic search clusters. One way for them to manage is to have a single endpoint for all the elastic search clusters and use url_prefix for routing requests to different clusters.",
-    )
     index_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(allow=[".*"], deny=["^_.*", "^ilm-history.*"]),
         description="regex patterns for indexes to filter in ingestion.",
@@ -333,38 +282,6 @@ class ElasticsearchSourceConfig(
             self.profiling.operation_config
         )
 
-    @field_validator("host", mode="after")
-    @classmethod
-    def host_colon_port_comma(cls, host_val: str) -> str:
-        for entry in host_val.split(","):
-            entry = remove_protocol(entry)
-            for suffix in ["/"]:
-                if entry.endswith(suffix):
-                    entry = entry[: -len(suffix)]
-            validate_host_port(entry)
-        return host_val
-
-    @property
-    def http_auth(self) -> Optional[Tuple[str, str]]:
-        return (
-            None
-            if self.username is None
-            else (
-                self.username,
-                self.password.get_secret_value() if self.password else "",
-            )
-        )
-
-
-def _api_key_authorization(api_key: Union[Tuple[str, str], str]) -> str:
-    # An (id, api_key) pair is base64-encoded as "id:api_key"; a plain string is passed
-    # through as the already-encoded token.
-    if isinstance(api_key, tuple):
-        token = base64.b64encode(f"{api_key[0]}:{api_key[1]}".encode()).decode()
-    else:
-        token = api_key
-    return f"ApiKey {token}"
-
 
 @platform_name("Elasticsearch")
 @config_class(ElasticsearchSourceConfig)
@@ -381,26 +298,7 @@ class ElasticsearchSource(StatefulIngestionSourceBase):
     def __init__(self, config: ElasticsearchSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
-        # opensearch-py has no api_key param and silently drops unknown kwargs, so it must be
-        # sent as an Authorization header instead.
-        extra_client_args: Dict[str, Any] = {}
-        if self.source_config.api_key is not None:
-            extra_client_args["headers"] = {
-                "Authorization": _api_key_authorization(self.source_config.api_key)
-            }
-        self.client = OpenSearch(
-            self.source_config.host,
-            http_auth=self.source_config.http_auth,
-            use_ssl=self.source_config.use_ssl,
-            verify_certs=self.source_config.verify_certs,
-            ca_certs=self.source_config.ca_certs,
-            client_cert=self.source_config.client_cert,
-            client_key=self.source_config.client_key,
-            ssl_assert_hostname=self.source_config.ssl_assert_hostname,
-            ssl_assert_fingerprint=self.source_config.ssl_assert_fingerprint,
-            url_prefix=self.source_config.url_prefix,
-            **extra_client_args,
-        )
+        self.client = self.source_config.get_client()
         self.report: ElasticsearchSourceReport = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
         self.platform: str = "elasticsearch"
