@@ -69,6 +69,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlAggregatorReport,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -461,14 +462,42 @@ class SqlQueriesSource(Source):
                     side,
                     query_entry.query,
                 )
+            # Per-row defaults change how unqualified table names resolve, so the
+            # same SQL text under different per-row default_db/default_schema must
+            # not collapse onto one query fingerprint (the aggregator's fingerprint
+            # is computed from SQL text alone, and a collision last-write-wins the
+            # lineage). Config-level defaults are constant across the run and never
+            # cause this, so we only disambiguate when the row carries its own.
+            query_hash: Optional[str] = None
+            if query_entry.default_db or query_entry.default_schema:
+                # Gate on truthiness, not "is not None": a blank/empty per-row value
+                # falls back to the config default (via `or` below) exactly like an
+                # omitted one, so it must not get a distinct fingerprint — otherwise
+                # empty-string rows (common in exported logs) would split from the
+                # legacy SQL-only Query URN and stop aggregating with it.
+                # Disambiguate on the effective (post-config-fallback) defaults so two
+                # per-row rows that resolve to the same db/schema still share a
+                # fingerprint, and encode the pair structurally so an identifier
+                # containing the delimiter can't collide with a different pair.
+                query_hash = get_query_fingerprint(
+                    query_entry.query,
+                    platform=self.config.platform,
+                    secondary_id=repr(
+                        (
+                            query_entry.default_db or self.config.default_db,
+                            query_entry.default_schema or self.config.default_schema,
+                        )
+                    ),
+                )
             observed_query = ObservedQuery(
                 query=query_entry.query,
                 timestamp=query_entry.timestamp,
                 user=query_entry.user,
                 session_id=query_entry.session_id,
-                default_db=self.config.default_db,
-                default_schema=self.config.default_schema,
+                default_db=query_entry.default_db or self.config.default_db,
+                default_schema=query_entry.default_schema or self.config.default_schema,
                 override_dialect=self.config.override_dialect,
+                query_hash=query_hash,
             )
             self.aggregator.add_observed_query(observed_query)
 
@@ -495,6 +524,10 @@ class QueryEntry(BaseModel):
     downstream_tables: List[DatasetUrn] = Field(default_factory=list)
     upstream_tables: List[DatasetUrn] = Field(default_factory=list)
     session_id: Optional[str] = None
+    # Per-row overrides for the source-level default_db/default_schema, so one
+    # run can span records from different databases.
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

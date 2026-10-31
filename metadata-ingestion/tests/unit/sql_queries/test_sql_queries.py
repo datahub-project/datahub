@@ -669,6 +669,82 @@ class TestSqlQueriesSource:
         assert source.config.incremental_lineage is False
         assert len(source.get_workunit_processors()) == 1
 
+    def test_per_row_schema_overrides_config_default(
+        self, pipeline_context, query_file_with
+    ):
+        source = _make_source(
+            pipeline_context,
+            query_file_with([]),
+            default_db="config_db",
+            default_schema="config_schema",
+        )
+        source.aggregator.add_observed_query = Mock()
+
+        def observed_for(entry):
+            source.aggregator.add_observed_query.reset_mock()
+            source._add_query_to_aggregator(entry)
+            return source.aggregator.add_observed_query.call_args.args[0]
+
+        # Each dimension overrides independently; the other falls back to config.
+        schema_override = observed_for(
+            QueryEntry(query="SELECT 1 FROM t", default_schema="row_schema")
+        )
+        assert schema_override.default_schema == "row_schema"
+        assert schema_override.default_db == "config_db"
+
+        db_override = observed_for(
+            QueryEntry(query="SELECT 1 FROM t", default_db="row_db")
+        )
+        assert db_override.default_db == "row_db"
+        assert db_override.default_schema == "config_schema"
+
+        # The fields must also populate from a parsed JSONL row, not only direct
+        # construction — that is the shape the feature targets.
+        parsed = QueryEntry.create(
+            {
+                "query": "SELECT 1 FROM t",
+                "default_db": "row_db",
+                "default_schema": "row_schema",
+            },
+            config=source.config,
+            report=source.report,
+        )
+        observed = observed_for(parsed)
+        assert observed.default_db == "row_db"
+        assert observed.default_schema == "row_schema"
+
+    def test_per_row_defaults_disambiguate_query_hash(
+        self, pipeline_context, query_file_with
+    ):
+        source = _make_source(
+            pipeline_context,
+            query_file_with([]),
+            default_db="config_db",
+            default_schema="config_schema",
+        )
+        source.aggregator.add_observed_query = Mock()
+
+        def observed_for(entry):
+            source.aggregator.add_observed_query.reset_mock()
+            source._add_query_to_aggregator(entry)
+            return source.aggregator.add_observed_query.call_args.args[0]
+
+        # Identical SQL under different per-row defaults must not collide on one
+        # fingerprint, or the aggregator last-write-wins the cross-db lineage.
+        a = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db="db_a"))
+        b = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db="db_b"))
+        assert a.query_hash and b.query_hash and a.query_hash != b.query_hash
+
+        # No per-row defaults: fingerprinting is left to the aggregator so query
+        # URNs stay unchanged for existing file-based users.
+        plain = observed_for(QueryEntry(query="SELECT 1 FROM t"))
+        assert plain.query_hash is None
+
+        # A blank per-row value falls back to the config default just like an
+        # omitted one, so it must not get a distinct fingerprint.
+        blank = observed_for(QueryEntry(query="SELECT 1 FROM t", default_db=""))
+        assert blank.query_hash is None
+
 
 class TestErrorHandling:
     def test_malformed_lines_skipped_and_counted(
