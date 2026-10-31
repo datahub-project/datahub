@@ -3,7 +3,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
-import { handleBatchError } from '@app/entity/shared/utils';
+import { handleBatchError } from '@app/entityV2/shared/utils';
 
 import { useBatchUpdateSoftDeletedMutation } from '@graphql/mutations.generated';
 

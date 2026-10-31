@@ -3,9 +3,9 @@ import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 

@@ -6,7 +6,6 @@ import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { GroupAssets } from '@app/entityV2/group/GroupAssets';
 import GroupMembers from '@app/entityV2/group/GroupMembers';
 import GroupSidebar from '@app/entityV2/group/GroupSidebar';
@@ -20,6 +19,7 @@ import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/si
 import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
 import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import CompactContext from '@app/sharedV2/CompactContext';
 import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';

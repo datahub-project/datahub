@@ -2,8 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import type { GenericEntityProperties } from '@app/entity/shared/types';
 import { getSchemaFieldParentLink, getSourceUrnFromSchemaFieldUrn } from '@app/entityV2/schemaField/utils';
+import type { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';

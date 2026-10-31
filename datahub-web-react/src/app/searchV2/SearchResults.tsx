@@ -3,9 +3,9 @@ import React, { useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { EntityAndType } from '@app/entity/shared/types';
-import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
+import { EntityAndType } from '@app/entityV2/shared/types';
+import { isListSubset } from '@app/entityV2/shared/utils';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
 import { SearchResultLineageStatusProvider } from '@app/searchV2/SearchResultLineageStatusContext';
 import { SearchResultList } from '@app/searchV2/SearchResultList';

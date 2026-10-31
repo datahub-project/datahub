@@ -1,4 +1,3 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import {
     canCreateTermVersion,
     canShowEditDeprecation,
@@ -7,6 +6,7 @@ import {
     isGlossaryTermVersion,
     suggestNextVersionLabel,
 } from '@app/entityV2/shared/EntityDropdown/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { EntityPrivileges, EntityType } from '@types';
 

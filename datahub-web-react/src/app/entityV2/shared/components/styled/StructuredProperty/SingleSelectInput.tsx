@@ -6,8 +6,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { Radio } from '@components/components/Radio/Radio';
 
-import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 import ValueDescription from '@app/entityV2/shared/entityForm/prompts/StructuredPropertyPrompt/ValueDescription';
+import { getStructuredPropertyValue } from '@app/entityV2/shared/utils';
 
 import { AllowedValue } from '@types';
 

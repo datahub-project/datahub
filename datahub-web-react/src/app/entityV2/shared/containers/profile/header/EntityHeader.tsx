@@ -2,12 +2,12 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
 import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { DefaultEntityHeader } from '@app/entityV2/shared/containers/profile/header/DefaultEntityHeader';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { withLogicalModelHeaderItems } from '@app/entityV2/shared/logicalModels/logicalModels.utils';
+import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

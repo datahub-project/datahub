@@ -4,7 +4,6 @@ import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/mlPrimaryKey/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
@@ -27,6 +26,7 @@ import {
     SidebarTagsSection,
     StatusSection,
 } from '@app/entityV2/shared/profileChunks';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 
 import { useGetMlPrimaryKeyQuery } from '@graphql/mlPrimaryKey.generated';

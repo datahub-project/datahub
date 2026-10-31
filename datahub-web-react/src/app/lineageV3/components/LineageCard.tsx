@@ -7,7 +7,7 @@ import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import MultiLineSkeleton from '@app/lineageV3/components/MultiLineSkeleton';
 import { LINEAGE_HANDLE_OFFSET } from '@app/lineageV3/lineageLayout';
 import { GenericPropertiesContextPath } from '@app/previewV2/ContextPath';

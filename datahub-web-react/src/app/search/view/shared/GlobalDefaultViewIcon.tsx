@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { DefaultViewIcon } from '@app/search/view/shared/DefaultViewIcon';
 
 type Props = {

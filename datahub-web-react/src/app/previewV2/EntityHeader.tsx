@@ -4,11 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getNumberWithOrdinal } from '@app/entityV2/shared/utils';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import HealthIcon from '@app/previewV2/HealthIcon';

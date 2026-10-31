@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { SelectOption } from '@components/components/Select/types';
 
-import { FORBIDDEN_URN_CHARS_REGEX } from '@app/entity/shared/utils';
+import { FORBIDDEN_URN_CHARS_REGEX } from '@app/entityV2/shared/utils';
 import useDebouncedCallback from '@app/sharedV2/hooks/useDebouncedCallback';
 import { useGetRecommendations } from '@app/sharedV2/recommendation';
 

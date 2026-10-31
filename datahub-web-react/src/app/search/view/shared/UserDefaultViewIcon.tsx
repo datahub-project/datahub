@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DefaultViewIcon } from '@app/search/view/shared/DefaultViewIcon';
 
 type Props = {

@@ -6,8 +6,8 @@ import styled from 'styled-components/macro';
 
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { SearchSelectBar } from '@app/entity/shared/components/styled/search/SearchSelectBar';
-import { EntityAndType } from '@app/entity/shared/types';
 import SearchExtendedMenu from '@app/entityV2/shared/components/styled/search/SearchExtendedMenu';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { SearchBar } from '@app/search/SearchBar';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';

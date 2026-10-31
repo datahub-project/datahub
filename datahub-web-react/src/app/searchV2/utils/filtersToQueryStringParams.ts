@@ -1,4 +1,4 @@
-import { encodeComma } from '@app/entity/shared/utils';
+import { encodeComma } from '@app/entityV2/shared/utils';
 import { DEGREE_FILTER_NAME, FILTER_URL_PREFIX } from '@app/searchV2/utils/constants';
 
 import { FacetFilterInput, FilterOperator } from '@types';

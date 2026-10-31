@@ -25,7 +25,6 @@ import { Redirect, useHistory } from 'react-router';
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { DrawerType, GenericEntityProperties } from '@app/entity/shared/types';
 import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import CreateGlossaryTermVersionModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryTermVersionModal';
@@ -56,6 +55,7 @@ import { getEntityPath } from '@app/entityV2/shared/containers/profile/entityDat
 import { IncidentDetailDrawer } from '@app/entityV2/shared/lazyIncidentDetailDrawer';
 import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { DrawerType, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
 import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';

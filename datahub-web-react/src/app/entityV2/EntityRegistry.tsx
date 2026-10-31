@@ -1,12 +1,11 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import DefaultEntity from '@app/entityV2/DefaultEntity';
 import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import PreviewContext, { PreviewContextProps } from '@app/entityV2/shared/PreviewContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
-import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
+import { EntitySidebarSection, EntitySidebarTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from '@app/entityV2/shared/utils';
 import {
     FetchedEntity,

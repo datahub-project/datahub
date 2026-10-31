@@ -4,9 +4,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { EntityAndType } from '@app/entityV2/shared/types';
+import { extractTypeFromUrn } from '@app/entityV2/shared/utils';
 import { Icon } from '@src/alchemy-components';
-import { EntityAndType } from '@src/app/entity/shared/types';
-import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
 import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/SearchSelect';
 import { useHydratedEntityMap } from '@src/app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import { EntityLink } from '@src/app/homeV2/reference/sections/EntityLink';

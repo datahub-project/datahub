@@ -1,8 +1,8 @@
 import queryString from 'query-string';
 import { useLocation } from 'react-router';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { getSchemaFieldParentLink } from '@app/entityV2/schemaField/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { EntityRegistry } from '@src/entityRegistryContext';
 

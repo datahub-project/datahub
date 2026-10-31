@@ -3,13 +3,13 @@ import { FileSql } from '@phosphor-icons/react/dist/csr/FileSql';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, IconStyleType } from '@app/entityV2/Entity';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import { DocumentationTab, EntityProfile, SidebarQueryOperationsSection } from '@app/entityV2/shared/profileChunks';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { useGetQueryQuery } from '@graphql/query.generated';
 import { DataPlatform, EntityType, QueryEntity as Query } from '@types';

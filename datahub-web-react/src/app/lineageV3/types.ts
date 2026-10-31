@@ -1,4 +1,4 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import {
     Chart,

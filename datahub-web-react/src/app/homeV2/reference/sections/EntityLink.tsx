@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled, { CSSObject } from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';

@@ -1,11 +1,11 @@
 import React from 'react';
 import { useTheme } from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DatasetStatsSummary as DatasetStatsSummaryView } from '@app/entityV2/dataset/shared/DatasetStatsSummary';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { DatasetLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
