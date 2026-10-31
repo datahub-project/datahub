@@ -484,7 +484,7 @@ query {
 
 ## Emit Lineage Directly
 
-If you can't use the plugin or annotate inlets/outlets, you can also emit lineage using the `DatahubEmitterOperator`.
+If you can't use the plugin or annotate inlets/outlets, you can also emit lineage using the `DatahubEmitterOperator`. Pass it `MetadataChangeProposalWrapper` objects, for example one with an `UpstreamLineage` aspect on the downstream dataset.
 
 Reference [`lineage_emission_dag.py`](../../metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/example_dags/lineage_emission_dag.py) for a full example.
 
@@ -668,6 +668,7 @@ breaking changes below, see [Breaking Changes](../how/breaking-changes.md).
 
 _Changes_
 
+- The DataHub hooks and `DatahubEmitterOperator` now send a `MetadataChangeEvent` you pass them as one `MetadataChangeProposalWrapper` per aspect. Passing `MetadataChangeEvent` is deprecated and emits a `DeprecationWarning`; pass `MetadataChangeProposalWrapper` objects instead. The `lineage_emission_dag.py` example now uses them ([#20825](https://github.com/datahub-project/datahub/pull/20825)). See [Breaking Changes](../how/breaking-changes.md).
 - OpenLineage references to S3, GCS, Azure (`abfs`, `wasb`) and DBFS paths now use the same platform and name as DataHub's storage sources and the Spark agent: `gs://my-bucket` plus `path/file` becomes `urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/path/file,PROD)` instead of a `gs` dataset without the bucket. Set `normalize_object_storage_urns = false` to keep the old URNs for OpenLineage references; the Asset changes below do not depend on it. Airflow Assets on `abfs://` and `abfss://` now use the `abs` platform instead of `adls`. See [Breaking Changes](../how/breaking-changes.md).
 - New `dataset_pattern` option to drop individual inlets and outlets by `<platform>:<name>` pattern. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).
 - `file` datasets reported through OpenLineage (worker scratch paths) are no longer captured by default; set `capture_ol_file_datasets = true` to keep them. BigQuery tables in hidden `_`-prefixed datasets are dropped by default; set `capture_bigquery_temp_datasets = true` to keep them.

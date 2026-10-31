@@ -289,36 +289,30 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example,DEV)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "jinjaTemplate": "2023-09-27"
-                        },
-                        "tags": []
-                    }
-                }
-            ]
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "jinjaTemplate": "2023-09-27"
+            },
+            "tags": []
         }
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example_20230927T213438,DEV)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "jinjaTemplate": "2023-09-27"
-                        },
-                        "tags": []
-                    }
-                }
-            ]
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.example.lineage_example_20230927T213438,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "jinjaTemplate": "2023-09-27"
+            },
+            "tags": []
         }
     }
 },

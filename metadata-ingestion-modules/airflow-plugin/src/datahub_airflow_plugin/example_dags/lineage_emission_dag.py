@@ -9,6 +9,12 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
 default_args = {
@@ -41,19 +47,27 @@ with DAG(
         task_id="emit_lineage",
         datahub_conn_id="datahub_rest_default",
         mces=[
-            builder.make_lineage_mce(
-                upstream_urns=[
-                    builder.make_dataset_urn(
-                        platform="snowflake", name="mydb.schema.tableA"
-                    ),
-                    builder.make_dataset_urn_with_platform_instance(
-                        platform="snowflake",
-                        name="mydb.schema.tableB",
-                        platform_instance="cloud",
-                    ),
-                ],
-                downstream_urn=builder.make_dataset_urn(
+            MetadataChangeProposalWrapper(
+                entityUrn=builder.make_dataset_urn(
                     platform="snowflake", name="mydb.schema.tableC", env="DEV"
+                ),
+                aspect=UpstreamLineageClass(
+                    upstreams=[
+                        UpstreamClass(
+                            dataset=builder.make_dataset_urn(
+                                platform="snowflake", name="mydb.schema.tableA"
+                            ),
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        ),
+                        UpstreamClass(
+                            dataset=builder.make_dataset_urn_with_platform_instance(
+                                platform="snowflake",
+                                name="mydb.schema.tableB",
+                                platform_instance="cloud",
+                            ),
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        ),
+                    ]
                 ),
             )
         ],

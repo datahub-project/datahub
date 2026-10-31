@@ -39,9 +39,10 @@ class DatahubBaseOperator(BaseOperator):
 
 class DatahubEmitterOperator(DatahubBaseOperator):
     """
-    Emits a Metadata Change Event to DataHub using either a DataHub
-    Rest or Kafka connection.
+    Emits metadata to DataHub using either a DataHub Rest or Kafka connection.
 
+    :param mces: MetadataChangeProposalWrapper objects to emit. Passing
+        MetadataChangeEvent is deprecated; each is sent as one MCP per aspect.
     :param datahub_conn_id: Reference to the DataHub Rest or Kafka Connection.
     :type datahub_conn_id: str
     """
