@@ -1746,7 +1746,7 @@ module.exports = {
             type: "doc",
             id: "docs/rfcs/README",
           },
-          items: [],
+          items: ["docs/rfcs/active/19729-asset-bound-metadata-attestation"],
         },
         "SECURITY",
       ],
