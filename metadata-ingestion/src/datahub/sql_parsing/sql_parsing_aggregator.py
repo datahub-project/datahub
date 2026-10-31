@@ -991,8 +991,15 @@ class SqlParsingAggregator(Closeable):
             override_dialect=observed.override_dialect,
         )
         if parsed.debug_info.error:
+            query_id = (
+                observed.query_hash
+                or parsed.query_fingerprint
+                or generate_hash(observed.query)
+            )
+            logger.debug(f"Failed to parse query {query_id}: {parsed.debug_info.error}")
+            # The report is uploaded to DataHub, so it must not quote the SQL.
             self.report.observed_query_parse_failures.append(
-                f"{parsed.debug_info.error} on query: {observed.query[:100]}"
+                f"{type(parsed.debug_info.error).__name__} on query {query_id}"
             )
         if parsed.debug_info.table_error:
             self.report.num_observed_queries_failed += 1
@@ -1323,9 +1330,10 @@ class SqlParsingAggregator(Closeable):
             override_dialect=view_definition.override_dialect,
         )
         if parsed.debug_info.error:
-            self.report.views_parse_failures[view_urn] = (
-                f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
-            )
+            logger.debug(f"Failed to parse view {view_urn}: {parsed.debug_info.error}")
+            self.report.views_parse_failures[view_urn] = type(
+                parsed.debug_info.error
+            ).__name__
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
             if view_definition.table_level_fallback_upstreams:

@@ -156,7 +156,7 @@ class StructuredLogs(Report):
         if title:
             log_content = f"{title}: {log_content}"
         if exc:
-            log_content += f"{log_content}: {exc}"
+            log_content += f": {exc}"
 
             if log:
                 logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
@@ -167,11 +167,15 @@ class StructuredLogs(Report):
                     exc_info=exc,
                 )
 
-            # Add the simple exception details to the context.
+            # Add the simple exception details to the context. The message is capped
+            # because it can quote source data (e.g. sqlglot errors quote the SQL).
+            exc_str = str(exc)
+            if len(exc_str) > _MAX_CONTEXT_STRING_LENGTH:
+                exc_str = f"{exc_str[:_MAX_CONTEXT_STRING_LENGTH]} ..."
             if context:
-                context = f"{context} {type(exc)}: {exc}"
+                context = f"{context} {type(exc)}: {exc_str}"
             else:
-                context = f"{type(exc)}: {exc}"
+                context = f"{type(exc)}: {exc_str}"
         elif log:
             logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
 
