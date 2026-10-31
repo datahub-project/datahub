@@ -95,7 +95,8 @@ class TestDremioSchemaResolver:
         assert urn == expected_urn
 
     def test_table_already_with_dremio_prefix_mixed_case(self, resolver):
-        """Test when SQL includes 'Dremio' with different casing."""
+        """'Dremio' in any casing is the default database: the Dremio source
+        always names it 'dremio'."""
         table = _TableName(
             database="Dremio",
             db_schema="source",
@@ -104,7 +105,7 @@ class TestDremioSchemaResolver:
         urn = resolver.get_urn_for_table(table)
         assert (
             urn
-            == "urn:li:dataset:(urn:li:dataPlatform:dremio,Dremio.source.table,PROD)"
+            == "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.source.table,PROD)"
         )
 
     @pytest.mark.parametrize(
@@ -343,6 +344,26 @@ class TestDremioSchemaResolverWithSQLGlot:
 
         assert expected_3part in urn_3part.lower(), (
             f"Expected '{expected_3part}' in '{urn_3part}'"
+        )
+
+    @pytest.mark.parametrize(
+        "table_ref, expected_name",
+        [
+            ("my_source.orders", "dremio.my_source.orders"),
+            ('"dremio"."my_space"."orders"', "dremio.my_space.orders"),
+            ('"dremio"."my_space"."folder"."orders"', "dremio.my_space.folder.orders"),
+        ],
+    )
+    def test_parsed_name_gets_one_dremio_prefix(
+        self, resolver, table_ref, expected_name
+    ):
+        parsed = sqlglot.parse_one(f"SELECT * FROM {table_ref}", dialect="dremio")
+        table_name = _table_name_from_sqlglot_table(
+            next(parsed.find_all(sqlglot.exp.Table)), None
+        )
+        assert (
+            resolver.get_urn_for_table(table_name)
+            == f"urn:li:dataset:(urn:li:dataPlatform:dremio,{expected_name},PROD)"
         )
 
     def test_unquoted_multi_part_table_names(self, resolver):

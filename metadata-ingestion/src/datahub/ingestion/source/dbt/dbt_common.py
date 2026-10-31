@@ -93,6 +93,11 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_custom_assertion_info,
     select_test_results_to_emit,
 )
+from datahub.ingestion.source.dremio.dremio_naming import (
+    DREMIO_PLATFORM,
+    DremioSchemaResolver,
+    dremio_dataset_name,
+)
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
@@ -217,6 +222,9 @@ class _TwoTierSchemaResolver(SchemaResolver):
 
 _DBT_EXECUTOR_ACTOR = mce_builder.make_user_urn("dbt_executor")
 _DBT_MAX_SQL_LENGTH = 1 * 1024 * 1024  # 1MB
+# dbt-dremio stores a model with no folder under this schema and leaves it out of
+# the SQL it renders, so the dataset sits directly in its space or source.
+_DBT_DREMIO_NO_SCHEMA = "no_schema"
 _TARGET_PLATFORM_PREFETCH_ASPECT_NAMES = [
     BrowsePathsV2Class.ASPECT_NAME,
     ContainerClass.ASPECT_NAME,
@@ -1070,6 +1078,19 @@ class DBTCommonConfig(
                 "used verbatim in the semanticModel and metric urns"
             )
         return stripped
+
+    @model_validator(mode="after")
+    def warn_dremio_without_database_name(self) -> "DBTCommonConfig":
+        if (
+            self.target_platform.lower() == DREMIO_PLATFORM
+            and not self.include_database_name
+        ):
+            logger.warning(
+                "`include_database_name: false` with `target_platform: dremio` names "
+                "dbt nodes without their Dremio space or source, so they won't match "
+                "the datasets the Dremio source ingests. Remove the setting."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_skip_sources_in_lineage(self) -> "DBTCommonConfig":
@@ -2171,6 +2192,21 @@ class DBTNode:
         fqn = self._join_parts([self.database, self.schema, self.name])
         return fqn.replace('"', "")
 
+    def get_target_platform_name(self, name: str, target_platform: str) -> str:
+        """Adjust a warehouse name built from this node to the one the target
+        platform's own source uses.
+
+        The Dremio source names every dataset ``dremio.<path>``: name it with the
+        same rule as DremioSchemaResolver, without dbt-dremio's ``no_schema``
+        placeholder.
+        """
+        if target_platform.lower() != DREMIO_PLATFORM:
+            return name
+        parts = name.split(".")
+        if self.schema == _DBT_DREMIO_NO_SCHEMA:
+            parts = [part for part in parts if part != _DBT_DREMIO_NO_SCHEMA]
+        return dremio_dataset_name(parts)
+
     def get_urn(
         self,
         target_platform: str,
@@ -2179,7 +2215,7 @@ class DBTNode:
         # Otherwise, it's the target platform instance.
         data_platform_instance: Optional[str],
     ) -> str:
-        db_fqn = self.get_db_fqn()
+        db_fqn = self.get_target_platform_name(self.get_db_fqn(), target_platform)
         if self.convert_urns_to_lowercase:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
@@ -2198,9 +2234,17 @@ class DBTNode:
     def get_fake_ephemeral_table_name(self) -> str:
         assert self.is_ephemeral_model()
 
-        # Similar to get_db_fqn.
+        # Similar to get_db_fqn. dbt-dremio's no_schema placeholder is left out
+        # here too, so the name in the rewritten SQL keeps to 3 parts (the only
+        # ones sqlglot reports after the swap) and matches the placeholder URN.
+        schema = (
+            None
+            if self.dbt_adapter == DREMIO_PLATFORM
+            and self.schema == _DBT_DREMIO_NO_SCHEMA
+            else self.schema
+        )
         db_fqn = self._join_parts(
-            [self.database, self.schema, f"__datahub__dbt__ephemeral__{self.name}"]
+            [self.database, schema, f"__datahub__dbt__ephemeral__{self.name}"]
         )
         db_fqn = db_fqn.lower()
         return db_fqn.replace('"', "")
@@ -3872,11 +3916,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         graph: Optional[DataHubGraph] = self.ctx.graph
 
-        resolver_class: Type[SchemaResolver] = (
-            SchemaResolver
-            if self.config.include_database_name
-            else _TwoTierSchemaResolver
-        )
+        resolver_class: Type[SchemaResolver]
+        if self.config.target_platform.lower() == DREMIO_PLATFORM:
+            resolver_class = DremioSchemaResolver
+        elif self.config.include_database_name:
+            resolver_class = SchemaResolver
+        else:
+            resolver_class = _TwoTierSchemaResolver
         schema_resolver = resolver_class(
             platform=self.config.target_platform,
             platform_instance=self.config.target_platform_instance,
@@ -3922,7 +3968,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_node_urn = (
                         mce_builder.make_dataset_urn_with_platform_instance(
                             platform=self.config.target_platform,
-                            name=node.get_fake_ephemeral_table_name(),
+                            name=node.get_target_platform_name(
+                                node.get_fake_ephemeral_table_name(),
+                                self.config.target_platform,
+                            ),
                             platform_instance=self.config.target_platform_instance,
                             env=self.config.env,
                         )
