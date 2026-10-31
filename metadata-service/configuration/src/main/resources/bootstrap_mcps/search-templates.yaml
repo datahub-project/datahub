@@ -1045,6 +1045,7 @@
     apiVersion: 1
     editable: false
     matchedFields: false
+    searchType: QUERY_THEN_FETCH
     query: '{ "match_all": {} }'
     functionScore: |
       {
@@ -1129,6 +1130,7 @@
     apiVersion: 1
     editable: false
     parent: urn:li:searchTemplate:list
+    searchType: QUERY_THEN_FETCH
     functionScore: ""
     boosts: []
     sort: '[ { "urn": { "order": "asc" } } ]'

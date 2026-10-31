@@ -264,7 +264,8 @@ public class SearchV3QueryBuilder {
         query,
         named,
         estimatedClauses,
-        queriedFieldSources(opContext, queriedRoots));
+        queriedFieldSources(opContext, queriedRoots),
+        template.getSearchType());
   }
 
   /**

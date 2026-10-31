@@ -544,6 +544,9 @@ public class SearchTemplateLoader {
     if (props.hasBoostMode() && props.getBoostMode() != null) {
       builder.boostMode(props.getBoostMode());
     }
+    if (props.hasSearchType() && props.getSearchType() != null) {
+      builder.searchType(props.getSearchType());
+    }
     if (props.hasRescore()) {
       builder.rescore(blankToNull(props.getRescore()));
     }
