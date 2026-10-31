@@ -70,11 +70,14 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
@@ -309,15 +312,29 @@ class DremioSource(StatefulIngestionSourceBase):
         self.profiler = DremioProfiler(config, self.report, api, profiling_handler)
 
     def _is_allowed_table(self, name: str) -> bool:
-        allowed = passes_dremio_filters(
+        # The aggregator only calls this after the catalog walk, so a name
+        # that passes the filters but isn't in the catalog was dropped (or was
+        # temporary) since the job ran; letting it through resurrects it.
+        if (
+            name.lower().removeprefix(f"{DREMIO_DATABASE_NAME}.")
+            in self.catalog_dataset_names
+        ):
+            return True
+        if passes_dremio_filters(
             name=name,
             catalog_dataset_names=self.catalog_dataset_names,
             dataset_pattern=self.config.dataset_pattern,
             schema_pattern=self.config.schema_pattern,
-        )
-        if not allowed:
+        ):
+            # After a failed fetch the name may be a live table the walk never
+            # saw; dropping it would lose its lineage for good once the query
+            # time window advances, so fall back to the filters alone.
+            if self.report.dataset_fetch_incomplete:
+                return True
+            self.report.lineage_dropped_not_in_catalog += 1
+        else:
             self.report.lineage_dropped_filtered += 1
-        return allowed
+        return False
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
@@ -424,6 +441,13 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
             if self.config.include_query_lineage:
+                if self.report.dataset_fetch_incomplete:
+                    self.report.warning(
+                        message="Dremio dataset fetch was incomplete, so query lineage "
+                        "is not limited to datasets found in the catalog this run. "
+                        "Tables dropped since their jobs ran may reappear until the "
+                        "next complete run.",
+                    )
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     self.get_query_lineage_workunits()
 
@@ -723,7 +747,26 @@ class DremioSource(StatefulIngestionSourceBase):
                         f"This may be expected for cross-source references or if the dataset was filtered out."
                     )
 
+    def _is_view_ddl(self, sql: str) -> bool:
+        # The aggregator parses the same text with the same dialect next, so
+        # this hits the parse cache. CREATE VDS isn't parsed as a view, but it
+        # yields no lineage either, so it can't add stale upstreams.
+        dialect = get_dialect(self.get_platform())
+        try:
+            statement = parse_statement(sql, dialect)
+        except Exception:
+            # Leave unparsable text to the aggregator, which reports it.
+            return False
+        query_type, _ = get_query_type_of_sql(statement, dialect)
+        return query_type == QueryType.CREATE_VIEW
+
     def process_query(self, query: DremioQuery) -> None:
+        # View lineage comes from the catalog's current definition; an older
+        # CREATE [OR REPLACE] VIEW in job history would add stale upstreams.
+        if self._is_view_ddl(query.query):
+            self.report.num_view_ddl_queries_skipped += 1
+            return
+
         self._validate_query_lineage_format(query)
 
         self.sql_parsing_aggregator.add_observed_query(

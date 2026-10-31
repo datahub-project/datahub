@@ -347,6 +347,7 @@ class TestDremioChunking:
         dremio_api.report.failure.assert_called_once()
         failure_call = dremio_api.report.failure.call_args
         assert "'rows'" in failure_call.kwargs["context"]
+        assert dremio_api.report.dataset_fetch_incomplete is True
 
     def test_extract_all_queries_uses_chunking(self, dremio_api):
         dremio_api.edition = DremioEdition.ENTERPRISE
