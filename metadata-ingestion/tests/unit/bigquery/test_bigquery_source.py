@@ -8,6 +8,7 @@ import pytest
 import time_machine
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
+from google.cloud.resourcemanager_v3 import Project
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
@@ -1998,8 +1999,10 @@ def test_get_projects_with_project_labels(
     get_projects_client.return_value = client_mock
 
     client_mock.search_projects.return_value = [
-        SimpleNamespace(project_id="dev", display_name="dev_project"),
-        SimpleNamespace(project_id="qa", display_name="qa_project"),
+        Project(
+            project_id="dev", display_name="dev_project", state=Project.State.ACTIVE
+        ),
+        Project(project_id="qa", display_name="qa_project", state=Project.State.ACTIVE),
     ]
 
     config = BigQueryV2Config.model_validate(
