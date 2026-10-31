@@ -2,9 +2,9 @@ import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
 import i18next from 'i18next';
 import React from 'react';
 
-import { FilterRenderer } from '@app/search/filters/render/FilterRenderer';
 import { HasSiblingsFilter } from '@app/search/filters/render/siblings/HasSiblingsFilter';
-import { FilterRenderProps } from '@app/search/filters/render/types';
+import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
+import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 
 export class HasSiblingsRenderer implements FilterRenderer {
     field = 'hasSiblings';
