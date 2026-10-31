@@ -5,7 +5,6 @@
 #########################################################
 import functools
 import logging
-from datetime import datetime
 from typing import Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
@@ -13,6 +12,7 @@ import more_itertools
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
+from datahub.configuration.datetimes import parse_absolute_time
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -1937,9 +1937,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     lastModified=AuditStampClass(
                         actor="urn:li:corpuser:unknown",
                         time=int(
-                            datetime.strptime(
-                                workspace.app.last_update, "%Y-%m-%dT%H:%M:%S.%fZ"
-                            ).timestamp()
+                            parse_absolute_time(workspace.app.last_update).timestamp()
                         ),
                     )
                     if workspace.app.last_update
