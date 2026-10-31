@@ -76,22 +76,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1720785600000,
-        "runId": "grafana-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -99,10 +83,6 @@
                 {
                     "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
                 }
             ]
         }
@@ -769,10 +749,6 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
-                },
-                {
                     "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
                     "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
@@ -1013,10 +989,6 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
-                },
-                {
                     "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
                     "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
@@ -1042,10 +1014,6 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
-                },
-                {
                     "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
                     "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
@@ -1069,10 +1037,6 @@
                 {
                     "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
                 },
                 {
                     "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
@@ -1301,10 +1265,6 @@
                 {
                     "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
                 },
                 {
                     "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
@@ -1597,10 +1557,6 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
-                },
-                {
                     "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
                     "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
@@ -1882,10 +1838,6 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
-                },
-                {
                     "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
                     "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
@@ -2107,10 +2059,6 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
                 },
                 {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
-                },
-                {
                     "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
                     "urn": "urn:li:container:a43000865444793eb86e9a7c2f1978cf"
                 }
@@ -2197,10 +2145,6 @@
                 {
                     "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
                 },
                 {
                     "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
@@ -2341,10 +2285,6 @@
                 {
                     "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)",
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:grafana,local-grafana)"
-                },
-                {
-                    "id": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7",
-                    "urn": "urn:li:container:3f7f0ee1c1c6a62d266aa117b9a9bbc7"
                 },
                 {
                     "id": "urn:li:container:a43000865444793eb86e9a7c2f1978cf",
