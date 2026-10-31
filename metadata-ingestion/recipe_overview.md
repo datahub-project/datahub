@@ -238,29 +238,33 @@ Stateful ingestion turns on automatically when `pipeline_name` is set **and** th
 Two recipes must never use the same `pipeline_name`. Ingestion state is keyed on the pipeline name, so sharing one makes separate recipes read and overwrite each other's checkpoints.
 :::
 
-Checkpoints are stored against a data job URN built from the pipeline name and a job id derived from the source platform:
+Checkpoints are stored per pipeline name **and** per job, where the job id is derived from the connector — for most connectors `<platform>_stale_entity_removal`, though several keep legacy names (see `StaleEntityRemovalHandler.compute_job_id`):
 
 ```text
-urn:li:dataJob:(urn:li:dataFlow:(datahub,<pipeline_name>,PROD),<platform>_stale_entity_removal)
+urn:li:dataJob:(urn:li:dataFlow:(datahub,<pipeline_name>,PROD),<job_id>)
 ```
 
-Two recipes that share a `pipeline_name` and ingest the same platform resolve to the same URN, so each run reads state the other wrote. What that causes:
+**Two recipes running the same connector under one name share that state**, so each run reads what the other wrote:
 
-| Feature                         | What goes wrong when the name is shared                                                                                                                                    |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Stale entity removal            | Each run compares what it just saw against the **other** recipe's entity list and soft-deletes the difference, so the two recipes take turns deleting each other's assets. |
-| Redundant run elimination       | A run skips a time window because the other recipe already covered it, leaving a permanent gap in usage or query data.                                                     |
-| Incremental / resumable sources | A run resumes from a checkpoint written against different data and silently skips records.                                                                                 |
-| Run telemetry                   | Run histories from unrelated jobs are interleaved, making failures hard to attribute.                                                                                      |
+| Feature                         | What goes wrong when the name is shared                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Stale entity removal            | Each run compares what it just saw against the **other** recipe's entity list and soft-deletes the difference. |
+| Redundant run elimination       | A run skips a time window the other recipe already covered, leaving a permanent gap in usage or query data.    |
+| Incremental / resumable sources | A run resumes from a checkpoint written against different data and silently skips records.                     |
 
-The `stateful_ingestion.fail_safe_threshold` guard (default `75.0`, meaning 75%) blocks deletion only when the two entity sets differ drastically. Recipes that overlap partially — two schemas of one database, two projects in one warehouse — stay under the threshold and delete silently.
+Whether those deletions happen quietly depends on how much the two scopes overlap. `stateful_ingestion.fail_safe_threshold` (default `75.0`) measures the change against the previous state as `(1 - overlap / previous entity count) × 100` and blocks deletion above that:
 
-Each of these needs its own `pipeline_name`:
+- **Nested scopes** — a broad recipe plus a narrower one inside it — keep enough overlap to stay under the threshold, so everything outside the narrow scope is soft-deleted silently. This is the dangerous case.
+- **Disjoint scopes** — two separate schemas, say — share no entities, so every run scores 100% and trips the guard: nothing is deleted, but the run reports a failure each time.
 
-- different connector types (`snowflake` and `bigquery`);
+**Two recipes running different connectors under one name** do not collide in state, because the job id differs. They do still interleave run telemetry, leave `systemMetadata.pipelineName` ambiguous about which recipe wrote an entity, and point `datahub ingest deploy` at the wrong ingestion source.
+
+Give each of these its own `pipeline_name`:
+
 - different accounts, hosts, projects, or `platform_instance` values;
 - different `env` values (`PROD` and `DEV`);
-- different filter patterns, when you deliberately split one system across several recipes (for example one recipe per database).
+- different filter patterns, when you deliberately split one system across several recipes (for example one recipe per database);
+- different connector types (`snowflake` and `bigquery`) — for telemetry, provenance and deploy, as above.
 
 ### Keep the pipeline name stable across runs
 
@@ -580,7 +584,9 @@ Usually two recipes sharing one `pipeline_name`, so each run treats the other's 
 
 ### `Skipping stateful ingestion / stale entity removal`
 
-The number of entities changed by more than `stateful_ingestion.fail_safe_threshold` (default 75%) since the last run, so deletions were blocked as a safety measure. Check whether the source configuration changed — including whether another recipe is writing to the same `pipeline_name`. If the change is intentional, raise the threshold for that run.
+The entity count changed by more than `stateful_ingestion.fail_safe_threshold` (default 75%) since the last run, so deletions were blocked as a safety measure. This is reported as a failure, so the run shows as **failed** even though ingestion itself completed.
+
+Check whether the source configuration changed. If it did not, check whether another recipe writes to the same `pipeline_name` over a different scope — two recipes sharing a name over disjoint scopes score 100% change and trip this on every run. If the change is intentional, raise the threshold for that run.
 
 ## FAQ
 
@@ -594,7 +600,7 @@ No. A recipe has exactly one source and one sink. Write one recipe per system, e
 Not for a one-off run. You do need it for stateful ingestion, run telemetry, and `datahub ingest deploy`. When you set one, it must be unique to that source configuration — see [Pipeline name](#pipeline-name).
 
 **Can two recipes share a `pipeline_name` if they ingest different systems?**
-No. Never share a name between recipes. Sharing one makes them overwrite each other's ingestion state.
+No. Different connectors do not overwrite each other's ingestion state, but they still interleave run telemetry, make it ambiguous which recipe wrote an entity, and send `datahub ingest deploy` to the wrong ingestion source. Two recipes on the _same_ connector additionally corrupt each other's state.
 
 **What is the difference between `pipeline_name` and `run_id`?**
 `pipeline_name` names the recurring job and stays the same across runs. `run_id` identifies one execution and is generated fresh each time.
