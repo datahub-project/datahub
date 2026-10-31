@@ -6,7 +6,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import { getResultColor, getResultIcon, getResultText } from '@app/entityV2/shared/tabs/Dataset/Governance/testUtils';
 
 import { TestResult } from '@types';

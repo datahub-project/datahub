@@ -14,8 +14,8 @@ import {
 } from '@app/entityV2/shared/EntityDropdown/glossaryEntityModal.shared';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
-import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
 
 import {
     useUpdateDescriptionMutation,

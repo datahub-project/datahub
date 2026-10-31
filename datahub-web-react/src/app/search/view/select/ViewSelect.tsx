@@ -6,11 +6,11 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
 import { ViewBuilder } from '@app/search/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/search/view/builder/types';
 import { ViewSelectDropdown } from '@app/search/view/select/ViewSelectDropdown';
 import { renderViewOptionGroup } from '@app/search/view/select/renderViewOptionGroup';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/search/view/utils';
 import { PageRoutes } from '@conf/Global';
 
 import { useListGlobalViewsQuery, useListMyViewsQuery } from '@graphql/view.generated';

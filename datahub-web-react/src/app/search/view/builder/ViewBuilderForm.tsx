@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ViewBuilderState } from '@app/entity/view/types';
 import { ViewTypeLabel } from '@app/search/view/ViewTypeLabel';
 import { ViewDefinitionBuilder } from '@app/search/view/builder/ViewDefinitionBuilder';
 import { ViewBuilderMode } from '@app/search/view/builder/types';
+import { ViewBuilderState } from '@app/search/view/types';
 
 import { DataHubViewType } from '@types';
 

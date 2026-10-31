@@ -2,7 +2,7 @@ import { Empty, Pagination, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import { StyledTable } from '@app/ingest/source/StyledTable';
 import {
     ButtonsColumn,
     SourceColumn,

@@ -2,7 +2,7 @@ import { Badge } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { TypeData } from '@app/entity/shared/tabs/Properties/types';
+import { TypeData } from '@app/entityV2/shared/tabs/Properties/types';
 import { truncate } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 

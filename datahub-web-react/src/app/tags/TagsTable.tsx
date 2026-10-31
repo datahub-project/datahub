@@ -4,7 +4,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { UpdateDeprecationModal } from '@app/entity/shared/EntityDropdown/UpdateDeprecationModal';
+import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import { ManageTag } from '@app/tags/ManageTag';
 import {
     TagActionsColumn,

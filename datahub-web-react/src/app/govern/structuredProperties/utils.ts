@@ -1,5 +1,6 @@
 import i18next from 'i18next';
 
+import { mapStructuredPropertyToPropertyRow } from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import {
     DATE_TYPE_URN,
     NUMBER_TYPE_URN,
@@ -7,7 +8,6 @@ import {
     STRING_TYPE_URN,
     URN_TYPE_URN,
 } from '@app/sharedV2/constants';
-import { mapStructuredPropertyToPropertyRow } from '@src/app/entity/shared/tabs/Properties/useStructuredProperties';
 import EntityRegistry from '@src/app/entityV2/EntityRegistry';
 import {
     DISPLAY_NAME_FILTER_NAME,

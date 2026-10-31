@@ -7,7 +7,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { SecretBuilderModal } from '@app/ingest/secret/SecretBuilderModal';
 import {
     addSecretToListSecretsCache,

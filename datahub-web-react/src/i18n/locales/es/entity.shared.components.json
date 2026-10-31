@@ -100,5 +100,9 @@
     "searchActions.owners.addTitle": "Añadir owners",
     "searchActions.owners.removeTitle": "Quitar owners",
     "searchActions.tags.addTitle": "Añadir tags",
-    "searchActions.tags.removeTitle": "Quitar tags"
+    "searchActions.tags.removeTitle": "Quitar tags",
+    "structuredProperty.addMore": "+ Añadir más",
+    "structuredProperty.selectPlaceholder": "Seleccionar",
+    "viewAll.resultsIncomplete": "Los resultados pueden estar incompletos.",
+    "viewAll.searchAllAssets": "Buscar todos los activos de {{platform}} ingeridos"
 }

@@ -8,7 +8,7 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { SchemaFieldDataType } from '@app/businessAttribute/businessAttributeUtils';
-import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
+import DescriptionModal from '@app/entityV2/shared/components/legacy/DescriptionModal';
 import { validateCustomUrnId } from '@app/sharedV2/textUtil';
 import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';

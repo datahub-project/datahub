@@ -3,7 +3,6 @@ import React, { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import { EntityMenuActions, PreviewType } from '@app/entityV2/Entity';
 import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
@@ -32,6 +31,7 @@ import {
 } from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { stripMarkdown } from '@app/sharedV2/stripMarkdown';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/previewV2/DataProcessInstanceInfo';
@@ -337,7 +337,7 @@ export default function DefaultPreviewCard({
                             </ShortDocumentation>
                         ) : (
                             <Documentation>
-                                <CompactMarkdownViewer content={removeMarkdown(description)} />
+                                <CompactMarkdownViewer content={stripMarkdown(description)} />
                             </Documentation>
                         ))}
                     {shouldShowDPIinfo && (
