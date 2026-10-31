@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INCIDENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,6 +25,8 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -37,6 +40,10 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentState;
+import com.linkedin.incident.IncidentStatus;
+import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -46,8 +53,10 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
@@ -663,6 +672,140 @@ public class UpdateIndicesServiceTest {
             eq(OWNERSHIP_ASPECT_NAME));
     verify(updateGraphIndicesService, never())
         .handleChangeEvent(any(OperationContext.class), any(MetadataChangeLog.class));
+  }
+
+  @Test
+  public void testHandleChangeEvents_UpsertClearsFieldsOnlyThePreviousValueFromANewerVersionHad()
+      throws Exception {
+    // The previous value has an incident type only a newer version defines, and only it has a
+    // description and priority. The search diff still reads it, so both fields are cleared.
+    Urn urn = UrnUtils.getUrn("urn:li:incident:prev-newer-upsert");
+    IncidentInfo current = incidentInfo();
+    IncidentInfo previous = incidentInfo();
+    previous.setDescription("old description").setPriority(1);
+    previous.data().put("type", "INCIDENT_TYPE_FROM_NEWER_BUILD");
+    MetadataChangeLog upsert =
+        incidentInfoEvent(urn, ChangeType.UPSERT)
+            .setAspect(GenericRecordUtils.serializeAspect(current))
+            .setPreviousAspectValue(GenericRecordUtils.serializeAspect(previous))
+            .setPreviousSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
+
+    serviceTransformingDocuments().handleChangeEvents(operationContext, List.of(upsert));
+
+    JsonNode v2 = v2DocumentWritten();
+    assertEquals(v2.get("title").asText(), "incident");
+    assertTrue(v2.path("description").isNull());
+    assertTrue(v2.path("priority").isNull());
+    JsonNode v3 = v3DocumentWritten();
+    assertEquals(v3.get("title").asText(), "incident");
+    assertTrue(v3.path("description").isNull());
+    assertTrue(v3.path("priority").isNull());
+    assertTrue(v3.path("_aspects").path(INCIDENT_INFO_ASPECT_NAME).path("description").isNull());
+    verify(updateGraphIndicesService)
+        .handleChangeEventWithUnvalidatedPrevious(
+            eq(operationContext),
+            argThat(mcl -> !mcl.hasPreviousAspectValue()),
+            argThat(value -> "INCIDENT_TYPE_FROM_NEWER_BUILD".equals(value.data().get("type"))));
+  }
+
+  @Test
+  public void testHandleChangeEvents_DeleteClearsFieldsWhenThePreviousValueIsFromANewerVersion()
+      throws Exception {
+    // The aspect is deleted while its stored value has an incident type only a newer version
+    // defines: the documents no longer hold any of its values.
+    Urn urn = UrnUtils.getUrn("urn:li:incident:prev-newer-delete");
+    IncidentInfo previous = incidentInfo();
+    previous.setDescription("old description").setPriority(1);
+    previous.data().put("type", "INCIDENT_TYPE_FROM_NEWER_BUILD");
+    MetadataChangeLog delete =
+        incidentInfoEvent(urn, ChangeType.DELETE)
+            .setPreviousAspectValue(GenericRecordUtils.serializeAspect(previous))
+            .setPreviousSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata());
+
+    serviceTransformingDocuments().handleChangeEvents(operationContext, List.of(delete));
+
+    JsonNode v2 = v2DocumentWritten();
+    for (String field : List.of("title", "description", "priority", "type")) {
+      assertTrue(v2.path(field).isNull(), field);
+    }
+    JsonNode v3 = v3DocumentWritten();
+    for (String field : List.of("title", "description", "priority", "type")) {
+      assertFalse(v3.hasNonNull(field), field);
+      assertFalse(v3.path("_aspects").path(INCIDENT_INFO_ASPECT_NAME).hasNonNull(field), field);
+    }
+  }
+
+  /** V2 and V3 strategies that build documents with the real transformer. */
+  private UpdateIndicesService serviceTransformingDocuments() {
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    UpdateIndicesV2Strategy v2Strategy =
+        new UpdateIndicesV2Strategy(
+            EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build(),
+            entitySearchService,
+            transformer,
+            timeseriesAspectService,
+            "MD5",
+            null,
+            mock(IndexConvention.class),
+            false,
+            mock(V2MappingsBuilder.class),
+            null);
+    UpdateIndicesV3Strategy v3Strategy =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(
+                EntityIndexVersionConfiguration.builder().enabled(true).cleanup(false).build())
+            .elasticSearchService(entitySearchService)
+            .searchDocumentTransformer(transformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .v2Enabled(true)
+            .build();
+    return new UpdateIndicesService(
+        updateGraphIndicesService,
+        entitySearchService,
+        systemMetadataService,
+        List.of(v2Strategy, v3Strategy),
+        null,
+        true,
+        true,
+        true);
+  }
+
+  private JsonNode v2DocumentWritten() throws Exception {
+    ArgumentCaptor<String> document = ArgumentCaptor.forClass(String.class);
+    verify(entitySearchService)
+        .upsertDocument(any(OperationContext.class), eq("incident"), document.capture(), any());
+    return new ObjectMapper().readTree(document.getValue());
+  }
+
+  private JsonNode v3DocumentWritten() throws Exception {
+    ArgumentCaptor<V3SearchDocumentWrite> write =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(entitySearchService).writeV3SearchDocument(any(OperationContext.class), write.capture());
+    return new ObjectMapper().readTree(write.getValue().source());
+  }
+
+  private static IncidentInfo incidentInfo() {
+    return new IncidentInfo()
+        .setType(IncidentType.OPERATIONAL)
+        .setTitle("incident")
+        .setEntities(
+            new UrnArray(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,x,PROD)")))
+        .setStatus(
+            new IncidentStatus()
+                .setState(IncidentState.ACTIVE)
+                .setLastUpdated(AuditStampUtils.createDefaultAuditStamp()))
+        .setCreated(AuditStampUtils.createDefaultAuditStamp());
+  }
+
+  private static MetadataChangeLog incidentInfoEvent(Urn urn, ChangeType changeType) {
+    return new MetadataChangeLog()
+        .setChangeType(changeType)
+        .setEntityUrn(urn)
+        .setEntityType(urn.getEntityType())
+        .setAspectName(INCIDENT_INFO_ASPECT_NAME)
+        .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+        .setCreated(AuditStampUtils.createDefaultAuditStamp());
   }
 
   @Test

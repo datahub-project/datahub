@@ -261,9 +261,10 @@ public class UpdateIndicesService implements SearchIndicesService {
    * (e.g. read after a rollback) is dropped on its own instead of failing the whole batch, and
    * counted in {@link #INVALID_MCL_SKIPPED_METRIC}. An event whose new value is valid but whose
    * previous value a newer version wrote (e.g. a change away from an enum value only that version
-   * defines) is built without the previous value, so its new value is still indexed; that previous
-   * value goes in {@code unvalidatedPrevious} for the graph update. Any other invalid payload fails
-   * as before.
+   * defines) is built without the previous value, so its new value is still indexed. The item then
+   * carries that previous value, without its unknown references, for the search diff, and the value
+   * as read goes in {@code unvalidatedPrevious} for the graph update. Any other invalid payload
+   * fails as before.
    */
   @Nullable
   private static MCLItem buildValidMCLItem(
@@ -305,7 +306,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       }
       // Blame the previous value only when the new one is valid on its own, so an event whose new
       // value is invalid for another reason still fails.
-      final MCLItem withoutPrevious = buildWithoutPrevious(opContext, event);
+      final MCLItemImpl withoutPrevious = buildWithoutPrevious(opContext, event);
       if (withoutPrevious == null) {
         throw e;
       }
@@ -321,8 +322,18 @@ public class UpdateIndicesService implements SearchIndicesService {
               + "'s previous value, from a newer version (indexing the new value without it): "
               + e.getMessage(),
           event.getEntityUrn());
-      unvalidatedPrevious.put(withoutPrevious, previous);
-      return withoutPrevious;
+      // The search diff needs the previous value too: an upsert nulls the fields only it had. It
+      // gets its own copy, stripped as a valid previous value is when the item is built, so its
+      // transform doesn't meet references to entity types this version doesn't know. The graph
+      // update strips its copy only for an upsert.
+      final RecordTemplate previousForSearch =
+          deserializeOrNull(event.getPreviousAspectValue(), aspectSpec);
+      if (previousForSearch != null) {
+        handling().stripUnknownReferences(previousForSearch, registry);
+      }
+      final MCLItem indexed = withoutPrevious.withPreviousRecordTemplate(previousForSearch);
+      unvalidatedPrevious.put(indexed, previous);
+      return indexed;
     }
   }
 
@@ -342,7 +353,7 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   @Nullable
-  private static MCLItem buildWithoutPrevious(
+  private static MCLItemImpl buildWithoutPrevious(
       @Nonnull final OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     final MetadataChangeLog withoutPrevious;
     try {

@@ -42,6 +42,17 @@ public class MCLItemImpl implements MCLItem {
   private final EntitySpec entitySpec;
   private final AspectSpec aspectSpec;
 
+  /**
+   * This item with {@code previousRecordTemplate} as its previous value. Used when the previous
+   * value was left out of the build because it can't be validated here (a newer version wrote it),
+   * so readers of the item can still diff against it.
+   */
+  public MCLItemImpl withPreviousRecordTemplate(
+      @Nullable final RecordTemplate previousRecordTemplate) {
+    return new MCLItemImpl(
+        metadataChangeLog, recordTemplate, previousRecordTemplate, entitySpec, aspectSpec);
+  }
+
   public static class MCLItemImplBuilder {
 
     // Ensure use of other builders
