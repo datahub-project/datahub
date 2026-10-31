@@ -39,6 +39,22 @@ sink:
   # sink configs
 ```
 
+##### Linking topics to the Confluent Cloud console
+
+Set `confluent_cloud_environment_id` to give every topic a **View in Kafka** link that opens that topic in the Confluent Cloud console:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    confluent_cloud_environment_id: "env-xyz123"
+    # ...connection block
+```
+
+The link is `https://confluent.cloud/environments/<environment_id>/clusters/<cluster_id>/topics/<topic>`. The cluster ID is read from Kafka cluster metadata over the connection the source already has, so the environment ID is the only thing you need to supply. Nothing is emitted unless the bootstrap servers are `confluent.cloud` endpoints and the cluster reports a Confluent Cloud cluster ID; the run reports a warning if you set the environment ID on a cluster that is neither.
+
+Setting `external_url_base` overrides this entirely - use it for any other Kafka console (Aiven, Redpanda, a self-hosted UI), or for a Confluent Cloud console fronted at a different address.
+
 If you are trying to add domains to your topics you can use a configuration like below.
 
 ```yml
