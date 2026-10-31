@@ -2977,14 +2977,15 @@ def test_probe_qualifies_tables_through_the_project_ids_field():
     assert declares_qualifier(BigQueryV2Config.model_construct())
 
 
-def _list_item(table_id: str) -> TableListItem:
+def _list_item(table_id: str, table_type: str = "TABLE") -> TableListItem:
     return TableListItem(
         {
             "tableReference": {
                 "projectId": "test-project",
                 "datasetId": "test-dataset",
                 "tableId": table_id,
-            }
+            },
+            "type": table_type,
         }
     )
 
@@ -3024,6 +3025,31 @@ def test_get_core_table_details_records_shard_families(
     assert shard_families == {
         "events20250103": ["events_20250101", "events_20250102", "events20250103"]
     }
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_get_core_table_details_skips_sharded_view_families(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    # PARTITIONS has no rows for views, so recording the family would only cost a
+    # query; the latest view shard is still kept as a table.
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    client_mock.list_tables.return_value = [
+        _list_item("daily_20250101", "VIEW"),
+        _list_item("daily_20250102", "VIEW"),
+    ]
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    shard_families: Dict[str, List[str]] = {}
+    tables = source.bq_schema_extractor.get_core_table_details(
+        "test-dataset", "test-project", "_", shard_families=shard_families
+    )
+
+    assert sorted(tables) == ["daily_20250102"]
+    assert shard_families == {}
 
 
 def _partition_row(
