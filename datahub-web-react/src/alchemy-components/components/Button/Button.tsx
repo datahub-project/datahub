@@ -57,7 +57,8 @@ export const Button = ({
     if (isLoading) {
         return (
             <ButtonBase {...styleProps} {...props}>
-                <LoadingSpinner /> {!isCircle && children}
+                <LoadingSpinner />
+                {!isCircle && children}
             </ButtonBase>
         );
     }
