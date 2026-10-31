@@ -1880,7 +1880,13 @@ class BigQuerySchemaGenerator:
                 continue
 
             table_items[table.table_id] = table
-            if shard_families is not None and len(shard_ids[base_name]) > 1:
+            # INFORMATION_SCHEMA.PARTITIONS has no rows for views, so a view family
+            # would only cost a query that returns nothing.
+            if (
+                shard_families is not None
+                and table.table_type != "VIEW"
+                and len(shard_ids[base_name]) > 1
+            ):
                 shard_families[table.table_id] = shard_ids[base_name]
 
         return table_items

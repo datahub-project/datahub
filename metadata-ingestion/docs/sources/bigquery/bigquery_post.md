@@ -182,6 +182,8 @@ When profiling is enabled, the `bigquery.tables.getData` permission is **require
 :::
 
 For performance reasons, we only profile the latest partition for partitioned tables and the latest shard for sharded tables.
+
+A sharded table's `size_in_bytes` and billable-bytes properties, and its profile's `rowCount` and `sizeInBytes`, are totals across all of its shards. They are read from `INFORMATION_SCHEMA.PARTITIONS`, which is only queried when profiling is enabled or `use_tables_list_query_v2` is set; otherwise those properties describe only the latest shard.
 You can set partition explicitly with `partition.partition_datetime` property if you want, though note that partition config will be applied to all partitioned tables.
 
 Column stats from a partition or shard profile only appear on the dataset's Stats tab when no full-table profile exists. Set `profiling.copy_partition_field_profiles_to_full_table_profile: true` to also emit each partition or shard profile as a full-table profile, with `partitionSpec.partition` set to `FULL_TABLE_SNAPSHOT (from partition <id>)`. Its column stats still describe only that partition or shard; `rowCount` and `sizeInBytes` are the table totals (all shards for a sharded table). Turning the option off later does not remove copies already emitted: the Stats tab keeps showing the latest copy over newer partition profiles until a newer full-table profile replaces it.
