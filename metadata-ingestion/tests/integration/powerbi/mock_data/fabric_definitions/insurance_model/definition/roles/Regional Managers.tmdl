@@ -1,0 +1,11 @@
+role 'Regional Managers'
+	modelPermission: read
+
+	tablePermission Policies = 'Policies'[State] = "CA"
+
+	member 'regional-managers@example.com'
+		memberId: 00000000-0000-4000-8000-00000000001b
+		identityProvider: AzureAD
+		memberType: group
+
+	annotation PBI_Id = 0000001c-1111-4222-8333-00000000001c

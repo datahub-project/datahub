@@ -106,6 +106,21 @@ def test_workspace_apis_rejects_admin_only_features(
             "extract_column_level_lineage",
             id="dax_lineage_needs_column_lineage",
         ),
+        pytest.param(
+            {"extract_model_properties": True},
+            "requires metadata_api_mode: workspace_apis",
+            id="model_properties_need_mode",
+        ),
+        pytest.param(
+            {
+                "metadata_api_mode": "workspace_apis",
+                "extract_model_properties": True,
+                "extract_dataset_schema": False,
+                "extract_column_level_lineage": False,
+            },
+            "extract_dataset_schema",
+            id="model_properties_need_schema",
+        ),
     ],
 )
 def test_definition_enrichment_flag_dependencies(

@@ -6,6 +6,7 @@ table Claims
 		dataType: int64
 		isHidden
 		isKey
+		isNullable: false
 		lineageTag: 2c1d8d4e-11a5-4d9b-9a1e-7f5d3c2b1a00
 		summarizeBy: none
 		sourceColumn: CLAIM_ID
@@ -27,6 +28,7 @@ table Claims
 	column PaidAmount
 		dataType: double
 		formatString: $#,##0.00
+		displayFolder: Financials
 		lineageTag: 5f401071-44d8-402e-8d41-0c806f5e4d33
 		summarizeBy: sum
 		sourceColumn: PAID_AMOUNT
@@ -37,6 +39,22 @@ table Claims
 		lineageTag: 6a512182-55e9-413f-9e52-1d917a6f5e44
 		summarizeBy: none
 		type: calculated
+
+	refreshPolicy
+		policyType: basic
+		rollingWindowGranularity: year
+		rollingWindowPeriods: 3
+		incrementalGranularity: month
+		incrementalPeriods: 12
+		sourceExpression =
+				let
+				    Source = Snowflake.Databases("my-account.snowflakecomputing.com","COMPUTE_WH",[Implementation="2.0"]),
+				    Db = Source{[Name="INSURANCE_DB",Kind="Database"]}[Data],
+				    Sch = Db{[Name="ANALYTICS",Kind="Schema"]}[Data],
+				    Tbl = Sch{[Name="CLAIMS",Kind="Table"]}[Data],
+				    Filtered = Table.SelectRows(Tbl, each [FILED_DATE] >= RangeStart and [FILED_DATE] < RangeEnd)
+				in
+				    Filtered
 
 	partition Claims = m
 		mode: import
