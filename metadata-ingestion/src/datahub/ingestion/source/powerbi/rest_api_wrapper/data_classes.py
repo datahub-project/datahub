@@ -169,15 +169,31 @@ class FabricArtifact:
     physical_item_ids: Optional[List[str]] = None
 
 
+def urn_safe_name(name: str) -> str:
+    """Power BI table, query and dataset names as they appear in URNs."""
+    return name.replace(" ", "_")
+
+
 @dataclass
 class DataflowQuery:
-    """One ``shared`` query of a Dataflow Gen2 mashup. Only load-enabled
-    queries (``is_entity``) are emitted as datasets; the others are helper
-    queries kept so that references between queries resolve for lineage."""
+    """One member query of a Dataflow Gen2 mashup. Only entities (queries
+    that land in the dataflow's storage) are emitted as datasets; the others
+    are helper queries kept so that references between queries resolve for
+    lineage."""
 
     name: str
     expression: str
-    is_entity: bool
+    is_shared: bool
+    # From queryMetadata.json; None when the query has no metadata entry.
+    load_enabled: Optional[bool] = None
+
+    @property
+    def is_entity(self) -> bool:
+        """The metadata flag is authoritative; without it ``shared`` is the
+        best signal that a query is readable through PowerPlatform.Dataflows."""
+        if self.load_enabled is not None:
+            return self.load_enabled
+        return self.is_shared
 
 
 @dataclass
@@ -185,7 +201,6 @@ class Dataflow:
     id: str
     name: str
     description: Optional[str]
-    workspace_id: str
     workspace_name: str
     queries: List["DataflowQuery"]
     webUrl: Optional[str] = None
@@ -205,7 +220,7 @@ class Dataflow:
         platform_name: str,
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
-    ) -> ContainerKey:
+    ) -> DataflowKey:
         return DataflowKey(
             dataflow=self.id,
             platform=platform_name,

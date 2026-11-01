@@ -61,14 +61,10 @@ def parse_error(expression: str, timeout: int) -> Optional[str]:
     """The parser's error for *expression*, or None when it parses. Used to
     validate the member queries of a dataflow before they are combined."""
     try:
-        with threading_timeout(timeout):
-            get_bridge().parse(expression)
+        _parse_with_bridge(expression, timeout)
     except TimeoutException:
-        _clear_bridge()
         return f"parsing timed out after {timeout} seconds"
     except (MQueryParseError, MQueryBridgeError) as e:
-        if isinstance(e, MQueryBridgeError):
-            _clear_bridge()
         return str(e)
     return None
 

@@ -2017,10 +2017,11 @@ class DataflowLineage(AbstractLineage):
         dataflow_id = items.get(_DATAFLOW_KEY_DATAFLOW_ID)
         entity = items.get(_DATAFLOW_KEY_ENTITY)
         if not dataflow_id or not entity:
-            logger.debug(
-                "Dataflow navigation on %s lacks a dataflowId or entity step: %s",
-                self.table.full_name,
-                items,
+            self.reporter.dataflow_references_unresolved += 1
+            self.reporter.warning(
+                title="Dataflow Reference Not Resolved",
+                message="A PowerPlatform.Dataflows / PowerBI.Dataflows navigation has no literal dataflowId or entity step (for example a parameter that could not be resolved); lineage to the dataflow is missing for this table.",
+                context=f"table={self.table.full_name}, keys={sorted(items)}",
             )
             return Lineage.empty()
         return Lineage(

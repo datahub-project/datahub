@@ -449,7 +449,7 @@ class Mapper:
         reporter: PowerBiDashboardSourceReport,
         dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver,
         remote_model_lookup: Optional[powerbi_data_classes.RemoteModelLookup] = None,
-        dataflow_registry: Optional[Dict[str, powerbi_data_classes.Dataflow]] = None,
+        powerbi_client: Optional[PowerBiAPI] = None,
     ):
         self.__ctx = ctx
         self.__config = config
@@ -459,12 +459,12 @@ class Mapper:
         # ingested this run (PowerBiAPI.find_remote_model); None resolves
         # nothing, so no edge is ever emitted without it.
         self.__remote_model_lookup = remote_model_lookup
-        # Dataflows ingested this run (all workspaces), by id. Shared with
-        # PowerBiAPI.dataflow_registry, which fills it after this constructor
-        # runs, so the same (initially empty) dict must be kept.
-        self.__dataflow_registry: Dict[str, powerbi_data_classes.Dataflow] = (
-            dataflow_registry if dataflow_registry is not None else {}
-        )
+        # Consulted at lineage time for the dataflows ingested this run
+        # (all workspaces); None means no dataflow can be linked.
+        self.__powerbi_client = powerbi_client
+        # (table urn, dataflow id, entity) references already counted, so a
+        # model mapped several times (report + tile) is reported once.
+        self.__counted_dataflow_references: Set[Tuple[str, str, str]] = set()
         self.workspace_key: Optional[ContainerKey] = None
         # Refresh Operations are decided once per dataset and emitted on each
         # of its tables, so counters and warnings fire per dataset.
@@ -900,34 +900,55 @@ class Mapper:
             f"table={ds_urn}, workspace_id={reference.workspace_id}, "
             f"dataflow_id={reference.dataflow_id}, entity={reference.entity}"
         )
-        dataflow = self.__dataflow_registry.get(reference.dataflow_id)
+        reference_key = (ds_urn, reference.dataflow_id.lower(), reference.entity)
+        first_sighting = reference_key not in self.__counted_dataflow_references
+        self.__counted_dataflow_references.add(reference_key)
+
+        dataflow = (
+            self.__powerbi_client.get_ingested_dataflow(reference.dataflow_id)
+            if self.__powerbi_client is not None
+            else None
+        )
         if dataflow is None:
-            self.__reporter.dataflow_references_not_ingested += 1
+            if first_sighting:
+                self.__reporter.dataflow_references_not_ingested += 1
             self.__reporter.warning(
                 title="Dataflow Not Ingested",
-                message=(
-                    "A semantic model reads a dataflow that was not ingested in "
-                    "this run, so the lineage edge is skipped. Enable "
-                    "extract_dataflows and include the dataflow's workspace in "
-                    "workspace_id_pattern."
-                ),
+                message=self._dataflow_not_ingested_advice(reference.dataflow_id),
                 context=context,
             )
             return None
         entity = dataflow.get_entity(reference.entity)
         if entity is None:
-            self.__reporter.dataflow_references_not_ingested += 1
+            if first_sighting:
+                self.__reporter.dataflow_references_not_ingested += 1
             self.__reporter.warning(
                 title="Dataflow Not Ingested",
                 message=(
                     "A semantic model reads an entity that the ingested dataflow's "
                     "definition does not load, so the lineage edge is skipped."
                 ),
-                context=f"{context}, dataflow={dataflow.name}",
+                context=f"{context}, dataflow={dataflow.name}, dataflow_workspace={dataflow.workspace_name}",
             )
             return None
-        self.__reporter.dataflow_references_resolved += 1
+        if first_sighting:
+            self.__reporter.dataflow_references_resolved += 1
         return self.make_dataset_urn_for_dataflow_entity(dataflow, entity)
+
+    def _dataflow_not_ingested_advice(self, dataflow_id: str) -> str:
+        skipped = "A semantic model reads a dataflow that was not ingested in this run, so the lineage edge is skipped. "
+        if not self.__config.extract_dataflows:
+            return skipped + "Enable extract_dataflows to ingest dataflows."
+        if (
+            self.__powerbi_client is not None
+            and self.__powerbi_client.was_dataflow_listed(dataflow_id)
+        ):
+            return (
+                skipped
+                + "The dataflow was listed but its definition could not be fetched "
+                "or parsed; see the failure reported for it."
+            )
+        return skipped + "Include the dataflow's workspace in workspace_id_pattern."
 
     def make_dataset_urn_for_dataflow_entity(
         self,
@@ -937,11 +958,12 @@ class Mapper:
         # Keyed by the dataflow id rather than its name, like the dashboard,
         # chart and semantic-model container URNs: it cannot collide with a
         # semantic model of the same name and it is what a
-        # PowerPlatform.Dataflows reference carries.
+        # PowerPlatform.Dataflows reference carries. Deliberately unaffected
+        # by include_workspace_name_in_dataset_urn (the id is already unique).
         return self.assets_urn_to_lowercase(
             builder.make_dataset_urn_with_platform_instance(
                 platform=self.__config.platform_name,
-                name=f"{dataflow.get_urn_part()}.{entity.name.replace(' ', '_')}",
+                name=f"{dataflow.get_urn_part()}.{powerbi_data_classes.urn_safe_name(entity.name)}",
                 platform_instance=self.__config.platform_instance,
                 env=self.__config.env,
             )
@@ -987,6 +1009,71 @@ class Mapper:
             )
         ]
 
+    def _parseable_dataflow_bindings(
+        self, dataflow: powerbi_data_classes.Dataflow
+    ) -> Dict[str, str]:
+        """name -> M expression of every query that parses on its own, so one
+        unparseable query cannot take the composed let of the others down."""
+        bindings: Dict[str, str] = {}
+        for query in dataflow.queries:
+            error = parser.parse_error(
+                query.expression, self.__config.m_query_parse_timeout
+            )
+            if error is None:
+                bindings[query.name] = query.expression
+                continue
+            self.__reporter.dataflow_queries_unparseable += 1
+            self.__reporter.warning(
+                title="Dataflow Query Not Parsed",
+                message="A dataflow query's M expression could not be parsed; lineage through it is missing.",
+                context=f"workspace={dataflow.workspace_name}, dataflow={dataflow.name} id={dataflow.id}, query={query.name}, error={error}",
+            )
+        return bindings
+
+    def _dataflow_entity_mcps(
+        self,
+        dataflow: powerbi_data_classes.Dataflow,
+        entity: powerbi_data_classes.DataflowQuery,
+        workspace: powerbi_data_classes.Workspace,
+        dataflow_key: ContainerKey,
+        bindings: Dict[str, str],
+    ) -> List[MetadataChangeProposalWrapper]:
+        ds_urn = self.make_dataset_urn_for_dataflow_entity(dataflow, entity)
+        mcps = [self._view_properties_mcp(ds_urn, entity.expression, materialized=True)]
+        mcps.extend(
+            self._dataset_identity_mcps(
+                ds_urn,
+                properties=DatasetPropertiesClass(
+                    name=entity.name,
+                    description=dataflow.description,
+                    externalUrl=dataflow.webUrl,
+                    customProperties={
+                        Constant.DATAFLOW_ID: dataflow.id,
+                        Constant.DATAFLOW_NAME: dataflow.name,
+                    },
+                ),
+                subtype=DatasetSubTypes.POWERBI_DATAFLOW,
+                browse_path=[
+                    BrowsePathEntryClass(
+                        id=workspace.name,
+                        urn=self.make_container_urn_for_workspace(workspace),
+                    ),
+                    BrowsePathEntryClass(id=dataflow.name, urn=dataflow_key.as_urn()),
+                ],
+            )
+        )
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
+                aspect=ContainerClass(container=dataflow_key.as_urn()),
+            )
+        )
+        if self.__config.extract_lineage:
+            mcps.extend(
+                self.extract_dataflow_entity_lineage(dataflow, entity, ds_urn, bindings)
+            )
+        return mcps
+
     def to_datahub_dataflow(
         self,
         dataflow: powerbi_data_classes.Dataflow,
@@ -994,9 +1081,8 @@ class Mapper:
     ) -> List[MetadataChangeProposalWrapper]:
         """A Dataflow Gen2 as a container in its workspace holding one
         dataset per load-enabled query."""
-        mcps: List[MetadataChangeProposalWrapper] = []
         dataflow_key = self.make_container_key_for_dataflow(dataflow)
-        mcps.extend(
+        mcps: List[MetadataChangeProposalWrapper] = [
             wu.metadata
             for wu in gen_containers(
                 container_key=dataflow_key,
@@ -1005,72 +1091,57 @@ class Mapper:
                 parent_container_key=self.workspace_key,
                 sub_types=[BIContainerSubTypes.POWERBI_DATAFLOW],
                 external_url=dataflow.webUrl,
-                extra_properties={"dataflow_id": dataflow.id},
+                extra_properties={Constant.DATAFLOW_ID_PROPERTY: dataflow.id},
             )
             if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        ]
+        bindings = (
+            self._parseable_dataflow_bindings(dataflow)
+            if self.__config.extract_lineage
+            else {}
         )
-
-        bindings: Dict[str, str] = {}
-        if self.__config.extract_lineage:
-            for query in dataflow.queries:
-                error = parser.parse_error(
-                    query.expression, self.__config.m_query_parse_timeout
-                )
-                if error is None:
-                    bindings[query.name] = query.expression
-                    continue
-                self.__reporter.dataflow_queries_unparseable += 1
-                self.__reporter.warning(
-                    title="Dataflow Query Not Parsed",
-                    message="A dataflow query's M expression could not be parsed; lineage through it is missing.",
-                    context=f"dataflow={dataflow.name} id={dataflow.id}, query={query.name}, error={error}",
-                )
-
         for entity in dataflow.entities():
-            ds_urn = self.make_dataset_urn_for_dataflow_entity(dataflow, entity)
             mcps.extend(
-                MetadataChangeProposalWrapper(entityUrn=ds_urn, aspect=aspect)
-                for aspect in (
-                    DatasetPropertiesClass(
-                        name=entity.name,
-                        description=dataflow.description,
-                        externalUrl=dataflow.webUrl,
-                        customProperties={
-                            "dataflowId": dataflow.id,
-                            "dataflowName": dataflow.name,
-                        },
-                    ),
-                    StatusClass(removed=False),
-                    SubTypesClass(typeNames=[DatasetSubTypes.POWERBI_DATAFLOW]),
-                    self._get_data_platform_instance_aspect(),
-                    ViewPropertiesClass(
-                        materialized=True,
-                        viewLogic=native_sql_parser.remove_special_characters(
-                            entity.expression
-                        ),
-                        viewLanguage="m_query",
-                    ),
-                    BrowsePathsV2Class(
-                        path=[
-                            BrowsePathEntryClass(
-                                id=workspace.name,
-                                urn=self.make_container_urn_for_workspace(workspace),
-                            ),
-                            BrowsePathEntryClass(
-                                id=dataflow.name, urn=dataflow_key.as_urn()
-                            ),
-                        ]
-                    ),
-                    ContainerClass(container=dataflow_key.as_urn()),
+                self._dataflow_entity_mcps(
+                    dataflow, entity, workspace, dataflow_key, bindings
                 )
             )
-            if self.__config.extract_lineage:
-                mcps.extend(
-                    self.extract_dataflow_entity_lineage(
-                        dataflow, entity, ds_urn, bindings
-                    )
-                )
         return mcps
+
+    def _view_properties_mcp(
+        self, ds_urn: str, expression: str, materialized: bool
+    ) -> MetadataChangeProposalWrapper:
+        # Convert PowerBI special characters (#(lf), (lf), #(tab)) to actual
+        # characters. This is done after all parsing is complete to avoid
+        # interfering with M-Query parsing.
+        return MetadataChangeProposalWrapper(
+            entityUrn=ds_urn,
+            aspect=ViewPropertiesClass(
+                materialized=materialized,
+                viewLogic=native_sql_parser.remove_special_characters(expression),
+                viewLanguage=Constant.M_QUERY_LANGUAGE,
+            ),
+        )
+
+    def _dataset_identity_mcps(
+        self,
+        ds_urn: str,
+        properties: DatasetPropertiesClass,
+        subtype: str,
+        browse_path: List[BrowsePathEntryClass],
+    ) -> List[MetadataChangeProposalWrapper]:
+        """The aspects every Power BI dataset-like entity (semantic-model
+        table, dataflow entity) carries, in one place so they cannot drift."""
+        return [
+            MetadataChangeProposalWrapper(entityUrn=ds_urn, aspect=aspect)
+            for aspect in (
+                properties,
+                StatusClass(removed=False),
+                SubTypesClass(typeNames=[subtype]),
+                self._get_data_platform_instance_aspect(),
+                BrowsePathsV2Class(path=browse_path),
+            )
+        ]
 
     def _directlake_lineage_with_model_internal(
         self,
@@ -1684,82 +1755,46 @@ class Mapper:
             ds_urn = self.make_dataset_urn_for_table(table)
 
             logger.debug(f"dataset_urn={ds_urn}")
-            # Create datasetProperties mcp
             if table.expression:
-                # Convert PowerBI special characters (#(lf), (lf), #(tab)) to actual characters
-                # This is done after all parsing is complete to avoid interfering with M-Query parsing
-
-                converted_expression = native_sql_parser.remove_special_characters(
-                    table.expression
+                dataset_mcps.append(
+                    self._view_properties_mcp(
+                        ds_urn, table.expression, materialized=False
+                    )
                 )
-                view_properties = ViewPropertiesClass(
-                    materialized=False,
-                    viewLogic=converted_expression,
-                    viewLanguage="m_query",
-                )
-                view_prop_mcp = MetadataChangeProposalWrapper(
-                    entityUrn=ds_urn,
-                    aspect=view_properties,
-                )
-                dataset_mcps.extend([view_prop_mcp])
-            ds_properties = DatasetPropertiesClass(
-                name=table.name,
-                # TMDL `///` table doc comments are more specific than the
-                # dataset description; the scan API never supplies them.
-                description=table.description or dataset.description,
-                externalUrl=dataset.webUrl,
-                customProperties=self._table_custom_properties(table, dataset),
-            )
-
-            info_mcp = MetadataChangeProposalWrapper(
-                entityUrn=ds_urn,
-                aspect=ds_properties,
-            )
-
-            # Remove status mcp
-            status_mcp = MetadataChangeProposalWrapper(
-                entityUrn=ds_urn,
-                aspect=StatusClass(removed=False),
-            )
             if self.__config.extract_dataset_schema:
                 dataset_mcps.extend(self.extract_dataset_schema(table, ds_urn))
 
-            subtype_mcp = MetadataChangeProposalWrapper(
-                entityUrn=ds_urn,
-                aspect=SubTypesClass(
-                    typeNames=[
-                        BIContainerSubTypes.POWERBI_DATASET_TABLE,
-                    ]
-                ),
-            )
             # normally, the person who configures the dataset will be the most accurate person for ownership
             if (
                 self.__config.extract_ownership
                 and self.__config.ownership.dataset_configured_by_as_owner
                 and dataset.configuredBy
             ):
-                # Dashboard Ownership
                 user_urn = self.create_datahub_owner_urn(dataset.configuredBy)
                 owner_class = OwnerClass(owner=user_urn, type=OwnershipTypeClass.NONE)
-                # Dashboard owner MCP
-                ownership = OwnershipClass(owners=[owner_class])
-                owner_mcp = MetadataChangeProposalWrapper(
-                    entityUrn=ds_urn,
-                    aspect=ownership,
+                dataset_mcps.append(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=ds_urn,
+                        aspect=OwnershipClass(owners=[owner_class]),
+                    )
                 )
-                dataset_mcps.extend([owner_mcp])
 
-            # DataPlatformInstance
-            data_platform_instance_mcp = MetadataChangeProposalWrapper(
-                entityUrn=ds_urn,
-                aspect=self._get_data_platform_instance_aspect(),
-            )
-
-            # BrowsePaths
-            browse_path_mcp = MetadataChangeProposalWrapper(
-                entityUrn=ds_urn,
-                aspect=BrowsePathsV2Class(
-                    path=[
+            dataset_mcps.extend(
+                self._dataset_identity_mcps(
+                    ds_urn,
+                    properties=DatasetPropertiesClass(
+                        name=table.name,
+                        # TMDL `///` table doc comments are more specific than
+                        # the dataset description; the scan API never supplies
+                        # them.
+                        description=table.description or dataset.description,
+                        externalUrl=dataset.webUrl,
+                        customProperties=self._table_custom_properties(
+                            table, dataset
+                        ),
+                    ),
+                    subtype=BIContainerSubTypes.POWERBI_DATASET_TABLE,
+                    browse_path=[
                         BrowsePathEntryClass(
                             id=workspace.name,
                             urn=self.make_container_urn_for_workspace(workspace),
@@ -1770,18 +1805,8 @@ class Mapper:
                             if self.__config.extract_datasets_to_containers
                             else None,
                         ),
-                    ]
-                ),
-            )
-
-            dataset_mcps.extend(
-                [
-                    info_mcp,
-                    status_mcp,
-                    subtype_mcp,
-                    data_platform_instance_mcp,
-                    browse_path_mcp,
-                ]
+                    ],
+                )
             )
 
             if self.__config.extract_lineage is True:
@@ -3131,7 +3156,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter,
             self.dataplatform_instance_resolver,
             remote_model_lookup=self.powerbi_client.find_remote_model,
-            dataflow_registry=self.powerbi_client.dataflow_registry,
+            powerbi_client=self.powerbi_client,
         )
 
         # Log info if user has opted-in to user creation (may overwrite LDAP/Okta users)
@@ -3378,25 +3403,50 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
 
-    def get_workspace_workunit(
+    def _workspace_workunits(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
-        if self.source_config.extract_workspaces_to_containers:
-            workspace_workunits = self.mapper.generate_container_for_workspace(
-                workspace
+        yield from self.get_phase1_workspace_workunits(workspace)
+        try:
+            self.powerbi_client.fill_regular_metadata_detail(workspace=workspace)
+        except Exception as e:
+            # In workspace_apis mode the rest of the workspace emits nothing
+            # the run can fall back on, so a green run would let stale-entity
+            # removal soft-delete all of its entities. admin_scan keeps its
+            # long-standing warning, matching the Phase 1 handler.
+            report_phase2 = (
+                self.reporter.failure
+                if self.source_config.metadata_api_mode
+                == PowerBiMetadataApiMode.WORKSPACE_APIS
+                else self.reporter.warning
             )
+            report_phase2(
+                title="Failed to Fetch Workspace Metadata",
+                message="Phase 2 metadata fetch failed for this workspace; it will be skipped.",
+                context=f"workspace={workspace.name} id={workspace.id}",
+                exc=e,
+            )
+            return
+        yield from self.get_workspace_workunit(workspace)
 
-            for workunit in workspace_workunits:
-                # Return workunit to a Datahub Ingestion framework
-                yield workunit
-
-        yield from auto_workunit(self.emit_app(workspace=workspace))
-
-        # Dataflows first: they are upstream of the semantic models below.
+    def get_phase1_workspace_workunits(
+        self, workspace: powerbi_data_classes.Workspace
+    ) -> Iterable[MetadataWorkUnit]:
+        """Workunits that need nothing from Phase 2: the workspace container
+        and its dataflows. Emitted even when Phase 2 fails, so a semantic
+        model elsewhere can never point at a dataflow entity that was
+        registered in Phase 1 but never emitted."""
+        if self.source_config.extract_workspaces_to_containers:
+            yield from self.mapper.generate_container_for_workspace(workspace)
         for dataflow in workspace.dataflows.values():
             yield from auto_workunit(
                 self.mapper.to_datahub_dataflow(dataflow=dataflow, workspace=workspace)
             )
+
+    def get_workspace_workunit(
+        self, workspace: powerbi_data_classes.Workspace
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from auto_workunit(self.emit_app(workspace=workspace))
 
         for dashboard in workspace.dashboards.values():
             try:
@@ -3551,29 +3601,6 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     continue
                 workspace = workspaces[workspace_id]
                 logger.info(f"Processing workspace id: {workspace.id}")
-                try:
-                    self.powerbi_client.fill_regular_metadata_detail(
-                        workspace=workspace
-                    )
-                except Exception as e:
-                    # In workspace_apis mode a skipped workspace emits nothing
-                    # the run can fall back on, so a green run would let
-                    # stale-entity removal soft-delete all of its entities.
-                    # admin_scan keeps its long-standing warning, matching the
-                    # Phase 1 handler above.
-                    report_phase2 = (
-                        self.reporter.failure
-                        if self.source_config.metadata_api_mode
-                        == PowerBiMetadataApiMode.WORKSPACE_APIS
-                        else self.reporter.warning
-                    )
-                    report_phase2(
-                        title="Failed to Fetch Workspace Metadata",
-                        message="Phase 2 metadata fetch failed for this workspace; it will be skipped.",
-                        context=f"workspace={workspace.name} id={workspace.id}",
-                        exc=e,
-                    )
-                    continue
 
                 if self.source_config.modified_since:
                     # Per-workspace checkpointing: each workspace gets its own checkpoint job_id.
@@ -3595,11 +3622,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                                 self.stale_entity_removal_handler,
                             ),
                         ],
-                        self.get_workspace_workunit(workspace),
+                        self._workspace_workunits(workspace),
                     )
                 else:
                     # Maintain backward compatibility
-                    yield from self.get_workspace_workunit(workspace)
+                    yield from self._workspace_workunits(workspace)
 
                 # Fully emitted and never revisited; drop it to free its
                 # scan_result and parsed children.

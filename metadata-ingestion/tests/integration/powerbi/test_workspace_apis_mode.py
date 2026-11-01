@@ -42,7 +42,10 @@ REPORT_ID = "584cf13a-1485-41c2-a514-b1bb66fff163"
 # whose remote tables read the first workspace's Insurance Model.
 SECOND_WORKSPACE_ID = "64ED5CAD-7C22-4684-8180-826122881108"
 COMPOSITE_MODEL_ID = "8B2C3D4E-5F6A-4B7C-9D8E-0F1A2B3C4D5E"
-DATAFLOW_ID = "8B9C0D1E-2F3A-4B4C-8D5E-6F7A8B9C0D1E"
+# Lower-cased, as the Fabric item listing returns it; the TMDL fixture's
+# PowerPlatform.Dataflows reference carries it upper-cased to exercise the
+# case-insensitive lookup.
+DATAFLOW_ID = "8b9c0d1e-2f3a-4b4c-8d5e-6f7a8b9c0d1e"
 
 PBI = "https://api.powerbi.com/v1.0/myorg"
 FABRIC = "https://api.fabric.microsoft.com/v1"
@@ -492,18 +495,17 @@ def test_workspace_apis_ingest_with_enrichment(
 
     report = pipeline.source.get_report()
     assert isinstance(report, PowerBiDashboardSourceReport)
-    # Three models + one report + one dataflow.
-    assert report.fabric_definitions_fetched == 5
+    assert report.fabric_definitions_fetched == 4  # three models + one report
     assert report.fabric_definitions_failed == 0
     assert report.tmdl_tables_parsed == 9
     assert report.relationships_parsed == 2
+    assert report.dataflow_definitions_fetched == 1
     assert report.dataflows_fetched == 1
     assert report.dataflow_entities_parsed == 2
     assert report.dataflow_queries_unparseable == 0
-    # The Insurance model's "Dataflow Policies" table reads the dataflow; the
-    # model is mapped twice (through the report and the dashboard tile), so
-    # the per-emission counter is 2.
-    assert report.dataflow_references_resolved == 2
+    # The Insurance model's "Dataflow Policies" table reads the dataflow;
+    # counted once even though the model is mapped twice (report + tile).
+    assert report.dataflow_references_resolved == 1
     assert report.dataflow_references_not_ingested == 0
     # One role file in the insurance model; the DirectLake model has none.
     assert report.rls_roles_parsed == 1
@@ -755,7 +757,7 @@ def test_workspace_apis_enrichment_flags_off(
     ]
     # The model table that reads the dataflow gets no edge (no phantom
     # lineage), only a warning.
-    assert report.dataflow_references_not_ingested == 2  # once per mapping
+    assert report.dataflow_references_not_ingested == 1  # counted once
     assert "Dataflow Not Ingested" in {w.title for w in report.warnings}
     with open(output_path) as f:
         assert not any("dataflows." in mcp["entityUrn"] for mcp in json.load(f))
