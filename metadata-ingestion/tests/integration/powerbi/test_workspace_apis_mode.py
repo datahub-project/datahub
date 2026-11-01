@@ -100,15 +100,40 @@ def workspace_apis_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
             "json": {
                 "value": [
                     {
+                        "requestId": "0000000e-1111-4222-8333-00000000000e",
+                        "id": 14998777,
+                        "refreshType": "Scheduled",
+                        "startTime": "2022-02-02T20:56:55.927Z",
+                        "endTime": "2022-02-02T20:57:05.053Z",
+                        "status": "Failed",
+                        "serviceExceptionJson": '{"errorCode":"ModelRefreshFailed_CredentialsNotSpecified"}',
+                    },
+                    {
                         "requestId": "0000000d-1111-4222-8333-00000000000d",
                         "id": 14998776,
                         "refreshType": "Scheduled",
                         "startTime": "2022-02-01T20:56:55.927Z",
                         "endTime": "2022-02-01T20:57:05.053Z",
                         "status": "Completed",
-                    }
+                    },
                 ]
             },
+        },
+        f"{PBI}/groups/{WORKSPACE_ID}/datasets/{IMPORT_MODEL_ID}/refreshSchedule": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "days": ["Monday", "Wednesday", "Friday"],
+                "times": ["07:00", "16:30"],
+                "enabled": True,
+                "localTimeZoneId": "UTC",
+                "notifyOption": "MailOnFailure",
+            },
+        },
+        f"{PBI}/groups/{WORKSPACE_ID}/datasets/{DIRECTLAKE_MODEL_ID}/refreshSchedule": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {"error": {"code": "ItemNotFound"}},
         },
         f"{PBI}/groups/{WORKSPACE_ID}/datasets/{DIRECTLAKE_MODEL_ID}/refreshes": {
             "method": "GET",
@@ -523,6 +548,9 @@ def test_workspace_apis_ingest_with_enrichment(
         "urn:li:dataset:(urn:li:dataPlatform:powerbi,Exec_Composite_Model.Regions,DEV)"
         not in lineages
     )
+    assert report.refresh_schedule_fetched == 1
+    assert report.refresh_schedule_not_configured == 1
+    assert report.refresh_schedule_failed == 0
 
     # The admin Scanner API must never be called in this mode.
     assert not any(

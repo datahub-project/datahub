@@ -48,12 +48,18 @@ def test_workspace_users_without_graph_id_fall_back_to_identifier() -> None:
     assert users[1].graphId == "22222222-2222-4222-8222-222222222222"
 
 
-def test_latest_refresh_prefers_the_newest_completed_entry() -> None:
-    # Newest first from the API: a trailing Failed refresh must not hide the
-    # last successful one, and the request asks for a few entries, not one.
+def test_dataset_refreshes_keep_api_order_and_error_payload() -> None:
+    # Newest first from the API; the request asks for a few entries, not one,
+    # so a trailing Failed refresh does not hide the last successful one.
     body = {
         "value": [
-            {"requestId": "r-failed", "status": "Failed", "refreshType": "Scheduled"},
+            {
+                "requestId": "r-failed",
+                "status": "Failed",
+                "refreshType": "Scheduled",
+                "endTime": "2024-01-03T03:05:05Z",
+                "serviceExceptionJson": '{"errorCode":"ModelRefreshFailed"}',
+            },
             {
                 "requestId": "r-ok",
                 "status": "Completed",
@@ -66,11 +72,31 @@ def test_latest_refresh_prefers_the_newest_completed_entry() -> None:
     url = f"https://api.powerbi.com/v1.0/myorg/groups/{WORKSPACE_ID}/datasets/ds-1/refreshes"
     with requests_mock.Mocker() as m:
         m.get(url, json=body)
-        refresh = _resolver().get_latest_dataset_refresh(WORKSPACE_ID, "ds-1")
+        refreshes = _resolver().get_dataset_refreshes(WORKSPACE_ID, "ds-1")
         assert m.last_request.qs == {"$top": ["5"]}
         m.get(url, json={"value": []})
-        assert _resolver().get_latest_dataset_refresh(WORKSPACE_ID, "ds-1") is None
+        assert _resolver().get_dataset_refreshes(WORKSPACE_ID, "ds-1") == []
 
-    assert refresh is not None
-    assert refresh.request_id == "r-ok"
-    assert refresh.status == "Completed"
+    assert [r.request_id for r in refreshes] == ["r-failed", "r-ok"]
+    assert refreshes[0].service_exception_json == '{"errorCode":"ModelRefreshFailed"}'
+    assert refreshes[1].status == "Completed"
+    assert refreshes[1].service_exception_json is None
+
+
+def test_dataset_refresh_schedule_is_parsed() -> None:
+    body = {
+        "days": ["Monday", "Wednesday"],
+        "times": ["07:00", "16:30"],
+        "enabled": True,
+        "localTimeZoneId": "UTC",
+        "notifyOption": "MailOnFailure",
+    }
+    url = f"https://api.powerbi.com/v1.0/myorg/groups/{WORKSPACE_ID}/datasets/ds-1/refreshSchedule"
+    with requests_mock.Mocker() as m:
+        m.get(url, json=body)
+        schedule = _resolver().get_dataset_refresh_schedule(WORKSPACE_ID, "ds-1")
+
+    assert schedule.days == ["Monday", "Wednesday"]
+    assert schedule.times == ["07:00", "16:30"]
+    assert schedule.local_time_zone_id == "UTC"
+    assert schedule.enabled
