@@ -470,7 +470,7 @@ def test_lakehouse_endpoint_registered_and_failure_degrades_gracefully() -> None
     api.fill_metadata_from_definitions([workspace])
 
     assert workspace.fabric_artifacts[SQL_ENDPOINT_ID].physical_item_ids is None
-    assert api.reporter.fabric_endpoints_unresolved == 1
+    assert api.reporter.fabric_lakehouse_endpoints_unresolved == 1
     assert api.reporter.fabric_lakehouse_endpoints_registered == 0
     assert any(w.title == "Fabric Endpoint Not Resolved" for w in api.reporter.warnings)
 
@@ -488,7 +488,7 @@ def test_warehouse_registered_as_its_own_endpoint() -> None:
     assert warehouse.artifact_type == "Warehouse"
     assert list(workspace.fabric_artifacts) == [WAREHOUSE_ID]
     assert api.reporter.fabric_warehouse_endpoints_registered == 1
-    assert api.reporter.fabric_endpoints_unresolved == 0
+    assert api.reporter.fabric_lakehouse_endpoints_unresolved == 0
     api._PowerBiAPI__fabric_resolver.get_lakehouse_sql_endpoint_id.assert_not_called()  # type: ignore[attr-defined]
 
 

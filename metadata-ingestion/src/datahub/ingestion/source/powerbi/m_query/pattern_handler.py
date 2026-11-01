@@ -81,9 +81,16 @@ _ACCESSOR_KEY_ITEM = "Item"
 
 
 def is_fabric_sql_endpoint_host(server: Optional[str]) -> bool:
-    return bool(server) and str(server).strip().lower().endswith(
-        FABRIC_SQL_ENDPOINT_HOST_SUFFIX
-    )
+    """False for an unresolved server parameter (None / empty), so such a
+    query falls through to the generic MSSQL handling unannounced."""
+    if not server:
+        return False
+    return server.strip().lower().endswith(FABRIC_SQL_ENDPOINT_HOST_SUFFIX)
+
+
+# Segments of the mssql dataset name a native query resolves to; any platform
+# instance prefix sits before them.
+_MSSQL_QUALIFIED_NAME_PARTS = 3
 
 
 # First enum entry wins when multiple PowerBI names share a DataHub platform
@@ -1828,7 +1835,7 @@ class MSSqlLineage(TwoStepDataAccessPattern):
         if query:
             if self.config.enable_advance_lineage_sql_construct is False:
                 # Use previous parser to generate URN to keep backward compatibility
-                return Lineage(
+                lineage = Lineage(
                     upstreams=self.create_urn_using_old_parser(
                         query=query,
                         db_name=database,
@@ -1836,33 +1843,89 @@ class MSSqlLineage(TwoStepDataAccessPattern):
                     ),
                     column_lineage=[],
                 )
-
-            return self.parse_custom_sql(
-                query=query,
-                database=database,
-                server=server,
-                schema=MSSqlLineage.DEFAULT_SCHEMA,
-            )
+            else:
+                lineage = self.parse_custom_sql(
+                    query=query,
+                    database=database,
+                    server=server,
+                    schema=MSSqlLineage.DEFAULT_SCHEMA,
+                )
+            if is_fabric_sql_endpoint_host(server):
+                self._add_fabric_endpoint_references_from_urns(lineage, server)
+            return lineage
 
         # It is a regular case of MS-SQL
         logger.debug("Handling with regular case")
         lineage = self.two_level_access_pattern(data_access_func_detail)
         if lineage.upstreams and is_fabric_sql_endpoint_host(server):
-            # The endpoint is a TDS view over OneLake tables; the mapper swaps
-            # the MSSQL edge for the OneLake one once it knows the item.
-            accessor = data_access_func_detail.identifier_accessor
-            table_name = accessor.items.get(_ACCESSOR_KEY_ITEM) if accessor else None
-            if accessor is not None and table_name:
-                lineage.fabric_endpoint_references.append(
-                    FabricSqlEndpointReference(
-                        server=server,
-                        database=database,
-                        schema_name=accessor.items.get(_ACCESSOR_KEY_SCHEMA),
-                        table_name=table_name,
-                        mssql_urn=lineage.upstreams[0].urn,
-                    )
-                )
+            self._add_fabric_endpoint_reference_from_navigation(
+                lineage, server, database, data_access_func_detail.identifier_accessor
+            )
         return lineage
+
+    def _add_fabric_endpoint_reference_from_navigation(
+        self,
+        lineage: Lineage,
+        server: str,
+        database: str,
+        accessor: Optional[IdentifierAccessor],
+    ) -> None:
+        """``Source{[Schema=..., Item=...]}`` over a Fabric endpoint: the
+        endpoint is a TDS view over OneLake tables, so the mapper swaps the
+        MSSQL edge for the OneLake one once it knows the item."""
+        table_name = accessor.items.get(_ACCESSOR_KEY_ITEM) if accessor else None
+        if not table_name:
+            self._report_fabric_endpoint_shape_unsupported(
+                server, "the navigation step has no Item"
+            )
+            return
+        lineage.fabric_endpoint_references.append(
+            FabricSqlEndpointReference(
+                server=server,
+                database=database,
+                schema_name=accessor.items.get(_ACCESSOR_KEY_SCHEMA)
+                if accessor
+                else None,
+                table_name=table_name,
+                mssql_urn=lineage.upstreams[0].urn,
+            )
+        )
+
+    def _add_fabric_endpoint_references_from_urns(
+        self, lineage: Lineage, server: str
+    ) -> None:
+        """A native query (``[Query=...]``) over a Fabric endpoint: one
+        reference per table the SQL parser resolved, read back from the
+        mssql URN as ``[instance.]database.schema.table``."""
+        for upstream in lineage.upstreams:
+            name_parts = DatasetUrn.from_string(upstream.urn).name.split(".")
+            if len(name_parts) < _MSSQL_QUALIFIED_NAME_PARTS:
+                self._report_fabric_endpoint_shape_unsupported(
+                    server, f"the query table {upstream.urn} is not database-qualified"
+                )
+                continue
+            database, schema_name, table_name = name_parts[
+                -_MSSQL_QUALIFIED_NAME_PARTS:
+            ]
+            lineage.fabric_endpoint_references.append(
+                FabricSqlEndpointReference(
+                    server=server,
+                    database=database,
+                    schema_name=schema_name,
+                    table_name=table_name,
+                    mssql_urn=upstream.urn,
+                )
+            )
+
+    def _report_fabric_endpoint_shape_unsupported(
+        self, server: str, reason: str
+    ) -> None:
+        self.reporter.fabric_endpoint_m_shapes_unsupported += 1
+        self.reporter.warning(
+            title="Fabric Endpoint M Shape Unsupported",
+            message="A query reads a Fabric SQL analytics endpoint in a shape the connector cannot map to a OneLake table; the table keeps a generic mssql upstream (or none) instead.",
+            context=f"table={self.table.full_name}, server={server}, reason={reason}",
+        )
 
 
 class MSSqlMultiDatabaseLineage(AbstractLineage):
@@ -1891,6 +1954,14 @@ class MSSqlMultiDatabaseLineage(AbstractLineage):
         if server is None:
             logger.debug("Server not found in MSSQL Sql.Databases data access function")
             return Lineage.empty()
+        if is_fabric_sql_endpoint_host(server):
+            # Sql.Databases(host){[Name=...]} is not mapped to OneLake yet.
+            self.reporter.fabric_endpoint_m_shapes_unsupported += 1
+            self.reporter.warning(
+                title="Fabric Endpoint M Shape Unsupported",
+                message="A Sql.Databases navigation reads a Fabric SQL analytics endpoint; only Sql.Database queries are mapped to OneLake tables, so this table keeps a generic mssql upstream.",
+                context=f"table={self.table.full_name}, server={server}",
+            )
 
         # Second is database name
         db_name: str = accessor.items["Name"]

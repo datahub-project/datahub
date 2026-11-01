@@ -450,14 +450,20 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # warehouse is its own endpoint, a lakehouse's comes from its properties.
     fabric_warehouse_endpoints_registered: int = 0
     fabric_lakehouse_endpoints_registered: int = 0
-    # Endpoints whose backing item could not be determined (lakehouse
-    # properties refused, or a Sql.Database query naming an endpoint that is
-    # not among the workspace's items); the affected tables lose only the
-    # OneLake edge.
-    fabric_endpoints_unresolved: int = 0
+    # Lakehouses whose properties call failed, so their endpoint is unknown;
+    # DirectLake tables over them lose only the OneLake edge.
+    fabric_lakehouse_endpoints_unresolved: int = 0
     # Distinct (table, endpoint, schema, table name) Sql.Database references
-    # swapped for OneLake edges, not per emission.
+    # over a Fabric endpoint host, not per emission: swapped for OneLake
+    # edges, naming an endpoint that is not among the workspace's items
+    # (mssql edge kept), or naming a display name shared by several items.
     fabric_endpoint_references_resolved: int = 0
+    fabric_endpoint_references_unresolved: int = 0
+    fabric_endpoint_references_ambiguous: int = 0
+    # Fabric endpoint queries in a shape not mapped to OneLake (Sql.Databases
+    # navigation, a navigation without Item, an unqualified native-query
+    # table); per table.
+    fabric_endpoint_m_shapes_unsupported: int = 0
     tmdl_tables_parsed: int = 0
     tmdl_parts_failed: int = 0
     tmdl_parts_incomplete: int = 0

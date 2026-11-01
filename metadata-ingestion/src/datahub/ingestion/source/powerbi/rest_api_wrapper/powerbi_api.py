@@ -1587,7 +1587,7 @@ class PowerBiAPI:
             self.log_http_error(
                 message=f"Unable to fetch lakehouse {item.id} properties"
             )
-            self.reporter.fabric_endpoints_unresolved += 1
+            self.reporter.fabric_lakehouse_endpoints_unresolved += 1
             self.reporter.warning(
                 title="Fabric Endpoint Not Resolved",
                 message="Lakehouse properties could not be fetched, so its SQL analytics endpoint is unknown; DirectLake tables and Sql.Database queries over it will have no OneLake lineage.",
