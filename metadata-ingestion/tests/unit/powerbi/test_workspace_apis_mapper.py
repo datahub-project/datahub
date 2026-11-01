@@ -29,6 +29,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     PowerBIDataset,
     RefreshPolicy,
     Relationship,
+    RemoteModelReference,
     Report,
     ReportType,
     RlsTableFilter,
@@ -69,13 +70,22 @@ def _config(**overrides: Any) -> PowerBiDashboardSourceConfig:
     return PowerBiDashboardSourceConfig.model_validate(base)
 
 
-def _mapper(config: Optional[PowerBiDashboardSourceConfig] = None) -> Mapper:
+def _mapper(
+    config: Optional[PowerBiDashboardSourceConfig] = None,
+    remote_models: Optional[Dict[str, PowerBIDataset]] = None,
+) -> Mapper:
+    """`remote_models` maps "workspace/model" to the dataset a composite
+    model's connection resolves to, standing in for PowerBiAPI's index."""
     config = config or _config()
+    index = remote_models or {}
     return Mapper(
         ctx=MagicMock(),
         config=config,
         reporter=PowerBiDashboardSourceReport(),
         dataplatform_instance_resolver=create_dataplatform_instance_resolver(config),
+        remote_model_lookup=lambda reference: index.get(
+            f"{reference.workspace_name}/{reference.model_name}"
+        ),
     )
 
 
@@ -883,3 +893,160 @@ def test_model_properties_absent_without_the_flag_or_properties() -> None:
     _dataset([plain])
     assert _dataset_properties(on, plain) == {"datasetId": "ds-1"}
     assert on.to_datahub_schema(plain).fields[0].jsonProps is None
+# --- composite models ---------------------------------------------------------
+
+SOURCE_WORKSPACE = "demo-workspace"
+SOURCE_MODEL = "Insurance Model"
+
+
+def _source_model() -> PowerBIDataset:
+    policies = Table(
+        name="Policies",
+        full_name="Insurance_Model.Policies",
+        expression="let ...",
+        columns=[_column("PolicyId"), _column("WrittenPremium")],
+    )
+    dataset = PowerBIDataset(
+        id="ds-source",
+        name=SOURCE_MODEL,
+        description="",
+        webUrl=None,
+        workspace_id="ws-source",
+        workspace_name=SOURCE_WORKSPACE,
+        parameters={},
+        tables=[policies],
+        tags=[],
+    )
+    policies.dataset = dataset
+    return dataset
+
+
+def _remote_table(name: str = "Policies", remote_name: str = "Policies") -> Table:
+    table = Table(
+        name=name,
+        full_name=f"Exec_Model.{name}",
+        columns=[
+            _column("PolicyId"),
+            _column("Band"),
+        ],
+        storage_mode=Constant.DIRECT_QUERY,
+        remote_model=RemoteModelReference(SOURCE_WORKSPACE, SOURCE_MODEL),
+        remote_table_name=remote_name,
+    )
+    assert table.columns is not None
+    # A column calculated on the remote table is local DAX, not mirrored.
+    table.columns[0].columnType = Constant.COLUMN_TYPE_DATA
+    table.columns[1].columnType = Constant.COLUMN_TYPE_CALCULATED
+    return table
+
+
+def test_composite_model_lineage_is_off_by_default() -> None:
+    mapper = _mapper(
+        remote_models={f"{SOURCE_WORKSPACE}/{SOURCE_MODEL}": _source_model()}
+    )
+    table = _remote_table()
+    _dataset([table])
+
+    assert _extract(mapper, table) is None
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.composite_model_tables_linked == 0
+    assert reporter.warnings == []
+
+
+def test_composite_model_remote_table_links_to_the_ingested_source_table() -> None:
+    source = _source_model()
+    mapper = _mapper(
+        _config(extract_composite_model_lineage=True),
+        remote_models={f"{SOURCE_WORKSPACE}/{SOURCE_MODEL}": source},
+    )
+    table = _remote_table()
+    _dataset([table])
+    table_urn = _urn(mapper, table)
+    source_urn = _urn(mapper, source.tables[0])
+
+    aspect = _extract(mapper, table)
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [source_urn]
+    assert aspect.fineGrainedLineages is not None
+    # Only the mirrored data column gets an edge; the calculated one does not.
+    assert [(e.downstreams, e.upstreams) for e in aspect.fineGrainedLineages] == [
+        (
+            [f"urn:li:schemaField:({table_urn},PolicyId)"],
+            [f"urn:li:schemaField:({source_urn},PolicyId)"],
+        )
+    ]
+
+    # Mapping the dataset twice (workspace, then report) counts once.
+    _extract(mapper, table)
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.composite_model_sources_resolved == 1
+    assert reporter.composite_model_tables_linked == 1
+    assert reporter.composite_model_sources_not_ingested == 0
+    assert reporter.warnings == []
+
+
+def test_composite_model_source_not_ingested_warns_and_emits_no_edge() -> None:
+    mapper = _mapper(_config(extract_composite_model_lineage=True))
+    table = _remote_table()
+    _dataset([table])
+
+    assert _extract(mapper, table) is None
+    _extract(mapper, table)
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.composite_model_sources_not_ingested == 1
+    assert reporter.composite_model_sources_resolved == 0
+    assert reporter.composite_model_tables_linked == 0
+    assert [w.title for w in reporter.warnings] == [
+        Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED
+    ]
+    assert any(
+        f"model={SOURCE_MODEL}, table=Policies" in context
+        for context in reporter.warnings[0].context or []
+    )
+
+
+def test_composite_model_source_table_missing_warns_and_emits_no_edge() -> None:
+    mapper = _mapper(
+        _config(extract_composite_model_lineage=True),
+        remote_models={f"{SOURCE_WORKSPACE}/{SOURCE_MODEL}": _source_model()},
+    )
+    table = _remote_table(name="Regions", remote_name="Regions")
+    _dataset([table])
+
+    assert _extract(mapper, table) is None
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.composite_model_sources_resolved == 1
+    assert reporter.composite_model_sources_not_ingested == 1
+    assert reporter.composite_model_tables_linked == 0
+    assert [w.title for w in reporter.warnings] == [
+        Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED
+    ]
+
+
+def test_measure_on_a_remote_table_chains_through_the_composite_lineage() -> None:
+    # A local measure reading the remote table's mirrored column keeps its
+    # model-internal edge next to the composite edge on the same aspect.
+    source = _source_model()
+    mapper = _mapper(
+        _config(extract_composite_model_lineage=True),
+        remote_models={f"{SOURCE_WORKSPACE}/{SOURCE_MODEL}": source},
+    )
+    table = _remote_table()
+    kpis = Table(
+        name="KPIs",
+        full_name="Exec_Model.KPIs",
+        columns=[],
+        measures=[
+            Measure(
+                name="Policies Count",
+                expression="COUNTROWS('Policies')",
+                isHidden=False,
+                references=[DaxFieldReference("Policies", "PolicyId")],
+            )
+        ],
+    )
+    _dataset([table, kpis])
+
+    aspect = _extract(mapper, kpis)
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [_urn(mapper, table)]

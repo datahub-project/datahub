@@ -355,11 +355,21 @@ class Mapper:
         config: PowerBiDashboardSourceConfig,
         reporter: PowerBiDashboardSourceReport,
         dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver,
+        remote_model_lookup: Optional[
+            Callable[
+                [powerbi_data_classes.RemoteModelReference],
+                Optional[powerbi_data_classes.PowerBIDataset],
+            ]
+        ] = None,
     ):
         self.__ctx = ctx
         self.__config = config
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
+        # Resolves a composite model's source model against the datasets
+        # ingested this run (PowerBiAPI.find_remote_model); None resolves
+        # nothing, so no edge is ever emitted without it.
+        self.__remote_model_lookup = remote_model_lookup
         self.workspace_key: Optional[ContainerKey] = None
 
     @staticmethod
@@ -731,6 +741,7 @@ class Mapper:
                     )
                 )
 
+        self._add_composite_model_lineage(table, ds_urn, upstream, cll_lineage)
         self._add_model_internal_lineage(table, ds_urn, upstream, cll_lineage)
 
         # Fine-grained edges between fields of this same dataset (a calculated
@@ -850,6 +861,106 @@ class Mapper:
             self._add_field_set_lineage(
                 cll_lineage, ds_urn, column.name, upstream_fields
             )
+
+    def _add_composite_model_lineage(
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        upstream: List[UpstreamClass],
+        cll_lineage: List[FineGrainedLineage],
+    ) -> None:
+        """A composite model's remote table reads one table of another
+        semantic model: that table becomes the coarse upstream and each
+        column the remote table mirrors gets a column-level edge. Only a
+        source model and table ingested this run are linked; anything else
+        is reported and gets no edge, so lineage never points at a dataset
+        URN nothing emits. Columns calculated on the remote table are local
+        DAX and are left to the DAX lineage."""
+        reference = table.remote_model
+        if reference is None or not self.__config.extract_composite_model_lineage:
+            return
+        remote_table_name = table.remote_table_name or table.name
+        source_table = self._resolve_remote_table(table, reference, remote_table_name)
+        if source_table is None:
+            return
+
+        source_urn = self.make_dataset_urn_for_table(source_table)
+        if source_urn == ds_urn:
+            return
+        if source_urn not in {u.dataset for u in upstream}:
+            upstream.append(
+                UpstreamClass(source_urn, DatasetLineageTypeClass.TRANSFORMED)
+            )
+        if self._composite_outcome_first_seen(f"table:{table.full_name}"):
+            self.__reporter.composite_model_tables_linked += 1
+
+        if not self.__config.extract_column_level_lineage:
+            return
+        source_columns = {c.name.casefold(): c.name for c in source_table.columns or []}
+        for column in table.columns or []:
+            if column.columnType == Constant.COLUMN_TYPE_CALCULATED:
+                continue
+            source_column = source_columns.get(column.name.casefold())
+            if source_column is None:
+                continue
+            self._add_field_set_lineage(
+                cll_lineage,
+                ds_urn,
+                column.name,
+                [builder.make_schema_field_urn(source_urn, source_column)],
+            )
+
+    def _resolve_remote_table(
+        self,
+        table: powerbi_data_classes.Table,
+        reference: powerbi_data_classes.RemoteModelReference,
+        remote_table_name: str,
+    ) -> Optional[powerbi_data_classes.Table]:
+        """The ingested source table of a remote table, or None (reported
+        once per source model / remote table)."""
+        owner = table.dataset.id if table.dataset is not None else table.full_name
+        model_key = f"model:{owner}:{reference.workspace_name}/{reference.model_name}"
+        source = (
+            self.__remote_model_lookup(reference)
+            if self.__remote_model_lookup is not None
+            else None
+        )
+        if source is None:
+            if self._composite_outcome_first_seen(model_key):
+                self.__reporter.composite_model_sources_not_ingested += 1
+                self.__reporter.warning(
+                    title=Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED,
+                    message="A composite model reads a semantic model that was not ingested in this run; its remote tables get no lineage. Include the source model's workspace in the workspace pattern and make sure the principal can read it.",
+                    context=f"{table.full_name} -> workspace={reference.workspace_name}, model={reference.model_name}, table={remote_table_name}",
+                )
+            return None
+        if self._composite_outcome_first_seen(model_key):
+            self.__reporter.composite_model_sources_resolved += 1
+        source_table = next(
+            (
+                t
+                for t in source.tables
+                if t.name.casefold() == remote_table_name.casefold()
+            ),
+            None,
+        )
+        if source_table is None and self._composite_outcome_first_seen(
+            f"table:{table.full_name}"
+        ):
+            self.__reporter.composite_model_sources_not_ingested += 1
+            self.__reporter.warning(
+                title=Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED,
+                message="A composite model's remote table has no table of that name in the ingested source model (renamed, removed, or its definition did not parse); it gets no lineage.",
+                context=f"{table.full_name} -> workspace={reference.workspace_name}, model={reference.model_name}, table={remote_table_name}",
+            )
+        return source_table
+
+    def _composite_outcome_first_seen(self, key: str) -> bool:
+        seen = self.__reporter._composite_model_outcomes_seen
+        if key in seen:
+            return False
+        seen.add(key)
+        return True
 
     @staticmethod
     def _add_field_set_lineage(
@@ -2374,7 +2485,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             # unwanted stacktrace on console
 
         self.mapper = Mapper(
-            ctx, config, self.reporter, self.dataplatform_instance_resolver
+            ctx,
+            config,
+            self.reporter,
+            self.dataplatform_instance_resolver,
+            remote_model_lookup=self.powerbi_client.find_remote_model,
         )
 
         # Log info if user has opted-in to user creation (may overwrite LDAP/Okta users)

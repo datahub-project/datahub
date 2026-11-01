@@ -339,6 +339,17 @@ class DatasetRefresh:
     end_time: Optional[str]
 
 
+@dataclass(frozen=True)
+class RemoteModelReference:
+    """Another Power BI semantic model that a composite model reads through a
+    `DirectQuery to AS` shared expression: named by workspace and model, and
+    by dataset id when the expression carries one."""
+
+    workspace_name: str
+    model_name: str
+    dataset_id: Optional[str] = None
+
+
 @dataclass
 class Table:
     name: str
@@ -367,6 +378,11 @@ class Table:
     partition_count: Optional[int] = None
     refresh_policy: Optional[RefreshPolicy] = None
     rls_filters: List[RlsTableFilter] = field(default_factory=list)
+    # A composite model's remote table (TMDL `partition ... = entity` with
+    # `mode: directQuery` over a `DirectQuery to AS` expression): the semantic
+    # model it reads and the table's name in that model. workspace_apis only.
+    remote_model: Optional["RemoteModelReference"] = None
+    remote_table_name: Optional[str] = None
 
 
 @dataclass

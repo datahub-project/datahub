@@ -207,6 +207,7 @@ class Constant:
     TRUE_VALUE = "true"
     TMDL_ROLE_NOT_PARSED = "TMDL Role Not Parsed"
     RLS_FILTER_TABLE_NOT_FOUND = "RLS Filter Table Not Found"
+    DIRECT_QUERY = "DirectQuery"
 
     # workspace_apis mode: regular-API endpoints and refresh-history keys
     DATASET_REFRESHES = "DATASET_REFRESHES"
@@ -224,6 +225,7 @@ class Constant:
     COLUMN_TYPE_DATA = "Data"
     COLUMN_TYPE_CALCULATED = "Calculated"
     DAX_REFERENCE_NOT_RESOLVED = "DAX Reference Not Resolved"
+    COMPOSITE_MODEL_SOURCE_NOT_INGESTED = "Composite Model Source Not Ingested"
     NULL_DATA_TYPE = "Null"
 
 
@@ -399,6 +401,14 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     _dax_references_seen: Set[Tuple[str, str, str]] = dataclass_field(
         default_factory=set
     )
+    # Composite models (extract_composite_model_lineage): remote semantic
+    # models that were / were not ingested this run, and remote tables that
+    # received an edge to their source table. Each is counted once, however
+    # many times its dataset is mapped.
+    composite_model_sources_resolved: int = 0
+    composite_model_sources_not_ingested: int = 0
+    composite_model_tables_linked: int = 0
+    _composite_model_outcomes_seen: Set[str] = dataclass_field(default_factory=set)
     # Native-SQL column lineage whose output column is not a source column
     # of the Power BI table (calculated column, or a column the model dropped).
     cll_dropped_not_a_source_column: int = 0
@@ -1042,6 +1052,19 @@ class PowerBiDashboardSourceConfig(
         "`private`. Role members are never ingested. Requires "
         "`metadata_api_mode: workspace_apis` and `extract_dataset_schema`.",
     )
+    extract_composite_model_lineage: bool = pydantic.Field(
+        default=False,
+        description="Link the remote tables of a composite model (one that uses "
+        "'DirectQuery to Power BI semantic model') to the tables of the semantic "
+        "model they read: table-level lineage to the source table and column-level "
+        "lineage for each column the remote table mirrors. The source model is matched "
+        "by dataset id when the connection carries one, else by workspace and model "
+        "name, and only against the semantic models ingested in this run, so its "
+        "workspace must be in the workspace pattern and readable by the principal; a "
+        "source that was not ingested is reported as `Composite Model Source Not "
+        "Ingested` and gets no edge. Requires `metadata_api_mode: workspace_apis` and "
+        "`extract_lineage`.",
+    )
     extract_refresh_history: bool = pydantic.Field(
         default=False,
         description="Fetch each dataset's most recent refresh and emit it as an Operation "
@@ -1148,6 +1171,7 @@ class PowerBiDashboardSourceConfig(
             ),
             ("extract_dax_reference_lineage", ("extract_column_level_lineage",)),
             ("extract_model_properties", ("extract_dataset_schema",)),
+            ("extract_composite_model_lineage", ("extract_lineage",)),
         ):
             if not getattr(self, flag):
                 continue

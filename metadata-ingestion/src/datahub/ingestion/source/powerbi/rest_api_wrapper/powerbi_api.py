@@ -26,6 +26,10 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiMetadataApiMode,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper import data_resolver
+from datahub.ingestion.source.powerbi.rest_api_wrapper.composite_model import (
+    remote_model_key,
+    remote_models_from_expressions,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FABRIC_ARTIFACT_LAKEHOUSE,
     FABRIC_ARTIFACT_SQL_ANALYTICS_ENDPOINT,
@@ -39,6 +43,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FabricArtifact,
     Measure,
     PowerBIDataset,
+    RemoteModelReference,
     Report,
     ReportType,
     RlsTableFilter,
@@ -84,6 +89,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
     ParsedColumn,
     ParsedMeasure,
     ParsedModel,
+    ParsedPartition,
     ParsedTable,
     parse_semantic_model,
 )
@@ -234,9 +240,33 @@ class PowerBiAPI:
             shared_connection=self._file_backed_conn,
             tablename="dataset_registry",
         )
+        # A composite model names its source model by workspace and model
+        # name, not by id. Keyed by remote_model_key; same snapshot semantics
+        # as dataset_registry. Built in Phase 1 of workspace_apis mode.
+        self.datasets_by_workspace_and_name: MutableMapping[str, PowerBIDataset] = (
+            FileBackedDict(
+                shared_connection=self._file_backed_conn,
+                tablename="datasets_by_workspace_and_name",
+            )
+        )
 
     def close(self) -> None:
         self._file_backed_conn.close()
+
+    def find_remote_model(
+        self, reference: RemoteModelReference
+    ) -> Optional[PowerBIDataset]:
+        """The ingested dataset a composite model's connection points at, or
+        None. A dataset id in the connection is authoritative: when it is not
+        in the registry the name is not tried, because a model of the same
+        name could be a different (recreated) dataset."""
+        if reference.dataset_id:
+            return self.dataset_registry.get(
+                reference.dataset_id
+            ) or self.dataset_registry.get(reference.dataset_id.lower())
+        return self.datasets_by_workspace_and_name.get(
+            remote_model_key(reference.workspace_name, reference.model_name)
+        )
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)
@@ -1193,33 +1223,52 @@ class PowerBiAPI:
             )
             return None
 
+    @staticmethod
+    def _entity_partition_source(
+        table: Table,
+        partition: ParsedPartition,
+        remote_models: Dict[str, RemoteModelReference],
+    ) -> None:
+        """An `entity` partition is either DirectLake over a Fabric SQL
+        endpoint or, in a composite model, a DirectQuery table of another
+        semantic model; the shared expression it names tells which."""
+        remote = (
+            remote_models.get(partition.expression_source)
+            if partition.expression_source
+            else None
+        )
+        if remote is not None:
+            table.storage_mode = Constant.DIRECT_QUERY
+            table.remote_model = remote
+            table.remote_table_name = partition.entity_name or table.name
+            return
+        table.storage_mode = Constant.DIRECT_LAKE
+        table.source_schema = partition.schema_name
+        table.source_expression = partition.entity_name
+
     def _table_from_parsed(
         self,
         workspace: Workspace,
         dataset: PowerBIDataset,
         dataset_name: str,
         parsed_table: ParsedTable,
+        remote_models: Optional[Dict[str, RemoteModelReference]] = None,
     ) -> Table:
         partition = parsed_table.partition
         expression: Optional[str] = None
         calculated_expression: Optional[str] = None
         storage_mode: Optional[str] = None
-        source_schema: Optional[str] = None
-        source_expression: Optional[str] = None
         if partition is not None:
             if partition.kind == PARTITION_KIND_M:
                 expression = partition.source
             elif partition.kind == PARTITION_KIND_CALCULATED:
                 calculated_expression = partition.source
-            elif partition.kind == PARTITION_KIND_ENTITY:
-                source_schema = partition.schema_name
-                source_expression = partition.entity_name
             # `query` partitions hold native SQL, which the M parser cannot
             # consume; the table is emitted without an expression or lineage.
-            if partition.kind == PARTITION_KIND_ENTITY:
-                storage_mode = Constant.DIRECT_LAKE
-            elif (
-                partition.mode is not None
+            # `entity` partitions are classified below, once the Table exists.
+            if (
+                partition.kind != PARTITION_KIND_ENTITY
+                and partition.mode is not None
                 and partition.mode != PARTITION_MODE_DIRECT_LAKE
             ):
                 storage_mode = PARTITION_MODE_TO_STORAGE_MODE.get(
@@ -1230,7 +1279,7 @@ class PowerBiAPI:
         measures = [
             self._measure_from_parsed(measure) for measure in parsed_table.measures
         ]
-        return Table(
+        table = Table(
             name=parsed_table.name,
             full_name=form_full_table_name(
                 config=self.__config,
@@ -1245,13 +1294,14 @@ class PowerBiAPI:
             row_count=None,
             column_count=None,
             storage_mode=storage_mode,
-            source_schema=source_schema,
-            source_expression=source_expression,
             calculated_expression=calculated_expression,
             description=parsed_table.description,
             partition_count=parsed_table.partition_count,
             refresh_policy=parsed_table.refresh_policy,
         )
+        if partition is not None and partition.kind == PARTITION_KIND_ENTITY:
+            self._entity_partition_source(table, partition, remote_models or {})
+        return table
 
     @staticmethod
     def _column_from_parsed(column: ParsedColumn) -> Column:
@@ -1393,9 +1443,15 @@ class PowerBiAPI:
             parsed_model
         )
         dataset_name = dataset.name if dataset.name is not None else dataset.id
+        remote_models = remote_models_from_expressions(
+            {
+                name: shared.expression
+                for name, shared in parsed_model.shared_expressions.items()
+            }
+        )
         for parsed_table in parsed_model.tables:
             table = self._table_from_parsed(
-                workspace, dataset, dataset_name, parsed_table
+                workspace, dataset, dataset_name, parsed_table, remote_models
             )
             if self.__config.profiling.enabled:
                 self.__regular_api_resolver.profile_dataset(
@@ -1478,6 +1534,13 @@ class PowerBiAPI:
                 continue
             workspace.datasets[dataset.id] = dataset
         self.dataset_registry.update(workspace.datasets)
+        self.datasets_by_workspace_and_name.update(
+            {
+                remote_model_key(workspace.name, dataset.name): dataset
+                for dataset in workspace.datasets.values()
+                if dataset.name
+            }
+        )
 
     def fill_metadata_from_definitions(self, workspaces: List[Workspace]) -> Set[str]:
         """workspace_apis-mode counterpart of fill_metadata_from_scan_result.

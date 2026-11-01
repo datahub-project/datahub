@@ -15,6 +15,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     PowerBIDataset,
     RefreshPolicy,
+    RemoteModelReference,
     Report,
     ReportType,
     Workspace,
@@ -51,6 +52,30 @@ TABLE_TMDL = """table Policies
 \t\t\t\t    Source = Snowflake.Databases("my-account.snowflakecomputing.com","WH")
 \t\t\t\tin
 \t\t\t\t    Source
+"""
+
+
+COMPOSITE_TABLE_TMDL = """table Policies
+
+\tcolumn PolicyId
+\t\tdataType: int64
+\t\tsourceColumn: PolicyId
+
+\tpartition Policies = entity
+\t\tmode: directQuery
+\t\tsource
+\t\t\tentityName: Policies
+\t\t\texpressionSource: 'DirectQuery to AS - Insurance Model'
+"""
+
+COMPOSITE_EXPRESSIONS_TMDL = """expression 'DirectQuery to AS - Insurance Model' =
+\t\tlet
+\t\t    Source = AnalysisServices.Database("powerbi://api.powerbi.com/v1.0/myorg/demo-workspace", "Insurance Model"),
+\t\t    Cubes = Table.Combine(Source[Data]),
+\t\t    Cube = Cubes{[Id="Model"]}[Data]
+\t\tin
+\t\t    Cube
+\tlineageTag: 00000020-1111-4222-8333-000000000020
 """
 
 
@@ -110,6 +135,7 @@ def _api(
     api._PowerBiAPI__config = config or _config()  # type: ignore[attr-defined]
     api.reporter = PowerBiDashboardSourceReport()
     api.dataset_registry = {}
+    api.datasets_by_workspace_and_name = {}
     api.log_http_error = MagicMock()  # type: ignore[method-assign]
     api._PowerBiAPI__workspace_users = {}  # type: ignore[attr-defined]
 
@@ -274,6 +300,73 @@ def test_unparsed_table_part_is_a_failure_but_other_parts_only_warn() -> None:
     assert [f.title for f in api.reporter.failures] == ["TMDL Table Not Parsed"]
     # The model keeps the tables that did parse.
     assert [t.name for t in workspace.datasets[MODEL_B].tables] == ["Policies"]
+
+
+def test_datasets_are_indexed_by_workspace_and_name_for_composite_models() -> None:
+    api = _api(
+        datasets=[
+            {"id": MODEL_A, "name": "Insurance Model"},
+            {"id": MODEL_B, "name": "Other Model"},
+        ],
+        definitions={MODEL_A: _definition(), MODEL_B: _definition()},
+    )
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+
+    assert set(api.datasets_by_workspace_and_name) == {
+        "demo-workspace/insurance model",
+        "demo-workspace/other model",
+    }
+    # Names resolve case-insensitively; an id is authoritative and never
+    # falls back to the name.
+    found = api.find_remote_model(
+        RemoteModelReference("Demo-Workspace", "insurance MODEL")
+    )
+    assert found is not None and found.id == MODEL_A
+    assert (
+        api.find_remote_model(RemoteModelReference("elsewhere", "Insurance Model"))
+        is None
+    )
+    by_id = api.find_remote_model(
+        RemoteModelReference("elsewhere", "Renamed", dataset_id=MODEL_B)
+    )
+    assert by_id is not None and by_id.id == MODEL_B
+    assert (
+        api.find_remote_model(
+            RemoteModelReference(
+                "demo-workspace", "Insurance Model", dataset_id="not-ingested"
+            )
+        )
+        is None
+    )
+
+
+def test_composite_model_remote_table_is_classified_from_its_expression() -> None:
+    composite = ItemDefinition(
+        format="TMDL",
+        parts=[
+            DefinitionPart("definition/expressions.tmdl", COMPOSITE_EXPRESSIONS_TMDL),
+            DefinitionPart("definition/tables/Policies.tmdl", COMPOSITE_TABLE_TMDL),
+        ],
+    )
+    api = _api(
+        datasets=[{"id": MODEL_B, "name": "Exec Composite Model"}],
+        definitions={MODEL_B: composite},
+    )
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+
+    table = workspace.datasets[MODEL_B].tables[0]
+    assert table.storage_mode == "DirectQuery"
+    assert table.remote_model == RemoteModelReference(
+        workspace_name="demo-workspace", model_name="Insurance Model"
+    )
+    assert table.remote_table_name == "Policies"
+    # Not DirectLake: no OneLake lineage inputs are set for it.
+    assert table.source_expression is None
+    assert workspace.datasets[MODEL_B].dependent_on_artifact_id is None
 
 
 def test_fabric_item_listing_failure_keeps_datasets() -> None:
