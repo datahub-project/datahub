@@ -12,7 +12,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entitytype.EntityTypeInfo;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import java.util.Map;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -22,12 +22,12 @@ public class EntityTypeEntityMapperTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test

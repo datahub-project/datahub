@@ -19,7 +19,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
@@ -52,12 +52,12 @@ public class InvalidEnumCheckTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @BeforeMethod
@@ -159,7 +159,7 @@ public class InvalidEnumCheckTest {
     assertEquals(issues.size(), 1);
     assertEquals(issues.get(0).getEntityUrn(), atOlder);
 
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     try {
       assertEquals(
           check
@@ -168,7 +168,7 @@ public class InvalidEnumCheckTest {
           1,
           "Without tolerance an invalid enum is reported as before");
     } finally {
-      UnknownDataHandlings.reset();
+      UnknownDataHandlingsForTests.reset();
     }
   }
 

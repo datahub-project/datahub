@@ -24,7 +24,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -49,12 +49,12 @@ public class PolicyInfoPolicyMapperTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   private static DataHubPolicyInfo policyInfo(final String type, final String state) {
@@ -154,13 +154,13 @@ public class PolicyInfoPolicyMapperTest {
 
   @Test
   public void testStrictHandlingFailsOnMatchConditionFromNewerVersion() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     try {
       final DataHubPolicyInfo info = policyWithCondition("CONDITION_FROM_NEWER_BUILD");
       assertFalse(PolicyInfoPolicyMapper.isUnrepresentable(info, "urn:li:dataHubPolicy:x"));
       expectThrows(IllegalArgumentException.class, () -> PolicyInfoPolicyMapper.map(null, info));
     } finally {
-      UnknownDataHandlings.reset();
+      UnknownDataHandlingsForTests.reset();
     }
   }
 }

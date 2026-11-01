@@ -6,7 +6,7 @@ import com.datahub.test.TestEntityProfile;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -18,12 +18,12 @@ public class EntityRegistrySafeLookupTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @BeforeClass

@@ -37,7 +37,7 @@ import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import java.util.Collections;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -47,7 +47,7 @@ public class IncidentMapperTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @Test
@@ -357,19 +357,19 @@ public class IncidentMapperTest {
 
     assertNull(IncidentMapper.map(null, entityResponse).getSource());
 
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     expectThrows(IllegalArgumentException.class, () -> IncidentMapper.map(null, entityResponse));
   }
 
   @AfterMethod
   public void resetHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
   public void testStrictMapsFirstEntityAsBefore() throws Exception {
     // Without tolerance the first linked entity is used even if GraphQL can't map it.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     EntityResponse entityResponse = createBaseEntityResponse();
     EnvelopedAspect incidentAspect =
         entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);
@@ -389,7 +389,7 @@ public class IncidentMapperTest {
 
   @Test
   public void testStrictFailsOnUnknownState() throws Exception {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     EntityResponse entityResponse = createBaseEntityResponse();
     EnvelopedAspect incidentAspect =
         entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME);

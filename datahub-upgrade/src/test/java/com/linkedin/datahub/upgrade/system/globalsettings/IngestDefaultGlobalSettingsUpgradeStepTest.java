@@ -18,7 +18,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -36,7 +36,7 @@ public class IngestDefaultGlobalSettingsUpgradeStepTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeMethod
@@ -47,7 +47,7 @@ public class IngestDefaultGlobalSettingsUpgradeStepTest {
 
   @AfterMethod
   public void tearDown() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -143,7 +143,7 @@ public class IngestDefaultGlobalSettingsUpgradeStepTest {
   @Test
   public void testStrictHandlingWritesEvenWhenStoredSettingsHaveEveryDefault() {
     // Without tolerance the defaults are always merged and ingested, as before.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     GlobalSettingsInfo stored = new GlobalSettingsInfo();
     stored.data().put("views", new DataMap());
     when(mockEntityService.getAspect(any(), any(), any(), eq(0L))).thenReturn(stored);
@@ -156,7 +156,7 @@ public class IngestDefaultGlobalSettingsUpgradeStepTest {
   public void testStrictHandlingFailsOnValidationFailureOfSettingsFromANewerVersion() {
     // Without tolerance any validation failure fails the step, and the stored aspect is not read
     // again to attribute it.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     givenStoredSettingsWithSchemaVersion(2L, 1L);
     when(mockEntityService.ingestProposal(any(), any(), any(), eq(false)))
         .thenThrow(new ValidationException("unknown enum symbol"));

@@ -33,7 +33,7 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestionArray;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -88,12 +88,12 @@ public class PolicyWithUnknownConditionExecutionTest {
 
   @BeforeMethod
   public void tolerateUnknownData() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -135,7 +135,7 @@ public class PolicyWithUnknownConditionExecutionTest {
   public void testSearchAndScrollWithOnlyUnknownEnumsTolerated() throws Exception {
     // The loader leaves these policies out whenever unknown enum values are tolerated, so search
     // must too, even while unknown entity types aren't.
-    UnknownDataHandlings.use(TolerantHandling.of(false, true, entityType -> true));
+    UnknownDataHandlingsForTests.use(TolerantHandling.of(false, true, entityType -> true));
 
     assertOnlyKnownPolicy(execute(SEARCH), "searchAcrossEntities");
     assertOnlyKnownPolicy(execute(SCROLL), "scrollAcrossEntities");

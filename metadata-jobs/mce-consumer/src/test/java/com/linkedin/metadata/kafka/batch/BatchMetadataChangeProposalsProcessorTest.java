@@ -48,7 +48,7 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -134,12 +134,12 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @BeforeMethod
@@ -440,11 +440,11 @@ public class BatchMetadataChangeProposalsProcessorTest {
     malformed.data().put("entityUrn", "not-a-urn");
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(known);
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(malformed);
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     try {
       processor.consume(List.of(mockConsumerRecord1, mockConsumerRecord2));
     } finally {
-      UnknownDataHandlings.reset();
+      UnknownDataHandlingsForTests.reset();
     }
 
     // As before tolerance: the batch fails as a whole and goes to the failure topic.
@@ -468,7 +468,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
   @Test
   public void testIngestionFailure() throws Exception {
     // Behavior with tolerance off; the class default tolerates unknown data.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     // Disable inner batching
     when(mockProvider.getMetadataChangeProposal())
         .thenReturn(
@@ -1292,7 +1292,7 @@ public class BatchMetadataChangeProposalsProcessorTest {
   @Test
   public void testValidationFailureDeadLettersOnlyTheRejectedProposal() throws Exception {
     // Behavior with tolerance off; the class default tolerates unknown data.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     MetadataChangeProposal rejected = statusMcp("second").setAspectName("notAnAspect");
     threeProposalsInGroupsOfTwo(rejected);
     ArgumentCaptor<AspectsBatch> written = ArgumentCaptor.forClass(AspectsBatch.class);

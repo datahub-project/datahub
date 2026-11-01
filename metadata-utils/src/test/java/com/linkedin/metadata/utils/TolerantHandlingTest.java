@@ -37,7 +37,7 @@ public class TolerantHandlingTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeMethod
@@ -57,7 +57,7 @@ public class TolerantHandlingTest {
 
   @AfterMethod
   public void tearDown() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -120,14 +120,14 @@ public class TolerantHandlingTest {
   public void testProcessDefaultsToStrictAndCanBeSwitched() {
     // Strict until the flags are applied, the same as their default, so a process that never
     // applies them behaves as before this tolerance existed.
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
     assertSame(UnknownDataHandlings.handling(), StrictHandling.INSTANCE);
     UnknownDataHandling other = mock(UnknownDataHandling.class);
 
-    UnknownDataHandlings.use(other);
+    UnknownDataHandlingsForTests.use(other);
     assertSame(UnknownDataHandlings.handling(), other);
 
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
     assertSame(UnknownDataHandlings.handling(), StrictHandling.INSTANCE);
   }
 

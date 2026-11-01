@@ -49,7 +49,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -84,7 +84,7 @@ public class CriterionFilterAspectsBlockingStepTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeMethod
@@ -101,7 +101,7 @@ public class CriterionFilterAspectsBlockingStepTest {
 
   @AfterMethod
   public void tearDown() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
     if (entityUtilsMock != null) {
       entityUtilsMock.close();
       entityUtilsMock = null;
@@ -484,7 +484,7 @@ public class CriterionFilterAspectsBlockingStepTest {
   @Test
   public void testStrictHandlingFailsOnStoredValueFromNewerVersion() {
     // Without tolerance a stored value that fails validation fails the step, as before.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     com.linkedin.common.Deprecation deprecation =
         new com.linkedin.common.Deprecation()
             .setDeprecated(true)

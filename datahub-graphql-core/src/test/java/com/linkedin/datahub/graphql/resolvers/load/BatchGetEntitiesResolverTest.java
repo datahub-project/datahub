@@ -13,7 +13,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Arrays;
 import java.util.List;
@@ -35,7 +35,7 @@ public class BatchGetEntitiesResolverTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeMethod
@@ -168,13 +168,13 @@ public class BatchGetEntitiesResolverTest {
 
   @AfterMethod
   public void resetHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
   /** Tests that without tolerance a null placeholder fails the batch, as before. */
   public void testStrictNullPlaceholderFailsBatch() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     Function entityProvider = mock(Function.class);
     List<Entity> inputEntities = getRequestEntities(ImmutableList.of("urn:li:dataset:1"));
     when(entityProvider.apply(any())).thenReturn(Arrays.asList(inputEntities.get(0), null));

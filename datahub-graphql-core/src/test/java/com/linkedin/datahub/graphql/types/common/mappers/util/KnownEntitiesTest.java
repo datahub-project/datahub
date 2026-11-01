@@ -13,7 +13,7 @@ import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import java.util.List;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -29,12 +29,12 @@ public class KnownEntitiesTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -71,7 +71,7 @@ public class KnownEntitiesTest {
 
   @Test
   public void testStrictMapsEveryUrnAsBefore() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
 
     assertTrue(KnownEntities.isKnown(context, FROM_NEWER_BUILD));
     List<Entity> entities = KnownEntities.mapAll(context, List.of(FROM_NEWER_BUILD, DATASET));

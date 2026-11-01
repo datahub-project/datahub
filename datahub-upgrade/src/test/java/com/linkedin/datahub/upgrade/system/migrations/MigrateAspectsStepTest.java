@@ -22,7 +22,7 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -52,12 +52,12 @@ public class MigrateAspectsStepTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @BeforeMethod
@@ -279,11 +279,11 @@ public class MigrateAspectsStepTest {
 
   @Test
   public void testRowsFromANewerSchemaVersionAreMigratedAsBeforeWhenStrict() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     try {
       assertEquals(migratedUrns(), List.of("urn:li:corpuser:newer", "urn:li:corpuser:alice"));
     } finally {
-      UnknownDataHandlings.reset();
+      UnknownDataHandlingsForTests.reset();
     }
   }
 
@@ -311,13 +311,13 @@ public class MigrateAspectsStepTest {
         "ownership",
         "{\"owners\":[{\"owner\":\"urn:li:corpuser:a\",\"type\":\"TYPE_FROM_NEWER_BUILD\"}],"
             + "\"lastModified\":{\"time\":0,\"actor\":\"urn:li:corpuser:datahub\"}}");
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     try {
       expectThrows(
           ValidationException.class,
           () -> buildStep(Map.of("ownership", 2L)).executable().apply(mockContext));
     } finally {
-      UnknownDataHandlings.reset();
+      UnknownDataHandlingsForTests.reset();
     }
   }
 

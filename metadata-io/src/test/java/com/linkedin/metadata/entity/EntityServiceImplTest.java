@@ -81,7 +81,7 @@ import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -135,12 +135,12 @@ public class EntityServiceImplTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @BeforeMethod
@@ -302,11 +302,11 @@ public class EntityServiceImplTest {
 
   @Test
   public void testStrictHandlingRejectsUnknownReferenceWhenTheWriteIsBuilt() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     try {
       assertThrows(ValidationException.class, () -> ownershipWrite(ownershipOf(ALICE, NEWER_BOT)));
     } finally {
-      UnknownDataHandlings.reset();
+      UnknownDataHandlingsForTests.reset();
     }
   }
 

@@ -30,7 +30,7 @@ import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.ActorContext;
@@ -72,7 +72,7 @@ public class LoadIndicesStepTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeMethod
@@ -137,7 +137,7 @@ public class LoadIndicesStepTest {
 
   @AfterMethod
   public void cleanup() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
     if (database != null) {
       database.shutdown();
     }
@@ -535,7 +535,7 @@ public class LoadIndicesStepTest {
     UnknownDataHandling failingClassification = mock(UnknownDataHandling.class);
     when(failingClassification.admitUrn(any(), any(), any(), any(), any()))
         .thenThrow(new IllegalStateException("cannot classify"));
-    UnknownDataHandlings.use(failingClassification);
+    UnknownDataHandlingsForTests.use(failingClassification);
     insertTestRow(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,UnclassifiableRow,PROD)",
         "status",
@@ -567,7 +567,7 @@ public class LoadIndicesStepTest {
     UnknownDataHandling failingClassification = mock(UnknownDataHandling.class);
     when(failingClassification.admitUrn(any(), any(), any(), any(), any()))
         .thenThrow(new IllegalStateException("cannot classify"));
-    UnknownDataHandlings.use(failingClassification);
+    UnknownDataHandlingsForTests.use(failingClassification);
     insertTestRow(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,UnclassifiableRow,PROD)",
         "status",
@@ -654,7 +654,7 @@ public class LoadIndicesStepTest {
   @Test
   public void testStrictHandlingDoesNotSkipRowsUnknownToRegistry() throws Exception {
     // Without tolerance an unknown aspect is not skipped up front; it fails conversion as before.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     insertTestRow(
         "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleFuture,PROD)",
         "futureAspect",

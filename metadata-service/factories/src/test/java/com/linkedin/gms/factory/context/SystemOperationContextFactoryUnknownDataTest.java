@@ -10,9 +10,9 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.utils.StrictHandling;
-import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.testng.annotations.AfterMethod;
@@ -24,14 +24,12 @@ public class SystemOperationContextFactoryUnknownDataTest {
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
+  // Each test models a process startup that installs the handling, so each starts and ends with
+  // none installed.
   @BeforeMethod
-  public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
-  }
-
   @AfterMethod
-  public void tearDown() {
-    UnknownDataHandlings.reset();
+  public void startUninstalled() {
+    UnknownDataHandlingsForTests.uninstall();
   }
 
   @Test
@@ -39,7 +37,7 @@ public class SystemOperationContextFactoryUnknownDataTest {
     SystemOperationContextFactory.configureUnknownDataHandling(provider(false), opContext);
     assertSame(UnknownDataHandlings.handling(), StrictHandling.INSTANCE);
 
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.uninstall();
     SystemOperationContextFactory.configureUnknownDataHandling(provider(true), opContext);
     assertTrue(UnknownDataHandlings.handling().toleratesUnknownEntityAspect());
     assertTrue(UnknownDataHandlings.handling().toleratesUnknownEnum());
@@ -51,7 +49,7 @@ public class SystemOperationContextFactoryUnknownDataTest {
     assertTrue(UnknownDataHandlings.handling().toleratesUnknownEntityAspect());
     assertFalse(UnknownDataHandlings.handling().toleratesUnknownEnum());
 
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.uninstall();
     SystemOperationContextFactory.configureUnknownDataHandling(provider(false, true), opContext);
     assertFalse(UnknownDataHandlings.handling().toleratesUnknownEntityAspect());
     assertTrue(UnknownDataHandlings.handling().toleratesUnknownEnum());
@@ -67,7 +65,7 @@ public class SystemOperationContextFactoryUnknownDataTest {
     assertTrue(handling.isUnknown(opContext.getEntityRegistry(), "zduRegisteredType", null));
     assertFalse(handling.isUnknown(opContext.getEntityRegistry(), "zduTypo", null));
 
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.uninstall();
     assertSame(
         SystemOperationContextFactory.configureUnknownDataHandling(provider(false), urn -> true),
         StrictHandling.INSTANCE);

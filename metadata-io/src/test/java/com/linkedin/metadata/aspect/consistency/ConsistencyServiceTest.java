@@ -24,7 +24,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -58,12 +58,12 @@ public class ConsistencyServiceTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   /** Test check for entity type "assertion" */
@@ -1360,7 +1360,7 @@ public class ConsistencyServiceTest {
   @Test
   public void testIdentifyOrphanUrnsWithStrictHandlingReportsEveryMissingUrn() {
     // With tolerance off, nothing is exempt, as before.
-    UnknownDataHandlings.use(com.linkedin.metadata.utils.StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(com.linkedin.metadata.utils.StrictHandling.INSTANCE);
     when(mockOpContext.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
     Urn nested = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,field)");

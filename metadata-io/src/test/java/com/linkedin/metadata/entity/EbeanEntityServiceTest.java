@@ -63,7 +63,7 @@ import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -1010,7 +1010,7 @@ public class EbeanEntityServiceTest
    * r2 is rolled back under {@code rollbackHandling}. Returns the latest stored ownership row.
    */
   private String rollBackOverStoredUnknownOwner(String name, UnknownDataHandling rollbackHandling) {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
     Urn dataset = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive," + name + ",PROD)");
     String run1 = name + "-r1";
     String run2 = name + "-r2";
@@ -1035,7 +1035,7 @@ public class EbeanEntityServiceTest
     row.setRunId(run2);
     row.setAspectName("ownership");
     row.setUrn(dataset.toString());
-    UnknownDataHandlings.use(rollbackHandling);
+    UnknownDataHandlingsForTests.use(rollbackHandling);
     try {
       _entityServiceImpl.rollbackRun(opContext, ImmutableList.of(row), run2, true);
     } catch (ValidationException e) {

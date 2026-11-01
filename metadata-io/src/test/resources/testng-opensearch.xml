@@ -65,6 +65,7 @@
             <!-- Tolerance tests in classes that switch the process-wide UnknownDataHandlings; this
                  suite runs them one class at a time, so the switch can't leak into other classes. -->
             <class name="com.linkedin.metadata.aspect.consistency.CheckContextTest"/>
+            <class name="com.linkedin.metadata.aspect.consistency.check.assertion.AssertionTypeMismatchCheckTest"/>
             <class name="com.linkedin.metadata.entity.EbeanEntityServiceTest"/>
             <class name="com.linkedin.metadata.entity.retention.buffer.RetentionDrainerTest"/>
             <class name="com.linkedin.metadata.search.query.ESSearchDAORawEntityTest"/>

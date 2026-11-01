@@ -18,7 +18,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.testng.annotations.AfterMethod;
@@ -43,7 +43,7 @@ public class UnknownEntityUrnStrippingTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeClass
@@ -54,7 +54,7 @@ public class UnknownEntityUrnStrippingTest {
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -139,7 +139,7 @@ public class UnknownEntityUrnStrippingTest {
 
   @Test
   public void testStrictHandlingRejectsUnknownUrnsInsteadOfRemovingThem() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     Urn domain = UrnUtils.getUrn("urn:li:domain:finance");
     Domains aspect = new Domains().setDomains(new UrnArray(UNKNOWN_TYPE_URN, domain));
 

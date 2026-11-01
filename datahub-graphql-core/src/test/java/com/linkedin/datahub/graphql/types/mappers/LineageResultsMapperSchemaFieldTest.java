@@ -16,7 +16,7 @@ import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import org.testng.annotations.AfterMethod;
@@ -37,7 +37,7 @@ public class LineageResultsMapperSchemaFieldTest {
 
   @BeforeMethod
   public void setUp() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
     context = mock(QueryContext.class);
     when(context.getOperationContext())
         .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
@@ -45,7 +45,7 @@ public class LineageResultsMapperSchemaFieldTest {
 
   @AfterMethod
   public void resetHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -75,7 +75,7 @@ public class LineageResultsMapperSchemaFieldTest {
 
   @Test
   public void testStrictKeepsTheField() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
 
     assertEquals(
         UrnSearchAcrossLineageResultsMapper.map(context, searchResult()).getSearchResults().stream()

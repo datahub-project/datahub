@@ -36,7 +36,7 @@ import com.linkedin.metadata.search.SearchSuggestionArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import graphql.ExecutionResult;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
@@ -72,12 +72,12 @@ public class IncidentWithoutRepresentableEntityExecutionTest {
 
   @BeforeMethod
   public void tolerateUnknownData() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test

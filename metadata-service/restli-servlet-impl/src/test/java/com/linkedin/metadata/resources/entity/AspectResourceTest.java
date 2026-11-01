@@ -43,7 +43,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.StrictHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -76,7 +76,7 @@ public class AspectResourceTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeTest
@@ -111,7 +111,7 @@ public class AspectResourceTest {
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -306,7 +306,7 @@ public class AspectResourceTest {
   public void testStrictHandlingHasNoUnknownEntityTypePreCheck() throws URISyntaxException {
     // Without tolerance the proposal goes straight to the authorization checks, as before: it may
     // fail there, but never with the tolerant 400 for an unknown entity type.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityType("entityFromNewerBuild");
     mcp.setAspectName("status");

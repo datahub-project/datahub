@@ -29,7 +29,7 @@ import com.linkedin.metadata.search.SearchSuggestionArray;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataGuard;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -44,12 +44,12 @@ public class UrnSearchResultsMapperTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   private static SearchEntity hit(String urn) throws Exception {
@@ -153,7 +153,7 @@ public class UrnSearchResultsMapperTest {
   public void testStrictDropsOnlyUnmappableHitsWithoutRegistryChecks() throws Exception {
     // Without tolerance, hits are dropped only when GraphQL doesn't model their type, as before: a
     // schema field of an entity type the registry doesn't know is kept and nothing is counted.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     MetricUtils metrics = mock(MetricUtils.class);
     OperationContext opContext = spy(TestOperationContexts.systemContextNoSearchAuthorization());
     when(opContext.getMetricUtils()).thenReturn(Optional.of(metrics));
@@ -179,7 +179,7 @@ public class UrnSearchResultsMapperTest {
   @Test
   public void testStrictScrollKeepsUnmappableHits() throws Exception {
     // Scroll results never filtered hits before tolerance; without it they still don't.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     SearchEntityArray entities =
         new SearchEntityArray(
             hit("urn:li:entityFromNewerBuild:x"),
@@ -224,7 +224,7 @@ public class UrnSearchResultsMapperTest {
 
   @Test
   public void testStrictKeepsSchemaFieldWhoseParentGraphQLCannotMap() throws Exception {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     String onTelemetry = "urn:li:schemaField:(urn:li:telemetry:client,col_b)";
     QueryContext context = mock(QueryContext.class);
     when(context.getOperationContext())
@@ -240,7 +240,7 @@ public class UrnSearchResultsMapperTest {
 
   @Test
   public void testStrictKeepsPoliciesWithoutReadingThem() throws Exception {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     AspectRetriever retriever = mock(AspectRetriever.class);
     OperationContext opContext = spy(TestOperationContexts.systemContextNoSearchAuthorization());
     when(opContext.getAspectRetriever()).thenReturn(retriever);

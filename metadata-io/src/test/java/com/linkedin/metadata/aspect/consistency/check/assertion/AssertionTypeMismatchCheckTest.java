@@ -29,7 +29,7 @@ import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
@@ -66,7 +66,7 @@ public class AssertionTypeMismatchCheckTest {
 
   @AfterMethod
   public void resetHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -251,7 +251,7 @@ public class AssertionTypeMismatchCheckTest {
   public void testTolerantNewerVersionMissingSubProperty_NoIssue() {
     // A newer version's assertion on an entity type this registry doesn't know: reads drop its
     // freshnessAssertion (the entity urn there is required), so it looks corrupt here.
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
     SystemAspect stored = mock(SystemAspect.class);
     when(stored.isFromNewerVersion()).thenReturn(true);
     when(mockEntityService.getLatestSystemAspect(
@@ -267,7 +267,7 @@ public class AssertionTypeMismatchCheckTest {
 
   @Test
   public void testTolerantMissingSubPropertyNotFromNewerVersion_ReturnsHardDeleteIssue() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
     SystemAspect stored = mock(SystemAspect.class);
     when(stored.isFromNewerVersion()).thenReturn(false);
     when(mockEntityService.getLatestSystemAspect(

@@ -102,7 +102,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -195,7 +195,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeMethod
@@ -213,7 +213,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -2571,7 +2571,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testStrictHandlingDeleteOfUnknownAspectIsANoOp() throws Exception {
     // Without tolerance an unknown aspect name is ignored and the request succeeds, as before.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     reset(authorizerChain);
     AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
     reset(mockEntityService);

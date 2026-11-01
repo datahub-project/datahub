@@ -20,36 +20,48 @@ import javax.annotation.Nullable;
  * {@link #install}; installing different flags again fails startup. A process that writes through
  * {@code EntityService} without that context must call it itself. Until a process applies them it
  * is strict, the same as the flags' default (off), so a process that never applies them behaves as
- * before this tolerance existed. Tests of the tolerant paths choose it with {@link #use}.
+ * before this tolerance existed.
  *
- * <p>Tests that switch it with {@link #use} must not run in parallel with other classes in the same
- * JVM, and must {@link #reset} afterwards.
+ * <p>Tests of the tolerant paths don't change the installed handling: they set a test override that
+ * {@link #handling} returns instead, through {@code UnknownDataHandlingsForTests} in this module's
+ * test fixtures, which aren't on any production classpath. The override is one value per JVM, so
+ * those fixtures refuse it in a TestNG test that runs classes alongside, and their {@code
+ * UnknownDataHandlingIsolationListener} removes it after every test class, so a class that forgets
+ * to can't leave it for the next one.
  */
 public final class UnknownDataHandlings {
 
-  // Strict until configured: the same as the flags' default (off).
-  private static volatile UnknownDataHandling current = StrictHandling.INSTANCE;
-  // What the process applied from its flags, so a later install that disagrees fails startup.
-  @Nullable private static UnknownDataHandling installed;
+  // What the process applied from its flags; strict until then, the same as the flags' default.
+  @Nullable private static volatile UnknownDataHandling installed;
+  // Set only by tests, in place of the installed handling.
+  @Nullable private static volatile UnknownDataHandling testOverride;
 
   private UnknownDataHandlings() {}
 
   @Nonnull
   public static UnknownDataHandling handling() {
-    return current;
+    final UnknownDataHandling override = testOverride;
+    if (override != null) {
+      return override;
+    }
+    final UnknownDataHandling applied = installed;
+    return applied == null ? StrictHandling.INSTANCE : applied;
   }
 
   /**
-   * Applies the process's flags, while the system operation context is built. A process can build
-   * it more than once with the same flags; one that installs different ones fails, since every
-   * caller shares this handling.
+   * Applies the process's flags, while the system operation context is built. The first install
+   * stays for the life of the process: building the context again with the same flags keeps it, and
+   * installing different flags fails, since every caller shares this handling.
    *
    * @throws IllegalStateException when a handling tolerating different kinds is already installed
    */
   public static synchronized void install(@Nonnull final UnknownDataHandling handling) {
-    if (installed != null
-        && (installed.toleratesUnknownEntityAspect() != handling.toleratesUnknownEntityAspect()
-            || installed.toleratesUnknownEnum() != handling.toleratesUnknownEnum())) {
+    if (installed == null) {
+      installed = handling;
+      return;
+    }
+    if (installed.toleratesUnknownEntityAspect() != handling.toleratesUnknownEntityAspect()
+        || installed.toleratesUnknownEnum() != handling.toleratesUnknownEnum()) {
       throw new IllegalStateException(
           String.format(
               "Unknown data handling is already installed with entity and aspect tolerance %s and"
@@ -60,19 +72,26 @@ public final class UnknownDataHandlings {
               handling.toleratesUnknownEntityAspect(),
               handling.toleratesUnknownEnum()));
     }
-    installed = handling;
-    current = handling;
   }
 
-  /** Tests of the tolerant paths: switches the handling without installing it. */
+  /** Tests of the tolerant paths: overrides the installed handling until {@link #reset}. */
   @VisibleForTesting
-  public static void use(@Nonnull final UnknownDataHandling handling) {
-    current = handling;
+  static synchronized void use(@Nonnull final UnknownDataHandling handling) {
+    testOverride = handling;
   }
 
+  /** Tests: removes the override, going back to the installed handling (strict if none). */
   @VisibleForTesting
-  public static synchronized void reset() {
+  static synchronized void reset() {
+    testOverride = null;
+  }
+
+  /**
+   * Tests of {@link #install} itself, which model several process startups in one JVM: forgets the
+   * installed handling so the next install starts afresh.
+   */
+  @VisibleForTesting
+  static synchronized void uninstall() {
     installed = null;
-    current = StrictHandling.INSTANCE;
   }
 }

@@ -57,6 +57,11 @@
                     <exclude name=".*" />
                 </methods>
             </class>
+            <class name="com.linkedin.metadata.aspect.consistency.check.assertion.AssertionTypeMismatchCheckTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
             <class name="com.linkedin.metadata.aspect.consistency.check.InvalidEnumCheckTest">
                 <methods>
                     <exclude name=".*" />
@@ -157,8 +162,6 @@
         </classes>
     </test>
 
-    <!-- Classes that switch the process-wide UnknownDataHandlings strategy and aren't in
-         testng-opensearch.xml: run one class at a time so the switch can't leak. -->
     <!-- Additional test execution for EbeanEntityServiceTest with CDC mode -->
     <test name="ebean-entity-service-cdc">
         <parameter name="cdcMode" value="true"/>

@@ -16,7 +16,7 @@ import com.linkedin.metadata.trace.TraceServiceImpl;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -64,7 +64,7 @@ public class MCLKafkaListenerTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeMethod
@@ -119,7 +119,7 @@ public class MCLKafkaListenerTest {
   @AfterMethod
   public void tearDown() {
     MDC.clear();
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -317,7 +317,7 @@ public class MCLKafkaListenerTest {
   @Test
   public void testStrictHandlingDoesNotSkipUnknownEntityType() throws Exception {
     // Without tolerance only the aspects-to-drop configuration skips an MCL, as before.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     MetadataChangeLog event = createTestMCL(ChangeType.UPSERT);
     event.setEntityType("entityFromNewerBuild");
 

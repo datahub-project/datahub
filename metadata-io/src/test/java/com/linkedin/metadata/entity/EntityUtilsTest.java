@@ -13,7 +13,7 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
@@ -39,7 +39,7 @@ public class EntityUtilsTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeMethod
@@ -49,7 +49,7 @@ public class EntityUtilsTest {
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -207,7 +207,7 @@ public class EntityUtilsTest {
 
   @Test
   public void testToSystemAspects_StrictFailsOnUnknownAspect() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     EntityAspect unknownAspect =
         aspectRow(
             "urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)",
@@ -223,7 +223,7 @@ public class EntityUtilsTest {
 
   @Test
   public void testToSystemAspects_StrictFailsOnUnknownEntityType() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     EntityAspect unknownEntity =
         aspectRow("urn:li:entityFromNewerBuild:abc", STATUS_ASPECT_NAME, "{\"removed\":false}");
 
@@ -288,7 +288,7 @@ public class EntityUtilsTest {
                 opContext, opContext.getRetrieverContext(), List.of(unreadable)));
 
     // Without tolerance even a newer-schema row fails the read, as before.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     expectThrows(
         RuntimeException.class,
         () ->
@@ -338,7 +338,7 @@ public class EntityUtilsTest {
             plain.getUrn(),
             false));
 
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     assertFalse(
         EntityUtils.toSystemAspects(
                 opContext, opContext.getRetrieverContext(), List.of(newerSchema))
@@ -373,19 +373,19 @@ public class EntityUtilsTest {
 
     assertEquals(marked, Map.of(newerEnum.getUrn(), true, wrongType.getUrn(), false));
 
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     assertFalse(
         EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), List.of(newerEnum))
             .get(0)
             .isFromNewerVersion());
 
     // Each flag covers only its kind: an enum value counts only when enum values are tolerated.
-    UnknownDataHandlings.use(TolerantHandling.of(true, false, entityType -> true));
+    UnknownDataHandlingsForTests.use(TolerantHandling.of(true, false, entityType -> true));
     assertFalse(
         EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), List.of(newerEnum))
             .get(0)
             .isFromNewerVersion());
-    UnknownDataHandlings.use(TolerantHandling.of(false, true, entityType -> true));
+    UnknownDataHandlingsForTests.use(TolerantHandling.of(false, true, entityType -> true));
     assertTrue(
         EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), List.of(newerEnum))
             .get(0)
@@ -396,7 +396,7 @@ public class EntityUtilsTest {
   public void testToSystemAspects_EnumToleranceAloneFailsOnUnknownAspect() {
     // Unknown aspects are the unknown-data flag's kind; tolerating only enum values leaves them
     // failing as before.
-    UnknownDataHandlings.use(TolerantHandling.of(false, true, entityType -> true));
+    UnknownDataHandlingsForTests.use(TolerantHandling.of(false, true, entityType -> true));
     EntityAspect unknownAspect =
         aspectRow(
             "urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)",

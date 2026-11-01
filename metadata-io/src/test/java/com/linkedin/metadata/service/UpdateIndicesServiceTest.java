@@ -64,7 +64,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
@@ -94,12 +94,12 @@ public class UpdateIndicesServiceTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @BeforeMethod
@@ -547,7 +547,7 @@ public class UpdateIndicesServiceTest {
   @Test
   public void testHandleChangeEvents_StrictHandlingFailsOnInvalidEventsFromANewerVersion() {
     // Strict handling keeps the original behavior: the whole batch fails, nothing is counted.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     com.linkedin.metadata.utils.metrics.MetricUtils metrics =
         mock(com.linkedin.metadata.utils.metrics.MetricUtils.class);
     OperationContext context = org.mockito.Mockito.spy(operationContext);
@@ -571,7 +571,7 @@ public class UpdateIndicesServiceTest {
   public void testHandleChangeEvents_EnumToleranceAloneFailsOnUnknownReferences() {
     // References to unknown entity types are the unknown-data flag's kind; tolerating only enum
     // values leaves an event that can't be stripped failing the batch, as before.
-    UnknownDataHandlings.use(TolerantHandling.of(false, true, entityType -> true));
+    UnknownDataHandlingsForTests.use(TolerantHandling.of(false, true, entityType -> true));
     MetadataChangeLog unstrippable =
         datasetAspectEvent(
             "enumonly.invalid",
@@ -810,7 +810,7 @@ public class UpdateIndicesServiceTest {
 
   @Test
   public void testHandleChangeEvents_StrictHandlingFailsWhenThePreviousValueIsFromANewerVersion() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     MetadataChangeLog event = ownershipChangeAwayFromNewerOwnerType("prev.strict");
 
     expectThrows(

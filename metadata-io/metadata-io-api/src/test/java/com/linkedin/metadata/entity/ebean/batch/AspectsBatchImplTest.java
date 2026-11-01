@@ -48,7 +48,7 @@ import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.StructuredProperties;
@@ -82,7 +82,7 @@ public class AspectsBatchImplTest {
 
   @BeforeMethod
   public void tolerateUnknownDataByDefault() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 
   @BeforeTest
@@ -101,7 +101,7 @@ public class AspectsBatchImplTest {
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @BeforeMethod
@@ -476,7 +476,8 @@ public class AspectsBatchImplTest {
   public void nestedTypeNoNewerVersionRegisteredIsRejectedToo() {
     // Only a newer version's types count as its data on reads, but a write is rejected for any
     // unknown nested type, as for an unknown outer type: a typo is a 400, not dropped as success.
-    UnknownDataHandlings.use(TolerantHandling.of(true, true, "entityFromNewerBuild"::equals));
+    UnknownDataHandlingsForTests.use(
+        TolerantHandling.of(true, true, "entityFromNewerBuild"::equals));
     MetadataChangeProposal known =
         upsert(
             UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
@@ -516,7 +517,7 @@ public class AspectsBatchImplTest {
 
   @Test
   public void strictHandlingSkipsNestedUnknownEntityTypeAsBefore() {
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     MetadataChangeProposal known =
         upsert(
             UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"),
@@ -556,7 +557,7 @@ public class AspectsBatchImplTest {
   public void strictHandlingValidatesUrnBeforeEntityType() {
     // Strict handling keeps the original order: urn validation fails first, with the
     // IllegalArgumentException batch building skips, instead of a ValidationException.
-    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
     Urn unknownEntityType = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
 
     assertThrows(

@@ -25,7 +25,7 @@ import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
-import com.linkedin.metadata.utils.UnknownDataHandlings;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.sql.Timestamp;
@@ -47,7 +47,7 @@ public class CassandraAspectDaoTest {
 
   @AfterMethod
   public void resetUnknownDataHandling() {
-    UnknownDataHandlings.reset();
+    UnknownDataHandlingsForTests.reset();
   }
 
   @BeforeMethod
@@ -190,7 +190,7 @@ public class CassandraAspectDaoTest {
   public void testToleratedDeleteRemovesTheWholePartition() {
     // A newer version can store aspects this registry doesn't know (read after a rollback); a hard
     // delete must remove them too, or they come back after re-upgrading.
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
 
     final List<String> queries = deletes(() -> testDao.deleteUrn(opContext, null, URN));
 
@@ -199,7 +199,7 @@ public class CassandraAspectDaoTest {
 
   @Test
   public void testToleratedDeleteKeepingAspectsDeletesTheRangesAroundThem() {
-    UnknownDataHandlings.use(TolerantHandling.INSTANCE);
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
 
     final List<String> queries =
         deletes(() -> testDao.deleteUrnExcept(opContext, null, URN, Set.of("status")));
