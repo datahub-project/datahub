@@ -23,17 +23,27 @@ FABRIC_ITEM_WAREHOUSE = "Warehouse"
 FABRIC_ITEM_SQL_ENDPOINT = "SQLEndpoint"
 FABRIC_ITEM_SEMANTIC_MODEL = "SemanticModel"
 FABRIC_ITEM_REPORT = "Report"
+FABRIC_ITEM_DATAFLOW = "Dataflow"
 
 # Path segments of the item-definition endpoints.
 FABRIC_KIND_SEMANTIC_MODELS = "semanticModels"
 FABRIC_KIND_REPORTS = "reports"
 FABRIC_KIND_PAGINATED_REPORTS = "paginatedReports"
+FABRIC_KIND_DATAFLOWS = "dataflows"
 
 FABRIC_FORMAT_TMDL = "TMDL"
 
 # Definition parts with these suffixes carry metadata; anything else (images,
 # custom-visual bundles, fonts) is binary and skipped without being reported.
-TEXT_DEFINITION_SUFFIXES = (".tmdl", ".json", ".pbir", ".pbism", ".rdl", ".platform")
+TEXT_DEFINITION_SUFFIXES = (
+    ".tmdl",
+    ".json",
+    ".pbir",
+    ".pbism",
+    ".rdl",
+    ".platform",
+    ".pq",
+)
 
 LRO_STATUS_SUCCEEDED = "Succeeded"
 LRO_STATUS_FAILED = "Failed"
