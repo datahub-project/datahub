@@ -124,6 +124,15 @@ def test_row_context_iterators_are_flagged() -> None:
     ).has_row_context_iterators
 
 
+def test_variables_are_not_tables() -> None:
+    expression = (
+        "VAR Open = FILTER('Claims', 'Claims'[Status] = 1)\n"
+        "VAR Big = TOPN(10, Open)\n"
+        "RETURN COUNTROWS(Big) + COUNTROWS(FILTER(open, TRUE()))"
+    )
+    assert _tables(expression) == ["Claims"]
+
+
 def test_empty_expression() -> None:
     assert extract_dax_references(None).fields == []
     assert extract_dax_references("").tables == []

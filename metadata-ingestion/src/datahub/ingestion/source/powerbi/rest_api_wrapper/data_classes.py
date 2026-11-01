@@ -229,6 +229,16 @@ class Measure:
     measure_profile: Optional[MeasureProfile] = None
     # Only populated from TMDL definitions (workspace_apis mode).
     references: List[DaxFieldReference] = field(default_factory=list)
+    has_row_context_iterators: bool = False
+
+
+def is_calculated_column(column: Column) -> bool:
+    """Computed by DAX inside the model, so it has no column in the
+    partition's source. The scanner API and TMDL do not agree on casing
+    ("Calculated", "DATA")."""
+    return (column.columnType or "").casefold() == (
+        Constant.COLUMN_TYPE_CALCULATED.casefold()
+    )
 
 
 @dataclass

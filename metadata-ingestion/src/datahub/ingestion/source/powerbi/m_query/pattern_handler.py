@@ -52,6 +52,7 @@ from datahub.ingestion.source.powerbi.m_query.odbc import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     Table,
+    is_calculated_column,
 )
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass
 from datahub.metadata.urns import DatasetUrn
@@ -271,13 +272,6 @@ def urn_to_lowercase(value: str, flag: bool) -> str:
     return value
 
 
-def _is_calculated_column(column: Column) -> bool:
-    # The scanner API and TMDL do not agree on casing ("Calculated", "DATA").
-    return (column.columnType or "").casefold() == (
-        Constant.COLUMN_TYPE_CALCULATED.casefold()
-    )
-
-
 def _source_column_name(column: Column) -> str:
     """The name the column has in the M query output: TMDL `sourceColumn` when
     the model renamed it, otherwise the display name."""
@@ -287,7 +281,7 @@ def _source_column_name(column: Column) -> str:
 def _source_columns(pbi_columns: Optional[List[Column]]) -> List[Column]:
     """Columns that exist in the partition's source. A calculated column is
     computed by DAX inside the model, so it has no upstream column."""
-    return [col for col in pbi_columns or [] if not _is_calculated_column(col)]
+    return [col for col in pbi_columns or [] if not is_calculated_column(col)]
 
 
 def _remap_column_lineage_to_pbi_fields(
@@ -977,6 +971,9 @@ class AbstractLineage(ABC):
                     kept.append(cll)
                 else:
                     self.reporter.cll_dropped_not_a_source_column += 1
+                    self.reporter.cll_dropped_columns.append(
+                        f"{self.table.full_name}.{downstream_name}"
+                    )
             column_lineage = kept
 
         return Lineage(
