@@ -72,6 +72,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     FabricDefinitionResolver,
     FabricItem,
     FabricLroTimeoutError,
+    ItemDefinition,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.report_definition_parser import (
     ParsedPage,
@@ -124,6 +125,14 @@ def _field_has_properties(
         field.model_properties is not None
         and field.model_properties.has_non_default_properties(field.is_hidden)
     )
+
+
+def _storage_mode_from_partition(partition: ParsedPartition) -> Optional[str]:
+    if partition.kind == PARTITION_KIND_ENTITY:
+        return Constant.DIRECT_LAKE
+    if partition.mode is not None and partition.mode != PARTITION_MODE_DIRECT_LAKE:
+        return PARTITION_MODE_TO_STORAGE_MODE.get(partition.mode, partition.mode)
+    return None
 
 
 def form_full_table_name(
@@ -227,15 +236,8 @@ class PowerBiAPI:
         self.__admin_api_resolver = make_resolver(config, AdminAPIResolver)
 
         self.__fabric_resolver: Optional[FabricDefinitionResolver] = None
-        if config.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS:
-            self.__fabric_resolver = FabricDefinitionResolver(
-                msal_client=self.__regular_api_resolver.msal_client,
-                request_session=self.__regular_api_resolver.request_session,
-                lro_timeout_seconds=config.scan_timeout,
-            )
-            # Fail fast, like the Power BI token in DataResolverBase: without
-            # a Fabric token this mode cannot ingest a single semantic model.
-            self.__fabric_resolver.get_access_token()
+        if config.item_definitions_available:
+            self.__fabric_resolver = self._new_fabric_resolver(config, reporter)
 
         # Workspace roles stand in for per-item users in workspace_apis mode;
         # fetched once per workspace.
@@ -274,6 +276,39 @@ class PowerBiAPI:
             )
         )
         self.ambiguous_remote_model_keys: Set[str] = set()
+
+    def _new_fabric_resolver(
+        self,
+        config: PowerBiDashboardSourceConfig,
+        reporter: PowerBiDashboardSourceReport,
+    ) -> Optional[FabricDefinitionResolver]:
+        resolver = FabricDefinitionResolver(
+            msal_client=self.__regular_api_resolver.msal_client,
+            request_session=self.__regular_api_resolver.request_session,
+            lro_timeout_seconds=config.scan_timeout,
+        )
+        if config.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS:
+            # Fail fast, like the Power BI token in DataResolverBase: without
+            # a Fabric token this mode cannot ingest a single semantic model.
+            resolver.get_access_token()
+            return resolver
+        # enrich_from_item_definitions: the scan still provides every entity,
+        # so a missing Fabric token only loses the enrichment.
+        try:
+            resolver.get_access_token()
+        except Exception as e:
+            reporter.warning(
+                title=Constant.FABRIC_TOKEN_NOT_ACQUIRED,
+                message=(
+                    "No Fabric API token could be acquired; item definitions are "
+                    "not read and enrich_from_item_definitions has no effect this "
+                    "run. Check the tenant setting 'Service principals can use "
+                    "Fabric APIs'."
+                ),
+                exc=e,
+            )
+            return None
+        return resolver
 
     def close(self) -> None:
         self._file_backed_conn.close()
@@ -1020,7 +1055,8 @@ class PowerBiAPI:
     def _require_fabric_resolver(self) -> FabricDefinitionResolver:
         if self.__fabric_resolver is None:
             raise RuntimeError(
-                "Fabric resolver is only created for metadata_api_mode: workspace_apis"
+                "Fabric resolver is only created for metadata_api_mode: workspace_apis "
+                "or enrich_from_item_definitions: true"
             )
         return self.__fabric_resolver
 
@@ -1099,6 +1135,11 @@ class PowerBiAPI:
             "enable the tenant setting 'Service principals can use Fabric APIs', "
             "and check for an encrypted sensitivity label on the item."
         )
+        if self.__config.enrich_from_item_definitions:
+            self._report_enrichment_definition_failure(
+                e, context, item_kind, permission_hint
+            )
+            return
         if item_kind == FABRIC_KIND_SEMANTIC_MODELS:
             # Without its definition a semantic model has no tables this run;
             # with stale-entity removal a green run would soft-delete them, so
@@ -1144,8 +1185,36 @@ class PowerBiAPI:
             exc=e,
         )
 
+    def _report_enrichment_definition_failure(
+        self, e: Exception, context: str, item_kind: str, permission_hint: str
+    ) -> None:
+        """enrich_from_item_definitions: the admin scan already provided the
+        entities, so a definition that cannot be read only loses the overlay,
+        whatever the cause."""
+        if (
+            item_kind != FABRIC_KIND_SEMANTIC_MODELS
+            and data_resolver.is_permission_error(e)
+        ):
+            self.reporter.fabric_report_definitions_denied += 1
+        self.reporter.warning(
+            title=Constant.ITEM_DEFINITION_NOT_FETCHED,
+            message=(
+                f"getDefinition failed for this {item_kind} item; the scan "
+                "metadata is kept but the definition-derived enrichment "
+                "(sourceColumn, DAX references, relationships, model properties, "
+                f"report field usage) is skipped. {permission_hint} If the "
+                "long-running operation timed out, increase scan_timeout."
+            ),
+            context=context,
+            exc=e,
+        )
+
     def _fill_report_field_usage(self, workspace: Workspace, report: Report) -> None:
         if report.type is ReportType.PaginatedReport or not report.pages:
+            return
+        if self.__fabric_resolver is None:
+            # enrich_from_item_definitions without a Fabric token; reported
+            # once at startup.
             return
         context = f"workspace={workspace.name}, report={report.name} id={report.id}"
         try:
@@ -1312,14 +1381,8 @@ class PowerBiAPI:
                 )
             # `query` partitions hold native SQL, which the M parser cannot
             # consume; the table is emitted without an expression or lineage.
-            if (
-                partition.kind != PARTITION_KIND_ENTITY
-                and partition.mode is not None
-                and partition.mode != PARTITION_MODE_DIRECT_LAKE
-            ):
-                storage_mode = PARTITION_MODE_TO_STORAGE_MODE.get(
-                    partition.mode, partition.mode
-                )
+            if partition.kind != PARTITION_KIND_ENTITY:
+                storage_mode = _storage_mode_from_partition(partition)
         if entity_source is None:
             entity_source = EntityPartitionSource(storage_mode=storage_mode)
 
@@ -1416,6 +1479,9 @@ class PowerBiAPI:
             )
         self.reporter.dataset_parameters_emitted += len(dataset.parameters)
         for parsed_table in parsed_model.tables:
+            if parsed_table.name not in tables_by_name:
+                # A definition-only table is not emitted (admin-scan overlay).
+                continue
             fields: List[Union[ParsedColumn, ParsedMeasure]] = [
                 *parsed_table.columns,
                 *parsed_table.measures,
@@ -1441,10 +1507,9 @@ class PowerBiAPI:
                 return shared.sql_endpoint_id
         return None
 
-    def _fill_dataset_from_definition(
-        self, workspace: Workspace, dataset: PowerBIDataset
-    ) -> None:
-        context = f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}"
+    def _fetch_semantic_model_definition(
+        self, workspace: Workspace, dataset: PowerBIDataset, context: str
+    ) -> Optional[ItemDefinition]:
         try:
             definition = self._require_fabric_resolver().get_item_definition(
                 workspace_id=workspace.id,
@@ -1452,33 +1517,17 @@ class PowerBiAPI:
                 item_kind=FABRIC_KIND_SEMANTIC_MODELS,
                 definition_format=FABRIC_FORMAT_TMDL,
             )
-            self.reporter.fabric_definitions_fetched += 1
         except Exception as e:
             self._report_definition_failure(e, context, FABRIC_KIND_SEMANTIC_MODELS)
-            return
+            return None
+        self.reporter.fabric_definitions_fetched += 1
+        return definition
 
+    def _parse_semantic_model_definition(
+        self, definition: ItemDefinition, context: str
+    ) -> ParsedModel:
         parsed_model = parse_semantic_model(definition.parts)
         failed_parts = definition.failed_parts + parsed_model.failed_parts
-        if failed_parts:
-            self.reporter.tmdl_parts_failed += len(failed_parts)
-            failed_tables = [
-                part for part in failed_parts if part.startswith(TMDL_TABLES_PREFIX)
-            ]
-            if failed_tables:
-                # A table part that did not parse is a table missing from this
-                # run; under stale-entity removal a green run would soft-delete
-                # it, so this is a failure like a refused definition.
-                self.reporter.failure(
-                    title="TMDL Table Not Parsed",
-                    message="Some table parts of the semantic-model definition could not be decoded or parsed; those tables are missing from this run.",
-                    context=f"{context}, parts={failed_tables}",
-                )
-            else:
-                self.reporter.warning(
-                    title="TMDL Part Not Parsed",
-                    message="Some non-table parts of the semantic-model definition could not be decoded or parsed; relationships or DirectLake lineage from them are missing.",
-                    context=f"{context}, parts={failed_parts}",
-                )
         if parsed_model.incomplete_parts:
             # The tables themselves are emitted; only some of their columns,
             # measures or partition sources are missing, so this is a warning.
@@ -1488,9 +1537,76 @@ class PowerBiAPI:
                 message="Some column, measure or partition lines in table parts of the semantic-model definition could not be parsed; those objects (or the table's lineage) are missing.",
                 context=f"{context}, parts={parsed_model.incomplete_parts}",
             )
-        dataset.dependent_on_artifact_id = self._directlake_sql_endpoint_id(
-            parsed_model
-        )
+        if not failed_parts:
+            return parsed_model
+        self.reporter.tmdl_parts_failed += len(failed_parts)
+        failed_tables = [
+            part for part in failed_parts if part.startswith(TMDL_TABLES_PREFIX)
+        ]
+        if not failed_tables:
+            self.reporter.warning(
+                title="TMDL Part Not Parsed",
+                message="Some non-table parts of the semantic-model definition could not be decoded or parsed; relationships or DirectLake lineage from them are missing.",
+                context=f"{context}, parts={failed_parts}",
+            )
+        elif self.__config.enrich_from_item_definitions:
+            self.reporter.warning(
+                title="TMDL Table Not Parsed",
+                message="Some table parts of the semantic-model definition could not be decoded or parsed; those tables keep their scan metadata without enrichment.",
+                context=f"{context}, parts={failed_tables}",
+            )
+        else:
+            # A table part that did not parse is a table missing from this
+            # run; under stale-entity removal a green run would soft-delete
+            # it, so this is a failure like a refused definition.
+            self.reporter.failure(
+                title="TMDL Table Not Parsed",
+                message="Some table parts of the semantic-model definition could not be decoded or parsed; those tables are missing from this run.",
+                context=f"{context}, parts={failed_tables}",
+            )
+        return parsed_model
+
+    def _apply_relationships(
+        self, parsed_model: ParsedModel, dataset: PowerBIDataset, context: str
+    ) -> None:
+        """extract_model_relationships: keep the model's relationships on the
+        dataset; the mapper turns them into foreign keys."""
+        if not self.__config.extract_model_relationships:
+            return
+        dataset.relationships = parsed_model.relationships
+        self.reporter.relationships_parsed += len(dataset.relationships)
+        if parsed_model.skipped_relationships:
+            self.reporter.relationships_skipped += len(
+                parsed_model.skipped_relationships
+            )
+            self.reporter.warning(
+                title="Relationship Not Parsed",
+                message="Some semantic-model relationships had unparseable fromColumn/toColumn references and are not emitted as foreign keys.",
+                context=f"{context}, relationships={parsed_model.skipped_relationships}",
+            )
+
+    def _apply_definition_enrichment(
+        self, parsed_model: ParsedModel, dataset: PowerBIDataset, context: str
+    ) -> None:
+        """The definition-derived steps both metadata API modes share once the
+        dataset's tables exist: DirectLake endpoint, model properties and
+        relationships. The scan's dependent artifact (when it had one) wins."""
+        if dataset.dependent_on_artifact_id is None:
+            dataset.dependent_on_artifact_id = self._directlake_sql_endpoint_id(
+                parsed_model
+            )
+        if self.__config.extract_model_properties:
+            self._apply_model_properties(parsed_model, dataset, context)
+        self._apply_relationships(parsed_model, dataset, context)
+
+    def _fill_dataset_from_definition(
+        self, workspace: Workspace, dataset: PowerBIDataset
+    ) -> None:
+        context = f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}"
+        definition = self._fetch_semantic_model_definition(workspace, dataset, context)
+        if definition is None:
+            return
+        parsed_model = self._parse_semantic_model_definition(definition, context)
         dataset_name = dataset.name if dataset.name is not None else dataset.id
         analysis_services = analysis_services_targets(
             {
@@ -1508,20 +1624,125 @@ class PowerBiAPI:
                 )
             dataset.tables.append(table)
             self.reporter.tmdl_tables_parsed += 1
-        if self.__config.extract_model_properties:
-            self._apply_model_properties(parsed_model, dataset, context)
-        if self.__config.extract_model_relationships:
-            dataset.relationships = parsed_model.relationships
-            self.reporter.relationships_parsed += len(dataset.relationships)
-            if parsed_model.skipped_relationships:
-                self.reporter.relationships_skipped += len(
-                    parsed_model.skipped_relationships
-                )
+        self._apply_definition_enrichment(parsed_model, dataset, context)
+
+    def _enrich_workspace_from_definitions(self, workspace: Workspace) -> None:
+        """enrich_from_item_definitions: overlay each scanned model's TMDL
+        definition onto the tables the scan built. Nothing here can lose an
+        entity, so every problem is a warning."""
+        if self.__fabric_resolver is None:
+            # No Fabric token; reported once at startup.
+            return
+        for dataset in workspace.datasets.values():
+            context = (
+                f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}"
+            )
+            try:
+                self._enrich_dataset_from_definition(workspace, dataset, context)
+            except Exception as e:
+                self.reporter.scan_datasets_not_enriched += 1
                 self.reporter.warning(
-                    title="Relationship Not Parsed",
-                    message="Some semantic-model relationships had unparseable fromColumn/toColumn references and are not emitted as foreign keys.",
-                    context=f"{context}, relationships={parsed_model.skipped_relationships}",
+                    title=Constant.SEMANTIC_MODEL_NOT_ENRICHED,
+                    message="Unexpected error while overlaying this semantic model's definition; its scan metadata is kept without enrichment.",
+                    context=context,
+                    exc=e,
                 )
+
+    def _enrich_dataset_from_definition(
+        self, workspace: Workspace, dataset: PowerBIDataset, context: str
+    ) -> None:
+        definition = self._fetch_semantic_model_definition(workspace, dataset, context)
+        if definition is None:
+            self.reporter.scan_datasets_not_enriched += 1
+            return
+        parsed_model = self._parse_semantic_model_definition(definition, context)
+        self._overlay_tables(parsed_model, dataset, context)
+        self._apply_definition_enrichment(parsed_model, dataset, context)
+        self.reporter.scan_datasets_enriched += 1
+
+    def _overlay_tables(
+        self, parsed_model: ParsedModel, dataset: PowerBIDataset, context: str
+    ) -> None:
+        """The scan is the source of truth for the table set: tables are
+        matched by name, never added or removed; both differences are
+        counted and reported."""
+        parsed_by_name = {table.name: table for table in parsed_model.tables}
+        scan_by_name = {table.name: table for table in dataset.tables}
+        for name, table in scan_by_name.items():
+            parsed_table = parsed_by_name.get(name)
+            if parsed_table is not None:
+                self._overlay_table(table, parsed_table)
+        scan_only = sorted(set(scan_by_name) - set(parsed_by_name))
+        if scan_only:
+            self.reporter.scan_tables_not_in_definition += len(scan_only)
+            self.reporter.warning(
+                title=Constant.SCAN_TABLE_NOT_IN_DEFINITION,
+                message="Some scanned tables are not in the semantic-model definition; they keep their scan metadata without enrichment.",
+                context=f"{context}, tables={scan_only}",
+            )
+        definition_only = sorted(set(parsed_by_name) - set(scan_by_name))
+        if definition_only:
+            self.reporter.definition_tables_not_in_scan += len(definition_only)
+            self.reporter.warning(
+                title=Constant.DEFINITION_TABLE_NOT_IN_SCAN,
+                message="Some tables of the semantic-model definition are not in the admin scan; the scan is the source of truth, so they are not added.",
+                context=f"{context}, tables={definition_only}",
+            )
+
+    @staticmethod
+    def _overlay_table(table: Table, parsed_table: ParsedTable) -> None:
+        """TMDL enrichment on a scan-built table. The scan keeps its name, M
+        expression, data types and column set; the definition supplies what
+        the scan does not carry and fills what it left empty."""
+        if parsed_table.description:
+            table.description = parsed_table.description
+        table.partition_count = parsed_table.partition_count
+        table.refresh_policy = parsed_table.refresh_policy
+        partition = parsed_table.partition
+        if partition is not None:
+            if partition.kind == PARTITION_KIND_CALCULATED:
+                table.calculated_expression = partition.source
+            elif partition.kind == PARTITION_KIND_M and table.expression is None:
+                table.expression = partition.source
+            elif partition.kind == PARTITION_KIND_ENTITY:
+                if table.source_schema is None:
+                    table.source_schema = partition.schema_name
+                if table.source_expression is None:
+                    table.source_expression = partition.entity_name
+            if table.storage_mode is None:
+                table.storage_mode = _storage_mode_from_partition(partition)
+        columns_by_name = {column.name: column for column in table.columns or []}
+        for parsed_column in parsed_table.columns:
+            column = columns_by_name.get(parsed_column.name)
+            if column is not None:
+                PowerBiAPI._overlay_column(column, parsed_column)
+        measures_by_name = {measure.name: measure for measure in table.measures or []}
+        for parsed_measure in parsed_table.measures:
+            measure = measures_by_name.get(parsed_measure.name)
+            if measure is not None:
+                PowerBiAPI._overlay_measure(measure, parsed_measure)
+
+    @staticmethod
+    def _overlay_column(column: Column, parsed: ParsedColumn) -> None:
+        column.isHidden = parsed.is_hidden
+        column.source_column = parsed.source_column
+        column.references = parsed.references
+        column.has_row_context_iterators = parsed.has_row_context_iterators
+        if parsed.is_calculated:
+            column.columnType = Constant.COLUMN_TYPE_CALCULATED
+            if column.expression is None:
+                column.expression = parsed.expression
+        if parsed.description:
+            column.description = parsed.description
+        column.model_properties = parsed.model_properties
+
+    @staticmethod
+    def _overlay_measure(measure: Measure, parsed: ParsedMeasure) -> None:
+        measure.isHidden = parsed.is_hidden
+        measure.references = parsed.references
+        if parsed.description:
+            measure.description = parsed.description
+        measure.model_properties = parsed.model_properties
 
     def _fill_workspace_datasets_from_definitions(self, workspace: Workspace) -> None:
         try:
@@ -1634,14 +1855,27 @@ class PowerBiAPI:
         getDefinition failed the run would otherwise emit no semantic-model
         metadata at all while looking healthy."""
         if (
-            self.reporter.fabric_definitions_failed
-            and not self.reporter.fabric_definitions_fetched
+            not self.reporter.fabric_definitions_failed
+            or self.reporter.fabric_definitions_fetched
         ):
-            self.reporter.failure(
+            return
+        permission_hint = (
+            "Check the Contributor role, the 'Service principals can use Fabric "
+            "APIs' tenant setting and scan_timeout."
+        )
+        context = f"failed={self.reporter.fabric_definitions_failed}"
+        if self.__config.enrich_from_item_definitions:
+            self.reporter.warning(
                 title="No Item Definitions Fetched",
-                message="Every Fabric getDefinition call failed; no semantic-model schema or lineage has been ingested. Check the Contributor role, the 'Service principals can use Fabric APIs' tenant setting and scan_timeout.",
-                context=f"failed={self.reporter.fabric_definitions_failed}",
+                message=f"Every Fabric getDefinition call failed; the scan metadata is ingested without definition-derived enrichment. {permission_hint}",
+                context=context,
             )
+            return
+        self.reporter.failure(
+            title="No Item Definitions Fetched",
+            message=f"Every Fabric getDefinition call failed; no semantic-model schema or lineage has been ingested. {permission_hint}",
+            context=context,
+        )
 
     def fill_metadata_from_scan_result(
         self,
@@ -1728,6 +1962,8 @@ class PowerBiAPI:
                 workspace_metadata
             )
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
+            if self.__config.enrich_from_item_definitions:
+                self._enrich_workspace_from_definitions(cur_workspace)
             # collect all datasets in the registry
             self.dataset_registry.update(
                 {

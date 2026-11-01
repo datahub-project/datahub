@@ -154,3 +154,54 @@ def test_refresh_history_allowed_in_admin_scan_but_not_admin_only() -> None:
         PowerBiDashboardSourceConfig.model_validate(
             {**BASE, "extract_refresh_history": True, "admin_apis_only": True}
         )
+
+
+@pytest.mark.parametrize(
+    "overrides,match",
+    [
+        pytest.param(
+            {"metadata_api_mode": "workspace_apis"},
+            "always reads the item definitions",
+            id="rejected_with_workspace_apis",
+        ),
+        pytest.param(
+            {"admin_apis_only": True},
+            "admin_apis_only",
+            id="rejected_with_admin_apis_only",
+        ),
+        pytest.param({"environment": "GOVERNMENT"}, "COMMERCIAL", id="gcc"),
+    ],
+)
+def test_enrich_from_item_definitions_rejections(
+    overrides: Dict[str, Any], match: str
+) -> None:
+    with pytest.raises(ValidationError, match=match):
+        PowerBiDashboardSourceConfig.model_validate(
+            {**BASE, "enrich_from_item_definitions": True, **overrides}
+        )
+
+
+@pytest.mark.parametrize(
+    "flag,extra",
+    [
+        pytest.param("extract_model_relationships", {}, id="relationships"),
+        pytest.param(
+            "extract_report_field_usage", {"extract_reports": True}, id="field_usage"
+        ),
+        pytest.param("extract_dax_reference_lineage", {}, id="dax_lineage"),
+        pytest.param("extract_model_properties", {}, id="model_properties"),
+    ],
+)
+def test_enrichment_flags_accepted_in_admin_scan_with_item_definitions(
+    flag: str, extra: Dict[str, Any]
+) -> None:
+    config = PowerBiDashboardSourceConfig.model_validate(
+        {**BASE, "enrich_from_item_definitions": True, flag: True, **extra}
+    )
+    assert config.metadata_api_mode == PowerBiMetadataApiMode.ADMIN_SCAN
+    assert config.item_definitions_available
+    assert getattr(config, flag)
+    # Without the opt-in the same flag is still rejected in admin_scan mode,
+    # and the error names both ways to unlock it.
+    with pytest.raises(ValidationError, match="enrich_from_item_definitions"):
+        PowerBiDashboardSourceConfig.model_validate({**BASE, flag: True, **extra})

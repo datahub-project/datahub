@@ -1,0 +1,50 @@
+/// Test table loaded from Snowflake; the admin scan carries its columns.
+table SNOWFLAKE_TESTTABLE
+	lineageTag: 00000020-1111-4222-8333-000000000020
+
+	column ID
+		dataType: int64
+		isKey
+		lineageTag: 00000021-1111-4222-8333-000000000021
+		summarizeBy: none
+		sourceColumn: TEST_ID
+
+	/// Display name of the item.
+	column NAME
+		dataType: string
+		lineageTag: 00000022-1111-4222-8333-000000000022
+		summarizeBy: none
+		sourceColumn: NAME
+
+	column PRICE
+		dataType: double
+		formatString: $#,##0.00
+		displayFolder: Pricing
+		lineageTag: 00000023-1111-4222-8333-000000000023
+		summarizeBy: sum
+		sourceColumn: PRICE
+
+	/// Calculated column: premium flag used by the sales report.
+	column IS_PREMIUM = IF('SNOWFLAKE_TESTTABLE'[PRICE] > 100, "Yes", "No")
+		dataType: string
+		lineageTag: 00000024-1111-4222-8333-000000000024
+		summarizeBy: none
+		type: calculated
+
+	/// Sum of prices.
+	measure 'Total Price' = SUM('SNOWFLAKE_TESTTABLE'[PRICE])
+		formatString: $#,##0
+		lineageTag: 00000025-1111-4222-8333-000000000025
+
+	partition SNOWFLAKE_TESTTABLE = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases("my-account.snowflakecomputing.com","COMPUTE_WH"),
+				    Db = Source{[Name="TEST_DB",Kind="Database"]}[Data],
+				    Sch = Db{[Name="PUBLIC",Kind="Schema"]}[Data],
+				    Tbl = Sch{[Name="TESTTABLE",Kind="Table"]}[Data]
+				in
+				    Tbl
+
+	annotation PBI_ResultType = Table

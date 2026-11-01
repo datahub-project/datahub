@@ -2962,10 +2962,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 for ws in batch_workspaces:
                     workspaces[ws.id] = ws
 
-            if (
-                self.source_config.metadata_api_mode
-                == PowerBiMetadataApiMode.WORKSPACE_APIS
-            ):
+            if self.source_config.item_definitions_available:
                 self.powerbi_client.report_if_no_definitions_fetched()
 
             # Phase 2: fetch the rest of the metadata per workspace. We skip
