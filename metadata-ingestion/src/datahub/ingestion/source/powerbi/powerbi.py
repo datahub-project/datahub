@@ -6,6 +6,7 @@
 import functools
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
@@ -149,6 +150,15 @@ def _truncate(value: Optional[str]) -> Optional[str]:
         return value
     marker = Constant.TRUNCATION_MARKER
     return value[: Constant.REFRESH_ERROR_MAX_LENGTH - len(marker)] + marker
+
+
+@dataclass
+class _RefreshOperationPlan:
+    """A refresh to emit as an Operation on every table of its dataset."""
+
+    refresh: powerbi_data_classes.DatasetRefresh
+    end_ms: int
+    last_updated_ms: int
 
 
 def _refresh_error_properties(service_exception_json: Optional[str]) -> Dict[str, str]:
@@ -406,6 +416,9 @@ class Mapper:
         # nothing, so no edge is ever emitted without it.
         self.__remote_model_lookup = remote_model_lookup
         self.workspace_key: Optional[ContainerKey] = None
+        # Refresh Operations are decided once per dataset and emitted on each
+        # of its tables, so counters and warnings fire per dataset.
+        self.__refresh_plans: Dict[str, List[_RefreshOperationPlan]] = {}
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -1113,50 +1126,66 @@ class Mapper:
         """
         if not self.__config.extract_refresh_history:
             return []
-        operations: List[OperationClass] = []
+        if dataset.id not in self.__refresh_plans:
+            self.__refresh_plans[dataset.id] = self._plan_refresh_operations(dataset)
+        return [
+            MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
+                aspect=self._refresh_operation(
+                    plan.refresh, plan.end_ms, plan.last_updated_ms
+                ),
+            )
+            for plan in self.__refresh_plans[dataset.id]
+        ]
+
+    def _plan_refresh_operations(
+        self, dataset: powerbi_data_classes.PowerBIDataset
+    ) -> List[_RefreshOperationPlan]:
+        context = f"workspace={dataset.workspace_name}, dataset={dataset.name} id={dataset.id}"
+        plans: List[_RefreshOperationPlan] = []
         completed_end_ms: Optional[int] = None
         completed = dataset.last_refresh
         if (
             completed is not None
             and completed.status == Constant.REFRESH_STATUS_COMPLETED
         ):
-            completed_end_ms = self._refresh_end_ms(completed, ds_urn)
+            completed_end_ms = self._refresh_end_ms(completed, context)
             if completed_end_ms is not None:
-                operations.append(
-                    self._refresh_operation(
-                        completed, completed_end_ms, completed_end_ms
-                    )
+                plans.append(
+                    _RefreshOperationPlan(completed, completed_end_ms, completed_end_ms)
                 )
         failed = dataset.last_failed_refresh
         if failed is not None and failed.status == Constant.REFRESH_STATUS_FAILED:
-            failed_end_ms = self._refresh_end_ms(failed, ds_urn)
+            failed_end_ms = self._refresh_end_ms(failed, context)
             if failed_end_ms is not None:
                 # A failed refresh leaves the data as it was. The dataset's
                 # last-updated time is read off the newest Operation, so a
-                # failure newer than the last success points back at it;
-                # an older failure is not the newest Operation and keeps its
-                # own time.
+                # failure newer than the last success points back at it; an
+                # older failure is not the newest Operation and keeps its own
+                # time. With no completed refresh in the window the time is
+                # unknown: 0 is read as "unknown" by both consumers
+                # (auto_patch_last_modified.py skips a falsy
+                # lastUpdatedTimestamp, and getDatasetLastUpdatedMs in
+                # datahub-web-react/src/app/entityV2/shared/utils.ts maps 0 to
+                # undefined), so the failure never surfaces as a data update.
                 last_updated_ms = failed_end_ms
                 if completed_end_ms is not None and failed_end_ms > completed_end_ms:
                     last_updated_ms = completed_end_ms
                 elif completed_end_ms is None:
+                    last_updated_ms = Constant.LAST_UPDATED_UNKNOWN
                     self.__reporter.refresh_failed_without_completed_baseline += 1
                     self.__reporter.warning(
                         title="Dataset Last Updated Unknown",
-                        message="A failed refresh was emitted with no completed refresh in the fetched history to anchor the dataset's last-updated time on; "
-                        "the failure's own end time is used, so the dataset may appear fresher than it is.",
-                        context=ds_urn,
+                        message="A failed refresh was emitted without a last-updated time because the fetched refresh history holds no completed refresh to anchor it on.",
+                        context=context,
                     )
-                operations.append(
-                    self._refresh_operation(failed, failed_end_ms, last_updated_ms)
+                plans.append(
+                    _RefreshOperationPlan(failed, failed_end_ms, last_updated_ms)
                 )
-        return [
-            MetadataChangeProposalWrapper(entityUrn=ds_urn, aspect=operation)
-            for operation in operations
-        ]
+        return plans
 
     def _refresh_end_ms(
-        self, refresh: powerbi_data_classes.DatasetRefresh, ds_urn: str
+        self, refresh: powerbi_data_classes.DatasetRefresh, context: str
     ) -> Optional[int]:
         # A refresh that never finished has no end time; the operation would
         # otherwise have to be stamped with "now" and duplicate on every run.
@@ -1167,7 +1196,7 @@ class Mapper:
         except (ValueError, OverflowError):
             self.__reporter.refresh_history_unparseable += 1
             logger.debug(
-                "Unparseable refresh endTime %r for %s", refresh.end_time, ds_urn
+                "Unparseable refresh endTime %r for %s", refresh.end_time, context
             )
             return None
 

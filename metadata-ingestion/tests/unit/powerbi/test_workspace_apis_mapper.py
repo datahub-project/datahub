@@ -749,8 +749,35 @@ def test_failed_refresh_without_completed_baseline_is_counted_and_warned() -> No
     operations = _refresh_operations(mapper, dataset, table)
 
     assert len(operations) == 1
-    assert operations[0].lastUpdatedTimestamp == NEWER_FAILED_END_MS
+    assert operations[0].timestampMillis == NEWER_FAILED_END_MS
+    # 0 is "unknown" to auto_patch_last_modified and to the UI.
+    assert operations[0].lastUpdatedTimestamp == 0
     reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.refresh_failed_without_completed_baseline == 1
+    assert [w.title for w in reporter.warnings] == ["Dataset Last Updated Unknown"]
+
+
+def test_refresh_counters_and_warnings_fire_once_per_dataset() -> None:
+    # Operations are emitted on every table, but the baseline decision and
+    # the unparseable-time count belong to the dataset.
+    mapper = _mapper(_config(extract_refresh_history=True))
+    tables = [
+        Table(name="A", full_name="Model.A"),
+        Table(name="B", full_name="Model.B"),
+    ]
+    dataset = _dataset(
+        tables,
+        last_refresh=DatasetRefresh("req", "Scheduled", "Completed", None, "yesterday"),
+        last_failed_refresh=NEWER_FAILED_REFRESH,
+    )
+
+    for table in tables:
+        operations = _refresh_operations(mapper, dataset, table)
+        assert len(operations) == 1
+        assert operations[0].lastUpdatedTimestamp == 0
+
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.refresh_history_unparseable == 1
     assert reporter.refresh_failed_without_completed_baseline == 1
     assert [w.title for w in reporter.warnings] == ["Dataset Last Updated Unknown"]
 
@@ -765,6 +792,9 @@ def test_refresh_without_usable_end_time_is_skipped() -> None:
     )
     assert _refresh_operations(mapper, unfinished, table) == []
 
+    # Plans are memoised per dataset id, so a second scenario needs its own
+    # mapper.
+    mapper = _mapper(_config(extract_refresh_history=True))
     unparseable = _dataset(
         [table],
         last_refresh=DatasetRefresh("req", "Scheduled", "Completed", None, "yesterday"),

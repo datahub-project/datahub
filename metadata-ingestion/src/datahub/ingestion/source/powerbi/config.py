@@ -233,6 +233,8 @@ class Constant:
     SERVICE_EXCEPTION_JSON = "serviceExceptionJson"
     REFRESH_STATUS_COMPLETED = "Completed"
     REFRESH_STATUS_FAILED = "Failed"
+    # Operation.lastUpdatedTimestamp is required; 0 is read as "unknown"
+    LAST_UPDATED_UNKNOWN = 0
     CUSTOM_OPERATION_REFRESH = "REFRESH"
     # Operation customProperties keys carrying a failed refresh's error payload:
     # the parsed serviceExceptionJson fields, or the raw string when unparseable

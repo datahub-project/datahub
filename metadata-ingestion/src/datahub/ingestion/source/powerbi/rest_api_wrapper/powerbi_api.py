@@ -1223,6 +1223,11 @@ class PowerBiAPI:
                 logger.info(f"Refresh schedule returned 400 for {context}: {error}")
                 if _is_refresh_schedule_not_supported(error):
                     self.reporter.refresh_schedule_not_supported += 1
+                    self.reporter.info(
+                        title="Refresh Schedule Not Applicable",
+                        message="The dataset kind has no import refresh schedule (DirectQuery, live-connection or push dataset); no refreshSchedule properties are emitted for its tables.",
+                        context=context,
+                    )
                     return
             self.reporter.refresh_schedule_failed += 1
             self.log_http_error(
