@@ -81,6 +81,10 @@
         "json": {
             "customProperties": {
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "refreshSchedule.days": "Monday,Wednesday,Friday",
+                "refreshSchedule.times": "07:00,16:30",
+                "refreshSchedule.localTimeZoneId": "UTC",
+                "refreshSchedule.enabled": "true",
                 "storageMode": "Import",
                 "partitionCount": "1",
                 "parameter.My bq project": "gcp_billing",
@@ -221,6 +225,36 @@
                 "status": "Completed",
                 "requestId": "0000000d-1111-4222-8333-00000000000d",
                 "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643835425053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Failed",
+                "requestId": "0000000e-1111-4222-8333-00000000000e",
+                "startTime": "2022-02-02T20:56:55.927Z",
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
@@ -393,6 +427,10 @@
         "json": {
             "customProperties": {
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "refreshSchedule.days": "Monday,Wednesday,Friday",
+                "refreshSchedule.times": "07:00,16:30",
+                "refreshSchedule.localTimeZoneId": "UTC",
+                "refreshSchedule.enabled": "true",
                 "storageMode": "Import",
                 "partitionCount": "1",
                 "incrementalRefresh": "true",
@@ -588,6 +626,36 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643835425053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Failed",
+                "requestId": "0000000e-1111-4222-8333-00000000000e",
+                "startTime": "2022-02-02T20:56:55.927Z",
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -720,6 +788,10 @@
         "json": {
             "customProperties": {
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "refreshSchedule.days": "Monday,Wednesday,Friday",
+                "refreshSchedule.times": "07:00,16:30",
+                "refreshSchedule.localTimeZoneId": "UTC",
+                "refreshSchedule.enabled": "true",
                 "storageMode": "Import",
                 "partitionCount": "1",
                 "parameter.My bq project": "gcp_billing",
@@ -900,6 +972,36 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643835425053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Failed",
+                "requestId": "0000000e-1111-4222-8333-00000000000e",
+                "startTime": "2022-02-02T20:56:55.927Z",
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1060,6 +1162,10 @@
         "json": {
             "customProperties": {
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "refreshSchedule.days": "Monday,Wednesday,Friday",
+                "refreshSchedule.times": "07:00,16:30",
+                "refreshSchedule.localTimeZoneId": "UTC",
+                "refreshSchedule.enabled": "true",
                 "storageMode": "Import",
                 "partitionCount": "1",
                 "rlsRoles": "[{\"role\": \"Regional Managers\", \"filter\": \"'Policies'[State] = \\\"CA\\\"\"}]",
@@ -1230,6 +1336,36 @@
                 "status": "Completed",
                 "requestId": "0000000d-1111-4222-8333-00000000000d",
                 "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643835425053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Failed",
+                "requestId": "0000000e-1111-4222-8333-00000000000e",
+                "startTime": "2022-02-02T20:56:55.927Z",
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
@@ -1890,6 +2026,10 @@
         "json": {
             "customProperties": {
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "refreshSchedule.days": "Monday,Wednesday,Friday",
+                "refreshSchedule.times": "07:00,16:30",
+                "refreshSchedule.localTimeZoneId": "UTC",
+                "refreshSchedule.enabled": "true",
                 "storageMode": "Import",
                 "partitionCount": "1",
                 "parameter.My bq project": "gcp_billing",
@@ -2042,6 +2182,36 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643835425053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Failed",
+                "requestId": "0000000e-1111-4222-8333-00000000000e",
+                "startTime": "2022-02-02T20:56:55.927Z",
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
@@ -2178,6 +2348,10 @@
         "json": {
             "customProperties": {
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "refreshSchedule.days": "Monday,Wednesday,Friday",
+                "refreshSchedule.times": "07:00,16:30",
+                "refreshSchedule.localTimeZoneId": "UTC",
+                "refreshSchedule.enabled": "true",
                 "storageMode": "Import",
                 "partitionCount": "1",
                 "incrementalRefresh": "true",
@@ -2371,6 +2545,36 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643835425053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Failed",
+                "requestId": "0000000e-1111-4222-8333-00000000000e",
+                "startTime": "2022-02-02T20:56:55.927Z",
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
@@ -2481,6 +2685,10 @@
         "json": {
             "customProperties": {
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "refreshSchedule.days": "Monday,Wednesday,Friday",
+                "refreshSchedule.times": "07:00,16:30",
+                "refreshSchedule.localTimeZoneId": "UTC",
+                "refreshSchedule.enabled": "true",
                 "storageMode": "Import",
                 "partitionCount": "1",
                 "parameter.My bq project": "gcp_billing",
@@ -2659,6 +2867,36 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643835425053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Failed",
+                "requestId": "0000000e-1111-4222-8333-00000000000e",
+                "startTime": "2022-02-02T20:56:55.927Z",
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
@@ -2797,6 +3035,10 @@
         "json": {
             "customProperties": {
                 "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "refreshSchedule.days": "Monday,Wednesday,Friday",
+                "refreshSchedule.times": "07:00,16:30",
+                "refreshSchedule.localTimeZoneId": "UTC",
+                "refreshSchedule.enabled": "true",
                 "storageMode": "Import",
                 "partitionCount": "1",
                 "rlsRoles": "[{\"role\": \"Regional Managers\", \"filter\": \"'Policies'[State] = \\\"CA\\\"\"}]",
@@ -2967,6 +3209,36 @@
                 "status": "Completed",
                 "requestId": "0000000d-1111-4222-8333-00000000000d",
                 "startTime": "2022-02-01T20:56:55.927Z"
+            },
+            "lastUpdatedTimestamp": 1643749025053
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1643835425053,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "REFRESH",
+            "customProperties": {
+                "refreshType": "Scheduled",
+                "status": "Failed",
+                "requestId": "0000000e-1111-4222-8333-00000000000e",
+                "startTime": "2022-02-02T20:56:55.927Z",
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
