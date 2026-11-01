@@ -1,7 +1,7 @@
 from datahub.ingestion.source.powerbi.rest_api_wrapper.composite_model import (
+    analysis_services_targets,
     parse_remote_model_reference,
     remote_model_key,
-    remote_models_from_expressions,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     RemoteModelReference,
@@ -52,12 +52,27 @@ def test_parse_with_catalog_dataset_id_and_encoded_workspace_name() -> None:
     )
 
 
+def test_parse_https_endpoint_host_counts_as_power_bi() -> None:
+    reference = parse_remote_model_reference(
+        "Remote",
+        'AnalysisServices.Database("https://analysis.windows.net/powerbi/api/v1.0/myorg/Sales Analytics", "Sales Model")',
+    )
+    assert reference == RemoteModelReference("Sales Analytics", "Sales Model")
+
+
 def test_parse_dataset_id_as_database_takes_name_from_expression_title() -> None:
     reference = parse_remote_model_reference("DirectQuery to AS - Sales Model", BY_ID)
     assert reference == RemoteModelReference(
         workspace_name="Sales Analytics",
         model_name="Sales Model",
-        dataset_id=DATASET_ID,
+        dataset_id=DATASET_ID.casefold(),
+    )
+    # Without the Desktop title the id stays the name; only the id resolves.
+    untitled = parse_remote_model_reference("Remote model", BY_ID)
+    assert untitled == RemoteModelReference(
+        workspace_name="Sales Analytics",
+        model_name=DATASET_ID,
+        dataset_id=DATASET_ID.casefold(),
     )
 
 
@@ -72,23 +87,36 @@ def test_other_expressions_are_not_remote_models() -> None:
         )
         is None
     )
-    # An on-premises Analysis Services server is not a Power BI dataset.
+    # Azure or on-premises Analysis Services is not a Power BI dataset.
     assert (
         parse_remote_model_reference(
             "Cube", 'AnalysisServices.Database("ssas.internal", "Sales")'
         )
         is None
     )
+    assert (
+        parse_remote_model_reference(
+            "DirectQuery to AS - Sales",
+            'AnalysisServices.Database("asazure://westus.asazure.windows.net/finance", "Sales")',
+        )
+        is None
+    )
 
 
-def test_remote_models_from_expressions_keeps_only_remote_models() -> None:
-    remote_models = remote_models_from_expressions(
+def test_analysis_services_targets_distinguish_power_bi_from_other_servers() -> None:
+    targets = analysis_services_targets(
         {
             "DirectQuery to AS - Sales Model": BY_NAME,
+            "DirectQuery to AS - Finance": 'let Source = AnalysisServices.Database("asazure://westus.asazure.windows.net/finance", "Finance") in Source',
             "Param": '"value" meta [IsParameterQuery=true]',
         }
     )
-    assert set(remote_models) == {"DirectQuery to AS - Sales Model"}
+    assert set(targets) == {
+        "DirectQuery to AS - Sales Model",
+        "DirectQuery to AS - Finance",
+    }
+    assert targets["DirectQuery to AS - Sales Model"] is not None
+    assert targets["DirectQuery to AS - Finance"] is None
 
 
 def test_remote_model_key_folds_case_and_whitespace() -> None:

@@ -19,9 +19,11 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
 )
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    FABRIC_ARTIFACT_LAKEHOUSE,
     Column,
     DatasetRefresh,
     DaxFieldReference,
+    FabricArtifact,
     FieldModelProperties,
     Measure,
     Page,
@@ -29,6 +31,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     PowerBIDataset,
     RefreshPolicy,
     Relationship,
+    RemoteModelMatch,
     RemoteModelReference,
     Report,
     ReportType,
@@ -72,20 +75,28 @@ def _config(**overrides: Any) -> PowerBiDashboardSourceConfig:
 
 def _mapper(
     config: Optional[PowerBiDashboardSourceConfig] = None,
-    remote_models: Optional[Dict[str, PowerBIDataset]] = None,
+    remote_models: Optional[Dict[str, Optional[PowerBIDataset]]] = None,
 ) -> Mapper:
     """`remote_models` maps "workspace/model" to the dataset a composite
-    model's connection resolves to, standing in for PowerBiAPI's index."""
+    model's connection resolves to (None: the name is ambiguous), standing
+    in for PowerBiAPI's index."""
     config = config or _config()
     index = remote_models or {}
+
+    def lookup(reference: RemoteModelReference) -> RemoteModelMatch:
+        key = f"{reference.workspace_name}/{reference.model_name}"
+        if key not in index:
+            return RemoteModelMatch()
+        if index[key] is None:
+            return RemoteModelMatch(ambiguous=True)
+        return RemoteModelMatch(dataset=index[key])
+
     return Mapper(
         ctx=MagicMock(),
         config=config,
         reporter=PowerBiDashboardSourceReport(),
         dataplatform_instance_resolver=create_dataplatform_instance_resolver(config),
-        remote_model_lookup=lambda reference: index.get(
-            f"{reference.workspace_name}/{reference.model_name}"
-        ),
+        remote_model_lookup=lookup,
     )
 
 
@@ -893,18 +904,21 @@ def test_model_properties_absent_without_the_flag_or_properties() -> None:
     _dataset([plain])
     assert _dataset_properties(on, plain) == {"datasetId": "ds-1"}
     assert on.to_datahub_schema(plain).fields[0].jsonProps is None
+
+
 # --- composite models ---------------------------------------------------------
 
 SOURCE_WORKSPACE = "demo-workspace"
 SOURCE_MODEL = "Insurance Model"
+SOURCE_KEY = f"{SOURCE_WORKSPACE}/{SOURCE_MODEL}"
 
 
-def _source_model() -> PowerBIDataset:
+def _source_model(column_names: Optional[List[str]] = None) -> PowerBIDataset:
     policies = Table(
         name="Policies",
         full_name="Insurance_Model.Policies",
         expression="let ...",
-        columns=[_column("PolicyId"), _column("WrittenPremium")],
+        columns=[_column(name) for name in column_names or ["PolicyId", "Premium"]],
     )
     dataset = PowerBIDataset(
         id="ds-source",
@@ -921,44 +935,97 @@ def _source_model() -> PowerBIDataset:
     return dataset
 
 
-def _remote_table(name: str = "Policies", remote_name: str = "Policies") -> Table:
-    table = Table(
+def _remote_column(name: str, source_column: Optional[str] = None) -> Column:
+    column = _column(name)
+    column.columnType = Constant.COLUMN_TYPE_DATA
+    column.source_column = source_column
+    return column
+
+
+def _remote_table(
+    name: str = "Policies",
+    remote_name: str = "Policies",
+    columns: Optional[List[Column]] = None,
+) -> Table:
+    calculated = _column("Band")
+    calculated.columnType = Constant.COLUMN_TYPE_CALCULATED
+    return Table(
         name=name,
         full_name=f"Exec_Model.{name}",
-        columns=[
-            _column("PolicyId"),
-            _column("Band"),
-        ],
+        # A column calculated on the remote table is local DAX, not mirrored.
+        columns=(columns if columns is not None else [_remote_column("PolicyId")])
+        + [calculated],
         storage_mode=Constant.DIRECT_QUERY,
         remote_model=RemoteModelReference(SOURCE_WORKSPACE, SOURCE_MODEL),
         remote_table_name=remote_name,
     )
-    assert table.columns is not None
-    # A column calculated on the remote table is local DAX, not mirrored.
-    table.columns[0].columnType = Constant.COLUMN_TYPE_DATA
-    table.columns[1].columnType = Constant.COLUMN_TYPE_CALCULATED
-    return table
+
+
+def _composite_mapper(
+    remote_models: Optional[Dict[str, Optional[PowerBIDataset]]] = None,
+) -> Mapper:
+    return _mapper(_config(extract_composite_model_lineage=True), remote_models)
+
+
+def _reporter(mapper: Mapper) -> PowerBiDashboardSourceReport:
+    return mapper._Mapper__reporter  # type: ignore[attr-defined]
 
 
 def test_composite_model_lineage_is_off_by_default() -> None:
-    mapper = _mapper(
-        remote_models={f"{SOURCE_WORKSPACE}/{SOURCE_MODEL}": _source_model()}
-    )
+    mapper = _mapper(remote_models={SOURCE_KEY: _source_model()})
     table = _remote_table()
     _dataset([table])
 
     assert _extract(mapper, table) is None
-    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
-    assert reporter.composite_model_tables_linked == 0
-    assert reporter.warnings == []
+    assert _reporter(mapper).composite_model_tables_linked == 0
+    assert _reporter(mapper).warnings == []
+
+
+def test_flag_off_remote_table_next_to_a_directlake_table_gets_no_lakehouse_edge() -> (
+    None
+):
+    # Before composite models were recognised, a remote AS table was
+    # classified DirectLake and could inherit the model's lakehouse edge.
+    mapper = _mapper()
+    workspace = _workspace()
+    workspace.fabric_artifacts = {
+        "lh-1": FabricArtifact(
+            id="lh-1",
+            name="Claims_Lakehouse",
+            artifact_type=FABRIC_ARTIFACT_LAKEHOUSE,
+            workspace_id="ws-1",
+        )
+    }
+    directlake = Table(
+        name="Claims",
+        full_name="Model.Claims",
+        columns=[],
+        storage_mode=Constant.DIRECT_LAKE,
+        source_schema="dbo",
+        source_expression="claims",
+    )
+    remote = _remote_table()
+    _dataset([directlake, remote], dependent_on_artifact_id="lh-1")
+
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[],
+    ):
+        lakehouse = _lineage_aspect(
+            mapper.extract_lineage(directlake, _urn(mapper, directlake), workspace)
+        )
+        remote_aspect = _lineage_aspect(
+            mapper.extract_lineage(remote, _urn(mapper, remote), workspace)
+        )
+    assert lakehouse is not None
+    assert any("lh-1" in u.dataset for u in lakehouse.upstreams)
+    assert remote_aspect is None
+    assert _reporter(mapper).warnings == []
 
 
 def test_composite_model_remote_table_links_to_the_ingested_source_table() -> None:
     source = _source_model()
-    mapper = _mapper(
-        _config(extract_composite_model_lineage=True),
-        remote_models={f"{SOURCE_WORKSPACE}/{SOURCE_MODEL}": source},
-    )
+    mapper = _composite_mapper({SOURCE_KEY: source})
     table = _remote_table()
     _dataset([table])
     table_urn = _urn(mapper, table)
@@ -978,21 +1045,64 @@ def test_composite_model_remote_table_links_to_the_ingested_source_table() -> No
 
     # Mapping the dataset twice (workspace, then report) counts once.
     _extract(mapper, table)
-    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    reporter = _reporter(mapper)
     assert reporter.composite_model_sources_resolved == 1
     assert reporter.composite_model_tables_linked == 1
     assert reporter.composite_model_sources_not_ingested == 0
+    assert reporter.composite_model_columns_unresolved == 0
     assert reporter.warnings == []
 
 
+def test_composite_columns_match_on_source_column_not_display_name() -> None:
+    # The source model names its columns in lowercase; the composite model
+    # renames `policyid` to `Policy Number` and reuses the display name
+    # `PolicyId` for the premium, which must not be matched by that name.
+    source = _source_model(["policyid", "writtenpremium"])
+    mapper = _composite_mapper({SOURCE_KEY: source})
+    table = _remote_table(
+        columns=[
+            _remote_column("Policy Number", "policyid"),
+            _remote_column("PolicyId", "writtenpremium"),
+            _remote_column("Ghost", "ghost"),
+        ]
+    )
+    _dataset([table])
+    table_urn = _urn(mapper, table)
+    source_urn = _urn(mapper, source.tables[0])
+
+    aspect = _extract(mapper, table)
+    assert aspect is not None
+    assert aspect.fineGrainedLineages is not None
+    assert {
+        ((e.downstreams or [""])[0], (e.upstreams or [""])[0])
+        for e in aspect.fineGrainedLineages
+    } == {
+        (
+            f"urn:li:schemaField:({table_urn},Policy Number)",
+            f"urn:li:schemaField:({source_urn},policyid)",
+        ),
+        (
+            f"urn:li:schemaField:({table_urn},PolicyId)",
+            f"urn:li:schemaField:({source_urn},writtenpremium)",
+        ),
+    }
+    _extract(mapper, table)
+    reporter = _reporter(mapper)
+    assert reporter.composite_model_columns_unresolved == 1
+    assert [w.title for w in reporter.warnings] == [
+        Constant.COMPOSITE_MODEL_COLUMN_NOT_RESOLVED
+    ]
+    assert any("columns=['Ghost']" in c for c in reporter.warnings[0].context or [])
+
+
 def test_composite_model_source_not_ingested_warns_and_emits_no_edge() -> None:
-    mapper = _mapper(_config(extract_composite_model_lineage=True))
+    mapper = _composite_mapper()
     table = _remote_table()
     _dataset([table])
 
     assert _extract(mapper, table) is None
     _extract(mapper, table)
-    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    reporter = _reporter(mapper)
     assert reporter.composite_model_sources_not_ingested == 1
     assert reporter.composite_model_sources_resolved == 0
     assert reporter.composite_model_tables_linked == 0
@@ -1005,32 +1115,78 @@ def test_composite_model_source_not_ingested_warns_and_emits_no_edge() -> None:
     )
 
 
+def test_composite_model_source_without_definition_is_not_ingested() -> None:
+    # The source model was listed (so it is in the index) but its
+    # getDefinition failed: no tables, so nothing to link.
+    source = _source_model()
+    source.tables = []
+    mapper = _composite_mapper({SOURCE_KEY: source})
+    table = _remote_table()
+    _dataset([table])
+
+    assert _extract(mapper, table) is None
+    reporter = _reporter(mapper)
+    assert reporter.composite_model_sources_not_ingested == 1
+    assert reporter.composite_model_sources_resolved == 0
+    assert [w.title for w in reporter.warnings] == [
+        Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED
+    ]
+    assert "definition was not ingested" in reporter.warnings[0].message
+
+
+def test_composite_model_ambiguous_source_name_warns_and_emits_no_edge() -> None:
+    mapper = _composite_mapper({SOURCE_KEY: None})
+    table = _remote_table()
+    _dataset([table])
+
+    assert _extract(mapper, table) is None
+    _extract(mapper, table)
+    reporter = _reporter(mapper)
+    assert reporter.composite_model_sources_ambiguous == 1
+    assert reporter.composite_model_sources_not_ingested == 0
+    assert [w.title for w in reporter.warnings] == [
+        Constant.COMPOSITE_MODEL_SOURCE_AMBIGUOUS
+    ]
+
+
 def test_composite_model_source_table_missing_warns_and_emits_no_edge() -> None:
-    mapper = _mapper(
-        _config(extract_composite_model_lineage=True),
-        remote_models={f"{SOURCE_WORKSPACE}/{SOURCE_MODEL}": _source_model()},
-    )
+    mapper = _composite_mapper({SOURCE_KEY: _source_model()})
     table = _remote_table(name="Regions", remote_name="Regions")
     _dataset([table])
 
     assert _extract(mapper, table) is None
-    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    reporter = _reporter(mapper)
     assert reporter.composite_model_sources_resolved == 1
-    assert reporter.composite_model_sources_not_ingested == 1
+    assert reporter.composite_model_source_tables_not_found == 1
+    assert reporter.composite_model_sources_not_ingested == 0
     assert reporter.composite_model_tables_linked == 0
     assert [w.title for w in reporter.warnings] == [
-        Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED
+        Constant.COMPOSITE_MODEL_SOURCE_TABLE_NOT_FOUND
+    ]
+
+
+def test_composite_model_source_resolving_to_itself_is_ambiguous() -> None:
+    # Without the workspace in the URN two models named alike collapse into
+    # one URN; an edge from a table to itself is never emitted.
+    source = _source_model()
+    mapper = _composite_mapper({SOURCE_KEY: source})
+    table = _remote_table()
+    table.full_name = source.tables[0].full_name
+    _dataset([table])
+
+    assert _extract(mapper, table) is None
+    reporter = _reporter(mapper)
+    assert reporter.composite_model_sources_ambiguous == 1
+    assert reporter.composite_model_tables_linked == 0
+    assert [w.title for w in reporter.warnings] == [
+        Constant.COMPOSITE_MODEL_SOURCE_AMBIGUOUS
     ]
 
 
 def test_measure_on_a_remote_table_chains_through_the_composite_lineage() -> None:
     # A local measure reading the remote table's mirrored column keeps its
     # model-internal edge next to the composite edge on the same aspect.
-    source = _source_model()
-    mapper = _mapper(
-        _config(extract_composite_model_lineage=True),
-        remote_models={f"{SOURCE_WORKSPACE}/{SOURCE_MODEL}": source},
-    )
+    mapper = _composite_mapper({SOURCE_KEY: _source_model()})
     table = _remote_table()
     kpis = Table(
         name="KPIs",

@@ -388,17 +388,18 @@ def _parse_partition(node: TmdlNode) -> ParsedPartition:
             if child.keyword == PROP_SOURCE and child.name is None
         ]
         source_props = source_nodes[0].properties if source_nodes else {}
-        # TMDL quotes an expression name with spaces (`'DirectQuery to AS -
-        # Sales'`); the shared-expression index is keyed by the bare name.
+        # TMDL quotes a name with spaces (`'DirectQuery to AS - Sales'`); the
+        # shared-expression index and the lakehouse table name need the bare name.
+        entity_name = source_props.get(PROP_ENTITY_NAME)
         expression_source = source_props.get(PROP_EXPRESSION_SOURCE)
         return ParsedPartition(
             kind=kind,
             mode=mode or PARTITION_MODE_DIRECT_LAKE,
             source=None,
-            entity_name=_unquote(source_props.get(PROP_ENTITY_NAME, "")) or None,
+            entity_name=_unquote(entity_name) if entity_name else None,
             schema_name=source_props.get(PROP_SCHEMA_NAME),
             expression_source=_unquote(expression_source)
-            if expression_source is not None
+            if expression_source
             else None,
         )
     source = node.property_expression(PROP_SOURCE)

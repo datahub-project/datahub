@@ -7,6 +7,7 @@ import pytest
 import requests
 
 from datahub.ingestion.source.powerbi.config import (
+    Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
@@ -26,7 +27,10 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     FabricLroTimeoutError,
     ItemDefinition,
 )
-from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import (
+    PowerBiAPI,
+    registry_key,
+)
 
 WORKSPACE_ID = "64ED5CAD-7C10-4684-8180-826122881108"
 SECOND_WORKSPACE_ID = "2B7C4D1E-9F3A-4E6B-8C2D-5A1F0E9B7C3D"
@@ -66,6 +70,13 @@ COMPOSITE_TABLE_TMDL = """table Policies
 \t\tsource
 \t\t\tentityName: Policies
 \t\t\texpressionSource: 'DirectQuery to AS - Insurance Model'
+"""
+
+OTHER_AS_EXPRESSIONS_TMDL = """expression 'DirectQuery to AS - Insurance Model' =
+\t\tlet
+\t\t    Source = AnalysisServices.Database("asazure://westus.asazure.windows.net/finance", "Insurance Model")
+\t\tin
+\t\t    Source
 """
 
 COMPOSITE_EXPRESSIONS_TMDL = """expression 'DirectQuery to AS - Insurance Model' =
@@ -136,6 +147,7 @@ def _api(
     api.reporter = PowerBiDashboardSourceReport()
     api.dataset_registry = {}
     api.datasets_by_workspace_and_name = {}
+    api.ambiguous_remote_model_keys = set()
     api.log_http_error = MagicMock()  # type: ignore[method-assign]
     api._PowerBiAPI__workspace_users = {}  # type: ignore[attr-defined]
 
@@ -198,7 +210,7 @@ def test_datasets_and_tables_come_from_definitions() -> None:
     assert [(r.table, r.field) for r in columns[1].references] == [
         ("Policies", "PolicyId")
     ]
-    assert api.dataset_registry[MODEL_A] is dataset
+    assert api.dataset_registry[registry_key(MODEL_A)] is dataset
     assert api.reporter.fabric_definitions_fetched == 1
     assert api.reporter.tmdl_tables_parsed == 1
 
@@ -323,22 +335,69 @@ def test_datasets_are_indexed_by_workspace_and_name_for_composite_models() -> No
     found = api.find_remote_model(
         RemoteModelReference("Demo-Workspace", "insurance MODEL")
     )
-    assert found is not None and found.id == MODEL_A
-    assert (
-        api.find_remote_model(RemoteModelReference("elsewhere", "Insurance Model"))
-        is None
+    assert found.dataset is not None and found.dataset.id == MODEL_A
+    missing = api.find_remote_model(
+        RemoteModelReference("elsewhere", "Insurance Model")
     )
+    assert missing.dataset is None and not missing.ambiguous
     by_id = api.find_remote_model(
         RemoteModelReference("elsewhere", "Renamed", dataset_id=MODEL_B)
     )
-    assert by_id is not None and by_id.id == MODEL_B
+    assert by_id.dataset is not None and by_id.dataset.id == MODEL_B
     assert (
         api.find_remote_model(
             RemoteModelReference(
                 "demo-workspace", "Insurance Model", dataset_id="not-ingested"
             )
-        )
+        ).dataset
         is None
+    )
+
+
+def test_dataset_ids_resolve_regardless_of_guid_casing() -> None:
+    api = _api()
+    api.fill_metadata_from_definitions([_workspace()])
+
+    assert api.dataset_registry[MODEL_A.casefold()].id == MODEL_A
+    for spelled in (MODEL_A.lower(), MODEL_A.upper()):
+        match = api.find_remote_model(
+            RemoteModelReference("x", "y", dataset_id=spelled)
+        )
+        assert match.dataset is not None and match.dataset.id == MODEL_A
+
+
+def test_same_name_twice_makes_the_name_ambiguous_and_never_resolves() -> None:
+    api = _api(
+        datasets=[
+            {"id": MODEL_A, "name": "Insurance Model"},
+            {"id": MODEL_B, "name": "insurance model"},
+        ],
+        definitions={MODEL_A: _definition(), MODEL_B: _definition()},
+    )
+
+    api.fill_metadata_from_definitions([_workspace()])
+    # A later workspace listing the same model again does not revive it.
+    again = _workspace()
+    again.datasets = {}
+    api._PowerBiAPI__regular_api_resolver.get_datasets.return_value = [  # type: ignore[attr-defined]
+        {"id": MODEL_A, "name": "Insurance Model"}
+    ]
+    api.fill_metadata_from_definitions([again])
+
+    assert api.datasets_by_workspace_and_name == {}
+    assert api.ambiguous_remote_model_keys == {"demo-workspace/insurance model"}
+    match = api.find_remote_model(
+        RemoteModelReference("demo-workspace", "Insurance Model")
+    )
+    assert match.ambiguous and match.dataset is None
+    # The dataset id still identifies each of them.
+    assert (
+        api.find_remote_model(
+            RemoteModelReference(
+                "demo-workspace", "Insurance Model", dataset_id=MODEL_B
+            )
+        ).dataset
+        is not None
     )
 
 
@@ -359,7 +418,7 @@ def test_composite_model_remote_table_is_classified_from_its_expression() -> Non
     api.fill_metadata_from_definitions([workspace])
 
     table = workspace.datasets[MODEL_B].tables[0]
-    assert table.storage_mode == "DirectQuery"
+    assert table.storage_mode == Constant.DIRECT_QUERY
     assert table.remote_model == RemoteModelReference(
         workspace_name="demo-workspace", model_name="Insurance Model"
     )
@@ -367,6 +426,33 @@ def test_composite_model_remote_table_is_classified_from_its_expression() -> Non
     # Not DirectLake: no OneLake lineage inputs are set for it.
     assert table.source_expression is None
     assert workspace.datasets[MODEL_B].dependent_on_artifact_id is None
+
+
+def test_table_over_another_analysis_services_server_is_directquery_without_model() -> (
+    None
+):
+    # Azure Analysis Services / on-premises AS: DirectQuery like a composite
+    # model, but there is no Power BI dataset to link and nothing to warn about.
+    composite = ItemDefinition(
+        format="TMDL",
+        parts=[
+            DefinitionPart("definition/expressions.tmdl", OTHER_AS_EXPRESSIONS_TMDL),
+            DefinitionPart("definition/tables/Policies.tmdl", COMPOSITE_TABLE_TMDL),
+        ],
+    )
+    api = _api(
+        datasets=[{"id": MODEL_B, "name": "AAS Model"}],
+        definitions={MODEL_B: composite},
+    )
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+
+    table = workspace.datasets[MODEL_B].tables[0]
+    assert table.storage_mode == Constant.DIRECT_QUERY
+    assert table.remote_model is None
+    assert table.source_expression is None
+    assert api.reporter.warnings == []
 
 
 def test_fabric_item_listing_failure_keeps_datasets() -> None:
@@ -644,7 +730,7 @@ def _registered_dataset() -> PowerBIDataset:
 
 def test_paginated_report_bound_through_rdl_definition() -> None:
     api = _api(definitions={"rdl-1": _rdl_definition(MODEL_A)})
-    api.dataset_registry[MODEL_A] = _registered_dataset()
+    api.dataset_registry[registry_key(MODEL_A)] = _registered_dataset()
     report = _paginated_report()
 
     api._resolve_paginated_report_lineage(report, _workspace())

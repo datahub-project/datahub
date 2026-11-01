@@ -226,6 +226,9 @@ class Constant:
     COLUMN_TYPE_CALCULATED = "Calculated"
     DAX_REFERENCE_NOT_RESOLVED = "DAX Reference Not Resolved"
     COMPOSITE_MODEL_SOURCE_NOT_INGESTED = "Composite Model Source Not Ingested"
+    COMPOSITE_MODEL_SOURCE_AMBIGUOUS = "Composite Model Source Ambiguous"
+    COMPOSITE_MODEL_SOURCE_TABLE_NOT_FOUND = "Composite Model Source Table Not Found"
+    COMPOSITE_MODEL_COLUMN_NOT_RESOLVED = "Composite Model Column Not Resolved"
     NULL_DATA_TYPE = "Null"
 
 
@@ -401,14 +404,21 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     _dax_references_seen: Set[Tuple[str, str, str]] = dataclass_field(
         default_factory=set
     )
-    # Composite models (extract_composite_model_lineage): remote semantic
-    # models that were / were not ingested this run, and remote tables that
-    # received an edge to their source table. Each is counted once, however
-    # many times its dataset is mapped.
+    # Composite models (extract_composite_model_lineage). Source models are
+    # counted once per (workspace, model) across the run: resolved to an
+    # ingested model with tables, not ingested (absent or without a
+    # definition), or ambiguous (the name matched more than one model, or a
+    # table resolved to itself). Remote tables are counted once each: linked
+    # to their source table, or that table absent from the source model;
+    # mirrored columns absent from the source table are counted per column.
     composite_model_sources_resolved: int = 0
     composite_model_sources_not_ingested: int = 0
+    composite_model_sources_ambiguous: int = 0
+    composite_model_source_tables_not_found: int = 0
     composite_model_tables_linked: int = 0
-    _composite_model_outcomes_seen: Set[str] = dataclass_field(default_factory=set)
+    composite_model_columns_unresolved: int = 0
+    _composite_models_seen: Set[str] = dataclass_field(default_factory=set)
+    _composite_tables_seen: Set[str] = dataclass_field(default_factory=set)
     # Native-SQL column lineage whose output column is not a source column
     # of the Power BI table (calculated column, or a column the model dropped).
     cll_dropped_not_a_source_column: int = 0
@@ -1056,13 +1066,15 @@ class PowerBiDashboardSourceConfig(
         default=False,
         description="Link the remote tables of a composite model (one that uses "
         "'DirectQuery to Power BI semantic model') to the tables of the semantic "
-        "model they read: table-level lineage to the source table and column-level "
-        "lineage for each column the remote table mirrors. The source model is matched "
-        "by dataset id when the connection carries one, else by workspace and model "
-        "name, and only against the semantic models ingested in this run, so its "
-        "workspace must be in the workspace pattern and readable by the principal; a "
-        "source that was not ingested is reported as `Composite Model Source Not "
-        "Ingested` and gets no edge. Requires `metadata_api_mode: workspace_apis` and "
+        "model they read: table-level lineage to the source table and, with "
+        "`extract_column_level_lineage`, column-level lineage for each column the "
+        "remote table mirrors. The source model is matched by dataset id when the "
+        "connection carries one, else by workspace and model name, and only against "
+        "the semantic models ingested in this run, so its workspace must be in the "
+        "workspace pattern and readable by the principal. A source that was not "
+        "ingested, or a name that matches more than one ingested model, is reported "
+        "(`Composite Model Source Not Ingested` / `Composite Model Source Ambiguous`) "
+        "and gets no edge. Requires `metadata_api_mode: workspace_apis` and "
         "`extract_lineage`.",
     )
     extract_refresh_history: bool = pydantic.Field(

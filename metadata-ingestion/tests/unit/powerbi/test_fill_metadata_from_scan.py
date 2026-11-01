@@ -1455,7 +1455,7 @@ def test_get_reports_resolves_dataset_via_registry():
     """dataset_id present in registry: report.dataset is wired, no 'Missing Lineage' info."""
     api = _make_api()
     dataset = _make_dataset("DS-1")
-    api.dataset_registry["DS-1"] = dataset
+    api.dataset_registry["ds-1"] = dataset
     workspace = _make_workspace_with_scan_reports(
         raw_reports=[
             {
@@ -1966,7 +1966,7 @@ def test_fill_dashboards_wires_tile_dataset_via_registry_and_report_via_workspac
     """Tile lineage: tile.dataset via cross-workspace registry, tile.report via workspace.reports; misses emit distinct infos — the operator diagnosis path."""
     api = _make_api()
     dataset = _make_dataset("DS-1")
-    api.dataset_registry["DS-1"] = dataset
+    api.dataset_registry["ds-1"] = dataset
 
     raw_report_in_ws = {
         Constant.ID: "R-1",
