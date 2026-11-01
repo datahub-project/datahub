@@ -342,6 +342,7 @@ def test_workspace_apis_ingest_with_enrichment(
             extract_model_relationships=True,
             extract_report_field_usage=True,
             extract_refresh_history=True,
+            extract_dax_reference_lineage=True,
         ),
     )
     pipeline.raise_from_status()
@@ -358,6 +359,10 @@ def test_workspace_apis_ingest_with_enrichment(
     assert report.report_field_references_resolved == 4
     assert report.report_field_references_unresolved == 1
     assert report.refresh_history_fetched == 2
+    # Only the fixture's `'Budget'[Amount]` points outside the model; it is
+    # counted once per mapping of its dataset (workspace and report).
+    assert report.dax_references_unresolved == 2
+    assert [w.title for w in report.warnings] == ["DAX Reference Not Resolved"]
 
     # The admin Scanner API must never be called in this mode.
     assert not any(
@@ -411,6 +416,19 @@ def test_workspace_apis_enrichment_flags_off(
         ]
     assert schemas
     assert all(not schema.get("foreignKeys") for schema in schemas)
+    # Without extract_dax_reference_lineage no DAX-derived column edges exist:
+    # none between fields of one dataset and none into a measure from a measure.
+    with open(output_path) as f:
+        lineages = [
+            (mcp["entityUrn"], mcp["aspect"]["json"])
+            for mcp in json.load(f)
+            if mcp.get("aspectName") == "upstreamLineage"
+        ]
+    assert lineages
+    for entity_urn, lineage in lineages:
+        for edge in lineage.get("fineGrainedLineages") or []:
+            assert not any(entity_urn in upstream for upstream in edge["upstreams"])
+            assert not any("Loss Ratio)" in d for d in edge["downstreams"])
     # Without the report definition no report getDefinition call is made.
     assert not any(
         request.url.endswith(f"/reports/{REPORT_ID}/getDefinition")

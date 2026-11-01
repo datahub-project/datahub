@@ -30,6 +30,14 @@ table Policies
 
 \tcolumn PremiumBand = IF('Policies'[WrittenPremium] >= 5000, "High", "Low")
 \t\tdataType: string
+\t\ttype: calculated
+
+\tcolumn PolicyState = RELATED('Claims'[State]) // 'Comment'[Ignored]
+\t\tdataType: string
+
+\tcolumn LegacyBand
+\t\tdataType: string
+\t\ttype: calculated
 
 \tmeasure 'Loss Ratio' =
 \t\t\tVAR Losses = SUM('Claims'[PaidAmount])
@@ -122,15 +130,37 @@ def test_parse_import_table_columns_measures_and_m_partition() -> None:
     assert table.description == "One row per policy."
 
     columns = {c.name: c for c in table.columns}
-    assert set(columns) == {"PolicyId", "EffectiveDate", "PremiumBand"}
+    assert set(columns) == {
+        "PolicyId",
+        "EffectiveDate",
+        "PremiumBand",
+        "PolicyState",
+        "LegacyBand",
+    }
     assert columns["PolicyId"].data_type == "Int64"
     assert columns["PolicyId"].source_column == "POLICY_ID"
     assert columns["PolicyId"].is_hidden
+    assert not columns["PolicyId"].is_calculated
+    assert columns["PolicyId"].references == []
     assert columns["PolicyId"].description == "Surrogate key."
     assert columns["EffectiveDate"].data_type == "DateTime"
     assert not columns["EffectiveDate"].is_hidden
     assert columns["PremiumBand"].expression is not None
     assert columns["PremiumBand"].expression.startswith("IF('Policies'[WrittenPremium]")
+    assert columns["PremiumBand"].is_calculated
+    assert [(r.table, r.field) for r in columns["PremiumBand"].references] == [
+        ("Policies", "WrittenPremium")
+    ]
+    # `column X = <DAX>` is calculated even without `type: calculated`, and a
+    # DAX comment contributes no reference.
+    assert columns["PolicyState"].is_calculated
+    assert [(r.table, r.field) for r in columns["PolicyState"].references] == [
+        ("Claims", "State")
+    ]
+    # `type: calculated` alone marks the column; there is no DAX to read.
+    assert columns["LegacyBand"].is_calculated
+    assert columns["LegacyBand"].expression is None
+    assert columns["LegacyBand"].references == []
 
     assert len(table.measures) == 1
     measure = table.measures[0]

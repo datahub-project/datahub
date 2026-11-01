@@ -38,6 +38,7 @@ table Policies
 		dataType: string
 		lineageTag: 0000000a-1111-4222-8333-00000000000a
 		summarizeBy: none
+		type: calculated
 
 	partition Policies = m
 		mode: import
