@@ -1,0 +1,35 @@
+/// Postgres table with a key into the Snowflake test table.
+table postgres_test_table
+	lineageTag: 00000030-1111-4222-8333-000000000030
+
+	column id
+		dataType: int64
+		isKey
+		isNullable: false
+		lineageTag: 00000031-1111-4222-8333-000000000031
+		summarizeBy: none
+		sourceColumn: id
+
+	column snowflake_id
+		dataType: int64
+		lineageTag: 00000032-1111-4222-8333-000000000032
+		summarizeBy: none
+		sourceColumn: snowflake_id
+
+	column note
+		dataType: string
+		isHidden
+		lineageTag: 00000033-1111-4222-8333-000000000033
+		summarizeBy: none
+		sourceColumn: note
+
+	partition postgres_test_table = m
+		mode: import
+		source =
+				let
+				    Source = PostgreSQL.Database("localhost", "mics"),
+				    public_test = Source{[Schema="public",Item="test"]}[Data]
+				in
+				    public_test
+
+	annotation PBI_ResultType = Table

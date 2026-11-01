@@ -1,0 +1,8 @@
+relationship 00000050-1111-4222-8333-000000000050
+	fromColumn: postgres_test_table.snowflake_id
+	toColumn: SNOWFLAKE_TESTTABLE.ID
+
+relationship 00000051-1111-4222-8333-000000000051
+	isActive: false
+	fromColumn: Calendar.Date
+	toColumn: SNOWFLAKE_TESTTABLE.ID
