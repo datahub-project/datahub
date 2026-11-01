@@ -165,6 +165,46 @@ public class DataProductMembershipAuthorizationValidatorTest {
   }
 
   @Test
+  public void testNamingNewDataProductSkipsRenameCheck() {
+    DataProductProperties proposed = new DataProductProperties();
+    proposed.setName("New product");
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(Map.of());
+    when(mockAspectRetriever.entityExists(any(), eq(Set.of(DATA_PRODUCT_URN))))
+        .thenReturn(Map.of(DATA_PRODUCT_URN, false));
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                    any(AuthorizationSession.class),
+                    any(Set.class),
+                    any(Map.class),
+                    any(Map.class)))
+        .thenReturn(Set.of(DATA_PRODUCT_URN));
+
+    Assert.assertTrue(validate(upsertItem(proposed)).findAny().isEmpty());
+  }
+
+  @Test
+  public void testAssetsOnNewDataProductStillRequireAuthorization() {
+    DataProductProperties proposed = propertiesWithAssets(MEMBER_DATASET_URN);
+    proposed.setName("New product");
+    when(mockAspectRetriever.getLatestAspectObjects(any(), eq(Set.of(DATA_PRODUCT_URN)), any()))
+        .thenReturn(Map.of());
+    when(mockAspectRetriever.entityExists(any(), eq(Set.of(DATA_PRODUCT_URN))))
+        .thenReturn(Map.of(DATA_PRODUCT_URN, false));
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
+                    eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)))
+        .thenReturn(Set.of(DATA_PRODUCT_URN));
+
+    Assert.assertTrue(validate(upsertItem(proposed)).findAny().isPresent());
+  }
+
+  @Test
   public void testAssetsDeltaTriggersAuthorizationCheck() {
     DataProductProperties current = propertiesWithAssets(MEMBER_DATASET_URN);
     DataProductProperties proposed = propertiesWithAssets(OTHER_DATASET_URN);
@@ -281,6 +321,8 @@ public class DataProductMembershipAuthorizationValidatorTest {
     when(mockAspectRetriever.getLatestAspectObjects(
             any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DOMAINS_ASPECT_NAME))))
         .thenReturn(Map.of(DATA_PRODUCT_URN, Map.of()));
+    when(mockAspectRetriever.entityExists(any(), eq(Set.of(DATA_PRODUCT_URN))))
+        .thenReturn(Map.of(DATA_PRODUCT_URN, true));
   }
 
   private static DataProductProperties propertiesWithAssets(Urn assetUrn) {

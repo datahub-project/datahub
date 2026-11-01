@@ -57,6 +57,10 @@ public class DataProductMembershipAuthorizationValidator
     Map<Urn, Map<String, Aspect>> currentPropertiesMap =
         aspectRetriever.getLatestAspectObjects(
             operationContext, dataProductUrns, Set.of(DATA_PRODUCT_PROPERTIES_ASPECT_NAME));
+    // Naming a product that does not exist yet is part of creating it, which the entity CREATE
+    // and domains checks already authorize; only renames of existing products are gated here.
+    Map<Urn, Boolean> entityExists =
+        aspectRetriever.entityExists(operationContext, dataProductUrns);
 
     for (BatchItem item : items) {
       Aspect currentAspect =
@@ -71,7 +75,8 @@ public class DataProductMembershipAuthorizationValidator
         membershipChanges.add(item);
         changedAssetsByProduct.put(item.getUrn(), changedAssets);
       }
-      if (hasNameChange(current, proposed)) {
+      if (Boolean.TRUE.equals(entityExists.get(item.getUrn()))
+          && hasNameChange(current, proposed)) {
         nameChangeProducts.add(item.getUrn());
       }
     }

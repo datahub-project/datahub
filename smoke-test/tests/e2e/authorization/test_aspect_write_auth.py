@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 
 import pytest
+import requests
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -33,8 +34,10 @@ from tests.e2e.privileges.utils import (
     wait_until_graphql_auth_denied,
 )
 from tests.e2e.utils import (
+    delete_urn,
     get_frontend_session,
     get_frontend_url,
+    get_gms_url,
     login_as,
     with_test_retry,
 )
@@ -865,3 +868,103 @@ def test_update_data_product_name_allowed_with_edit_entity_on_data_product(
     assert res.get("data", {}).get("updateName") is True, res
 
     remove_policy(policy_urn, admin_session)
+
+
+def _mint_user_token(admin_session, actor_urn: str) -> tuple[str, str]:
+    response = admin_session.post(
+        f"{get_frontend_url()}/api/v2/graphql",
+        json={
+            "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {
+                createAccessToken(input: $input) { accessToken metadata { id } }
+            }""",
+            "variables": {
+                "input": {
+                    "type": "PERSONAL",
+                    "actorUrn": actor_urn,
+                    "duration": "ONE_HOUR",
+                    "name": f"dp-create-auth-{_UNIQUE}",
+                }
+            },
+        },
+    )
+    response.raise_for_status()
+    result = response.json()["data"]["createAccessToken"]
+    return result["accessToken"], result["metadata"]["id"]
+
+
+def _revoke_user_token(admin_session, token_id: str) -> None:
+    admin_session.post(
+        f"{get_frontend_url()}/api/v2/graphql",
+        json={
+            "query": "mutation($id: String!) { revokeAccessToken(tokenId: $id) }",
+            "variables": {"id": token_id},
+        },
+    )
+
+
+def _openapi_create_data_product(token: str, urn: str, domain_urn: str):
+    return requests.post(
+        f"{get_gms_url()}/openapi/v3/entity/dataproduct?async=false",
+        headers={"Authorization": f"Bearer {token}"},
+        json=[
+            {
+                "urn": urn,
+                "dataProductProperties": {"value": {"name": urn.split(":")[-1]}},
+                "domains": {"value": {"domains": [domain_urn]}},
+            }
+        ],
+    )
+
+
+def test_create_data_product_allowed_with_manage_data_products_on_domain(
+    graph_client, auth_session
+):
+    """A domain manager (MANAGE_DATA_PRODUCTS only) can create a Data Product in that domain via
+    GraphQL and OpenAPI, but not in a domain they do not manage."""
+    admin_session = get_frontend_session()
+    policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test MANAGE_DATA_PRODUCTS create {_UNIQUE}",
+        description="Grant MANAGE_DATA_PRODUCTS on domain for create",
+        privileges=["MANAGE_DATA_PRODUCTS"],
+        user_urn=TEST_USER_URN,
+        resource_urn=TEST_DOMAIN_URN,
+    )
+    token, token_id = _mint_user_token(admin_session, TEST_USER_URN)
+    wait_for_writes_to_sync(mcp_only=True)
+    graphql_urn = ""
+    openapi_urn = f"urn:li:dataProduct:auth-create-openapi-{_UNIQUE}"
+    denied_urn = f"urn:li:dataProduct:auth-create-denied-{_UNIQUE}"
+    try:
+        res = _post_graphql_as_user(
+            TEST_USER_EMAIL,
+            TEST_USER_PASSWORD,
+            {
+                "query": CREATE_DATA_PRODUCT_MUTATION,
+                "variables": {
+                    "domainUrn": TEST_DOMAIN_URN,
+                    "name": f"Created by domain manager {_UNIQUE}",
+                },
+            },
+        )
+        graphql_urn = (
+            (res.get("data") or {}).get("createDataProduct", {}).get("urn", "")
+        )
+        assert graphql_urn, res
+        domains = graph_client.get_aspect(graphql_urn, DomainsClass)
+        assert domains is not None and TEST_DOMAIN_URN in domains.domains
+
+        response = _openapi_create_data_product(token, openapi_urn, TEST_DOMAIN_URN)
+        assert response.status_code == 200, response.text
+
+        response = _openapi_create_data_product(token, denied_urn, CROSS_DOMAIN_URN)
+        assert response.status_code == 403, response.text
+    finally:
+        _revoke_user_token(admin_session, token_id)
+        remove_policy(policy_urn, admin_session)
+        for urn in (graphql_urn, openapi_urn, denied_urn):
+            if urn:
+                try:
+                    delete_urn(graph_client, urn)
+                except Exception:
+                    logger.warning("Failed to delete %s during cleanup", urn)

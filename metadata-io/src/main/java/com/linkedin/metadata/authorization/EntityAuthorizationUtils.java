@@ -16,6 +16,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
@@ -36,6 +37,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +70,10 @@ import org.apache.http.HttpStatus;
 public final class EntityAuthorizationUtils {
 
   private EntityAuthorizationUtils() {}
+
+  /** Change types that create a missing entity with the CREATE privilege path. */
+  private static final Set<ChangeType> CREATING_CHANGE_TYPES =
+      Set.of(ChangeType.UPSERT, ChangeType.UPDATE, ChangeType.RESTATE, ChangeType.CREATE_ENTITY);
 
   /**
    * Authorizes entity URNs for API surfaces (OpenAPI / RestLi). Activation follows {@code
@@ -199,7 +205,8 @@ public final class EntityAuthorizationUtils {
       return AuthUtil.isAPIAuthorized(opContext, ENTITY, entityRegistry, mcps);
     }
 
-    DomainWriteAuthorizationUtils.seedProposedDomainsFromMcps(opContext, entityRegistry, mcps);
+    Map<Urn, Domains> proposedDomains =
+        DomainWriteAuthorizationUtils.seedProposedDomainsFromMcps(opContext, entityRegistry, mcps);
 
     List<Pair<MetadataChangeProposal, Pair<ChangeType, Urn>>> resolvedProposals =
         mcps.stream()
@@ -216,7 +223,7 @@ public final class EntityAuthorizationUtils {
                 })
             .toList();
 
-    return authorizeResolvedChangeUrns(opContext, resolvedProposals);
+    return authorizeResolvedChangeUrns(opContext, resolvedProposals, proposedDomains);
   }
 
   /**
@@ -231,15 +238,16 @@ public final class EntityAuthorizationUtils {
 
     List<? extends BatchItem> orderedItems =
         items instanceof List ? (List<? extends BatchItem>) items : List.copyOf(items);
-    DomainWriteAuthorizationUtils.seedProposedDomainsForApiAuth(
-        opContext, opContext, opContext.getAspectRetriever(), orderedItems);
+    Map<Urn, Domains> proposedDomains =
+        DomainWriteAuthorizationUtils.seedProposedDomainsForApiAuth(
+            opContext, opContext, opContext.getAspectRetriever(), orderedItems);
 
     List<Pair<BatchItem, Pair<ChangeType, Urn>>> resolved =
         items.stream()
             .map(item -> Pair.of((BatchItem) item, Pair.of(item.getChangeType(), item.getUrn())))
             .toList();
 
-    return authorizeResolvedChangeUrns(opContext, resolved);
+    return authorizeResolvedChangeUrns(opContext, resolved, proposedDomains);
   }
 
   /**
@@ -257,13 +265,16 @@ public final class EntityAuthorizationUtils {
     }
     return authorizeResolvedChangeUrns(
             opContext,
-            urns.stream().map(urn -> Pair.of(urn, Pair.of(ChangeType.UPSERT, urn))).toList())
+            urns.stream().map(urn -> Pair.of(urn, Pair.of(ChangeType.UPSERT, urn))).toList(),
+            Map.of())
         .stream()
         .allMatch(result -> result.getSecond() == HttpStatus.SC_OK);
   }
 
   private static <T> List<Pair<T, Integer>> authorizeResolvedChangeUrns(
-      @Nonnull OperationContext opContext, @Nonnull List<Pair<T, Pair<ChangeType, Urn>>> resolved) {
+      @Nonnull OperationContext opContext,
+      @Nonnull List<Pair<T, Pair<ChangeType, Urn>>> resolved,
+      @Nonnull Map<Urn, Domains> proposedDomains) {
 
     Set<Urn> allUrns =
         resolved.stream().map(pair -> pair.getSecond().getSecond()).collect(Collectors.toSet());
@@ -288,8 +299,11 @@ public final class EntityAuthorizationUtils {
                             : changeUrn));
 
     Map<Pair<ChangeType, Urn>, Integer> authorizationResults =
-        AuthUtil.isAPIAuthorizedUrns(
-            opContext, ENTITY, Set.copyOf(effectiveAuthorizationKeys.values()), entityExists);
+        new HashMap<>(
+            AuthUtil.isAPIAuthorizedUrns(
+                opContext, ENTITY, Set.copyOf(effectiveAuthorizationKeys.values()), entityExists));
+    allowDataProductCreatesByDomainManagers(
+        opContext, authorizationResults, entityExists, proposedDomains);
 
     return resolved.stream()
         .map(
@@ -300,6 +314,31 @@ public final class EntityAuthorizationUtils {
                         effectiveAuthorizationKeys.get(proposal.getSecond()),
                         HttpStatus.SC_INTERNAL_SERVER_ERROR)))
         .toList();
+  }
+
+  /**
+   * Re-authorizes denied DataProduct creates against {@code MANAGE_DATA_PRODUCTS} on the proposed
+   * domains, the same permission the GraphQL create uses. Only entities that do not exist yet are
+   * considered, so this never widens edits of existing products.
+   */
+  private static void allowDataProductCreatesByDomainManagers(
+      @Nonnull OperationContext opContext,
+      @Nonnull Map<Pair<ChangeType, Urn>, Integer> authorizationResults,
+      @Nonnull Map<Urn, Boolean> entityExists,
+      @Nonnull Map<Urn, Domains> proposedDomains) {
+    if (proposedDomains.isEmpty()) {
+      return;
+    }
+    for (Map.Entry<Pair<ChangeType, Urn>, Integer> entry : authorizationResults.entrySet()) {
+      Urn urn = entry.getKey().getSecond();
+      if (entry.getValue() == HttpStatus.SC_FORBIDDEN
+          && CREATING_CHANGE_TYPES.contains(entry.getKey().getFirst())
+          && Boolean.FALSE.equals(entityExists.get(urn))
+          && DomainWriteAuthorizationUtils.isAuthorizedToCreateDataProductInDomains(
+              opContext, urn, proposedDomains.get(urn))) {
+        entry.setValue(HttpStatus.SC_OK);
+      }
+    }
   }
 
   /**

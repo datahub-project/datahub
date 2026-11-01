@@ -405,24 +405,31 @@ public final class DomainWriteAuthorizationUtils {
    * applied against an earlier UPSERT in the same request (matching ingest order). {@code
    * batchItems} must be a {@link List} because chaining depends on that order; a bare {@link
    * Collection} is not enough.
+   *
+   * @return the proposed domains per URN, for callers that need them beyond seeding
    */
-  public static void seedProposedDomainsForApiAuth(
+  @Nonnull
+  public static Map<Urn, Domains> seedProposedDomainsForApiAuth(
       @Nonnull OperationContext opContext,
       @Nonnull OperationFingerprint operationContext,
       @Nonnull AspectRetriever aspectRetriever,
       @Nonnull List<? extends BatchItem> batchItems) {
     if (batchItems.isEmpty()) {
-      return;
+      return Map.of();
     }
-    seedProposedDomainsForApiAuth(
-        opContext,
-        operationContext,
-        aspectRetriever,
-        accumulateProposedDomainsFromBatchItems(aspectRetriever, batchItems));
+    Map<Urn, Domains> proposed =
+        accumulateProposedDomainsFromBatchItems(aspectRetriever, batchItems);
+    seedProposedDomainsForApiAuth(opContext, operationContext, aspectRetriever, proposed);
+    return proposed;
   }
 
-  /** Seed proposed domains extracted from raw MCPs (RestLi / Platform OpenAPI ingest path). */
-  public static void seedProposedDomainsFromMcps(
+  /**
+   * Seed proposed domains extracted from raw MCPs (RestLi / Platform OpenAPI ingest path).
+   *
+   * @return the proposed domains per URN, for callers that need them beyond seeding
+   */
+  @Nonnull
+  public static Map<Urn, Domains> seedProposedDomainsFromMcps(
       @Nonnull OperationContext opContext,
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull Collection<MetadataChangeProposal> mcps) {
@@ -430,9 +437,10 @@ public final class DomainWriteAuthorizationUtils {
         accumulateProposedDomainsFromMcps(
             opContext, entityRegistry, opContext.getAspectRetriever(), mcps);
     if (proposed.isEmpty()) {
-      return;
+      return Map.of();
     }
     seedProposedDomainsForApiAuth(opContext, opContext, opContext.getAspectRetriever(), proposed);
+    return proposed;
   }
 
   private static void seedProposedDomainsForApiAuth(
@@ -546,8 +554,18 @@ public final class DomainWriteAuthorizationUtils {
     }
 
     return apiOperation == CREATE
-        && com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())
         && useProposedDomains
+        && isAuthorizedToCreateDataProductInDomains(session, urn, proposedDomains);
+  }
+
+  /**
+   * Whether {@code MANAGE_DATA_PRODUCTS} on one of the proposed domains authorizes creating {@code
+   * urn}. Only applies to DataProducts with at least one proposed domain; matches the GraphQL
+   * DataProduct create permission. Callers must only use this for entities that do not exist yet.
+   */
+  public static boolean isAuthorizedToCreateDataProductInDomains(
+      @Nonnull AuthorizationSession session, @Nonnull Urn urn, @Nullable Domains proposedDomains) {
+    return com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())
         && hasDomainMembership(proposedDomains)
         && EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
             session, EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(proposedDomains));

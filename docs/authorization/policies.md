@@ -125,8 +125,9 @@ boundary. Use domain-separated writers when you need hard isolation between writ
 create into a specific domain.
 
 Data Product creation through entity APIs also accepts **Manage Data Products** (`MANAGE_DATA_PRODUCTS`)
-on one of the proposed Domains. This matches the Data Product UI create permission and applies only
-to Data Product creation; it does not grant create access to other entity types.
+on one of the proposed Domains, sent as a `domains` aspect in the same request. This matches the Data
+Product UI create permission and applies only to creating a Data Product that does not exist yet; it
+does not grant create access to other entity types or edit access to existing Data Products.
 
 ###### How to authorize CREATE_ENTITY with a domain-scoped policy
 
@@ -649,6 +650,8 @@ can always delete their own documents.
 | Change `dataProductProperties.assets` (product page / `batchSetDataProduct` with urn) | **Manage Data Products**                                                                           | **At least one** Domain on the product          |
 | Add/remove Data Product from asset profile                                            | **Edit Data Product**                                                                              | Target **asset**                                |
 | Rename Data Product (`updateName`)                                                    | **Manage Data Products** on any Domain **or** **Edit Entity** on the Data Product                  | Domains and/or product URN                      |
+
+Setting the name while creating a new Data Product is authorized by the create rules above, not the rename rule.
 
 Domain URNs are read from the product's `domains` aspect, preferring `domainAssociations` and falling back to the legacy `domains` array. Duplicate entries are deduplicated. Products with no Domain associations are denied for product-side manage operations. Product and asset Domains do not need to match — authorization succeeds when either product-side manage or asset-side edit checks pass.
 

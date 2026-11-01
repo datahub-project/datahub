@@ -71,11 +71,8 @@ public class CreateDataProductResolver implements DataFetcher<CompletableFuture<
                     input.getId(),
                     input.getProperties().getName(),
                     input.getProperties().getDescription(),
-                    parentDataProductUrn);
-            _dataProductService.setDomain(
-                context.getOperationContext(),
-                dataProductUrn,
-                UrnUtils.getUrn(input.getDomainUrn()));
+                    parentDataProductUrn,
+                    domainUrn);
             OwnerUtils.addCreatorAsOwner(
                 context, dataProductUrn.toString(), OwnerEntityType.CORP_USER, _entityService);
             EntityResponse response =

@@ -627,6 +627,66 @@ public class EntityAuthorizationUtilsTest {
         List.of(Pair.of(item, expectedStatus)));
   }
 
+  @DataProvider(name = "dataProductDomainManagerCreateCases")
+  public Object[][] dataProductDomainManagerCreateCases() {
+    // changeType, entityExists, managesProposedDomain, expectedStatus
+    return new Object[][] {
+      {ChangeType.UPSERT, false, true, 200},
+      {ChangeType.CREATE_ENTITY, false, true, 200},
+      {ChangeType.UPSERT, false, false, 403},
+      // Existing products keep requiring Edit Entity; the fallback is create-only.
+      {ChangeType.UPSERT, true, true, 403},
+      {ChangeType.PATCH, false, true, 403},
+    };
+  }
+
+  @Test(dataProvider = "dataProductDomainManagerCreateCases")
+  public void testBatchItemsAuthorization_dataProductCreateByDomainManager(
+      ChangeType changeType, boolean entityExists, boolean managesDomain, int expectedStatus) {
+    Urn dataProductUrn = UrnUtils.getUrn("urn:li:dataProduct:facade-product");
+    com.linkedin.domain.Domains domains =
+        new com.linkedin.domain.Domains()
+            .setDomains(
+                new com.linkedin.common.UrnArray(
+                    List.of(UrnUtils.getUrn("urn:li:domain:engineering"))));
+    BatchItem item = mock(BatchItem.class);
+    when(item.getUrn()).thenReturn(dataProductUrn);
+    when(item.getChangeType()).thenReturn(changeType);
+    Pair<ChangeType, Urn> authorizationKey = Pair.of(changeType, dataProductUrn);
+    Map<Urn, Boolean> existence = Map.of(dataProductUrn, entityExists);
+    authUtilMock.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+    documentAuthMock
+        .when(() -> DocumentAuthorizationUtils.isDocumentEntity(dataProductUrn))
+        .thenReturn(false);
+    when(aspectRetriever.entityExists(opContext, Set.of(dataProductUrn))).thenReturn(existence);
+    authUtilMock
+        .when(
+            () ->
+                AuthUtil.isAPIAuthorizedUrns(
+                    eq(opContext), eq(ENTITY), eq(Set.of(authorizationKey)), eq(existence)))
+        .thenReturn(Map.of(authorizationKey, 403));
+
+    try (MockedStatic<DomainWriteAuthorizationUtils> domainAuth =
+        Mockito.mockStatic(DomainWriteAuthorizationUtils.class)) {
+      domainAuth
+          .when(
+              () ->
+                  DomainWriteAuthorizationUtils.seedProposedDomainsForApiAuth(
+                      eq(opContext), eq(opContext), eq(aspectRetriever), any()))
+          .thenReturn(Map.of(dataProductUrn, domains));
+      domainAuth
+          .when(
+              () ->
+                  DomainWriteAuthorizationUtils.isAuthorizedToCreateDataProductInDomains(
+                      opContext, dataProductUrn, domains))
+          .thenReturn(managesDomain);
+
+      assertEquals(
+          EntityAuthorizationUtils.isAPIAuthorizedBatchItems(opContext, List.of(item)),
+          List.of(Pair.of(item, expectedStatus)));
+    }
+  }
+
   /**
    * Regression coverage for the gap Cursor Bugbot flagged on PR #16319: OpenAPI (v1/v2/v3) and
    * Rest.li entity reads serialize aspect content generically, with no per-field mapper the way
