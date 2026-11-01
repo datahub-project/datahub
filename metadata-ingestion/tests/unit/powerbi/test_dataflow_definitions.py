@@ -294,8 +294,8 @@ def test_dataflow_entities_are_emitted_with_upstream_lineage() -> None:
         if isinstance(mcp.aspect, SubTypesClass)
     }
     assert subtypes[container_urn] == ["Dataflow"]
-    assert subtypes[POLICIES_ENTITY_URN] == ["Dataflow"]
-    assert subtypes[ACTIVE_AGENTS_ENTITY_URN] == ["Dataflow"]
+    assert subtypes[POLICIES_ENTITY_URN] == ["Dataflow Entity"]
+    assert subtypes[ACTIVE_AGENTS_ENTITY_URN] == ["Dataflow Entity"]
     assert all(
         mcp.aspect.container == container_urn
         for mcp in mcps

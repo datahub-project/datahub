@@ -1052,7 +1052,7 @@ class Mapper:
                         Constant.DATAFLOW_NAME: dataflow.name,
                     },
                 ),
-                subtype=DatasetSubTypes.POWERBI_DATAFLOW,
+                subtype=DatasetSubTypes.POWERBI_DATAFLOW_ENTITY,
                 browse_path=[
                     BrowsePathEntryClass(
                         id=workspace.name,

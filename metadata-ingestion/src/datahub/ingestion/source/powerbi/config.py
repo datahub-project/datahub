@@ -1242,7 +1242,7 @@ class PowerBiDashboardSourceConfig(
     extract_dataflows: bool = pydantic.Field(
         default=False,
         description="Ingest Dataflow Gen2 items: each dataflow becomes a container in its "
-        "workspace and each of its load-enabled queries a dataset with subtype `Dataflow`, "
+        "workspace and each of its load-enabled queries a dataset with subtype `Dataflow Entity`, "
         "with upstream lineage parsed from the query's M expression and downstream "
         "lineage to the semantic-model tables that read it through "
         "`PowerPlatform.Dataflows` / `PowerBI.Dataflows`. Dataflow datasets are named "

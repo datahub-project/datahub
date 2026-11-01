@@ -2240,13 +2240,13 @@ class PowerBiAPI:
         if self.__config.enrich_from_item_definitions:
             self.reporter.warning(
                 title=Constant.NO_ITEM_DEFINITIONS_FETCHED,
-                message=f"Every Fabric getDefinition call failed; the scan metadata is ingested without definition-derived enrichment. {permission_hint}",
+                message=f"Every Fabric getDefinition call for semantic-model, report or dataflow definitions failed; the scan metadata is ingested without definition-derived enrichment. {permission_hint}",
                 context=context,
             )
             return
         self.reporter.failure(
             title=Constant.NO_ITEM_DEFINITIONS_FETCHED,
-            message=f"Every Fabric getDefinition call failed; no semantic-model schema or lineage has been ingested. {permission_hint}",
+            message=f"Every Fabric getDefinition call for semantic-model, report or dataflow definitions failed; no semantic-model schema or lineage has been ingested. {permission_hint}",
             context=context,
         )
 
