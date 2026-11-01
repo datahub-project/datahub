@@ -1628,6 +1628,13 @@ def test_visual_chart_info_title_url_type_and_filters() -> None:
     info = _aspects_of(chart_mcps, BAR_URN)["ChartInfoClass"]
     assert info.title == "Policies by State"
     assert info.chartUrl == "https://app.powerbi.com/groups/ws-1/reports/r1/p1"
+    # A query string on the report URL stays after the page segment.
+    report = _report_with_visuals(_dataset([]))
+    report.webUrl = "https://app.powerbi.com/groups/ws-1/reports/r1?ctid=t1"
+    assert (
+        _mapper()._page_url(report, report.pages[0])
+        == "https://app.powerbi.com/groups/ws-1/reports/r1/p1?ctid=t1"
+    )
     assert info.type == ChartTypeClass.BAR
     assert info.customProperties["visualType"] == "clusteredBarChart"
     assert info.customProperties["visualName"] == "v-bar"

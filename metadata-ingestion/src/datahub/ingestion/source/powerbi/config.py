@@ -279,6 +279,7 @@ class Constant:
     PAGE_NAME = "pageName"
     VISUAL = "Visual"
     VISUAL_TITLE_FALLBACK = "{visual_type} on {page}"
+    URL_QUERY_SEPARATOR = "?"
     TOP = "$top"
     # Scan-API column types reproduced for TMDL-sourced columns
     COLUMN_TYPE_DATA = "Data"

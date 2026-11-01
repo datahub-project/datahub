@@ -2371,10 +2371,11 @@ class Mapper:
         self, report: powerbi_data_classes.Report, page: powerbi_data_classes.Page
     ) -> Optional[str]:
         """The page's URL in the Power BI service: the report URL plus the
-        page's name segment."""
+        page's name segment, inserted before any query string."""
         if not report.webUrl:
             return None
-        return f"{report.webUrl}/{page.name}"
+        base, separator, query = report.webUrl.partition(Constant.URL_QUERY_SEPARATOR)
+        return f"{base.rstrip('/')}/{page.name}{separator}{query}"
 
     def _chart_common_mcps(
         self,
