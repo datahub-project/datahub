@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.mappers;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -16,6 +17,7 @@ import com.linkedin.data.template.DoubleMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.ScrollResult;
@@ -234,5 +236,24 @@ public class UrnSearchResultsMapperTest {
     assertEquals(
         mapped.getSearchResults().stream().map(r -> r.getEntity().getUrn()).toList(),
         List.of(onTelemetry));
+  }
+
+  @Test
+  public void testStrictKeepsPoliciesWithoutReadingThem() throws Exception {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    OperationContext opContext = spy(TestOperationContexts.systemContextNoSearchAuthorization());
+    when(opContext.getAspectRetriever()).thenReturn(retriever);
+    QueryContext context = mock(QueryContext.class);
+    when(context.getOperationContext()).thenReturn(opContext);
+    String policy = "urn:li:dataHubPolicy:unknown-condition";
+
+    SearchResults mapped =
+        UrnSearchResultsMapper.map(context, backendResult(new SearchEntityArray(hit(policy))));
+
+    assertEquals(
+        mapped.getSearchResults().stream().map(r -> r.getEntity().getUrn()).toList(),
+        List.of(policy));
+    verify(retriever, never()).getLatestAspectObjects(any(), anySet(), anySet());
   }
 }

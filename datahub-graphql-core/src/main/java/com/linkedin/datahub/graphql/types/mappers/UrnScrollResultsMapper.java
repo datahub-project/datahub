@@ -2,12 +2,14 @@ package com.linkedin.datahub.graphql.types.mappers;
 
 import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import java.util.ArrayList;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -34,8 +36,11 @@ public class UrnScrollResultsMapper<T extends RecordTemplate, E extends Entity> 
     if (handling().toleratesUnknownEntityAspect()) {
       result.setSearchResults(UrnSearchResultsMapper.mapKnownResults(context, input.getEntities()));
     } else {
+      final Set<Urn> unrepresentablePolicies =
+          UrnSearchResultsMapper.unrepresentablePolicies(context, input.getEntities());
       result.setSearchResults(
           input.getEntities().stream()
+              .filter(r -> !unrepresentablePolicies.contains(r.getEntity()))
               .map(r -> MapperUtils.mapResult(context, r))
               .collect(Collectors.toList()));
     }
