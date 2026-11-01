@@ -76,6 +76,10 @@ def mock_time():
     return datetime.datetime.strptime(FROZEN_TIME, "%Y-%m-%d %H:%M:%S")
 
 
+def _field(dataset_urn: str, field_name: str) -> str:
+    return f"urn:li:schemaField:({dataset_urn},{field_name})"
+
+
 def scan_result_with_columns(pytestconfig: pytest.Config) -> Dict[str, Any]:
     """The default scan response with columns and a measure on two tables of
     the library dataset, so the definition has something to overlay."""
@@ -124,11 +128,18 @@ def enrichment_mock_data(pytestconfig: pytest.Config) -> Dict[str, Dict[str, Any
 
 def enrichment_source_config(**overrides: Any) -> Dict[str, Any]:
     config = default_source_config()
+    # Resolve every upstream platform, not just the admin-scan fixtures' two.
+    del config["dataset_type_mapping"]
     config.update(
         {
             "enrich_from_item_definitions": True,
             "extract_model_relationships": True,
             "extract_model_properties": True,
+            "extract_lineage": True,
+            "extract_column_level_lineage": True,
+            "enable_advance_lineage_sql_construct": True,
+            "native_query_parsing": True,
+            "extract_dax_reference_lineage": True,
         }
     )
     config.update(overrides)
@@ -182,8 +193,32 @@ def test_admin_scan_enriched_from_item_definitions(
     assert any("/admin/" in request.url for request in requests_mock.request_history)
     # The definition only ever overlays; no table exists because of it.
     with open(output_path) as f:
-        urns = {mcp["entityUrn"] for mcp in json.load(f) if "entityUrn" in mcp}
+        mcps = json.load(f)
+    urns = {mcp["entityUrn"] for mcp in mcps if "entityUrn" in mcp}
     assert not any("Calendar" in urn for urn in urns)
+    # The overlaid sourceColumn routes the upstream column edge to the
+    # Snowflake column the model reads (TEST_ID), not the display name (ID),
+    # and the calculated column's DAX gives it a field edge from PRICE.
+    snowflake_table = "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.SNOWFLAKE_TESTTABLE,DEV)"
+    edges = [
+        edge
+        for mcp in mcps
+        if mcp.get("aspectName") == "upstreamLineage"
+        and mcp["entityUrn"] == snowflake_table
+        for edge in mcp["aspect"]["json"].get("fineGrainedLineages") or []
+    ]
+    assert edges
+    id_edges = [e for e in edges if e["downstreams"] == [_field(snowflake_table, "ID")]]
+    assert len(id_edges) == 1
+    (id_upstream,) = id_edges[0]["upstreams"]
+    assert "urn:li:dataPlatform:snowflake" in id_upstream
+    assert id_upstream.endswith(",TEST_ID)")
+    premium_edges = [
+        e for e in edges if e["downstreams"] == [_field(snowflake_table, "IS_PREMIUM")]
+    ]
+    assert len(premium_edges) == 1
+    assert premium_edges[0]["upstreamType"] == "FIELD_SET"
+    assert premium_edges[0]["upstreams"] == [_field(snowflake_table, "PRICE")]
     # The role file's member is an identity and must never reach the sink.
     with open(output_path) as f:
         assert "analysts@example.com" not in f.read()

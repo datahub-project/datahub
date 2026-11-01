@@ -135,6 +135,51 @@ def _storage_mode_from_partition(partition: ParsedPartition) -> Optional[str]:
     return None
 
 
+@dataclass(frozen=True)
+class _PartitionFields:
+    """What a table's first TMDL partition contributes to the Table: the M
+    expression, a calculated table's DAX, a DirectLake entity binding or a
+    composite model's remote table, and the storage mode. `query` partitions
+    hold native SQL, which the M parser cannot consume; such a table carries
+    no expression or lineage."""
+
+    expression: Optional[str] = None
+    calculated_expression: Optional[str] = None
+    source_schema: Optional[str] = None
+    source_expression: Optional[str] = None
+    storage_mode: Optional[str] = None
+    remote_model: Optional[RemoteModelReference] = None
+    remote_table_name: Optional[str] = None
+
+
+def _partition_fields(
+    partition: Optional[ParsedPartition],
+    table_name: str,
+    analysis_services: Dict[str, Optional[RemoteModelReference]],
+) -> _PartitionFields:
+    if partition is None:
+        return _PartitionFields()
+    if partition.kind == PARTITION_KIND_ENTITY:
+        entity = PowerBiAPI._entity_partition_source(
+            table_name, partition, analysis_services
+        )
+        return _PartitionFields(
+            source_schema=entity.source_schema,
+            source_expression=entity.source_expression,
+            storage_mode=entity.storage_mode,
+            remote_model=entity.remote_model,
+            remote_table_name=entity.remote_table_name,
+        )
+    storage_mode = _storage_mode_from_partition(partition)
+    if partition.kind == PARTITION_KIND_M:
+        return _PartitionFields(expression=partition.source, storage_mode=storage_mode)
+    if partition.kind == PARTITION_KIND_CALCULATED:
+        return _PartitionFields(
+            calculated_expression=partition.source, storage_mode=storage_mode
+        )
+    return _PartitionFields(storage_mode=storage_mode)
+
+
 def form_full_table_name(
     config: PowerBiDashboardSourceConfig,
     workspace: Workspace,
@@ -1365,27 +1410,9 @@ class PowerBiAPI:
         parsed_table: ParsedTable,
         analysis_services: Dict[str, Optional[RemoteModelReference]],
     ) -> Table:
-        partition = parsed_table.partition
-        expression: Optional[str] = None
-        calculated_expression: Optional[str] = None
-        storage_mode: Optional[str] = None
-        entity_source: Optional[EntityPartitionSource] = None
-        if partition is not None:
-            if partition.kind == PARTITION_KIND_M:
-                expression = partition.source
-            elif partition.kind == PARTITION_KIND_CALCULATED:
-                calculated_expression = partition.source
-            elif partition.kind == PARTITION_KIND_ENTITY:
-                entity_source = self._entity_partition_source(
-                    parsed_table.name, partition, analysis_services
-                )
-            # `query` partitions hold native SQL, which the M parser cannot
-            # consume; the table is emitted without an expression or lineage.
-            if partition.kind != PARTITION_KIND_ENTITY:
-                storage_mode = _storage_mode_from_partition(partition)
-        if entity_source is None:
-            entity_source = EntityPartitionSource(storage_mode=storage_mode)
-
+        partition = _partition_fields(
+            parsed_table.partition, parsed_table.name, analysis_services
+        )
         columns = [self._column_from_parsed(column) for column in parsed_table.columns]
         measures = [
             self._measure_from_parsed(measure) for measure in parsed_table.measures
@@ -1398,21 +1425,21 @@ class PowerBiAPI:
                 dataset_name=dataset_name,
                 table_name=parsed_table.name,
             ),
-            expression=expression,
+            expression=partition.expression,
             columns=columns,
             measures=measures,
             dataset=dataset,
             row_count=None,
             column_count=None,
-            storage_mode=entity_source.storage_mode,
-            source_schema=entity_source.source_schema,
-            source_expression=entity_source.source_expression,
-            calculated_expression=calculated_expression,
+            storage_mode=partition.storage_mode,
+            source_schema=partition.source_schema,
+            source_expression=partition.source_expression,
+            calculated_expression=partition.calculated_expression,
             description=parsed_table.description,
             partition_count=parsed_table.partition_count,
             refresh_policy=parsed_table.refresh_policy,
-            remote_model=entity_source.remote_model,
-            remote_table_name=entity_source.remote_table_name,
+            remote_model=partition.remote_model,
+            remote_table_name=partition.remote_table_name,
         )
 
     @staticmethod
@@ -1545,13 +1572,13 @@ class PowerBiAPI:
         ]
         if not failed_tables:
             self.reporter.warning(
-                title="TMDL Part Not Parsed",
+                title=Constant.TMDL_PART_NOT_PARSED,
                 message="Some non-table parts of the semantic-model definition could not be decoded or parsed; relationships or DirectLake lineage from them are missing.",
                 context=f"{context}, parts={failed_parts}",
             )
         elif self.__config.enrich_from_item_definitions:
             self.reporter.warning(
-                title="TMDL Table Not Parsed",
+                title=Constant.TMDL_TABLE_NOT_PARSED,
                 message="Some table parts of the semantic-model definition could not be decoded or parsed; those tables keep their scan metadata without enrichment.",
                 context=f"{context}, parts={failed_tables}",
             )
@@ -1560,7 +1587,7 @@ class PowerBiAPI:
             # run; under stale-entity removal a green run would soft-delete
             # it, so this is a failure like a refused definition.
             self.reporter.failure(
-                title="TMDL Table Not Parsed",
+                title=Constant.TMDL_TABLE_NOT_PARSED,
                 message="Some table parts of the semantic-model definition could not be decoded or parsed; those tables are missing from this run.",
                 context=f"{context}, parts={failed_tables}",
             )
@@ -1580,7 +1607,7 @@ class PowerBiAPI:
                 parsed_model.skipped_relationships
             )
             self.reporter.warning(
-                title="Relationship Not Parsed",
+                title=Constant.RELATIONSHIP_NOT_PARSED,
                 message="Some semantic-model relationships had unparseable fromColumn/toColumn references and are not emitted as foreign keys.",
                 context=f"{context}, relationships={parsed_model.skipped_relationships}",
             )
@@ -1632,6 +1659,7 @@ class PowerBiAPI:
         entity, so every problem is a warning."""
         if self.__fabric_resolver is None:
             # No Fabric token; reported once at startup.
+            self.reporter.scan_datasets_not_enriched += len(workspace.datasets)
             return
         for dataset in workspace.datasets.values():
             context = (
@@ -1668,10 +1696,16 @@ class PowerBiAPI:
         counted and reported."""
         parsed_by_name = {table.name: table for table in parsed_model.tables}
         scan_by_name = {table.name: table for table in dataset.tables}
+        analysis_services = analysis_services_targets(
+            {
+                name: shared.expression
+                for name, shared in parsed_model.shared_expressions.items()
+            }
+        )
         for name, table in scan_by_name.items():
             parsed_table = parsed_by_name.get(name)
             if parsed_table is not None:
-                self._overlay_table(table, parsed_table)
+                self._overlay_table(table, parsed_table, analysis_services, context)
         scan_only = sorted(set(scan_by_name) - set(parsed_by_name))
         if scan_only:
             self.reporter.scan_tables_not_in_definition += len(scan_only)
@@ -1689,42 +1723,80 @@ class PowerBiAPI:
                 context=f"{context}, tables={definition_only}",
             )
 
-    @staticmethod
-    def _overlay_table(table: Table, parsed_table: ParsedTable) -> None:
-        """TMDL enrichment on a scan-built table. The scan keeps its name, M
-        expression, data types and column set; the definition supplies what
-        the scan does not carry and fills what it left empty."""
-        if parsed_table.description:
+    def _overlay_table(
+        self,
+        table: Table,
+        parsed_table: ParsedTable,
+        analysis_services: Dict[str, Optional[RemoteModelReference]],
+        context: str,
+    ) -> None:
+        """TMDL enrichment on a scan-built table. The scan keeps its name,
+        field set and every value it carries (M expression, data types,
+        descriptions, isHidden); the definition supplies what the scan does
+        not model and fills what the scan left empty. Fields are matched by
+        name; fields on one side only are counted and reported."""
+        if not table.description:
             table.description = parsed_table.description
         table.partition_count = parsed_table.partition_count
         table.refresh_policy = parsed_table.refresh_policy
-        partition = parsed_table.partition
-        if partition is not None:
-            if partition.kind == PARTITION_KIND_CALCULATED:
-                table.calculated_expression = partition.source
-            elif partition.kind == PARTITION_KIND_M and table.expression is None:
-                table.expression = partition.source
-            elif partition.kind == PARTITION_KIND_ENTITY:
-                if table.source_schema is None:
-                    table.source_schema = partition.schema_name
-                if table.source_expression is None:
-                    table.source_expression = partition.entity_name
-            if table.storage_mode is None:
-                table.storage_mode = _storage_mode_from_partition(partition)
+        partition = _partition_fields(
+            parsed_table.partition, parsed_table.name, analysis_services
+        )
+        table.calculated_expression = partition.calculated_expression
+        if table.expression is None:
+            table.expression = partition.expression
+        if table.source_schema is None:
+            table.source_schema = partition.source_schema
+        if table.source_expression is None:
+            table.source_expression = partition.source_expression
+        if table.storage_mode is None:
+            table.storage_mode = partition.storage_mode
+        # The scan does not model composite-model connections; the definition
+        # is the only source for them (extract_composite_model_lineage).
+        table.remote_model = partition.remote_model
+        table.remote_table_name = partition.remote_table_name
         columns_by_name = {column.name: column for column in table.columns or []}
+        measures_by_name = {measure.name: measure for measure in table.measures or []}
+        matched: Set[str] = set()
         for parsed_column in parsed_table.columns:
             column = columns_by_name.get(parsed_column.name)
             if column is not None:
-                PowerBiAPI._overlay_column(column, parsed_column)
-        measures_by_name = {measure.name: measure for measure in table.measures or []}
+                matched.add(parsed_column.name)
+                self._overlay_column(column, parsed_column)
         for parsed_measure in parsed_table.measures:
             measure = measures_by_name.get(parsed_measure.name)
             if measure is not None:
-                PowerBiAPI._overlay_measure(measure, parsed_measure)
+                matched.add(parsed_measure.name)
+                self._overlay_measure(measure, parsed_measure)
+        definition_names = {column.name for column in parsed_table.columns} | {
+            measure.name for measure in parsed_table.measures
+        }
+        self._report_field_mismatches(
+            scan_only=sorted((set(columns_by_name) | set(measures_by_name)) - matched),
+            definition_only=sorted(definition_names - matched),
+            context=f"{context}, table={table.name}",
+        )
+
+    def _report_field_mismatches(
+        self, scan_only: List[str], definition_only: List[str], context: str
+    ) -> None:
+        if scan_only:
+            self.reporter.scan_fields_not_in_definition += len(scan_only)
+            self.reporter.warning(
+                title=Constant.SCAN_FIELD_NOT_IN_DEFINITION,
+                message="Some scanned columns or measures have no field of that name in the semantic-model definition (renamed, or dropped from the model); they keep their scan metadata without enrichment.",
+                context=f"{context}, fields={scan_only}",
+            )
+        if definition_only:
+            self.reporter.definition_fields_not_in_scan += len(definition_only)
+            self.reporter.warning(
+                title=Constant.DEFINITION_FIELD_NOT_IN_SCAN,
+                message="Some columns or measures of the semantic-model definition are not in the admin scan's table; the scan is the source of truth, so they are not added.",
+                context=f"{context}, fields={definition_only}",
+            )
 
     @staticmethod
     def _overlay_column(column: Column, parsed: ParsedColumn) -> None:
-        column.isHidden = parsed.is_hidden
         column.source_column = parsed.source_column
         column.references = parsed.references
         column.has_row_context_iterators = parsed.has_row_context_iterators
@@ -1732,15 +1804,14 @@ class PowerBiAPI:
             column.columnType = Constant.COLUMN_TYPE_CALCULATED
             if column.expression is None:
                 column.expression = parsed.expression
-        if parsed.description:
+        if not column.description:
             column.description = parsed.description
         column.model_properties = parsed.model_properties
 
     @staticmethod
     def _overlay_measure(measure: Measure, parsed: ParsedMeasure) -> None:
-        measure.isHidden = parsed.is_hidden
         measure.references = parsed.references
-        if parsed.description:
+        if not measure.description:
             measure.description = parsed.description
         measure.model_properties = parsed.model_properties
 
@@ -1866,13 +1937,13 @@ class PowerBiAPI:
         context = f"failed={self.reporter.fabric_definitions_failed}"
         if self.__config.enrich_from_item_definitions:
             self.reporter.warning(
-                title="No Item Definitions Fetched",
+                title=Constant.NO_ITEM_DEFINITIONS_FETCHED,
                 message=f"Every Fabric getDefinition call failed; the scan metadata is ingested without definition-derived enrichment. {permission_hint}",
                 context=context,
             )
             return
         self.reporter.failure(
-            title="No Item Definitions Fetched",
+            title=Constant.NO_ITEM_DEFINITIONS_FETCHED,
             message=f"Every Fabric getDefinition call failed; no semantic-model schema or lineage has been ingested. {permission_hint}",
             context=context,
         )

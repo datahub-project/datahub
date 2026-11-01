@@ -2610,16 +2610,32 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         test_report = TestConnectionReport()
+        reporter = PowerBiDashboardSourceReport()
         try:
             PowerBiAPI(
                 PowerBiDashboardSourceConfig.parse_obj_allow_extras(config_dict),
-                PowerBiDashboardSourceReport(),
+                reporter,
             )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(e)
             )
+            return test_report
+        # enrich_from_item_definitions only warns when the Fabric token cannot
+        # be acquired (the scan still works); surface it here so a recipe
+        # whose enrichment would silently do nothing is caught up front.
+        token_warnings = [
+            warning.message
+            for warning in reporter.warnings
+            if warning.title == Constant.FABRIC_TOKEN_NOT_ACQUIRED
+        ]
+        if token_warnings:
+            test_report.capability_report = {
+                SourceCapability.LINEAGE_FINE: CapabilityReport(
+                    capable=False, failure_reason=token_warnings[0]
+                )
+            }
         return test_report
 
     @classmethod

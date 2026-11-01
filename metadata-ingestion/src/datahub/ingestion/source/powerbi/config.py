@@ -213,6 +213,12 @@ class Constant:
     ITEM_DEFINITION_NOT_FETCHED = "Item Definition Not Fetched"
     DEFINITION_TABLE_NOT_IN_SCAN = "Definition Table Not In Scan"
     SCAN_TABLE_NOT_IN_DEFINITION = "Scan Table Not In Definition"
+    DEFINITION_FIELD_NOT_IN_SCAN = "Definition Field Not In Scan"
+    SCAN_FIELD_NOT_IN_DEFINITION = "Scan Field Not In Definition"
+    TMDL_TABLE_NOT_PARSED = "TMDL Table Not Parsed"
+    TMDL_PART_NOT_PARSED = "TMDL Part Not Parsed"
+    RELATIONSHIP_NOT_PARSED = "Relationship Not Parsed"
+    NO_ITEM_DEFINITIONS_FETCHED = "No Item Definitions Fetched"
     SEMANTIC_MODEL_NOT_ENRICHED = "Semantic Model Not Enriched"
     FABRIC_TOKEN_NOT_ACQUIRED = "Fabric Token Not Acquired"
 
@@ -446,6 +452,11 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     scan_datasets_not_enriched: int = 0
     definition_tables_not_in_scan: int = 0
     scan_tables_not_in_definition: int = 0
+    # Field-level counterpart within a matched table: scan columns / measures
+    # with no TMDL twin (renamed, or dropped from the model) and definition
+    # fields the scan does not expose.
+    scan_fields_not_in_definition: int = 0
+    definition_fields_not_in_scan: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
