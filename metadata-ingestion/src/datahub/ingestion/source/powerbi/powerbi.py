@@ -2273,6 +2273,19 @@ class Mapper:
         # Return set of work_unit
         return deduplicate_list(work_units, lambda wu: wu.id)
 
+    @staticmethod
+    def _filter_properties(
+        filters: List[powerbi_data_classes.ReportFilter],
+    ) -> Dict[str, str]:
+        """Report or page filters as `filters` (a JSON list) and `filterCount`
+        custom properties; empty when the report declares none."""
+        if not filters:
+            return {}
+        return {
+            Constant.FILTERS: json.dumps([f.to_dict() for f in filters]),
+            Constant.FILTER_COUNT: str(len(filters)),
+        }
+
     def _page_input_fields_mcp(
         self,
         page: powerbi_data_classes.Page,
@@ -2372,6 +2385,7 @@ class Mapper:
                 custom_properties[Constant.VISUAL_COUNT] = str(page.visual_count)
             if page.visual_types:
                 custom_properties[Constant.VISUAL_TYPES] = ", ".join(page.visual_types)
+            custom_properties.update(self._filter_properties(page.filters))
 
             # Create chartInfo mcp
             # Set chartUrl only if tile is created from Report
@@ -2479,6 +2493,7 @@ class Mapper:
             lastModified=ChangeAuditStamps(),
             dashboardUrl=report.webUrl,
             datasetEdges=dataset_edges,
+            customProperties=self._filter_properties(report.filters),
         )
 
         info_mcp = MetadataChangeProposalWrapper(
