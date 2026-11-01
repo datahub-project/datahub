@@ -1248,10 +1248,13 @@ class Mapper:
         entity: powerbi_data_classes.DataflowQuery,
         ds_urn: str,
         bindings: Dict[str, str],
+        workspace: powerbi_data_classes.Workspace,
     ) -> List[MetadataChangeProposalWrapper]:
         """Upstream lineage of one dataflow entity. *bindings* holds the
         mashup's parseable queries; wrapping them in one let lets a query
-        that references another query resolve to that query's source."""
+        that references another query resolve to that query's source.
+        *workspace* supplies the Fabric items a Sql.Database query over an
+        endpoint host is mapped to, as for semantic-model tables."""
         if entity.name not in bindings:
             return []
         table = powerbi_data_classes.Table(
@@ -1266,6 +1269,7 @@ class Mapper:
             ctx=self.__ctx,
             config=self.__config,
         )
+        self._resolve_fabric_endpoint_references(upstream_lineage, workspace, ds_urn)
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
         # Dataflow entities carry no schema, so there is nothing for a
@@ -1343,7 +1347,9 @@ class Mapper:
         )
         if self.__config.extract_lineage:
             mcps.extend(
-                self.extract_dataflow_entity_lineage(dataflow, entity, ds_urn, bindings)
+                self.extract_dataflow_entity_lineage(
+                    dataflow, entity, ds_urn, bindings, workspace
+                )
             )
         return mcps
 
