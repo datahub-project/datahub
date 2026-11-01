@@ -3259,7 +3259,9 @@
             "customProperties": {
                 "order": "0",
                 "visualCount": "3",
-                "visualTypes": "card, clusteredBarChart, tableEx"
+                "visualTypes": "card, clusteredBarChart, tableEx",
+                "filters": "[{\"name\": \"dddd3333eeee4444ffff\", \"type\": \"Advanced\", \"target\": \"Claims[PaidAmount]\", \"condition\": \"> 0\"}]",
+                "filterCount": "1"
             },
             "title": "Loss Overview",
             "description": "Loss Overview",
@@ -3417,6 +3419,37 @@
                         "recursive": false,
                         "isPartOfKey": false
                     }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV),PaidAmount)",
+                    "schemaField": {
+                        "fieldPath": "PaidAmount",
+                        "nullable": false,
+                        "description": "Amount paid out on the claim in USD.",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "Double",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV),EffectiveDate)",
+                    "schemaField": {
+                        "fieldPath": "EffectiveDate",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.DateType": {}
+                            }
+                        },
+                        "nativeDataType": "DateTime",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
                 }
             ]
         }
@@ -3461,6 +3494,23 @@
         "json": [
             {
                 "op": "add",
+                "path": "/customProperties/filters",
+                "value": "[{\"name\": \"aaaa1111bbbb2222cccc\", \"type\": \"RelativeDate\", \"target\": \"Policies[EffectiveDate]\", \"condition\": \"Last 365 days\"}]"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/filterCount",
+                "value": "1"
+            },
+            {
+                "op": "add",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
+                }
+            },
+            {
+                "op": "add",
                 "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
                 "value": {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
@@ -3471,13 +3521,6 @@
                 "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
                 "value": {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
-                }
-            },
-            {
-                "op": "add",
-                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
-                "value": {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
                 }
             },
             {
