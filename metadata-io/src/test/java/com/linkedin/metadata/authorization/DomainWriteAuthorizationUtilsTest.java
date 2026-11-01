@@ -229,6 +229,16 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
+  public void testIsAuthorizedEntityWrite_createRequiresManageDataProductsOnEveryProposedDomain() {
+    AuthorizationSession session = sessionAllowingPrivilegeOnDomain(DOMAIN_X);
+    Domains proposed = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X, DOMAIN_Y)));
+
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATA_PRODUCT_URN, ApiOperation.CREATE, true, proposed));
+  }
+
+  @Test
   public void testIsAuthorizedEntityWrite_manageDataProductsDoesNotCreateOtherEntityTypes() {
     AuthorizationSession session = sessionAllowingPrivilegeOnDomain(DOMAIN_X);
     Domains proposed = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));

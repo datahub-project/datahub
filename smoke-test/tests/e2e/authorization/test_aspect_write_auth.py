@@ -893,13 +893,14 @@ def _mint_user_token(admin_session, actor_urn: str) -> tuple[str, str]:
 
 
 def _revoke_user_token(admin_session, token_id: str) -> None:
-    admin_session.post(
+    response = admin_session.post(
         f"{get_frontend_url()}/api/v2/graphql",
         json={
             "query": "mutation($id: String!) { revokeAccessToken(tokenId: $id) }",
             "variables": {"id": token_id},
         },
     )
+    response.raise_for_status()
 
 
 def _openapi_create_data_product(token: str, urn: str, domain_urn: str):
@@ -960,8 +961,14 @@ def test_create_data_product_allowed_with_manage_data_products_on_domain(
         response = _openapi_create_data_product(token, denied_urn, CROSS_DOMAIN_URN)
         assert response.status_code == 403, response.text
     finally:
-        _revoke_user_token(admin_session, token_id)
-        remove_policy(policy_urn, admin_session)
+        try:
+            _revoke_user_token(admin_session, token_id)
+        except Exception:
+            logger.warning("Failed to revoke token %s during cleanup", token_id)
+        try:
+            remove_policy(policy_urn, admin_session)
+        except Exception:
+            logger.warning("Failed to remove policy %s during cleanup", policy_urn)
         for urn in (graphql_urn, openapi_urn, denied_urn):
             if urn:
                 try:

@@ -559,16 +559,24 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Whether {@code MANAGE_DATA_PRODUCTS} on one of the proposed domains authorizes creating {@code
-   * urn}. Only applies to DataProducts with at least one proposed domain; matches the GraphQL
-   * DataProduct create permission. Callers must only use this for entities that do not exist yet.
+   * Whether {@code MANAGE_DATA_PRODUCTS} on every proposed domain authorizes creating {@code urn}.
+   * Only applies to DataProducts with at least one proposed domain; matches the GraphQL DataProduct
+   * create permission. Callers must only use this for entities that do not exist yet.
    */
   public static boolean isAuthorizedToCreateDataProductInDomains(
       @Nonnull AuthorizationSession session, @Nonnull Urn urn, @Nullable Domains proposedDomains) {
-    return com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())
-        && hasDomainMembership(proposedDomains)
-        && EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
-            session, EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(proposedDomains));
+    if (!com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())
+        || !hasDomainMembership(proposedDomains)) {
+      return false;
+    }
+    // Every domain must be managed, otherwise a manager of A could attach the product to B too.
+    Set<Urn> domainUrns = EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(proposedDomains);
+    return !domainUrns.isEmpty()
+        && domainUrns.stream()
+            .allMatch(
+                domainUrn ->
+                    EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAnyDomain(
+                        session, Set.of(domainUrn)));
   }
 
   /**

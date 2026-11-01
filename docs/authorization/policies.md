@@ -125,9 +125,10 @@ boundary. Use domain-separated writers when you need hard isolation between writ
 create into a specific domain.
 
 Data Product creation through entity APIs also accepts **Manage Data Products** (`MANAGE_DATA_PRODUCTS`)
-on one of the proposed Domains, sent as a `domains` aspect in the same request. This matches the Data
+on every proposed Domain, sent as a `domains` aspect in the same request. This matches the Data
 Product UI create permission and applies only to creating a Data Product that does not exist yet; it
-does not grant create access to other entity types or edit access to existing Data Products.
+does not extend this create-specific authorization to other entity types or edits to existing Data
+Products, which retain the rules below.
 
 ###### How to authorize CREATE_ENTITY with a domain-scoped policy
 

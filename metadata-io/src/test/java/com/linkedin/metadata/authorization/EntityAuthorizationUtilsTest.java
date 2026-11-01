@@ -632,6 +632,8 @@ public class EntityAuthorizationUtilsTest {
     // changeType, entityExists, managesProposedDomain, expectedStatus
     return new Object[][] {
       {ChangeType.UPSERT, false, true, 200},
+      {ChangeType.UPDATE, false, true, 200},
+      {ChangeType.RESTATE, false, true, 200},
       {ChangeType.CREATE_ENTITY, false, true, 200},
       {ChangeType.UPSERT, false, false, 403},
       // Existing products keep requiring Edit Entity; the fallback is create-only.
