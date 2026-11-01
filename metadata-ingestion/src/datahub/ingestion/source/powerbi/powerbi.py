@@ -143,6 +143,17 @@ from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 # Logger instance
 logger = logging.getLogger(__name__)
 
+# A failed refresh's serviceExceptionJson can embed whole stack traces; keep
+# the custom property to a size a UI can show.
+REFRESH_ERROR_MAX_LENGTH = 1000
+TRUNCATION_MARKER = "..."
+
+
+def _truncate(value: Optional[str], max_length: int) -> Optional[str]:
+    if value is None or len(value) <= max_length:
+        return value
+    return value[: max_length - len(TRUNCATION_MARKER)] + TRUNCATION_MARKER
+
 
 def _is_secret_parameter(name: str) -> bool:
     lowered = name.lower()
@@ -1072,16 +1083,54 @@ class Mapper:
             )
         )
 
-    def _refresh_operation_mcp(
+    def _refresh_operation_mcps(
         self, dataset: powerbi_data_classes.PowerBIDataset, ds_urn: str
-    ) -> Optional[MetadataChangeProposalWrapper]:
-        refresh = dataset.last_refresh
+    ) -> List[MetadataChangeProposalWrapper]:
+        """The latest completed and the latest failed refresh as Operations.
+
+        Both are keyed on the refresh's own end time, so re-running ingestion
+        does not create duplicate operation events.
+        """
+        if not self.__config.extract_refresh_history:
+            return []
+        operations: List[OperationClass] = []
+        completed = dataset.last_refresh
         if (
-            not self.__config.extract_refresh_history
-            or refresh is None
-            or refresh.status != Constant.REFRESH_STATUS_COMPLETED
-            or not refresh.end_time
+            completed is not None
+            and completed.status == Constant.REFRESH_STATUS_COMPLETED
         ):
+            operation = self._refresh_operation(completed, ds_urn)
+            if operation is not None:
+                operations.append(operation)
+        failed = dataset.last_failed_refresh
+        if failed is not None and failed.status == Constant.REFRESH_STATUS_FAILED:
+            # A failed refresh leaves the data as it was, so its
+            # lastUpdatedTimestamp points at the last successful refresh:
+            # datasetProperties.lastModified is derived from the newest
+            # Operation and must not advance on a failure.
+            operation = self._refresh_operation(
+                failed,
+                ds_urn,
+                last_updated_ms=operations[0].lastUpdatedTimestamp
+                if operations
+                else None,
+            )
+            if operation is not None:
+                operations.append(operation)
+        return [
+            MetadataChangeProposalWrapper(entityUrn=ds_urn, aspect=operation)
+            for operation in operations
+        ]
+
+    def _refresh_operation(
+        self,
+        refresh: powerbi_data_classes.DatasetRefresh,
+        ds_urn: str,
+        last_updated_ms: Optional[int] = None,
+    ) -> Optional[OperationClass]:
+        # A refresh that never finished has no end time; the operation would
+        # otherwise have to be stamped with "now" and duplicate on every run.
+        if not refresh.end_time:
             return None
         try:
             end_ms = int(date_parser.isoparse(refresh.end_time).timestamp() * 1000)
@@ -1091,6 +1140,11 @@ class Mapper:
                 "Unparseable refresh endTime %r for %s", refresh.end_time, ds_urn
             )
             return None
+        service_exception: Optional[str] = None
+        if refresh.status == Constant.REFRESH_STATUS_FAILED:
+            service_exception = _truncate(
+                refresh.service_exception_json, REFRESH_ERROR_MAX_LENGTH
+            )
         custom_properties = {
             key: value
             for key, value in (
@@ -1098,19 +1152,36 @@ class Mapper:
                 (Constant.STATUS, refresh.status),
                 (Constant.REQUEST_ID, refresh.request_id),
                 (Constant.START_TIME, refresh.start_time),
+                (Constant.SERVICE_EXCEPTION, service_exception),
             )
             if value
         }
-        return MetadataChangeProposalWrapper(
-            entityUrn=ds_urn,
-            aspect=OperationClass(
-                timestampMillis=end_ms,
-                lastUpdatedTimestamp=end_ms,
-                operationType=OperationTypeClass.CUSTOM,
-                customOperationType=Constant.CUSTOM_OPERATION_REFRESH,
-                customProperties=custom_properties,
-            ),
+        return OperationClass(
+            timestampMillis=end_ms,
+            lastUpdatedTimestamp=end_ms if last_updated_ms is None else last_updated_ms,
+            operationType=OperationTypeClass.CUSTOM,
+            customOperationType=Constant.CUSTOM_OPERATION_REFRESH,
+            customProperties=custom_properties,
         )
+
+    @staticmethod
+    def _refresh_schedule_properties(
+        schedule: Optional[powerbi_data_classes.DatasetRefreshSchedule],
+    ) -> Dict[str, str]:
+        if schedule is None:
+            return {}
+        prefix = Constant.REFRESH_SCHEDULE_PROPERTY_PREFIX
+        properties = {
+            f"{prefix}{Constant.DAYS}": ",".join(schedule.days),
+            f"{prefix}{Constant.TIMES}": ",".join(schedule.times),
+        }
+        if schedule.local_time_zone_id:
+            properties[f"{prefix}{Constant.LOCAL_TIME_ZONE_ID}"] = (
+                schedule.local_time_zone_id
+            )
+        if schedule.enabled is not None:
+            properties[f"{prefix}{Constant.ENABLED}"] = str(schedule.enabled).lower()
+        return properties
 
     def create_datahub_owner_urn(self, user: str) -> str:
         """
@@ -1167,7 +1238,10 @@ class Mapper:
         table: powerbi_data_classes.Table,
         dataset: powerbi_data_classes.PowerBIDataset,
     ) -> Dict[str, str]:
-        custom_properties: Dict[str, str] = {Constant.DATASET_ID: dataset.id}
+        custom_properties: Dict[str, str] = {
+            Constant.DATASET_ID: dataset.id,
+            **self._refresh_schedule_properties(dataset.refresh_schedule),
+        }
         if not self.__config.extract_model_properties:
             return custom_properties
         if table.storage_mode:
@@ -1388,9 +1462,7 @@ class Mapper:
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn, workspace))
 
-            operation_mcp = self._refresh_operation_mcp(dataset, ds_urn)
-            if operation_mcp is not None:
-                dataset_mcps.append(operation_mcp)
+            dataset_mcps.extend(self._refresh_operation_mcps(dataset, ds_urn))
 
             self.append_container_mcp(
                 dataset_mcps,
@@ -2530,7 +2602,7 @@ class Mapper:
 )
 @capability(
     SourceCapability.OPERATION_CAPTURE,
-    "Optionally enabled via `extract_refresh_history`: the latest dataset refresh as an Operation aspect",
+    "Optionally enabled via `extract_refresh_history`: the latest completed and latest failed dataset refresh as Operation aspects, plus the refresh schedule as custom properties",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(

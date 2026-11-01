@@ -224,13 +224,25 @@ class Constant:
 
     # workspace_apis mode: regular-API endpoints and refresh-history keys
     DATASET_REFRESHES = "DATASET_REFRESHES"
+    DATASET_REFRESH_SCHEDULE = "DATASET_REFRESH_SCHEDULE"
     WORKSPACE_USERS = "WORKSPACE_USERS"
     REQUEST_ID = "requestId"
     REFRESH_TYPE = "refreshType"
     START_TIME = "startTime"
     END_TIME = "endTime"
+    SERVICE_EXCEPTION_JSON = "serviceExceptionJson"
     REFRESH_STATUS_COMPLETED = "Completed"
+    REFRESH_STATUS_FAILED = "Failed"
     CUSTOM_OPERATION_REFRESH = "REFRESH"
+    # Operation customProperties key carrying a failed refresh's error payload
+    SERVICE_EXCEPTION = "serviceException"
+    # GET .../refreshSchedule keys and the datasetProperties customProperties
+    # they are emitted under
+    DAYS = "days"
+    TIMES = "times"
+    ENABLED = "enabled"
+    LOCAL_TIME_ZONE_ID = "localTimeZoneId"
+    REFRESH_SCHEDULE_PROPERTY_PREFIX = "refreshSchedule."
     VISUAL_COUNT = "visualCount"
     VISUAL_TYPES = "visualTypes"
     TOP = "$top"
@@ -457,6 +469,12 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # fields the scan does not expose.
     scan_fields_not_in_definition: int = 0
     definition_fields_not_in_scan: int = 0
+    # Datasets whose refresh-history call answered 415: system datasets such
+    # as the workspace usage-metrics model cannot be refreshed.
+    datasets_not_refreshable: int = 0
+    refresh_schedule_fetched: int = 0
+    refresh_schedule_not_configured: int = 0
+    refresh_schedule_failed: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -1123,10 +1141,12 @@ class PowerBiDashboardSourceConfig(
     )
     extract_refresh_history: bool = pydantic.Field(
         default=False,
-        description="Fetch each dataset's most recent refresh and emit it as an Operation "
-        "aspect on the dataset's tables. Adds one API call per dataset; works in both "
-        "metadata API modes and needs only the Viewer role, but uses the workspace "
-        "API, so it cannot be combined with `admin_apis_only`.",
+        description="Fetch each dataset's recent refreshes and configured refresh "
+        "schedule. The latest completed and the latest failed refresh are emitted as "
+        "Operation aspects on the dataset's tables, and the schedule as "
+        "`refreshSchedule.*` custom properties. Adds two API calls per dataset; works "
+        "in both metadata API modes and needs only the Viewer role, but uses the "
+        "workspace API, so it cannot be combined with `admin_apis_only`.",
     )
 
     @classmethod

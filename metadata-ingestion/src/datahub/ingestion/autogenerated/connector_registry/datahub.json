@@ -3722,7 +3722,7 @@
         },
         {
           "capability": "OPERATION_CAPTURE",
-          "description": "Optionally enabled via `extract_refresh_history`: the latest dataset refresh as an Operation aspect",
+          "description": "Optionally enabled via `extract_refresh_history`: the latest completed and latest failed dataset refresh as Operation aspects, plus the refresh schedule as custom properties",
           "subtype_modifier": null,
           "supported": true
         },

@@ -25,6 +25,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     DaxFieldReference,
     FabricArtifact,
     FieldModelProperties,
+    DatasetRefreshSchedule,
     Measure,
     Page,
     PageFieldReference,
@@ -623,7 +624,7 @@ def test_relationships_become_foreign_keys_with_datahub_field_semantics() -> Non
     assert not policies_schema.foreignKeys
 
 
-def test_refresh_operation_only_for_completed_refresh_with_parseable_time() -> None:
+def test_refresh_operations_for_completed_and_failed_refreshes() -> None:
     mapper = _mapper(_config(extract_refresh_history=True))
     table = Table(name="T", full_name="Model.T")
 
@@ -637,35 +638,93 @@ def test_refresh_operation_only_for_completed_refresh_with_parseable_time() -> N
             "2022-02-01T20:57:05.053Z",
         ),
     )
-    mcp = mapper._refresh_operation_mcp(completed, _urn(mapper, table))
-    assert mcp is not None
-    assert isinstance(mcp.aspect, OperationClass)
-    assert mcp.aspect.operationType == OperationTypeClass.CUSTOM
-    assert mcp.aspect.customOperationType == "REFRESH"
-    assert mcp.aspect.lastUpdatedTimestamp == 1643749025053
-    assert mcp.aspect.customProperties == {
+    mcps = mapper._refresh_operation_mcps(completed, _urn(mapper, table))
+    assert len(mcps) == 1
+    aspect = mcps[0].aspect
+    assert isinstance(aspect, OperationClass)
+    assert aspect.operationType == OperationTypeClass.CUSTOM
+    assert aspect.customOperationType == "REFRESH"
+    assert aspect.lastUpdatedTimestamp == 1643749025053
+    assert aspect.customProperties == {
         "refreshType": "Scheduled",
         "status": "Completed",
         "requestId": "req",
         "startTime": "2022-02-01T20:56:55.927Z",
     }
 
-    failed = _dataset(
+    # A failed refresh is emitted next to the completed one, stamped with its
+    # own end time and carrying the (truncated) error payload. The data was
+    # last updated by the completed refresh, so lastUpdatedTimestamp (which
+    # feeds datasetProperties.lastModified) keeps pointing at it.
+    both = _dataset(
         [table],
-        last_refresh=DatasetRefresh(
-            "req", "Scheduled", "Failed", None, "2022-02-01T20:57:05Z"
+        last_refresh=completed.last_refresh,
+        last_failed_refresh=DatasetRefresh(
+            "req-failed",
+            "Scheduled",
+            "Failed",
+            "2022-02-02T20:56:55Z",
+            "2022-02-02T20:57:05Z",
+            service_exception_json='{"errorCode":"ModelRefresh_ShortMessage_'
+            + "x" * 2000
+            + '"}',
         ),
     )
-    assert mapper._refresh_operation_mcp(failed, _urn(mapper, table)) is None
+    mcps = mapper._refresh_operation_mcps(both, _urn(mapper, table))
+    assert [m.aspect.customProperties["status"] for m in mcps] == [  # type: ignore[union-attr]
+        "Completed",
+        "Failed",
+    ]
+    failed_aspect = mcps[1].aspect
+    assert isinstance(failed_aspect, OperationClass)
+    assert failed_aspect.timestampMillis == 1643835425000
+    assert failed_aspect.lastUpdatedTimestamp == 1643749025053
+    assert failed_aspect.customProperties is not None
+    assert failed_aspect.customProperties["requestId"] == "req-failed"
+    error = failed_aspect.customProperties["serviceException"]
+    assert len(error) == 1000
+    assert error.startswith('{"errorCode":"ModelRefresh_ShortMessage_')
+    assert error.endswith("...")
+
+    # Without a completed refresh in the window the failure carries its own
+    # end time.
+    failed_only = _dataset([table], last_failed_refresh=both.last_failed_refresh)
+    mcps = mapper._refresh_operation_mcps(failed_only, _urn(mapper, table))
+    assert len(mcps) == 1
+    assert isinstance(mcps[0].aspect, OperationClass)
+    assert mcps[0].aspect.lastUpdatedTimestamp == 1643835425000
+
+    # A failed refresh without an end time cannot be stamped and is skipped.
+    unfinished = _dataset(
+        [table],
+        last_failed_refresh=DatasetRefresh("req", "Scheduled", "Failed", None, None),
+    )
+    assert mapper._refresh_operation_mcps(unfinished, _urn(mapper, table)) == []
 
     unparseable = _dataset(
         [table],
         last_refresh=DatasetRefresh("req", "Scheduled", "Completed", None, "yesterday"),
     )
-    assert mapper._refresh_operation_mcp(unparseable, _urn(mapper, table)) is None
+    assert mapper._refresh_operation_mcps(unparseable, _urn(mapper, table)) == []
     assert mapper._Mapper__reporter.refresh_history_unparseable == 1  # type: ignore[attr-defined]
 
-    assert _mapper()._refresh_operation_mcp(completed, _urn(mapper, table)) is None
+    assert _mapper()._refresh_operation_mcps(both, _urn(mapper, table)) == []
+
+
+def test_refresh_schedule_becomes_dataset_custom_properties() -> None:
+    schedule = DatasetRefreshSchedule(
+        days=["Monday", "Friday"],
+        times=["07:00", "18:30"],
+        local_time_zone_id="UTC",
+        enabled=True,
+    )
+    assert Mapper._refresh_schedule_properties(schedule) == {
+        "refreshSchedule.days": "Monday,Friday",
+        "refreshSchedule.times": "07:00,18:30",
+        "refreshSchedule.localTimeZoneId": "UTC",
+        "refreshSchedule.enabled": "true",
+    }
+    assert Mapper._refresh_schedule_properties(None) == {}
 
 
 def test_page_input_fields_resolve_against_dataset_schema() -> None:

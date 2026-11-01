@@ -17,6 +17,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     Dashboard,
     DatasetRefresh,
+    DatasetRefreshSchedule,
     Measure,
     MeasureProfile,
     Page,
@@ -410,6 +411,7 @@ class RegularAPIResolver(DataResolverBase):
         Constant.GET_WORKSPACE_APP: "{MY_ORG_URL}/apps/{APP_ID}",
         Constant.DATASET_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets",
         Constant.DATASET_REFRESHES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/refreshes",
+        Constant.DATASET_REFRESH_SCHEDULE: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/refreshSchedule",
         Constant.WORKSPACE_USERS: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/users",
     }
 
@@ -452,9 +454,10 @@ class RegularAPIResolver(DataResolverBase):
                 users.append(user)
         return users
 
-    def get_latest_dataset_refresh(
+    def get_dataset_refreshes(
         self, workspace_id: str, dataset_id: str
-    ) -> Optional[DatasetRefresh]:
+    ) -> List[DatasetRefresh]:
+        """The most recent refresh-history entries, newest first."""
         endpoint = self.API_ENDPOINTS[Constant.DATASET_REFRESHES].format(
             POWERBI_BASE_URL=self._base_url,
             WORKSPACE_ID=workspace_id,
@@ -462,7 +465,7 @@ class RegularAPIResolver(DataResolverBase):
         )
         logger.debug(f"Request to refresh history URL={endpoint}")
         # A handful of recent entries so a trailing Failed/Disabled refresh
-        # does not hide the last successful one; newest first.
+        # does not hide the last successful one, and vice versa.
         response = self._request_session.get(
             endpoint,
             headers=self.get_authorization_header(),
@@ -470,22 +473,37 @@ class RegularAPIResolver(DataResolverBase):
         )
         response.raise_for_status()
         rows: List[Dict[str, Any]] = response.json().get(Constant.VALUE, [])
-        if not rows:
-            return None
-        raw = next(
-            (
-                row
-                for row in rows
-                if row.get(Constant.STATUS) == Constant.REFRESH_STATUS_COMPLETED
-            ),
-            rows[0],
+        return [
+            DatasetRefresh(
+                request_id=row.get(Constant.REQUEST_ID),
+                refresh_type=row.get(Constant.REFRESH_TYPE),
+                status=row.get(Constant.STATUS),
+                start_time=row.get(Constant.START_TIME),
+                end_time=row.get(Constant.END_TIME),
+                service_exception_json=row.get(Constant.SERVICE_EXCEPTION_JSON),
+            )
+            for row in rows
+        ]
+
+    def get_dataset_refresh_schedule(
+        self, workspace_id: str, dataset_id: str
+    ) -> DatasetRefreshSchedule:
+        endpoint = self.API_ENDPOINTS[Constant.DATASET_REFRESH_SCHEDULE].format(
+            POWERBI_BASE_URL=self._base_url,
+            WORKSPACE_ID=workspace_id,
+            DATASET_ID=dataset_id,
         )
-        return DatasetRefresh(
-            request_id=raw.get(Constant.REQUEST_ID),
-            refresh_type=raw.get(Constant.REFRESH_TYPE),
-            status=raw.get(Constant.STATUS),
-            start_time=raw.get(Constant.START_TIME),
-            end_time=raw.get(Constant.END_TIME),
+        logger.debug(f"Request to refresh schedule URL={endpoint}")
+        response = self._request_session.get(
+            endpoint, headers=self.get_authorization_header()
+        )
+        response.raise_for_status()
+        raw: Dict[str, Any] = response.json()
+        return DatasetRefreshSchedule(
+            days=[str(day) for day in raw.get(Constant.DAYS) or []],
+            times=[str(time) for time in raw.get(Constant.TIMES) or []],
+            local_time_zone_id=raw.get(Constant.LOCAL_TIME_ZONE_ID),
+            enabled=raw.get(Constant.ENABLED),
         )
 
     def get_dataset_parameters(

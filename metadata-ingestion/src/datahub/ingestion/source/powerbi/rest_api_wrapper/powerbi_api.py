@@ -2,6 +2,7 @@ import json
 import logging
 import sys
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import (
     Any,
     Dict,
@@ -221,6 +222,10 @@ class EntityPartitionSource:
     source_expression: Optional[str] = None
     remote_model: Optional[RemoteModelReference] = None
     remote_table_name: Optional[str] = None
+def _http_status(e: Exception) -> Optional[int]:
+    if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+        return e.response.status_code
+    return None
 
 
 def make_resolver(config: PowerBiDashboardSourceConfig, resolver_cls: Type[R]) -> R:
@@ -1129,21 +1134,73 @@ class PowerBiAPI:
     ) -> None:
         if not self.__config.extract_refresh_history:
             return
+        context = f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}"
         try:
-            dataset.last_refresh = (
-                self.__regular_api_resolver.get_latest_dataset_refresh(
-                    workspace_id=workspace.id, dataset_id=dataset.id
-                )
+            refreshes = self.__regular_api_resolver.get_dataset_refreshes(
+                workspace_id=workspace.id, dataset_id=dataset.id
             )
-            self.reporter.refresh_history_fetched += 1
         except Exception as e:
+            # System datasets (e.g. the workspace usage-metrics model) cannot
+            # be refreshed and answer 415 to the refresh-history call.
+            if _http_status(e) == HTTPStatus.UNSUPPORTED_MEDIA_TYPE:
+                self.reporter.datasets_not_refreshable += 1
+                logger.debug(f"Dataset is not refreshable, skipping: {context}")
+                return
             self.log_http_error(
                 message=f"Unable to fetch refresh history for dataset {dataset.id}"
             )
             self.reporter.warning(
                 title="Refresh History Not Fetched",
                 message="Dataset refresh history could not be fetched; no Operation aspect will be emitted for its tables.",
-                context=f"workspace={workspace.name}, dataset={dataset.name} id={dataset.id}",
+                context=context,
+                exc=e,
+            )
+            return
+        self.reporter.refresh_history_fetched += 1
+        # Entries are newest first.
+        dataset.last_refresh = next(
+            (
+                refresh
+                for refresh in refreshes
+                if refresh.status == Constant.REFRESH_STATUS_COMPLETED
+            ),
+            None,
+        )
+        dataset.last_failed_refresh = next(
+            (
+                refresh
+                for refresh in refreshes
+                if refresh.status == Constant.REFRESH_STATUS_FAILED
+            ),
+            None,
+        )
+        self._fill_refresh_schedule(workspace, dataset, context)
+
+    def _fill_refresh_schedule(
+        self, workspace: Workspace, dataset: PowerBIDataset, context: str
+    ) -> None:
+        try:
+            dataset.refresh_schedule = (
+                self.__regular_api_resolver.get_dataset_refresh_schedule(
+                    workspace_id=workspace.id, dataset_id=dataset.id
+                )
+            )
+            self.reporter.refresh_schedule_fetched += 1
+        except Exception as e:
+            # 404 (and 400 for models that cannot be scheduled) means no
+            # schedule is configured; that is a normal state, not a loss.
+            if _http_status(e) in (HTTPStatus.NOT_FOUND, HTTPStatus.BAD_REQUEST):
+                self.reporter.refresh_schedule_not_configured += 1
+                logger.debug(f"No refresh schedule configured: {context}")
+                return
+            self.reporter.refresh_schedule_failed += 1
+            self.log_http_error(
+                message=f"Unable to fetch refresh schedule for dataset {dataset.id}"
+            )
+            self.reporter.warning(
+                title="Refresh Schedule Not Fetched",
+                message="Dataset refresh schedule could not be fetched; its tables will carry no refreshSchedule custom properties.",
+                context=context,
                 exc=e,
             )
 
