@@ -1396,6 +1396,16 @@ class PowerBiDashboardSourceConfig(
             missing = [name for name in extra_requirements if not getattr(self, name)]
             if missing:
                 raise ValueError(f"{flag} requires these flags enabled: {missing}")
+        # Dataflow Gen2 items are listed and fetched in Phase 1 of
+        # workspace_apis mode only; enrich_from_item_definitions overlays the
+        # scanned semantic models and never lists dataflows.
+        if (
+            self.extract_dataflows
+            and self.metadata_api_mode != PowerBiMetadataApiMode.WORKSPACE_APIS
+        ):
+            raise ValueError(
+                "extract_dataflows requires metadata_api_mode: workspace_apis."
+            )
         return self
 
     @model_validator(mode="after")

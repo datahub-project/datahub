@@ -1789,9 +1789,7 @@ class Mapper:
                         # them.
                         description=table.description or dataset.description,
                         externalUrl=dataset.webUrl,
-                        customProperties=self._table_custom_properties(
-                            table, dataset
-                        ),
+                        customProperties=self._table_custom_properties(table, dataset),
                     ),
                     subtype=BIContainerSubTypes.POWERBI_DATASET_TABLE,
                     browse_path=[

@@ -513,9 +513,9 @@ def test_workspace_apis_ingest_with_enrichment(
     # The insurance model's two parameters; the DirectLake model has none.
     assert report.dataset_parameters_emitted == 2
     # Fields with at least one non-default property; `summarizeBy: none` and
-    # bare calculated columns do not count. 15 in the insurance model plus 5 in
-    # the composite executive model.
-    assert report.model_fields_with_properties == 20
+    # bare calculated columns do not count. 16 in the insurance model (one on
+    # its dataflow-backed table) plus 5 in the composite executive model.
+    assert report.model_fields_with_properties == 21
     assert report.rls_filters_unresolved == 0
     with open(output_path) as f:
         mcps = json.load(f)

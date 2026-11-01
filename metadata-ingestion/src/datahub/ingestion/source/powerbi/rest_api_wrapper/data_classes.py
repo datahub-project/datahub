@@ -100,9 +100,7 @@ class Workspace:
     )  # key = artifact id
     # Dataflow Gen2 items; populated only with extract_dataflows in
     # workspace_apis mode.
-    dataflows: Dict[str, "Dataflow"] = dataclasses.field(
-        default_factory=dict
-    )  # key = dataflow id
+    dataflows: Dict[str, "Dataflow"] = field(default_factory=dict)  # key = dataflow id
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         # shouldn't use workspace name, as they can be the same?

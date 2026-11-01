@@ -183,6 +183,13 @@ def test_refresh_history_allowed_in_admin_scan_but_not_admin_only() -> None:
             id="rejected_with_admin_apis_only",
         ),
         pytest.param({"environment": "GOVERNMENT"}, "COMMERCIAL", id="gcc"),
+        # Dataflows are only listed in workspace_apis mode; the overlay cannot
+        # unlock them.
+        pytest.param(
+            {"extract_dataflows": True},
+            "extract_dataflows requires metadata_api_mode: workspace_apis",
+            id="dataflows_not_unlocked_by_enrichment",
+        ),
     ],
 )
 def test_enrich_from_item_definitions_rejections(
