@@ -177,10 +177,14 @@
             "customProperties": {
                 "table.arn": "arn:aws:dynamodb:us-west-2:000000000000:table/Location",
                 "table.totalItems": "1",
+                "table.creationDateTime": "2023-08-30T12:00:00+00:00",
                 "Sort Key": "city",
                 "Partition Key": "partitionKey"
             },
             "name": "Location",
+            "created": {
+                "time": 1693396800000
+            },
             "tags": []
         }
     },

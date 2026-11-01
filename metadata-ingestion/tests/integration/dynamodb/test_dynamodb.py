@@ -26,6 +26,14 @@ pytestmark = pytest.mark.integration
 test_resources_dir = pathlib.Path(__file__).parent
 FROZEN_TIME = "2023-08-30 12:00:00"
 
+# Floci timestamps use the emulator's clock, outside Python's frozen clock.
+# Exact creation-time values and offsets are covered by the unit tests.
+CREATION_TIME_IGNORE_PATHS = [
+    *mce_helpers.IGNORE_PATH_TIMESTAMPS,
+    r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]\['time'\]",
+    r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['table\.creationDateTime'\]",
+]
+
 ENDPOINT_URL = "http://localhost:14570"
 WEST = "us-west-2"
 EAST = "us-east-1"
@@ -161,7 +169,7 @@ def test_dynamodb_default(dynamodb, pytestconfig, tmp_path):
         output_path=output,
         golden_path=test_resources_dir
         / "dynamodb_default_platform_instance_mces_golden.json",
-        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        ignore_paths=CREATION_TIME_IGNORE_PATHS,
     )
 
 
@@ -174,7 +182,7 @@ def test_dynamodb_platform_instance(dynamodb, pytestconfig, tmp_path):
         pytestconfig,
         output_path=output,
         golden_path=test_resources_dir / "dynamodb_platform_instance_mces_golden.json",
-        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        ignore_paths=CREATION_TIME_IGNORE_PATHS,
     )
 
 
@@ -187,7 +195,7 @@ def test_dynamodb_with_tags(dynamodb, pytestconfig, tmp_path):
         pytestconfig,
         output_path=output,
         golden_path=test_resources_dir / "dynamodb_with_tags_mces_golden.json",
-        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        ignore_paths=CREATION_TIME_IGNORE_PATHS,
     )
 
 
@@ -206,7 +214,7 @@ def test_dynamodb_table_pattern(dynamodb, pytestconfig, tmp_path):
         pytestconfig,
         output_path=output,
         golden_path=test_resources_dir / "dynamodb_table_pattern_mces_golden.json",
-        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        ignore_paths=CREATION_TIME_IGNORE_PATHS,
     )
 
 
@@ -221,5 +229,5 @@ def test_dynamodb_us_east_region(dynamodb, pytestconfig, tmp_path):
         pytestconfig,
         output_path=output,
         golden_path=test_resources_dir / "dynamodb_us_east_region_mces_golden.json",
-        ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+        ignore_paths=CREATION_TIME_IGNORE_PATHS,
     )
