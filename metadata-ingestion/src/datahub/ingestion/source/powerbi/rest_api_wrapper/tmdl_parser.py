@@ -3,8 +3,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Set
 
+from datahub.ingestion.source.powerbi.config import Constant
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     DaxFieldReference,
+    RefreshPolicy,
     Relationship,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.dax_parser import (
@@ -17,6 +19,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
 logger = logging.getLogger(__name__)
 
 TMDL_TABLES_PREFIX = "definition/tables/"
+TMDL_ROLES_PREFIX = "definition/roles/"
 TMDL_RELATIONSHIPS_PATH = "definition/relationships.tmdl"
 TMDL_EXPRESSIONS_PATH = "definition/expressions.tmdl"
 TMDL_SUFFIX = ".tmdl"
@@ -27,6 +30,10 @@ KEYWORD_MEASURE = "measure"
 KEYWORD_PARTITION = "partition"
 KEYWORD_RELATIONSHIP = "relationship"
 KEYWORD_EXPRESSION = "expression"
+KEYWORD_ROLE = "role"
+KEYWORD_TABLE_PERMISSION = "tablePermission"
+KEYWORD_REFRESH_POLICY = "refreshPolicy"
+KEYWORD_KPI = "kpi"
 
 PROP_DATA_TYPE = "dataType"
 PROP_SOURCE_COLUMN = "sourceColumn"
@@ -40,7 +47,19 @@ PROP_FROM_COLUMN = "fromColumn"
 PROP_TO_COLUMN = "toColumn"
 PROP_IS_ACTIVE = "isActive"
 PROP_TYPE = "type"
+PROP_FORMAT_STRING = "formatString"
+PROP_DISPLAY_FOLDER = "displayFolder"
+PROP_DATA_CATEGORY = "dataCategory"
+PROP_SORT_BY_COLUMN = "sortByColumn"
+PROP_SUMMARIZE_BY = "summarizeBy"
+PROP_MODEL_PERMISSION = "modelPermission"
+PROP_ROLLING_WINDOW_GRANULARITY = "rollingWindowGranularity"
+PROP_ROLLING_WINDOW_PERIODS = "rollingWindowPeriods"
+PROP_INCREMENTAL_GRANULARITY = "incrementalGranularity"
+PROP_INCREMENTAL_PERIODS = "incrementalPeriods"
 FLAG_IS_HIDDEN = "isHidden"
+FLAG_IS_KEY = "isKey"
+FLAG_IS_NULLABLE = "isNullable"
 COLUMN_TYPE_CALCULATED = "calculated"
 
 PartitionKind = Literal["m", "query", "calculated", "entity"]
@@ -55,6 +74,19 @@ PARTITION_KINDS: Dict[str, PartitionKind] = {
     PARTITION_KIND_ENTITY: PARTITION_KIND_ENTITY,
 }
 PARTITION_MODE_DIRECT_LAKE = "directLake"
+PARTITION_MODE_IMPORT = "import"
+PARTITION_MODE_DIRECT_QUERY = "directQuery"
+PARTITION_MODE_DUAL = "dual"
+PARTITION_MODE_PUSH = "push"
+# TMDL partition modes are camelCase; the scan API's `storageMode` (and
+# Constant.DIRECT_LAKE) use the TOM enum casing, which Table.storage_mode keeps.
+PARTITION_MODE_TO_STORAGE_MODE: Dict[str, str] = {
+    PARTITION_MODE_IMPORT: Constant.STORAGE_MODE_IMPORT,
+    PARTITION_MODE_DIRECT_QUERY: Constant.STORAGE_MODE_DIRECT_QUERY,
+    PARTITION_MODE_DUAL: Constant.STORAGE_MODE_DUAL,
+    PARTITION_MODE_DIRECT_LAKE: Constant.DIRECT_LAKE,
+    PARTITION_MODE_PUSH: Constant.STORAGE_MODE_PUSH,
+}
 
 # Keywords of the objects the connector reads. An unrecognised line opening
 # one of them is an object that went missing; any other unrecognised line
@@ -66,6 +98,7 @@ TRACKED_OBJECT_KEYWORDS = frozenset(
 
 DOC_COMMENT_PREFIX = "///"
 FALSE_LITERAL = "false"
+TRUE_LITERAL = "true"
 
 # TMDL writes TOM data types in camelCase; the scan API (and FIELD_TYPE_MAPPING)
 # use the TOM enum casing. Unknown types fall through unchanged.
@@ -136,6 +169,15 @@ class ParsedColumn:
     # iterates a table (a bare `[Column]` then belongs to the iterated table).
     references: List[DaxFieldReference] = field(default_factory=list)
     has_row_context_iterators: bool = False
+    # Model properties beyond the data type (extract_model_properties).
+    format_string: Optional[str] = None
+    display_folder: Optional[str] = None
+    data_category: Optional[str] = None
+    sort_by_column: Optional[str] = None
+    summarize_by: Optional[str] = None
+    is_key: bool = False
+    # TOM defaults isNullable to true, so TMDL only writes it when false.
+    is_nullable: Optional[bool] = None
 
 
 @dataclass
@@ -148,6 +190,10 @@ class ParsedMeasure:
     # Whether the DAX iterates a table (a bare `[Column]` then belongs to the
     # iterated table rather than naming a measure).
     has_row_context_iterators: bool = False
+    format_string: Optional[str] = None
+    display_folder: Optional[str] = None
+    # A `kpi` child object (status / target graphics) is defined on the measure.
+    has_kpi: bool = False
 
 
 @dataclass
@@ -166,7 +212,22 @@ class ParsedTable:
     description: Optional[str]
     columns: List[ParsedColumn]
     measures: List[ParsedMeasure]
+    # The first partition; `partition_count` counts all of them (incremental
+    # refresh splits a table into one partition per period).
     partition: Optional[ParsedPartition]
+    partition_count: int = 0
+    refresh_policy: Optional[RefreshPolicy] = None
+
+
+@dataclass
+class ParsedRole:
+    """A row-level-security role. Its `member` children are identities and
+    are deliberately never read."""
+
+    name: str
+    model_permission: Optional[str]
+    # table name -> DAX filter expression
+    table_permissions: Dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -182,11 +243,15 @@ class ParsedModel:
     tables: List[ParsedTable] = field(default_factory=list)
     relationships: List[Relationship] = field(default_factory=list)
     shared_expressions: Dict[str, ParsedSharedExpression] = field(default_factory=dict)
+    roles: List[ParsedRole] = field(default_factory=list)
     # Part paths whose content could not be parsed; the caller reports them.
     failed_parts: List[str] = field(default_factory=list)
     # Table part paths that parsed but had a column, measure or partition
     # line the parser could not read; that object is missing from the table.
     incomplete_parts: List[str] = field(default_factory=list)
+    # Role parts that could not be parsed; losing one only loses RLS
+    # enrichment, so the caller reports them apart from failed_parts.
+    failed_roles: List[str] = field(default_factory=list)
     # Relationship names whose fromColumn/toColumn could not be split.
     skipped_relationships: List[str] = field(default_factory=list)
 
@@ -302,6 +367,34 @@ def _dax_references(expression: str) -> List[DaxFieldReference]:
     return extract_dax_references(expression).fields
 
 
+def _bool_property(node: TmdlNode, key: str) -> Optional[bool]:
+    """TMDL writes a true boolean as a bare word and a non-default false as
+    ``key: false``; None when the property is absent."""
+    if key in node.flags:
+        return True
+    value = node.properties.get(key)
+    if value is None:
+        return None
+    return value.strip().lower() == TRUE_LITERAL
+
+
+def _parse_refresh_policy(node: TmdlNode) -> Optional[RefreshPolicy]:
+    policies = [
+        child
+        for child in node.children
+        if child.keyword == KEYWORD_REFRESH_POLICY and child.name is None
+    ]
+    if not policies:
+        return None
+    props = policies[0].properties
+    return RefreshPolicy(
+        rolling_window_granularity=props.get(PROP_ROLLING_WINDOW_GRANULARITY),
+        rolling_window_periods=props.get(PROP_ROLLING_WINDOW_PERIODS),
+        incremental_granularity=props.get(PROP_INCREMENTAL_GRANULARITY),
+        incremental_periods=props.get(PROP_INCREMENTAL_PERIODS),
+    )
+
+
 def _parse_partition(node: TmdlNode) -> ParsedPartition:
     # An unknown partition kind is treated as M, the format of every
     # non-DirectLake import/DirectQuery partition the connector has seen.
@@ -374,6 +467,13 @@ def parse_table(
                 is_calculated=is_calculated,
                 references=dax.fields,
                 has_row_context_iterators=dax.has_row_context_iterators,
+                format_string=column.properties.get(PROP_FORMAT_STRING),
+                display_folder=column.properties.get(PROP_DISPLAY_FOLDER),
+                data_category=column.properties.get(PROP_DATA_CATEGORY),
+                sort_by_column=column.properties.get(PROP_SORT_BY_COLUMN),
+                summarize_by=column.properties.get(PROP_SUMMARIZE_BY),
+                is_key=FLAG_IS_KEY in column.flags,
+                is_nullable=_bool_property(column, FLAG_IS_NULLABLE),
             )
         )
 
@@ -391,6 +491,9 @@ def parse_table(
                 description=measure.description,
                 references=dax.fields,
                 has_row_context_iterators=dax.has_row_context_iterators,
+                format_string=measure.properties.get(PROP_FORMAT_STRING),
+                display_folder=measure.properties.get(PROP_DISPLAY_FOLDER),
+                has_kpi=KEYWORD_KPI in measure.flags,
             )
         )
 
@@ -403,6 +506,8 @@ def parse_table(
         columns=columns,
         measures=measures,
         partition=partition,
+        partition_count=len(partitions),
+        refresh_policy=_parse_refresh_policy(node),
     )
 
 
@@ -467,6 +572,33 @@ def parse_shared_expressions(text: str) -> Dict[str, ParsedSharedExpression]:
     return expressions
 
 
+def parse_roles(text: str) -> List[ParsedRole]:
+    """Roles of one ``definition/roles/<Name>.tmdl`` part: the role name, its
+    model permission and its per-table DAX filters. ``member`` children are
+    identities and are never read."""
+    roles: List[ParsedRole] = []
+    for node in parse_tmdl(text):
+        if node.keyword != KEYWORD_ROLE or node.name is None:
+            continue
+        table_permissions: Dict[str, str] = {}
+        for permission in node.child_values(KEYWORD_TABLE_PERMISSION):
+            if permission.name is None or permission.expression is None:
+                continue
+            table_permissions[permission.name] = permission.expression.strip()
+        roles.append(
+            ParsedRole(
+                name=node.name,
+                model_permission=node.properties.get(PROP_MODEL_PERMISSION),
+                table_permissions=table_permissions,
+            )
+        )
+    return roles
+
+
+def _is_role_part(path: str) -> bool:
+    return path.startswith(TMDL_ROLES_PREFIX) and path.endswith(TMDL_SUFFIX)
+
+
 def parse_semantic_model(parts: List[DefinitionPart]) -> ParsedModel:
     model = ParsedModel()
     for part in parts:
@@ -482,6 +614,11 @@ def parse_semantic_model(parts: List[DefinitionPart]) -> ParsedModel:
                     model.tables.append(table)
                     if unparsed:
                         model.incomplete_parts.append(part.path)
+            elif _is_role_part(part.path):
+                roles = parse_roles(part.text)
+                if not roles:
+                    model.failed_roles.append(part.path)
+                model.roles.extend(roles)
             elif part.path == TMDL_RELATIONSHIPS_PATH:
                 model.relationships.extend(
                     parse_relationships(part.text, model.skipped_relationships)
@@ -492,7 +629,10 @@ def parse_semantic_model(parts: List[DefinitionPart]) -> ParsedModel:
             # A malformed part must not take the whole model down; the caller
             # reports failed_parts and still gets the tables that parsed.
             logger.debug("Failed to parse TMDL part %s: %s", part.path, e)
-            model.failed_parts.append(part.path)
+            if _is_role_part(part.path):
+                model.failed_roles.append(part.path)
+            else:
+                model.failed_parts.append(part.path)
     return model
 
 

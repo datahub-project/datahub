@@ -214,6 +214,14 @@ class Column:
     # definitions (workspace_apis mode).
     references: List[DaxFieldReference] = field(default_factory=list)
     has_row_context_iterators: bool = False
+    # Model properties from TMDL, emitted with extract_model_properties.
+    format_string: Optional[str] = None
+    display_folder: Optional[str] = None
+    data_category: Optional[str] = None
+    sort_by_column: Optional[str] = None
+    summarize_by: Optional[str] = None
+    is_key: bool = False
+    is_nullable: Optional[bool] = None
 
 
 @dataclass
@@ -230,6 +238,9 @@ class Measure:
     # Only populated from TMDL definitions (workspace_apis mode).
     references: List[DaxFieldReference] = field(default_factory=list)
     has_row_context_iterators: bool = False
+    format_string: Optional[str] = None
+    display_folder: Optional[str] = None
+    has_kpi: bool = False
 
 
 def is_calculated_column(column: Column) -> bool:
@@ -239,6 +250,24 @@ def is_calculated_column(column: Column) -> bool:
     return (column.columnType or "").casefold() == (
         Constant.COLUMN_TYPE_CALCULATED.casefold()
     )
+
+
+@dataclass
+class RefreshPolicy:
+    """TMDL `refreshPolicy` of a table: incremental refresh settings."""
+
+    rolling_window_granularity: Optional[str] = None
+    rolling_window_periods: Optional[str] = None
+    incremental_granularity: Optional[str] = None
+    incremental_periods: Optional[str] = None
+
+
+@dataclass
+class RlsTableFilter:
+    """A row-level-security role's DAX filter on one table."""
+
+    role: str
+    filter: str
 
 
 @dataclass
@@ -288,6 +317,11 @@ class Table:
     # tables it reads become same-platform upstreams. workspace_apis mode only.
     calculated_expression: Optional[str] = None
     description: Optional[str] = None
+    # Storage / partition metadata and RLS filters from TMDL; emitted as
+    # custom properties with extract_model_properties (workspace_apis mode).
+    partition_count: Optional[int] = None
+    refresh_policy: Optional[RefreshPolicy] = None
+    rls_filters: List[RlsTableFilter] = field(default_factory=list)
 
 
 @dataclass

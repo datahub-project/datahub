@@ -1,6 +1,7 @@
 """Mapper behaviour added for metadata_api_mode: workspace_apis."""
 
-from typing import Any, List, Optional
+import json
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.powerbi.config import (
@@ -25,13 +26,16 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     PageFieldReference,
     PowerBIDataset,
+    RefreshPolicy,
     Relationship,
     Report,
     ReportType,
+    RlsTableFilter,
     Table,
     Workspace,
 )
 from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
     InputFieldsClass,
     NumberTypeClass,
     OperationClass,
@@ -102,7 +106,7 @@ def _dataset(tables: List[Table], **overrides: Any) -> PowerBIDataset:
         webUrl=None,
         workspace_id="ws-1",
         workspace_name="demo-workspace",
-        parameters={},
+        parameters=overrides.pop("parameters", {}),
         tables=tables,
         tags=[],
         **overrides,
@@ -690,3 +694,147 @@ def test_page_input_fields_resolve_against_dataset_schema() -> None:
         "Total",
     ]
     assert mapper._Mapper__reporter.report_field_references_unresolved == 2  # type: ignore[attr-defined]
+
+
+def _properties_table() -> Table:
+    return Table(
+        name="Claims",
+        full_name="Model.Claims",
+        columns=[
+            Column(
+                name="ClaimId",
+                dataType="Int64",
+                isHidden=True,
+                datahubDataType=NumberTypeClass(),
+                is_key=True,
+                is_nullable=False,
+                summarize_by="none",
+            ),
+            Column(
+                name="PaidAmount",
+                dataType="Double",
+                isHidden=False,
+                datahubDataType=NumberTypeClass(),
+                format_string="$#,##0.00",
+                display_folder="Financials",
+                data_category="Currency",
+                sort_by_column="ClaimId",
+            ),
+            _column("Plain"),
+        ],
+        measures=[
+            Measure(
+                name="Loss Ratio",
+                expression="DIVIDE([Paid], [Premium])",
+                isHidden=False,
+                format_string="0.0%",
+                display_folder="Ratios",
+                has_kpi=True,
+            ),
+            Measure(name="Paid", expression="SUM(Claims[PaidAmount])", isHidden=True),
+        ],
+        storage_mode="Import",
+        partition_count=2,
+        refresh_policy=RefreshPolicy(
+            rolling_window_granularity="year",
+            rolling_window_periods="3",
+            incremental_granularity="month",
+            incremental_periods="12",
+        ),
+        rls_filters=[
+            RlsTableFilter(role="Regional Managers", filter="'Claims'[State] = \"CA\""),
+            RlsTableFilter(role="Auditors", filter="TRUE()"),
+        ],
+    )
+
+
+def _dataset_properties(mapper: Mapper, table: Table) -> Dict[str, str]:
+    dataset = table.dataset
+    assert dataset is not None
+    for mcp in mapper.to_datahub_dataset(dataset, _workspace()):
+        if isinstance(mcp.aspect, DatasetPropertiesClass):
+            return mcp.aspect.customProperties
+    raise AssertionError("no datasetProperties emitted")
+
+
+def test_model_properties_on_schema_fields_and_table_properties() -> None:
+    mapper = _mapper(_config(extract_model_properties=True))
+    table = _properties_table()
+    _dataset(
+        [table],
+        parameters={
+            "Environment": "prod",
+            "Api Token": "abc",
+            "WarehouseKey": "k1",
+            "Secret Path": "x",
+        },
+    )
+
+    schema = mapper.to_datahub_schema(table)
+    fields = {f.fieldPath: f for f in schema.fields}
+    claim_id = fields["ClaimId"]
+    assert claim_id.isPartOfKey
+    assert not claim_id.nullable
+    assert json.loads(claim_id.jsonProps or "{}") == {
+        "isHidden": True,
+        "summarizeBy": "none",
+    }
+    paid = fields["PaidAmount"]
+    assert not paid.isPartOfKey
+    assert json.loads(paid.jsonProps or "{}") == {
+        "dataCategory": "Currency",
+        "displayFolder": "Financials",
+        "formatString": "$#,##0.00",
+        "sortByColumn": "ClaimId",
+    }
+    assert fields["Plain"].jsonProps is None
+    assert json.loads(fields["Loss Ratio"].jsonProps or "{}") == {
+        "displayFolder": "Ratios",
+        "formatString": "0.0%",
+        "hasKpi": True,
+    }
+    assert json.loads(fields["Paid"].jsonProps or "{}") == {"isHidden": True}
+    # The measure's DAX still rides in the description, as before.
+    assert fields["Paid"].description == "SUM(Claims[PaidAmount])"
+
+    properties = _dataset_properties(mapper, table)
+    assert properties["datasetId"] == "ds-1"
+    assert properties["storageMode"] == "Import"
+    assert properties["partitionCount"] == "2"
+    assert properties["incrementalRefresh"] == "true"
+    assert properties["refreshPolicy.rollingWindowGranularity"] == "year"
+    assert properties["refreshPolicy.rollingWindowPeriods"] == "3"
+    assert properties["refreshPolicy.incrementalGranularity"] == "month"
+    assert properties["refreshPolicy.incrementalPeriods"] == "12"
+    # Roles are sorted by name for a stable payload.
+    assert json.loads(properties["rlsRoles"]) == [
+        {"role": "Auditors", "filter": "TRUE()"},
+        {"role": "Regional Managers", "filter": "'Claims'[State] = \"CA\""},
+    ]
+    assert properties["rlsRoleCount"] == "2"
+    assert properties["parameter.Environment"] == "prod"
+    # Any name containing a secret marker is masked, case-insensitively.
+    assert properties["parameter.Api Token"] == "***"
+    assert properties["parameter.WarehouseKey"] == "***"
+    assert properties["parameter.Secret Path"] == "***"
+
+
+def test_model_properties_absent_without_the_flag() -> None:
+    mapper = _mapper()
+    table = _properties_table()
+    _dataset([table], parameters={"Environment": "prod"})
+
+    schema = mapper.to_datahub_schema(table)
+    for field in schema.fields:
+        assert field.jsonProps is None
+        assert not field.isPartOfKey
+        assert not field.nullable
+    assert _dataset_properties(mapper, table) == {"datasetId": "ds-1"}
+
+
+def test_table_without_model_properties_only_carries_dataset_id() -> None:
+    mapper = _mapper(_config(extract_model_properties=True))
+    table = Table(name="T", full_name="Model.T", columns=[_column("A")])
+    _dataset([table])
+    assert _dataset_properties(mapper, table) == {"datasetId": "ds-1"}
+    assert mapper.to_datahub_schema(table).fields[0].jsonProps is None

@@ -6,6 +6,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
     dax_table_references,
     parse_relationships,
+    parse_roles,
     parse_semantic_model,
     parse_shared_expressions,
     parse_table,
@@ -299,4 +300,167 @@ def test_unreadable_object_line_marks_the_table_part_incomplete() -> None:
     )
     assert [t.name for t in model.tables] == ["Policies", "Clean"]
     assert model.incomplete_parts == ["definition/tables/Policies.tmdl"]
+
+
+PROPERTIES_TABLE = """table Claims
+
+\tcolumn ClaimId
+\t\tdataType: int64
+\t\tisHidden
+\t\tisKey
+\t\tisNullable: false
+\t\tsummarizeBy: none
+\t\tsourceColumn: CLAIM_ID
+
+\tcolumn State
+\t\tdataType: string
+\t\tdataCategory: StateOrProvince
+\t\tsortByColumn: StateOrder
+\t\tsourceColumn: STATE
+
+\tcolumn PaidAmount
+\t\tdataType: double
+\t\tformatString: $#,##0.00
+\t\tdisplayFolder: Financials
+\t\tsummarizeBy: sum
+\t\tsourceColumn: PAID_AMOUNT
+
+\tmeasure 'Loss Ratio' =
+\t\t\tVAR Losses = [Paid]
+\t\t\tRETURN DIVIDE(Losses, [Premium], 0)
+\t\tformatString: 0.0%
+\t\tdisplayFolder: Ratios
+
+\t\tkpi
+\t\t\tstatusGraphic: Traffic Light - Single
+\t\t\tstatusExpression =
+\t\t\t\t\tIF([Loss Ratio] < 0.6, 1, -1)
+
+\tmeasure Paid = SUM('Claims'[PaidAmount])
+\t\tisHidden
+
+\trefreshPolicy
+\t\tpolicyType: basic
+\t\trollingWindowGranularity: year
+\t\trollingWindowPeriods: 3
+\t\tincrementalGranularity: month
+\t\tincrementalPeriods: 12
+\t\tsourceExpression =
+\t\t\t\tlet
+\t\t\t\t    Source = Sql.Database("server", "db")
+\t\t\t\tin
+\t\t\t\t    Source
+
+\tpartition Claims-2023 = m
+\t\tmode: directQuery
+\t\tsource =
+\t\t\t\tlet
+\t\t\t\t    Source = Sql.Database("server", "db")
+\t\t\t\tin
+\t\t\t\t    Source
+
+\tpartition Claims-2024 = m
+\t\tmode: directQuery
+\t\tsource = Sql.Database("server", "db")
+"""
+
+ROLE = """role 'Regional Managers'
+\tmodelPermission: read
+
+\ttablePermission Policies = 'Policies'[State] = "CA"
+
+\ttablePermission 'Claims By State' =
+\t\t\t'Claims By State'[State] IN { "CA", "OR" }
+
+\tmember 'regional-managers@example.com'
+\t\tmemberId: 00000000-0000-4000-8000-00000000001b
+\t\tidentityProvider: AzureAD
+\t\tmemberType: group
+
+\tannotation PBI_Id = 0000001c-1111-4222-8333-00000000001c
+"""
+
+
+def test_parse_column_and_measure_properties() -> None:
+    table = parse_table(PROPERTIES_TABLE)
+    assert table is not None
+    columns = {c.name: c for c in table.columns}
+    claim_id = columns["ClaimId"]
+    assert claim_id.is_hidden
+    assert claim_id.is_key
+    assert claim_id.is_nullable is False
+    assert claim_id.summarize_by == "none"
+    assert claim_id.format_string is None
+    state = columns["State"]
+    assert state.data_category == "StateOrProvince"
+    assert state.sort_by_column == "StateOrder"
+    assert not state.is_key
+    # Absent isNullable stays unknown rather than defaulting either way.
+    assert state.is_nullable is None
+    paid = columns["PaidAmount"]
+    assert paid.format_string == "$#,##0.00"
+    assert paid.display_folder == "Financials"
+    assert paid.summarize_by == "sum"
+
+    measures = {m.name: m for m in table.measures}
+    loss_ratio = measures["Loss Ratio"]
+    assert loss_ratio.format_string == "0.0%"
+    assert loss_ratio.display_folder == "Ratios"
+    assert loss_ratio.has_kpi
+    assert not loss_ratio.is_hidden
+    # The kpi block does not leak into the measure's expression.
+    assert loss_ratio.expression.splitlines() == [
+        "VAR Losses = [Paid]",
+        "RETURN DIVIDE(Losses, [Premium], 0)",
+    ]
+    assert measures["Paid"].is_hidden
+    assert not measures["Paid"].has_kpi
+    assert measures["Paid"].format_string is None
+
+
+def test_parse_refresh_policy_and_partition_count() -> None:
+    table = parse_table(PROPERTIES_TABLE)
+    assert table is not None
+    assert table.partition_count == 2
+    assert table.partition is not None
+    assert table.partition.mode == "directQuery"
+    policy = table.refresh_policy
+    assert policy is not None
+    assert policy.rolling_window_granularity == "year"
+    assert policy.rolling_window_periods == "3"
+    assert policy.incremental_granularity == "month"
+    assert policy.incremental_periods == "12"
+
+    plain = parse_table(IMPORT_TABLE)
+    assert plain is not None
+    assert plain.refresh_policy is None
+    assert plain.partition_count == 1
+
+
+def test_parse_roles_keeps_filters_and_never_members() -> None:
+    roles = parse_roles(ROLE)
+    assert len(roles) == 1
+    role = roles[0]
+    assert role.name == "Regional Managers"
+    assert role.model_permission == "read"
+    assert role.table_permissions == {
+        "Policies": "'Policies'[State] = \"CA\"",
+        "Claims By State": '\'Claims By State\'[State] IN { "CA", "OR" }',
+    }
+    assert "regional-managers" not in repr(role)
+    assert "00000000-0000-4000-8000-00000000001b" not in repr(role)
+
+
+def test_parse_semantic_model_isolates_malformed_role_parts() -> None:
+    model = parse_semantic_model(
+        [
+            DefinitionPart("definition/tables/Policies.tmdl", IMPORT_TABLE),
+            DefinitionPart("definition/roles/Regional Managers.tmdl", ROLE),
+            DefinitionPart("definition/roles/Broken.tmdl", "annotation Only = 1\n"),
+        ]
+    )
+    assert [t.name for t in model.tables] == ["Policies"]
+    assert [r.name for r in model.roles] == ["Regional Managers"]
+    assert model.failed_roles == ["definition/roles/Broken.tmdl"]
+    # A broken role is not a broken table part.
     assert model.failed_parts == []

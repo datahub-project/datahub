@@ -178,6 +178,34 @@ class Constant:
 
     # Storage mode values
     DIRECT_LAKE = "DirectLake"
+    STORAGE_MODE_IMPORT = "Import"
+    STORAGE_MODE_DIRECT_QUERY = "DirectQuery"
+    STORAGE_MODE_DUAL = "Dual"
+    STORAGE_MODE_PUSH = "Push"
+
+    # extract_model_properties: table custom properties ...
+    PARTITION_COUNT = "partitionCount"
+    INCREMENTAL_REFRESH = "incrementalRefresh"
+    REFRESH_POLICY_ROLLING_WINDOW_GRANULARITY = "refreshPolicy.rollingWindowGranularity"
+    REFRESH_POLICY_ROLLING_WINDOW_PERIODS = "refreshPolicy.rollingWindowPeriods"
+    REFRESH_POLICY_INCREMENTAL_GRANULARITY = "refreshPolicy.incrementalGranularity"
+    REFRESH_POLICY_INCREMENTAL_PERIODS = "refreshPolicy.incrementalPeriods"
+    RLS_ROLES = "rlsRoles"
+    RLS_ROLE_COUNT = "rlsRoleCount"
+    ROLE = "role"
+    FILTER = "filter"
+    PARAMETER_PREFIX = "parameter."
+    MASKED_VALUE = "***"
+    # ... and schema-field jsonProps keys
+    IS_HIDDEN = "isHidden"
+    FORMAT_STRING = "formatString"
+    DISPLAY_FOLDER = "displayFolder"
+    DATA_CATEGORY = "dataCategory"
+    SORT_BY_COLUMN = "sortByColumn"
+    SUMMARIZE_BY = "summarizeBy"
+    HAS_KPI = "hasKpi"
+    TRUE_VALUE = "true"
+    TMDL_ROLE_NOT_PARSED = "TMDL Role Not Parsed"
 
     # workspace_apis mode: regular-API endpoints and refresh-history keys
     DATASET_REFRESHES = "DATASET_REFRESHES"
@@ -196,6 +224,17 @@ class Constant:
     COLUMN_TYPE_CALCULATED = "Calculated"
     DAX_REFERENCE_NOT_RESOLVED = "DAX Reference Not Resolved"
     NULL_DATA_TYPE = "Null"
+
+
+# A dataset parameter whose name contains one of these (case-insensitively) has
+# its value masked when emitted with extract_model_properties.
+SECRET_PARAMETER_MARKERS: Tuple[str, ...] = (
+    "secret",
+    "token",
+    "password",
+    "credential",
+    "key",
+)
 
 
 @dataclass
@@ -354,6 +393,11 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     semantic_models_not_processed: int = 0
     refresh_history_fetched: int = 0
     refresh_history_unparseable: int = 0
+    # extract_model_properties: counted once per model at definition time.
+    model_fields_with_properties: int = 0
+    rls_roles_parsed: int = 0
+    tmdl_roles_failed: int = 0
+    dataset_parameters_emitted: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -961,6 +1005,23 @@ class PowerBiDashboardSourceConfig(
         "UI for those tables. Requires `metadata_api_mode: workspace_apis` and "
         "`extract_column_level_lineage`.",
     )
+    extract_model_properties: bool = pydantic.Field(
+        default=False,
+        description="Emit semantic-model properties read from the TMDL definition. "
+        "On each schema field: `isKey` becomes `isPartOfKey`, an explicit "
+        "`isNullable` becomes `nullable`, and the remaining field properties "
+        "(`isHidden`, `formatString`, `displayFolder`, `dataCategory`, "
+        "`sortByColumn`, `summarizeBy`, and `hasKpi` for measures) are serialized "
+        "as a JSON object in the field's `jsonProps`. On each table's "
+        "`datasetProperties.customProperties`: `storageMode`, `partitionCount`, "
+        "`incrementalRefresh` with the `refreshPolicy.*` settings when the table "
+        "has a refresh policy, `rlsRoles` (a JSON list of `{role, filter}` for "
+        "the row-level-security roles that filter the table) with `rlsRoleCount`, "
+        "and `parameter.<name>` for each dataset parameter, with the value "
+        "replaced by `***` when the name contains `secret`, `token`, `password`, "
+        "`credential` or `key`. Role members are never ingested. Requires "
+        "`metadata_api_mode: workspace_apis` and `extract_dataset_schema`.",
+    )
     extract_refresh_history: bool = pydantic.Field(
         default=False,
         description="Fetch each dataset's most recent refresh and emit it as an Operation "
@@ -1066,6 +1127,7 @@ class PowerBiDashboardSourceConfig(
                 ("extract_dataset_schema", "extract_reports"),
             ),
             ("extract_dax_reference_lineage", ("extract_column_level_lineage",)),
+            ("extract_model_properties", ("extract_dataset_schema",)),
         ):
             if not getattr(self, flag):
                 continue

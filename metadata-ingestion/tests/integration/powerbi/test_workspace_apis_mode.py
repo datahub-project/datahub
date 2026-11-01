@@ -347,6 +347,7 @@ def test_workspace_apis_ingest_with_enrichment(
             extract_report_field_usage=True,
             extract_refresh_history=True,
             extract_dax_reference_lineage=True,
+            extract_model_properties=True,
         ),
     )
     pipeline.raise_from_status()
@@ -358,6 +359,37 @@ def test_workspace_apis_ingest_with_enrichment(
     assert report.fabric_definitions_failed == 0
     assert report.tmdl_tables_parsed == 5
     assert report.relationships_parsed == 2
+    # One role file in the insurance model; the DirectLake model has none.
+    assert report.rls_roles_parsed == 1
+    assert report.tmdl_roles_failed == 0
+    # The insurance model's two parameters; the DirectLake model has none.
+    assert report.dataset_parameters_emitted == 2
+    # Every column carries at least `summarizeBy`; of the six measures only
+    # the DirectLake model's `Paid Total` has no property at all.
+    assert report.model_fields_with_properties == 20
+    with open(output_path) as f:
+        mcps = json.load(f)
+    properties = {
+        mcp["entityUrn"]: mcp["aspect"]["json"]["customProperties"]
+        for mcp in mcps
+        if mcp.get("aspectName") == "datasetProperties"
+        and mcp.get("changeType") == "UPSERT"
+    }
+    policies = properties[
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
+    ]
+    assert json.loads(policies["rlsRoles"]) == [
+        {"role": "Regional Managers", "filter": "'Policies'[State] = \"CA\""}
+    ]
+    assert policies["storageMode"] == "Import"
+    assert policies["parameter.Parameter - Source"] == "my-test-project"
+    claims = properties[
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
+    ]
+    assert claims["incrementalRefresh"] == "true"
+    assert "rlsRoles" not in claims
+    # The role file's member is an identity and must never reach the sink.
+    assert "regional-managers" not in json.dumps(mcps)
     assert report.report_definitions_parsed == 1
     # Four visual fields resolve; the fixture's `NotInModel[Ghost]` does not.
     assert report.report_field_references_resolved == 4
@@ -420,6 +452,22 @@ def test_workspace_apis_enrichment_flags_off(
         ]
     assert schemas
     assert all(not schema.get("foreignKeys") for schema in schemas)
+    # Without extract_model_properties no field carries TMDL properties and
+    # the tables' custom properties stay as they were.
+    assert all(
+        not field.get("jsonProps") and not field.get("isPartOfKey")
+        for schema in schemas
+        for field in schema["fields"]
+    )
+    with open(output_path) as f:
+        custom_properties = [
+            mcp["aspect"]["json"]["customProperties"]
+            for mcp in json.load(f)
+            if mcp.get("aspectName") == "datasetProperties"
+            and mcp.get("changeType") == "UPSERT"
+        ]
+    assert custom_properties
+    assert all(set(props) == {"datasetId"} for props in custom_properties)
     # Without extract_dax_reference_lineage no DAX-derived column edges exist:
     # none between fields of one dataset and none into a measure from a measure.
     with open(output_path) as f:

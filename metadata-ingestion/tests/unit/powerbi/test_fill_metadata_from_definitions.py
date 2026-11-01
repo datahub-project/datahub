@@ -379,6 +379,106 @@ def test_unexpected_error_in_one_model_is_isolated() -> None:
     assert [f.title for f in api.reporter.failures] == ["Semantic Model Not Processed"]
 
 
+PROPERTIES_TABLE_TMDL = """table Policies
+
+\tcolumn PolicyId
+\t\tdataType: int64
+\t\tisKey
+\t\tsourceColumn: POLICY_ID
+
+\tcolumn State
+\t\tdataType: string
+\t\tsourceColumn: STATE
+
+\tmeasure Premium = SUM('Policies'[Amount])
+\t\tformatString: $#,##0
+
+\trefreshPolicy
+\t\tpolicyType: basic
+\t\trollingWindowGranularity: year
+\t\trollingWindowPeriods: 2
+
+\tpartition Policies = m
+\t\tmode: directQuery
+\t\tsource = Sql.Database("server", "db")
+"""
+
+ROLE_TMDL = """role 'Regional Managers'
+\tmodelPermission: read
+
+\ttablePermission Policies = 'Policies'[State] = "CA"
+
+\ttablePermission Missing = TRUE()
+
+\tmember 'regional-managers@example.com'
+\t\tidentityProvider: AzureAD
+"""
+
+
+def _properties_definition() -> ItemDefinition:
+    return ItemDefinition(
+        format="TMDL",
+        parts=[
+            DefinitionPart("definition/tables/Policies.tmdl", PROPERTIES_TABLE_TMDL),
+            DefinitionPart("definition/roles/Regional Managers.tmdl", ROLE_TMDL),
+            DefinitionPart("definition/roles/Broken.tmdl", "annotation Only = 1\n"),
+        ],
+    )
+
+
+def test_model_properties_attach_rls_filters_and_count() -> None:
+    api = _api(
+        definitions={MODEL_A: _properties_definition()},
+        config=_config(extract_model_properties=True),
+    )
+    api._PowerBiAPI__regular_api_resolver.get_dataset_parameters.return_value = {  # type: ignore[attr-defined]
+        "Environment": "prod",
+        "Api Token": "abc",
+    }
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+
+    table = workspace.datasets[MODEL_A].tables[0]
+    assert table.storage_mode == "DirectQuery"
+    assert table.partition_count == 1
+    assert table.refresh_policy is not None
+    assert table.refresh_policy.rolling_window_periods == "2"
+    assert table.refresh_policy.incremental_granularity is None
+    # Only the filter on a table of the model is attached; members never are.
+    assert [(f.role, f.filter) for f in table.rls_filters] == [
+        ("Regional Managers", "'Policies'[State] = \"CA\"")
+    ]
+    assert table.columns is not None
+    assert table.columns[0].is_key
+    assert table.measures is not None
+    assert table.measures[0].format_string == "$#,##0"
+
+    assert api.reporter.rls_roles_parsed == 1
+    assert api.reporter.tmdl_roles_failed == 1
+    assert api.reporter.dataset_parameters_emitted == 2
+    # PolicyId (isKey) and Premium (formatString); State has no properties.
+    assert api.reporter.model_fields_with_properties == 2
+    assert [w.title for w in api.reporter.warnings] == ["TMDL Role Not Parsed"]
+    # A broken role part is enrichment loss, never a failed table part.
+    assert api.reporter.tmdl_parts_failed == 0
+    assert api.reporter.failures == []
+
+
+def test_model_properties_off_leaves_roles_and_counters_untouched() -> None:
+    api = _api(definitions={MODEL_A: _properties_definition()})
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+
+    table = workspace.datasets[MODEL_A].tables[0]
+    assert table.rls_filters == []
+    assert api.reporter.rls_roles_parsed == 0
+    assert api.reporter.tmdl_roles_failed == 0
+    assert api.reporter.model_fields_with_properties == 0
+    assert api.reporter.warnings == []
+
+
 # --- paginated report RDL binding ------------------------------------------
 
 

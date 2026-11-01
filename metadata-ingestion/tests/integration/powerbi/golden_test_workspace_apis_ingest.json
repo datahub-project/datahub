@@ -34,7 +34,8 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "ClaimCount",
@@ -46,7 +47,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"sum\"}"
                 },
                 {
                     "fieldPath": "Paid vs Budget",
@@ -59,7 +61,8 @@
                     },
                     "nativeDataType": "measure",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"formatString\": \"0.0%\"}"
                 }
             ]
         }
@@ -78,7 +81,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "storageMode": "Import",
+                "partitionCount": "1",
+                "parameter.My bq project": "gcp_billing",
+                "parameter.Parameter - Source": "my-test-project"
             },
             "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
             "name": "Claims By State",
@@ -302,7 +309,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": true,
+                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "PolicyId",
@@ -314,7 +322,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "Status",
@@ -326,7 +335,8 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "PaidAmount",
@@ -339,7 +349,8 @@
                     },
                     "nativeDataType": "Double",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"displayFolder\": \"Financials\", \"formatString\": \"$#,##0.00\", \"summarizeBy\": \"sum\"}"
                 },
                 {
                     "fieldPath": "PolicyState",
@@ -352,7 +363,8 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"none\"}"
                 }
             ],
             "foreignKeys": [
@@ -383,7 +395,16 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "storageMode": "Import",
+                "partitionCount": "1",
+                "incrementalRefresh": "true",
+                "refreshPolicy.rollingWindowGranularity": "year",
+                "refreshPolicy.rollingWindowPeriods": "3",
+                "refreshPolicy.incrementalGranularity": "month",
+                "refreshPolicy.incrementalPeriods": "12",
+                "parameter.My bq project": "gcp_billing",
+                "parameter.Parameter - Source": "my-test-project"
             },
             "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
             "name": "Claims",
@@ -625,7 +646,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "Total Premium",
@@ -638,7 +660,8 @@
                     },
                     "nativeDataType": "measure",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"formatString\": \"$#,##0\"}"
                 },
                 {
                     "fieldPath": "Total Paid Losses",
@@ -651,7 +674,8 @@
                     },
                     "nativeDataType": "measure",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"formatString\": \"$#,##0\"}"
                 },
                 {
                     "fieldPath": "Loss Ratio",
@@ -664,7 +688,8 @@
                     },
                     "nativeDataType": "measure",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"displayFolder\": \"Ratios\", \"formatString\": \"0.0%\", \"hasKpi\": true}"
                 },
                 {
                     "fieldPath": "Open Claims",
@@ -677,7 +702,8 @@
                     },
                     "nativeDataType": "measure",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"formatString\": \"#,##0\", \"isHidden\": true}"
                 }
             ]
         }
@@ -696,7 +722,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "storageMode": "Import",
+                "partitionCount": "1",
+                "parameter.My bq project": "gcp_billing",
+                "parameter.Parameter - Source": "my-test-project"
             },
             "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
             "name": "Insurance KPIs",
@@ -947,7 +977,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": true,
+                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "State",
@@ -959,7 +990,8 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"dataCategory\": \"StateOrProvince\", \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "EffectiveDate",
@@ -971,7 +1003,8 @@
                     },
                     "nativeDataType": "DateTime",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"formatString\": \"yyyy-MM-dd\", \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "WrittenPremium",
@@ -984,7 +1017,8 @@
                     },
                     "nativeDataType": "Double",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"displayFolder\": \"Premium\", \"formatString\": \"$#,##0.00\", \"summarizeBy\": \"sum\"}"
                 },
                 {
                     "fieldPath": "PremiumBand",
@@ -997,7 +1031,8 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"none\"}"
                 }
             ],
             "foreignKeys": [
@@ -1028,7 +1063,13 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "storageMode": "Import",
+                "partitionCount": "1",
+                "rlsRoles": "[{\"role\": \"Regional Managers\", \"filter\": \"'Policies'[State] = \\\"CA\\\"\"}]",
+                "rlsRoleCount": "1",
+                "parameter.My bq project": "gcp_billing",
+                "parameter.Parameter - Source": "my-test-project"
             },
             "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
             "name": "Policies",
@@ -1806,7 +1847,8 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "ClaimCount",
@@ -1818,7 +1860,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"sum\"}"
                 },
                 {
                     "fieldPath": "Paid vs Budget",
@@ -1831,7 +1874,8 @@
                     },
                     "nativeDataType": "measure",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"formatString\": \"0.0%\"}"
                 }
             ]
         }
@@ -1850,7 +1894,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "storageMode": "Import",
+                "partitionCount": "1",
+                "parameter.My bq project": "gcp_billing",
+                "parameter.Parameter - Source": "my-test-project"
             },
             "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
             "name": "Claims By State",
@@ -2050,7 +2098,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": true,
+                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "PolicyId",
@@ -2062,7 +2111,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "Status",
@@ -2074,7 +2124,8 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "PaidAmount",
@@ -2087,7 +2138,8 @@
                     },
                     "nativeDataType": "Double",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"displayFolder\": \"Financials\", \"formatString\": \"$#,##0.00\", \"summarizeBy\": \"sum\"}"
                 },
                 {
                     "fieldPath": "PolicyState",
@@ -2100,7 +2152,8 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"none\"}"
                 }
             ],
             "foreignKeys": [
@@ -2131,7 +2184,16 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "storageMode": "Import",
+                "partitionCount": "1",
+                "incrementalRefresh": "true",
+                "refreshPolicy.rollingWindowGranularity": "year",
+                "refreshPolicy.rollingWindowPeriods": "3",
+                "refreshPolicy.incrementalGranularity": "month",
+                "refreshPolicy.incrementalPeriods": "12",
+                "parameter.My bq project": "gcp_billing",
+                "parameter.Parameter - Source": "my-test-project"
             },
             "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
             "name": "Claims",
@@ -2349,7 +2411,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "Total Premium",
@@ -2362,7 +2425,8 @@
                     },
                     "nativeDataType": "measure",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"formatString\": \"$#,##0\"}"
                 },
                 {
                     "fieldPath": "Total Paid Losses",
@@ -2375,7 +2439,8 @@
                     },
                     "nativeDataType": "measure",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"formatString\": \"$#,##0\"}"
                 },
                 {
                     "fieldPath": "Loss Ratio",
@@ -2388,7 +2453,8 @@
                     },
                     "nativeDataType": "measure",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"displayFolder\": \"Ratios\", \"formatString\": \"0.0%\", \"hasKpi\": true}"
                 },
                 {
                     "fieldPath": "Open Claims",
@@ -2401,7 +2467,8 @@
                     },
                     "nativeDataType": "measure",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"formatString\": \"#,##0\", \"isHidden\": true}"
                 }
             ]
         }
@@ -2420,7 +2487,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "storageMode": "Import",
+                "partitionCount": "1",
+                "parameter.My bq project": "gcp_billing",
+                "parameter.Parameter - Source": "my-test-project"
             },
             "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
             "name": "Insurance KPIs",
@@ -2647,7 +2718,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": true,
+                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "State",
@@ -2659,7 +2731,8 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"dataCategory\": \"StateOrProvince\", \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "EffectiveDate",
@@ -2671,7 +2744,8 @@
                     },
                     "nativeDataType": "DateTime",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"formatString\": \"yyyy-MM-dd\", \"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "WrittenPremium",
@@ -2684,7 +2758,8 @@
                     },
                     "nativeDataType": "Double",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"displayFolder\": \"Premium\", \"formatString\": \"$#,##0.00\", \"summarizeBy\": \"sum\"}"
                 },
                 {
                     "fieldPath": "PremiumBand",
@@ -2697,7 +2772,8 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"none\"}"
                 }
             ],
             "foreignKeys": [
@@ -2728,7 +2804,13 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "storageMode": "Import",
+                "partitionCount": "1",
+                "rlsRoles": "[{\"role\": \"Regional Managers\", \"filter\": \"'Policies'[State] = \\\"CA\\\"\"}]",
+                "rlsRoleCount": "1",
+                "parameter.My bq project": "gcp_billing",
+                "parameter.Parameter - Source": "my-test-project"
             },
             "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/05169CD2-E713-41E6-9600-1D8066D95445/details",
             "name": "Policies",
@@ -3020,7 +3102,8 @@
                         },
                         "nativeDataType": "measure",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"displayFolder\": \"Ratios\", \"formatString\": \"0.0%\", \"hasKpi\": true}"
                     }
                 },
                 {
@@ -3035,7 +3118,8 @@
                         },
                         "nativeDataType": "String",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"dataCategory\": \"StateOrProvince\", \"summarizeBy\": \"none\"}"
                     }
                 },
                 {
@@ -3051,7 +3135,8 @@
                         },
                         "nativeDataType": "measure",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"formatString\": \"$#,##0\"}"
                     }
                 },
                 {
@@ -3066,7 +3151,8 @@
                         },
                         "nativeDataType": "String",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"summarizeBy\": \"none\"}"
                     }
                 }
             ]
@@ -3112,9 +3198,9 @@
         "json": [
             {
                 "op": "add",
-                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
                 "value": {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
                 }
             },
             {
@@ -3126,9 +3212,9 @@
             },
             {
                 "op": "add",
-                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
                 "value": {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
                 }
             },
             {
@@ -3445,7 +3531,8 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"none\"}"
                 },
                 {
                     "fieldPath": "paid_amount",
@@ -3457,7 +3544,8 @@
                     },
                     "nativeDataType": "Double",
                     "recursive": false,
-                    "isPartOfKey": false
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"sum\"}"
                 },
                 {
                     "fieldPath": "Paid Total",
@@ -3489,7 +3577,9 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "datasetId": "7A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D"
+                "datasetId": "7A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D",
+                "storageMode": "DirectLake",
+                "partitionCount": "1"
             },
             "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/7A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D/details",
             "name": "claims",
