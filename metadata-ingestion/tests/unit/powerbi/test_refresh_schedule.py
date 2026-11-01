@@ -1,8 +1,10 @@
 """PowerBiAPI refresh-history and refresh-schedule handling (`extract_refresh_history`)."""
 
+import json
 from typing import Any, Dict, List, Optional, Union
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 
 from datahub.ingestion.source.powerbi.config import (
@@ -23,11 +25,21 @@ DATASET_ID = "05169CD2-E713-41E6-9600-1D8066D95445"
 SCHEDULE = DatasetRefreshSchedule(
     days=["Monday"], times=["07:00"], local_time_zone_id="UTC", enabled=True
 )
+NOT_SUPPORTED_BODY = {
+    "error": {
+        "code": "InvalidRequest",
+        "message": "Invalid dataset. This API can only be called on a Model-based dataset",
+    }
+}
 
 
-def _http_error(status: int) -> requests.HTTPError:
+def _http_error(
+    status: int, body: Optional[Dict[str, Any]] = None
+) -> requests.HTTPError:
     response = requests.Response()
     response.status_code = status
+    if body is not None:
+        response._content = json.dumps(body).encode()
     return requests.HTTPError(response=response)
 
 
@@ -146,31 +158,68 @@ def test_not_refreshable_dataset_is_skipped_without_warning() -> None:
     api._PowerBiAPI__regular_api_resolver.get_dataset_refresh_schedule.assert_not_called()  # type: ignore[attr-defined]
 
 
-def test_other_refresh_history_errors_warn() -> None:
-    api = _api(_http_error(500))
+@pytest.mark.parametrize("status", [401, 403, 429, 500])
+def test_other_refresh_history_errors_warn_but_still_fetch_the_schedule(
+    status: int,
+) -> None:
+    api = _api(_http_error(status))
+    dataset = _dataset()
 
-    api._fill_refresh_history(_workspace(), _dataset())
+    api._fill_refresh_history(_workspace(), dataset)
 
+    assert dataset.last_refresh is None
+    assert dataset.refresh_schedule == SCHEDULE
     assert _warning_titles(api) == ["Refresh History Not Fetched"]
     assert api.reporter.datasets_not_refreshable == 0
+    assert api.reporter.refresh_schedule_fetched == 1
 
 
 def test_missing_schedule_is_silent() -> None:
-    for status in (404, 400):
-        api = _api([_refresh("Completed", "r-ok")], schedule=_http_error(status))
-        dataset = _dataset()
+    api = _api([_refresh("Completed", "r-ok")], schedule=_http_error(404))
+    dataset = _dataset()
 
-        api._fill_refresh_history(_workspace(), dataset)
+    api._fill_refresh_history(_workspace(), dataset)
 
-        assert dataset.last_refresh is not None
-        assert dataset.refresh_schedule is None
-        assert api.reporter.refresh_schedule_not_configured == 1
-        assert api.reporter.refresh_schedule_failed == 0
-        assert _warning_titles(api) == []
+    assert dataset.last_refresh is not None
+    assert dataset.refresh_schedule is None
+    assert api.reporter.refresh_schedule_not_configured == 1
+    assert api.reporter.refresh_schedule_failed == 0
+    assert _warning_titles(api) == []
 
 
-def test_other_schedule_errors_warn_but_keep_the_history() -> None:
-    api = _api([_refresh("Completed", "r-ok")], schedule=_http_error(500))
+def test_unsupported_schedule_is_silent() -> None:
+    # DirectQuery / push datasets have no import refresh schedule: a 400 with
+    # Power BI's "model-based dataset" error is a dataset kind, not a loss.
+    api = _api(
+        [_refresh("Completed", "r-ok")],
+        schedule=_http_error(400, NOT_SUPPORTED_BODY),
+    )
+    dataset = _dataset()
+
+    api._fill_refresh_history(_workspace(), dataset)
+
+    assert dataset.refresh_schedule is None
+    assert api.reporter.refresh_schedule_not_supported == 1
+    assert api.reporter.refresh_schedule_not_configured == 0
+    assert api.reporter.refresh_schedule_failed == 0
+    assert _warning_titles(api) == []
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        _http_error(400),
+        _http_error(400, {"error": {"code": "InvalidRequest", "message": "Bad"}}),
+        _http_error(400, {"error": {"code": "Other", "message": "DirectQuery"}}),
+        _http_error(401),
+        _http_error(403),
+        _http_error(429),
+        _http_error(500),
+        ValueError("Unexpected refresh schedule payload of type list"),
+    ],
+)
+def test_other_schedule_errors_warn_but_keep_the_history(error: Exception) -> None:
+    api = _api([_refresh("Completed", "r-ok")], schedule=error)
     dataset = _dataset()
 
     api._fill_refresh_history(_workspace(), dataset)
@@ -178,6 +227,8 @@ def test_other_schedule_errors_warn_but_keep_the_history() -> None:
     assert dataset.last_refresh is not None
     assert dataset.refresh_schedule is None
     assert api.reporter.refresh_schedule_failed == 1
+    assert api.reporter.refresh_schedule_not_supported == 0
+    assert api.reporter.refresh_schedule_not_configured == 0
     assert _warning_titles(api) == ["Refresh Schedule Not Fetched"]
 
 
@@ -189,3 +240,4 @@ def test_disabled_flag_makes_no_calls() -> None:
 
     assert dataset.last_refresh is None
     api._PowerBiAPI__regular_api_resolver.get_dataset_refreshes.assert_not_called()  # type: ignore[attr-defined]
+    api._PowerBiAPI__regular_api_resolver.get_dataset_refresh_schedule.assert_not_called()  # type: ignore[attr-defined]
