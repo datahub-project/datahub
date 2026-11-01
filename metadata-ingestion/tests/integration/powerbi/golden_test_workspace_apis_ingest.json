@@ -3605,7 +3605,8 @@
                         },
                         "nativeDataType": "measure",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"displayFolder\": \"Ratios\", \"formatString\": \"0.0%\", \"hasKpi\": true}"
                     }
                 }
             ]
@@ -3766,7 +3767,8 @@
                         },
                         "nativeDataType": "String",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"dataCategory\": \"StateOrProvince\"}"
                     }
                 },
                 {
@@ -3782,7 +3784,8 @@
                         },
                         "nativeDataType": "measure",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"formatString\": \"$#,##0\"}"
                     }
                 },
                 {
@@ -3956,7 +3959,8 @@
                         },
                         "nativeDataType": "String",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"dataCategory\": \"StateOrProvince\"}"
                     }
                 }
             ]
@@ -4118,7 +4122,8 @@
                         },
                         "nativeDataType": "Double",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"displayFolder\": \"Financials\", \"formatString\": \"$#,##0.00\", \"summarizeBy\": \"sum\"}"
                     }
                 },
                 {
@@ -4134,7 +4139,8 @@
                         },
                         "nativeDataType": "measure",
                         "recursive": false,
-                        "isPartOfKey": false
+                        "isPartOfKey": false,
+                        "jsonProps": "{\"formatString\": \"$#,##0\"}"
                     }
                 },
                 {
