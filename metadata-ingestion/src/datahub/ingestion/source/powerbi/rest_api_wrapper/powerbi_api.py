@@ -286,7 +286,9 @@ class PowerBiAPI:
             if key in self.ambiguous_remote_model_keys:
                 continue
             existing = self.datasets_by_workspace_and_name.get(key)
-            if existing is not None and existing.id != dataset.id:
+            if existing is not None and registry_key(existing.id) != registry_key(
+                dataset.id
+            ):
                 del self.datasets_by_workspace_and_name[key]
                 self.ambiguous_remote_model_keys.add(key)
                 continue

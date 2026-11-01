@@ -418,7 +418,7 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     composite_model_tables_linked: int = 0
     composite_model_columns_unresolved: int = 0
     _composite_models_seen: Set[str] = dataclass_field(default_factory=set)
-    _composite_tables_seen: Set[str] = dataclass_field(default_factory=set)
+    _composite_tables_seen: Set[Tuple[str, str]] = dataclass_field(default_factory=set)
     # Native-SQL column lineage whose output column is not a source column
     # of the Power BI table (calculated column, or a column the model dropped).
     cll_dropped_not_a_source_column: int = 0

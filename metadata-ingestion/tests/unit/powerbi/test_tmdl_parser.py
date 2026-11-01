@@ -218,6 +218,23 @@ def test_parse_directlake_entity_partition() -> None:
     assert partition.source is None
 
 
+def test_parse_directlake_entity_name_with_spaces_is_unquoted() -> None:
+    table = parse_table(
+        "table 'Claim Events'\n"
+        "\n"
+        "\tpartition 'Claim Events' = entity\n"
+        "\t\tmode: directLake\n"
+        "\t\tsource\n"
+        "\t\t\tentityName: 'claim events'\n"
+        "\t\t\tschemaName: dbo\n"
+        "\t\t\texpressionSource: DatabaseQuery\n"
+    )
+    assert table is not None
+    assert table.partition is not None
+    assert table.partition.entity_name == "claim events"
+    assert table.partition.schema_name == "dbo"
+
+
 def test_parse_entity_partition_unquotes_expression_source() -> None:
     # A composite model's remote table names a shared expression with spaces,
     # which TMDL quotes; the lookup into shared_expressions needs the bare name.

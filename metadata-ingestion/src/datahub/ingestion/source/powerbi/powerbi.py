@@ -1020,7 +1020,10 @@ class Mapper:
     def _first_composite_model(
         self, reference: powerbi_data_classes.RemoteModelReference
     ) -> bool:
-        key = remote_model_key(reference.workspace_name, reference.model_name)
+        # Two connections to different dataset ids may share a display name.
+        key = reference.dataset_id or remote_model_key(
+            reference.workspace_name, reference.model_name
+        )
         seen = self.__reporter._composite_models_seen
         if key in seen:
             return False
@@ -1029,9 +1032,10 @@ class Mapper:
 
     def _first_composite_table(self, table: powerbi_data_classes.Table) -> bool:
         seen = self.__reporter._composite_tables_seen
-        if table.full_name in seen:
+        key = (table.dataset.id if table.dataset is not None else "", table.name)
+        if key in seen:
             return False
-        seen.add(table.full_name)
+        seen.add(key)
         return True
 
     @staticmethod
