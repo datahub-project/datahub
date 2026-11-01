@@ -3258,7 +3258,7 @@
         "json": {
             "customProperties": {
                 "order": "0",
-                "visualCount": "4",
+                "visualCount": "5",
                 "visualTypes": "card, clusteredBarChart, lineChart, tableEx",
                 "filters": "[{\"scope\": \"page\", \"name\": \"dddd3333eeee4444ffff\", \"type\": \"Advanced\", \"target\": \"Claims[PaidAmount]\", \"condition\": \"> 0\"}]",
                 "filterCount": "1"
@@ -3632,6 +3632,10 @@
                 {
                     "id": "Loss Report",
                     "urn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)"
+                },
+                {
+                    "id": "Loss Overview",
+                    "urn": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)"
                 }
             ]
         }
@@ -3820,6 +3824,10 @@
                 {
                     "id": "Loss Report",
                     "urn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)"
+                },
+                {
+                    "id": "Loss Overview",
+                    "urn": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)"
                 }
             ]
         }
@@ -3975,6 +3983,10 @@
                 {
                     "id": "Loss Report",
                     "urn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)"
+                },
+                {
+                    "id": "Loss Overview",
+                    "urn": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)"
                 }
             ]
         }
@@ -4164,6 +4176,10 @@
                 {
                     "id": "Loss Report",
                     "urn": "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)"
+                },
+                {
+                    "id": "Loss Overview",
+                    "urn": "urn:li:chart:(powerbi,pages.584cf13a-1485-41c2-a514-b1bb66fff163.a1b2c3d4e5f6a7b8c9d0)"
                 }
             ]
         }
