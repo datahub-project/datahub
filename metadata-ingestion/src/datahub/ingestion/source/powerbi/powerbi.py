@@ -419,6 +419,8 @@ def _reference_text(reference: powerbi_data_classes.DaxFieldReference) -> str:
     if reference.table is not None:
         return f"'{reference.table}'[{reference.field}]"
     return f"[{reference.field}]"
+
+
 @dataclass
 class ResolvedInputFields:
     """Outcome of matching a chart's field references against the model."""
