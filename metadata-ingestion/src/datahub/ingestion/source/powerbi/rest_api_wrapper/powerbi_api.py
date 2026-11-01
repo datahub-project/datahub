@@ -1523,11 +1523,18 @@ class PowerBiAPI:
     ) -> Dict[str, FabricArtifact]:
         """Lakehouse / Warehouse items plus their SQL analytics endpoints.
 
-        A DirectLake model's shared expression names the SQL endpoint id, not
-        the lakehouse, so each endpoint is registered as a SQLAnalyticsEndpoint
+        A DirectLake model's shared expression (and a ``Sql.Database`` query
+        over the endpoint host) names the SQL endpoint id, not the lakehouse,
+        so each lakehouse endpoint is registered as a SQLAnalyticsEndpoint
         artifact whose physical_item_ids point at the lakehouse; the existing
         DirectLake lineage path then resolves it exactly as it does for scan
-        results. A warehouse's endpoint id is the warehouse id itself.
+        results. A warehouse's endpoint id is the warehouse id itself, so the
+        Warehouse artifact doubles as its endpoint, as in scan results.
+
+        Datamarts, mirrored databases and SQL databases are left out on
+        purpose: the OneLake connector does not ingest their tables, so an
+        edge to them would point at a dataset that does not exist (a datamart
+        also exposes no endpoint id to a service principal).
         """
         artifacts: Dict[str, FabricArtifact] = {}
         for item in items:
@@ -1540,6 +1547,7 @@ class PowerBiAPI:
                 )
                 endpoint_id = self._lakehouse_sql_endpoint_id(workspace, item)
                 if endpoint_id:
+                    self.reporter.fabric_lakehouse_endpoints_registered += 1
                     artifacts[endpoint_id] = FabricArtifact(
                         id=endpoint_id,
                         name=item.display_name,
@@ -1549,6 +1557,7 @@ class PowerBiAPI:
                         physical_item_ids=[item.id],
                     )
             elif item.type == FABRIC_ITEM_WAREHOUSE:
+                self.reporter.fabric_warehouse_endpoints_registered += 1
                 artifacts[item.id] = FabricArtifact(
                     id=item.id,
                     name=item.display_name,
@@ -1578,9 +1587,10 @@ class PowerBiAPI:
             self.log_http_error(
                 message=f"Unable to fetch lakehouse {item.id} properties"
             )
+            self.reporter.fabric_endpoints_unresolved += 1
             self.reporter.warning(
-                title="Lakehouse SQL Endpoint Not Resolved",
-                message="Lakehouse properties could not be fetched; DirectLake tables over it will have no lineage.",
+                title="Fabric Endpoint Not Resolved",
+                message="Lakehouse properties could not be fetched, so its SQL analytics endpoint is unknown; DirectLake tables and Sql.Database queries over it will have no OneLake lineage.",
                 context=f"workspace={workspace.name}, lakehouse={item.display_name} id={item.id}",
                 exc=e,
             )

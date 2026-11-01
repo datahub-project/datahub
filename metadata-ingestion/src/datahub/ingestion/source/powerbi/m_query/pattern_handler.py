@@ -39,6 +39,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
     DataflowReference,
     DataPlatformTable,
+    FabricSqlEndpointReference,
     FunctionName,
     IdentifierAccessor,
     Lineage,
@@ -70,6 +71,20 @@ logger = logging.getLogger(__name__)
 _BIGQUERY_PLATFORM_NAME = (
     SupportedDataPlatform.GOOGLE_BIGQUERY.value.datahub_data_platform_name
 )
+
+# Host suffix of every Fabric SQL analytics endpoint (lakehouse, warehouse);
+# the ``Sql.Database`` server argument of a query over one ends with it.
+FABRIC_SQL_ENDPOINT_HOST_SUFFIX = ".datawarehouse.fabric.microsoft.com"
+# Record keys of the ``Source{[Schema=..., Item=...]}`` navigation step.
+_ACCESSOR_KEY_SCHEMA = "Schema"
+_ACCESSOR_KEY_ITEM = "Item"
+
+
+def is_fabric_sql_endpoint_host(server: Optional[str]) -> bool:
+    return bool(server) and str(server).strip().lower().endswith(
+        FABRIC_SQL_ENDPOINT_HOST_SUFFIX
+    )
+
 
 # First enum entry wins when multiple PowerBI names share a DataHub platform
 # (e.g. Databricks / DatabricksMultiCloud both map to "databricks").
@@ -1831,7 +1846,23 @@ class MSSqlLineage(TwoStepDataAccessPattern):
 
         # It is a regular case of MS-SQL
         logger.debug("Handling with regular case")
-        return self.two_level_access_pattern(data_access_func_detail)
+        lineage = self.two_level_access_pattern(data_access_func_detail)
+        if lineage.upstreams and is_fabric_sql_endpoint_host(server):
+            # The endpoint is a TDS view over OneLake tables; the mapper swaps
+            # the MSSQL edge for the OneLake one once it knows the item.
+            accessor = data_access_func_detail.identifier_accessor
+            table_name = accessor.items.get(_ACCESSOR_KEY_ITEM) if accessor else None
+            if accessor is not None and table_name:
+                lineage.fabric_endpoint_references.append(
+                    FabricSqlEndpointReference(
+                        server=server,
+                        database=database,
+                        schema_name=accessor.items.get(_ACCESSOR_KEY_SCHEMA),
+                        table_name=table_name,
+                        mssql_urn=lineage.upstreams[0].urn,
+                    )
+                )
+        return lineage
 
 
 class MSSqlMultiDatabaseLineage(AbstractLineage):

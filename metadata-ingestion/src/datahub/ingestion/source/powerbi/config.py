@@ -446,6 +446,18 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     fabric_report_definitions_denied: int = 0
     dataset_parameters_failed: int = 0
     fabric_lro_timeouts: int = 0
+    # Fabric SQL analytics endpoints registered from the item listing: a
+    # warehouse is its own endpoint, a lakehouse's comes from its properties.
+    fabric_warehouse_endpoints_registered: int = 0
+    fabric_lakehouse_endpoints_registered: int = 0
+    # Endpoints whose backing item could not be determined (lakehouse
+    # properties refused, or a Sql.Database query naming an endpoint that is
+    # not among the workspace's items); the affected tables lose only the
+    # OneLake edge.
+    fabric_endpoints_unresolved: int = 0
+    # Distinct (table, endpoint, schema, table name) Sql.Database references
+    # swapped for OneLake edges, not per emission.
+    fabric_endpoint_references_resolved: int = 0
     tmdl_tables_parsed: int = 0
     tmdl_parts_failed: int = 0
     tmdl_parts_incomplete: int = 0
