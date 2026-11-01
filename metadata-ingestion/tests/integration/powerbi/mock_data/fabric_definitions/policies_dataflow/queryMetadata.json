@@ -1,0 +1,23 @@
+{
+  "formatVersion": "202502",
+  "computeEngineSettings": {},
+  "name": "Policies Dataflow",
+  "queriesMetadata": {
+    "Policies": {
+      "queryId": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4e",
+      "queryName": "Policies",
+      "loadEnabled": true
+    },
+    "Agents_Staging": {
+      "queryId": "1a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4e",
+      "queryName": "Agents_Staging",
+      "loadEnabled": false
+    },
+    "Active Agents": {
+      "queryId": "2a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4e",
+      "queryName": "Active Agents",
+      "loadEnabled": true
+    }
+  },
+  "connections": []
+}

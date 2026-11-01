@@ -40,6 +40,8 @@ source:
     # extract_model_properties: true
     # Lineage from a composite model's remote tables to the semantic model they read
     # extract_composite_model_lineage: true
+    # Dataflow Gen2 items as containers of datasets, with lineage to and from them (workspace_apis only)
+    # extract_dataflows: true
     # Latest completed and latest failed dataset refresh as Operation aspects, and the
     # refresh schedule as refreshSchedule.* custom properties (works in both modes)
     # extract_refresh_history: true

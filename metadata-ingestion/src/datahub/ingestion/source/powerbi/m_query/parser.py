@@ -57,6 +57,22 @@ def _parse_with_bridge(expression: str, timeout: int) -> Dict[int, dict]:
         raise
 
 
+def parse_error(expression: str, timeout: int) -> Optional[str]:
+    """The parser's error for *expression*, or None when it parses. Used to
+    validate the member queries of a dataflow before they are combined."""
+    try:
+        with threading_timeout(timeout):
+            get_bridge().parse(expression)
+    except TimeoutException:
+        _clear_bridge()
+        return f"parsing timed out after {timeout} seconds"
+    except (MQueryParseError, MQueryBridgeError) as e:
+        if isinstance(e, MQueryBridgeError):
+            _clear_bridge()
+        return str(e)
+    return None
+
+
 def get_upstream_tables(
     table: Table,
     reporter: PowerBiDashboardSourceReport,
@@ -185,7 +201,7 @@ def get_upstream_tables(
             lineage = pattern_handler.apply_table_rename_columns(
                 lineage, f_detail.column_rename_steps
             )
-            if lineage.upstreams:
+            if lineage.upstreams or lineage.dataflow_references:
                 lineages.append(lineage)
 
         if lineages:
