@@ -168,6 +168,23 @@ class MeasureProfile:
     sample_values: Optional[List[str]] = None
 
 
+@dataclass(frozen=True)
+class MeasureReference:
+    """A `'Table'[Field]` (or bare `[Measure]`, table None) reference in DAX."""
+
+    table: Optional[str]
+    field: str
+
+
+@dataclass
+class DaxReferences:
+    """Model fields and tables a DAX expression reads, distinct and in order
+    of first appearance."""
+
+    fields: List[MeasureReference] = field(default_factory=list)
+    tables: List[str] = field(default_factory=list)
+
+
 @dataclass
 class Column:
     name: str
@@ -180,14 +197,13 @@ class Column:
     expression: Optional[str] = None
     description: Optional[str] = None
     measure_profile: Optional[MeasureProfile] = None
-
-
-@dataclass(frozen=True)
-class MeasureReference:
-    """A `'Table'[Field]` (or bare `[Measure]`, table None) reference in DAX."""
-
-    table: Optional[str]
-    field: str
+    # Name of the column in the M query output (TMDL `sourceColumn`); the
+    # upstream column lineage resolves against it when it differs from the
+    # Power BI display name. Only populated from TMDL definitions.
+    source_column: Optional[str] = None
+    # Model fields a calculated column's DAX reads. Only populated from TMDL
+    # definitions (workspace_apis mode).
+    references: List[MeasureReference] = dataclasses.field(default_factory=list)
 
 
 @dataclass

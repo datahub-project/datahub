@@ -215,7 +215,151 @@ def test_measure_references_become_cross_table_fine_grained_lineage() -> None:
         f"urn:li:schemaField:({_urn(mapper, kpis)},Total Premium)"
     ]
     assert edge.upstreams == [f"urn:li:schemaField:({_urn(mapper, policies)},Premium)"]
-    assert mapper._Mapper__reporter.measure_references_unresolved == 1  # type: ignore[attr-defined]
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.measure_references_unresolved == 1
+    assert reporter.dax_references_unresolved == 1
+    assert [w.title for w in reporter.warnings] == ["DAX Reference Not Resolved"]
+
+
+def _dax_model(mapper: Mapper) -> List[Table]:
+    """Policies (import) with a calculated column, KPIs with measures that
+    reference each other and a column of Policies."""
+    policies = Table(
+        name="Policies",
+        full_name="Model.Policies",
+        columns=[
+            _column("Premium"),
+            Column(
+                name="Band",
+                dataType="String",
+                isHidden=False,
+                datahubDataType=NumberTypeClass(),
+                columnType="Calculated",
+                expression="IF([Premium] > 1, [Total Premium], RELATED('KPIs'[Value]))",
+                references=[
+                    MeasureReference(None, "Premium"),
+                    MeasureReference(None, "Total Premium"),
+                    MeasureReference("KPIs", "Value"),
+                    MeasureReference("KPIs", "Missing"),
+                ],
+            ),
+        ],
+    )
+    kpis = Table(
+        name="KPIs",
+        full_name="Model.KPIs",
+        columns=[_column("Value")],
+        measures=[
+            Measure(
+                name="Total Premium",
+                expression="SUM('Policies'[Premium])",
+                isHidden=False,
+                references=[MeasureReference("Policies", "Premium")],
+            ),
+            Measure(
+                name="Ratio",
+                expression="[Total Premium] / 'KPIs'[Total Premium] + [Nowhere]",
+                isHidden=False,
+                references=[
+                    MeasureReference(None, "Total Premium"),
+                    MeasureReference("KPIs", "Total Premium"),
+                    MeasureReference(None, "Nowhere"),
+                ],
+            ),
+        ],
+    )
+    _dataset([policies, kpis])
+    return [policies, kpis]
+
+
+def _extract(mapper: Mapper, table: Table) -> Optional[UpstreamLineageClass]:
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[],
+    ):
+        return _lineage_aspect(
+            mapper.extract_lineage(table, _urn(mapper, table), _workspace())
+        )
+
+
+def test_dax_reference_lineage_is_off_by_default() -> None:
+    mapper = _mapper()
+    policies, kpis = _dax_model(mapper)
+    # A calculated column has no upstream and no DAX edges without the flag.
+    assert _extract(mapper, policies) is None
+    aspect = _extract(mapper, kpis)
+    assert aspect is not None
+    assert aspect.fineGrainedLineages is not None
+    assert [e.downstreams for e in aspect.fineGrainedLineages] == [
+        [f"urn:li:schemaField:({_urn(mapper, kpis)},Total Premium)"]
+    ]
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.dax_references_unresolved == 0
+
+
+def test_dax_reference_lineage_for_calculated_columns_and_measures() -> None:
+    mapper = _mapper(_config(extract_dax_reference_lineage=True))
+    policies, kpis = _dax_model(mapper)
+    policies_urn, kpis_urn = _urn(mapper, policies), _urn(mapper, kpis)
+
+    aspect = _extract(mapper, policies)
+    assert aspect is not None
+    # The calculated column reads KPIs, which becomes a coarse upstream; the
+    # same-table column is a field of this dataset and adds no self-upstream.
+    assert [u.dataset for u in aspect.upstreams] == [kpis_urn]
+    assert aspect.fineGrainedLineages is not None
+    assert len(aspect.fineGrainedLineages) == 1
+    band = aspect.fineGrainedLineages[0]
+    assert band.downstreams == [f"urn:li:schemaField:({policies_urn},Band)"]
+    assert band.upstreams == [
+        f"urn:li:schemaField:({policies_urn},Premium)",
+        f"urn:li:schemaField:({kpis_urn},Total Premium)",
+        f"urn:li:schemaField:({kpis_urn},Value)",
+    ]
+
+    aspect = _extract(mapper, kpis)
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [policies_urn]
+    assert aspect.fineGrainedLineages is not None
+    edges = {
+        (e.downstreams or [""])[0]: e.upstreams for e in aspect.fineGrainedLineages
+    }
+    # Bare and table-qualified references to the same measure collapse into
+    # one edge from that measure's field.
+    assert edges[f"urn:li:schemaField:({kpis_urn},Ratio)"] == [
+        f"urn:li:schemaField:({kpis_urn},Total Premium)"
+    ]
+
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    # KPIs[Missing] on the column and [Nowhere] on the measure.
+    assert reporter.dax_references_unresolved == 2
+    assert reporter.dax_references_resolved == 6
+    assert {w.title for w in reporter.warnings} == {"DAX Reference Not Resolved"}
+
+
+def test_self_only_dax_edges_still_emit_the_lineage_aspect() -> None:
+    mapper = _mapper(_config(extract_dax_reference_lineage=True))
+    kpis = Table(
+        name="KPIs",
+        full_name="Model.KPIs",
+        measures=[
+            Measure(name="Base", expression="1", isHidden=False),
+            Measure(
+                name="Derived",
+                expression="[Base] * 2",
+                isHidden=False,
+                references=[MeasureReference(None, "Base")],
+            ),
+        ],
+    )
+    _dataset([kpis])
+    aspect = _extract(mapper, kpis)
+    assert aspect is not None
+    assert aspect.upstreams == []
+    assert aspect.fineGrainedLineages is not None
+    assert aspect.fineGrainedLineages[0].upstreams == [
+        f"urn:li:schemaField:({_urn(mapper, kpis)},Base)"
+    ]
 
 
 def test_calculated_table_depends_on_referenced_model_tables() -> None:

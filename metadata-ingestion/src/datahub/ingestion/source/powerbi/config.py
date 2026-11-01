@@ -333,6 +333,10 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     relationships_skipped: int = 0
     relationships_unresolved: int = 0
     measure_references_unresolved: int = 0
+    # DAX references (calculated columns, calculated tables, measures) that
+    # resolved to / did not resolve to a field of the parsed model.
+    dax_references_resolved: int = 0
+    dax_references_unresolved: int = 0
     semantic_models_not_processed: int = 0
     refresh_history_fetched: int = 0
     refresh_history_unparseable: int = 0
@@ -926,6 +930,15 @@ class PowerBiDashboardSourceConfig(
         "Requires `metadata_api_mode: workspace_apis`, `extract_reports` and "
         "`extract_dataset_schema`.",
     )
+    extract_dax_reference_lineage: bool = pydantic.Field(
+        default=False,
+        description="Derive column-level lineage inside a semantic model from its DAX: a "
+        "calculated column gets edges from the columns and measures its expression "
+        "reads, and a measure that references another measure gets an edge from it. "
+        "Edges are only emitted to fields that exist in the model; references that "
+        "do not resolve are counted and reported as warnings. Requires "
+        "`metadata_api_mode: workspace_apis` and `extract_column_level_lineage`.",
+    )
     extract_refresh_history: bool = pydantic.Field(
         default=False,
         description="Fetch each dataset's most recent refresh and emit it as an Operation "
@@ -1022,7 +1035,7 @@ class PowerBiDashboardSourceConfig(
 
     @model_validator(mode="after")
     def validate_definition_enrichment_flags(self) -> "PowerBiDashboardSourceConfig":
-        # Both flags are derived from TMDL / report definitions, which only the
+        # These flags are derived from TMDL / report definitions, which only the
         # workspace_apis mode fetches, and attach to schema fields.
         for flag, extra_requirements in (
             ("extract_model_relationships", ("extract_dataset_schema",)),
@@ -1030,6 +1043,7 @@ class PowerBiDashboardSourceConfig(
                 "extract_report_field_usage",
                 ("extract_dataset_schema", "extract_reports"),
             ),
+            ("extract_dax_reference_lineage", ("extract_column_level_lineage",)),
         ):
             if not getattr(self, flag):
                 continue

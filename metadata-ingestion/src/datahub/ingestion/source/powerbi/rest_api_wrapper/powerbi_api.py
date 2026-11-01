@@ -1197,10 +1197,12 @@ class PowerBiAPI:
                     FIELD_TYPE_MAPPING[Constant.NULL_DATA_TYPE],
                 ),
                 columnType=Constant.COLUMN_TYPE_CALCULATED
-                if column.expression
+                if column.is_calculated
                 else Constant.COLUMN_TYPE_DATA,
                 expression=column.expression,
                 description=column.description,
+                source_column=column.source_column,
+                references=column.references,
             )
             for column in parsed_table.columns
         ]
