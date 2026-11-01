@@ -489,9 +489,11 @@ def test_workspace_apis_ingest_with_enrichment(
     # The composite model's Policies resolves to the Insurance Model across
     # workspaces; its Regions has no such table there and gets no edge.
     assert report.composite_model_sources_resolved == 1
-    assert report.composite_model_sources_not_ingested == 1
+    assert report.composite_model_sources_not_ingested == 0
+    assert report.composite_model_source_tables_not_found == 1
     assert report.composite_model_tables_linked == 1
-    assert Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED in [
+    assert report.composite_model_columns_unresolved == 0
+    assert Constant.COMPOSITE_MODEL_SOURCE_TABLE_NOT_FOUND in [
         w.title for w in report.warnings
     ]
     lineages = _upstream_lineages(output_path)
@@ -665,3 +667,50 @@ def test_forbidden_model_fails_run_but_keeps_other_models(
         urns = {mcp["entityUrn"] for mcp in json.load(f)}
     assert any("Insurance_Model.Policies" in urn for urn in urns)
     assert not any("Claims_DirectLake_Model" in urn for urn in urns)
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_composite_model_over_a_forbidden_source_model_gets_no_edge(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    # The Insurance Model is listed (so its name is in the index) but its
+    # definition is refused: the composite model must not get an edge to a
+    # table nothing emits.
+    register_workspace_apis_mocks(pytestconfig, requests_mock)
+    requests_mock.register_uri(
+        "POST",
+        f"{FABRIC}/workspaces/{WORKSPACE_ID}/semanticModels/{IMPORT_MODEL_ID}/getDefinition",
+        status_code=403,
+        json={"errorCode": "Unauthorized"},
+    )
+    output_path = f"{tmp_path}/powerbi_forbidden_source_mces.json"
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": workspace_apis_source_config(
+                    extract_composite_model_lineage=True
+                ),
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+
+    report = pipeline.source.get_report()
+    assert isinstance(report, PowerBiDashboardSourceReport)
+    assert report.composite_model_sources_not_ingested == 1
+    assert report.composite_model_sources_resolved == 0
+    assert report.composite_model_tables_linked == 0
+    assert Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED in [
+        w.title for w in report.warnings
+    ]
+    lineages = _upstream_lineages(output_path)
+    assert not any("Exec_Composite_Model.Policies" in urn for urn in lineages)

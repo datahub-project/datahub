@@ -2,7 +2,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
@@ -381,7 +381,7 @@ class Table:
     # A composite model's remote table (TMDL `partition ... = entity` with
     # `mode: directQuery` over a `DirectQuery to AS` expression): the semantic
     # model it reads and the table's name in that model. workspace_apis only.
-    remote_model: Optional["RemoteModelReference"] = None
+    remote_model: Optional[RemoteModelReference] = None
     remote_table_name: Optional[str] = None
 
 
@@ -437,6 +437,19 @@ class PowerBIDataset:
 
 
 FieldReferenceKind = Literal["column", "measure"]
+
+
+@dataclass
+class RemoteModelMatch:
+    """Outcome of resolving a RemoteModelReference against the datasets
+    ingested this run: the dataset, or none, or `ambiguous` when the
+    workspace and model name matched more than one dataset."""
+
+    dataset: Optional[PowerBIDataset] = None
+    ambiguous: bool = False
+
+
+RemoteModelLookup = Callable[[RemoteModelReference], RemoteModelMatch]
 
 
 @dataclass(frozen=True)
