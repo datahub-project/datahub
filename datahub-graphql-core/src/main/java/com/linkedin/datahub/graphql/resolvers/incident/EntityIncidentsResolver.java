@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.incident;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -103,10 +105,14 @@ public class EntityIncidentsResolver
                 entityResult.stream()
                     .filter(Objects::nonNull)
                     .map(i -> IncidentMapper.map(context, i))
-                    // Incident.entity is non-null: an incident none of whose entities GraphQL can
-                    // represent (e.g. all of a type only a newer version knows) would null itself
-                    // and this list, so it is left out. Only tolerant handling leaves entity unset.
-                    .filter(incident -> incident.getEntity() != null)
+                    // Incident.entity is non-null: while unknown data is tolerated, an incident
+                    // none of whose entities GraphQL can represent (e.g. all of a type only a newer
+                    // version knows) would null itself and this list, so it is left out. Strict
+                    // handling keeps every incident, as before.
+                    .filter(
+                        incident ->
+                            incident.getEntity() != null
+                                || !handling().toleratesUnknownEntityAspect())
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result

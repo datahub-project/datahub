@@ -35,6 +35,7 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestionArray;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.StrictHandling;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import graphql.ExecutionResult;
@@ -61,6 +62,8 @@ public class IncidentWithoutRepresentableEntityExecutionTest {
   private static final String DATASET = "urn:li:dataset:(urn:li:dataPlatform:hive,linked,PROD)";
   private static final String KNOWN_INCIDENT = "urn:li:incident:known";
   private static final String UNREPRESENTABLE_INCIDENT = "urn:li:incident:only-newer-entity";
+  // telemetry is in the registry but GraphQL doesn't model it: entity maps to null either way.
+  private static final String UNMODELLED_INCIDENT = "urn:li:incident:only-unmodelled-entity";
 
   private static final String SEARCH =
       "{ searchAcrossEntities(input: {types: [DATASET, INCIDENT], query: \"*\", start: 0,"
@@ -69,6 +72,14 @@ public class IncidentWithoutRepresentableEntityExecutionTest {
       "{ dataset(urn: \""
           + DATASET
           + "\") { incidents(start: 0, count: 10) { incidents { urn entity { urn } } } } }";
+  private static final String ENTITY_INCIDENT_URNS =
+      "{ dataset(urn: \""
+          + DATASET
+          + "\") { incidents(start: 0, count: 10) { incidents { urn } } } }";
+
+  // The incidents an entity's incidents filter returns.
+  private List<String> filterHits =
+      List.of(KNOWN_INCIDENT, UNREPRESENTABLE_INCIDENT, UNMODELLED_INCIDENT);
 
   @BeforeMethod
   public void tolerateUnknownData() {
@@ -106,6 +117,23 @@ public class IncidentWithoutRepresentableEntityExecutionTest {
     assertEquals(get(incidents.get(0), "entity", "urn"), DATASET);
   }
 
+  @Test
+  public void testStrictKeepsEveryIncidentAsBefore() throws Exception {
+    // Without tolerance the list is as it was: an incident whose entity GraphQL can't map is
+    // still listed, and only a query selecting its entity fails.
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    filterHits = List.of(KNOWN_INCIDENT, UNMODELLED_INCIDENT);
+
+    ExecutionResult result = execute(ENTITY_INCIDENT_URNS);
+
+    assertTrue(result.getErrors().isEmpty(), result.getErrors().toString());
+    List<Map<String, Object>> incidents =
+        get(result.getData(), "dataset", "incidents", "incidents");
+    assertEquals(
+        incidents.stream().map(incident -> incident.get("urn")).collect(Collectors.toList()),
+        List.of(KNOWN_INCIDENT, UNMODELLED_INCIDENT));
+  }
+
   private ExecutionResult execute(String query) throws Exception {
     QueryContext context = getMockAllowContext();
     EntityRegistry registry = context.getOperationContext().getEntityRegistry();
@@ -113,7 +141,8 @@ public class IncidentWithoutRepresentableEntityExecutionTest {
     Map<Urn, IncidentInfo> stored =
         Map.of(
             UrnUtils.getUrn(KNOWN_INCIDENT), incidentInfo(DATASET),
-            UrnUtils.getUrn(UNREPRESENTABLE_INCIDENT), incidentInfo());
+            UrnUtils.getUrn(UNREPRESENTABLE_INCIDENT), incidentInfo(),
+            UrnUtils.getUrn(UNMODELLED_INCIDENT), incidentInfo("urn:li:telemetry:client"));
     AspectRetriever retriever = mock(AspectRetriever.class);
     when(retriever.getLatestAspectObjects(any(), anySet(), anySet()))
         .thenAnswer(
@@ -137,13 +166,13 @@ public class IncidentWithoutRepresentableEntityExecutionTest {
   }
 
   /** The hits for any search or filter; entities as stored or by their key. */
-  private static Answer<Object> backend(EntityRegistry registry, Map<Urn, IncidentInfo> stored) {
+  private Answer<Object> backend(EntityRegistry registry, Map<Urn, IncidentInfo> stored) {
     return invocation -> {
       switch (invocation.getMethod().getName()) {
         case "searchAcrossEntities":
           return hits(DATASET, KNOWN_INCIDENT, UNREPRESENTABLE_INCIDENT);
         case "filter":
-          return hits(KNOWN_INCIDENT, UNREPRESENTABLE_INCIDENT);
+          return hits(filterHits.toArray(new String[0]));
         case "batchGetV2":
           Map<Urn, EntityResponse> responses = new HashMap<>();
           for (Object requested : (Set<?>) invocation.getArgument(2)) {
