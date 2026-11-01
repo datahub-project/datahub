@@ -222,6 +222,8 @@ class EntityPartitionSource:
     source_expression: Optional[str] = None
     remote_model: Optional[RemoteModelReference] = None
     remote_table_name: Optional[str] = None
+
+
 def _http_status(e: Exception) -> Optional[int]:
     if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
         return e.response.status_code
