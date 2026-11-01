@@ -2035,6 +2035,10 @@ class PowerBiAPI:
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
             if self.__config.enrich_from_item_definitions:
                 self._enrich_workspace_from_definitions(cur_workspace)
+                # Composite models name their source by workspace and model
+                # name; the index lets extract_composite_model_lineage resolve
+                # them in admin_scan mode too.
+                self._index_datasets_by_name(cur_workspace)
             # collect all datasets in the registry
             self.dataset_registry.update(
                 {

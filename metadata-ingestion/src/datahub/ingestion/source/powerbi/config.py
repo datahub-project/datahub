@@ -1118,8 +1118,8 @@ class PowerBiDashboardSourceConfig(
         "workspace pattern and readable by the principal. A source that was not "
         "ingested, or a name that matches more than one ingested model, is reported "
         "(`Composite Model Source Not Ingested` / `Composite Model Source Ambiguous`) "
-        "and gets no edge. Requires `metadata_api_mode: workspace_apis` and "
-        "`extract_lineage`.",
+        "and gets no edge. Requires `extract_lineage` and either "
+        "`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`.",
     )
     extract_refresh_history: bool = pydantic.Field(
         default=False,

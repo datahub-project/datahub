@@ -190,6 +190,9 @@ def test_enrich_from_item_definitions_rejections(
         ),
         pytest.param("extract_dax_reference_lineage", {}, id="dax_lineage"),
         pytest.param("extract_model_properties", {}, id="model_properties"),
+        pytest.param(
+            "extract_composite_model_lineage", {}, id="composite_model_lineage"
+        ),
     ],
 )
 def test_enrichment_flags_accepted_in_admin_scan_with_item_definitions(

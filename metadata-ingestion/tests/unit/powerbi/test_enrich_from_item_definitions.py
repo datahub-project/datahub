@@ -30,7 +30,10 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     DefinitionPart,
     ItemDefinition,
 )
-from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import (
+    PowerBiAPI,
+    registry_key,
+)
 from datahub.metadata.schema_classes import InputFieldsClass
 
 WORKSPACE_ID = "64ED5CAD-7C10-4684-8180-826122881108"
@@ -268,6 +271,8 @@ def _api(
     api.reporter = PowerBiDashboardSourceReport()
     api._PowerBiAPI__reporter = api.reporter  # type: ignore[attr-defined]
     api.dataset_registry = {}
+    api.datasets_by_workspace_and_name = {}
+    api.ambiguous_remote_model_keys = set()
     api.log_http_error = MagicMock()  # type: ignore[method-assign]
     api._PowerBiAPI__workspace_users = {}  # type: ignore[attr-defined]
     api._get_scan_result = MagicMock(return_value=_scan_result())  # type: ignore[method-assign]
@@ -335,7 +340,7 @@ def test_definition_is_overlaid_onto_scan_tables() -> None:
         ("Managers", "'Policies'[State] = \"CA\"")
     ]
     assert [r.from_table for r in dataset.relationships] == ["Claims"]
-    assert api.dataset_registry[MODEL_ID] is dataset
+    assert api.dataset_registry[registry_key(MODEL_ID)] is dataset
 
     report = api.reporter
     assert report.fabric_definitions_fetched == 1
@@ -618,7 +623,7 @@ def test_report_definition_fills_field_usage_that_resolves_against_scan_columns(
     api.fill_metadata_from_scan_result([workspace])
     _fabric(api).get_item_definition.return_value = _pbir_definition()
     report = _report()
-    report.dataset = api.dataset_registry[MODEL_ID]
+    report.dataset = api.dataset_registry[registry_key(MODEL_ID)]
 
     api._fill_report_field_usage(workspace, report)
 
