@@ -42,6 +42,10 @@ class DatasetKey(ContainerKey):
     dataset: str
 
 
+class DataflowKey(ContainerKey):
+    dataflow: str
+
+
 @dataclass
 class AppDashboard:
     id: str
@@ -94,6 +98,11 @@ class Workspace:
     fabric_artifacts: Dict[str, "FabricArtifact"] = field(
         default_factory=dict
     )  # key = artifact id
+    # Dataflow Gen2 items; populated only with extract_dataflows in
+    # workspace_apis mode.
+    dataflows: Dict[str, "Dataflow"] = dataclasses.field(
+        default_factory=dict
+    )  # key = dataflow id
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         # shouldn't use workspace name, as they can be the same?
@@ -158,6 +167,51 @@ class FabricArtifact:
     # For SQLAnalyticsEndpoint: Lakehouse/Warehouse ids to use in lineage URNs (so they match OneLake connector).
     # None or empty for Lakehouse/Warehouse; lineage then uses id.
     physical_item_ids: Optional[List[str]] = None
+
+
+@dataclass
+class DataflowQuery:
+    """One ``shared`` query of a Dataflow Gen2 mashup. Only load-enabled
+    queries (``is_entity``) are emitted as datasets; the others are helper
+    queries kept so that references between queries resolve for lineage."""
+
+    name: str
+    expression: str
+    is_entity: bool
+
+
+@dataclass
+class Dataflow:
+    id: str
+    name: str
+    description: Optional[str]
+    workspace_id: str
+    workspace_name: str
+    queries: List["DataflowQuery"]
+    webUrl: Optional[str] = None
+
+    def entities(self) -> List["DataflowQuery"]:
+        return [query for query in self.queries if query.is_entity]
+
+    def get_entity(self, name: str) -> Optional["DataflowQuery"]:
+        # Power Query identifiers are case-sensitive, so no folding here.
+        return next((q for q in self.entities() if q.name == name), None)
+
+    def get_urn_part(self) -> str:
+        return f"dataflows.{self.id}"
+
+    def get_dataflow_key(
+        self,
+        platform_name: str,
+        platform_instance: Optional[str] = None,
+        env: Optional[str] = None,
+    ) -> ContainerKey:
+        return DataflowKey(
+            dataflow=self.id,
+            platform=platform_name,
+            instance=platform_instance,
+            env=env,
+        )
 
 
 @dataclass

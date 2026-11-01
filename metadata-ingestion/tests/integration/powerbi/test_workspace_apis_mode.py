@@ -9,7 +9,7 @@ import base64
 import datetime
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -42,6 +42,7 @@ REPORT_ID = "584cf13a-1485-41c2-a514-b1bb66fff163"
 # whose remote tables read the first workspace's Insurance Model.
 SECOND_WORKSPACE_ID = "64ED5CAD-7C22-4684-8180-826122881108"
 COMPOSITE_MODEL_ID = "8B2C3D4E-5F6A-4B7C-9D8E-0F1A2B3C4D5E"
+DATAFLOW_ID = "8B9C0D1E-2F3A-4B4C-8D5E-6F7A8B9C0D1E"
 
 PBI = "https://api.powerbi.com/v1.0/myorg"
 FABRIC = "https://api.fabric.microsoft.com/v1"
@@ -53,7 +54,11 @@ def mock_time():
     return datetime.datetime.strptime(FROZEN_TIME, "%Y-%m-%d %H:%M:%S")
 
 
-def definition_response(fixture_dir: Path, definition_format: str) -> Dict[str, Any]:
+def definition_response(
+    fixture_dir: Path, definition_format: Optional[str]
+) -> Dict[str, Any]:
+    """``definition_format`` is None for item kinds whose getDefinition has
+    a single, unnamed format (dataflows)."""
     parts: List[Dict[str, str]] = []
     for path in sorted(fixture_dir.rglob("*")):
         if path.is_file():
@@ -64,7 +69,10 @@ def definition_response(fixture_dir: Path, definition_format: str) -> Dict[str, 
                     "payloadType": "InlineBase64",
                 }
             )
-    return {"definition": {"format": definition_format, "parts": parts}}
+    definition: Dict[str, Any] = {"parts": parts}
+    if definition_format is not None:
+        definition["format"] = definition_format
+    return {"definition": definition}
 
 
 def workspace_apis_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
@@ -246,8 +254,20 @@ def workspace_apis_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
                         "displayName": "Loss Report",
                         "workspaceId": WORKSPACE_ID,
                     },
+                    {
+                        "id": DATAFLOW_ID,
+                        "type": "Dataflow",
+                        "displayName": "Policies Dataflow",
+                        "description": "Policies curated for reporting",
+                        "workspaceId": WORKSPACE_ID,
+                    },
                 ]
             },
+        },
+        f"{FABRIC}/workspaces/{WORKSPACE_ID}/dataflows/{DATAFLOW_ID}/getDefinition": {
+            "method": "POST",
+            "status_code": 200,
+            "json": definition_response(fixtures / "policies_dataflow", None),
         },
         f"{FABRIC}/workspaces/{WORKSPACE_ID}/lakehouses/{LAKEHOUSE_ID}": {
             "method": "GET",
@@ -464,6 +484,7 @@ def test_workspace_apis_ingest_with_enrichment(
             extract_dax_reference_lineage=True,
             extract_model_properties=True,
             extract_composite_model_lineage=True,
+            extract_dataflows=True,
         ),
     )
     pipeline.raise_from_status()
@@ -471,10 +492,19 @@ def test_workspace_apis_ingest_with_enrichment(
 
     report = pipeline.source.get_report()
     assert isinstance(report, PowerBiDashboardSourceReport)
-    assert report.fabric_definitions_fetched == 4  # three models + one report
+    # Three models + one report + one dataflow.
+    assert report.fabric_definitions_fetched == 5
     assert report.fabric_definitions_failed == 0
-    assert report.tmdl_tables_parsed == 8
+    assert report.tmdl_tables_parsed == 9
     assert report.relationships_parsed == 2
+    assert report.dataflows_fetched == 1
+    assert report.dataflow_entities_parsed == 2
+    assert report.dataflow_queries_unparseable == 0
+    # The Insurance model's "Dataflow Policies" table reads the dataflow; the
+    # model is mapped twice (through the report and the dashboard tile), so
+    # the per-emission counter is 2.
+    assert report.dataflow_references_resolved == 2
+    assert report.dataflow_references_not_ingested == 0
     # One role file in the insurance model; the DirectLake model has none.
     assert report.rls_roles_parsed == 1
     assert report.tmdl_roles_failed == 0
@@ -706,9 +736,11 @@ def test_workspace_apis_enrichment_flags_off(
         for edge in lineage.get("fineGrainedLineages") or []:
             assert not any(entity_urn in upstream for upstream in edge["upstreams"])
             assert loss_ratio not in edge["downstreams"]
-    # Without the report definition no report getDefinition call is made.
+    # Without the report definition no report getDefinition call is made, and
+    # without extract_dataflows no dataflow definition is fetched either.
     assert not any(
         request.url.endswith(f"/reports/{REPORT_ID}/getDefinition")
+        or request.url.endswith(f"/dataflows/{DATAFLOW_ID}/getDefinition")
         for request in requests_mock.request_history
     )
     # Without extract_composite_model_lineage the composite model's remote
@@ -721,6 +753,12 @@ def test_workspace_apis_enrichment_flags_off(
     assert Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED not in [
         w.title for w in report.warnings
     ]
+    # The model table that reads the dataflow gets no edge (no phantom
+    # lineage), only a warning.
+    assert report.dataflow_references_not_ingested == 2  # once per mapping
+    assert "Dataflow Not Ingested" in {w.title for w in report.warnings}
+    with open(output_path) as f:
+        assert not any("dataflows." in mcp["entityUrn"] for mcp in json.load(f))
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

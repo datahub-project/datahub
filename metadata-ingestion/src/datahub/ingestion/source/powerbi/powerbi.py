@@ -42,6 +42,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
+    DatasetSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
@@ -78,6 +79,9 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.composite_model import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FABRIC_ARTIFACT_SQL_ANALYTICS_ENDPOINT,
+)
+from datahub.ingestion.source.powerbi.rest_api_wrapper.dataflow_definition_parser import (
+    compose_let_expression,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
@@ -445,6 +449,7 @@ class Mapper:
         reporter: PowerBiDashboardSourceReport,
         dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver,
         remote_model_lookup: Optional[powerbi_data_classes.RemoteModelLookup] = None,
+        dataflow_registry: Optional[Dict[str, powerbi_data_classes.Dataflow]] = None,
     ):
         self.__ctx = ctx
         self.__config = config
@@ -454,6 +459,12 @@ class Mapper:
         # ingested this run (PowerBiAPI.find_remote_model); None resolves
         # nothing, so no edge is ever emitted without it.
         self.__remote_model_lookup = remote_model_lookup
+        # Dataflows ingested this run (all workspaces), by id. Shared with
+        # PowerBiAPI.dataflow_registry, which fills it after this constructor
+        # runs, so the same (initially empty) dict must be kept.
+        self.__dataflow_registry: Dict[str, powerbi_data_classes.Dataflow] = (
+            dataflow_registry if dataflow_registry is not None else {}
+        )
         self.workspace_key: Optional[ContainerKey] = None
         # Refresh Operations are decided once per dataset and emitted on each
         # of its tables, so counters and warnings fire per dataset.
@@ -796,6 +807,45 @@ class Mapper:
             f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_lineage}"
         )
 
+        self._add_upstreams_from_m_lineage(
+            upstream_lineage, ds_urn, upstream, cll_lineage, column_lineage=True
+        )
+
+        self._add_composite_model_lineage(table, ds_urn, upstream, cll_lineage)
+        self._add_model_internal_lineage(table, ds_urn, upstream, cll_lineage)
+
+        # Fine-grained edges between fields of this same dataset (a calculated
+        # column or a measure reading a same-table measure) have no coarse
+        # upstream, so the aspect is also emitted when only those exist.
+        if upstream or cll_lineage:
+            upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
+                upstreams=upstream,
+                fineGrainedLineages=cll_lineage or None,
+            )
+
+            logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
+
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=ds_urn,
+                aspect=upstream_lineage_class,
+            )
+            mcps.append(mcp)
+
+        return mcps
+
+    def _add_upstreams_from_m_lineage(
+        self,
+        upstream_lineage: List[
+            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+        ],
+        ds_urn: str,
+        upstream: List[UpstreamClass],
+        cll_lineage: List[FineGrainedLineage],
+        column_lineage: bool,
+    ) -> None:
+        """Turn parsed M lineage into upstream edges on *ds_urn*: external
+        tables filtered by dataset_type_mapping, plus dataflow entities that
+        were ingested in this run."""
         for lineage in upstream_lineage:
             mapped_upstreams = 0
             for upstream_dpt in lineage.upstreams:
@@ -819,7 +869,7 @@ class Mapper:
             # Column lineage belongs to the Lineage object, not to each of its
             # upstream tables; adding it inside the loop above duplicated every
             # fine-grained edge once per upstream table.
-            if mapped_upstreams > 0:
+            if column_lineage and mapped_upstreams > 0:
                 cll_lineage.extend(
                     self.make_fine_grained_lineage_class(
                         lineage=lineage,
@@ -828,26 +878,198 @@ class Mapper:
                     )
                 )
 
-        self._add_composite_model_lineage(table, ds_urn, upstream, cll_lineage)
-        self._add_model_internal_lineage(table, ds_urn, upstream, cll_lineage)
+            for reference in lineage.dataflow_references:
+                entity_urn = self._ingested_dataflow_entity_urn(reference, ds_urn)
+                if entity_urn is None:
+                    continue
+                upstream.append(
+                    UpstreamClass(entity_urn, DatasetLineageTypeClass.TRANSFORMED)
+                )
 
-        # Fine-grained edges between fields of this same dataset (a calculated
-        # column or a measure reading a same-table measure) have no coarse
-        # upstream, so the aspect is also emitted when only those exist.
-        if upstream or cll_lineage:
-            upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
-                upstreams=upstream,
-                fineGrainedLineages=cll_lineage or None,
+    def _ingested_dataflow_entity_urn(
+        self,
+        reference: datahub.ingestion.source.powerbi.m_query.data_classes.DataflowReference,
+        ds_urn: str,
+    ) -> Optional[str]:
+        """The URN of the dataflow entity a PowerPlatform.Dataflows reference
+        points at, or None (with a warning) when that entity was not
+        ingested: an edge to a dataset that does not exist is worse than
+        none, and a dataflow outside the workspace allow pattern, or in a
+        run without extract_dataflows, never gets one."""
+        context = (
+            f"table={ds_urn}, workspace_id={reference.workspace_id}, "
+            f"dataflow_id={reference.dataflow_id}, entity={reference.entity}"
+        )
+        dataflow = self.__dataflow_registry.get(reference.dataflow_id)
+        if dataflow is None:
+            self.__reporter.dataflow_references_not_ingested += 1
+            self.__reporter.warning(
+                title="Dataflow Not Ingested",
+                message=(
+                    "A semantic model reads a dataflow that was not ingested in "
+                    "this run, so the lineage edge is skipped. Enable "
+                    "extract_dataflows and include the dataflow's workspace in "
+                    "workspace_id_pattern."
+                ),
+                context=context,
             )
+            return None
+        entity = dataflow.get_entity(reference.entity)
+        if entity is None:
+            self.__reporter.dataflow_references_not_ingested += 1
+            self.__reporter.warning(
+                title="Dataflow Not Ingested",
+                message=(
+                    "A semantic model reads an entity that the ingested dataflow's "
+                    "definition does not load, so the lineage edge is skipped."
+                ),
+                context=f"{context}, dataflow={dataflow.name}",
+            )
+            return None
+        self.__reporter.dataflow_references_resolved += 1
+        return self.make_dataset_urn_for_dataflow_entity(dataflow, entity)
 
-            logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
+    def make_dataset_urn_for_dataflow_entity(
+        self,
+        dataflow: powerbi_data_classes.Dataflow,
+        entity: powerbi_data_classes.DataflowQuery,
+    ) -> str:
+        # Keyed by the dataflow id rather than its name, like the dashboard,
+        # chart and semantic-model container URNs: it cannot collide with a
+        # semantic model of the same name and it is what a
+        # PowerPlatform.Dataflows reference carries.
+        return self.assets_urn_to_lowercase(
+            builder.make_dataset_urn_with_platform_instance(
+                platform=self.__config.platform_name,
+                name=f"{dataflow.get_urn_part()}.{entity.name.replace(' ', '_')}",
+                platform_instance=self.__config.platform_instance,
+                env=self.__config.env,
+            )
+        )
 
-            mcp = MetadataChangeProposalWrapper(
+    def extract_dataflow_entity_lineage(
+        self,
+        dataflow: powerbi_data_classes.Dataflow,
+        entity: powerbi_data_classes.DataflowQuery,
+        ds_urn: str,
+        bindings: Dict[str, str],
+    ) -> List[MetadataChangeProposalWrapper]:
+        """Upstream lineage of one dataflow entity. *bindings* holds the
+        mashup's parseable queries; wrapping them in one let lets a query
+        that references another query resolve to that query's source."""
+        if entity.name not in bindings:
+            return []
+        table = powerbi_data_classes.Table(
+            name=entity.name,
+            full_name=f"{dataflow.name}.{entity.name}",
+            expression=compose_let_expression(bindings, entity.name),
+        )
+        upstream_lineage = parser.get_upstream_tables(
+            table=table,
+            reporter=self.__reporter,
+            platform_instance_resolver=self.__dataplatform_instance_resolver,
+            ctx=self.__ctx,
+            config=self.__config,
+        )
+        upstream: List[UpstreamClass] = []
+        cll_lineage: List[FineGrainedLineage] = []
+        # Dataflow entities carry no schema, so there is nothing for a
+        # column-level edge to land on.
+        self._add_upstreams_from_m_lineage(
+            upstream_lineage, ds_urn, upstream, cll_lineage, column_lineage=False
+        )
+        if not upstream:
+            return []
+        return [
+            MetadataChangeProposalWrapper(
                 entityUrn=ds_urn,
-                aspect=upstream_lineage_class,
+                aspect=UpstreamLineageClass(upstreams=upstream),
             )
-            mcps.append(mcp)
+        ]
 
+    def to_datahub_dataflow(
+        self,
+        dataflow: powerbi_data_classes.Dataflow,
+        workspace: powerbi_data_classes.Workspace,
+    ) -> List[MetadataChangeProposalWrapper]:
+        """A Dataflow Gen2 as a container in its workspace holding one
+        dataset per load-enabled query."""
+        mcps: List[MetadataChangeProposalWrapper] = []
+        dataflow_key = self.make_container_key_for_dataflow(dataflow)
+        mcps.extend(
+            wu.metadata
+            for wu in gen_containers(
+                container_key=dataflow_key,
+                name=dataflow.name,
+                description=dataflow.description,
+                parent_container_key=self.workspace_key,
+                sub_types=[BIContainerSubTypes.POWERBI_DATAFLOW],
+                external_url=dataflow.webUrl,
+                extra_properties={"dataflow_id": dataflow.id},
+            )
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        )
+
+        bindings: Dict[str, str] = {}
+        if self.__config.extract_lineage:
+            for query in dataflow.queries:
+                error = parser.parse_error(
+                    query.expression, self.__config.m_query_parse_timeout
+                )
+                if error is None:
+                    bindings[query.name] = query.expression
+                    continue
+                self.__reporter.dataflow_queries_unparseable += 1
+                self.__reporter.warning(
+                    title="Dataflow Query Not Parsed",
+                    message="A dataflow query's M expression could not be parsed; lineage through it is missing.",
+                    context=f"dataflow={dataflow.name} id={dataflow.id}, query={query.name}, error={error}",
+                )
+
+        for entity in dataflow.entities():
+            ds_urn = self.make_dataset_urn_for_dataflow_entity(dataflow, entity)
+            mcps.extend(
+                MetadataChangeProposalWrapper(entityUrn=ds_urn, aspect=aspect)
+                for aspect in (
+                    DatasetPropertiesClass(
+                        name=entity.name,
+                        description=dataflow.description,
+                        externalUrl=dataflow.webUrl,
+                        customProperties={
+                            "dataflowId": dataflow.id,
+                            "dataflowName": dataflow.name,
+                        },
+                    ),
+                    StatusClass(removed=False),
+                    SubTypesClass(typeNames=[DatasetSubTypes.POWERBI_DATAFLOW]),
+                    self._get_data_platform_instance_aspect(),
+                    ViewPropertiesClass(
+                        materialized=True,
+                        viewLogic=native_sql_parser.remove_special_characters(
+                            entity.expression
+                        ),
+                        viewLanguage="m_query",
+                    ),
+                    BrowsePathsV2Class(
+                        path=[
+                            BrowsePathEntryClass(
+                                id=workspace.name,
+                                urn=self.make_container_urn_for_workspace(workspace),
+                            ),
+                            BrowsePathEntryClass(
+                                id=dataflow.name, urn=dataflow_key.as_urn()
+                            ),
+                        ]
+                    ),
+                    ContainerClass(container=dataflow_key.as_urn()),
+                )
+            )
+            if self.__config.extract_lineage:
+                mcps.extend(
+                    self.extract_dataflow_entity_lineage(
+                        dataflow, entity, ds_urn, bindings
+                    )
+                )
         return mcps
 
     def _directlake_lineage_with_model_internal(
@@ -2778,6 +3000,15 @@ class Mapper:
     ) -> str:
         return self.make_container_key_for_dataset(dataset).as_urn()
 
+    def make_container_key_for_dataflow(
+        self, dataflow: powerbi_data_classes.Dataflow
+    ) -> ContainerKey:
+        return dataflow.get_dataflow_key(
+            self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            env=self.__config.env,
+        )
+
     def make_container_key_for_workspace(
         self, workspace: powerbi_data_classes.Workspace
     ) -> ContainerKey:
@@ -2819,6 +3050,7 @@ class Mapper:
     subtype_modifier=[
         SourceCapabilityModifier.POWERBI_WORKSPACE,
         SourceCapabilityModifier.POWERBI_DATASET,
+        SourceCapabilityModifier.POWERBI_DATAFLOW,
     ],
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -2834,7 +3066,10 @@ class Mapper:
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default, configured using `extract_lineage`. In "
     "`metadata_api_mode: workspace_apis` lineage comes from the semantic-model "
-    "definitions (TMDL partitions) without admin API access.",
+    "definitions (TMDL partitions) without admin API access. With "
+    "`extract_dataflows` (workspace_apis only) Dataflow Gen2 entities get upstream "
+    "lineage from their M queries and downstream lineage to the semantic-model "
+    "tables that read them.",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -2896,6 +3131,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter,
             self.dataplatform_instance_resolver,
             remote_model_lookup=self.powerbi_client.find_remote_model,
+            dataflow_registry=self.powerbi_client.dataflow_registry,
         )
 
         # Log info if user has opted-in to user creation (may overwrite LDAP/Okta users)
@@ -3155,6 +3391,12 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 yield workunit
 
         yield from auto_workunit(self.emit_app(workspace=workspace))
+
+        # Dataflows first: they are upstream of the semantic models below.
+        for dataflow in workspace.dataflows.values():
+            yield from auto_workunit(
+                self.mapper.to_datahub_dataflow(dataflow=dataflow, workspace=workspace)
+            )
 
         for dashboard in workspace.dashboards.values():
             try:

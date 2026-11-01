@@ -75,6 +75,11 @@ def test_workspace_apis_rejects_admin_only_features(
             id="field_usage_needs_mode",
         ),
         pytest.param(
+            {"extract_dataflows": True},
+            "requires metadata_api_mode: workspace_apis",
+            id="dataflows_need_mode",
+        ),
+        pytest.param(
             {
                 "metadata_api_mode": "workspace_apis",
                 "extract_report_field_usage": True,

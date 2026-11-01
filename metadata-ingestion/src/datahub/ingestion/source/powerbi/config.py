@@ -528,6 +528,12 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     refresh_schedule_not_configured: int = 0
     refresh_schedule_not_supported: int = 0
     refresh_schedule_failed: int = 0
+    # Dataflow Gen2 (extract_dataflows)
+    dataflows_fetched: int = 0
+    dataflow_entities_parsed: int = 0
+    dataflow_queries_unparseable: int = 0
+    dataflow_references_resolved: int = 0
+    dataflow_references_not_ingested: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -1219,6 +1225,15 @@ class PowerBiDashboardSourceConfig(
         "`refreshSchedule.*` custom properties. Adds two API calls per dataset; works "
         "in both metadata API modes and needs only the Viewer role, but uses the "
         "workspace API, so it cannot be combined with `admin_apis_only`.",
+    )
+    extract_dataflows: bool = pydantic.Field(
+        default=False,
+        description="Ingest Dataflow Gen2 items: each dataflow becomes a container in its "
+        "workspace and each of its load-enabled queries a dataset with subtype `Dataflow`, "
+        "with upstream lineage parsed from the query's M expression and downstream "
+        "lineage to the semantic-model tables that read it through "
+        "`PowerPlatform.Dataflows` / `PowerBI.Dataflows`. Adds one Fabric getDefinition "
+        "call per dataflow. Requires `metadata_api_mode: workspace_apis`.",
     )
 
     @classmethod

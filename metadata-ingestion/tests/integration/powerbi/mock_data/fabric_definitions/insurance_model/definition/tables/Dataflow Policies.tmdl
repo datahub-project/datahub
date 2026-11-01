@@ -1,0 +1,30 @@
+/// Policies as curated by the Policies dataflow.
+table 'Dataflow Policies'
+	lineageTag: 00000020-1111-4222-8333-000000000020
+
+	column PolicyId
+		dataType: int64
+		isKey
+		lineageTag: 00000021-1111-4222-8333-000000000021
+		summarizeBy: none
+		sourceColumn: PolicyId
+
+	column State
+		dataType: string
+		lineageTag: 00000022-1111-4222-8333-000000000022
+		summarizeBy: none
+		sourceColumn: State
+
+	partition 'Dataflow Policies' = m
+		mode: import
+		source =
+				let
+				    Source = PowerPlatform.Dataflows(null),
+				    Workspaces = Source{[Id="Workspaces"]}[Data],
+				    Workspace = Workspaces{[workspaceId="64ED5CAD-7C10-4684-8180-826122881108"]}[Data],
+				    Dataflow = Workspace{[dataflowId="8B9C0D1E-2F3A-4B4C-8D5E-6F7A8B9C0D1E"]}[Data],
+				    Policies = Dataflow{[entity="Policies",version=""]}[Data]
+				in
+				    Policies
+
+	annotation PBI_ResultType = Table

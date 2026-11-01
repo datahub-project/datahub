@@ -37,6 +37,7 @@ from datahub.ingestion.source.powerbi.m_query.ast_utils import (
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     ColumnRenameStep,
     DataAccessFunctionDetail,
+    DataflowReference,
     DataPlatformTable,
     FunctionName,
     IdentifierAccessor,
@@ -1976,6 +1977,65 @@ class GoogleBigQueryLineage(ThreeStepDataAccessPattern):
         )
 
 
+# Record keys of the navigation steps below PowerPlatform.Dataflows(null) /
+# PowerBI.Dataflows(null): ...{[workspaceId=…]}[Data]{[dataflowId=…]}[Data]
+# {[entity=…, version=…]}[Data]. PowerPlatform.Dataflows adds a leading
+# {[Id="Workspaces"]} step that carries nothing we need.
+_DATAFLOW_KEY_WORKSPACE_ID = "workspaceid"
+_DATAFLOW_KEY_DATAFLOW_ID = "dataflowid"
+_DATAFLOW_KEY_ENTITY = "entity"
+
+# Dataflow entities are Power BI datasets themselves; this pair only satisfies
+# the handler contract and never reaches dataset_type_mapping.
+_POWERBI_DATAFLOW_PLATFORM_PAIR = DataPlatformPair(
+    powerbi_data_platform_name="PowerBIDataflow",
+    datahub_data_platform_name="powerbi",
+)
+
+
+class DataflowLineage(AbstractLineage):
+    """``PowerPlatform.Dataflows`` / ``PowerBI.Dataflows`` navigation. The
+    result is a DataflowReference rather than an upstream URN: only the
+    mapper knows whether the referenced dataflow entity was ingested, and an
+    edge to a dataset that does not exist is worse than none."""
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return _POWERBI_DATAFLOW_PLATFORM_PAIR
+
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        items: Dict[str, str] = {}
+        accessor: Optional[IdentifierAccessor] = (
+            data_access_func_detail.identifier_accessor
+        )
+        while accessor is not None:
+            for key, value in accessor.items.items():
+                items[key.lower()] = value
+            accessor = accessor.next
+
+        dataflow_id = items.get(_DATAFLOW_KEY_DATAFLOW_ID)
+        entity = items.get(_DATAFLOW_KEY_ENTITY)
+        if not dataflow_id or not entity:
+            logger.debug(
+                "Dataflow navigation on %s lacks a dataflowId or entity step: %s",
+                self.table.full_name,
+                items,
+            )
+            return Lineage.empty()
+        return Lineage(
+            upstreams=[],
+            column_lineage=[],
+            dataflow_references=[
+                DataflowReference(
+                    workspace_id=items.get(_DATAFLOW_KEY_WORKSPACE_ID),
+                    dataflow_id=dataflow_id,
+                    entity=entity,
+                )
+            ],
+        )
+
+
 # Both Databricks connectors are called as (host, http path, [Database=…,
 # Catalog=…]), so a native query's database resolves identically for either.
 _DATABRICKS_NATIVE_QUERY_FUNCTIONS = frozenset(
@@ -2632,6 +2692,16 @@ class SupportedPattern(Enum):
     STARBURST_PRESTO = (
         StarburstTrinoLineage,
         FunctionName.STARBURST_PRESTO_DATA_ACCESS,
+    )
+
+    POWERPLATFORM_DATAFLOWS = (
+        DataflowLineage,
+        FunctionName.POWERPLATFORM_DATAFLOWS,
+    )
+
+    POWERBI_DATAFLOWS = (
+        DataflowLineage,
+        FunctionName.POWERBI_DATAFLOWS,
     )
 
     def handler(self) -> Type[AbstractLineage]:
