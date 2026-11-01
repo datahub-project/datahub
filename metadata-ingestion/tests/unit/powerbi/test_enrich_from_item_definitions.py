@@ -1,6 +1,7 @@
 """PowerBiAPI with ``enrich_from_item_definitions`` (admin_scan mode): the
 TMDL definition is overlaid onto the tables the admin scan built."""
 
+import json
 from typing import Any, Dict, List, Optional
 from unittest import mock
 from unittest.mock import MagicMock
@@ -8,13 +9,21 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
+from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
+from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    create_dataplatform_instance_resolver,
+)
+from datahub.ingestion.source.powerbi.powerbi import Mapper, PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    Page,
     PowerBIDataset,
+    Report,
+    ReportType,
     Workspace,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
@@ -22,6 +31,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     ItemDefinition,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from datahub.metadata.schema_classes import InputFieldsClass
 
 WORKSPACE_ID = "64ED5CAD-7C10-4684-8180-826122881108"
 MODEL_ID = "05169CD2-E713-41E6-9600-1D8066D95445"
@@ -40,6 +50,7 @@ table Policies
 \t\tdataType: string
 \t\tsourceColumn: STATE_CODE
 
+\t/// Premium band.
 \tcolumn PremiumBand = IF('Policies'[Premium] > 10, "High", "Low")
 \t\tdataType: string
 \t\ttype: calculated
@@ -51,6 +62,60 @@ table Policies
 \t\tmode: import
 \t\tsource = Sql.Database("server", "db")
 """
+
+RENAMED_TABLE_TMDL = """table Policies
+
+\tcolumn PolicyId
+\t\tdataType: int64
+\t\tsourceColumn: POLICY_ID
+
+\tcolumn StateCode
+\t\tdataType: string
+\t\tsourceColumn: STATE_CODE
+
+\tmeasure 'Total Premium' = SUM('Policies'[Premium])
+
+\tmeasure 'Average Premium' = AVERAGE('Policies'[Premium])
+
+\tpartition Policies = m
+\t\tmode: import
+\t\tsource = Sql.Database("server", "db")
+"""
+
+PAGE_NAME = "a1b2c3d4e5f6a7b8c9d0"
+REPORT_ID = "584cf13a-1485-41c2-a514-b1bb66fff163"
+VISUAL_JSON = """{
+  "name": "1111aaaa2222bbbb3333",
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {"SourceRef": {"Entity": "Policies"}},
+                  "Property": "Total Premium"
+                }
+              },
+              "queryRef": "Policies.Total Premium"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {"SourceRef": {"Entity": "Policies"}},
+                  "Property": "State"
+                }
+              },
+              "queryRef": "Policies.State"
+            }
+          ]
+        }
+      }
+    }
+  }
+}"""
 
 DEFINITION_ONLY_TABLE_TMDL = """table Calendar
 
@@ -254,7 +319,9 @@ def test_definition_is_overlaid_onto_scan_tables() -> None:
     assert columns["PolicyId"].model_properties.is_key
     assert columns["PolicyId"].dataType == "Int64"
     assert columns["State"].source_column == "STATE_CODE"
-    assert columns["State"].description == "Two-letter state code."
+    # A description the scan already carries wins; an empty one is filled.
+    assert columns["State"].description == "from scan"
+    assert columns["PremiumBand"].description == "Premium band."
     assert columns["Premium"].source_column is None
     assert columns["PremiumBand"].columnType == "Calculated"
     assert [(r.table, r.field) for r in columns["PremiumBand"].references] == [
@@ -277,8 +344,12 @@ def test_definition_is_overlaid_onto_scan_tables() -> None:
     assert report.definition_tables_not_in_scan == 1
     assert report.relationships_parsed == 1
     assert report.rls_roles_parsed == 1
+    # `Premium` is scanned but has no TMDL twin.
+    assert report.scan_fields_not_in_definition == 1
+    assert report.definition_fields_not_in_scan == 0
     assert sorted(w.title or "" for w in report.warnings) == [
         Constant.DEFINITION_TABLE_NOT_IN_SCAN,
+        Constant.SCAN_FIELD_NOT_IN_DEFINITION,
         Constant.SCAN_TABLE_NOT_IN_DEFINITION,
     ]
     assert report.failures == []
@@ -379,6 +450,7 @@ def test_missing_fabric_token_is_a_warning_and_skips_enrichment() -> None:
 
     assert [t.name for t in _model(workspace).tables] == ["Policies", "Claims"]
     assert api.reporter.scan_datasets_enriched == 0
+    assert api.reporter.scan_datasets_not_enriched == 1
     assert api.reporter.failures == []
 
 
@@ -404,3 +476,185 @@ def test_constructor_reports_fabric_token_failure_instead_of_raising() -> None:
     assert [w.title for w in reporter.warnings] == [Constant.FABRIC_TOKEN_NOT_ACQUIRED]
     assert reporter.failures == []
     api.close()
+
+
+def test_test_connection_flags_missing_fabric_token_as_incapable() -> None:
+    config_dict = {
+        "tenant_id": "fake",
+        "client_id": "foo",
+        "client_secret": "bar",
+        "enrich_from_item_definitions": True,
+    }
+    with (
+        mock.patch("msal.ConfidentialClientApplication", side_effect=_mock_msal_cca),
+        mock.patch(
+            "datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api."
+            "FabricDefinitionResolver.get_access_token",
+            side_effect=RuntimeError("no fabric token"),
+        ),
+    ):
+        report = PowerBiDashboardSource.test_connection(config_dict)
+        plain = PowerBiDashboardSource.test_connection(
+            {**config_dict, "enrich_from_item_definitions": False}
+        )
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert report.capability_report is not None
+    fine_lineage = report.capability_report[SourceCapability.LINEAGE_FINE]
+    assert not fine_lineage.capable
+    assert fine_lineage.failure_reason is not None
+    assert "Fabric" in fine_lineage.failure_reason
+    assert plain.capability_report is None
+
+
+# --- field-level mismatches within a matched table ---------------------------
+
+
+def _renamed_api() -> PowerBiAPI:
+    return _api(
+        definition=_definition(
+            [DefinitionPart("definition/tables/Policies.tmdl", RENAMED_TABLE_TMDL)]
+        )
+    )
+
+
+def test_scan_column_renamed_in_definition_is_kept_and_reported() -> None:
+    api = _renamed_api()
+    workspace = _workspace()
+
+    api.fill_metadata_from_scan_result([workspace])
+
+    policies = _model(workspace).tables[0]
+    columns = {c.name: c for c in policies.columns or []}
+    # The scan's column set is untouched: `State` stays, `StateCode` is not
+    # added, and only the matched column was enriched.
+    assert list(columns) == ["PolicyId", "State", "Premium", "PremiumBand"]
+    assert columns["PolicyId"].source_column == "POLICY_ID"
+    assert columns["State"].source_column is None
+    assert api.reporter.scan_fields_not_in_definition == 3
+    warning = next(
+        w
+        for w in api.reporter.warnings
+        if w.title == Constant.SCAN_FIELD_NOT_IN_DEFINITION
+    )
+    assert any(
+        "table=Policies, fields=['Premium', 'PremiumBand', 'State']" in context
+        for context in warning.context
+    )
+    assert api.reporter.failures == []
+
+
+def test_definition_measure_absent_from_scan_is_reported_and_not_added() -> None:
+    api = _renamed_api()
+    workspace = _workspace()
+
+    api.fill_metadata_from_scan_result([workspace])
+
+    policies = _model(workspace).tables[0]
+    assert [m.name for m in policies.measures or []] == ["Total Premium"]
+    # `StateCode` (column) and `Average Premium` (measure) exist only in TMDL.
+    assert api.reporter.definition_fields_not_in_scan == 2
+    warning = next(
+        w
+        for w in api.reporter.warnings
+        if w.title == Constant.DEFINITION_FIELD_NOT_IN_SCAN
+    )
+    assert any(
+        "table=Policies, fields=['Average Premium', 'StateCode']" in context
+        for context in warning.context
+    )
+
+
+# --- report definitions in admin_scan mode -----------------------------------
+
+
+def _pbir_definition() -> ItemDefinition:
+    return ItemDefinition(
+        format="PBIR",
+        parts=[
+            DefinitionPart(
+                "definition/pages/pages.json",
+                json.dumps({"pageOrder": [PAGE_NAME], "activePageName": PAGE_NAME}),
+            ),
+            DefinitionPart(
+                f"definition/pages/{PAGE_NAME}/page.json",
+                json.dumps({"name": PAGE_NAME, "displayName": "Overview"}),
+            ),
+            DefinitionPart(
+                f"definition/pages/{PAGE_NAME}/visuals/1111aaaa2222bbbb3333/visual.json",
+                VISUAL_JSON,
+            ),
+        ],
+    )
+
+
+def _report() -> Report:
+    return Report(
+        id=REPORT_ID,
+        name="Loss Report",
+        type=ReportType.PowerBIReport,
+        webUrl=None,
+        embedUrl=None,
+        description="",
+        dataset_id=MODEL_ID,
+        dataset=None,
+        pages=[Page(id=PAGE_NAME, displayName="Overview", name=PAGE_NAME, order=0)],
+        users=[],
+        tags=[],
+    )
+
+
+def _field_usage_config() -> PowerBiDashboardSourceConfig:
+    return _config(extract_report_field_usage=True, extract_reports=True)
+
+
+def test_report_definition_fills_field_usage_that_resolves_against_scan_columns() -> (
+    None
+):
+    config = _field_usage_config()
+    api = _api(config=config)
+    workspace = _workspace()
+    api.fill_metadata_from_scan_result([workspace])
+    _fabric(api).get_item_definition.return_value = _pbir_definition()
+    report = _report()
+    report.dataset = api.dataset_registry[MODEL_ID]
+
+    api._fill_report_field_usage(workspace, report)
+
+    page = report.pages[0]
+    assert [(r.table, r.field) for r in page.field_references] == [
+        ("Policies", "Total Premium"),
+        ("Policies", "State"),
+    ]
+    assert page.visual_count == 1
+    assert page.visual_types == ["card"]
+    assert api.reporter.report_definitions_parsed == 1
+    assert api.reporter.failures == []
+
+    mapper = Mapper(
+        ctx=MagicMock(),
+        config=config,
+        reporter=api.reporter,
+        dataplatform_instance_resolver=create_dataplatform_instance_resolver(config),
+    )
+    mcp = mapper._page_input_fields_mcp(page, report, "urn:li:chart:(powerbi,page)")
+    assert mcp is not None
+    assert isinstance(mcp.aspect, InputFieldsClass)
+    assert [f.schemaFieldUrn.rsplit(",", 1)[1] for f in mcp.aspect.fields] == [
+        "Total Premium)",
+        "State)",
+    ]
+    assert api.reporter.report_field_references_resolved == 2
+    assert api.reporter.report_field_references_unresolved == 0
+
+
+def test_report_field_usage_without_fabric_token_fetches_nothing() -> None:
+    api = _api(config=_field_usage_config(), fabric_resolver=False)
+    report = _report()
+
+    api._fill_report_field_usage(_workspace(), report)
+
+    assert report.pages[0].field_references == []
+    assert api.reporter.fabric_definitions_failed == 0
+    assert api.reporter.warnings == []
