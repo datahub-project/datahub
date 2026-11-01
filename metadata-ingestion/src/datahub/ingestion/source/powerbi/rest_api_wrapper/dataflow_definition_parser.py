@@ -4,6 +4,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    DataflowQuery,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     DefinitionPart,
 )
@@ -19,6 +22,8 @@ KEY_LOAD_ENABLED = "loadEnabled"
 
 SECTION_KEYWORD = "section"
 SHARED_KEYWORD = "shared"
+LET_KEYWORD = "let"
+IN_KEYWORD = "in"
 
 STRING_QUOTE = '"'
 QUOTED_IDENTIFIER_PREFIX = '#"'
@@ -29,46 +34,49 @@ BLOCK_COMMENT_END = "*/"
 ATTRIBUTE_OPEN = "["
 ATTRIBUTE_CLOSE = "]"
 ASSIGNMENT = "="
+BINDING_INDENT = "    "
+BINDING_SEPARATOR = ",\n"
+# How much of an unrecognised member is kept for the report context.
+FAILED_MEMBER_EXCERPT = 80
 
 _PLAIN_IDENTIFIER = re.compile(r"[A-Za-z_][\w.]*")
 _QUOTED_IDENTIFIER = re.compile(r'#"((?:[^"]|"")*)"')
 
 
 @dataclass
-class ParsedDataflowQuery:
+class SectionMember:
     name: str
     expression: str
     is_shared: bool
-    # From queryMetadata.json; None when the query has no metadata entry.
-    load_enabled: Optional[bool] = None
 
-    @property
-    def is_entity(self) -> bool:
-        """A query that lands in the dataflow's storage, i.e. a table a
-        consumer can read through ``PowerPlatform.Dataflows``. The metadata
-        flag is authoritative; without it ``shared`` is the best signal."""
-        if self.load_enabled is not None:
-            return self.load_enabled
-        return self.is_shared
+
+@dataclass
+class SectionDocument:
+    members: List[SectionMember] = field(default_factory=list)
+    # Excerpts of statements that are not `[attrs] [shared] name = expr`.
+    failed_members: List[str] = field(default_factory=list)
 
 
 @dataclass
 class ParsedDataflow:
-    queries: List[ParsedDataflowQuery] = field(default_factory=list)
+    queries: List[DataflowQuery] = field(default_factory=list)
+    # True when a mashup.pq part was present and could be tokenised, even if
+    # some (or all) of its members did not parse.
     has_mashup: bool = False
     # Paths of parts that were present but could not be parsed.
     failed_parts: List[str] = field(default_factory=list)
+    failed_members: List[str] = field(default_factory=list)
 
 
 def parse_dataflow_definition(parts: List[DefinitionPart]) -> ParsedDataflow:
     parsed = ParsedDataflow()
+    section: Optional[SectionDocument] = None
     load_flags: Dict[str, bool] = {}
     for part in parts:
         lowered = part.path.lower()
         if lowered.endswith(MASHUP_PART_SUFFIX):
             try:
-                parsed.queries = parse_section_document(part.text)
-                parsed.has_mashup = True
+                section = parse_section_document(part.text)
             except ValueError as e:
                 logger.debug("Unparseable mashup part %s: %s", part.path, e)
                 parsed.failed_parts.append(part.path)
@@ -78,8 +86,19 @@ def parse_dataflow_definition(parts: List[DefinitionPart]) -> ParsedDataflow:
             except (json.JSONDecodeError, TypeError, AttributeError) as e:
                 logger.debug("Unparseable query metadata %s: %s", part.path, e)
                 parsed.failed_parts.append(part.path)
-    for query in parsed.queries:
-        query.load_enabled = load_flags.get(query.name)
+    if section is None:
+        return parsed
+    parsed.has_mashup = True
+    parsed.failed_members = section.failed_members
+    parsed.queries = [
+        DataflowQuery(
+            name=member.name,
+            expression=member.expression,
+            is_shared=member.is_shared,
+            load_enabled=load_flags.get(member.name),
+        )
+        for member in section.members
+    ]
     return parsed
 
 
@@ -95,25 +114,28 @@ def _load_flags_from_query_metadata(text: str) -> Dict[str, bool]:
     return flags
 
 
-def parse_section_document(text: str) -> List[ParsedDataflowQuery]:
+def parse_section_document(text: str) -> SectionDocument:
     """Split a Power Query section document (``section Section1; shared A =
     ...; B = ...;``) into its member queries.
 
     Statements are separated by top-level ``;``; semicolons inside string
     literals, quoted identifiers and comments are not separators. A member
     may carry an attribute record (``[StagingDefinition = ...]``) before the
-    optional ``shared`` keyword.
+    optional ``shared`` keyword. Statements that are not members are
+    collected in ``failed_members`` rather than failing the document; only
+    an untokenisable document (unterminated string or comment) raises.
     """
-    queries: List[ParsedDataflowQuery] = []
+    document = SectionDocument()
     for statement in _split_statements(text):
         stripped = statement.strip()
         if not stripped or _starts_with_keyword(stripped, SECTION_KEYWORD):
             continue
         member = _parse_member(stripped)
         if member is None:
-            raise ValueError(f"Unrecognized section member: {stripped[:80]!r}")
-        queries.append(member)
-    return queries
+            document.failed_members.append(stripped[:FAILED_MEMBER_EXCERPT])
+            continue
+        document.members.append(member)
+    return document
 
 
 def _starts_with_keyword(text: str, keyword: str) -> bool:
@@ -190,7 +212,7 @@ def _skip_attribute_record(text: str, index: int) -> int:
     raise ValueError("Unterminated attribute record")
 
 
-def _parse_member(statement: str) -> Optional[ParsedDataflowQuery]:
+def _parse_member(statement: str) -> Optional[SectionMember]:
     index = 0
     if statement.startswith(ATTRIBUTE_OPEN):
         index = _skip_attribute_record(statement, 0)
@@ -215,7 +237,7 @@ def _parse_member(statement: str) -> Optional[ParsedDataflowQuery]:
     expression = rest[len(ASSIGNMENT) :].strip()
     if not expression:
         return None
-    return ParsedDataflowQuery(name=name, expression=expression, is_shared=is_shared)
+    return SectionMember(name=name, expression=expression, is_shared=is_shared)
 
 
 def quote_identifier(name: str) -> str:
@@ -228,7 +250,10 @@ def compose_let_expression(bindings: Dict[str, str], target: str) -> str:
     to another resolves through the normal let-scope lookup of the M
     resolver."""
     lines = [
-        f"    {quote_identifier(name)} = {expression}"
+        f"{BINDING_INDENT}{quote_identifier(name)} = {expression}"
         for name, expression in bindings.items()
     ]
-    return "let\n" + ",\n".join(lines) + "\nin\n    " + quote_identifier(target)
+    return (
+        f"{LET_KEYWORD}\n{BINDING_SEPARATOR.join(lines)}\n{IN_KEYWORD}\n"
+        f"{BINDING_INDENT}{quote_identifier(target)}"
+    )

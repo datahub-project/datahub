@@ -583,7 +583,11 @@ def test_workspace_work_units_cover_container_dashboards_and_reports() -> None:
     workspace.dashboards = {"d-1": make_dashboard()}
     workspace.reports = {"r-1": make_report(dataset)}
 
-    wus = list(source.get_workspace_workunit(workspace))
+    # The container is a Phase 1 workunit, emitted even when Phase 2 fails.
+    wus = [
+        *source.get_phase1_workspace_workunits(workspace),
+        *source.get_workspace_workunit(workspace),
+    ]
 
     urns = {wu.get_urn() for wu in wus}
     assert source.mapper.make_container_urn_for_workspace(workspace) in urns
