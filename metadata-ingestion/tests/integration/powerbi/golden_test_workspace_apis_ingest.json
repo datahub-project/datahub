@@ -214,7 +214,7 @@
                 "status": "Failed",
                 "requestId": "0000000e-1111-4222-8333-00000000000e",
                 "startTime": "2022-02-02T20:56:55.927Z",
-                "serviceException": "{\"errorCode\":\"ModelRefreshFailed_CredentialsNotSpecified\"}"
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
@@ -557,7 +557,7 @@
                 "status": "Failed",
                 "requestId": "0000000e-1111-4222-8333-00000000000e",
                 "startTime": "2022-02-02T20:56:55.927Z",
-                "serviceException": "{\"errorCode\":\"ModelRefreshFailed_CredentialsNotSpecified\"}"
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
@@ -882,7 +882,7 @@
                 "status": "Failed",
                 "requestId": "0000000e-1111-4222-8333-00000000000e",
                 "startTime": "2022-02-02T20:56:55.927Z",
-                "serviceException": "{\"errorCode\":\"ModelRefreshFailed_CredentialsNotSpecified\"}"
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
@@ -1250,7 +1250,7 @@
                 "status": "Failed",
                 "requestId": "0000000e-1111-4222-8333-00000000000e",
                 "startTime": "2022-02-02T20:56:55.927Z",
-                "serviceException": "{\"errorCode\":\"ModelRefreshFailed_CredentialsNotSpecified\"}"
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
@@ -2044,7 +2044,7 @@
                 "status": "Failed",
                 "requestId": "0000000e-1111-4222-8333-00000000000e",
                 "startTime": "2022-02-02T20:56:55.927Z",
-                "serviceException": "{\"errorCode\":\"ModelRefreshFailed_CredentialsNotSpecified\"}"
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
@@ -2363,7 +2363,7 @@
                 "status": "Failed",
                 "requestId": "0000000e-1111-4222-8333-00000000000e",
                 "startTime": "2022-02-02T20:56:55.927Z",
-                "serviceException": "{\"errorCode\":\"ModelRefreshFailed_CredentialsNotSpecified\"}"
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
@@ -2664,7 +2664,7 @@
                 "status": "Failed",
                 "requestId": "0000000e-1111-4222-8333-00000000000e",
                 "startTime": "2022-02-02T20:56:55.927Z",
-                "serviceException": "{\"errorCode\":\"ModelRefreshFailed_CredentialsNotSpecified\"}"
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
@@ -3008,7 +3008,7 @@
                 "status": "Failed",
                 "requestId": "0000000e-1111-4222-8333-00000000000e",
                 "startTime": "2022-02-02T20:56:55.927Z",
-                "serviceException": "{\"errorCode\":\"ModelRefreshFailed_CredentialsNotSpecified\"}"
+                "errorCode": "ModelRefreshFailed_CredentialsNotSpecified"
             },
             "lastUpdatedTimestamp": 1643749025053
         }
@@ -3235,9 +3235,9 @@
             },
             {
                 "op": "add",
-                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
                 "value": {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
                 }
             },
             {
@@ -3249,9 +3249,9 @@
             },
             {
                 "op": "add",
-                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)",
                 "value": {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
                 }
             },
             {

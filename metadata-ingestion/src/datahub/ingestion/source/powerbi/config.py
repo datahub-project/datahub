@@ -234,8 +234,29 @@ class Constant:
     REFRESH_STATUS_COMPLETED = "Completed"
     REFRESH_STATUS_FAILED = "Failed"
     CUSTOM_OPERATION_REFRESH = "REFRESH"
-    # Operation customProperties key carrying a failed refresh's error payload
+    # Operation customProperties keys carrying a failed refresh's error payload:
+    # the parsed serviceExceptionJson fields, or the raw string when unparseable
     SERVICE_EXCEPTION = "serviceException"
+    ERROR_CODE = "errorCode"
+    ERROR_DESCRIPTION = "errorDescription"
+    # Error descriptions can embed whole stack traces; keep custom properties
+    # to a size a UI can show.
+    REFRESH_ERROR_MAX_LENGTH = 1000
+    TRUNCATION_MARKER = "..."
+    # Power BI error envelope: {"error": {"code": ..., "message": ...}}
+    ERROR = "error"
+    CODE = "code"
+    MESSAGE = "message"
+    # A 400 from GET .../refreshSchedule with this code and one of these
+    # phrases in the message means the dataset kind has no import refresh
+    # schedule (DirectQuery / live-connection / push datasets); any other 400
+    # is reported as a real failure.
+    REFRESH_SCHEDULE_NOT_SUPPORTED_CODES = ("InvalidRequest",)
+    REFRESH_SCHEDULE_NOT_SUPPORTED_PHRASES = (
+        "model-based dataset",
+        "directquery",
+        "push dataset",
+    )
     # GET .../refreshSchedule keys and the datasetProperties customProperties
     # they are emitted under
     DAYS = "days"
@@ -472,8 +493,12 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # Datasets whose refresh-history call answered 415: system datasets such
     # as the workspace usage-metrics model cannot be refreshed.
     datasets_not_refreshable: int = 0
+    # Failed refreshes emitted with no completed refresh in the fetched
+    # history window to anchor the dataset's last-updated time on.
+    refresh_failed_without_completed_baseline: int = 0
     refresh_schedule_fetched: int = 0
     refresh_schedule_not_configured: int = 0
+    refresh_schedule_not_supported: int = 0
     refresh_schedule_failed: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:

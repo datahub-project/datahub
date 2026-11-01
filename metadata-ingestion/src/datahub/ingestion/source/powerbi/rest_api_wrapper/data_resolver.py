@@ -42,7 +42,9 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.query import DaxQuery
 # Logger instance
 logger = logging.getLogger(__name__)
 
-REFRESH_HISTORY_DEPTH = 5
+# The API maximum; deep enough that a run of failures still leaves a
+# completed refresh in the window to anchor the last-updated time on.
+REFRESH_HISTORY_DEPTH = 60
 
 
 def is_permission_error(e: Exception) -> bool:
@@ -498,12 +500,17 @@ class RegularAPIResolver(DataResolverBase):
             endpoint, headers=self.get_authorization_header()
         )
         response.raise_for_status()
-        raw: Dict[str, Any] = response.json()
+        raw = response.json()
+        if not isinstance(raw, dict):
+            raise ValueError(
+                f"Unexpected refresh schedule payload of type {type(raw).__name__}"
+            )
+        enabled = raw.get(Constant.ENABLED)
         return DatasetRefreshSchedule(
             days=[str(day) for day in raw.get(Constant.DAYS) or []],
             times=[str(time) for time in raw.get(Constant.TIMES) or []],
             local_time_zone_id=raw.get(Constant.LOCAL_TIME_ZONE_ID),
-            enabled=raw.get(Constant.ENABLED),
+            enabled=enabled if isinstance(enabled, bool) else None,
         )
 
     def get_dataset_parameters(

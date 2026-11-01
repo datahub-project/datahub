@@ -143,16 +143,36 @@ from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 # Logger instance
 logger = logging.getLogger(__name__)
 
-# A failed refresh's serviceExceptionJson can embed whole stack traces; keep
-# the custom property to a size a UI can show.
-REFRESH_ERROR_MAX_LENGTH = 1000
-TRUNCATION_MARKER = "..."
 
-
-def _truncate(value: Optional[str], max_length: int) -> Optional[str]:
-    if value is None or len(value) <= max_length:
+def _truncate(value: Optional[str]) -> Optional[str]:
+    if value is None or len(value) <= Constant.REFRESH_ERROR_MAX_LENGTH:
         return value
-    return value[: max_length - len(TRUNCATION_MARKER)] + TRUNCATION_MARKER
+    marker = Constant.TRUNCATION_MARKER
+    return value[: Constant.REFRESH_ERROR_MAX_LENGTH - len(marker)] + marker
+
+
+def _refresh_error_properties(service_exception_json: Optional[str]) -> Dict[str, str]:
+    """errorCode / errorDescription from a failed refresh's serviceExceptionJson.
+
+    Falls back to the raw (truncated) string only when it is not a JSON
+    object: a truncated JSON string would be unparseable downstream.
+    """
+    if not service_exception_json:
+        return {}
+    try:
+        parsed = json.loads(service_exception_json)
+    except ValueError:
+        parsed = None
+    if not isinstance(parsed, dict):
+        return {Constant.SERVICE_EXCEPTION: _truncate(service_exception_json) or ""}
+    properties: Dict[str, str] = {}
+    code = parsed.get(Constant.ERROR_CODE)
+    if code:
+        properties[Constant.ERROR_CODE] = str(code)
+    description = parsed.get(Constant.ERROR_DESCRIPTION)
+    if description:
+        properties[Constant.ERROR_DESCRIPTION] = _truncate(str(description)) or ""
+    return properties
 
 
 def _is_secret_parameter(name: str) -> bool:
@@ -1094,57 +1114,69 @@ class Mapper:
         if not self.__config.extract_refresh_history:
             return []
         operations: List[OperationClass] = []
+        completed_end_ms: Optional[int] = None
         completed = dataset.last_refresh
         if (
             completed is not None
             and completed.status == Constant.REFRESH_STATUS_COMPLETED
         ):
-            operation = self._refresh_operation(completed, ds_urn)
-            if operation is not None:
-                operations.append(operation)
+            completed_end_ms = self._refresh_end_ms(completed, ds_urn)
+            if completed_end_ms is not None:
+                operations.append(
+                    self._refresh_operation(
+                        completed, completed_end_ms, completed_end_ms
+                    )
+                )
         failed = dataset.last_failed_refresh
         if failed is not None and failed.status == Constant.REFRESH_STATUS_FAILED:
-            # A failed refresh leaves the data as it was, so its
-            # lastUpdatedTimestamp points at the last successful refresh:
-            # datasetProperties.lastModified is derived from the newest
-            # Operation and must not advance on a failure.
-            operation = self._refresh_operation(
-                failed,
-                ds_urn,
-                last_updated_ms=operations[0].lastUpdatedTimestamp
-                if operations
-                else None,
-            )
-            if operation is not None:
-                operations.append(operation)
+            failed_end_ms = self._refresh_end_ms(failed, ds_urn)
+            if failed_end_ms is not None:
+                # A failed refresh leaves the data as it was. The dataset's
+                # last-updated time is read off the newest Operation, so a
+                # failure newer than the last success points back at it;
+                # an older failure is not the newest Operation and keeps its
+                # own time.
+                last_updated_ms = failed_end_ms
+                if completed_end_ms is not None and failed_end_ms > completed_end_ms:
+                    last_updated_ms = completed_end_ms
+                elif completed_end_ms is None:
+                    self.__reporter.refresh_failed_without_completed_baseline += 1
+                    self.__reporter.warning(
+                        title="Dataset Last Updated Unknown",
+                        message="A failed refresh was emitted with no completed refresh in the fetched history to anchor the dataset's last-updated time on; "
+                        "the failure's own end time is used, so the dataset may appear fresher than it is.",
+                        context=ds_urn,
+                    )
+                operations.append(
+                    self._refresh_operation(failed, failed_end_ms, last_updated_ms)
+                )
         return [
             MetadataChangeProposalWrapper(entityUrn=ds_urn, aspect=operation)
             for operation in operations
         ]
 
-    def _refresh_operation(
-        self,
-        refresh: powerbi_data_classes.DatasetRefresh,
-        ds_urn: str,
-        last_updated_ms: Optional[int] = None,
-    ) -> Optional[OperationClass]:
+    def _refresh_end_ms(
+        self, refresh: powerbi_data_classes.DatasetRefresh, ds_urn: str
+    ) -> Optional[int]:
         # A refresh that never finished has no end time; the operation would
         # otherwise have to be stamped with "now" and duplicate on every run.
         if not refresh.end_time:
             return None
         try:
-            end_ms = int(date_parser.isoparse(refresh.end_time).timestamp() * 1000)
+            return int(date_parser.isoparse(refresh.end_time).timestamp() * 1000)
         except (ValueError, OverflowError):
             self.__reporter.refresh_history_unparseable += 1
             logger.debug(
                 "Unparseable refresh endTime %r for %s", refresh.end_time, ds_urn
             )
             return None
-        service_exception: Optional[str] = None
-        if refresh.status == Constant.REFRESH_STATUS_FAILED:
-            service_exception = _truncate(
-                refresh.service_exception_json, REFRESH_ERROR_MAX_LENGTH
-            )
+
+    @staticmethod
+    def _refresh_operation(
+        refresh: powerbi_data_classes.DatasetRefresh,
+        end_ms: int,
+        last_updated_ms: int,
+    ) -> OperationClass:
         custom_properties = {
             key: value
             for key, value in (
@@ -1152,13 +1184,16 @@ class Mapper:
                 (Constant.STATUS, refresh.status),
                 (Constant.REQUEST_ID, refresh.request_id),
                 (Constant.START_TIME, refresh.start_time),
-                (Constant.SERVICE_EXCEPTION, service_exception),
             )
             if value
         }
+        if refresh.status == Constant.REFRESH_STATUS_FAILED:
+            custom_properties.update(
+                _refresh_error_properties(refresh.service_exception_json)
+            )
         return OperationClass(
             timestampMillis=end_ms,
-            lastUpdatedTimestamp=end_ms if last_updated_ms is None else last_updated_ms,
+            lastUpdatedTimestamp=last_updated_ms,
             operationType=OperationTypeClass.CUSTOM,
             customOperationType=Constant.CUSTOM_OPERATION_REFRESH,
             customProperties=custom_properties,

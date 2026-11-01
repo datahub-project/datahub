@@ -228,6 +228,29 @@ def _http_status(e: Exception) -> Optional[int]:
     return None
 
 
+def _http_error_body(e: Exception) -> Dict[str, Any]:
+    """The Power BI error envelope of an HTTPError, or {} when there is none."""
+    if not isinstance(e, requests.exceptions.HTTPError) or e.response is None:
+        return {}
+    try:
+        body = e.response.json()
+    except ValueError:
+        return {}
+    if not isinstance(body, dict):
+        return {}
+    error = body.get(Constant.ERROR)
+    return error if isinstance(error, dict) else {}
+
+
+def _is_refresh_schedule_not_supported(error: Dict[str, Any]) -> bool:
+    if error.get(Constant.CODE) not in Constant.REFRESH_SCHEDULE_NOT_SUPPORTED_CODES:
+        return False
+    message = str(error.get(Constant.MESSAGE) or "").lower()
+    return any(
+        phrase in message for phrase in Constant.REFRESH_SCHEDULE_NOT_SUPPORTED_PHRASES
+    )
+
+
 def make_resolver(config: PowerBiDashboardSourceConfig, resolver_cls: Type[R]) -> R:
     # Shared with the probe so both authenticate and time out identically.
     # The constructor fetches an MSAL token.
@@ -1151,29 +1174,31 @@ class PowerBiAPI:
             )
             self.reporter.warning(
                 title="Refresh History Not Fetched",
-                message="Dataset refresh history could not be fetched; no Operation aspect will be emitted for its tables.",
+                message="Dataset refresh history could not be fetched; no Operation aspect will be emitted for its tables. "
+                "The refresh schedule is still fetched separately; if that fails too, the tables carry no refreshSchedule properties either.",
                 context=context,
                 exc=e,
             )
-            return
-        self.reporter.refresh_history_fetched += 1
-        # Entries are newest first.
-        dataset.last_refresh = next(
-            (
-                refresh
-                for refresh in refreshes
-                if refresh.status == Constant.REFRESH_STATUS_COMPLETED
-            ),
-            None,
-        )
-        dataset.last_failed_refresh = next(
-            (
-                refresh
-                for refresh in refreshes
-                if refresh.status == Constant.REFRESH_STATUS_FAILED
-            ),
-            None,
-        )
+            refreshes = None
+        if refreshes is not None:
+            self.reporter.refresh_history_fetched += 1
+            # Entries are newest first.
+            dataset.last_refresh = next(
+                (
+                    refresh
+                    for refresh in refreshes
+                    if refresh.status == Constant.REFRESH_STATUS_COMPLETED
+                ),
+                None,
+            )
+            dataset.last_failed_refresh = next(
+                (
+                    refresh
+                    for refresh in refreshes
+                    if refresh.status == Constant.REFRESH_STATUS_FAILED
+                ),
+                None,
+            )
         self._fill_refresh_schedule(workspace, dataset, context)
 
     def _fill_refresh_schedule(
@@ -1187,12 +1212,18 @@ class PowerBiAPI:
             )
             self.reporter.refresh_schedule_fetched += 1
         except Exception as e:
-            # 404 (and 400 for models that cannot be scheduled) means no
-            # schedule is configured; that is a normal state, not a loss.
-            if _http_status(e) in (HTTPStatus.NOT_FOUND, HTTPStatus.BAD_REQUEST):
+            status = _http_status(e)
+            # 404 means no schedule is configured: a normal state, not a loss.
+            if status == HTTPStatus.NOT_FOUND:
                 self.reporter.refresh_schedule_not_configured += 1
                 logger.debug(f"No refresh schedule configured: {context}")
                 return
+            if status == HTTPStatus.BAD_REQUEST:
+                error = _http_error_body(e)
+                logger.info(f"Refresh schedule returned 400 for {context}: {error}")
+                if _is_refresh_schedule_not_supported(error):
+                    self.reporter.refresh_schedule_not_supported += 1
+                    return
             self.reporter.refresh_schedule_failed += 1
             self.log_http_error(
                 message=f"Unable to fetch refresh schedule for dataset {dataset.id}"
