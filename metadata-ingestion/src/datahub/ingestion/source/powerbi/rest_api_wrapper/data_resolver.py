@@ -42,7 +42,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.query import DaxQuery
 # Logger instance
 logger = logging.getLogger(__name__)
 
-# The API maximum; deep enough that a run of failures still leaves a
+# The API's default upper bound; deep enough that a run of failures still leaves a
 # completed refresh in the window to anchor the last-updated time on.
 REFRESH_HISTORY_DEPTH = 60
 
