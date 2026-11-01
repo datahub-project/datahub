@@ -548,7 +548,9 @@ def test_workspace_apis_ingest_with_enrichment(
         "urn:li:dataset:(urn:li:dataPlatform:powerbi,Exec_Composite_Model.Regions,DEV)"
         not in lineages
     )
+    assert report.datasets_not_refreshable == 0
     assert report.refresh_schedule_fetched == 1
+    assert report.refresh_schedule_not_supported == 0
     assert report.refresh_schedule_not_configured == 1
     assert report.refresh_schedule_failed == 0
 

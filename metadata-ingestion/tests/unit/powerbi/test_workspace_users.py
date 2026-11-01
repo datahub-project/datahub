@@ -1,3 +1,4 @@
+import pytest
 import requests_mock
 
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
@@ -73,7 +74,7 @@ def test_dataset_refreshes_keep_api_order_and_error_payload() -> None:
     with requests_mock.Mocker() as m:
         m.get(url, json=body)
         refreshes = _resolver().get_dataset_refreshes(WORKSPACE_ID, "ds-1")
-        assert m.last_request.qs == {"$top": ["5"]}
+        assert m.last_request.qs == {"$top": ["60"]}
         m.get(url, json={"value": []})
         assert _resolver().get_dataset_refreshes(WORKSPACE_ID, "ds-1") == []
 
@@ -100,3 +101,23 @@ def test_dataset_refresh_schedule_is_parsed() -> None:
     assert schedule.times == ["07:00", "16:30"]
     assert schedule.local_time_zone_id == "UTC"
     assert schedule.enabled
+
+
+def test_dataset_refresh_schedule_tolerates_null_fields() -> None:
+    url = f"https://api.powerbi.com/v1.0/myorg/groups/{WORKSPACE_ID}/datasets/ds-1/refreshSchedule"
+    with requests_mock.Mocker() as m:
+        m.get(url, json={"days": None, "times": None, "enabled": "yes"})
+        schedule = _resolver().get_dataset_refresh_schedule(WORKSPACE_ID, "ds-1")
+
+    assert schedule.days == []
+    assert schedule.times == []
+    assert schedule.local_time_zone_id is None
+    assert schedule.enabled is None
+
+
+def test_dataset_refresh_schedule_rejects_non_object_body() -> None:
+    url = f"https://api.powerbi.com/v1.0/myorg/groups/{WORKSPACE_ID}/datasets/ds-1/refreshSchedule"
+    with requests_mock.Mocker() as m:
+        m.get(url, json=[{"days": ["Monday"]}])
+        with pytest.raises(ValueError):
+            _resolver().get_dataset_refresh_schedule(WORKSPACE_ID, "ds-1")
