@@ -542,7 +542,9 @@ def test_workspace_apis_ingest_with_enrichment(
     # The warehouse model's import table reads the warehouse endpoint by
     # display name; its DirectLake table goes through the shared expression.
     assert report.fabric_endpoint_references_resolved == 1
-    assert report.fabric_endpoints_unresolved == 0
+    assert report.fabric_endpoint_references_unresolved == 0
+    assert report.fabric_lakehouse_endpoints_unresolved == 0
+    assert report.fabric_endpoint_m_shapes_unsupported == 0
     assert report.dataflow_definitions_fetched == 1
     assert report.dataflows_fetched == 1
     assert report.dataflow_entities_parsed == 2
