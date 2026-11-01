@@ -86,6 +86,9 @@ public class PolicyWithUnknownConditionExecutionTest {
           UrnUtils.getUrn(MIXED),
               policy(criterion("TYPE", "EQUALS"), criterion("URN", "CONDITION_FROM_NEWER_BUILD")));
 
+  // Search's read of the policies' info fails.
+  private boolean failPolicyInfoRead;
+
   @BeforeMethod
   public void tolerateUnknownData() {
     UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
@@ -141,6 +144,17 @@ public class PolicyWithUnknownConditionExecutionTest {
     assertOnlyKnownPolicy(execute(SCROLL), "scrollAcrossEntities");
   }
 
+  @Test
+  public void testSearchLeavesPoliciesOutWhenTheirInfoCannotBeRead() throws Exception {
+    failPolicyInfoRead = true;
+
+    ExecutionResult result = execute(SEARCH);
+
+    assertTrue(result.getErrors().isEmpty(), result.getErrors().toString());
+    List<Map<String, Object>> hits = get(result.getData(), "searchAcrossEntities", "searchResults");
+    assertTrue(hits.isEmpty(), hits.toString());
+  }
+
   private static void assertOnlyKnownPolicy(ExecutionResult result, String field) {
     assertTrue(result.getErrors().isEmpty(), result.getErrors().toString());
     List<Map<String, Object>> hits = get(result.getData(), field, "searchResults");
@@ -153,19 +167,24 @@ public class PolicyWithUnknownConditionExecutionTest {
     QueryContext context = getMockAllowContext();
     EntityRegistry registry = context.getOperationContext().getEntityRegistry();
     AspectRetriever retriever = mock(AspectRetriever.class);
-    when(retriever.getLatestAspectObjects(any(), anySet(), anySet()))
-        .thenAnswer(
-            invocation ->
-                ((Set<Urn>) invocation.getArgument(1))
-                    .stream()
-                        .filter(STORED::containsKey)
-                        .collect(
-                            Collectors.toMap(
-                                urn -> urn,
-                                urn ->
-                                    Map.of(
-                                        DATAHUB_POLICY_INFO_ASPECT_NAME,
-                                        new Aspect(STORED.get(urn).data())))));
+    if (failPolicyInfoRead) {
+      when(retriever.getLatestAspectObjects(any(), anySet(), anySet()))
+          .thenThrow(new RuntimeException("storage unavailable"));
+    } else {
+      when(retriever.getLatestAspectObjects(any(), anySet(), anySet()))
+          .thenAnswer(
+              invocation ->
+                  ((Set<Urn>) invocation.getArgument(1))
+                      .stream()
+                          .filter(STORED::containsKey)
+                          .collect(
+                              Collectors.toMap(
+                                  urn -> urn,
+                                  urn ->
+                                      Map.of(
+                                          DATAHUB_POLICY_INFO_ASPECT_NAME,
+                                          new Aspect(STORED.get(urn).data())))));
+    }
     OperationContext opContext = spy(context.getOperationContext());
     when(opContext.getAspectRetriever()).thenReturn(retriever);
     when(context.getOperationContext()).thenReturn(opContext);

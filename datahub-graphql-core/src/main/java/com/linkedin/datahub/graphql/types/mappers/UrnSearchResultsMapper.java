@@ -158,14 +158,15 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
               .getAspectRetriever()
               .getLatestAspectObjects(opContext, policies, Set.of(DATAHUB_POLICY_INFO_ASPECT_NAME));
     } catch (RuntimeException e) {
-      // The search must not fail on this extra read: without it, the hits map as they did before.
+      // Without the read none of them can be checked, and the loader would still return the
+      // unrepresentable ones as missing, nulling the page: the page's policy hits are left out.
       POLICY_CHECK.skippedBecause(
           Optional.empty(),
           "dataHubPolicyInfo read",
-          "could not read dataHubPolicyInfo, so no policy is left out: " + e,
+          "could not read dataHubPolicyInfo, so the page's policy hits are left out: " + e,
           policies.size() + " policy hits");
       log.debug("dataHubPolicyInfo read failure", e);
-      return Set.of();
+      return policies;
     }
     final Set<Urn> unrepresentable = new HashSet<>();
     for (Map.Entry<Urn, Map<String, Aspect>> entry : infos.entrySet()) {

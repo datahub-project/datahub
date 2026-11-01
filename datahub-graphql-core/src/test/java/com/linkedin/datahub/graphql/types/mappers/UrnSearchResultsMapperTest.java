@@ -256,4 +256,27 @@ public class UrnSearchResultsMapperTest {
         List.of(policy));
     verify(retriever, never()).getLatestAspectObjects(any(), anySet(), anySet());
   }
+
+  @Test
+  public void testPolicyInfoReadFailureLeavesThePolicyHitsOut() throws Exception {
+    // Unchecked policies can't be kept: the loader would return an unrepresentable one as missing,
+    // nulling the page. The other hits stay.
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getLatestAspectObjects(any(), anySet(), anySet()))
+        .thenThrow(new RuntimeException("storage unavailable"));
+    OperationContext opContext = spy(TestOperationContexts.systemContextNoSearchAuthorization());
+    when(opContext.getAspectRetriever()).thenReturn(retriever);
+    QueryContext context = mock(QueryContext.class);
+    when(context.getOperationContext()).thenReturn(opContext);
+    String policy = "urn:li:dataHubPolicy:any";
+    String dataset = "urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/a,PROD)";
+
+    SearchResults mapped =
+        UrnSearchResultsMapper.map(
+            context, backendResult(new SearchEntityArray(hit(policy), hit(dataset))));
+
+    assertEquals(
+        mapped.getSearchResults().stream().map(r -> r.getEntity().getUrn()).toList(),
+        List.of(dataset));
+  }
 }
