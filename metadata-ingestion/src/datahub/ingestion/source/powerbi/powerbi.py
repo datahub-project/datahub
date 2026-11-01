@@ -144,6 +144,9 @@ from datahub.utilities.urns.urn_iter import lowercase_dataset_urn
 # Logger instance
 logger = logging.getLogger(__name__)
 
+# Most filters serialized into the `filters` custom property of a report or page.
+MAX_FILTERS_IN_PROPERTY = 50
+
 
 def _truncate(value: Optional[str]) -> Optional[str]:
     if value is None or len(value) <= Constant.REFRESH_ERROR_MAX_LENGTH:
@@ -2234,18 +2237,24 @@ class Mapper:
         # Return set of work_unit
         return deduplicate_list(work_units, lambda wu: wu.id)
 
-    @staticmethod
     def _filter_properties(
-        filters: List[powerbi_data_classes.ReportFilter],
+        self, filters: List[powerbi_data_classes.ReportFilter]
     ) -> Dict[str, str]:
         """Report or page filters as `filters` (a JSON list) and `filterCount`
-        custom properties; empty when the report declares none."""
+        custom properties; empty when the report declares none. The list is
+        capped so a filter-heavy report cannot bloat the aspect; `filterCount`
+        still reports the full number."""
         if not filters:
             return {}
-        return {
-            Constant.FILTERS: json.dumps([f.to_dict() for f in filters]),
+        kept = filters[:MAX_FILTERS_IN_PROPERTY]
+        properties = {
+            Constant.FILTERS: json.dumps([f.to_dict() for f in kept]),
             Constant.FILTER_COUNT: str(len(filters)),
         }
+        if len(kept) < len(filters):
+            properties[Constant.FILTERS_TRUNCATED] = "true"
+            self.__reporter.report_filters_truncated += len(filters) - len(kept)
+        return properties
 
     def _page_input_fields_mcp(
         self,
@@ -2570,6 +2579,7 @@ class Mapper:
         # Paginated (RDL) reports without a shared dataset get their lineage
         # solely from this fallback path.
         dataset_urns.update(self.paginated_report_datasource_urns(report))
+        # Sorted so the emitted patch (and the golden files) are deterministic.
         dataset_edges = [
             EdgeClass(destinationUrn=dataset_urn)
             for dataset_urn in sorted(dataset_urns)

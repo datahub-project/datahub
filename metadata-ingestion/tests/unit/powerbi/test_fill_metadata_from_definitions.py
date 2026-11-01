@@ -2,7 +2,7 @@
 
 import json
 from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
@@ -945,6 +945,39 @@ def test_report_and_page_filters_are_applied_and_bad_filters_only_warn() -> None
     assert api.reporter.report_filters_parsed == 2
     assert api.reporter.report_filters_failed == 1
     assert [w.title for w in api.reporter.warnings] == ["Report Filter Not Parsed"]
+    assert not api.reporter.failures
+
+
+def test_report_definition_parser_crash_is_a_warning_for_that_report_only() -> None:
+    api = _api(
+        definitions={"r1": ItemDefinition(format="PBIR", parts=[])},
+        config=_config(extract_report_field_usage=True),
+    )
+    page = Page(id="r1.p1", displayName="Overview", name="p1", order=0)
+    report = Report(
+        id="r1",
+        name="Loss Report",
+        type=ReportType.PowerBIReport,
+        webUrl=None,
+        embedUrl=None,
+        description="",
+        dataset_id=MODEL_A,
+        dataset=None,
+        pages=[page],
+        users=[],
+        tags=[],
+    )
+
+    with patch(
+        "datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api.parse_report_definition",
+        side_effect=TypeError("boom"),
+    ):
+        api._fill_report_field_usage(_workspace(), report)
+
+    assert report.pages == [page]
+    assert page.field_references == []
+    assert report.filters == []
+    assert [w.title for w in api.reporter.warnings] == ["Report Definition Not Parsed"]
     assert not api.reporter.failures
 
 

@@ -3260,7 +3260,7 @@
                 "order": "0",
                 "visualCount": "3",
                 "visualTypes": "card, clusteredBarChart, tableEx",
-                "filters": "[{\"name\": \"dddd3333eeee4444ffff\", \"type\": \"Advanced\", \"target\": \"Claims[PaidAmount]\", \"condition\": \"> 0\"}]",
+                "filters": "[{\"scope\": \"page\", \"name\": \"dddd3333eeee4444ffff\", \"type\": \"Advanced\", \"target\": \"Claims[PaidAmount]\", \"condition\": \"> 0\"}]",
                 "filterCount": "1"
             },
             "title": "Loss Overview",
@@ -3495,19 +3495,12 @@
             {
                 "op": "add",
                 "path": "/customProperties/filters",
-                "value": "[{\"name\": \"aaaa1111bbbb2222cccc\", \"type\": \"RelativeDate\", \"target\": \"Policies[EffectiveDate]\", \"condition\": \"Last 365 days\"}]"
+                "value": "[{\"scope\": \"report\", \"name\": \"aaaa1111bbbb2222cccc\", \"type\": \"RelativeDate\", \"target\": \"Policies[EffectiveDate]\", \"condition\": \"Last 365 days\"}]"
             },
             {
                 "op": "add",
                 "path": "/customProperties/filterCount",
                 "value": "1"
-            },
-            {
-                "op": "add",
-                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
-                "value": {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
-                }
             },
             {
                 "op": "add",
@@ -3521,6 +3514,13 @@
                 "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)",
                 "value": {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/datasetEdges/urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
                 }
             },
             {

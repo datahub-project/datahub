@@ -17,7 +17,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
 )
-from datahub.ingestion.source.powerbi.powerbi import Mapper
+from datahub.ingestion.source.powerbi.powerbi import MAX_FILTERS_IN_PROPERTY, Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     FABRIC_ARTIFACT_LAKEHOUSE,
     Column,
@@ -1389,26 +1389,31 @@ def test_filters_become_custom_properties_on_page_chart_and_report_dashboard() -
         measures=[],
     )
     dataset = _dataset([policies])
+    state = PageFieldReference("Policies", "State", "column")
+    premium = PageFieldReference("Policies", "WrittenPremium", "column")
     page_filter = ReportFilter(
         scope="page",
         name="f_state",
         filter_type="Categorical",
-        target=PageFieldReference("Policies", "State", "column"),
+        target=state,
+        fields=[state],
         condition='In ["CA", "NY"]',
     )
     report_filter = ReportFilter(
         scope="report",
         name="f_premium",
         filter_type="Advanced",
-        target=PageFieldReference("Policies", "WrittenPremium", "column"),
+        target=premium,
+        fields=[premium],
         condition=">= 1000",
     )
     unresolved_filter = ReportFilter(
         scope="report",
-        name="f_unresolved",
+        name="f_untargeted",
         filter_type="Categorical",
         target=None,
-        condition=None,
+        fields=[],
+        condition='In ["x"]',
     )
     page = Page(
         id="r1.p1",
@@ -1445,22 +1450,20 @@ def test_filters_become_custom_properties_on_page_chart_and_report_dashboard() -
     chart_info = next(
         mcp.aspect for mcp in chart_mcps if isinstance(mcp.aspect, ChartInfoClass)
     )
-    assert chart_info.customProperties == {
-        "order": "0",
-        "visualCount": "1",
-        "visualTypes": "card",
-        "filterCount": "1",
-        "filters": json.dumps(
-            [
-                {
-                    "name": "f_state",
-                    "type": "Categorical",
-                    "target": "Policies[State]",
-                    "condition": 'In ["CA", "NY"]',
-                }
-            ]
-        ),
-    }
+    assert chart_info.customProperties["order"] == "0"
+    assert chart_info.customProperties["visualCount"] == "1"
+    assert chart_info.customProperties["visualTypes"] == "card"
+    assert chart_info.customProperties["filterCount"] == "1"
+    assert "filtersTruncated" not in chart_info.customProperties
+    assert json.loads(chart_info.customProperties["filters"]) == [
+        {
+            "scope": "page",
+            "name": "f_state",
+            "type": "Categorical",
+            "target": "Policies[State]",
+            "condition": 'In ["CA", "NY"]',
+        }
+    ]
     input_fields = next(
         mcp.aspect for mcp in chart_mcps if isinstance(mcp.aspect, InputFieldsClass)
     )
@@ -1482,17 +1485,27 @@ def test_filters_become_custom_properties_on_page_chart_and_report_dashboard() -
         for mcp in dashboard_mcps
         if isinstance(mcp.aspect, DashboardInfoClass)
     )
-    assert dashboard_info.customProperties == {
-        "filterCount": "2",
-        "filters": json.dumps(
-            [
-                {
-                    "name": "f_premium",
-                    "type": "Advanced",
-                    "target": "Policies[WrittenPremium]",
-                    "condition": ">= 1000",
-                },
-                {"name": "f_unresolved", "type": "Categorical"},
-            ]
-        ),
-    }
+    assert dashboard_info.customProperties["filterCount"] == "2"
+    assert json.loads(dashboard_info.customProperties["filters"]) == [
+        {
+            "scope": "report",
+            "name": "f_premium",
+            "type": "Advanced",
+            "target": "Policies[WrittenPremium]",
+            "condition": ">= 1000",
+        },
+        {
+            "scope": "report",
+            "name": "f_untargeted",
+            "type": "Categorical",
+            "condition": 'In ["x"]',
+        },
+    ]
+
+    # A filter-heavy report is capped; the count still reports all of them.
+    many = [report_filter] * (MAX_FILTERS_IN_PROPERTY + 3)
+    capped = mapper._filter_properties(many)
+    assert capped["filterCount"] == str(MAX_FILTERS_IN_PROPERTY + 3)
+    assert capped["filtersTruncated"] == "true"
+    assert len(json.loads(capped["filters"])) == MAX_FILTERS_IN_PROPERTY
+    assert mapper._Mapper__reporter.report_filters_truncated == 3  # type: ignore[attr-defined]

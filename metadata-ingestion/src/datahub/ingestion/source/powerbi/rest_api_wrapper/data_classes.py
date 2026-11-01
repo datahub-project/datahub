@@ -491,24 +491,33 @@ FilterScope = Literal["report", "page", "visual"]
 @dataclass(frozen=True)
 class ReportFilter:
     """A filter declared on a report, a page or a visual in the report
-    definition. `condition` is a human-readable rendering of the filter
-    condition when its shape is simple, otherwise the raw condition JSON
-    (truncated); it is None when the filter declares no condition."""
+    definition.
+
+    `target` is the field the filter is declared on (None when the definition
+    names none); `fields` is every model field the filter reads, the target
+    first, so a TopN's ordering measure counts as lineage too. `condition` is
+    a human-readable rendering when the condition's shape is simple, otherwise
+    the raw condition JSON (truncated); None when no condition is declared.
+    """
 
     scope: FilterScope
     name: str
     filter_type: Optional[str]
     target: Optional[PageFieldReference]
+    fields: List[PageFieldReference]
     condition: Optional[str]
 
     def to_dict(self) -> Dict[str, str]:
-        result: Dict[str, str] = {"name": self.name}
+        result: Dict[str, str] = {
+            Constant.FILTER_SCOPE: self.scope,
+            Constant.NAME: self.name,
+        }
         if self.filter_type:
-            result["type"] = self.filter_type
+            result[Constant.TYPE] = self.filter_type
         if self.target is not None:
-            result["target"] = self.target.label
+            result[Constant.FILTER_TARGET] = self.target.label
         if self.condition:
-            result["condition"] = self.condition
+            result[Constant.FILTER_CONDITION] = self.condition
         return result
 
 
