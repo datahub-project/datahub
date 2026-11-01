@@ -44,9 +44,9 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import parse_table
 from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass,
     ChartInfoClass,
     DashboardInfoClass,
+    DatasetPropertiesClass,
     InputFieldsClass,
     NumberTypeClass,
     OperationClass,
@@ -1380,6 +1380,8 @@ def test_measure_on_a_remote_table_chains_through_the_composite_lineage() -> Non
     aspect = _extract(mapper, kpis)
     assert aspect is not None
     assert [u.dataset for u in aspect.upstreams] == [_urn(mapper, table)]
+
+
 def test_filters_become_custom_properties_on_page_chart_and_report_dashboard() -> None:
     mapper = _mapper(_config(extract_report_field_usage=True))
     policies = Table(
