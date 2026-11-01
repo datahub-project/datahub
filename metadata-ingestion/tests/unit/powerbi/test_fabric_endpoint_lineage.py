@@ -426,3 +426,33 @@ def test_dataflow_entity_over_endpoint_gets_onelake_edge() -> None:
     report = _report(mapper)
     assert report.fabric_endpoint_references_resolved == 1
     assert report.warnings == []
+
+
+def test_swapped_endpoint_keeps_source_column_lineage_of_a_renamed_field() -> None:
+    # A field the model renamed keeps its TMDL sourceColumn on the upstream
+    # side; the endpoint swap must carry that edge onto the OneLake table
+    # rather than leaving it on the mssql URN the coarse edge no longer has.
+    mapper = _mapper()
+    table = _table(_m_query(ENDPOINT_HOST, WAREHOUSE_ID))
+    table.columns = [
+        Column(
+            name="Claim Number",
+            dataType="String",
+            isHidden=False,
+            datahubDataType=StringTypeClass(),
+            source_column="CLAIM_ID",
+        )
+    ]
+    mcps = mapper.extract_lineage(table, DS_URN, _workspace([_warehouse()]))
+    assert len(mcps) == 1
+    aspect = mcps[0].aspect
+    assert isinstance(aspect, UpstreamLineageClass)
+    assert [u.dataset for u in aspect.upstreams] == [_onelake_urn(WAREHOUSE_ID)]
+    assert [
+        (edge.downstreams, edge.upstreams) for edge in aspect.fineGrainedLineages or []
+    ] == [
+        (
+            [f"urn:li:schemaField:({DS_URN},Claim Number)"],
+            [f"urn:li:schemaField:({_onelake_urn(WAREHOUSE_ID)},CLAIM_ID)"],
+        )
+    ]
