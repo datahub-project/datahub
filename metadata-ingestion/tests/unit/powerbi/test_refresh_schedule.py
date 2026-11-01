@@ -203,6 +203,7 @@ def test_unsupported_schedule_is_silent() -> None:
     assert api.reporter.refresh_schedule_not_configured == 0
     assert api.reporter.refresh_schedule_failed == 0
     assert _warning_titles(api) == []
+    assert [i.title for i in api.reporter.infos] == ["Refresh Schedule Not Applicable"]
 
 
 @pytest.mark.parametrize(
