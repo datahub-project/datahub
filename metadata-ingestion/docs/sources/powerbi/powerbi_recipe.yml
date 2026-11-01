@@ -38,7 +38,8 @@ source:
     # extract_model_properties: true
     # Lineage from a composite model's remote tables to the semantic model they read
     # extract_composite_model_lineage: true
-    # Latest dataset refresh as an Operation aspect (works in both modes)
+    # Latest completed and latest failed dataset refresh as Operation aspects, and the
+    # refresh schedule as refreshSchedule.* custom properties (works in both modes)
     # extract_refresh_history: true
 
     # Enable / Disable ingestion of ownership information for dashboards
