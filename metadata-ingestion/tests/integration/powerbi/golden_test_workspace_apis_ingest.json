@@ -34,8 +34,7 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"summarizeBy\": \"none\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "ClaimCount",
@@ -310,7 +309,7 @@
                     "nativeDataType": "Int64",
                     "recursive": false,
                     "isPartOfKey": true,
-                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"isHidden\": true}"
                 },
                 {
                     "fieldPath": "PolicyId",
@@ -323,7 +322,7 @@
                     "nativeDataType": "Int64",
                     "recursive": false,
                     "isPartOfKey": false,
-                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"isHidden\": true}"
                 },
                 {
                     "fieldPath": "Status",
@@ -335,8 +334,7 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"summarizeBy\": \"none\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "PaidAmount",
@@ -363,8 +361,7 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"summarizeBy\": \"none\"}"
+                    "isPartOfKey": false
                 }
             ],
             "foreignKeys": [
@@ -647,7 +644,7 @@
                     "nativeDataType": "Int64",
                     "recursive": false,
                     "isPartOfKey": false,
-                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"isHidden\": true}"
                 },
                 {
                     "fieldPath": "Total Premium",
@@ -978,7 +975,7 @@
                     "nativeDataType": "Int64",
                     "recursive": false,
                     "isPartOfKey": true,
-                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"isHidden\": true}"
                 },
                 {
                     "fieldPath": "State",
@@ -991,7 +988,7 @@
                     "nativeDataType": "String",
                     "recursive": false,
                     "isPartOfKey": false,
-                    "jsonProps": "{\"dataCategory\": \"StateOrProvince\", \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"dataCategory\": \"StateOrProvince\"}"
                 },
                 {
                     "fieldPath": "EffectiveDate",
@@ -1004,7 +1001,7 @@
                     "nativeDataType": "DateTime",
                     "recursive": false,
                     "isPartOfKey": false,
-                    "jsonProps": "{\"formatString\": \"yyyy-MM-dd\", \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"formatString\": \"yyyy-MM-dd\"}"
                 },
                 {
                     "fieldPath": "WrittenPremium",
@@ -1031,8 +1028,7 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"summarizeBy\": \"none\"}"
+                    "isPartOfKey": false
                 }
             ],
             "foreignKeys": [
@@ -1847,8 +1843,7 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"summarizeBy\": \"none\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "ClaimCount",
@@ -2099,7 +2094,7 @@
                     "nativeDataType": "Int64",
                     "recursive": false,
                     "isPartOfKey": true,
-                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"isHidden\": true}"
                 },
                 {
                     "fieldPath": "PolicyId",
@@ -2112,7 +2107,7 @@
                     "nativeDataType": "Int64",
                     "recursive": false,
                     "isPartOfKey": false,
-                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"isHidden\": true}"
                 },
                 {
                     "fieldPath": "Status",
@@ -2124,8 +2119,7 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"summarizeBy\": \"none\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "PaidAmount",
@@ -2152,8 +2146,7 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"summarizeBy\": \"none\"}"
+                    "isPartOfKey": false
                 }
             ],
             "foreignKeys": [
@@ -2412,7 +2405,7 @@
                     "nativeDataType": "Int64",
                     "recursive": false,
                     "isPartOfKey": false,
-                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"isHidden\": true}"
                 },
                 {
                     "fieldPath": "Total Premium",
@@ -2719,7 +2712,7 @@
                     "nativeDataType": "Int64",
                     "recursive": false,
                     "isPartOfKey": true,
-                    "jsonProps": "{\"isHidden\": true, \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"isHidden\": true}"
                 },
                 {
                     "fieldPath": "State",
@@ -2732,7 +2725,7 @@
                     "nativeDataType": "String",
                     "recursive": false,
                     "isPartOfKey": false,
-                    "jsonProps": "{\"dataCategory\": \"StateOrProvince\", \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"dataCategory\": \"StateOrProvince\"}"
                 },
                 {
                     "fieldPath": "EffectiveDate",
@@ -2745,7 +2738,7 @@
                     "nativeDataType": "DateTime",
                     "recursive": false,
                     "isPartOfKey": false,
-                    "jsonProps": "{\"formatString\": \"yyyy-MM-dd\", \"summarizeBy\": \"none\"}"
+                    "jsonProps": "{\"formatString\": \"yyyy-MM-dd\"}"
                 },
                 {
                     "fieldPath": "WrittenPremium",
@@ -2772,8 +2765,7 @@
                     },
                     "nativeDataType": "String",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"summarizeBy\": \"none\"}"
+                    "isPartOfKey": false
                 }
             ],
             "foreignKeys": [
@@ -3119,7 +3111,7 @@
                         "nativeDataType": "String",
                         "recursive": false,
                         "isPartOfKey": false,
-                        "jsonProps": "{\"dataCategory\": \"StateOrProvince\", \"summarizeBy\": \"none\"}"
+                        "jsonProps": "{\"dataCategory\": \"StateOrProvince\"}"
                     }
                 },
                 {
@@ -3151,8 +3143,7 @@
                         },
                         "nativeDataType": "String",
                         "recursive": false,
-                        "isPartOfKey": false,
-                        "jsonProps": "{\"summarizeBy\": \"none\"}"
+                        "isPartOfKey": false
                     }
                 }
             ]
@@ -3531,8 +3522,7 @@
                     },
                     "nativeDataType": "Int64",
                     "recursive": false,
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"summarizeBy\": \"none\"}"
+                    "isPartOfKey": false
                 },
                 {
                     "fieldPath": "paid_amount",

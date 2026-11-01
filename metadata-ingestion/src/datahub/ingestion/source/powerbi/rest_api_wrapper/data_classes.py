@@ -1,3 +1,4 @@
+import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
@@ -214,14 +215,9 @@ class Column:
     # definitions (workspace_apis mode).
     references: List[DaxFieldReference] = field(default_factory=list)
     has_row_context_iterators: bool = False
-    # Model properties from TMDL, emitted with extract_model_properties.
-    format_string: Optional[str] = None
-    display_folder: Optional[str] = None
-    data_category: Optional[str] = None
-    sort_by_column: Optional[str] = None
-    summarize_by: Optional[str] = None
-    is_key: bool = False
-    is_nullable: Optional[bool] = None
+    # TMDL model properties, emitted with extract_model_properties; only
+    # populated from TMDL definitions (workspace_apis mode).
+    model_properties: Optional["FieldModelProperties"] = None
 
 
 @dataclass
@@ -238,9 +234,58 @@ class Measure:
     # Only populated from TMDL definitions (workspace_apis mode).
     references: List[DaxFieldReference] = field(default_factory=list)
     has_row_context_iterators: bool = False
+    model_properties: Optional["FieldModelProperties"] = None
+
+
+# Power BI Desktop writes `summarizeBy: none` on most columns; it carries no
+# information, so it is neither emitted nor counted as a property.
+SUMMARIZE_BY_DEFAULT = "none"
+
+
+@dataclass(frozen=True)
+class FieldModelProperties:
+    """TMDL column / measure properties beyond the data type. `isHidden`
+    lives on the owning Column / Measure and is passed in when serializing."""
+
     format_string: Optional[str] = None
     display_folder: Optional[str] = None
+    data_category: Optional[str] = None
+    sort_by_column: Optional[str] = None
+    summarize_by: Optional[str] = None
+    is_key: bool = False
+    # TOM defaults isNullable to true, so TMDL only writes it when false.
+    is_nullable: Optional[bool] = None
     has_kpi: bool = False
+
+    def _json_items(self, is_hidden: bool) -> Dict[str, Union[str, bool]]:
+        items: Dict[str, Union[str, bool]] = {}
+        if is_hidden:
+            items[Constant.IS_HIDDEN] = True
+        if self.has_kpi:
+            items[Constant.HAS_KPI] = True
+        for key, value in (
+            (Constant.FORMAT_STRING, self.format_string),
+            (Constant.DISPLAY_FOLDER, self.display_folder),
+            (Constant.DATA_CATEGORY, self.data_category),
+            (Constant.SORT_BY_COLUMN, self.sort_by_column),
+            (Constant.SUMMARIZE_BY, self.summarize_by),
+        ):
+            if value is not None and not (
+                key == Constant.SUMMARIZE_BY and value == SUMMARIZE_BY_DEFAULT
+            ):
+                items[key] = value
+        return items
+
+    def to_json_props(self, is_hidden: bool) -> Optional[str]:
+        """The properties not modelled on SchemaFieldClass (`isKey` and
+        `isNullable` are), as the field's jsonProps; None when there are none."""
+        items = self._json_items(is_hidden)
+        return json.dumps(items, sort_keys=True) if items else None
+
+    def has_non_default_properties(self, is_hidden: bool) -> bool:
+        return bool(
+            self.is_key or self.is_nullable is not None or self._json_items(is_hidden)
+        )
 
 
 def is_calculated_column(column: Column) -> bool:
@@ -252,7 +297,7 @@ def is_calculated_column(column: Column) -> bool:
     )
 
 
-@dataclass
+@dataclass(frozen=True)
 class RefreshPolicy:
     """TMDL `refreshPolicy` of a table: incremental refresh settings."""
 
@@ -262,7 +307,7 @@ class RefreshPolicy:
     incremental_periods: Optional[str] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class RlsTableFilter:
     """A row-level-security role's DAX filter on one table."""
 

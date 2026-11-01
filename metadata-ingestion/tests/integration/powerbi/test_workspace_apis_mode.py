@@ -364,9 +364,10 @@ def test_workspace_apis_ingest_with_enrichment(
     assert report.tmdl_roles_failed == 0
     # The insurance model's two parameters; the DirectLake model has none.
     assert report.dataset_parameters_emitted == 2
-    # Every column carries at least `summarizeBy`; of the six measures only
-    # the DirectLake model's `Paid Total` has no property at all.
-    assert report.model_fields_with_properties == 20
+    # Fields with at least one non-default property; `summarizeBy: none` and
+    # bare calculated columns do not count.
+    assert report.model_fields_with_properties == 15
+    assert report.rls_filters_unresolved == 0
     with open(output_path) as f:
         mcps = json.load(f)
     properties = {
