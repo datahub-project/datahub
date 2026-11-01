@@ -977,6 +977,8 @@ def test_report_definition_parser_crash_is_a_warning_for_that_report_only() -> N
     assert report.pages == [page]
     assert page.field_references == []
     assert report.filters == []
+    assert api.reporter.report_definitions_failed == 1
+    assert api.reporter.report_definitions_parsed == 0
     assert [w.title for w in api.reporter.warnings] == ["Report Definition Not Parsed"]
     assert not api.reporter.failures
 

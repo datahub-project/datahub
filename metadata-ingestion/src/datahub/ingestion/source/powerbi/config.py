@@ -1119,7 +1119,8 @@ class PowerBiDashboardSourceConfig(
         "as a `filters` property (a JSON-encoded list of name, type, target field and "
         "condition) plus `filterCount` on the report and its page charts; the fields a "
         "page filter reads join that page's `inputFields`, and the fields a report "
-        "filter reads join every page's. "
+        "filter reads join every page's. Note that a filter's condition includes the "
+        "literal values it compares against, which may be business data. "
         "Adds one Fabric getDefinition call per report. "
         "Requires `extract_reports`, `extract_dataset_schema` and either "
         "`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`.",
