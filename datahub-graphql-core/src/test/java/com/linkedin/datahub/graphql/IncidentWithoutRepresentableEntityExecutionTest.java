@@ -4,20 +4,16 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.INCIDENT_INFO_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.AuthenticationConfiguration;
-import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DoubleMap;
-import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -28,10 +24,6 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.config.GraphQLConfiguration;
-import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.config.graphql.GraphQLMetricsConfiguration;
-import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.AggregationMetadataArray;
@@ -47,8 +39,6 @@ import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlings;
 import graphql.ExecutionResult;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
-import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -143,10 +133,7 @@ public class IncidentWithoutRepresentableEntityExecutionTest {
     when(context.getOperationContext()).thenReturn(opContext);
 
     EntityClient entityClient = mock(EntityClient.class, backend(registry, stored));
-    return new GmsGraphQLEngine(args(registry, entityClient))
-        .builder()
-        .build()
-        .execute(query, null, Map.of(), context);
+    return MockedGmsGraphQLEngine.execute(query, context, entityClient);
   }
 
   /** The hits for any search or filter; entities as stored or by their key. */
@@ -226,54 +213,6 @@ public class IncidentWithoutRepresentableEntityExecutionTest {
                 .setState(IncidentState.ACTIVE)
                 .setLastUpdated(AuditStampUtils.createDefaultAuditStamp()))
         .setCreated(AuditStampUtils.createDefaultAuditStamp());
-  }
-
-  /**
-   * Engine args as production builds them, with the given entity client and other services mocked.
-   */
-  private static GmsGraphQLEngineArgs args(EntityRegistry registry, EntityClient entityClient)
-      throws IllegalAccessException {
-    GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
-    GraphQLQueryConfiguration query = new GraphQLQueryConfiguration();
-    query.setComplexityLimit(10000);
-    query.setDepthLimit(50);
-    GraphQLConfiguration graphQLConfiguration = new GraphQLConfiguration();
-    graphQLConfiguration.setQuery(query);
-    graphQLConfiguration.setMetrics(new GraphQLMetricsConfiguration());
-    args.setEntityRegistry(registry);
-    args.setSystemOperationContext(
-        TestOperationContexts.systemContextNoSearchAuthorization(registry));
-    args.setFeatureFlags(new FeatureFlags());
-    args.setIngestionConfiguration(new IngestionConfiguration());
-    args.setAuthenticationConfiguration(new AuthenticationConfiguration());
-    args.setAuthorizationConfiguration(new AuthorizationConfiguration());
-    args.setGraphQLConfiguration(graphQLConfiguration);
-    args.setEntityClient(entityClient);
-
-    for (var field : GmsGraphQLEngineArgs.class.getDeclaredFields()) {
-      Class<?> type = field.getType();
-      if (Modifier.isStatic(field.getModifiers())
-          || type.isPrimitive()
-          || type == String.class
-          || Number.class.isAssignableFrom(type)
-          || type == Boolean.class) {
-        continue;
-      }
-      field.setAccessible(true);
-      if (field.get(args) == null) {
-        // Services answer nothing (no default view, no extra facets), as when nothing is stored.
-        field.set(args, isConfiguration(type) ? mock(type, RETURNS_DEEP_STUBS) : mock(type));
-      }
-    }
-    return args;
-  }
-
-  private static boolean isConfiguration(Class<?> type) {
-    return type.getName().startsWith("com.linkedin.metadata.config.")
-        || type.getSimpleName().endsWith("Configuration")
-        || type.getSimpleName().endsWith("Config")
-        || type == FeatureFlags.class
-        || type.getSimpleName().equals("GitVersion");
   }
 
   @SuppressWarnings("unchecked")

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.common.mappers.util;
 
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
@@ -9,6 +10,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -48,7 +50,7 @@ public final class KnownEntities {
     }
     for (Urn urn : urns) {
       final boolean known = isKnown(context, urn);
-      final Entity entity = known ? UrnToEntityMapper.map(context, urn) : null;
+      final Entity entity = known ? mapReturnable(context, urn) : null;
       if (entity == null) {
         UNREPRESENTABLE.skippedBecause(
             skipMetrics(context, known),
@@ -72,7 +74,7 @@ public final class KnownEntities {
     }
     for (Urn urn : urns) {
       final boolean known = isKnown(context, urn);
-      final Entity entity = known ? UrnToEntityMapper.map(context, urn) : null;
+      final Entity entity = known ? mapReturnable(context, urn) : null;
       if (entity != null) {
         return entity;
       }
@@ -118,5 +120,64 @@ public final class KnownEntities {
             ? null
             : context.getOperationContext().getEntityRegistry();
     return registry == null || !handling().referencesUnknownEntityType(registry, urn);
+  }
+
+  /**
+   * Under tolerant handling, whether GraphQL can map the urn, as {@link #mapFirst} decides, without
+   * logging a skip.
+   */
+  public static boolean isRepresentable(
+      @Nullable final QueryContext context, @Nonnull final Urn urn) {
+    return isKnown(context, urn) && mapReturnable(context, urn) != null;
+  }
+
+  /**
+   * Under tolerant handling, false for a schema field whose parent, the first entity in its urn,
+   * GraphQL can't represent, logging the skip: SchemaFieldEntity.parent is non-null, so such a
+   * field can't be returned. True for any other urn, and for every urn when unknown data isn't
+   * tolerated.
+   */
+  public static boolean hasRepresentableParent(
+      @Nullable final QueryContext context, @Nonnull final Urn urn) {
+    if (!handling().toleratesUnknownEntityAspect()
+        || !SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType())) {
+      return true;
+    }
+    final Urn parent = schemaFieldParent(urn);
+    if (parent == null || isRepresentable(context, parent)) {
+      return true;
+    }
+    UNREPRESENTABLE.skippedBecause(
+        skipMetrics(context, isKnown(context, parent)),
+        SCHEMA_FIELD_ENTITY_NAME,
+        "GraphQL can't represent its parent",
+        urn);
+    return false;
+  }
+
+  /**
+   * The urn as an entity GraphQL can return, or null. A schema field also needs a parent GraphQL
+   * can represent, as the loader returns one without it as missing.
+   */
+  @Nullable
+  private static Entity mapReturnable(
+      @Nullable final QueryContext context, @Nonnull final Urn urn) {
+    final Entity entity = UrnToEntityMapper.map(context, urn);
+    if (entity == null || !SCHEMA_FIELD_ENTITY_NAME.equals(urn.getEntityType())) {
+      return entity;
+    }
+    final Urn parent = schemaFieldParent(urn);
+    return parent == null || isRepresentable(context, parent) ? entity : null;
+  }
+
+  /** A schema field's parent, the first entity in its urn, or null if the urn can't be read. */
+  @Nullable
+  private static Urn schemaFieldParent(@Nonnull final Urn schemaFieldUrn) {
+    try {
+      return Urn.createFromString(schemaFieldUrn.getEntityKey().get(0));
+    } catch (URISyntaxException | IndexOutOfBoundsException e) {
+      // Not a schema field urn this can read: it maps as it did before.
+      return null;
+    }
   }
 }

@@ -198,4 +198,41 @@ public class UrnSearchResultsMapperTest {
     assertEquals(mapped.getSearchResults().size(), 2);
     assertNull(mapped.getSearchResults().get(0).getEntity());
   }
+
+  @Test
+  public void testSchemaFieldWhoseParentGraphQLCannotMapIsLeftOut() throws Exception {
+    // SchemaFieldEntity.parent is non-null: a field whose parent GraphQL doesn't map (telemetry is
+    // in the registry but not modelled) would null its hit and the whole page, so it is left out.
+    String dataset = "urn:li:dataset:(urn:li:dataPlatform:hdfs,/data/a,PROD)";
+    String onDataset = "urn:li:schemaField:(" + dataset + ",col_a)";
+    String onTelemetry = "urn:li:schemaField:(urn:li:telemetry:client,col_b)";
+    QueryContext context = mock(QueryContext.class);
+    when(context.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+
+    SearchResults mapped =
+        UrnSearchResultsMapper.map(
+            context, backendResult(new SearchEntityArray(hit(onTelemetry), hit(onDataset))));
+
+    assertEquals(
+        mapped.getSearchResults().stream().map(r -> r.getEntity().getUrn()).toList(),
+        List.of(onDataset));
+    assertEquals(mapped.getTotal(), 2);
+  }
+
+  @Test
+  public void testStrictKeepsSchemaFieldWhoseParentGraphQLCannotMap() throws Exception {
+    UnknownDataHandlings.use(StrictHandling.INSTANCE);
+    String onTelemetry = "urn:li:schemaField:(urn:li:telemetry:client,col_b)";
+    QueryContext context = mock(QueryContext.class);
+    when(context.getOperationContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
+
+    SearchResults mapped =
+        UrnSearchResultsMapper.map(context, backendResult(new SearchEntityArray(hit(onTelemetry))));
+
+    assertEquals(
+        mapped.getSearchResults().stream().map(r -> r.getEntity().getUrn()).toList(),
+        List.of(onTelemetry));
+  }
 }

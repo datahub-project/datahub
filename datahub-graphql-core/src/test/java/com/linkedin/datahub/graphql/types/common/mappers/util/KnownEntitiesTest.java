@@ -81,4 +81,25 @@ public class KnownEntitiesTest {
     assertNull(KnownEntities.mapFirst(context, List.of(FROM_NEWER_BUILD, DATASET)));
     assertThrows(IndexOutOfBoundsException.class, () -> KnownEntities.mapFirst(context, List.of()));
   }
+
+  @Test
+  public void testSchemaFieldNeedsAParentGraphQLCanRepresent() {
+    // The loader returns a schema field whose parent GraphQL can't represent (telemetry is in the
+    // registry but not modelled) as missing, so it is left out wherever it would be required.
+    Urn onTelemetry = UrnUtils.getUrn("urn:li:schemaField:(urn:li:telemetry:client,col_b)");
+    Urn onDataset = UrnUtils.getUrn("urn:li:schemaField:(" + DATASET + ",col_a)");
+
+    assertEquals(
+        KnownEntities.mapAll(context, List.of(onTelemetry, onDataset)).stream()
+            .map(Entity::getUrn)
+            .toList(),
+        List.of(onDataset.toString()));
+    assertEquals(
+        KnownEntities.mapFirst(context, List.of(onTelemetry, onDataset)).getUrn(),
+        onDataset.toString());
+    assertFalse(KnownEntities.isRepresentable(context, onTelemetry));
+    assertFalse(KnownEntities.hasRepresentableParent(context, onTelemetry));
+    assertTrue(KnownEntities.hasRepresentableParent(context, onDataset));
+    assertTrue(KnownEntities.hasRepresentableParent(context, DATASET));
+  }
 }

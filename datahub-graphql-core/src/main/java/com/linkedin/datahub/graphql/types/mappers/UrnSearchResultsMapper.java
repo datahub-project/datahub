@@ -63,9 +63,10 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
    * null element bubbles up through the non-null [SearchResult!]! list and fails the entire query.
    * So hits GraphQL can't represent are left out, one row each, instead: entity types it doesn't
    * model, and entity types the registry doesn't know, including inside the urn's key (e.g. a
-   * monitor on an entity type a newer version added, read after a rollback). Totals stay the
-   * backend hit count, as with authorization post-filtering. When unknown data isn't tolerated,
-   * only hits GraphQL doesn't model are left out, without a registry check.
+   * monitor on an entity type a newer version added, read after a rollback), and schema fields
+   * whose parent GraphQL can't map (their non-null SchemaFieldEntity.parent would be unset). Totals
+   * stay the backend hit count, as with authorization post-filtering. When unknown data isn't
+   * tolerated, only hits GraphQL doesn't model are left out, without a registry check.
    */
   static List<SearchResult> mapKnownResults(
       @Nullable final QueryContext context, @Nonnull final List<SearchEntity> hits) {
@@ -94,6 +95,9 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
             hit.getEntity().getEntityType(),
             "GraphQL can't represent its entity type",
             hit.getEntity());
+        continue;
+      }
+      if (!KnownEntities.hasRepresentableParent(context, hit.getEntity())) {
         continue;
       }
       mappedResults.add(mapped);

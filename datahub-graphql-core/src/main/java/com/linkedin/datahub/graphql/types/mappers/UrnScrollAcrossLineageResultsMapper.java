@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageResults;
 import com.linkedin.datahub.graphql.generated.SearchAcrossLineageResult;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
 import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.SearchResultMetadata;
@@ -34,7 +35,12 @@ public class UrnScrollAcrossLineageResultsMapper<T extends RecordTemplate, E ext
 
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
     result.setSearchResults(
-        input.getEntities().stream().map(r -> mapResult(context, r)).collect(Collectors.toList()));
+        input.getEntities().stream()
+            // SearchAcrossLineageResult.entity is non-null, so a schema field GraphQL can't return
+            // would null the whole list.
+            .filter(r -> KnownEntities.hasRepresentableParent(context, r.getEntity()))
+            .map(r -> mapResult(context, r))
+            .collect(Collectors.toList()));
     result.setFacets(
         searchResultMetadata.getAggregations().stream()
             .map(f -> mapFacet(context, f))
