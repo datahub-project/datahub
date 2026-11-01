@@ -16,8 +16,12 @@ from unittest.mock import MagicMock
 import pytest
 import time_machine
 
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
+from datahub.ingestion.source.powerbi.config import (
+    Constant,
+    PowerBiDashboardSourceReport,
+)
 from datahub.testing import mce_helpers
 from tests.integration.powerbi.powerbi_mocks import (
     default_source_config,
@@ -360,9 +364,9 @@ def test_workspace_apis_ingest_with_enrichment(
     assert report.report_field_references_unresolved == 1
     assert report.refresh_history_fetched == 2
     # Only the fixture's `'Budget'[Amount]` points outside the model; it is
-    # counted once per mapping of its dataset (workspace and report).
-    assert report.dax_references_unresolved == 2
-    assert [w.title for w in report.warnings] == ["DAX Reference Not Resolved"]
+    # counted once although its dataset is mapped twice (workspace, report).
+    assert report.dax_references_unresolved == 1
+    assert Constant.DAX_REFERENCE_NOT_RESOLVED in [w.title for w in report.warnings]
 
     # The admin Scanner API must never be called in this mode.
     assert not any(
@@ -425,10 +429,14 @@ def test_workspace_apis_enrichment_flags_off(
             if mcp.get("aspectName") == "upstreamLineage"
         ]
     assert lineages
+    loss_ratio = make_schema_field_urn(
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)",
+        "Loss Ratio",
+    )
     for entity_urn, lineage in lineages:
         for edge in lineage.get("fineGrainedLineages") or []:
             assert not any(entity_urn in upstream for upstream in edge["upstreams"])
-            assert not any("Loss Ratio)" in d for d in edge["downstreams"])
+            assert loss_ratio not in edge["downstreams"]
     # Without the report definition no report getDefinition call is made.
     assert not any(
         request.url.endswith(f"/reports/{REPORT_ID}/getDefinition")

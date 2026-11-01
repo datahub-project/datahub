@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Set
 
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
-    MeasureReference,
+    DaxFieldReference,
     Relationship,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.dax_parser import (
@@ -132,8 +132,10 @@ class ParsedColumn:
     # `column X = <DAX>` or `type: calculated`: the column is computed in the
     # model and has no column in the partition's source.
     is_calculated: bool = False
-    # Model fields the calculated column's DAX reads.
-    references: List[MeasureReference] = field(default_factory=list)
+    # Model fields the calculated column's DAX reads, and whether that DAX
+    # iterates a table (a bare `[Column]` then belongs to the iterated table).
+    references: List[DaxFieldReference] = field(default_factory=list)
+    has_row_context_iterators: bool = False
 
 
 @dataclass
@@ -142,7 +144,7 @@ class ParsedMeasure:
     expression: str
     is_hidden: bool
     description: Optional[str]
-    references: List[MeasureReference]
+    references: List[DaxFieldReference]
 
 
 @dataclass
@@ -293,7 +295,7 @@ def parse_tmdl(text: str, unparsed: Optional[List[str]] = None) -> List[TmdlNode
     return roots
 
 
-def _dax_references(expression: str) -> List[MeasureReference]:
+def _dax_references(expression: str) -> List[DaxFieldReference]:
     return extract_dax_references(expression).fields
 
 
@@ -355,6 +357,7 @@ def parse_table(
             expression is not None
             or column.properties.get(PROP_TYPE, "").strip() == COLUMN_TYPE_CALCULATED
         )
+        dax = extract_dax_references(expression)
         columns.append(
             ParsedColumn(
                 name=column.name,
@@ -366,7 +369,8 @@ def parse_table(
                 description=column.description,
                 expression=expression,
                 is_calculated=is_calculated,
-                references=_dax_references(expression) if expression else [],
+                references=dax.fields,
+                has_row_context_iterators=dax.has_row_context_iterators,
             )
         )
 

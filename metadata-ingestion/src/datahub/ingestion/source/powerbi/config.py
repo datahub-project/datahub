@@ -9,6 +9,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Tuple,
     Union,
 )
 
@@ -193,6 +194,7 @@ class Constant:
     # Scan-API column types reproduced for TMDL-sourced columns
     COLUMN_TYPE_DATA = "Data"
     COLUMN_TYPE_CALCULATED = "Calculated"
+    DAX_REFERENCE_NOT_RESOLVED = "DAX Reference Not Resolved"
     NULL_DATA_TYPE = "Null"
 
 
@@ -332,11 +334,18 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     relationships_parsed: int = 0
     relationships_skipped: int = 0
     relationships_unresolved: int = 0
-    measure_references_unresolved: int = 0
     # DAX references (calculated columns, calculated tables, measures) that
-    # resolved to / did not resolve to a field of the parsed model.
+    # resolved to / did not resolve to a table or field of the parsed model.
+    # Each distinct (table, field, reference) is counted once, however many
+    # times its dataset is mapped.
     dax_references_resolved: int = 0
     dax_references_unresolved: int = 0
+    _dax_references_seen: Set[Tuple[str, str, str]] = dataclass_field(
+        default_factory=set
+    )
+    # Native-SQL column lineage whose output column is not a source column
+    # of the Power BI table (calculated column, or a column the model dropped).
+    cll_dropped_not_a_source_column: int = 0
     semantic_models_not_processed: int = 0
     refresh_history_fetched: int = 0
     refresh_history_unparseable: int = 0
@@ -932,12 +941,18 @@ class PowerBiDashboardSourceConfig(
     )
     extract_dax_reference_lineage: bool = pydantic.Field(
         default=False,
-        description="Derive column-level lineage inside a semantic model from its DAX: a "
-        "calculated column gets edges from the columns and measures its expression "
-        "reads, and a measure that references another measure gets an edge from it. "
-        "Edges are only emitted to fields that exist in the model; references that "
-        "do not resolve are counted and reported as warnings. Requires "
-        "`metadata_api_mode: workspace_apis` and `extract_column_level_lineage`.",
+        description="Derive lineage inside a semantic model from its DAX: a calculated "
+        "column gets column-level edges from the columns and measures its expression "
+        "reads, a measure that references another measure gets an edge from it, and a "
+        "calculated table gets table-level lineage from the tables its expression "
+        "reads. Edges are only emitted to tables and fields that exist in the model. "
+        "References that do not resolve are counted and reported as "
+        "`DAX Reference Not Resolved` warnings in both metadata API modes, whether or "
+        "not this flag is set. Enabling it makes the connector write `upstreamLineage` "
+        "on tables that previously had none (for example a table whose only lineage "
+        "is a measure reading another measure), replacing upstreams authored in the "
+        "UI for those tables. Requires `metadata_api_mode: workspace_apis` and "
+        "`extract_column_level_lineage`.",
     )
     extract_refresh_history: bool = pydantic.Field(
         default=False,

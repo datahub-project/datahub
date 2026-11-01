@@ -4,6 +4,7 @@ from typing import Any, List, Optional
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.powerbi.config import (
+    Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     SupportedDataPlatform,
@@ -19,8 +20,8 @@ from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     DatasetRefresh,
+    DaxFieldReference,
     Measure,
-    MeasureReference,
     Page,
     PageFieldReference,
     PowerBIDataset,
@@ -172,25 +173,25 @@ def test_measure_references_become_cross_table_fine_grained_lineage() -> None:
                 name="Total Premium",
                 expression="SUM('Policies'[Premium])",
                 isHidden=False,
-                references=[MeasureReference("Policies", "Premium")],
+                references=[DaxFieldReference("Policies", "Premium")],
             ),
             Measure(
                 name="Self Ref",
                 expression="SUM('KPIs'[Value])",
                 isHidden=False,
-                references=[MeasureReference("KPIs", "Value")],
+                references=[DaxFieldReference("KPIs", "Value")],
             ),
             Measure(
                 name="Ghost",
                 expression="SUM('Policies'[Renamed])",
                 isHidden=False,
-                references=[MeasureReference("Policies", "Renamed")],
+                references=[DaxFieldReference("Policies", "Renamed")],
             ),
             Measure(
                 name="Ratio",
                 expression="[Total Premium] / 2",
                 isHidden=False,
-                references=[MeasureReference(None, "Total Premium")],
+                references=[DaxFieldReference(None, "Total Premium")],
             ),
         ],
     )
@@ -216,9 +217,8 @@ def test_measure_references_become_cross_table_fine_grained_lineage() -> None:
     ]
     assert edge.upstreams == [f"urn:li:schemaField:({_urn(mapper, policies)},Premium)"]
     reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
-    assert reporter.measure_references_unresolved == 1
     assert reporter.dax_references_unresolved == 1
-    assert [w.title for w in reporter.warnings] == ["DAX Reference Not Resolved"]
+    assert [w.title for w in reporter.warnings] == [Constant.DAX_REFERENCE_NOT_RESOLVED]
 
 
 def _dax_model(mapper: Mapper) -> List[Table]:
@@ -237,10 +237,10 @@ def _dax_model(mapper: Mapper) -> List[Table]:
                 columnType="Calculated",
                 expression="IF([Premium] > 1, [Total Premium], RELATED('KPIs'[Value]))",
                 references=[
-                    MeasureReference(None, "Premium"),
-                    MeasureReference(None, "Total Premium"),
-                    MeasureReference("KPIs", "Value"),
-                    MeasureReference("KPIs", "Missing"),
+                    DaxFieldReference(None, "Premium"),
+                    DaxFieldReference(None, "Total Premium"),
+                    DaxFieldReference("KPIs", "Value"),
+                    DaxFieldReference("KPIs", "Missing"),
                 ],
             ),
         ],
@@ -254,16 +254,16 @@ def _dax_model(mapper: Mapper) -> List[Table]:
                 name="Total Premium",
                 expression="SUM('Policies'[Premium])",
                 isHidden=False,
-                references=[MeasureReference("Policies", "Premium")],
+                references=[DaxFieldReference("Policies", "Premium")],
             ),
             Measure(
                 name="Ratio",
                 expression="[Total Premium] / 'KPIs'[Total Premium] + [Nowhere]",
                 isHidden=False,
                 references=[
-                    MeasureReference(None, "Total Premium"),
-                    MeasureReference("KPIs", "Total Premium"),
-                    MeasureReference(None, "Nowhere"),
+                    DaxFieldReference(None, "Total Premium"),
+                    DaxFieldReference("KPIs", "Total Premium"),
+                    DaxFieldReference(None, "Nowhere"),
                 ],
             ),
         ],
@@ -334,7 +334,7 @@ def test_dax_reference_lineage_for_calculated_columns_and_measures() -> None:
     # KPIs[Missing] on the column and [Nowhere] on the measure.
     assert reporter.dax_references_unresolved == 2
     assert reporter.dax_references_resolved == 6
-    assert {w.title for w in reporter.warnings} == {"DAX Reference Not Resolved"}
+    assert {w.title for w in reporter.warnings} == {Constant.DAX_REFERENCE_NOT_RESOLVED}
 
 
 def test_self_only_dax_edges_still_emit_the_lineage_aspect() -> None:
@@ -348,7 +348,7 @@ def test_self_only_dax_edges_still_emit_the_lineage_aspect() -> None:
                 name="Derived",
                 expression="[Base] * 2",
                 isHidden=False,
-                references=[MeasureReference(None, "Base")],
+                references=[DaxFieldReference(None, "Base")],
             ),
         ],
     )
@@ -360,6 +360,140 @@ def test_self_only_dax_edges_still_emit_the_lineage_aspect() -> None:
     assert aspect.fineGrainedLineages[0].upstreams == [
         f"urn:li:schemaField:({_urn(mapper, kpis)},Base)"
     ]
+
+
+def _dax_mapper() -> Mapper:
+    return _mapper(_config(extract_dax_reference_lineage=True))
+
+
+def _warnings(mapper: Mapper) -> List[str]:
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    return [
+        str(context)
+        for warning in reporter.warnings
+        if warning.title == Constant.DAX_REFERENCE_NOT_RESOLVED
+        for context in warning.context
+    ]
+
+
+def _calculated_column(
+    name: str,
+    references: List[DaxFieldReference],
+    has_row_context_iterators: bool = False,
+) -> Column:
+    return Column(
+        name=name,
+        dataType="String",
+        isHidden=False,
+        datahubDataType=NumberTypeClass(),
+        columnType="Calculated",
+        references=references,
+        has_row_context_iterators=has_row_context_iterators,
+    )
+
+
+def test_dax_identifiers_resolve_case_insensitively() -> None:
+    mapper = _dax_mapper()
+    kpis = Table(name="KPIs", full_name="Model.KPIs", columns=[_column("Value")])
+    policies = Table(
+        name="Policies",
+        full_name="Model.Policies",
+        columns=[
+            _column("Premium"),
+            _calculated_column(
+                "Band",
+                [
+                    DaxFieldReference("kpis", "value"),
+                    DaxFieldReference(None, "PREMIUM"),
+                ],
+            ),
+        ],
+    )
+    _dataset([policies, kpis])
+    aspect = _extract(mapper, policies)
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [_urn(mapper, kpis)]
+    assert aspect.fineGrainedLineages is not None
+    assert aspect.fineGrainedLineages[0].upstreams == [
+        f"urn:li:schemaField:({_urn(mapper, kpis)},Value)",
+        f"urn:li:schemaField:({_urn(mapper, policies)},Premium)",
+    ]
+    assert _warnings(mapper) == []
+
+
+def test_bare_column_inside_an_iterator_is_not_this_tables_column() -> None:
+    mapper = _dax_mapper()
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
+    )
+    claims = Table(
+        name="Claims",
+        full_name="Model.Claims",
+        columns=[
+            _column("Premium"),
+            _calculated_column(
+                "Policy Premium",
+                [DaxFieldReference(None, "Premium")],
+                has_row_context_iterators=True,
+            ),
+        ],
+    )
+    _dataset([policies, claims])
+    # SUMX(RELATEDTABLE(Policies), [Premium]) reads Policies[Premium], which
+    # cannot be told from Claims[Premium] without evaluating the DAX: no edge.
+    assert _extract(mapper, claims) is None
+    assert _warnings(mapper) == ["Model.Claims.Policy Premium -> [Premium]"]
+
+
+def test_same_table_reference_to_nothing_is_reported() -> None:
+    mapper = _dax_mapper()
+    kpis = Table(
+        name="KPIs",
+        full_name="Model.KPIs",
+        columns=[_column("Value")],
+        measures=[
+            Measure(
+                name="Ratio",
+                expression="'KPIs'[Typo] + 'KPIs'[Value]",
+                isHidden=False,
+                references=[
+                    DaxFieldReference("KPIs", "Typo"),
+                    DaxFieldReference("KPIs", "Value"),
+                ],
+            )
+        ],
+    )
+    _dataset([kpis])
+    assert _extract(mapper, kpis) is None
+    # The same-table column stays a design skip; the typo is a real miss.
+    assert _warnings(mapper) == ["Model.KPIs.Ratio -> 'KPIs'[Typo]"]
+
+
+def test_calculated_table_reading_an_unknown_table_is_reported() -> None:
+    mapper = _mapper()
+    policies = Table(name="Policies", full_name="Model.Policies")
+    by_state = Table(
+        name="By State",
+        full_name="Model.By_State",
+        calculated_expression="UNION('Policies', 'Archive')",
+    )
+    _dataset([policies, by_state])
+    aspect = _extract(mapper, by_state)
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [_urn(mapper, policies)]
+    assert _warnings(mapper) == ["Model.By_State.By State -> 'Archive'"]
+
+
+def test_dax_references_are_counted_once_per_reference() -> None:
+    mapper = _dax_mapper()
+    policies, kpis = _dax_model(mapper)
+    for _ in range(2):
+        _extract(mapper, policies)
+        _extract(mapper, kpis)
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.dax_references_unresolved == 2
+    assert reporter.dax_references_resolved == 6
+    assert len(_warnings(mapper)) == 2
 
 
 def test_calculated_table_depends_on_referenced_model_tables() -> None:

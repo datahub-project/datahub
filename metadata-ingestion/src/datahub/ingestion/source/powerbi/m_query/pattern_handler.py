@@ -272,7 +272,10 @@ def urn_to_lowercase(value: str, flag: bool) -> str:
 
 
 def _is_calculated_column(column: Column) -> bool:
-    return column.columnType == Constant.COLUMN_TYPE_CALCULATED
+    # The scanner API and TMDL do not agree on casing ("Calculated", "DATA").
+    return (column.columnType or "").casefold() == (
+        Constant.COLUMN_TYPE_CALCULATED.casefold()
+    )
 
 
 def _source_column_name(column: Column) -> str:
@@ -958,6 +961,23 @@ class AbstractLineage(ABC):
         # is unknown, land here too.) Emitting such a downstream as a FineGrainedLineage
         # with no upstreams is a meaningless edge, so skip it rather than propagate it.
         column_lineage = [cll for cll in column_lineage if cll.upstreams]
+
+        # An output column that is not a source column of the Power BI table
+        # (a calculated column of the same name, or a column the model
+        # dropped) would become an edge onto a field it does not feed. The
+        # remap above already turned matched outputs into display names.
+        if self.table.columns:
+            source_field_names = {
+                col.name.casefold() for col in _source_columns(self.table.columns)
+            }
+            kept: List[ColumnLineageInfo] = []
+            for cll in column_lineage:
+                downstream_name = cll.downstream.column if cll.downstream else ""
+                if downstream_name.casefold() in source_field_names:
+                    kept.append(cll)
+                else:
+                    self.reporter.cll_dropped_not_a_source_column += 1
+            column_lineage = kept
 
         return Lineage(
             upstreams=dataplatform_tables,

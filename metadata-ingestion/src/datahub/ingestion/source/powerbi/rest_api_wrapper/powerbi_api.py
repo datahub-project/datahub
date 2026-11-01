@@ -1203,6 +1203,7 @@ class PowerBiAPI:
                 description=column.description,
                 source_column=column.source_column,
                 references=column.references,
+                has_row_context_iterators=column.has_row_context_iterators,
             )
             for column in parsed_table.columns
         ]

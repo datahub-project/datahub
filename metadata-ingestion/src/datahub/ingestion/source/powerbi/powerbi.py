@@ -6,7 +6,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Callable, Iterable, List, Optional, Set, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 from dateutil import parser as date_parser
@@ -141,8 +141,10 @@ logger = logging.getLogger(__name__)
 class _ModelReferenceResolver:
     """Resolves the DAX references of one table against the tables of its
     semantic model while collecting the coarse upstreams those references
-    imply. Only fields the parsed model exposes resolve; everything else is
-    counted and reported so no edge is ever guessed."""
+    imply. Only tables and fields the parsed model exposes resolve;
+    everything else is counted and reported so no edge is ever guessed.
+    DAX identifiers are case-insensitive, so lookups fold case and the
+    model's own spelling is used for the URNs."""
 
     def __init__(
         self,
@@ -160,25 +162,35 @@ class _ModelReferenceResolver:
         self.table_urn = table_urn
         self.reporter = reporter
         self.follow_dax_references = follow_dax_references
-        self.model_tables = table.dataset.tables
-        self.tables_by_name = {t.name: t for t in self.model_tables}
         self.known_upstreams = {u.dataset for u in upstream}
 
-    @staticmethod
-    def exposed_fields(model_table: powerbi_data_classes.Table) -> Set[str]:
-        return {c.name for c in model_table.columns or []} | {
-            m.name for m in model_table.measures or []
-        }
+        self._tables_by_name: Dict[str, powerbi_data_classes.Table] = {}
+        # folded table name -> folded field name -> field name as modelled
+        self._fields_by_table: Dict[str, Dict[str, str]] = {}
+        self._columns_by_table: Dict[str, Set[str]] = {}
+        # A measure name is unique across the whole model, so a bare
+        # `[Measure]` reference identifies its table without ambiguity.
+        self._measure_owner_by_name: Dict[str, powerbi_data_classes.Table] = {}
+        for model_table in table.dataset.tables:
+            key = model_table.name.casefold()
+            self._tables_by_name[key] = model_table
+            columns = {c.name.casefold(): c.name for c in model_table.columns or []}
+            measures = {m.name.casefold(): m.name for m in model_table.measures or []}
+            self._fields_by_table[key] = {**columns, **measures}
+            self._columns_by_table[key] = set(columns)
+            for measure_key in measures:
+                self._measure_owner_by_name.setdefault(measure_key, model_table)
 
-    @staticmethod
-    def measure_names(model_table: powerbi_data_classes.Table) -> Set[str]:
-        return {m.name for m in model_table.measures or []}
+    def _is_own_column(self, field_name: str) -> bool:
+        return (
+            field_name.casefold() in self._columns_by_table[self.table.name.casefold()]
+        )
 
     def add_table_upstream(self, table_name: str) -> Optional[str]:
         """Add another model table as a coarse upstream; None when the model
         has no such table or it is this table."""
-        other = self.tables_by_name.get(table_name)
-        if other is None or other.name == self.table.name:
+        other = self._tables_by_name.get(table_name.casefold())
+        if other is None or other is self.table:
             return None
         other_urn = self.table_urn(other)
         if other_urn not in self.known_upstreams:
@@ -188,35 +200,46 @@ class _ModelReferenceResolver:
             )
         return other_urn
 
+    def resolve_table_reference(self, table_name: str) -> Optional[str]:
+        """Coarse upstream for a table a calculated table's DAX reads; an
+        unknown table is reported."""
+        if self._tables_by_name.get(table_name.casefold()) is self.table:
+            return None
+        return self._record(
+            self.table.name, f"'{table_name}'", self.add_table_upstream(table_name)
+        )
+
     def field_urn(self, table_name: Optional[str], field_name: str) -> Optional[str]:
         """Schema-field URN of a model field, adding the owning table as a
         coarse upstream when it is another table. None when the model does
         not expose that table or field (renamed column, VAR name, or a
         reference the parser could not attribute)."""
-        model_table = self.tables_by_name.get(table_name) if table_name else None
-        if model_table is None or field_name not in self.exposed_fields(model_table):
+        if table_name is None:
             return None
-        if model_table.name == self.table.name:
-            return builder.make_schema_field_urn(self.ds_urn, field_name)
+        model_table = self._tables_by_name.get(table_name.casefold())
+        if model_table is None:
+            return None
+        modelled_name = self._fields_by_table[model_table.name.casefold()].get(
+            field_name.casefold()
+        )
+        if modelled_name is None:
+            return None
+        if model_table is self.table:
+            return builder.make_schema_field_urn(self.ds_urn, modelled_name)
         table_urn = self.add_table_upstream(model_table.name)
         if table_urn is None:
             return None
-        return builder.make_schema_field_urn(table_urn, field_name)
+        return builder.make_schema_field_urn(table_urn, modelled_name)
 
     def measure_owner(self, measure_name: str) -> Optional[str]:
-        """Table that defines a measure referenced as bare `[Measure]`: this
-        table first, then the rest of the model in order."""
-        if measure_name in self.measure_names(self.table):
-            return self.table.name
-        for model_table in self.model_tables:
-            if measure_name in self.measure_names(model_table):
-                return model_table.name
-        return None
+        """Table that defines a measure referenced as bare `[Measure]`."""
+        owner = self._measure_owner_by_name.get(measure_name.casefold())
+        return owner.name if owner is not None else None
 
     def resolve_measure_reference(
         self,
         measure: powerbi_data_classes.Measure,
-        reference: powerbi_data_classes.MeasureReference,
+        reference: powerbi_data_classes.DaxFieldReference,
     ) -> Optional[str]:
         """Upstream field URN for a reference in a measure's DAX, or None
         when the reference is skipped by design or does not resolve."""
@@ -228,64 +251,70 @@ class _ModelReferenceResolver:
             resolved = self.field_urn(
                 self.measure_owner(reference.field), reference.field
             )
-        elif reference.table == self.table.name:
+        elif reference.table.casefold() == self.table.name.casefold():
             # A same-table column reference would be a self-edge on this
             # dataset; the DAX is already in the measure's field description.
-            # A same-table measure reference is followed with the DAX flag.
-            if (
-                not self.follow_dax_references
-                or reference.field not in self.measure_names(self.table)
-            ):
+            # A same-table measure reference is followed with the DAX flag,
+            # and a same-table reference to nothing is reported like any
+            # other unresolved one.
+            if self._is_own_column(reference.field):
                 return None
             resolved = self.field_urn(self.table.name, reference.field)
+            if resolved is not None and not self.follow_dax_references:
+                return None
         else:
             resolved = self.field_urn(reference.table, reference.field)
-            if resolved is None:
-                # No edge to a table or field the model does not expose
-                # (renamed column, or a false match in DAX).
-                self.reporter.measure_references_unresolved += 1
-        return self._record(measure.name, reference, resolved)
+        return self._record(measure.name, _reference_text(reference), resolved)
 
     def resolve_column_reference(
         self,
         column: powerbi_data_classes.Column,
-        reference: powerbi_data_classes.MeasureReference,
+        reference: powerbi_data_classes.DaxFieldReference,
     ) -> Optional[str]:
         """Upstream field URN for a reference in a calculated column's DAX,
         or None when it does not resolve."""
         if reference.table is not None:
             owner: Optional[str] = reference.table
-        elif reference.field in self.exposed_fields(self.table):
-            # In a calculated column's row context a bare [Field] is a column
-            # or measure of this table.
-            owner = self.table.name
+        elif self._is_own_column(reference.field):
+            # In a calculated column's row context a bare [Column] is a
+            # column of this table, unless the expression iterates another
+            # table: then it belongs to the iterated table and cannot be
+            # attributed without evaluating the DAX.
+            owner = self.table.name if not column.has_row_context_iterators else None
         else:
             owner = self.measure_owner(reference.field)
         return self._record(
-            column.name, reference, self.field_urn(owner, reference.field)
+            column.name,
+            _reference_text(reference),
+            self.field_urn(owner, reference.field),
         )
 
     def _record(
-        self,
-        field_name: str,
-        reference: powerbi_data_classes.MeasureReference,
-        resolved: Optional[str],
+        self, field_name: str, reference_text: str, resolved: Optional[str]
     ) -> Optional[str]:
+        """Count the outcome once per (table, field, reference) and warn on
+        the first unresolved sighting."""
+        key = (self.table.full_name, field_name, reference_text)
+        first_sighting = key not in self.reporter._dax_references_seen
+        self.reporter._dax_references_seen.add(key)
         if resolved is not None:
-            self.reporter.dax_references_resolved += 1
+            if first_sighting:
+                self.reporter.dax_references_resolved += 1
             return resolved
-        self.reporter.dax_references_unresolved += 1
-        qualified = (
-            f"'{reference.table}'[{reference.field}]"
-            if reference.table is not None
-            else f"[{reference.field}]"
-        )
-        self.reporter.warning(
-            title="DAX Reference Not Resolved",
-            message="A DAX expression references a table or field that is not in the semantic model's parsed schema; no column lineage is emitted for that reference.",
-            context=f"{self.table.full_name}.{field_name} -> {qualified}",
-        )
+        if first_sighting:
+            self.reporter.dax_references_unresolved += 1
+            self.reporter.warning(
+                title=Constant.DAX_REFERENCE_NOT_RESOLVED,
+                message="A DAX expression references a table or field that is not in the semantic model's parsed schema; no lineage is emitted for that reference.",
+                context=f"{self.table.full_name}.{field_name} -> {reference_text}",
+            )
         return None
+
+
+def _reference_text(reference: powerbi_data_classes.DaxFieldReference) -> str:
+    if reference.table is not None:
+        return f"'{reference.table}'[{reference.field}]"
+    return f"[{reference.field}]"
 
 
 class Mapper:
@@ -762,21 +791,20 @@ class Mapper:
 
         if table.calculated_expression:
             for table_name in dax_table_references(table.calculated_expression):
-                resolver.add_table_upstream(table_name)
+                resolver.resolve_table_reference(table_name)
 
         if self.__config.extract_column_level_lineage is False:
             return
 
         for measure in table.measures or []:
-            upstream_fields = [
-                resolved
-                for reference in measure.references
-                if (resolved := resolver.resolve_measure_reference(measure, reference))
-            ]
-            if upstream_fields:
-                cll_lineage.append(
-                    self._field_set_lineage(ds_urn, measure.name, upstream_fields)
-                )
+            upstream_fields: List[str] = []
+            for reference in measure.references:
+                resolved = resolver.resolve_measure_reference(measure, reference)
+                if resolved is not None:
+                    upstream_fields.append(resolved)
+            self._add_field_set_lineage(
+                cll_lineage, ds_urn, measure.name, upstream_fields
+            )
 
         if not self.__config.extract_dax_reference_lineage:
             return
@@ -787,27 +815,37 @@ class Mapper:
                 or not column.references
             ):
                 continue
-            own_field = builder.make_schema_field_urn(ds_urn, column.name)
-            upstream_fields = [
-                resolved
-                for reference in column.references
-                if (resolved := resolver.resolve_column_reference(column, reference))
-                and resolved != own_field
-            ]
-            if upstream_fields:
-                cll_lineage.append(
-                    self._field_set_lineage(ds_urn, column.name, upstream_fields)
-                )
+            upstream_fields = []
+            for reference in column.references:
+                resolved = resolver.resolve_column_reference(column, reference)
+                if resolved is not None:
+                    upstream_fields.append(resolved)
+            self._add_field_set_lineage(
+                cll_lineage, ds_urn, column.name, upstream_fields
+            )
 
     @staticmethod
-    def _field_set_lineage(
-        ds_urn: str, downstream_field: str, upstream_fields: List[str]
-    ) -> FineGrainedLineage:
-        return FineGrainedLineage(
-            downstreamType=FineGrainedLineageDownstreamType.FIELD,
-            downstreams=[builder.make_schema_field_urn(ds_urn, downstream_field)],
-            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-            upstreams=deduplicate_list(upstream_fields),
+    def _add_field_set_lineage(
+        cll_lineage: List[FineGrainedLineage],
+        ds_urn: str,
+        downstream_field: str,
+        upstream_fields: List[str],
+    ) -> None:
+        """Append one FIELD_SET edge onto `downstream_field`, dropping
+        duplicates and the field itself (a field never feeds itself)."""
+        own_field = builder.make_schema_field_urn(ds_urn, downstream_field)
+        upstreams = [
+            field for field in deduplicate_list(upstream_fields) if field != own_field
+        ]
+        if not upstreams:
+            return
+        cll_lineage.append(
+            FineGrainedLineage(
+                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                downstreams=[own_field],
+                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                upstreams=upstreams,
+            )
         )
 
     def _refresh_operation_mcp(
@@ -2088,7 +2126,8 @@ class Mapper:
         # solely from this fallback path.
         dataset_urns.update(self.paginated_report_datasource_urns(report))
         dataset_edges = [
-            EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
+            EdgeClass(destinationUrn=dataset_urn)
+            for dataset_urn in sorted(dataset_urns)
         ]
 
         # Let's convert report to datahub dashboard
