@@ -5624,6 +5624,412 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "let\n    Source = Sql.Database(\"my-fabric-endpoint.datawarehouse.fabric.microsoft.com\", \"Claims_Warehouse\"),\n    dbo_claims_by_state = Source{[Schema=\"dbo\",Item=\"claims_by_state\"]}[Data]\nin\n    dbo_claims_by_state",
+            "viewLanguage": "m_query"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "claims_by_state",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "state",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "String",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "claim_count",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"sum\"}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "2B3C4D5E-6F7A-4B8C-9D0E-1F2A3B4C5D6E",
+                "storageMode": "Import",
+                "partitionCount": "1"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/2B3C4D5E-6F7A-4B8C-9D0E-1F2A3B4C5D6E/details",
+            "name": "claims_by_state",
+            "description": "Import table read from the warehouse through its SQL analytics endpoint.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,64ed5cad-7c10-4684-8180-826122881108.9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d.dbo.claims_by_state,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,64ed5cad-7c10-4684-8180-826122881108.9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d.dbo.claims_by_state,PROD),state)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV),state)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,64ed5cad-7c10-4684-8180-826122881108.9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d.dbo.claims_by_state,PROD),claim_count)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV),claim_count)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                },
+                {
+                    "id": "Policy Warehouse Model"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "policy_summary",
+            "platform": "urn:li:dataPlatform:powerbi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "policy_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "premium",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "Double",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"summarizeBy\": \"sum\"}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "datasetId": "2B3C4D5E-6F7A-4B8C-9D0E-1F2A3B4C5D6E",
+                "storageMode": "DirectLake",
+                "partitionCount": "1"
+            },
+            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/2B3C4D5E-6F7A-4B8C-9D0E-1F2A3B4C5D6E/details",
+            "name": "policy_summary",
+            "description": "DirectLake table over the warehouse 'policy_summary' table.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,64ed5cad-7c10-4684-8180-826122881108.9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d.dbo.policy_summary,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                },
+                {
+                    "id": "Policy Warehouse Model"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(powerbi,dashboards.7D668CAD-8FFC-4505-9215-655BCA5BEBAE)",
     "changeType": "PATCH",
@@ -6433,406 +6839,6 @@
                 },
                 {
                     "id": "Exec Composite Model"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "viewProperties",
-    "aspect": {
-        "json": {
-            "materialized": false,
-            "viewLogic": "let\n    Source = Sql.Database(\"my-fabric-endpoint.datawarehouse.fabric.microsoft.com\", \"Claims_Warehouse\"),\n    dbo_claims_by_state = Source{[Schema=\"dbo\",Item=\"claims_by_state\"]}[Data]\nin\n    dbo_claims_by_state",
-            "viewLanguage": "m_query"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "claims_by_state",
-            "platform": "urn:li:dataPlatform:powerbi",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "",
-            "platformSchema": {
-                "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": ""
-                }
-            },
-            "fields": [
-                {
-                    "fieldPath": "state",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "String",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "claim_count",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "Int64",
-                    "recursive": false,
-                    "isPartOfKey": false
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "datasetId": "2B3C4D5E-6F7A-4B8C-9D0E-1F2A3B4C5D6E"
-            },
-            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/2B3C4D5E-6F7A-4B8C-9D0E-1F2A3B4C5D6E/details",
-            "name": "claims_by_state",
-            "description": "Import table read from the warehouse through its SQL analytics endpoint.",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:powerbi"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,64ed5cad-7c10-4684-8180-826122881108.9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d.dbo.claims_by_state,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,64ed5cad-7c10-4684-8180-826122881108.9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d.dbo.claims_by_state,PROD),state)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV),state)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,64ed5cad-7c10-4684-8180-826122881108.9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d.dbo.claims_by_state,PROD),claim_count)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV),claim_count)"
-                    ],
-                    "confidenceScore": 1.0
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.claims_by_state,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "demo-workspace",
-                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
-                },
-                {
-                    "id": "Policy Warehouse Model"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "policy_summary",
-            "platform": "urn:li:dataPlatform:powerbi",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "",
-            "platformSchema": {
-                "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": ""
-                }
-            },
-            "fields": [
-                {
-                    "fieldPath": "policy_id",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "Int64",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "premium",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "Double",
-                    "recursive": false,
-                    "isPartOfKey": false
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "datasetId": "2B3C4D5E-6F7A-4B8C-9D0E-1F2A3B4C5D6E"
-            },
-            "externalUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets/2B3C4D5E-6F7A-4B8C-9D0E-1F2A3B4C5D6E/details",
-            "name": "policy_summary",
-            "description": "DirectLake table over the warehouse 'policy_summary' table.",
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:powerbi"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,64ed5cad-7c10-4684-8180-826122881108.9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d.dbo.policy_summary,PROD)",
-                    "type": "TRANSFORMED"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Policy_Warehouse_Model.policy_summary,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "demo-workspace",
-                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
-                },
-                {
-                    "id": "Policy Warehouse Model"
                 }
             ]
         }

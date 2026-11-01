@@ -124,6 +124,11 @@ def workspace_apis_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
             "status_code": 200,
             "json": {"value": []},
         },
+        f"{PBI}/groups/{WORKSPACE_ID}/datasets/{WAREHOUSE_MODEL_ID}/refreshSchedule": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {"error": {"code": "ItemNotFound"}},
+        },
         f"{PBI}/groups/{WORKSPACE_ID}/datasets/{IMPORT_MODEL_ID}/refreshes": {
             "method": "GET",
             "status_code": 200,
@@ -560,8 +565,9 @@ def test_workspace_apis_ingest_with_enrichment(
     assert report.dataset_parameters_emitted == 2
     # Fields with at least one non-default property; `summarizeBy: none` and
     # bare calculated columns do not count. 16 in the insurance model (one on
-    # its dataflow-backed table) plus 5 in the composite executive model.
-    assert report.model_fields_with_properties == 21
+    # its dataflow-backed table), 5 in the composite executive model and 2 in
+    # the warehouse model.
+    assert report.model_fields_with_properties == 23
     assert report.rls_filters_unresolved == 0
     with open(output_path) as f:
         mcps = json.load(f)
@@ -642,8 +648,8 @@ def test_workspace_apis_ingest_with_enrichment(
     assert report.datasets_not_refreshable == 0
     assert report.refresh_schedule_fetched == 1
     assert report.refresh_schedule_not_supported == 0
-    # The DirectLake and the composite model have no schedule.
-    assert report.refresh_schedule_not_configured == 2
+    # The DirectLake, composite and warehouse models have no schedule.
+    assert report.refresh_schedule_not_configured == 3
     assert report.refresh_schedule_failed == 0
     # One report-level, one page-level and two visual-level filters.
     assert report.report_filters_parsed == 4
@@ -845,7 +851,8 @@ def test_forbidden_model_fails_run_but_keeps_other_models(
     report = pipeline.source.get_report()
     assert isinstance(report, PowerBiDashboardSourceReport)
     assert report.fabric_definitions_failed == 1
-    assert report.fabric_definitions_fetched == 2  # import + warehouse models
+    # import + warehouse models, plus the second workspace's composite model
+    assert report.fabric_definitions_fetched == 3
     # A 403 zeroes out that model's tables, so the run is red, not green.
     assert [f.title for f in report.failures] == ["Fabric API Permission Denied"]
 
