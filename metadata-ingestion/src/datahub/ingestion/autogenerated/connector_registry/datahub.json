@@ -3686,7 +3686,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default, configured using `extract_column_level_lineage`.",
+          "description": "Enabled by default, configured using `extract_column_level_lineage`. In `metadata_api_mode: workspace_apis`, `extract_report_field_usage` adds the model fields each report page reads as `inputFields` on the page chart, and `extract_report_visuals` emits every visual as its own chart with the fields it reads.",
           "subtype_modifier": null,
           "supported": true
         },

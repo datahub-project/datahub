@@ -52,6 +52,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     RlsTableFilter,
     Table,
     User,
+    Visual,
     Workspace,
     new_powerbi_dashboards,
     new_powerbi_dataset,
@@ -1387,14 +1388,14 @@ class PowerBiAPI:
             self.reporter.report_definition_parts_failed += len(failed_parts)
             self.reporter.warning(
                 title="Report Definition Part Not Parsed",
-                message="Some parts of the report definition were not valid JSON; the visuals they describe are missing from the page's inputFields.",
+                message="Some parts of the report definition were not valid JSON; the visuals they describe are missing from the page's inputFields and are not emitted as visual charts.",
                 context=f"{context}, parts={failed_parts}",
             )
         if parsed.failed_filters:
             self.reporter.report_filters_failed += len(parsed.failed_filters)
             self.reporter.warning(
                 title="Report Filter Not Parsed",
-                message="Some report or page filters in the report definition could not be read; they are missing from the `filters` properties and the page's inputFields.",
+                message="Some report, page or visual filters in the report definition could not be read; they are missing from the `filters` properties and the chart's inputFields.",
                 context=f"{context}, filters={parsed.failed_filters}",
             )
         report.filters = parsed.filters
@@ -1416,6 +1417,33 @@ class PowerBiAPI:
             page.filters = parsed_page.filters
             self.reporter.report_filters_parsed += len(parsed_page.filters)
             page.field_references = parsed.page_field_refs(parsed_page)
+            if self.__config.extract_report_visuals:
+                page.visuals = self._visuals_of(parsed_page)
+
+    def _visuals_of(self, parsed_page: ParsedPage) -> List[Visual]:
+        """Visuals that can be emitted as charts: those whose definition parsed
+        and that carry a stable name (a chart URN needs one). The ones left out
+        are already covered by the part-failure warning."""
+        visuals: List[Visual] = []
+        for parsed_visual in parsed_page.visuals:
+            if parsed_visual.definition_failed or not parsed_visual.name:
+                logger.debug(
+                    "Visual %r on page %s skipped: unparsed definition or no name",
+                    parsed_visual.name,
+                    parsed_page.name,
+                )
+                continue
+            self.reporter.report_filters_parsed += len(parsed_visual.filters)
+            visuals.append(
+                Visual(
+                    name=parsed_visual.name,
+                    title=parsed_visual.title,
+                    visual_type=parsed_visual.visual_type,
+                    field_references=list(parsed_visual.fields),
+                    filters=parsed_visual.filters,
+                )
+            )
+        return visuals
 
     def _fabric_artifacts_from_items(
         self, workspace: Workspace, items: List[FabricItem]

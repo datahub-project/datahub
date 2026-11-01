@@ -459,6 +459,7 @@ def test_workspace_apis_ingest_with_enrichment(
         workspace_apis_source_config(
             extract_model_relationships=True,
             extract_report_field_usage=True,
+            extract_report_visuals=True,
             extract_refresh_history=True,
             extract_dax_reference_lineage=True,
             extract_model_properties=True,
@@ -508,10 +509,12 @@ def test_workspace_apis_ingest_with_enrichment(
     # The role file's member is an identity and must never reach the sink.
     assert "regional-managers" not in json.dumps(mcps)
     assert report.report_definitions_parsed == 1
-    # Four visual fields plus the two filter targets resolve; the fixture's
-    # `NotInModel[Ghost]` does not.
-    assert report.report_field_references_resolved == 6
-    assert report.report_field_references_unresolved == 1
+    # The page resolves six distinct fields (visuals, visual filters and the
+    # report/page filter targets, deduplicated); the four visual charts resolve
+    # their own fields again (1 + 3 + 1 + 3); the fixture's `NotInModel[Ghost]`
+    # fails on the page and on its visual.
+    assert report.report_field_references_resolved == 14
+    assert report.report_field_references_unresolved == 2
     assert report.refresh_history_fetched == 3
     # Only the fixture's `'Budget'[Amount]` points outside the model; it is
     # counted once although its dataset is mapped twice (workspace, report).
@@ -560,9 +563,11 @@ def test_workspace_apis_ingest_with_enrichment(
     # The DirectLake and the composite model have no schedule.
     assert report.refresh_schedule_not_configured == 2
     assert report.refresh_schedule_failed == 0
-    # One report-level and one page-level filter.
-    assert report.report_filters_parsed == 2
+    # One report-level, one page-level and two visual-level filters.
+    assert report.report_filters_parsed == 4
     assert report.report_filters_failed == 0
+    assert report.report_visuals_emitted == 4
+    assert report.report_visuals_without_fields == 0
 
     # The admin Scanner API must never be called in this mode.
     assert not any(
@@ -605,9 +610,14 @@ def test_workspace_apis_enrichment_flags_off(
     output_path = f"{tmp_path}/powerbi_workspace_apis_flags_off_mces.json"
 
     with open(output_path) as f:
-        aspects = {mcp["aspectName"] for mcp in json.load(f) if "aspectName" in mcp}
+        mcps = json.load(f)
+    aspects = {mcp["aspectName"] for mcp in mcps if "aspectName" in mcp}
     assert "inputFields" not in aspects
     assert "operation" not in aspects
+    # Without extract_report_visuals only page charts exist, no visual charts.
+    chart_urns = {mcp["entityUrn"] for mcp in mcps if mcp.get("entityType") == "chart"}
+    assert chart_urns
+    assert not any("visuals." in urn for urn in chart_urns)
     with open(output_path) as f:
         schemas = [
             mcp["aspect"]["json"]

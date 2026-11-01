@@ -983,6 +983,85 @@ def test_report_definition_parser_crash_is_a_warning_for_that_report_only() -> N
     assert not api.reporter.failures
 
 
+def test_visuals_are_attached_to_pages_only_with_the_flag_and_only_when_parsed() -> (
+    None
+):
+    good = json.dumps(
+        {
+            "name": "v1",
+            "visual": {
+                "visualType": "card",
+                "query": {
+                    "queryState": {
+                        "Values": {
+                            "projections": [
+                                {"field": _column_ref("Policies", "WrittenPremium")}
+                            ]
+                        }
+                    }
+                },
+            },
+            "filterConfig": {"filters": [{"field": _column_ref("Policies", "State")}]},
+        }
+    )
+    page_part = json.dumps({"name": "p1", "displayName": "Overview"})
+    definition = ItemDefinition(
+        format="PBIR",
+        parts=[
+            DefinitionPart("definition/pages/p1/page.json", page_part),
+            DefinitionPart("definition/pages/p1/visuals/v1/visual.json", good),
+            DefinitionPart("definition/pages/p1/visuals/v2/visual.json", "{bad"),
+        ],
+    )
+
+    def fill(extract_report_visuals: bool) -> Page:
+        api = _api(
+            definitions={"r1": definition},
+            config=_config(
+                extract_report_field_usage=True,
+                extract_report_visuals=extract_report_visuals,
+            ),
+        )
+        page = Page(id="r1.p1", displayName="Overview", name="p1", order=0)
+        report = Report(
+            id="r1",
+            name="Loss Report",
+            type=ReportType.PowerBIReport,
+            webUrl=None,
+            embedUrl=None,
+            description="",
+            dataset_id=MODEL_A,
+            dataset=None,
+            pages=[page],
+            users=[],
+            tags=[],
+        )
+        api._fill_report_field_usage(_workspace(), report)
+        assert [w.title for w in api.reporter.warnings] == [
+            "Report Definition Part Not Parsed"
+        ]
+        assert api.reporter.report_filters_parsed == (
+            1 if extract_report_visuals else 0
+        )
+        return page
+
+    off = fill(extract_report_visuals=False)
+    assert off.visuals == []
+    assert off.visual_count == 2
+
+    on = fill(extract_report_visuals=True)
+    # The unparsed visual is counted on the page but gets no chart.
+    assert on.visual_count == 2
+    assert [v.name for v in on.visuals] == ["v1"]
+    visual = on.visuals[0]
+    assert visual.visual_type == "card"
+    assert visual.field_references == [
+        PageFieldReference("Policies", "WrittenPremium", "column"),
+        PageFieldReference("Policies", "State", "column"),
+    ]
+    assert [f.scope for f in visual.filters] == ["visual"]
+
+
 # --- workspace users as ownership -------------------------------------------
 
 

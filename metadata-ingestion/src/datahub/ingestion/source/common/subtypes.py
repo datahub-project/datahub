@@ -179,6 +179,7 @@ class BIAssetSubTypes(StrEnum):
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
+    POWERBI_VISUAL = "PowerBI Visual"
     POWERBI_APP = "App"
     POWERBI_PAGINATED_REPORT = "PaginatedReport"
 
