@@ -1,0 +1,11 @@
+expression 'DirectQuery to AS - Insurance Model' =
+		let
+		    Source = AnalysisServices.Database("powerbi://api.powerbi.com/v1.0/myorg/demo-workspace", "Insurance Model"),
+		    Cubes = Table.Combine(Source[Data]),
+		    Cube = Cubes{[Id="Model"]}[Data]
+		in
+		    Cube
+	lineageTag: 00000020-1111-4222-8333-000000000020
+	queryGroup: 'Remote models'
+
+	annotation PBI_IncludeFutureArtifacts = False

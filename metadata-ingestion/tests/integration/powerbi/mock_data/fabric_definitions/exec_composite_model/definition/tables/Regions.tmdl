@@ -1,0 +1,17 @@
+/// Remote table whose source table does not exist in the ingested model.
+table Regions
+	lineageTag: 00000026-1111-4222-8333-000000000026
+	sourceLineageTag: Regions
+
+	column RegionCode
+		dataType: string
+		lineageTag: 00000027-1111-4222-8333-000000000027
+		sourceLineageTag: RegionCode
+		summarizeBy: none
+		sourceColumn: RegionCode
+
+	partition Regions = entity
+		mode: directQuery
+		source
+			entityName: Regions
+			expressionSource: 'DirectQuery to AS - Insurance Model'

@@ -20,9 +20,11 @@ def test_workspace_apis_mode_accepts_lowercase_and_enrichment_flags() -> None:
             "extract_report_field_usage": True,
             "extract_refresh_history": True,
             "extract_dax_reference_lineage": True,
+            "extract_composite_model_lineage": True,
         }
     )
     assert config.metadata_api_mode == PowerBiMetadataApiMode.WORKSPACE_APIS
+    assert config.extract_composite_model_lineage
     assert config.extract_model_relationships
     assert config.extract_report_field_usage
     assert config.extract_refresh_history
@@ -112,6 +114,11 @@ def test_workspace_apis_rejects_admin_only_features(
             id="model_properties_need_mode",
         ),
         pytest.param(
+            {"extract_composite_model_lineage": True},
+            "requires metadata_api_mode: workspace_apis",
+            id="composite_lineage_needs_mode",
+        ),
+        pytest.param(
             {
                 "metadata_api_mode": "workspace_apis",
                 "extract_model_properties": True,
@@ -120,6 +127,15 @@ def test_workspace_apis_rejects_admin_only_features(
             },
             "extract_dataset_schema",
             id="model_properties_need_schema",
+        ),
+        pytest.param(
+            {
+                "metadata_api_mode": "workspace_apis",
+                "extract_composite_model_lineage": True,
+                "extract_lineage": False,
+            },
+            "extract_lineage",
+            id="composite_lineage_needs_lineage",
         ),
     ],
 )

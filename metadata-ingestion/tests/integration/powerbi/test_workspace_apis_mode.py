@@ -38,6 +38,10 @@ DIRECTLAKE_MODEL_ID = "7A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D"
 LAKEHOUSE_ID = "3C4D5E6F-7A8B-4C9D-8E0F-1A2B3C4D5E6F"
 SQL_ENDPOINT_ID = "6F2E7D8C-9B0A-4C1D-8E2F-3A4B5C6D7E8F"
 REPORT_ID = "584cf13a-1485-41c2-a514-b1bb66fff163"
+# Second workspace of the default group listing; it hosts a composite model
+# whose remote tables read the first workspace's Insurance Model.
+SECOND_WORKSPACE_ID = "64ED5CAD-7C22-4684-8180-826122881108"
+COMPOSITE_MODEL_ID = "8B2C3D4E-5F6A-4B7C-9D8E-0F1A2B3C4D5E"
 
 PBI = "https://api.powerbi.com/v1.0/myorg"
 FABRIC = "https://api.fabric.microsoft.com/v1"
@@ -248,7 +252,86 @@ def workspace_apis_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
             "status_code": 200,
             "json": definition_response(fixtures / "directlake_model", "TMDL"),
         },
+        **second_workspace_mock_data(fixtures),
     }
+
+
+def second_workspace_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
+    return {
+        f"{PBI}/groups/{SECOND_WORKSPACE_ID}/datasets": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "id": COMPOSITE_MODEL_ID,
+                        "name": "Exec Composite Model",
+                        "description": "Composite model over the Insurance Model",
+                        "configuredBy": "User2@foo.com",
+                    }
+                ]
+            },
+        },
+        f"{PBI}/groups/{SECOND_WORKSPACE_ID}/datasets/{COMPOSITE_MODEL_ID}/parameters": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"value": []},
+        },
+        f"{PBI}/groups/{SECOND_WORKSPACE_ID}/datasets/{COMPOSITE_MODEL_ID}/refreshes": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"value": []},
+        },
+        f"{PBI}/groups/{SECOND_WORKSPACE_ID}/users": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "groupUserAccessRight": "Admin",
+                        "displayName": "user2",
+                        "emailAddress": "User2@foo.com",
+                        "identifier": "User2@foo.com",
+                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3REE2",
+                        "principalType": "User",
+                    }
+                ]
+            },
+        },
+        f"{PBI}/groups/{SECOND_WORKSPACE_ID}/reports": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"value": []},
+        },
+        f"{FABRIC}/workspaces/{SECOND_WORKSPACE_ID}/items": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "value": [
+                    {
+                        "id": COMPOSITE_MODEL_ID,
+                        "type": "SemanticModel",
+                        "displayName": "Exec Composite Model",
+                        "workspaceId": SECOND_WORKSPACE_ID,
+                    }
+                ]
+            },
+        },
+        f"{FABRIC}/workspaces/{SECOND_WORKSPACE_ID}/semanticModels/{COMPOSITE_MODEL_ID}/getDefinition": {
+            "method": "POST",
+            "status_code": 200,
+            "json": definition_response(fixtures / "exec_composite_model", "TMDL"),
+        },
+    }
+
+
+def _upstream_lineages(output_path: str) -> Dict[str, Dict[str, Any]]:
+    with open(output_path) as f:
+        return {
+            mcp["entityUrn"]: mcp["aspect"]["json"]
+            for mcp in json.load(f)
+            if mcp.get("aspectName") == "upstreamLineage"
+        }
 
 
 def register_lro_mocks(requests_mock: Any) -> None:
@@ -277,6 +360,7 @@ def workspace_apis_source_config(**overrides: Any) -> Dict[str, Any]:
     config.update(
         {
             "metadata_api_mode": "workspace_apis",
+            "workspace_id_pattern": {"allow": [WORKSPACE_ID, SECOND_WORKSPACE_ID]},
             "extract_reports": True,
             "extract_lineage": True,
             "extract_column_level_lineage": True,
@@ -348,6 +432,7 @@ def test_workspace_apis_ingest_with_enrichment(
             extract_refresh_history=True,
             extract_dax_reference_lineage=True,
             extract_model_properties=True,
+            extract_composite_model_lineage=True,
         ),
     )
     pipeline.raise_from_status()
@@ -355,9 +440,9 @@ def test_workspace_apis_ingest_with_enrichment(
 
     report = pipeline.source.get_report()
     assert isinstance(report, PowerBiDashboardSourceReport)
-    assert report.fabric_definitions_fetched == 3  # two models + one report
+    assert report.fabric_definitions_fetched == 4  # three models + one report
     assert report.fabric_definitions_failed == 0
-    assert report.tmdl_tables_parsed == 5
+    assert report.tmdl_tables_parsed == 8
     assert report.relationships_parsed == 2
     # One role file in the insurance model; the DirectLake model has none.
     assert report.rls_roles_parsed == 1
@@ -365,8 +450,9 @@ def test_workspace_apis_ingest_with_enrichment(
     # The insurance model's two parameters; the DirectLake model has none.
     assert report.dataset_parameters_emitted == 2
     # Fields with at least one non-default property; `summarizeBy: none` and
-    # bare calculated columns do not count.
-    assert report.model_fields_with_properties == 15
+    # bare calculated columns do not count. 15 in the insurance model plus 5 in
+    # the composite executive model.
+    assert report.model_fields_with_properties == 20
     assert report.rls_filters_unresolved == 0
     with open(output_path) as f:
         mcps = json.load(f)
@@ -395,11 +481,46 @@ def test_workspace_apis_ingest_with_enrichment(
     # Four visual fields resolve; the fixture's `NotInModel[Ghost]` does not.
     assert report.report_field_references_resolved == 4
     assert report.report_field_references_unresolved == 1
-    assert report.refresh_history_fetched == 2
+    assert report.refresh_history_fetched == 3
     # Only the fixture's `'Budget'[Amount]` points outside the model; it is
     # counted once although its dataset is mapped twice (workspace, report).
     assert report.dax_references_unresolved == 1
     assert Constant.DAX_REFERENCE_NOT_RESOLVED in [w.title for w in report.warnings]
+    # The composite model's Policies resolves to the Insurance Model across
+    # workspaces; its Regions has no such table there and gets no edge.
+    assert report.composite_model_sources_resolved == 1
+    assert report.composite_model_sources_not_ingested == 1
+    assert report.composite_model_tables_linked == 1
+    assert Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED in [
+        w.title for w in report.warnings
+    ]
+    lineages = _upstream_lineages(output_path)
+    remote_policies = (
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Exec_Composite_Model.Policies,DEV)"
+    )
+    source_policies = (
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
+    )
+    assert [u["dataset"] for u in lineages[remote_policies]["upstreams"]] == [
+        source_policies
+    ]
+    # The mirrored columns map one-to-one onto the source table's columns; the
+    # calculated PremiumInThousands only has its DAX edge within this table.
+    assert {
+        (edge["downstreams"][0], edge["upstreams"][0])
+        for edge in lineages[remote_policies]["fineGrainedLineages"]
+        if source_policies in edge["upstreams"][0]
+    } == {
+        (
+            make_schema_field_urn(remote_policies, column),
+            make_schema_field_urn(source_policies, column),
+        )
+        for column in ("PolicyId", "State", "WrittenPremium")
+    }
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:powerbi,Exec_Composite_Model.Regions,DEV)"
+        not in lineages
+    )
 
     # The admin Scanner API must never be called in this mode.
     assert not any(
@@ -491,6 +612,16 @@ def test_workspace_apis_enrichment_flags_off(
         request.url.endswith(f"/reports/{REPORT_ID}/getDefinition")
         for request in requests_mock.request_history
     )
+    # Without extract_composite_model_lineage the composite model's remote
+    # tables are plain tables: no edge to the Insurance Model, no warning.
+    lineage_urns = {urn for urn, _ in lineages}
+    assert not any("Exec_Composite_Model.Policies" in urn for urn in lineage_urns)
+    report = pipeline.source.get_report()
+    assert isinstance(report, PowerBiDashboardSourceReport)
+    assert report.composite_model_sources_not_ingested == 0
+    assert Constant.COMPOSITE_MODEL_SOURCE_NOT_INGESTED not in [
+        w.title for w in report.warnings
+    ]
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -526,7 +657,7 @@ def test_forbidden_model_fails_run_but_keeps_other_models(
     report = pipeline.source.get_report()
     assert isinstance(report, PowerBiDashboardSourceReport)
     assert report.fabric_definitions_failed == 1
-    assert report.fabric_definitions_fetched == 1
+    assert report.fabric_definitions_fetched == 2
     # A 403 zeroes out that model's tables, so the run is red, not green.
     assert [f.title for f in report.failures] == ["Fabric API Permission Denied"]
 
