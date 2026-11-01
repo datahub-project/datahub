@@ -71,6 +71,11 @@ class ReferencedTable:
 class DataPlatformTable:
     data_platform_pair: DataPlatformPair
     urn: str
+    # Set when the mapper swapped an mssql edge for the OneLake table behind
+    # a Fabric SQL analytics endpoint; such an edge is kept even when
+    # dataset_type_mapping was narrowed, like DirectLake lineage, so a
+    # narrowed mapping never turns an existing edge into none.
+    from_fabric_endpoint: bool = False
 
 
 @dataclass(frozen=True)
