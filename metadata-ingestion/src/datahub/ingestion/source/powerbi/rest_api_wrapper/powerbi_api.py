@@ -44,6 +44,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Dashboard,
     FabricArtifact,
     Measure,
+    Page,
     PowerBIDataset,
     RemoteModelMatch,
     RemoteModelReference,
@@ -1395,8 +1396,19 @@ class PowerBiAPI:
             self.reporter.report_filters_failed += len(parsed.failed_filters)
             self.reporter.warning(
                 title="Report Filter Not Parsed",
-                message="Some report, page or visual filters in the report definition could not be read; they are missing from the `filters` properties and the chart's inputFields.",
+                message="Some report or page filters in the report definition could not be read; they are missing from the `filters` properties and the page's inputFields.",
                 context=f"{context}, filters={parsed.failed_filters}",
+            )
+        # Visual-level filters only surface on visual charts, so their
+        # failures are only worth a warning when those are emitted.
+        if parsed.failed_visual_filters and self.__config.extract_report_visuals:
+            self.reporter.report_visual_filters_failed += len(
+                parsed.failed_visual_filters
+            )
+            self.reporter.warning(
+                title="Report Visual Filter Not Parsed",
+                message="Some visual-level filters in the report definition could not be read; they are missing from the visual chart's `filters` property.",
+                context=f"{context}, filters={parsed.failed_visual_filters}",
             )
         report.filters = parsed.filters
         self.reporter.report_filters_parsed += len(parsed.filters)
@@ -1418,25 +1430,47 @@ class PowerBiAPI:
             self.reporter.report_filters_parsed += len(parsed_page.filters)
             page.field_references = parsed.page_field_refs(parsed_page)
             if self.__config.extract_report_visuals:
-                page.visuals = self._visuals_of(parsed_page)
+                page.visuals = self._visuals_of(page, parsed_page, context)
 
-    def _visuals_of(self, parsed_page: ParsedPage) -> List[Visual]:
-        """Visuals that can be emitted as charts: those whose definition parsed
-        and that carry a stable name (a chart URN needs one). The ones left out
-        are already covered by the part-failure warning."""
+    def _visuals_of(
+        self, page: Page, parsed_page: ParsedPage, context: str
+    ) -> List[Visual]:
+        """Visuals that can be emitted as charts: those whose definition parsed,
+        that are not a visual group, and whose name is present and unique on
+        the page (the name keys the chart URN). Unparsed definitions are
+        already covered by the part-failure warning."""
         visuals: List[Visual] = []
-        for parsed_visual in parsed_page.visuals:
-            if parsed_visual.definition_failed or not parsed_visual.name:
-                logger.debug(
-                    "Visual %r on page %s skipped: unparsed definition or no name",
-                    parsed_visual.name,
-                    parsed_page.name,
+        seen: Set[str] = set()
+        for index, parsed_visual in enumerate(parsed_page.visuals):
+            page_context = f"{context}, page={page.name}, visual_index={index}"
+            if parsed_visual.definition_failed:
+                continue
+            if parsed_visual.is_group:
+                self.reporter.report_visual_groups_skipped += 1
+                logger.debug("Visual group skipped (%s)", page_context)
+                continue
+            if not parsed_visual.name:
+                self.reporter.report_visuals_skipped_unnamed += 1
+                self.reporter.warning(
+                    title="Report Visual Without Name",
+                    message="A visual in the report definition has no name, which the chart URN needs; it is not emitted as a visual chart.",
+                    context=page_context,
                 )
                 continue
+            if parsed_visual.name in seen:
+                self.reporter.report_visuals_duplicate_name += 1
+                self.reporter.warning(
+                    title="Report Visual Name Duplicated",
+                    message="Two visuals on the same page share a name; only the first is emitted as a visual chart.",
+                    context=f"{page_context}, visual={parsed_visual.name}",
+                )
+                continue
+            seen.add(parsed_visual.name)
             self.reporter.report_filters_parsed += len(parsed_visual.filters)
             visuals.append(
                 Visual(
                     name=parsed_visual.name,
+                    page_id=page.id,
                     title=parsed_visual.title,
                     visual_type=parsed_visual.visual_type,
                     field_references=list(parsed_visual.fields),

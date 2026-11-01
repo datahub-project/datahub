@@ -1,7 +1,7 @@
 """Mapper behaviour added for metadata_api_mode: workspace_apis."""
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
@@ -1516,7 +1516,7 @@ def test_filters_become_custom_properties_on_page_chart_and_report_dashboard() -
     assert mapper._Mapper__reporter.report_filters_truncated == 3  # type: ignore[attr-defined]
 
 
-def _report_with_visuals(dataset: PowerBIDataset) -> Report:
+def _report_with_visuals(dataset: PowerBIDataset, with_visuals: bool = True) -> Report:
     state = PageFieldReference("Policies", "State", "column")
     status = PageFieldReference("Claims", "Status", "column")
     visual_filter = ReportFilter(
@@ -1527,30 +1527,33 @@ def _report_with_visuals(dataset: PowerBIDataset) -> Report:
         fields=[status],
         condition='In ["Open"]',
     )
+    visuals = [
+        Visual(
+            name="v-bar",
+            page_id="r1.p1",
+            title="Policies by State",
+            visual_type="clusteredBarChart",
+            field_references=[state, status],
+            filters=[visual_filter],
+        ),
+        Visual(
+            name="v-card",
+            page_id="r1.p1",
+            visual_type="card",
+            field_references=[PageFieldReference("Other", "Gone", "column")],
+        ),
+        Visual(name="v-text", page_id="r1.p1", visual_type="textbox"),
+        Visual(name="v-custom", page_id="r1.p1"),
+    ]
     page = Page(
         id="r1.p1",
         displayName="Overview",
         name="p1",
         order=0,
         field_references=[state, status],
-        visual_count=3,
-        visual_types=["card", "clusteredBarChart"],
-        visuals=[
-            Visual(
-                name="v-bar",
-                title="Policies by State",
-                visual_type="clusteredBarChart",
-                field_references=[state, status],
-                filters=[visual_filter],
-            ),
-            Visual(
-                name="v-card",
-                title=None,
-                visual_type="card",
-                field_references=[PageFieldReference("Other", "Gone", "column")],
-            ),
-            Visual(name="v-custom", title=None, visual_type=None),
-        ],
+        visual_count=4,
+        visual_types=["card", "clusteredBarChart", "textbox"],
+        visuals=visuals if with_visuals else [],
     )
     return Report(
         id="r1",
@@ -1573,10 +1576,19 @@ def _aspects_of(mcps: List[Any], urn: str) -> Dict[str, Any]:
     }
 
 
-def test_visuals_become_charts_under_the_report_when_enabled() -> None:
+PAGE_URN = "urn:li:chart:(powerbi,prod.pages.r1.p1)"
+BAR_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-bar)"
+CARD_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-card)"
+TEXT_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-text)"
+CUSTOM_URN = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-custom)"
+
+
+def _visual_charts(
+    extract_report_visuals: bool = True,
+) -> Tuple[Mapper, Report, Workspace, List[Any]]:
     config = _config(
         extract_report_field_usage=True,
-        extract_report_visuals=True,
+        extract_report_visuals=extract_report_visuals,
         platform_instance="prod",
     )
     mapper = _mapper(config)
@@ -1586,26 +1598,34 @@ def test_visuals_become_charts_under_the_report_when_enabled() -> None:
         name="Policies", full_name="Model.Policies", columns=[_column("State")]
     )
     claims = Table(name="Claims", full_name="Model.Claims", columns=[_column("Status")])
-    dataset = _dataset([policies, claims])
-    report = _report_with_visuals(dataset)
-
+    report = _report_with_visuals(_dataset([policies, claims]))
     chart_mcps = mapper.pages_to_chart(
         report.pages, workspace=workspace, ds_mcps=[], report=report
     )
+    return mapper, report, workspace, chart_mcps
 
-    page_urn = "urn:li:chart:(powerbi,prod.pages.r1.p1)"
-    bar_urn = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-bar)"
-    card_urn = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-card)"
-    custom_urn = "urn:li:chart:(powerbi,prod.visuals.r1.p1.v-custom)"
+
+def test_visual_chart_urns_and_page_chart_are_emitted_together() -> None:
+    mapper, _, _, chart_mcps = _visual_charts()
     assert {mcp.entityUrn for mcp in chart_mcps} == {
-        page_urn,
-        bar_urn,
-        card_urn,
-        custom_urn,
+        PAGE_URN,
+        BAR_URN,
+        CARD_URN,
+        TEXT_URN,
+        CUSTOM_URN,
     }
+    # The page chart keeps its own shape.
+    page_info = _aspects_of(chart_mcps, PAGE_URN)["ChartInfoClass"]
+    assert page_info.customProperties["visualCount"] == "4"
+    assert "visualName" not in page_info.customProperties
+    assert [
+        e.urn for e in _aspects_of(chart_mcps, PAGE_URN)["BrowsePathsV2Class"].path
+    ][-1] == mapper.make_dashboard_urn_for_report(_report_with_visuals(_dataset([])))
 
-    bar = _aspects_of(chart_mcps, bar_urn)
-    info = bar["ChartInfoClass"]
+
+def test_visual_chart_info_title_url_type_and_filters() -> None:
+    _, _, _, chart_mcps = _visual_charts()
+    info = _aspects_of(chart_mcps, BAR_URN)["ChartInfoClass"]
     assert info.title == "Policies by State"
     assert info.chartUrl == "https://app.powerbi.com/groups/ws-1/reports/r1/p1"
     assert info.type == ChartTypeClass.BAR
@@ -1622,63 +1642,83 @@ def test_visuals_become_charts_under_the_report_when_enabled() -> None:
             "condition": 'In ["Open"]',
         }
     ]
+    # No title: the fallback names the visual type and page; no mapped chart
+    # type leaves `type` unset but keeps the raw visualType.
+    card = _aspects_of(chart_mcps, CARD_URN)["ChartInfoClass"]
+    assert card.title == "card on Overview"
+    assert card.type is None
+    assert card.customProperties["visualType"] == "card"
+    custom = _aspects_of(chart_mcps, CUSTOM_URN)["ChartInfoClass"]
+    assert custom.title == "Visual on Overview"
+    assert "visualType" not in custom.customProperties
+
+
+def test_visual_chart_subtype_container_and_browse_path_under_page() -> None:
+    mapper, report, workspace, chart_mcps = _visual_charts()
+    bar = _aspects_of(chart_mcps, BAR_URN)
     assert bar["SubTypesClass"].typeNames == [BIAssetSubTypes.POWERBI_VISUAL]
     assert bar["ContainerClass"].container == mapper.workspace_key.as_urn()
-    assert [entry.urn for entry in bar["BrowsePathsV2Class"].path] == [
-        mapper.make_container_urn_for_workspace(workspace),
-        mapper.make_dashboard_urn_for_report(report),
+    assert [(entry.id, entry.urn) for entry in bar["BrowsePathsV2Class"].path] == [
+        (workspace.name, mapper.make_container_urn_for_workspace(workspace)),
+        (report.name, mapper.make_dashboard_urn_for_report(report)),
+        ("Overview", PAGE_URN),
     ]
+
+
+def test_visual_chart_input_fields_and_counters() -> None:
+    mapper, report, _, chart_mcps = _visual_charts()
+    assert report.dataset is not None
+    policies, claims = report.dataset.tables
+    bar = _aspects_of(chart_mcps, BAR_URN)
     assert [f.schemaFieldUrn for f in bar["InputFieldsClass"].fields] == [
         f"urn:li:schemaField:({_urn(mapper, policies)},State)",
         f"urn:li:schemaField:({_urn(mapper, claims)},Status)",
     ]
-
-    # No title: the fallback names the visual type and page; an unresolved
-    # field leaves the chart without inputFields but still emitted.
-    card = _aspects_of(chart_mcps, card_urn)
-    assert card["ChartInfoClass"].title == "card on Overview"
-    assert card["ChartInfoClass"].type is None
-    assert "InputFieldsClass" not in card
-    custom = _aspects_of(chart_mcps, custom_urn)
-    assert custom["ChartInfoClass"].title == "Visual on Overview"
-    assert "visualType" not in custom["ChartInfoClass"].customProperties
-
-    # The page chart keeps its own shape.
-    page_info = _aspects_of(chart_mcps, page_urn)["ChartInfoClass"]
-    assert page_info.customProperties["visualCount"] == "3"
-    assert "visualName" not in page_info.customProperties
+    # An unresolved field leaves the chart without inputFields but still
+    # emitted; a text box reads nothing at all.
+    assert "InputFieldsClass" not in _aspects_of(chart_mcps, CARD_URN)
+    assert "InputFieldsClass" not in _aspects_of(chart_mcps, TEXT_URN)
 
     reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
-    assert reporter.report_visuals_emitted == 3
+    assert reporter.report_visuals_emitted == 4
     assert reporter.report_visuals_without_fields == 2
+    assert reporter.report_visuals_fields_unresolved == 1
+    assert reporter.report_visual_field_references_resolved == 2
+    assert reporter.report_visual_field_references_unresolved == 1
+    # The page pass keeps its own counters, no double counting.
+    assert reporter.report_field_references_resolved == 2
+    assert reporter.report_field_references_unresolved == 0
 
-    dashboard_mcps = mapper.report_to_dashboard(
-        workspace=workspace,
-        report=report,
-        chart_mcps=chart_mcps,
-        user_mcps=[],
-        dataset_edges=[],
-    )
-    dashboard_info = next(
-        mcp.aspect
-        for mcp in dashboard_mcps
-        if isinstance(mcp.aspect, DashboardInfoClass)
-    )
-    assert dashboard_info.charts == [page_urn, bar_urn, card_urn, custom_urn]
+
+def test_visual_charts_are_listed_on_the_dashboard_and_dropped_when_flag_off() -> None:
+    def dashboard_charts(extract_report_visuals: bool) -> List[str]:
+        mapper, report, workspace, chart_mcps = _visual_charts(extract_report_visuals)
+        dashboard_mcps = mapper.report_to_dashboard(
+            workspace=workspace,
+            report=report,
+            chart_mcps=chart_mcps,
+            user_mcps=[],
+            dataset_edges=[],
+        )
+        info = next(
+            mcp.aspect
+            for mcp in dashboard_mcps
+            if isinstance(mcp.aspect, DashboardInfoClass)
+        )
+        return info.charts
+
+    assert dashboard_charts(True) == [
+        PAGE_URN,
+        BAR_URN,
+        CARD_URN,
+        TEXT_URN,
+        CUSTOM_URN,
+    ]
+    # A later run with the flag off rewrites the (non-patched) chart list.
+    assert dashboard_charts(False) == [PAGE_URN]
 
 
 def test_visuals_are_not_emitted_when_flag_is_off() -> None:
-    mapper = _mapper(_config(extract_report_field_usage=True))
-    policies = Table(
-        name="Policies", full_name="Model.Policies", columns=[_column("State")]
-    )
-    report = _report_with_visuals(_dataset([policies]))
-
-    chart_mcps = mapper.pages_to_chart(
-        report.pages, workspace=_workspace(), ds_mcps=[], report=report
-    )
-
-    assert {mcp.entityUrn for mcp in chart_mcps} == {
-        "urn:li:chart:(powerbi,pages.r1.p1)"
-    }
+    mapper, _, _, chart_mcps = _visual_charts(extract_report_visuals=False)
+    assert {mcp.entityUrn for mcp in chart_mcps} == {PAGE_URN}
     assert mapper._Mapper__reporter.report_visuals_emitted == 0  # type: ignore[attr-defined]

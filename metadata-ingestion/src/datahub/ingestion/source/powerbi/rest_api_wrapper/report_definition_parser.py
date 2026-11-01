@@ -34,6 +34,8 @@ KEY_VISUAL_CONTAINERS = "visualContainers"
 KEY_CONFIG = "config"
 KEY_FILTERS = "filters"
 KEY_SINGLE_VISUAL = "singleVisual"
+KEY_SINGLE_VISUAL_GROUP = "singleVisualGroup"
+KEY_VISUAL_GROUP = "visualGroup"
 KEY_PROTOTYPE_QUERY = "prototypeQuery"
 KEY_VISUAL_TYPE = "visualType"
 KEY_NAME = "name"
@@ -139,6 +141,9 @@ class ParsedVisual:
     # True when the visual's definition (its part, or its legacy `config`
     # string) was not valid JSON; nothing but its position is known then.
     definition_failed: bool = False
+    # True for a visual group (a container that only arranges other visuals):
+    # it reads no fields and is not a chart of its own.
+    is_group: bool = False
 
 
 def _ordered_unique(refs: List[PageFieldReference]) -> List[PageFieldReference]:
@@ -179,6 +184,9 @@ class ParsedReportDefinition:
     # Filter blocks (a report's, a page's, or one filter in it) that could not
     # be read; the remaining filters and the page itself still parse.
     failed_filters: List[str] = field(default_factory=list)
+    # The same for visual-level filters, kept apart because they only matter
+    # to callers that emit visuals.
+    failed_visual_filters: List[str] = field(default_factory=list)
 
     def page_by_display_name(self, display_name: str) -> Optional[ParsedPage]:
         for page in self.pages.values():
@@ -556,7 +564,7 @@ def _pbir_filters(
     doc: Dict[str, JsonNode],
     scope: FilterScope,
     label: str,
-    parsed: ParsedReportDefinition,
+    failed: List[str],
 ) -> List[ReportFilter]:
     """PBIR filters sit under ``filterConfig.filters`` of a report, page or
     visual document."""
@@ -564,11 +572,9 @@ def _pbir_filters(
     if filter_config is None:
         return []
     if not isinstance(filter_config, dict):
-        parsed.failed_filters.append(label)
+        failed.append(label)
         return []
-    return parse_filters(
-        filter_config.get(KEY_FILTERS), scope, label, parsed.failed_filters
-    )
+    return parse_filters(filter_config.get(KEY_FILTERS), scope, label, failed)
 
 
 def _parse_legacy(report_json: str) -> ParsedReportDefinition:
@@ -591,6 +597,9 @@ def _parse_legacy(report_json: str) -> ParsedReportDefinition:
             config = _loads_json(
                 container.get(KEY_CONFIG), {}, label, parsed.failed_parts
             )
+            # Only the config decides whether the visual is known; a broken
+            # filters string loses just those filters.
+            definition_failed = len(parsed.failed_parts) > failed_before
             single_visual = config.get(KEY_SINGLE_VISUAL) or {}
             fields: List[PageFieldReference] = []
             _collect_field_refs(single_visual.get(KEY_PROTOTYPE_QUERY), fields)
@@ -608,9 +617,12 @@ def _parse_legacy(report_json: str) -> ParsedReportDefinition:
                         visual_filters,
                         FILTER_SCOPE_VISUAL,
                         label,
-                        parsed.failed_filters,
+                        parsed.failed_visual_filters,
                     ),
-                    definition_failed=len(parsed.failed_parts) > failed_before,
+                    definition_failed=definition_failed,
+                    is_group=not definition_failed
+                    and not single_visual
+                    and isinstance(config.get(KEY_SINGLE_VISUAL_GROUP), dict),
                 )
             )
         parsed.pages[page_name] = page
@@ -625,7 +637,7 @@ def _parse_pbir(parts: List[DefinitionPart]) -> ParsedReportDefinition:
             # just the report-level filters.
             report_json = _loads_json(part.text, {}, part.path, parsed.failed_filters)
             parsed.filters = _pbir_filters(
-                report_json, FILTER_SCOPE_REPORT, part.path, parsed
+                report_json, FILTER_SCOPE_REPORT, part.path, parsed.failed_filters
             )
             continue
         match = PBIR_PAGE_RE.match(part.path)
@@ -634,9 +646,13 @@ def _parse_pbir(parts: List[DefinitionPart]) -> ParsedReportDefinition:
             parsed.pages[match.group(1)] = ParsedPage(
                 name=page_json.get(KEY_NAME) or match.group(1),
                 display_name=page_json.get(KEY_DISPLAY_NAME),
-                filters=_pbir_filters(page_json, FILTER_SCOPE_PAGE, part.path, parsed),
+                filters=_pbir_filters(
+                    page_json, FILTER_SCOPE_PAGE, part.path, parsed.failed_filters
+                ),
             )
-    for part in parts:
+    # Sorted so the visuals (and so the dashboard's chart list) keep a stable
+    # order whatever order the API returned the parts in.
+    for part in sorted(parts, key=lambda p: p.path):
         match = PBIR_VISUAL_RE.match(part.path)
         if not match:
             continue
@@ -647,6 +663,7 @@ def _parse_pbir(parts: List[DefinitionPart]) -> ParsedReportDefinition:
             parsed.pages[page_folder] = page
         failed_before = len(parsed.failed_parts)
         visual_json = _loads_json(part.text, {}, part.path, parsed.failed_parts)
+        definition_failed = len(parsed.failed_parts) > failed_before
         visual = visual_json.get(KEY_VISUAL) or {}
         fields: List[PageFieldReference] = []
         _collect_field_refs(visual.get(KEY_QUERY), fields)
@@ -658,9 +675,15 @@ def _parse_pbir(parts: List[DefinitionPart]) -> ParsedReportDefinition:
                 fields=fields,
                 title=_visual_title(visual.get(KEY_VISUAL_CONTAINER_OBJECTS)),
                 filters=_pbir_filters(
-                    visual_json, FILTER_SCOPE_VISUAL, part.path, parsed
+                    visual_json,
+                    FILTER_SCOPE_VISUAL,
+                    part.path,
+                    parsed.failed_visual_filters,
                 ),
-                definition_failed=len(parsed.failed_parts) > failed_before,
+                definition_failed=definition_failed,
+                is_group=not definition_failed
+                and not visual
+                and isinstance(visual_json.get(KEY_VISUAL_GROUP), dict),
             )
         )
     return parsed

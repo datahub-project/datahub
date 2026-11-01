@@ -419,6 +419,13 @@ def _reference_text(reference: powerbi_data_classes.DaxFieldReference) -> str:
     if reference.table is not None:
         return f"'{reference.table}'[{reference.field}]"
     return f"[{reference.field}]"
+@dataclass
+class ResolvedInputFields:
+    """Outcome of matching a chart's field references against the model."""
+
+    mcp: Optional[MetadataChangeProposalWrapper] = None
+    resolved: int = 0
+    unresolved: int = 0
 
 
 class Mapper:
@@ -2288,25 +2295,34 @@ class Mapper:
     ) -> Optional[MetadataChangeProposalWrapper]:
         """Model columns and measures the page's visuals read, as inputFields
         pointing at the semantic-model tables' schema fields."""
-        return self._input_fields_mcp(
+        resolved = self._resolve_input_fields(
             page.field_references, report, chart_urn, f"page {page.name}"
         )
+        self.__reporter.report_field_references_resolved += resolved.resolved
+        self.__reporter.report_field_references_unresolved += resolved.unresolved
+        return resolved.mcp
 
-    def _input_fields_mcp(
+    def _resolve_input_fields(
         self,
         field_references: List[powerbi_data_classes.PageFieldReference],
         report: powerbi_data_classes.Report,
         chart_urn: str,
         context: str,
-    ) -> Optional[MetadataChangeProposalWrapper]:
+    ) -> ResolvedInputFields:
+        """Field references matched against the report's semantic-model tables;
+        the caller decides which counters the outcome feeds."""
+        result = ResolvedInputFields()
         if not field_references or report.dataset is None:
-            return None
+            # Without the dataset (an unresolved cross-workspace reference) no
+            # field can be matched; the references are neither resolved nor
+            # counted as unresolved.
+            return result
         tables_by_name = {t.name: t for t in report.dataset.tables}
         fields: List[InputFieldClass] = []
         for reference in field_references:
             table = tables_by_name.get(reference.table)
             if table is None:
-                self.__reporter.report_field_references_unresolved += 1
+                result.unresolved += 1
                 logger.debug(
                     "Visual field %s[%s] on %s not found in dataset %s",
                     reference.table,
@@ -2327,7 +2343,7 @@ class Mapper:
                 None,
             )
             if schema_field is None:
-                self.__reporter.report_field_references_unresolved += 1
+                result.unresolved += 1
                 logger.debug(
                     "Visual field %s[%s] on %s not found in table schema",
                     reference.table,
@@ -2344,36 +2360,90 @@ class Mapper:
                     schemaField=self.to_datahub_schema_field(schema_field),
                 )
             )
-            self.__reporter.report_field_references_resolved += 1
-        if not fields:
-            return None
-        return MetadataChangeProposalWrapper(
-            entityUrn=chart_urn, aspect=InputFieldsClass(fields=fields)
-        )
+            result.resolved += 1
+        if fields:
+            result.mcp = MetadataChangeProposalWrapper(
+                entityUrn=chart_urn, aspect=InputFieldsClass(fields=fields)
+            )
+        return result
 
-    def _chart_browse_path_mcp(
+    def _page_url(
+        self, report: powerbi_data_classes.Report, page: powerbi_data_classes.Page
+    ) -> Optional[str]:
+        """The page's URL in the Power BI service: the report URL plus the
+        page's name segment."""
+        if not report.webUrl:
+            return None
+        return f"{report.webUrl}/{page.name}"
+
+    def _chart_common_mcps(
         self,
         chart_urn: str,
+        subtype: str,
         workspace: powerbi_data_classes.Workspace,
         report: powerbi_data_classes.Report,
-    ) -> MetadataChangeProposalWrapper:
-        """Workspace > report, shared by page and visual charts so they sit
-        side by side under the report."""
-        return MetadataChangeProposalWrapper(
-            entityUrn=chart_urn,
-            aspect=BrowsePathsV2Class(
-                path=[
-                    BrowsePathEntryClass(
-                        id=workspace.name,
-                        urn=self.make_container_urn_for_workspace(workspace),
-                    ),
-                    BrowsePathEntryClass(
-                        id=report.name,
-                        urn=self.make_dashboard_urn_for_report(report),
-                    ),
-                ]
+        input_fields_mcp: Optional[MetadataChangeProposalWrapper],
+        page: Optional[powerbi_data_classes.Page] = None,
+    ) -> List[MetadataChangeProposalWrapper]:
+        """The aspects every report chart (page or visual) carries besides
+        its ChartInfo, in the order they are emitted: status, subtype, browse
+        path (workspace > report, then the page for a visual), platform
+        instance, inputFields when any field resolved, and the container."""
+        path = [
+            BrowsePathEntryClass(
+                id=workspace.name,
+                urn=self.make_container_urn_for_workspace(workspace),
             ),
+            BrowsePathEntryClass(
+                id=report.name,
+                urn=self.make_dashboard_urn_for_report(report),
+            ),
+        ]
+        if page is not None:
+            path.append(
+                BrowsePathEntryClass(
+                    id=page.displayName or page.name,
+                    urn=self.make_chart_urn_for_page(page),
+                )
+            )
+        mcps = [
+            MetadataChangeProposalWrapper(
+                entityUrn=chart_urn, aspect=StatusClass(removed=False)
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=chart_urn, aspect=SubTypesClass(typeNames=[subtype])
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=chart_urn, aspect=BrowsePathsV2Class(path=path)
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=self._get_data_platform_instance_aspect(),
+            ),
+        ]
+        if input_fields_mcp is not None:
+            mcps.append(input_fields_mcp)
+        self.append_container_mcp(mcps, chart_urn)
+        return mcps
+
+    def make_chart_urn_for_page(self, page: powerbi_data_classes.Page) -> str:
+        return builder.make_chart_urn(
+            platform=self.__config.platform_name,
+            platform_instance=self.__config.platform_instance,
+            name=page.get_urn_part(),
         )
+
+    def _visual_properties(
+        self, visual: powerbi_data_classes.Visual, page: powerbi_data_classes.Page
+    ) -> Dict[str, str]:
+        properties = {
+            Constant.VISUAL_NAME: visual.name,
+            Constant.PAGE_NAME: page.name,
+        }
+        if visual.visual_type:
+            properties[Constant.VISUAL_TYPE] = visual.visual_type
+        properties.update(self._filter_properties(visual.filters))
+        return properties
 
     def visual_to_chart_mcps(
         self,
@@ -2388,26 +2458,11 @@ class Mapper:
         chart_urn = builder.make_chart_urn(
             platform=self.__config.platform_name,
             platform_instance=self.__config.platform_instance,
-            name=visual.get_urn_part(page.id),
+            name=visual.get_urn_part(),
         )
-        logger.debug(f"{Constant.CHART_URN}={chart_urn}")
-
-        custom_properties = {
-            Constant.VISUAL_NAME: visual.name,
-            Constant.PAGE_NAME: page.name,
-        }
-        if visual.visual_type:
-            custom_properties[Constant.VISUAL_TYPE] = visual.visual_type
-        custom_properties.update(self._filter_properties(visual.filters))
-
         title = visual.title or Constant.VISUAL_TITLE_FALLBACK.format(
             visual_type=visual.visual_type or Constant.VISUAL,
             page=page.displayName or page.name,
-        )
-        chart_type = (
-            VISUAL_TYPE_TO_CHART_TYPE.get(visual.visual_type)
-            if visual.visual_type
-            else None
         )
         info_mcp = MetadataChangeProposalWrapper(
             entityUrn=chart_urn,
@@ -2415,43 +2470,37 @@ class Mapper:
                 title=title,
                 description=title,
                 lastModified=ChangeAuditStamps(),
-                chartUrl=f"{report.webUrl}/{page.name}" if report.webUrl else None,
-                type=chart_type,
+                chartUrl=self._page_url(report, page),
+                type=VISUAL_TYPE_TO_CHART_TYPE.get(visual.visual_type or ""),
                 inputs=ds_input,
-                customProperties=custom_properties,
+                customProperties=self._visual_properties(visual, page),
             ),
         )
-        input_fields_mcp = self._input_fields_mcp(
+        resolved = self._resolve_input_fields(
             visual.field_references,
             report,
             chart_urn,
             f"visual {visual.name} of page {page.name}",
         )
-        if input_fields_mcp is None:
-            # The visual exists (a text box, or every field failed to
-            # resolve); it is still a chart, just one without field lineage.
-            self.__reporter.report_visuals_without_fields += 1
-        self.__reporter.report_visuals_emitted += 1
-
-        list_of_mcps = [
+        reporter = self.__reporter
+        reporter.report_visual_field_references_resolved += resolved.resolved
+        reporter.report_visual_field_references_unresolved += resolved.unresolved
+        reporter.report_visuals_emitted += 1
+        if not visual.field_references:
+            reporter.report_visuals_without_fields += 1
+        elif resolved.mcp is None:
+            reporter.report_visuals_fields_unresolved += 1
+        return [
             info_mcp,
-            MetadataChangeProposalWrapper(
-                entityUrn=chart_urn, aspect=StatusClass(removed=False)
-            ),
-            MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=SubTypesClass(typeNames=[BIAssetSubTypes.POWERBI_VISUAL]),
-            ),
-            self._chart_browse_path_mcp(chart_urn, workspace, report),
-            MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=self._get_data_platform_instance_aspect(),
+            *self._chart_common_mcps(
+                chart_urn,
+                BIAssetSubTypes.POWERBI_VISUAL,
+                workspace,
+                report,
+                resolved.mcp,
+                page=page,
             ),
         ]
-        if input_fields_mcp is not None:
-            list_of_mcps.append(input_fields_mcp)
-        self.append_container_mcp(list_of_mcps, chart_urn)
-        return list_of_mcps
 
     def pages_to_chart(
         self,
@@ -2473,12 +2522,7 @@ class Mapper:
             ds_mcps: List[MetadataChangeProposalWrapper],
         ) -> List[MetadataChangeProposalWrapper]:
             logger.debug(f"Converting page {page.displayName} to chart")
-            # Create a URN for chart
-            chart_urn = builder.make_chart_urn(
-                platform=self.__config.platform_name,
-                platform_instance=self.__config.platform_instance,
-                name=page.get_urn_part(),
-            )
+            chart_urn = self.make_chart_urn_for_page(page)
 
             logger.debug(f"{Constant.CHART_URN}={chart_urn}")
 
@@ -2510,41 +2554,16 @@ class Mapper:
 
             input_fields_mcp = self._page_input_fields_mcp(page, report, chart_urn)
 
-            # removed status mcp
-            status_mcp = MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=StatusClass(removed=False),
-            )
-            # Subtype mcp
-            subtype_mcp = MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=SubTypesClass(
-                    typeNames=[BIAssetSubTypes.POWERBI_PAGE],
-                ),
-            )
-
-            browse_path_mcp = self._chart_browse_path_mcp(chart_urn, workspace, report)
-
-            # DataPlatformInstance aspect
-            data_platform_instance_mcp = MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=self._get_data_platform_instance_aspect(),
-            )
-
             list_of_mcps = [
                 info_mcp,
-                status_mcp,
-                subtype_mcp,
-                browse_path_mcp,
-                data_platform_instance_mcp,
+                *self._chart_common_mcps(
+                    chart_urn,
+                    BIAssetSubTypes.POWERBI_PAGE,
+                    workspace,
+                    report,
+                    input_fields_mcp,
+                ),
             ]
-            if input_fields_mcp is not None:
-                list_of_mcps.append(input_fields_mcp)
-
-            self.append_container_mcp(
-                list_of_mcps,
-                chart_urn,
-            )
 
             if self.__config.extract_report_visuals:
                 for visual in page.visuals:

@@ -530,13 +530,15 @@ class Visual:
     """
 
     name: str
-    title: Optional[str]
-    visual_type: Optional[str]
+    # The owning page's id (`<reportId>.<pageName>`), which keys the URN.
+    page_id: str
+    title: Optional[str] = None
+    visual_type: Optional[str] = None
     field_references: List[PageFieldReference] = field(default_factory=list)
     filters: List[ReportFilter] = field(default_factory=list)
 
-    def get_urn_part(self, page_id: str) -> str:
-        return f"visuals.{page_id}.{self.name}"
+    def get_urn_part(self) -> str:
+        return f"visuals.{self.page_id}.{self.name}"
 
 
 @dataclass
