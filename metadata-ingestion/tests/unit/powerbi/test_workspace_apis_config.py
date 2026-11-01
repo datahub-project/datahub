@@ -26,7 +26,6 @@ def test_workspace_apis_mode_accepts_lowercase_and_enrichment_flags() -> None:
     assert config.extract_model_relationships
     assert config.extract_report_field_usage
     assert config.extract_refresh_history
-    assert config.extract_dax_reference_lineage
 
 
 @pytest.mark.parametrize(

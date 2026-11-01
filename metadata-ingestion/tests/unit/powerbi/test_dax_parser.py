@@ -97,6 +97,33 @@ def test_strip_keeps_code_outside_comments_and_strings() -> None:
     ]
 
 
+def test_quoted_identifiers_survive_the_stripper() -> None:
+    expression = (
+        "'My \"Quoted\" Table'[Col] + 'Sales // Returns'[Amount] "
+        '+ "a""[x]" + MYFUNC(Policies)'
+    )
+    assert _fields(expression) == [
+        ('My "Quoted" Table', "Col"),
+        ("Sales // Returns", "Amount"),
+    ]
+    # MYFUNC is not a known table function, so its bare argument is not a table.
+    assert _tables(expression) == ['My "Quoted" Table', "Sales // Returns"]
+
+
+def test_row_context_iterators_are_flagged() -> None:
+    assert not extract_dax_references(
+        "[Premium] * 2 + RELATED(Policies[State])"
+    ).has_row_context_iterators
+    iterated = extract_dax_references("SUMX(RELATEDTABLE(Policies), [Premium])")
+    assert iterated.has_row_context_iterators
+    assert iterated.tables == ["Policies"]
+    assert _fields("SUMX(RELATEDTABLE(Policies), [Premium])") == [(None, "Premium")]
+    # A comment or string naming an iterator does not count.
+    assert not extract_dax_references(
+        '[A] // SUMX(...)\n+ "FILTER("'
+    ).has_row_context_iterators
+
+
 def test_empty_expression() -> None:
     assert extract_dax_references(None).fields == []
     assert extract_dax_references("").tables == []

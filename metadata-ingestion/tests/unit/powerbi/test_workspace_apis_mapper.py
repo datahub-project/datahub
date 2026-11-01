@@ -20,9 +20,9 @@ from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     DatasetRefresh,
+    DaxFieldReference,
     FabricArtifact,
     Measure,
-    MeasureReference,
     Page,
     PageFieldReference,
     PowerBIDataset,
@@ -174,25 +174,25 @@ def test_measure_references_become_cross_table_fine_grained_lineage() -> None:
                 name="Total Premium",
                 expression="SUM('Policies'[Premium])",
                 isHidden=False,
-                references=[MeasureReference("Policies", "Premium")],
+                references=[DaxFieldReference("Policies", "Premium")],
             ),
             Measure(
                 name="Self Ref",
                 expression="SUM('KPIs'[Value])",
                 isHidden=False,
-                references=[MeasureReference("KPIs", "Value")],
+                references=[DaxFieldReference("KPIs", "Value")],
             ),
             Measure(
                 name="Ghost",
                 expression="SUM('Policies'[Renamed])",
                 isHidden=False,
-                references=[MeasureReference("Policies", "Renamed")],
+                references=[DaxFieldReference("Policies", "Renamed")],
             ),
             Measure(
                 name="Ratio",
                 expression="[Total Premium] / 2",
                 isHidden=False,
-                references=[MeasureReference(None, "Total Premium")],
+                references=[DaxFieldReference(None, "Total Premium")],
             ),
         ],
     )
@@ -218,9 +218,8 @@ def test_measure_references_become_cross_table_fine_grained_lineage() -> None:
     ]
     assert edge.upstreams == [f"urn:li:schemaField:({_urn(mapper, policies)},Premium)"]
     reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
-    assert reporter.measure_references_unresolved == 1
     assert reporter.dax_references_unresolved == 1
-    assert [w.title for w in reporter.warnings] == ["DAX Reference Not Resolved"]
+    assert [w.title for w in reporter.warnings] == [Constant.DAX_REFERENCE_NOT_RESOLVED]
 
 
 def _dax_model(mapper: Mapper) -> List[Table]:
@@ -239,10 +238,10 @@ def _dax_model(mapper: Mapper) -> List[Table]:
                 columnType="Calculated",
                 expression="IF([Premium] > 1, [Total Premium], RELATED('KPIs'[Value]))",
                 references=[
-                    MeasureReference(None, "Premium"),
-                    MeasureReference(None, "Total Premium"),
-                    MeasureReference("KPIs", "Value"),
-                    MeasureReference("KPIs", "Missing"),
+                    DaxFieldReference(None, "Premium"),
+                    DaxFieldReference(None, "Total Premium"),
+                    DaxFieldReference("KPIs", "Value"),
+                    DaxFieldReference("KPIs", "Missing"),
                 ],
             ),
         ],
@@ -256,16 +255,16 @@ def _dax_model(mapper: Mapper) -> List[Table]:
                 name="Total Premium",
                 expression="SUM('Policies'[Premium])",
                 isHidden=False,
-                references=[MeasureReference("Policies", "Premium")],
+                references=[DaxFieldReference("Policies", "Premium")],
             ),
             Measure(
                 name="Ratio",
                 expression="[Total Premium] / 'KPIs'[Total Premium] + [Nowhere]",
                 isHidden=False,
                 references=[
-                    MeasureReference(None, "Total Premium"),
-                    MeasureReference("KPIs", "Total Premium"),
-                    MeasureReference(None, "Nowhere"),
+                    DaxFieldReference(None, "Total Premium"),
+                    DaxFieldReference("KPIs", "Total Premium"),
+                    DaxFieldReference(None, "Nowhere"),
                 ],
             ),
         ],
@@ -336,7 +335,7 @@ def test_dax_reference_lineage_for_calculated_columns_and_measures() -> None:
     # KPIs[Missing] on the column and [Nowhere] on the measure.
     assert reporter.dax_references_unresolved == 2
     assert reporter.dax_references_resolved == 6
-    assert {w.title for w in reporter.warnings} == {"DAX Reference Not Resolved"}
+    assert {w.title for w in reporter.warnings} == {Constant.DAX_REFERENCE_NOT_RESOLVED}
 
 
 def test_self_only_dax_edges_still_emit_the_lineage_aspect() -> None:
@@ -350,7 +349,7 @@ def test_self_only_dax_edges_still_emit_the_lineage_aspect() -> None:
                 name="Derived",
                 expression="[Base] * 2",
                 isHidden=False,
-                references=[MeasureReference(None, "Base")],
+                references=[DaxFieldReference(None, "Base")],
             ),
         ],
     )
@@ -364,206 +363,138 @@ def test_self_only_dax_edges_still_emit_the_lineage_aspect() -> None:
     ]
 
 
-def test_measure_references_match_model_names_case_insensitively() -> None:
-    mapper = _mapper()
-    policies = Table(
-        name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
+def _dax_mapper() -> Mapper:
+    return _mapper(_config(extract_dax_reference_lineage=True))
+
+
+def _warnings(mapper: Mapper) -> List[str]:
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    return [
+        str(context)
+        for warning in reporter.warnings
+        if warning.title == Constant.DAX_REFERENCE_NOT_RESOLVED
+        for context in warning.context
+    ]
+
+
+def _calculated_column(
+    name: str,
+    references: List[DaxFieldReference],
+    has_row_context_iterators: bool = False,
+) -> Column:
+    return Column(
+        name=name,
+        dataType="String",
+        isHidden=False,
+        datahubDataType=NumberTypeClass(),
+        columnType="Calculated",
+        references=references,
+        has_row_context_iterators=has_row_context_iterators,
     )
-    kpis = Table(
-        name="KPIs",
-        full_name="Model.KPIs",
-        measures=[
-            Measure(
-                name="Total Premium",
-                expression="SUM('policies'[premium])",
-                isHidden=False,
-                references=[MeasureReference("policies", "premium")],
-            ),
-            Measure(
-                name="Missing Table",
-                expression="SUM('Claims'[Amount])",
-                isHidden=False,
-                references=[MeasureReference("Claims", "Amount")],
+
+
+def test_dax_identifiers_resolve_case_insensitively() -> None:
+    mapper = _dax_mapper()
+    kpis = Table(name="KPIs", full_name="Model.KPIs", columns=[_column("Value")])
+    policies = Table(
+        name="Policies",
+        full_name="Model.Policies",
+        columns=[
+            _column("Premium"),
+            _calculated_column(
+                "Band",
+                [
+                    DaxFieldReference("kpis", "value"),
+                    DaxFieldReference(None, "PREMIUM"),
+                ],
             ),
         ],
     )
     _dataset([policies, kpis])
-    with patch(
-        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
-        return_value=[],
-    ):
-        aspect = _lineage_aspect(
-            mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
-        )
-
+    aspect = _extract(mapper, policies)
     assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [_urn(mapper, kpis)]
     assert aspect.fineGrainedLineages is not None
-    # Edges carry the model's own casing, so they land on the emitted fields.
-    assert [e.upstreams for e in aspect.fineGrainedLineages] == [
-        [f"urn:li:schemaField:({_urn(mapper, policies)},Premium)"]
+    assert aspect.fineGrainedLineages[0].upstreams == [
+        f"urn:li:schemaField:({_urn(mapper, kpis)},Value)",
+        f"urn:li:schemaField:({_urn(mapper, policies)},Premium)",
     ]
-    assert mapper._Mapper__reporter.measure_references_unresolved == 1  # type: ignore[attr-defined]
+    assert _warnings(mapper) == []
 
 
-def _directlake_tables() -> List[Table]:
+def test_bare_column_inside_an_iterator_is_not_this_tables_column() -> None:
+    mapper = _dax_mapper()
     policies = Table(
         name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
     )
+    claims = Table(
+        name="Claims",
+        full_name="Model.Claims",
+        columns=[
+            _column("Premium"),
+            _calculated_column(
+                "Policy Premium",
+                [DaxFieldReference(None, "Premium")],
+                has_row_context_iterators=True,
+            ),
+        ],
+    )
+    _dataset([policies, claims])
+    # SUMX(RELATEDTABLE(Policies), [Premium]) reads Policies[Premium], which
+    # cannot be told from Claims[Premium] without evaluating the DAX: no edge.
+    assert _extract(mapper, claims) is None
+    assert _warnings(mapper) == ["Model.Claims.Policy Premium -> [Premium]"]
+
+
+def test_same_table_reference_to_nothing_is_reported() -> None:
+    mapper = _dax_mapper()
     kpis = Table(
         name="KPIs",
         full_name="Model.KPIs",
-        storage_mode=Constant.DIRECT_LAKE,
-        source_expression="kpis",
+        columns=[_column("Value")],
         measures=[
             Measure(
-                name="Total Premium",
-                expression="SUM('Policies'[Premium])",
+                name="Ratio",
+                expression="'KPIs'[Typo] + 'KPIs'[Value]",
                 isHidden=False,
-                references=[MeasureReference("Policies", "Premium")],
+                references=[
+                    DaxFieldReference("KPIs", "Typo"),
+                    DaxFieldReference("KPIs", "Value"),
+                ],
             )
         ],
     )
-    _dataset([policies, kpis], dependent_on_artifact_id="lh-1")
-    return [policies, kpis]
+    _dataset([kpis])
+    assert _extract(mapper, kpis) is None
+    # The same-table column stays a design skip; the typo is a real miss.
+    assert _warnings(mapper) == ["Model.KPIs.Ratio -> 'KPIs'[Typo]"]
 
 
-def test_directlake_lineage_withheld_when_onelake_source_unresolved() -> None:
-    """Without the OneLake edge, an aspect holding only model-internal edges
-    would replace the OneLake lineage written by earlier runs."""
+def test_calculated_table_reading_an_unknown_table_is_reported() -> None:
     mapper = _mapper()
-    _, kpis = _directlake_tables()
-
-    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
-
-    assert _lineage_aspect(mcps) is None
-    assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
-
-
-def test_directlake_lineage_withheld_when_sql_endpoint_unknown() -> None:
-    """The model's SQL endpoint could not be read (expressions part failed),
-    so the dataset has no artifact id; the stored OneLake edge still stays."""
-    mapper = _mapper()
-    _, kpis = _directlake_tables()
-    assert kpis.dataset is not None
-    kpis.dataset.dependent_on_artifact_id = None
-
-    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
-
-    assert _lineage_aspect(mcps) is None
-    assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
+    policies = Table(name="Policies", full_name="Model.Policies")
+    by_state = Table(
+        name="By State",
+        full_name="Model.By_State",
+        calculated_expression="UNION('Policies', 'Archive')",
+    )
+    _dataset([policies, by_state])
+    aspect = _extract(mapper, by_state)
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [_urn(mapper, policies)]
+    assert _warnings(mapper) == ["Model.By_State.By State -> 'Archive'"]
 
 
-def test_directlake_lineage_withheld_when_partition_source_unparsed() -> None:
-    mapper = _mapper()
-    _, kpis = _directlake_tables()
-    kpis.source_expression = None
-
-    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
-
-    assert _lineage_aspect(mcps) is None
-    assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
-
-
-def test_directlake_lineage_unresolved_is_reported_without_model_edges() -> None:
-    """With no model-internal edges nothing would be withheld, but the
-    missing OneLake edge must still reach the report."""
-    mapper = _mapper()
-    _, kpis = _directlake_tables()
-    kpis.measures = []
-
-    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
-
+def test_dax_references_are_counted_once_per_reference() -> None:
+    mapper = _dax_mapper()
+    policies, kpis = _dax_model(mapper)
+    for _ in range(2):
+        _extract(mapper, policies)
+        _extract(mapper, kpis)
     reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
-    assert _lineage_aspect(mcps) is None
-    assert reporter.directlake_lineage_unresolved == 1
-    assert reporter.directlake_lineage_withheld == 0
-    assert any(w.title == "DirectLake Lineage Not Resolved" for w in reporter.warnings)
-
-
-def test_directlake_lineage_merges_onelake_and_model_internal_edges() -> None:
-    mapper = _mapper()
-    policies, kpis = _directlake_tables()
-    workspace = _workspace()
-    # The TMDL's artifact id ("lh-1") need not share the Fabric API's casing.
-    workspace.fabric_artifacts = {
-        "LH-1": FabricArtifact(
-            id="LH-1", name="Lake", artifact_type="Lakehouse", workspace_id="ws-1"
-        )
-    }
-
-    aspect = _lineage_aspect(
-        mapper.extract_lineage(kpis, _urn(mapper, kpis), workspace)
-    )
-
-    assert aspect is not None
-    upstreams = [u.dataset for u in aspect.upstreams]
-    assert len(upstreams) == 2
-    assert "fabric-onelake" in upstreams[0]
-    assert upstreams[1] == _urn(mapper, policies)
-    assert aspect.fineGrainedLineages is not None
-    assert mapper._Mapper__reporter.directlake_lineage_withheld == 0  # type: ignore[attr-defined]
-    assert mapper._Mapper__reporter.directlake_lineage_unresolved == 0  # type: ignore[attr-defined]
-
-
-def _fact_with_measure() -> List[Table]:
-    policies = Table(
-        name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
-    )
-    orders = Table(
-        name="Orders",
-        full_name="Model.Orders",
-        expression="let Source = Snowflake.Databases(...) in Source",
-        measures=[
-            Measure(
-                name="Total Premium",
-                expression="SUM('Policies'[Premium])",
-                isHidden=False,
-                references=[MeasureReference("Policies", "Premium")],
-            )
-        ],
-    )
-    _dataset([policies, orders])
-    return [policies, orders]
-
-
-def test_model_internal_lineage_withheld_when_m_source_unresolved() -> None:
-    """An aspect with only same-model edges would replace the external
-    lineage stored by earlier runs when this run's M parse found nothing."""
-    mapper = _mapper()
-    _, orders = _fact_with_measure()
-    with patch(
-        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
-        return_value=[],
-    ):
-        mcps = mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
-
-    assert _lineage_aspect(mcps) is None
-    assert mapper._Mapper__reporter.model_internal_lineage_withheld == 1  # type: ignore[attr-defined]
-
-
-def test_model_internal_lineage_merged_with_resolved_m_source() -> None:
-    mapper = _mapper()
-    policies, orders = _fact_with_measure()
-    lineage = Lineage(
-        upstreams=[
-            DataPlatformTable(SupportedDataPlatform.SNOWFLAKE.value, SNOWFLAKE_A)
-        ],
-        column_lineage=[],
-    )
-    with patch(
-        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
-        return_value=[lineage],
-    ):
-        aspect = _lineage_aspect(
-            mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
-        )
-
-    assert aspect is not None
-    assert [u.dataset for u in aspect.upstreams] == [
-        SNOWFLAKE_A,
-        _urn(mapper, policies),
-    ]
-    assert mapper._Mapper__reporter.model_internal_lineage_withheld == 0  # type: ignore[attr-defined]
+    assert reporter.dax_references_unresolved == 2
+    assert reporter.dax_references_resolved == 6
+    assert len(_warnings(mapper)) == 2
 
 
 def test_calculated_table_depends_on_referenced_model_tables() -> None:
@@ -731,3 +662,205 @@ def test_page_input_fields_resolve_against_dataset_schema() -> None:
         "Total",
     ]
     assert mapper._Mapper__reporter.report_field_references_unresolved == 2  # type: ignore[attr-defined]
+
+
+def test_measure_references_match_model_names_case_insensitively() -> None:
+    mapper = _mapper()
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
+    )
+    kpis = Table(
+        name="KPIs",
+        full_name="Model.KPIs",
+        measures=[
+            Measure(
+                name="Total Premium",
+                expression="SUM('policies'[premium])",
+                isHidden=False,
+                references=[DaxFieldReference("policies", "premium")],
+            ),
+            Measure(
+                name="Missing Table",
+                expression="SUM('Claims'[Amount])",
+                isHidden=False,
+                references=[DaxFieldReference("Claims", "Amount")],
+            ),
+        ],
+    )
+    _dataset([policies, kpis])
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[],
+    ):
+        aspect = _lineage_aspect(
+            mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
+        )
+
+    assert aspect is not None
+    assert aspect.fineGrainedLineages is not None
+    # Edges carry the model's own casing, so they land on the emitted fields.
+    assert [e.upstreams for e in aspect.fineGrainedLineages] == [
+        [f"urn:li:schemaField:({_urn(mapper, policies)},Premium)"]
+    ]
+    assert mapper._Mapper__reporter.dax_references_unresolved == 1  # type: ignore[attr-defined]
+
+
+def _directlake_tables() -> List[Table]:
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
+    )
+    kpis = Table(
+        name="KPIs",
+        full_name="Model.KPIs",
+        storage_mode=Constant.DIRECT_LAKE,
+        source_expression="kpis",
+        measures=[
+            Measure(
+                name="Total Premium",
+                expression="SUM('Policies'[Premium])",
+                isHidden=False,
+                references=[DaxFieldReference("Policies", "Premium")],
+            )
+        ],
+    )
+    _dataset([policies, kpis], dependent_on_artifact_id="lh-1")
+    return [policies, kpis]
+
+
+def test_directlake_lineage_withheld_when_onelake_source_unresolved() -> None:
+    """Without the OneLake edge, an aspect holding only model-internal edges
+    would replace the OneLake lineage written by earlier runs."""
+    mapper = _mapper()
+    _, kpis = _directlake_tables()
+
+    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
+
+    assert _lineage_aspect(mcps) is None
+    assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
+def test_directlake_lineage_withheld_when_sql_endpoint_unknown() -> None:
+    """The model's SQL endpoint could not be read (expressions part failed),
+    so the dataset has no artifact id; the stored OneLake edge still stays."""
+    mapper = _mapper()
+    _, kpis = _directlake_tables()
+    assert kpis.dataset is not None
+    kpis.dataset.dependent_on_artifact_id = None
+
+    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
+
+    assert _lineage_aspect(mcps) is None
+    assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
+def test_directlake_lineage_withheld_when_partition_source_unparsed() -> None:
+    mapper = _mapper()
+    _, kpis = _directlake_tables()
+    kpis.source_expression = None
+
+    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
+
+    assert _lineage_aspect(mcps) is None
+    assert mapper._Mapper__reporter.directlake_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
+def test_directlake_lineage_unresolved_is_reported_without_model_edges() -> None:
+    """With no model-internal edges nothing would be withheld, but the
+    missing OneLake edge must still reach the report."""
+    mapper = _mapper()
+    _, kpis = _directlake_tables()
+    kpis.measures = []
+
+    mcps = mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
+
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert _lineage_aspect(mcps) is None
+    assert reporter.directlake_lineage_unresolved == 1
+    assert reporter.directlake_lineage_withheld == 0
+    assert any(w.title == "DirectLake Lineage Not Resolved" for w in reporter.warnings)
+
+
+def test_directlake_lineage_merges_onelake_and_model_internal_edges() -> None:
+    mapper = _mapper()
+    policies, kpis = _directlake_tables()
+    workspace = _workspace()
+    # The TMDL's artifact id ("lh-1") need not share the Fabric API's casing.
+    workspace.fabric_artifacts = {
+        "LH-1": FabricArtifact(
+            id="LH-1", name="Lake", artifact_type="Lakehouse", workspace_id="ws-1"
+        )
+    }
+
+    aspect = _lineage_aspect(
+        mapper.extract_lineage(kpis, _urn(mapper, kpis), workspace)
+    )
+
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert len(upstreams) == 2
+    assert "fabric-onelake" in upstreams[0]
+    assert upstreams[1] == _urn(mapper, policies)
+    assert aspect.fineGrainedLineages is not None
+    assert mapper._Mapper__reporter.directlake_lineage_withheld == 0  # type: ignore[attr-defined]
+    assert mapper._Mapper__reporter.directlake_lineage_unresolved == 0  # type: ignore[attr-defined]
+
+
+def _fact_with_measure() -> List[Table]:
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
+    )
+    orders = Table(
+        name="Orders",
+        full_name="Model.Orders",
+        expression="let Source = Snowflake.Databases(...) in Source",
+        measures=[
+            Measure(
+                name="Total Premium",
+                expression="SUM('Policies'[Premium])",
+                isHidden=False,
+                references=[DaxFieldReference("Policies", "Premium")],
+            )
+        ],
+    )
+    _dataset([policies, orders])
+    return [policies, orders]
+
+
+def test_model_internal_lineage_withheld_when_m_source_unresolved() -> None:
+    """An aspect with only same-model edges would replace the external
+    lineage stored by earlier runs when this run's M parse found nothing."""
+    mapper = _mapper()
+    _, orders = _fact_with_measure()
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[],
+    ):
+        mcps = mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
+
+    assert _lineage_aspect(mcps) is None
+    assert mapper._Mapper__reporter.model_internal_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
+def test_model_internal_lineage_merged_with_resolved_m_source() -> None:
+    mapper = _mapper()
+    policies, orders = _fact_with_measure()
+    lineage = Lineage(
+        upstreams=[
+            DataPlatformTable(SupportedDataPlatform.SNOWFLAKE.value, SNOWFLAKE_A)
+        ],
+        column_lineage=[],
+    )
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[lineage],
+    ):
+        aspect = _lineage_aspect(
+            mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
+        )
+
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [
+        SNOWFLAKE_A,
+        _urn(mapper, policies),
+    ]
+    assert mapper._Mapper__reporter.model_internal_lineage_withheld == 0  # type: ignore[attr-defined]
