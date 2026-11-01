@@ -37,6 +37,10 @@ IMPORT_MODEL_ID = "05169CD2-E713-41E6-9600-1D8066D95445"
 DIRECTLAKE_MODEL_ID = "7A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D"
 LAKEHOUSE_ID = "3C4D5E6F-7A8B-4C9D-8E0F-1A2B3C4D5E6F"
 SQL_ENDPOINT_ID = "6F2E7D8C-9B0A-4C1D-8E2F-3A4B5C6D7E8F"
+# Its SQL analytics endpoint id is the warehouse id; the warehouse model's
+# shared expression names it by id, its import table by display name.
+WAREHOUSE_ID = "9A8B7C6D-5E4F-4A3B-8C2D-1E0F9A8B7C6D"
+WAREHOUSE_MODEL_ID = "2B3C4D5E-6F7A-4B8C-9D0E-1F2A3B4C5D6E"
 REPORT_ID = "584cf13a-1485-41c2-a514-b1bb66fff163"
 # Second workspace of the default group listing; it hosts a composite model
 # whose remote tables read the first workspace's Insurance Model.
@@ -97,10 +101,25 @@ def workspace_apis_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
                         "name": "Claims DirectLake Model",
                         "configuredBy": "User1@foo.com",
                     },
+                    {
+                        "id": WAREHOUSE_MODEL_ID,
+                        "name": "Policy Warehouse Model",
+                        "configuredBy": "User1@foo.com",
+                    },
                 ]
             },
         },
         f"{PBI}/groups/{WORKSPACE_ID}/datasets/{DIRECTLAKE_MODEL_ID}/parameters": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"value": []},
+        },
+        f"{PBI}/groups/{WORKSPACE_ID}/datasets/{WAREHOUSE_MODEL_ID}/parameters": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"value": []},
+        },
+        f"{PBI}/groups/{WORKSPACE_ID}/datasets/{WAREHOUSE_MODEL_ID}/refreshes": {
             "method": "GET",
             "status_code": 200,
             "json": {"value": []},
@@ -252,6 +271,18 @@ def workspace_apis_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
                         "workspaceId": WORKSPACE_ID,
                     },
                     {
+                        "id": WAREHOUSE_ID,
+                        "type": "Warehouse",
+                        "displayName": "Claims_Warehouse",
+                        "workspaceId": WORKSPACE_ID,
+                    },
+                    {
+                        "id": WAREHOUSE_MODEL_ID,
+                        "type": "SemanticModel",
+                        "displayName": "Policy Warehouse Model",
+                        "workspaceId": WORKSPACE_ID,
+                    },
+                    {
                         "id": REPORT_ID,
                         "type": "Report",
                         "displayName": "Loss Report",
@@ -286,6 +317,13 @@ def workspace_apis_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
             "method": "POST",
             "status_code": 200,
             "json": definition_response(fixtures / "insurance_model", "TMDL"),
+        },
+        # A warehouse is its own SQL analytics endpoint: no properties call
+        # is made for it, so none is mocked.
+        f"{FABRIC}/workspaces/{WORKSPACE_ID}/semanticModels/{WAREHOUSE_MODEL_ID}/getDefinition": {
+            "method": "POST",
+            "status_code": 200,
+            "json": definition_response(fixtures / "warehouse_model", "TMDL"),
         },
         f"{FABRIC}/workspaces/{WORKSPACE_ID}/reports/{REPORT_ID}/getDefinition": {
             "method": "POST",
@@ -495,10 +533,16 @@ def test_workspace_apis_ingest_with_enrichment(
 
     report = pipeline.source.get_report()
     assert isinstance(report, PowerBiDashboardSourceReport)
-    assert report.fabric_definitions_fetched == 4  # three models + one report
+    assert report.fabric_definitions_fetched == 5  # four models + one report
     assert report.fabric_definitions_failed == 0
-    assert report.tmdl_tables_parsed == 9
+    assert report.tmdl_tables_parsed == 11
     assert report.relationships_parsed == 2
+    assert report.fabric_lakehouse_endpoints_registered == 1
+    assert report.fabric_warehouse_endpoints_registered == 1
+    # The warehouse model's import table reads the warehouse endpoint by
+    # display name; its DirectLake table goes through the shared expression.
+    assert report.fabric_endpoint_references_resolved == 1
+    assert report.fabric_endpoints_unresolved == 0
     assert report.dataflow_definitions_fetched == 1
     assert report.dataflows_fetched == 1
     assert report.dataflow_entities_parsed == 2
@@ -550,7 +594,8 @@ def test_workspace_apis_ingest_with_enrichment(
     # fail on `NotInModel[Ghost]` once more.
     assert report.report_visual_field_references_resolved == 8
     assert report.report_visual_field_references_unresolved == 1
-    assert report.refresh_history_fetched == 3
+    # The warehouse model's refresh listing is empty but still fetched.
+    assert report.refresh_history_fetched == 4
     # Only the fixture's `'Budget'[Amount]` points outside the model; it is
     # counted once although its dataset is mapped twice (workspace, report).
     assert report.dax_references_unresolved == 1
@@ -798,7 +843,7 @@ def test_forbidden_model_fails_run_but_keeps_other_models(
     report = pipeline.source.get_report()
     assert isinstance(report, PowerBiDashboardSourceReport)
     assert report.fabric_definitions_failed == 1
-    assert report.fabric_definitions_fetched == 2
+    assert report.fabric_definitions_fetched == 2  # import + warehouse models
     # A 403 zeroes out that model's tables, so the run is red, not green.
     assert [f.title for f in report.failures] == ["Fabric API Permission Denied"]
 
