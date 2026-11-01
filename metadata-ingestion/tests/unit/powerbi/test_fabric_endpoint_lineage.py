@@ -17,6 +17,8 @@ from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
+    Dataflow,
+    DataflowQuery,
     FabricArtifact,
     PowerBIDataset,
     Table,
@@ -388,3 +390,39 @@ def test_non_fabric_sql_server_is_untouched() -> None:
     assert report.fabric_endpoint_references_unresolved == 0
     assert report.fabric_endpoint_references_resolved == 0
     assert report.fabric_endpoint_m_shapes_unsupported == 0
+
+
+def test_dataflow_entity_over_endpoint_gets_onelake_edge() -> None:
+    # A Dataflow Gen2 entity reading the warehouse endpoint is mapped the
+    # same way as a semantic-model table, not left with an mssql edge.
+    mapper = _mapper()
+    workspace = _workspace([_warehouse()])
+    mapper.workspace_key = mapper.make_container_key_for_workspace(workspace)
+    dataflow = Dataflow(
+        id="8b9c0d1e-2f3a-4b4c-8d5e-6f7a8b9c0d1e",
+        name="Claims Dataflow",
+        description=None,
+        workspace_name=workspace.name,
+        queries=[
+            DataflowQuery(
+                name="claims",
+                expression=_m_query(ENDPOINT_HOST, WAREHOUSE_ID),
+                is_shared=True,
+                load_enabled=True,
+            )
+        ],
+    )
+
+    lineage_aspects = [
+        mcp.aspect
+        for mcp in mapper.to_datahub_dataflow(dataflow, workspace)
+        if isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+
+    assert len(lineage_aspects) == 1
+    assert [u.dataset for u in lineage_aspects[0].upstreams] == [
+        _onelake_urn(WAREHOUSE_ID)
+    ]
+    report = _report(mapper)
+    assert report.fabric_endpoint_references_resolved == 1
+    assert report.warnings == []
