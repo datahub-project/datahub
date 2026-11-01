@@ -31,6 +31,8 @@ source:
     # (workspace_apis or enrich_from_item_definitions)
     # extract_model_relationships: true
     # extract_report_field_usage: true
+    # One Chart entity per report visual; requires extract_report_field_usage
+    # extract_report_visuals: true
     # Column lineage derived from DAX (calculated columns, measure-to-measure references)
     # extract_dax_reference_lineage: true
     # Field properties (formatString, displayFolder, isHidden, ...), storage mode, partitions,

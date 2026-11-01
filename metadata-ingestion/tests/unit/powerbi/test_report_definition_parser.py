@@ -825,3 +825,118 @@ def test_empty_json_text_is_a_failed_part() -> None:
     )
     parsed = parse_report_definition([DefinitionPart("report.json", report_json)])
     assert parsed.failed_parts == ["report.json#s/0"]
+
+
+def _title_objects(title: str) -> Dict[str, Any]:
+    return {
+        "title": [
+            {
+                "properties": {
+                    "show": {"expr": _literal("true")},
+                    "text": {"expr": _literal(title)},
+                }
+            }
+        ]
+    }
+
+
+def test_pbir_visual_title_and_visual_filters_are_parsed() -> None:
+    titled = json.dumps(
+        {
+            "name": "v1",
+            "visual": {
+                "visualType": "lineChart",
+                "query": {
+                    "queryState": {
+                        "Y": {"projections": [{"field": _column("Claims", "Paid")}]}
+                    }
+                },
+                "visualContainerObjects": _title_objects("'Paid ''Losses'' Over Time'"),
+            },
+            "filterConfig": {"filters": [_categorical_filter()]},
+        }
+    )
+    untitled = json.dumps(
+        {
+            "name": "v2",
+            "visual": {
+                "visualType": "card",
+                "visualContainerObjects": {"title": [{"properties": {}}]},
+            },
+            # A filter block of the wrong shape is reported, not fatal.
+            "filterConfig": {"filters": {"not": "a list"}},
+        }
+    )
+    parsed = parse_report_definition(
+        [
+            DefinitionPart("definition/pages/p1/visuals/v1/visual.json", titled),
+            DefinitionPart("definition/pages/p1/visuals/v2/visual.json", untitled),
+            DefinitionPart("definition/pages/p1/visuals/v3/visual.json", "{not json"),
+        ]
+    )
+
+    v1, v2, v3 = parsed.pages["p1"].visuals
+    assert v1.title == "Paid 'Losses' Over Time"
+    assert _filter_summary(v1.filters) == [
+        {
+            "scope": "visual",
+            "name": "f_status",
+            "type": "Categorical",
+            "target": "Claims[Status]",
+            "condition": 'In ["Open", "Closed"]',
+        }
+    ]
+    # The visual's own fields include what its filter reads.
+    assert v1.fields == [
+        PageFieldReference("Claims", "Paid", "column"),
+        PageFieldReference("Claims", "Status", "column"),
+    ]
+    assert not v1.definition_failed
+    assert v2.title is None
+    assert v2.filters == []
+    assert not v2.definition_failed
+    assert v3.name == "v3"
+    assert v3.definition_failed
+    assert parsed.failed_parts == ["definition/pages/p1/visuals/v3/visual.json"]
+    assert parsed.failed_filters == ["definition/pages/p1/visuals/v2/visual.json"]
+
+
+def test_legacy_visual_title_and_visual_filters_are_parsed() -> None:
+    config = json.dumps(
+        {
+            "name": "visual1",
+            "singleVisual": {
+                "visualType": "pieChart",
+                "prototypeQuery": {
+                    "From": [{"Name": "c", "Entity": "Claims", "Type": 0}],
+                    "Select": [_aliased_column("c", "Status")],
+                },
+                "vcObjects": _title_objects("'Claims by Status'"),
+            },
+        }
+    )
+    filters = json.dumps([_categorical_filter(target_key="expression")])
+    report_json = json.dumps(
+        {
+            "sections": [
+                {
+                    "name": "ReportSection1",
+                    "visualContainers": [
+                        {"config": config, "filters": filters},
+                        {"config": "not json"},
+                    ],
+                }
+            ]
+        }
+    )
+
+    parsed = parse_report_definition([DefinitionPart("report.json", report_json)])
+
+    titled, broken = parsed.pages["ReportSection1"].visuals
+    assert titled.title == "Claims by Status"
+    assert [f.scope for f in titled.filters] == ["visual"]
+    assert titled.filters[0].condition == 'In ["Open", "Closed"]'
+    assert not titled.definition_failed
+    assert broken.name == ""
+    assert broken.definition_failed
+    assert parsed.failed_parts == ["report.json#ReportSection1/1"]
