@@ -1664,6 +1664,7 @@ def test_visual_chart_subtype_container_and_browse_path_under_page() -> None:
     mapper, report, workspace, chart_mcps = _visual_charts()
     bar = _aspects_of(chart_mcps, BAR_URN)
     assert bar["SubTypesClass"].typeNames == [BIAssetSubTypes.POWERBI_VISUAL]
+    assert mapper.workspace_key is not None
     assert bar["ContainerClass"].container == mapper.workspace_key.as_urn()
     assert [(entry.id, entry.urn) for entry in bar["BrowsePathsV2Class"].path] == [
         (workspace.name, mapper.make_container_urn_for_workspace(workspace)),
