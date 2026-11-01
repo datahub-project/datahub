@@ -867,15 +867,20 @@ def test_pbir_visual_title_and_visual_filters_are_parsed() -> None:
             "filterConfig": {"filters": {"not": "a list"}},
         }
     )
+    group = json.dumps(
+        {"name": "g1", "visualGroup": {"displayName": "KPIs", "groupMode": "x"}}
+    )
     parsed = parse_report_definition(
         [
-            DefinitionPart("definition/pages/p1/visuals/v1/visual.json", titled),
+            # Deliberately out of order: visuals are sorted by part path.
             DefinitionPart("definition/pages/p1/visuals/v2/visual.json", untitled),
+            DefinitionPart("definition/pages/p1/visuals/v4/visual.json", group),
+            DefinitionPart("definition/pages/p1/visuals/v1/visual.json", titled),
             DefinitionPart("definition/pages/p1/visuals/v3/visual.json", "{not json"),
         ]
     )
 
-    v1, v2, v3 = parsed.pages["p1"].visuals
+    v1, v2, v3, v4 = parsed.pages["p1"].visuals
     assert v1.title == "Paid 'Losses' Over Time"
     assert _filter_summary(v1.filters) == [
         {
@@ -891,17 +896,23 @@ def test_pbir_visual_title_and_visual_filters_are_parsed() -> None:
         PageFieldReference("Claims", "Paid", "column"),
         PageFieldReference("Claims", "Status", "column"),
     ]
-    assert not v1.definition_failed
+    assert not v1.definition_failed and not v1.is_group
     assert v2.title is None
     assert v2.filters == []
-    assert not v2.definition_failed
+    assert not v2.definition_failed and not v2.is_group
     assert v3.name == "v3"
-    assert v3.definition_failed
+    assert v3.definition_failed and not v3.is_group
+    assert v4.is_group and not v4.definition_failed
+    assert v4.fields == []
     assert parsed.failed_parts == ["definition/pages/p1/visuals/v3/visual.json"]
-    assert parsed.failed_filters == ["definition/pages/p1/visuals/v2/visual.json"]
+    # Visual filter failures are kept apart from report/page ones.
+    assert parsed.failed_filters == []
+    assert parsed.failed_visual_filters == [
+        "definition/pages/p1/visuals/v2/visual.json"
+    ]
 
 
-def test_legacy_visual_title_and_visual_filters_are_parsed() -> None:
+def test_legacy_visual_title_filters_and_groups_are_parsed() -> None:
     config = json.dumps(
         {
             "name": "visual1",
@@ -916,6 +927,7 @@ def test_legacy_visual_title_and_visual_filters_are_parsed() -> None:
         }
     )
     filters = json.dumps([_categorical_filter(target_key="expression")])
+    group = json.dumps({"name": "group1", "singleVisualGroup": {"displayName": "G"}})
     report_json = json.dumps(
         {
             "sections": [
@@ -924,6 +936,9 @@ def test_legacy_visual_title_and_visual_filters_are_parsed() -> None:
                     "visualContainers": [
                         {"config": config, "filters": filters},
                         {"config": "not json"},
+                        # Valid config, broken filters: the visual stays.
+                        {"config": config, "filters": "not json"},
+                        {"config": group},
                     ],
                 }
             ]
@@ -932,11 +947,45 @@ def test_legacy_visual_title_and_visual_filters_are_parsed() -> None:
 
     parsed = parse_report_definition([DefinitionPart("report.json", report_json)])
 
-    titled, broken = parsed.pages["ReportSection1"].visuals
+    titled, broken, bad_filters, group_visual = parsed.pages["ReportSection1"].visuals
     assert titled.title == "Claims by Status"
     assert [f.scope for f in titled.filters] == ["visual"]
     assert titled.filters[0].condition == 'In ["Open", "Closed"]'
     assert not titled.definition_failed
     assert broken.name == ""
     assert broken.definition_failed
-    assert parsed.failed_parts == ["report.json#ReportSection1/1"]
+    assert bad_filters.name == "visual1"
+    assert not bad_filters.definition_failed
+    assert bad_filters.filters == []
+    assert bad_filters.fields == [PageFieldReference("Claims", "Status", "column")]
+    assert group_visual.is_group
+    assert group_visual.visual_type is None
+    assert parsed.failed_parts == [
+        "report.json#ReportSection1/1",
+        "report.json#ReportSection1/2",
+    ]
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("'Quoted'", "Quoted"),
+        ("''", None),
+        ("42", "42"),
+        ("", None),
+    ],
+)
+def test_visual_title_literal_forms(value: str, expected: Optional[str]) -> None:
+    visual = json.dumps(
+        {
+            "name": "v1",
+            "visual": {
+                "visualType": "card",
+                "visualContainerObjects": _title_objects(value),
+            },
+        }
+    )
+    parsed = parse_report_definition(
+        [DefinitionPart("definition/pages/p1/visuals/v1/visual.json", visual)]
+    )
+    assert parsed.pages["p1"].visuals[0].title == expected

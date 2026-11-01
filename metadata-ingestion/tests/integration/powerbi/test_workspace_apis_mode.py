@@ -510,11 +510,14 @@ def test_workspace_apis_ingest_with_enrichment(
     assert "regional-managers" not in json.dumps(mcps)
     assert report.report_definitions_parsed == 1
     # The page resolves six distinct fields (visuals, visual filters and the
-    # report/page filter targets, deduplicated); the four visual charts resolve
-    # their own fields again (1 + 3 + 1 + 3); the fixture's `NotInModel[Ghost]`
-    # fails on the page and on its visual.
-    assert report.report_field_references_resolved == 14
-    assert report.report_field_references_unresolved == 2
+    # report/page filter targets, deduplicated); the fixture's
+    # `NotInModel[Ghost]` does not.
+    assert report.report_field_references_resolved == 6
+    assert report.report_field_references_unresolved == 1
+    # The visual charts resolve their own fields again (1 + 3 + 1 + 3) and
+    # fail on `NotInModel[Ghost]` once more.
+    assert report.report_visual_field_references_resolved == 8
+    assert report.report_visual_field_references_unresolved == 1
     assert report.refresh_history_fetched == 3
     # Only the fixture's `'Budget'[Amount]` points outside the model; it is
     # counted once although its dataset is mapped twice (workspace, report).
@@ -566,8 +569,12 @@ def test_workspace_apis_ingest_with_enrichment(
     # One report-level, one page-level and two visual-level filters.
     assert report.report_filters_parsed == 4
     assert report.report_filters_failed == 0
+    assert report.report_visual_filters_failed == 0
     assert report.report_visuals_emitted == 4
     assert report.report_visuals_without_fields == 0
+    assert report.report_visuals_fields_unresolved == 0
+    # The fixture's visual group is not a chart.
+    assert report.report_visual_groups_skipped == 1
 
     # The admin Scanner API must never be called in this mode.
     assert not any(
@@ -586,6 +593,46 @@ def test_workspace_apis_ingest_with_enrichment(
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_workspace_apis_ingest.json",
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_workspace_apis_field_usage_without_visuals(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """With `extract_report_field_usage` on and `extract_report_visuals` left
+    at its default, the output is what the connector emitted before visual
+    charts existed: the golden was produced from that code."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+    output_name = "powerbi_workspace_apis_field_usage_mces.json"
+    pipeline = run_pipeline(
+        pytestconfig,
+        requests_mock,
+        tmp_path,
+        output_name,
+        workspace_apis_source_config(
+            extract_model_relationships=True,
+            extract_report_field_usage=True,
+        ),
+    )
+    pipeline.raise_from_status()
+    report = pipeline.source.get_report()
+    assert isinstance(report, PowerBiDashboardSourceReport)
+    assert report.report_field_references_resolved == 6
+    assert report.report_field_references_unresolved == 1
+    assert report.report_filters_parsed == 2
+    assert report.report_filters_failed == 0
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/{output_name}",
+        golden_path=f"{test_resources_dir}/golden_test_workspace_apis_field_usage.json",
     )
 
 
