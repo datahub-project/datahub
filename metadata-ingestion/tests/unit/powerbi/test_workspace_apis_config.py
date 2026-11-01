@@ -206,6 +206,13 @@ def test_workspace_apis_owner_criteria_must_name_a_workspace_role() -> None:
             id="rejected_with_admin_apis_only",
         ),
         pytest.param({"environment": "GOVERNMENT"}, "COMMERCIAL", id="gcc"),
+        # Dataflows are only listed in workspace_apis mode; the overlay cannot
+        # unlock them.
+        pytest.param(
+            {"extract_dataflows": True},
+            "extract_dataflows requires metadata_api_mode: workspace_apis",
+            id="dataflows_not_unlocked_by_enrichment",
+        ),
     ],
 )
 def test_enrich_from_item_definitions_rejections(
