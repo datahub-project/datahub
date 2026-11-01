@@ -86,6 +86,27 @@ public class DataProductServiceTest {
   }
 
   @Test
+  public void testCreateDataProductWithoutDomainIngestsPropertiesOnly() throws Exception {
+    final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final DataProductService service = new DataProductService(mockClient, mock(GraphClient.class));
+    when(mockClient.exists(any(OperationContext.class), eq(TEST_DATA_PRODUCT_URN)))
+        .thenReturn(false);
+    when(mockClient.ingestProposal(
+            any(OperationContext.class), any(MetadataChangeProposal.class), eq(false)))
+        .thenReturn(TEST_DATA_PRODUCT_URN.toString());
+
+    Urn created = service.createDataProduct(opContext, "test-product", "Name", null, null);
+
+    assertEquals(created, TEST_DATA_PRODUCT_URN);
+    ArgumentCaptor<MetadataChangeProposal> captor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockClient).ingestProposal(any(OperationContext.class), captor.capture(), eq(false));
+    verify(mockClient, never())
+        .batchIngestProposals(any(OperationContext.class), anyList(), anyBoolean());
+    assertEquals(captor.getValue().getAspectName(), DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+  }
+
+  @Test
   public void testBatchAddToDataProduct() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
     final GraphClient mockGraphClient = mock(GraphClient.class);
