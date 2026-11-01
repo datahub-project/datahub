@@ -307,6 +307,11 @@ def second_workspace_mock_data(fixtures: Path) -> Dict[str, Dict[str, Any]]:
             "status_code": 200,
             "json": {"value": []},
         },
+        f"{PBI}/groups/{SECOND_WORKSPACE_ID}/datasets/{COMPOSITE_MODEL_ID}/refreshSchedule": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {"error": {"code": "ItemNotFound"}},
+        },
         f"{PBI}/groups/{SECOND_WORKSPACE_ID}/users": {
             "method": "GET",
             "status_code": 200,
@@ -551,7 +556,8 @@ def test_workspace_apis_ingest_with_enrichment(
     assert report.datasets_not_refreshable == 0
     assert report.refresh_schedule_fetched == 1
     assert report.refresh_schedule_not_supported == 0
-    assert report.refresh_schedule_not_configured == 1
+    # The DirectLake and the composite model have no schedule.
+    assert report.refresh_schedule_not_configured == 2
     assert report.refresh_schedule_failed == 0
 
     # The admin Scanner API must never be called in this mode.
