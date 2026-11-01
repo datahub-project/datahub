@@ -11,6 +11,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     DefinitionPart,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.report_definition_parser import (
+    RENDERED_CONDITION_MAX_CHARS,
     parse_filters,
     parse_rdl_dataset_binding,
     parse_report_definition,
@@ -699,6 +700,15 @@ def test_filter_fields_include_condition_reads_and_empty_filter_is_a_failure() -
             "In [" + ", ".join(str(i) for i in range(20)) + ", … (+3 more)]",
             id="in_values_capped",
         ),
+        pytest.param(
+            None,
+            [_comparison(0, "'abcdefghij'")] * 60,
+            # 60 clauses of `= "abcdefghij"` joined by " And " is 1135 chars;
+            # the rendering keeps 499 of them and ends with the marker.
+            (" And ".join(['= "abcdefghij"'] * 60))[: RENDERED_CONDITION_MAX_CHARS - 1]
+            + "…",
+            id="rendered_condition_capped",
+        ),
     ],
 )
 def test_condition_rendering(
@@ -715,6 +725,11 @@ def test_condition_rendering(
     filters = parse_filters([entry], "page", "p", failed)
     assert failed == []
     assert [f.condition for f in filters] == [expected]
+    condition = filters[0].condition
+    assert condition is not None
+    assert len(condition) <= RENDERED_CONDITION_MAX_CHARS
+    if len(condition) == RENDERED_CONDITION_MAX_CHARS:
+        assert condition.endswith("…")
 
 
 def test_malformed_filter_blocks_are_reported_but_never_drop_the_page() -> None:
