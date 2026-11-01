@@ -440,9 +440,39 @@ def test_bare_column_inside_an_iterator_is_not_this_tables_column() -> None:
     )
     _dataset([policies, claims])
     # SUMX(RELATEDTABLE(Policies), [Premium]) reads Policies[Premium], which
-    # cannot be told from Claims[Premium] without evaluating the DAX: no edge.
+    # cannot be told from Claims[Premium] without evaluating the DAX: no edge,
+    # and no warning either since the column does exist.
     assert _extract(mapper, claims) is None
-    assert _warnings(mapper) == ["Model.Claims.Policy Premium -> [Premium]"]
+    assert _warnings(mapper) == []
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.dax_references_unattributed == 1
+    assert reporter.dax_references_unresolved == 0
+
+
+def test_bare_column_inside_a_measure_iterator_is_counted_not_warned() -> None:
+    mapper = _dax_mapper()
+    claims = Table(
+        name="Claims", full_name="Model.Claims", columns=[_column("PaidAmount")]
+    )
+    kpis = Table(
+        name="KPIs",
+        full_name="Model.KPIs",
+        measures=[
+            Measure(
+                name="Paid",
+                expression="SUMX('Claims', [PaidAmount])",
+                isHidden=False,
+                references=[DaxFieldReference(None, "PaidAmount")],
+                has_row_context_iterators=True,
+            )
+        ],
+    )
+    _dataset([claims, kpis])
+    assert _extract(mapper, kpis) is None
+    assert _warnings(mapper) == []
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.dax_references_unattributed == 1
+    assert reporter.dax_references_unresolved == 0
 
 
 def test_same_table_reference_to_nothing_is_reported() -> None:

@@ -340,12 +340,17 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # times its dataset is mapped.
     dax_references_resolved: int = 0
     dax_references_unresolved: int = 0
+    # Bare `[Column]` references inside a table iterator (SUMX, FILTER, ...):
+    # the column exists but belongs to the iterated table, which cannot be
+    # told without evaluating the DAX, so no edge and no warning.
+    dax_references_unattributed: int = 0
     _dax_references_seen: Set[Tuple[str, str, str]] = dataclass_field(
         default_factory=set
     )
     # Native-SQL column lineage whose output column is not a source column
     # of the Power BI table (calculated column, or a column the model dropped).
     cll_dropped_not_a_source_column: int = 0
+    cll_dropped_columns: LossyList[str] = dataclass_field(default_factory=LossyList)
     semantic_models_not_processed: int = 0
     refresh_history_fetched: int = 0
     refresh_history_unparseable: int = 0
@@ -946,9 +951,11 @@ class PowerBiDashboardSourceConfig(
         "reads, a measure that references another measure gets an edge from it, and a "
         "calculated table gets table-level lineage from the tables its expression "
         "reads. Edges are only emitted to tables and fields that exist in the model. "
-        "References that do not resolve are counted and reported as "
-        "`DAX Reference Not Resolved` warnings in both metadata API modes, whether or "
-        "not this flag is set. Enabling it makes the connector write `upstreamLineage` "
+        "A DAX reference that does not resolve is counted and reported as a "
+        "`DAX Reference Not Resolved` warning; DAX is only read from TMDL definitions "
+        "(`metadata_api_mode: workspace_apis`), and without this flag only the "
+        "table-qualified references of measures and the tables read by calculated "
+        "tables are checked. Enabling it makes the connector write `upstreamLineage` "
         "on tables that previously had none (for example a table whose only lineage "
         "is a measure reading another measure), replacing upstreams authored in the "
         "UI for those tables. Requires `metadata_api_mode: workspace_apis` and "

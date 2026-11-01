@@ -357,6 +357,12 @@ in
         reporter=reporter,
     ) == {"A": ["a"]}
     assert reporter.cll_dropped_not_a_source_column == 2
+    # sqlglot folds the MSSQL output names without a schema; the names are
+    # recorded as the parser returned them.
+    assert list(reporter.cll_dropped_columns) == [
+        "ws.ds.dim_customers.total",
+        "ws.ds.dim_customers.legacy",
+    ]
 
 
 def test_chained_renames_and_reused_names_walk_back_to_the_source() -> None:

@@ -81,6 +81,9 @@ DAX_ROW_CONTEXT_ITERATOR_RE = re.compile(
     r"\b(?:" + "|".join(ROW_CONTEXT_ITERATOR_FUNCTIONS) + r")\s*\(",
     re.IGNORECASE,
 )
+# `VAR Name =`: a variable, which may hold a table and be passed to a table
+# function, so it must not be mistaken for a model table.
+DAX_VARIABLE_RE = re.compile(r"\bVAR\s+(?P<name>[A-Za-z_]\w*)\s*=", re.IGNORECASE)
 
 ROW_CONTEXT_VARIABLE_PREFIX = "@"
 STRING_QUOTE = '"'
@@ -186,8 +189,12 @@ def extract_dax_references(expression: Optional[str]) -> DaxReferences:
             continue
         add_table(_unescape_table(match.group(1)))
 
+    variables = {
+        match.group("name").casefold() for match in DAX_VARIABLE_RE.finditer(text)
+    }
     for match in DAX_TABLE_ARGUMENT_RE.finditer(text):
-        add_table(match.group("bare"))
+        if match.group("bare").casefold() not in variables:
+            add_table(match.group("bare"))
 
     references.has_row_context_iterators = (
         DAX_ROW_CONTEXT_ITERATOR_RE.search(text) is not None

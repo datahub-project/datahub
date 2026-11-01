@@ -248,9 +248,12 @@ class _ModelReferenceResolver:
             # is only followed with the DAX lineage flag.
             if not self.follow_dax_references:
                 return None
-            resolved = self.field_urn(
-                self.measure_owner(reference.field), reference.field
-            )
+            owner = self.measure_owner(reference.field)
+            if owner is None and measure.has_row_context_iterators:
+                # Inside SUMX('T', [Column]) a bare name that is no measure is
+                # a column of the iterated table.
+                return self._unattributed(measure.name, reference)
+            resolved = self.field_urn(owner, reference.field)
         elif reference.table.casefold() == self.table.name.casefold():
             # A same-table column reference would be a self-edge on this
             # dataset; the DAX is already in the measure's field description.
@@ -280,14 +283,30 @@ class _ModelReferenceResolver:
             # column of this table, unless the expression iterates another
             # table: then it belongs to the iterated table and cannot be
             # attributed without evaluating the DAX.
-            owner = self.table.name if not column.has_row_context_iterators else None
+            if column.has_row_context_iterators:
+                return self._unattributed(column.name, reference)
+            owner = self.table.name
         else:
             owner = self.measure_owner(reference.field)
+            if owner is None and column.has_row_context_iterators:
+                return self._unattributed(column.name, reference)
         return self._record(
             column.name,
             _reference_text(reference),
             self.field_urn(owner, reference.field),
         )
+
+    def _unattributed(
+        self, field_name: str, reference: powerbi_data_classes.DaxFieldReference
+    ) -> Optional[str]:
+        """A bare `[Column]` inside a table iterator: it exists, but on the
+        iterated table, so it is counted rather than reported as missing.
+        Always None, typed like the resolve methods that return it."""
+        key = (self.table.full_name, field_name, _reference_text(reference))
+        if key not in self.reporter._dax_references_seen:
+            self.reporter._dax_references_seen.add(key)
+            self.reporter.dax_references_unattributed += 1
+        return None
 
     def _record(
         self, field_name: str, reference_text: str, resolved: Optional[str]
@@ -305,7 +324,7 @@ class _ModelReferenceResolver:
             self.reporter.dax_references_unresolved += 1
             self.reporter.warning(
                 title=Constant.DAX_REFERENCE_NOT_RESOLVED,
-                message="A DAX expression references a table or field that is not in the semantic model's parsed schema; no lineage is emitted for that reference.",
+                message="A DAX expression references a table or field that is not in the semantic model's parsed schema, or a bare column that cannot be attributed to a table; no lineage is emitted for that reference.",
                 context=f"{self.table.full_name}.{field_name} -> {reference_text}",
             )
         return None
@@ -811,7 +830,7 @@ class Mapper:
 
         for column in table.columns or []:
             if (
-                column.columnType != Constant.COLUMN_TYPE_CALCULATED
+                not powerbi_data_classes.is_calculated_column(column)
                 or not column.references
             ):
                 continue
