@@ -77,6 +77,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.report_definition_parser import (
     ParsedPage,
+    filter_targets,
     parse_rdl_dataset_binding,
     parse_report_definition,
 )
@@ -1390,6 +1391,18 @@ class PowerBiAPI:
                 message="Some parts of the report definition were not valid JSON; the visuals they describe are missing from the page's inputFields.",
                 context=f"{context}, parts={failed_parts}",
             )
+        if parsed.failed_filters:
+            self.reporter.report_filters_failed += len(parsed.failed_filters)
+            self.reporter.warning(
+                title="Report Filter Not Parsed",
+                message="Some report or page filters in the report definition could not be read; they are missing from the `filters` properties and the page's inputFields.",
+                context=f"{context}, filters={parsed.failed_filters}",
+            )
+        report.filters = parsed.filters
+        self.reporter.report_filters_parsed += len(parsed.filters)
+        # A report-level filter applies to every page, so its target field is
+        # part of each page's lineage too.
+        report_filter_targets = filter_targets(parsed.filters)
         for page in report.pages:
             parsed_page: Optional[ParsedPage] = parsed.pages.get(page.name)
             if parsed_page is None and page.displayName:
@@ -1404,7 +1417,13 @@ class PowerBiAPI:
                 continue
             page.visual_count = len(parsed_page.visuals)
             page.visual_types = parsed_page.visual_types
-            page.field_references = parsed_page.field_refs
+            page.filters = parsed_page.filters
+            self.reporter.report_filters_parsed += len(parsed_page.filters)
+            page.field_references = parsed_page.field_refs + [
+                ref
+                for ref in report_filter_targets
+                if ref not in parsed_page.field_refs
+            ]
 
     def _fabric_artifacts_from_items(
         self, workspace: Workspace, items: List[FabricItem]

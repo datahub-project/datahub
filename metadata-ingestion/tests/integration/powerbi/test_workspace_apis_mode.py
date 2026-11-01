@@ -508,8 +508,9 @@ def test_workspace_apis_ingest_with_enrichment(
     # The role file's member is an identity and must never reach the sink.
     assert "regional-managers" not in json.dumps(mcps)
     assert report.report_definitions_parsed == 1
-    # Four visual fields resolve; the fixture's `NotInModel[Ghost]` does not.
-    assert report.report_field_references_resolved == 4
+    # Four visual fields plus the two filter targets resolve; the fixture's
+    # `NotInModel[Ghost]` does not.
+    assert report.report_field_references_resolved == 6
     assert report.report_field_references_unresolved == 1
     assert report.refresh_history_fetched == 3
     # Only the fixture's `'Budget'[Amount]` points outside the model; it is
@@ -559,6 +560,9 @@ def test_workspace_apis_ingest_with_enrichment(
     # The DirectLake and the composite model have no schedule.
     assert report.refresh_schedule_not_configured == 2
     assert report.refresh_schedule_failed == 0
+    # One report-level and one page-level filter.
+    assert report.report_filters_parsed == 2
+    assert report.report_filters_failed == 0
 
     # The admin Scanner API must never be called in this mode.
     assert not any(

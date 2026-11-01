@@ -268,6 +268,8 @@ class Constant:
     REFRESH_SCHEDULE_PROPERTY_PREFIX = "refreshSchedule."
     VISUAL_COUNT = "visualCount"
     VISUAL_TYPES = "visualTypes"
+    FILTERS = "filters"
+    FILTER_COUNT = "filterCount"
     TOP = "$top"
     # Scan-API column types reproduced for TMDL-sourced columns
     COLUMN_TYPE_DATA = "Data"
@@ -433,6 +435,8 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     report_definitions_parsed: int = 0
     report_definitions_failed: int = 0
     report_definition_parts_failed: int = 0
+    report_filters_parsed: int = 0
+    report_filters_failed: int = 0
     report_pages_unmatched: int = 0
     report_field_references_resolved: int = 0
     report_field_references_unresolved: int = 0
@@ -1106,7 +1110,10 @@ class PowerBiDashboardSourceConfig(
         default=False,
         description="Read each report's definition to record which model columns and "
         "measures its visuals use, emitted as `inputFields` on the page charts together "
-        "with visual counts and types. Adds one Fabric getDefinition call per report. "
+        "with visual counts and types. Report-level and page-level filters are included "
+        "as `filters` / `filterCount` properties on the report and its page charts, and "
+        "the fields they target join the page's `inputFields`. "
+        "Adds one Fabric getDefinition call per report. "
         "Requires `extract_reports`, `extract_dataset_schema` and either "
         "`metadata_api_mode: workspace_apis` or `enrich_from_item_definitions`.",
     )

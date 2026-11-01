@@ -35,6 +35,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     RemoteModelMatch,
     RemoteModelReference,
     Report,
+    ReportFilter,
     ReportType,
     RlsTableFilter,
     Table,
@@ -44,6 +45,8 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerB
 from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import parse_table
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
+    ChartInfoClass,
+    DashboardInfoClass,
     InputFieldsClass,
     NumberTypeClass,
     OperationClass,
@@ -1377,3 +1380,119 @@ def test_measure_on_a_remote_table_chains_through_the_composite_lineage() -> Non
     aspect = _extract(mapper, kpis)
     assert aspect is not None
     assert [u.dataset for u in aspect.upstreams] == [_urn(mapper, table)]
+def test_filters_become_custom_properties_on_page_chart_and_report_dashboard() -> None:
+    mapper = _mapper(_config(extract_report_field_usage=True))
+    policies = Table(
+        name="Policies",
+        full_name="Model.Policies",
+        columns=[_column("State"), _column("WrittenPremium")],
+        measures=[],
+    )
+    dataset = _dataset([policies])
+    page_filter = ReportFilter(
+        scope="page",
+        name="f_state",
+        filter_type="Categorical",
+        target=PageFieldReference("Policies", "State", "column"),
+        condition='In ["CA", "NY"]',
+    )
+    report_filter = ReportFilter(
+        scope="report",
+        name="f_premium",
+        filter_type="Advanced",
+        target=PageFieldReference("Policies", "WrittenPremium", "column"),
+        condition=">= 1000",
+    )
+    unresolved_filter = ReportFilter(
+        scope="report",
+        name="f_unresolved",
+        filter_type="Categorical",
+        target=None,
+        condition=None,
+    )
+    page = Page(
+        id="r1.p1",
+        displayName="Overview",
+        name="p1",
+        order=0,
+        # The API layer already merged the filter targets into the page's fields.
+        field_references=[
+            PageFieldReference("Policies", "State", "column"),
+            PageFieldReference("Policies", "WrittenPremium", "column"),
+        ],
+        visual_count=1,
+        visual_types=["card"],
+        filters=[page_filter],
+    )
+    report = Report(
+        id="r1",
+        name="Report",
+        type=ReportType.PowerBIReport,
+        webUrl=None,
+        embedUrl=None,
+        description="",
+        dataset_id=dataset.id,
+        dataset=dataset,
+        pages=[page],
+        users=[],
+        tags=[],
+        filters=[report_filter, unresolved_filter],
+    )
+
+    chart_mcps = mapper.pages_to_chart(
+        [page], workspace=_workspace(), ds_mcps=[], report=report
+    )
+    chart_info = next(
+        mcp.aspect for mcp in chart_mcps if isinstance(mcp.aspect, ChartInfoClass)
+    )
+    assert chart_info.customProperties == {
+        "order": "0",
+        "visualCount": "1",
+        "visualTypes": "card",
+        "filterCount": "1",
+        "filters": json.dumps(
+            [
+                {
+                    "name": "f_state",
+                    "type": "Categorical",
+                    "target": "Policies[State]",
+                    "condition": 'In ["CA", "NY"]',
+                }
+            ]
+        ),
+    }
+    input_fields = next(
+        mcp.aspect for mcp in chart_mcps if isinstance(mcp.aspect, InputFieldsClass)
+    )
+    policies_urn = _urn(mapper, policies)
+    assert [f.schemaFieldUrn for f in input_fields.fields] == [
+        f"urn:li:schemaField:({policies_urn},State)",
+        f"urn:li:schemaField:({policies_urn},WrittenPremium)",
+    ]
+
+    dashboard_mcps = mapper.report_to_dashboard(
+        workspace=_workspace(),
+        report=report,
+        chart_mcps=chart_mcps,
+        user_mcps=[],
+        dataset_edges=[],
+    )
+    dashboard_info = next(
+        mcp.aspect
+        for mcp in dashboard_mcps
+        if isinstance(mcp.aspect, DashboardInfoClass)
+    )
+    assert dashboard_info.customProperties == {
+        "filterCount": "2",
+        "filters": json.dumps(
+            [
+                {
+                    "name": "f_premium",
+                    "type": "Advanced",
+                    "target": "Policies[WrittenPremium]",
+                    "condition": ">= 1000",
+                },
+                {"name": "f_unresolved", "type": "Categorical"},
+            ]
+        ),
+    }
