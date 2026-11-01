@@ -11,6 +11,7 @@ from typing import (
     Set,
     Type,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -74,7 +75,11 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
     PARTITION_KIND_CALCULATED,
     PARTITION_KIND_ENTITY,
     PARTITION_KIND_M,
-    PARTITION_MODE_TO_STORAGE_MODE,
+    PARTITION_MODE_DIRECT_LAKE,
+    PARTITION_MODE_DIRECT_QUERY,
+    PARTITION_MODE_DUAL,
+    PARTITION_MODE_IMPORT,
+    PARTITION_MODE_PUSH,
     TMDL_TABLES_PREFIX,
     ParsedColumn,
     ParsedMeasure,
@@ -91,30 +96,25 @@ from datahub.utilities.file_backed_collections import (
 logger = logging.getLogger(__name__)
 
 
-def _column_has_properties(column: ParsedColumn) -> bool:
-    return (
-        column.is_hidden
-        or column.is_key
-        or column.is_nullable is not None
-        or any(
-            value is not None
-            for value in (
-                column.format_string,
-                column.display_folder,
-                column.data_category,
-                column.sort_by_column,
-                column.summarize_by,
-            )
-        )
-    )
+# TMDL partition modes are camelCase; the scan API's `storageMode` uses the
+# TOM enum casing, which Table.storage_mode keeps. `directLake` is deliberately
+# absent: DirectLake is recognised by the `entity` partition kind alone, so a
+# stray `mode: directLake` on an M / calculated / query partition never routes
+# the table into the DirectLake lineage branch. Unknown modes pass through.
+PARTITION_MODE_TO_STORAGE_MODE: Dict[str, str] = {
+    PARTITION_MODE_IMPORT: Constant.STORAGE_MODE_IMPORT,
+    PARTITION_MODE_DIRECT_QUERY: Constant.STORAGE_MODE_DIRECT_QUERY,
+    PARTITION_MODE_DUAL: Constant.STORAGE_MODE_DUAL,
+    PARTITION_MODE_PUSH: Constant.STORAGE_MODE_PUSH,
+}
 
 
-def _measure_has_properties(measure: ParsedMeasure) -> bool:
+def _field_has_properties(
+    field: Union[ParsedColumn, ParsedMeasure],
+) -> bool:
     return (
-        measure.is_hidden
-        or measure.has_kpi
-        or measure.format_string is not None
-        or measure.display_folder is not None
+        field.model_properties is not None
+        and field.model_properties.has_non_default_properties(field.is_hidden)
     )
 
 
@@ -1218,8 +1218,13 @@ class PowerBiAPI:
             # consume; the table is emitted without an expression or lineage.
             if partition.kind == PARTITION_KIND_ENTITY:
                 storage_mode = Constant.DIRECT_LAKE
-            elif partition.mode is not None:
-                storage_mode = PARTITION_MODE_TO_STORAGE_MODE.get(partition.mode)
+            elif (
+                partition.mode is not None
+                and partition.mode != PARTITION_MODE_DIRECT_LAKE
+            ):
+                storage_mode = PARTITION_MODE_TO_STORAGE_MODE.get(
+                    partition.mode, partition.mode
+                )
 
         columns = [self._column_from_parsed(column) for column in parsed_table.columns]
         measures = [
@@ -1266,13 +1271,7 @@ class PowerBiAPI:
             source_column=column.source_column,
             references=column.references,
             has_row_context_iterators=column.has_row_context_iterators,
-            format_string=column.format_string,
-            display_folder=column.display_folder,
-            data_category=column.data_category,
-            sort_by_column=column.sort_by_column,
-            summarize_by=column.summarize_by,
-            is_key=column.is_key,
-            is_nullable=column.is_nullable,
+            model_properties=column.model_properties,
         )
 
     @staticmethod
@@ -1284,9 +1283,7 @@ class PowerBiAPI:
             description=measure.description,
             references=measure.references,
             has_row_context_iterators=measure.has_row_context_iterators,
-            format_string=measure.format_string,
-            display_folder=measure.display_folder,
-            has_kpi=measure.has_kpi,
+            model_properties=measure.model_properties,
         )
 
     def _apply_model_properties(
@@ -1299,10 +1296,17 @@ class PowerBiAPI:
         for role in parsed_model.roles:
             for table_name, dax_filter in role.table_permissions.items():
                 table = tables_by_name.get(table_name)
-                if table is not None:
-                    table.rls_filters.append(
-                        RlsTableFilter(role=role.name, filter=dax_filter)
+                if table is None:
+                    self.reporter.rls_filters_unresolved += 1
+                    self.reporter.warning(
+                        title=Constant.RLS_FILTER_TABLE_NOT_FOUND,
+                        message="A row-level-security role filters a table that is not in the parsed model; that filter is not emitted.",
+                        context=f"{context}, role={role.name}, table={table_name}",
                     )
+                    continue
+                table.rls_filters.append(
+                    RlsTableFilter(role=role.name, filter=dax_filter)
+                )
         self.reporter.rls_roles_parsed += len(parsed_model.roles)
         if parsed_model.failed_roles:
             self.reporter.tmdl_roles_failed += len(parsed_model.failed_roles)
@@ -1313,12 +1317,12 @@ class PowerBiAPI:
             )
         self.reporter.dataset_parameters_emitted += len(dataset.parameters)
         for parsed_table in parsed_model.tables:
+            fields: List[Union[ParsedColumn, ParsedMeasure]] = [
+                *parsed_table.columns,
+                *parsed_table.measures,
+            ]
             self.reporter.model_fields_with_properties += sum(
-                1 for column in parsed_table.columns if _column_has_properties(column)
-            ) + sum(
-                1
-                for measure in parsed_table.measures
-                if _measure_has_properties(measure)
+                1 for field in fields if _field_has_properties(field)
             )
 
     @staticmethod

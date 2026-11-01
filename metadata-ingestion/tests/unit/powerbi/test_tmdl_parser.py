@@ -1,9 +1,18 @@
-from typing import List
+from typing import List, Union
 
+import pytest
+
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    FieldModelProperties,
+    RefreshPolicy,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.fabric_resolver import (
     DefinitionPart,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
+    ParsedColumn,
+    ParsedMeasure,
+    ParsedTable,
     dax_table_references,
     parse_relationships,
     parse_roles,
@@ -325,6 +334,11 @@ PROPERTIES_TABLE = """table Claims
 \t\tsummarizeBy: sum
 \t\tsourceColumn: PAID_AMOUNT
 
+\tcolumn Notes
+\t\tdataType: string
+\t\tisNullable
+\t\tsourceColumn: NOTES
+
 \tmeasure 'Loss Ratio' =
 \t\t\tVAR Losses = [Paid]
 \t\t\tRETURN DIVIDE(Losses, [Premium], 0)
@@ -381,58 +395,95 @@ ROLE = """role 'Regional Managers'
 """
 
 
-def test_parse_column_and_measure_properties() -> None:
-    table = parse_table(PROPERTIES_TABLE)
+def _table(text: str) -> ParsedTable:
+    table = parse_table(text)
     assert table is not None
+    return table
+
+
+def _properties(table: ParsedTable, name: str) -> FieldModelProperties:
+    fields: List[Union[ParsedColumn, ParsedMeasure]] = [
+        *table.columns,
+        *table.measures,
+    ]
+    properties = {f.name: f.model_properties for f in fields}[name]
+    assert properties is not None
+    return properties
+
+
+def test_parse_column_and_measure_properties() -> None:
+    table = _table(PROPERTIES_TABLE)
     columns = {c.name: c for c in table.columns}
-    claim_id = columns["ClaimId"]
-    assert claim_id.is_hidden
+    assert columns["ClaimId"].is_hidden
+    claim_id = _properties(table, "ClaimId")
     assert claim_id.is_key
     assert claim_id.is_nullable is False
     assert claim_id.summarize_by == "none"
     assert claim_id.format_string is None
-    state = columns["State"]
+    state = _properties(table, "State")
     assert state.data_category == "StateOrProvince"
     assert state.sort_by_column == "StateOrder"
     assert not state.is_key
     # Absent isNullable stays unknown rather than defaulting either way.
     assert state.is_nullable is None
-    paid = columns["PaidAmount"]
+    paid = _properties(table, "PaidAmount")
     assert paid.format_string == "$#,##0.00"
     assert paid.display_folder == "Financials"
     assert paid.summarize_by == "sum"
+    assert _properties(table, "Notes").is_nullable is True
 
     measures = {m.name: m for m in table.measures}
-    loss_ratio = measures["Loss Ratio"]
+    loss_ratio = _properties(table, "Loss Ratio")
     assert loss_ratio.format_string == "0.0%"
     assert loss_ratio.display_folder == "Ratios"
     assert loss_ratio.has_kpi
-    assert not loss_ratio.is_hidden
+    assert not measures["Loss Ratio"].is_hidden
     # The kpi block does not leak into the measure's expression.
-    assert loss_ratio.expression.splitlines() == [
+    assert measures["Loss Ratio"].expression.splitlines() == [
         "VAR Losses = [Paid]",
         "RETURN DIVIDE(Losses, [Premium], 0)",
     ]
     assert measures["Paid"].is_hidden
-    assert not measures["Paid"].has_kpi
-    assert measures["Paid"].format_string is None
+    assert not _properties(table, "Paid").has_kpi
+    assert _properties(table, "Paid").format_string is None
+
+
+@pytest.mark.parametrize(
+    "flag_lines",
+    [
+        pytest.param("\t\tisHidden\n\t\tisKey\n", id="bare"),
+        pytest.param("\t\tisHidden: true\n\t\tisKey: true\n", id="explicit_true"),
+    ],
+)
+def test_boolean_flags_accept_bare_and_explicit_forms(flag_lines: str) -> None:
+    table = _table(
+        "table T\n\n\tcolumn Id\n\t\tdataType: int64\n"
+        + flag_lines
+        + "\n\tmeasure M = 1\n\t\tisHidden: true\n"
+    )
+    assert table.columns[0].is_hidden
+    assert _properties(table, "Id").is_key
+    assert table.measures[0].is_hidden
+
+    explicit_false = _table(
+        "table T\n\n\tcolumn Id\n\t\tdataType: int64\n\t\tisHidden: false\n"
+    )
+    assert not explicit_false.columns[0].is_hidden
 
 
 def test_parse_refresh_policy_and_partition_count() -> None:
-    table = parse_table(PROPERTIES_TABLE)
-    assert table is not None
+    table = _table(PROPERTIES_TABLE)
     assert table.partition_count == 2
     assert table.partition is not None
     assert table.partition.mode == "directQuery"
-    policy = table.refresh_policy
-    assert policy is not None
-    assert policy.rolling_window_granularity == "year"
-    assert policy.rolling_window_periods == "3"
-    assert policy.incremental_granularity == "month"
-    assert policy.incremental_periods == "12"
+    assert table.refresh_policy == RefreshPolicy(
+        rolling_window_granularity="year",
+        rolling_window_periods="3",
+        incremental_granularity="month",
+        incremental_periods="12",
+    )
 
-    plain = parse_table(IMPORT_TABLE)
-    assert plain is not None
+    plain = _table(IMPORT_TABLE)
     assert plain.refresh_policy is None
     assert plain.partition_count == 1
 
@@ -442,13 +493,23 @@ def test_parse_roles_keeps_filters_and_never_members() -> None:
     assert len(roles) == 1
     role = roles[0]
     assert role.name == "Regional Managers"
-    assert role.model_permission == "read"
     assert role.table_permissions == {
         "Policies": "'Policies'[State] = \"CA\"",
         "Claims By State": '\'Claims By State\'[State] IN { "CA", "OR" }',
     }
     assert "regional-managers" not in repr(role)
     assert "00000000-0000-4000-8000-00000000001b" not in repr(role)
+
+
+def test_parse_members_only_role_has_no_filters() -> None:
+    roles = parse_roles(
+        "role Everyone\n"
+        "\tmodelPermission: read\n\n"
+        "\tmember 'everyone@example.com'\n"
+        "\t\tidentityProvider: AzureAD\n"
+    )
+    assert [(r.name, r.table_permissions) for r in roles] == [("Everyone", {})]
+    assert "everyone@" not in repr(roles)
 
 
 def test_parse_semantic_model_isolates_malformed_role_parts() -> None:

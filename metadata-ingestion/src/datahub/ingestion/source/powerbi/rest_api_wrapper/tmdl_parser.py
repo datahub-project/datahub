@@ -3,9 +3,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Set
 
-from datahub.ingestion.source.powerbi.config import Constant
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     DaxFieldReference,
+    FieldModelProperties,
     RefreshPolicy,
     Relationship,
 )
@@ -52,7 +52,6 @@ PROP_DISPLAY_FOLDER = "displayFolder"
 PROP_DATA_CATEGORY = "dataCategory"
 PROP_SORT_BY_COLUMN = "sortByColumn"
 PROP_SUMMARIZE_BY = "summarizeBy"
-PROP_MODEL_PERMISSION = "modelPermission"
 PROP_ROLLING_WINDOW_GRANULARITY = "rollingWindowGranularity"
 PROP_ROLLING_WINDOW_PERIODS = "rollingWindowPeriods"
 PROP_INCREMENTAL_GRANULARITY = "incrementalGranularity"
@@ -78,15 +77,6 @@ PARTITION_MODE_IMPORT = "import"
 PARTITION_MODE_DIRECT_QUERY = "directQuery"
 PARTITION_MODE_DUAL = "dual"
 PARTITION_MODE_PUSH = "push"
-# TMDL partition modes are camelCase; the scan API's `storageMode` (and
-# Constant.DIRECT_LAKE) use the TOM enum casing, which Table.storage_mode keeps.
-PARTITION_MODE_TO_STORAGE_MODE: Dict[str, str] = {
-    PARTITION_MODE_IMPORT: Constant.STORAGE_MODE_IMPORT,
-    PARTITION_MODE_DIRECT_QUERY: Constant.STORAGE_MODE_DIRECT_QUERY,
-    PARTITION_MODE_DUAL: Constant.STORAGE_MODE_DUAL,
-    PARTITION_MODE_DIRECT_LAKE: Constant.DIRECT_LAKE,
-    PARTITION_MODE_PUSH: Constant.STORAGE_MODE_PUSH,
-}
 
 # Keywords of the objects the connector reads. An unrecognised line opening
 # one of them is an object that went missing; any other unrecognised line
@@ -170,14 +160,7 @@ class ParsedColumn:
     references: List[DaxFieldReference] = field(default_factory=list)
     has_row_context_iterators: bool = False
     # Model properties beyond the data type (extract_model_properties).
-    format_string: Optional[str] = None
-    display_folder: Optional[str] = None
-    data_category: Optional[str] = None
-    sort_by_column: Optional[str] = None
-    summarize_by: Optional[str] = None
-    is_key: bool = False
-    # TOM defaults isNullable to true, so TMDL only writes it when false.
-    is_nullable: Optional[bool] = None
+    model_properties: Optional[FieldModelProperties] = None
 
 
 @dataclass
@@ -190,10 +173,7 @@ class ParsedMeasure:
     # Whether the DAX iterates a table (a bare `[Column]` then belongs to the
     # iterated table rather than naming a measure).
     has_row_context_iterators: bool = False
-    format_string: Optional[str] = None
-    display_folder: Optional[str] = None
-    # A `kpi` child object (status / target graphics) is defined on the measure.
-    has_kpi: bool = False
+    model_properties: Optional[FieldModelProperties] = None
 
 
 @dataclass
@@ -225,7 +205,6 @@ class ParsedRole:
     are deliberately never read."""
 
     name: str
-    model_permission: Optional[str]
     # table name -> DAX filter expression
     table_permissions: Dict[str, str] = field(default_factory=dict)
 
@@ -431,6 +410,61 @@ def _parse_partition(node: TmdlNode) -> ParsedPartition:
     return ParsedPartition(kind=kind, mode=mode, source=source)
 
 
+def _parse_field_properties(node: TmdlNode) -> FieldModelProperties:
+    """The column / measure properties beyond the data type. Properties a
+    measure cannot have are simply absent on its node."""
+    return FieldModelProperties(
+        format_string=node.properties.get(PROP_FORMAT_STRING),
+        display_folder=node.properties.get(PROP_DISPLAY_FOLDER),
+        data_category=node.properties.get(PROP_DATA_CATEGORY),
+        sort_by_column=node.properties.get(PROP_SORT_BY_COLUMN),
+        summarize_by=node.properties.get(PROP_SUMMARIZE_BY),
+        is_key=_bool_property(node, FLAG_IS_KEY) is True,
+        is_nullable=_bool_property(node, FLAG_IS_NULLABLE),
+        has_kpi=KEYWORD_KPI in node.flags,
+    )
+
+
+def _parse_column(node: TmdlNode) -> Optional[ParsedColumn]:
+    if node.name is None:
+        return None
+    raw_type = node.properties.get(PROP_DATA_TYPE)
+    expression = node.expression
+    is_calculated = (
+        expression is not None
+        or node.properties.get(PROP_TYPE, "").strip() == COLUMN_TYPE_CALCULATED
+    )
+    dax = extract_dax_references(expression)
+    return ParsedColumn(
+        name=node.name,
+        data_type=TMDL_DATA_TYPE_TO_SCAN.get(raw_type, raw_type) if raw_type else None,
+        source_column=node.properties.get(PROP_SOURCE_COLUMN),
+        is_hidden=_bool_property(node, FLAG_IS_HIDDEN) is True,
+        description=node.description,
+        expression=expression,
+        is_calculated=is_calculated,
+        references=dax.fields,
+        has_row_context_iterators=dax.has_row_context_iterators,
+        model_properties=_parse_field_properties(node),
+    )
+
+
+def _parse_measure(node: TmdlNode) -> Optional[ParsedMeasure]:
+    if node.name is None:
+        return None
+    expression = node.expression or ""
+    dax = extract_dax_references(expression)
+    return ParsedMeasure(
+        name=node.name,
+        expression=expression,
+        is_hidden=_bool_property(node, FLAG_IS_HIDDEN) is True,
+        description=node.description,
+        references=dax.fields,
+        has_row_context_iterators=dax.has_row_context_iterators,
+        model_properties=_parse_field_properties(node),
+    )
+
+
 def parse_table(
     text: str, unparsed: Optional[List[str]] = None
 ) -> Optional[ParsedTable]:
@@ -443,68 +477,16 @@ def parse_table(
     if node.name is None:
         return None
 
-    columns: List[ParsedColumn] = []
-    for column in node.child_values(KEYWORD_COLUMN):
-        if column.name is None:
-            continue
-        raw_type = column.properties.get(PROP_DATA_TYPE)
-        expression = column.expression
-        is_calculated = (
-            expression is not None
-            or column.properties.get(PROP_TYPE, "").strip() == COLUMN_TYPE_CALCULATED
-        )
-        dax = extract_dax_references(expression)
-        columns.append(
-            ParsedColumn(
-                name=column.name,
-                data_type=TMDL_DATA_TYPE_TO_SCAN.get(raw_type, raw_type)
-                if raw_type
-                else None,
-                source_column=column.properties.get(PROP_SOURCE_COLUMN),
-                is_hidden=FLAG_IS_HIDDEN in column.flags,
-                description=column.description,
-                expression=expression,
-                is_calculated=is_calculated,
-                references=dax.fields,
-                has_row_context_iterators=dax.has_row_context_iterators,
-                format_string=column.properties.get(PROP_FORMAT_STRING),
-                display_folder=column.properties.get(PROP_DISPLAY_FOLDER),
-                data_category=column.properties.get(PROP_DATA_CATEGORY),
-                sort_by_column=column.properties.get(PROP_SORT_BY_COLUMN),
-                summarize_by=column.properties.get(PROP_SUMMARIZE_BY),
-                is_key=FLAG_IS_KEY in column.flags,
-                is_nullable=_bool_property(column, FLAG_IS_NULLABLE),
-            )
-        )
-
-    measures: List[ParsedMeasure] = []
-    for measure in node.child_values(KEYWORD_MEASURE):
-        if measure.name is None:
-            continue
-        expression = measure.expression or ""
-        dax = extract_dax_references(expression)
-        measures.append(
-            ParsedMeasure(
-                name=measure.name,
-                expression=expression,
-                is_hidden=FLAG_IS_HIDDEN in measure.flags,
-                description=measure.description,
-                references=dax.fields,
-                has_row_context_iterators=dax.has_row_context_iterators,
-                format_string=measure.properties.get(PROP_FORMAT_STRING),
-                display_folder=measure.properties.get(PROP_DISPLAY_FOLDER),
-                has_kpi=KEYWORD_KPI in measure.flags,
-            )
-        )
-
+    columns = [_parse_column(child) for child in node.child_values(KEYWORD_COLUMN)]
+    measures = [_parse_measure(child) for child in node.child_values(KEYWORD_MEASURE)]
     partitions = node.child_values(KEYWORD_PARTITION)
     partition = _parse_partition(partitions[0]) if partitions else None
 
     return ParsedTable(
         name=node.name,
         description=node.description,
-        columns=columns,
-        measures=measures,
+        columns=[column for column in columns if column is not None],
+        measures=[measure for measure in measures if measure is not None],
         partition=partition,
         partition_count=len(partitions),
         refresh_policy=_parse_refresh_policy(node),
@@ -573,9 +555,9 @@ def parse_shared_expressions(text: str) -> Dict[str, ParsedSharedExpression]:
 
 
 def parse_roles(text: str) -> List[ParsedRole]:
-    """Roles of one ``definition/roles/<Name>.tmdl`` part: the role name, its
-    model permission and its per-table DAX filters. ``member`` children are
-    identities and are never read."""
+    """Roles of one ``definition/roles/<Name>.tmdl`` part: the role name and
+    its per-table DAX filters. ``member`` children are identities and are
+    never read."""
     roles: List[ParsedRole] = []
     for node in parse_tmdl(text):
         if node.keyword != KEYWORD_ROLE or node.name is None:
@@ -585,13 +567,7 @@ def parse_roles(text: str) -> List[ParsedRole]:
             if permission.name is None or permission.expression is None:
                 continue
             table_permissions[permission.name] = permission.expression.strip()
-        roles.append(
-            ParsedRole(
-                name=node.name,
-                model_permission=node.properties.get(PROP_MODEL_PERMISSION),
-                table_permissions=table_permissions,
-            )
-        )
+        roles.append(ParsedRole(name=node.name, table_permissions=table_permissions))
     return roles
 
 

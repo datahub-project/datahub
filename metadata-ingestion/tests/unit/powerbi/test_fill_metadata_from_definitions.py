@@ -11,8 +11,10 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    FieldModelProperties,
     Page,
     PowerBIDataset,
+    RefreshPolicy,
     Report,
     ReportType,
     Workspace,
@@ -442,24 +444,30 @@ def test_model_properties_attach_rls_filters_and_count() -> None:
     table = workspace.datasets[MODEL_A].tables[0]
     assert table.storage_mode == "DirectQuery"
     assert table.partition_count == 1
-    assert table.refresh_policy is not None
-    assert table.refresh_policy.rolling_window_periods == "2"
-    assert table.refresh_policy.incremental_granularity is None
+    assert table.refresh_policy == RefreshPolicy(
+        rolling_window_granularity="year", rolling_window_periods="2"
+    )
     # Only the filter on a table of the model is attached; members never are.
     assert [(f.role, f.filter) for f in table.rls_filters] == [
         ("Regional Managers", "'Policies'[State] = \"CA\"")
     ]
-    assert table.columns is not None
-    assert table.columns[0].is_key
-    assert table.measures is not None
-    assert table.measures[0].format_string == "$#,##0"
+    columns = {c.name: c.model_properties for c in table.columns or []}
+    assert columns["PolicyId"] == FieldModelProperties(is_key=True)
+    assert columns["State"] == FieldModelProperties()
+    measures = {m.name: m.model_properties for m in table.measures or []}
+    assert measures["Premium"] == FieldModelProperties(format_string="$#,##0")
 
     assert api.reporter.rls_roles_parsed == 1
     assert api.reporter.tmdl_roles_failed == 1
+    # The `Missing` table filter is reported, not silently dropped.
+    assert api.reporter.rls_filters_unresolved == 1
     assert api.reporter.dataset_parameters_emitted == 2
     # PolicyId (isKey) and Premium (formatString); State has no properties.
     assert api.reporter.model_fields_with_properties == 2
-    assert [w.title for w in api.reporter.warnings] == ["TMDL Role Not Parsed"]
+    assert sorted(w.title or "" for w in api.reporter.warnings) == [
+        "RLS Filter Table Not Found",
+        "TMDL Role Not Parsed",
+    ]
     # A broken role part is enrichment loss, never a failed table part.
     assert api.reporter.tmdl_parts_failed == 0
     assert api.reporter.failures == []
@@ -475,8 +483,29 @@ def test_model_properties_off_leaves_roles_and_counters_untouched() -> None:
     assert table.rls_filters == []
     assert api.reporter.rls_roles_parsed == 0
     assert api.reporter.tmdl_roles_failed == 0
+    assert api.reporter.rls_filters_unresolved == 0
     assert api.reporter.model_fields_with_properties == 0
     assert api.reporter.warnings == []
+
+
+def test_direct_lake_mode_on_a_non_entity_partition_is_not_direct_lake() -> None:
+    # Only an `entity` partition is DirectLake; the storage mode of any other
+    # partition kind is recorded as written so lineage routing is unchanged.
+    text = PROPERTIES_TABLE_TMDL.replace("mode: directQuery", "mode: directLake")
+    api = _api(definitions={MODEL_A: _definition(text)})
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+
+    table = workspace.datasets[MODEL_A].tables[0]
+    assert table.storage_mode is None
+    assert table.expression is not None
+
+    unknown = PROPERTIES_TABLE_TMDL.replace("mode: directQuery", "mode: future")
+    api = _api(definitions={MODEL_A: _definition(unknown)})
+    workspace = _workspace()
+    api.fill_metadata_from_definitions([workspace])
+    assert workspace.datasets[MODEL_A].tables[0].storage_mode == "future"
 
 
 # --- paginated report RDL binding ------------------------------------------

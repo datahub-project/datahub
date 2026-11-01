@@ -49,6 +49,7 @@ from datahub.ingestion.source.identity.corp_user_status import (
     make_corp_user_status_aspect,
 )
 from datahub.ingestion.source.powerbi.config import (
+    PARAMETER_VALUE_MAX_LENGTH,
     POWERBI_TYPE_TO_DATA_PLATFORM_PAIR,
     SECRET_PARAMETER_MARKERS,
     Constant,
@@ -955,29 +956,14 @@ class Mapper:
     ) -> None:
         """extract_model_properties: `isKey` and an explicit `isNullable` map
         onto the schema field; everything else goes into its jsonProps."""
-        props: Dict[str, Union[str, bool]] = {}
-        if field.isHidden:
-            props[Constant.IS_HIDDEN] = True
-        if field.format_string is not None:
-            props[Constant.FORMAT_STRING] = field.format_string
-        if field.display_folder is not None:
-            props[Constant.DISPLAY_FOLDER] = field.display_folder
-        if isinstance(field, powerbi_data_classes.Column):
-            if field.is_key:
-                schema_field.isPartOfKey = True
-            if field.is_nullable is not None:
-                schema_field.nullable = field.is_nullable
-            for key, value in (
-                (Constant.DATA_CATEGORY, field.data_category),
-                (Constant.SORT_BY_COLUMN, field.sort_by_column),
-                (Constant.SUMMARIZE_BY, field.summarize_by),
-            ):
-                if value is not None:
-                    props[key] = value
-        elif field.has_kpi:
-            props[Constant.HAS_KPI] = True
-        if props:
-            schema_field.jsonProps = json.dumps(props, sort_keys=True)
+        props = field.model_properties
+        if props is None:
+            return
+        if props.is_key:
+            schema_field.isPartOfKey = True
+        if props.is_nullable is not None:
+            schema_field.nullable = props.is_nullable
+        schema_field.jsonProps = props.to_json_props(is_hidden=field.isHidden)
 
     def _table_custom_properties(
         self,
@@ -1025,7 +1011,11 @@ class Mapper:
             custom_properties[Constant.RLS_ROLE_COUNT] = str(len(rls_filters))
         for name, value in sorted(dataset.parameters.items()):
             custom_properties[f"{Constant.PARAMETER_PREFIX}{name}"] = (
-                Constant.MASKED_VALUE if _is_secret_parameter(name) else value
+                Constant.MASKED_VALUE
+                if _is_secret_parameter(name)
+                # The API returns strings, but a non-string or oversized value
+                # must not be able to break the aspect.
+                else str(value)[:PARAMETER_VALUE_MAX_LENGTH]
             )
         return custom_properties
 

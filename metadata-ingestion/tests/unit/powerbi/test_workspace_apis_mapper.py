@@ -22,6 +22,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
     DatasetRefresh,
     DaxFieldReference,
+    FieldModelProperties,
     Measure,
     Page,
     PageFieldReference,
@@ -34,6 +35,8 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Table,
     Workspace,
 )
+from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import parse_table
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     InputFieldsClass,
@@ -41,6 +44,7 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     OperationTypeClass,
     SchemaMetadataClass,
+    StringTypeClass,
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -706,19 +710,29 @@ def _properties_table() -> Table:
                 dataType="Int64",
                 isHidden=True,
                 datahubDataType=NumberTypeClass(),
-                is_key=True,
-                is_nullable=False,
-                summarize_by="none",
+                model_properties=FieldModelProperties(
+                    is_key=True, is_nullable=False, summarize_by="none"
+                ),
             ),
             Column(
                 name="PaidAmount",
                 dataType="Double",
                 isHidden=False,
                 datahubDataType=NumberTypeClass(),
-                format_string="$#,##0.00",
-                display_folder="Financials",
-                data_category="Currency",
-                sort_by_column="ClaimId",
+                model_properties=FieldModelProperties(
+                    format_string="$#,##0.00",
+                    display_folder="Financials",
+                    data_category="Currency",
+                    sort_by_column="ClaimId",
+                    summarize_by="sum",
+                ),
+            ),
+            Column(
+                name="Notes",
+                dataType="String",
+                isHidden=False,
+                datahubDataType=StringTypeClass(),
+                model_properties=FieldModelProperties(is_nullable=True),
             ),
             _column("Plain"),
         ],
@@ -727,11 +741,16 @@ def _properties_table() -> Table:
                 name="Loss Ratio",
                 expression="DIVIDE([Paid], [Premium])",
                 isHidden=False,
-                format_string="0.0%",
-                display_folder="Ratios",
-                has_kpi=True,
+                model_properties=FieldModelProperties(
+                    format_string="0.0%", display_folder="Ratios", has_kpi=True
+                ),
             ),
-            Measure(name="Paid", expression="SUM(Claims[PaidAmount])", isHidden=True),
+            Measure(
+                name="Paid",
+                expression="SUM(Claims[PaidAmount])",
+                isHidden=True,
+                model_properties=FieldModelProperties(),
+            ),
         ],
         storage_mode="Import",
         partition_count=2,
@@ -767,6 +786,10 @@ def test_model_properties_on_schema_fields_and_table_properties() -> None:
             "Api Token": "abc",
             "WarehouseKey": "k1",
             "Secret Path": "x",
+            "DbPass": "p",
+            "ConnectionString": "c",
+            "Retries": 3,  # type: ignore[dict-item]
+            "Long": "x" * 2000,
         },
     )
 
@@ -775,10 +798,8 @@ def test_model_properties_on_schema_fields_and_table_properties() -> None:
     claim_id = fields["ClaimId"]
     assert claim_id.isPartOfKey
     assert not claim_id.nullable
-    assert json.loads(claim_id.jsonProps or "{}") == {
-        "isHidden": True,
-        "summarizeBy": "none",
-    }
+    # The Desktop default `summarizeBy: none` is not written.
+    assert json.loads(claim_id.jsonProps or "{}") == {"isHidden": True}
     paid = fields["PaidAmount"]
     assert not paid.isPartOfKey
     assert json.loads(paid.jsonProps or "{}") == {
@@ -786,7 +807,10 @@ def test_model_properties_on_schema_fields_and_table_properties() -> None:
         "displayFolder": "Financials",
         "formatString": "$#,##0.00",
         "sortByColumn": "ClaimId",
+        "summarizeBy": "sum",
     }
+    assert fields["Notes"].nullable is True
+    assert fields["Notes"].jsonProps is None
     assert fields["Plain"].jsonProps is None
     assert json.loads(fields["Loss Ratio"].jsonProps or "{}") == {
         "displayFolder": "Ratios",
@@ -817,24 +841,45 @@ def test_model_properties_on_schema_fields_and_table_properties() -> None:
     assert properties["parameter.Api Token"] == "***"
     assert properties["parameter.WarehouseKey"] == "***"
     assert properties["parameter.Secret Path"] == "***"
+    assert properties["parameter.DbPass"] == "***"
+    assert properties["parameter.ConnectionString"] == "***"
+    # Values are stringified and cut so they cannot break the aspect.
+    assert properties["parameter.Retries"] == "3"
+    assert properties["parameter.Long"] == "x" * 1000
 
 
-def test_model_properties_absent_without_the_flag() -> None:
-    mapper = _mapper()
+def test_parsed_table_properties_reach_the_schema() -> None:
+    """TMDL -> ParsedColumn -> Column -> SchemaFieldClass, end to end."""
+    mapper = _mapper(_config(extract_model_properties=True))
+    parsed = parse_table(
+        "table T\n\n\tcolumn Notes\n\t\tdataType: string\n\t\tisNullable\n\n"
+        "\tcolumn Id\n\t\tdataType: int64\n\t\tisKey\n\t\tisNullable: false\n"
+    )
+    assert parsed is not None
+    table = Table(
+        name="T",
+        full_name="Model.T",
+        columns=[PowerBiAPI._column_from_parsed(c) for c in parsed.columns],
+    )
+    _dataset([table])
+    fields = {f.fieldPath: f for f in mapper.to_datahub_schema(table).fields}
+    assert fields["Notes"].nullable is True
+    assert fields["Id"].nullable is False
+    assert fields["Id"].isPartOfKey
+
+
+def test_model_properties_absent_without_the_flag_or_properties() -> None:
+    off = _mapper()
     table = _properties_table()
     _dataset([table], parameters={"Environment": "prod"})
-
-    schema = mapper.to_datahub_schema(table)
-    for field in schema.fields:
+    for field in off.to_datahub_schema(table).fields:
         assert field.jsonProps is None
         assert not field.isPartOfKey
         assert not field.nullable
-    assert _dataset_properties(mapper, table) == {"datasetId": "ds-1"}
+    assert _dataset_properties(off, table) == {"datasetId": "ds-1"}
 
-
-def test_table_without_model_properties_only_carries_dataset_id() -> None:
-    mapper = _mapper(_config(extract_model_properties=True))
-    table = Table(name="T", full_name="Model.T", columns=[_column("A")])
-    _dataset([table])
-    assert _dataset_properties(mapper, table) == {"datasetId": "ds-1"}
-    assert mapper.to_datahub_schema(table).fields[0].jsonProps is None
+    on = _mapper(_config(extract_model_properties=True))
+    plain = Table(name="T", full_name="Model.T", columns=[_column("A")])
+    _dataset([plain])
+    assert _dataset_properties(on, plain) == {"datasetId": "ds-1"}
+    assert on.to_datahub_schema(plain).fields[0].jsonProps is None
