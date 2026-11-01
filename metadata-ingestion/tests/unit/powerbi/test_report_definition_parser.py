@@ -1,6 +1,8 @@
 import json
 from typing import Any, Dict, List, Optional
 
+import pytest
+
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     PageFieldReference,
     ReportFilter,
@@ -31,6 +33,34 @@ def _aliased_column(alias: str, prop: str) -> Dict[str, Any]:
 
 def _literal(value: str) -> Dict[str, Any]:
     return {"Literal": {"Value": value}}
+
+
+def _comparison(kind: int, value: str) -> Dict[str, Any]:
+    return {
+        "Condition": {
+            "Comparison": {"ComparisonKind": kind, "Left": {}, "Right": _literal(value)}
+        }
+    }
+
+
+def _date_add_where(amount: int, time_unit: int) -> List[Dict[str, Any]]:
+    return [
+        {
+            "Condition": {
+                "Comparison": {
+                    "ComparisonKind": 2,
+                    "Left": {},
+                    "Right": {
+                        "DateAdd": {
+                            "Expression": {"Now": {}},
+                            "Amount": amount,
+                            "TimeUnit": time_unit,
+                        }
+                    },
+                }
+            }
+        }
+    ]
 
 
 def _categorical_filter(
@@ -480,11 +510,16 @@ def test_legacy_report_and_section_filters_are_embedded_json_strings() -> None:
             "condition": "Top 5 by [Total Premium]",
         }
     ]
-    assert page.field_refs == [PageFieldReference("Policies", "State", "column")]
+    # The ordering measure is read by the filter too, so it is lineage.
+    assert page.field_refs == [
+        PageFieldReference("Policies", "State", "column"),
+        PageFieldReference("Insurance KPIs", "Total Premium", "measure"),
+    ]
 
 
-def test_filter_target_falls_back_to_condition_or_stays_unresolved() -> None:
-    # No `field`, but the condition reads a column through a From alias.
+def test_filter_fields_include_condition_reads_and_empty_filter_is_a_failure() -> None:
+    # No declared `field`: the target stays unknown, but the column the
+    # condition reads through a From alias is still lineage.
     implicit = {
         "name": "f_implicit",
         "type": "Categorical",
@@ -502,7 +537,7 @@ def test_filter_target_falls_back_to_condition_or_stays_unresolved() -> None:
             ],
         },
     }
-    # Nothing to resolve: the filter is kept, without a target.
+    # Nothing resolvable and no condition: not a filter we can describe.
     unresolved = {
         "name": "f_unresolved",
         "type": "Categorical",
@@ -516,25 +551,18 @@ def test_filter_target_falls_back_to_condition_or_stays_unresolved() -> None:
         "filter": {"Where": [{"Condition": {"Exists": {"Expression": {}}}}]},
     }
     failed: List[str] = []
-    filters = parse_filters(
-        {"filters": [implicit, unresolved, exotic]}, "visual", "v1", failed
-    )
+    filters = parse_filters([implicit, unresolved, exotic], "visual", "v1", failed)
 
-    assert failed == []
+    assert failed == [
+        "v1#1 (ValueError: neither a target field nor a condition was found)"
+    ]
     assert _filter_summary(filters) == [
         {
             "scope": "visual",
             "name": "f_implicit",
             "type": "Categorical",
-            "target": "Claims[Status]",
-            "condition": 'In ["Open"]',
-        },
-        {
-            "scope": "visual",
-            "name": "f_unresolved",
-            "type": "Categorical",
             "target": None,
-            "condition": None,
+            "condition": 'In ["Open"]',
         },
         {
             "scope": "visual",
@@ -544,7 +572,149 @@ def test_filter_target_falls_back_to_condition_or_stays_unresolved() -> None:
             "condition": '[{"Condition":{"Exists":{"Expression":{}}}}]',
         },
     ]
-    assert filters[1].to_dict() == {"name": "f_unresolved", "type": "Categorical"}
+    assert filters[0].fields == [PageFieldReference("Claims", "Status", "column")]
+    assert filters[0].to_dict() == {
+        "scope": "visual",
+        "name": "f_implicit",
+        "type": "Categorical",
+        "condition": 'In ["Open"]',
+    }
+
+
+@pytest.mark.parametrize(
+    "filter_type,where,expected",
+    [
+        pytest.param(
+            None,
+            [
+                {
+                    "Condition": {
+                        "Or": {
+                            "Left": {
+                                "And": {
+                                    "Left": _comparison(1, "10L")["Condition"],
+                                    "Right": _comparison(4, "20L")["Condition"],
+                                }
+                            },
+                            "Right": _comparison(0, "'x'")["Condition"],
+                        }
+                    }
+                }
+            ],
+            '((> 10) And (<= 20)) Or (= "x")',
+            id="and_or",
+        ),
+        pytest.param(
+            None,
+            [
+                {"Condition": {"Contains": {"Left": {}, "Right": _literal("'ab'")}}},
+                {
+                    "Condition": {
+                        "StartsWith": {"Left": {}, "Right": _literal("'c''d'")}
+                    }
+                },
+            ],
+            'Contains "ab" And StartsWith "c\'d"',
+            id="contains_starts_with_doubled_quote",
+        ),
+        pytest.param(
+            None,
+            [
+                {
+                    "Condition": {
+                        "TopN": {
+                            "Expression": {},
+                            "Count": 3,
+                            "OrderBy": [
+                                {
+                                    "Direction": 1,
+                                    "Expression": _column("Policies", "State"),
+                                }
+                            ],
+                        }
+                    }
+                }
+            ],
+            "Bottom 3 by Policies[State]",
+            id="top_n_ascending",
+        ),
+        pytest.param(
+            None,
+            [{"Condition": {"TopN": {"Expression": {}, "Count": 7}}}],
+            "Top 7",
+            id="top_n_without_order_by",
+        ),
+        pytest.param("RelativeDate", _date_add_where(0, 2), "This month", id="this"),
+        pytest.param("RelativeDate", _date_add_where(1, 0), "Next 1 day", id="next"),
+        pytest.param("RelativeDate", _date_add_where(-2, 3), "Last 2 years", id="last"),
+        pytest.param(
+            "RelativeDate",
+            _date_add_where(-2, 99),
+            '[{"Condition":{"Comparison":{"ComparisonKind":2,"Left":{},"Right":{"DateAdd":{"Expression":{"Now":{}},"Amount":-2,"TimeUnit":99}}}}}]',
+            id="unknown_time_unit_falls_back_to_raw",
+        ),
+        pytest.param(
+            None,
+            [{"Condition": {"Unknown": {"Payload": "y" * 300}}}],
+            # 200 chars in all: 199 of the raw JSON then the marker.
+            '[{"Condition":{"Unknown":{"Payload":"' + "y" * 162 + "…",
+            id="raw_fallback_is_truncated",
+        ),
+        pytest.param(
+            None,
+            [_comparison(2, "datetime'2024-01-01T00:00:00'")],
+            '>= "2024-01-01T00:00:00"',
+            id="typed_string_literal",
+        ),
+        pytest.param(
+            None,
+            [
+                {
+                    "Condition": {
+                        "In": {
+                            "Expressions": [{}, {}],
+                            "Values": [
+                                [_literal("'CA'"), _literal("1L")],
+                                [_literal("'NY'"), _literal("2L")],
+                            ],
+                        }
+                    }
+                }
+            ],
+            'In [("CA", 1), ("NY", 2)]',
+            id="multi_column_in",
+        ),
+        pytest.param(
+            None,
+            [
+                {
+                    "Condition": {
+                        "In": {
+                            "Expressions": [{}],
+                            "Values": [[_literal(f"{i}L")] for i in range(23)],
+                        }
+                    }
+                }
+            ],
+            "In [" + ", ".join(str(i) for i in range(20)) + ", … (+3 more)]",
+            id="in_values_capped",
+        ),
+    ],
+)
+def test_condition_rendering(
+    filter_type: Optional[str], where: List[Dict[str, Any]], expected: str
+) -> None:
+    failed: List[str] = []
+    entry: Dict[str, Any] = {
+        "name": "f",
+        "field": _column("Claims", "Status"),
+        "filter": {"Where": where},
+    }
+    if filter_type:
+        entry["type"] = filter_type
+    filters = parse_filters([entry], "page", "p", failed)
+    assert failed == []
+    assert [f.condition for f in filters] == [expected]
 
 
 def test_malformed_filter_blocks_are_reported_but_never_drop_the_page() -> None:
@@ -585,6 +755,28 @@ def test_malformed_filter_blocks_are_reported_but_never_drop_the_page() -> None:
     assert parsed.filters == []
     assert parsed.pages["s"].filters == []
     assert parsed.failed_filters == ["report.json", "report.json#s#0"]
+    assert parsed.failed_parts == []
+
+    # Legacy `filters` must be a JSON string; an already-decoded list is
+    # recorded, not raised (a TypeError here used to abort the workspace).
+    legacy = json.dumps(
+        {
+            "filters": [{"name": "x"}],
+            "sections": [
+                {
+                    "name": "s",
+                    "displayName": "Still here",
+                    "filters": [{"name": "y"}],
+                    "visualContainers": [],
+                }
+            ],
+        }
+    )
+    parsed = parse_report_definition([DefinitionPart("report.json", legacy)])
+    assert parsed.filters == []
+    assert parsed.pages["s"].display_name == "Still here"
+    assert parsed.pages["s"].filters == []
+    assert parsed.failed_filters == ["report.json", "report.json#s"]
     assert parsed.failed_parts == []
 
 
