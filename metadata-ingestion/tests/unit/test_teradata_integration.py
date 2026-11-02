@@ -13,7 +13,7 @@ from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import NullPool, QueuePool
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
@@ -406,11 +406,10 @@ class TestConfigurationIntegration:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            from sqlalchemy.pool import QueuePool
-
-            # The Teradata dialect defaults to SingletonThreadPool. The base class
-            # applies _profiling_pool_class before deciding on max_overflow, so the
-            # engine gets QueuePool and keeps max_overflow.
+            # Pins the wiring: TeradataSource declares QueuePool as its profiling
+            # pool, and the base class sets it before deciding on max_overflow.
+            # That the combination survives create_engine() is covered at the
+            # base level in test_sql_common.py.
             source._add_default_options(config)
 
             assert config.options["poolclass"] == QueuePool

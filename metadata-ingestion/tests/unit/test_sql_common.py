@@ -414,9 +414,15 @@ def test_profiling_pool_class_does_not_override_user_poolclass() -> None:
 
 
 def test_add_default_options_noop_without_profiling() -> None:
-    source = get_test_sql_alchemy_source()
+    # A source that declares a profiling pool must still leave options alone
+    # when profiling is off; otherwise every non-profiling run of a connector
+    # such as Teradata would be moved onto that pool.
+    source = _TestPooledProfilingSource.create(
+        config_dict={}, ctx=PipelineContext(run_id="test")
+    )
     config = _TestSQLAlchemyConfig.model_validate({})
 
     source._add_default_options(config)
 
+    assert "poolclass" not in config.options
     assert "max_overflow" not in config.options
