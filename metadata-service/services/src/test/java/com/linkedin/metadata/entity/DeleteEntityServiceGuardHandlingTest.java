@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -20,6 +21,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -39,8 +41,8 @@ import org.testng.annotations.Test;
  * Covers {@link DeleteEntityService}'s handling of delete-time guard rejections: when the entity
  * service rejects an individual aspect deletion with {@link IllegalArgumentException} (e.g. the
  * structured-property soft-delete-first guard) or an aspect validator rejection (e.g. assertion
- * authorization), reference cleanup must log, leave that aspect in place, and continue with the
- * remaining references instead of aborting the cascade.
+ * authorization), reference cleanup must report it, leave that aspect in place, and continue with
+ * the remaining references instead of aborting the cascade. Other failures propagate.
  */
 public class DeleteEntityServiceGuardHandlingTest {
 
@@ -68,13 +70,6 @@ public class DeleteEntityServiceGuardHandlingTest {
     return response;
   }
 
-  /** Stands in for the validation exception, whose type is not visible from this module. */
-  private static class ValidatorRejection extends RuntimeException {
-    ValidatorRejection(String message) {
-      super(message);
-    }
-  }
-
   @DataProvider(name = "rejections")
   public Object[][] rejections() {
     return new Object[][] {
@@ -82,17 +77,58 @@ public class DeleteEntityServiceGuardHandlingTest {
         new IllegalArgumentException(
             "Hard delete rejected for structured property qualifiedName 'io.acryl.example'.")
       },
-      {new ValidatorRejection("Unauthorized to delete assertion")}
+      {new ValidationException("Unauthorized to delete assertion")}
     };
   }
 
   @Test(dataProvider = "rejections")
-  public void testGuardRejectionDoesNotAbortReferenceCleanup(RuntimeException rejection)
-      throws Exception {
+  public void testGuardRejectionDoesNotAbortReferenceCleanup(RuntimeException rejection) {
     final Urn container = UrnUtils.getUrn("urn:li:container:d1006cf3-3ff9-48e3-85cd-26eb23775ab2");
     final Urn dataset1 = UrnUtils.toDatasetUrn("snowflake", "guard_test_one", "DEV");
     final Urn dataset2 = UrnUtils.toDatasetUrn("snowflake", "guard_test_two", "DEV");
+    mockTwoReferrers(container, dataset1, dataset2, rejection);
 
+    // The rejection must not escape deleteReferencesTo.
+    final DeleteReferencesResponse response =
+        _deleteEntityService.deleteReferencesTo(opContext, container, false);
+
+    assertNotNull(response);
+    assertEquals(2, (int) response.getTotal());
+    assertFalse(response.getRelatedAspects().isEmpty());
+
+    // The cascade continued past the rejection to a SUCCESSFUL delete: dataset1's rejection was
+    // contained, and dataset2's aspect deletion was still attempted and completed.
+    verify(_entityService)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(dataset1.toString()),
+            eq(Constants.CONTAINER_ASPECT_NAME),
+            anyMap(),
+            eq(true));
+    verify(_entityService)
+        .deleteAspect(
+            any(OperationContext.class),
+            eq(dataset2.toString()),
+            eq(Constants.CONTAINER_ASPECT_NAME),
+            anyMap(),
+            eq(true));
+  }
+
+  @Test
+  public void testOperationalFailurePropagates() {
+    final Urn container = UrnUtils.getUrn("urn:li:container:d1006cf3-3ff9-48e3-85cd-26eb23775ab2");
+    final Urn dataset1 = UrnUtils.toDatasetUrn("snowflake", "guard_test_one", "DEV");
+    final Urn dataset2 = UrnUtils.toDatasetUrn("snowflake", "guard_test_two", "DEV");
+    mockTwoReferrers(container, dataset1, dataset2, new IllegalStateException("storage failure"));
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> _deleteEntityService.deleteReferencesTo(opContext, container, false));
+  }
+
+  /** Two datasets reference {@code container}; deleting dataset1's reference throws. */
+  private void mockTwoReferrers(
+      Urn container, Urn dataset1, Urn dataset2, RuntimeException dataset1Failure) {
     // File-reference phase scrolls the search index; return no files.
     final ScrollResult emptyFileScrollResult = new ScrollResult();
     emptyFileScrollResult.setEntities(new SearchEntityArray());
@@ -158,7 +194,7 @@ public class DeleteEntityServiceGuardHandlingTest {
             anyString(),
             anyMap(),
             anyBoolean()))
-        .thenThrow(rejection);
+        .thenThrow(dataset1Failure);
     // ...while dataset2's deletion succeeds: a deleted-aspect result has newValue == null, so the
     // helper's post-delete error branch is not taken and the success path completes.
     final Container deletedAspect = new Container();
@@ -182,30 +218,5 @@ public class DeleteEntityServiceGuardHandlingTest {
                     ChangeType.DELETE,
                     false,
                     1)));
-
-    // The rejection must not escape deleteReferencesTo.
-    final DeleteReferencesResponse response =
-        _deleteEntityService.deleteReferencesTo(opContext, container, false);
-
-    assertNotNull(response);
-    assertEquals(2, (int) response.getTotal());
-    assertFalse(response.getRelatedAspects().isEmpty());
-
-    // The cascade continued past the rejection to a SUCCESSFUL delete: dataset1's rejection was
-    // contained, and dataset2's aspect deletion was still attempted and completed.
-    verify(_entityService)
-        .deleteAspect(
-            any(OperationContext.class),
-            eq(dataset1.toString()),
-            eq(Constants.CONTAINER_ASPECT_NAME),
-            anyMap(),
-            eq(true));
-    verify(_entityService)
-        .deleteAspect(
-            any(OperationContext.class),
-            eq(dataset2.toString()),
-            eq(Constants.CONTAINER_ASPECT_NAME),
-            anyMap(),
-            eq(true));
   }
 }
