@@ -851,3 +851,23 @@ def test_lineage_aspect_omitted_when_a_component_is_unreadable() -> None:
         assert list(_job_io(source).values()) == [None]
 
     assert list(source.get_report().lineage_processes_incomplete) == ["p1"]
+
+
+def test_lineage_error_keeps_process_without_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _source(include_undeployed_processes=True)
+    assert source.lineage is not None
+
+    def _raise(info: object) -> None:
+        raise ValueError("unexpected component shape")
+
+    monkeypatch.setattr(source.lineage, "resolve_process", _raise)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        assert list(_job_io(source).values()) == [None]
+
+    assert [w.title for w in source.get_report().warnings] == [
+        "Failed to resolve Boomi process lineage"
+    ]
