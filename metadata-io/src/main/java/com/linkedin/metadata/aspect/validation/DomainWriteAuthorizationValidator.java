@@ -38,7 +38,8 @@ import lombok.experimental.Accessors;
  * {@code EDIT_DOMAINS_PRIVILEGE}; domain resource filters still apply. {@code PATCH} on a missing
  * entity is authorized as Create/Edit Entity only. On an existing entity, PATCH requires the actor
  * to be allowed for both before and after domains when before membership exists (after-only when
- * establishing first domains).
+ * establishing first domains). For data products, {@code MANAGE_DATA_PRODUCTS} on every evaluated
+ * domain also authorizes the write, matching the GraphQL create/update pre-checks.
  *
  * <p>In-transaction {@code validatePreCommit} re-checks when a user session is present (sync):
  * before+after Edit when domains already exist, otherwise Create/Edit establish against proposed

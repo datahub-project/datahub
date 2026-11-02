@@ -61,6 +61,7 @@ public class DomainWriteAuthorizationUtilsTest {
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
   private static final Urn CHART_URN = UrnUtils.getUrn("urn:li:chart:(looker,chart.1)");
+  private static final Urn DATA_PRODUCT_URN = UrnUtils.getUrn("urn:li:dataProduct:auth-test");
   private static final Urn DOMAIN_X = UrnUtils.getUrn("urn:li:domain:engineering");
   private static final Urn DOMAIN_Y = UrnUtils.getUrn("urn:li:domain:marketing");
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -205,6 +206,33 @@ public class DomainWriteAuthorizationUtilsTest {
     assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
             session, DATASET_URN, ApiOperation.CREATE, true, proposed));
+  }
+
+  @Test
+  public void testIsAuthorizedEntityWrite_dataProductAllowsManageDataProductsOnDomain() {
+    AuthorizationSession session =
+        sessionAllowing(PoliciesConfig.MANAGE_DATA_PRODUCTS_PRIVILEGE.getType());
+    Domains proposed = new Domains().setDomains(new UrnArray(List.of(DOMAIN_X)));
+    // Establishing the domain of a new product and changing it on an existing one.
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATA_PRODUCT_URN, ApiOperation.CREATE, true, proposed));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATA_PRODUCT_URN, ApiOperation.UPDATE, true, proposed));
+    // The data product privilege says nothing about other entity types.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATASET_URN, ApiOperation.UPDATE, true, proposed));
+  }
+
+  @Test
+  public void testIsAuthorizedEntityWrite_dataProductWithoutDomainsNeedsEntityPrivileges() {
+    AuthorizationSession session =
+        sessionAllowing(PoliciesConfig.MANAGE_DATA_PRODUCTS_PRIVILEGE.getType());
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATA_PRODUCT_URN, ApiOperation.UPDATE, true, new Domains()));
   }
 
   @Test

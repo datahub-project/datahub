@@ -480,7 +480,20 @@ public final class EntityAspectAuthorizationUtils {
     return false;
   }
 
-  private static boolean isAuthorizedToManageDataProductsOnDomain(
+  /**
+   * Returns true when the actor holds {@code MANAGE_DATA_PRODUCTS} (or full entity privileges) on
+   * every given domain. False for an empty collection.
+   */
+  public static boolean isAuthorizedToManageDataProductsOnAllDomains(
+      @Nonnull AuthorizationSession session, @Nonnull Collection<Urn> domainUrns) {
+    if (domainUrns.isEmpty()) {
+      return false;
+    }
+    return domainUrns.stream()
+        .allMatch(domainUrn -> isAuthorizedToManageDataProductsOnDomain(session, domainUrn));
+  }
+
+  public static boolean isAuthorizedToManageDataProductsOnDomain(
       @Nonnull AuthorizationSession session, @Nonnull Urn domainUrn) {
     EntitySpec domainSpec = new EntitySpec(domainUrn.getEntityType(), domainUrn.toString());
     return com.datahub.authorization.AuthUtil.isAuthorized(

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.authorization;
 
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
@@ -273,7 +274,8 @@ public final class DomainWriteAuthorizationUtils {
    * <p>{@link ApiOperation#UPDATE} (set / clear / move on an existing entity) accepts {@code
    * EDIT_ENTITY} <em>or</em> {@code EDIT_DOMAINS_PRIVILEGE}. Domain resource filters still apply to
    * whichever privilege matches. {@link ApiOperation#CREATE} stays Create/Edit Entity only so Edit
-   * Domain cannot create entities.
+   * Domain cannot create entities. Data products additionally accept {@code MANAGE_DATA_PRODUCTS}
+   * on the evaluated domains; see {@link #isAuthorizedEntityWrite}.
    */
   @Nonnull
   public static Disjunctive<Conjunctive<PoliciesConfig.Privilege>> lookupDomainsAspectPrivileges(
@@ -529,6 +531,16 @@ public final class DomainWriteAuthorizationUtils {
       @Nullable Domains proposedDomains) {
 
     EntitySpec resourceSpec = new EntitySpec(urn.getEntityType(), urn.toString());
+
+    // A data product's domain is managed through MANAGE_DATA_PRODUCTS on that domain: it is what
+    // CreateDataProductResolver checks before writing, and a newly created product has no
+    // persisted domains for a domain-scoped Edit Entity policy to match. Require it on every
+    // domain in the evaluated set (before or after) so a move needs the privilege on both sides.
+    if (DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())
+        && EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAllDomains(
+            session, EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(proposedDomains))) {
+      return true;
+    }
 
     if (useProposedDomains && session instanceof OperationContext) {
       seedProposedDomainsForResourceSpec((OperationContext) session, resourceSpec, proposedDomains);
