@@ -62,6 +62,15 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 public class AggregationQueryBuilder {
   private static final String URN_FILTER = "urn";
   private static final String STRUCTURED_PROPERTIES_PREFIX = "structuredProperties.";
+
+  /**
+   * Facets that store one concept under different field names depending on the entity type, mapped
+   * to the single facet they are reported as. Datasets and ML models keep their environment in
+   * "origin"; containers, data flows and data jobs keep it in "env". Filters on either field
+   * already match both (see ESUtils.FIELDS_TO_EXPANDED_FIELDS_LIST).
+   */
+  private static final Map<String, String> MERGED_FACETS = Map.of("env", "origin");
+
   private final SearchConfiguration configs;
   private final Set<String> defaultFacetFields;
   private final Set<String> allFacetFields;
@@ -324,6 +333,12 @@ public class AggregationQueryBuilder {
     return v3FieldResolver.unlabeledHasValuesSource(facet);
   }
 
+  /** A merged facet takes its own display name, or the source field's when it has none here. */
+  private String mergedFacetDisplayName(String facetName, String sourceField) {
+    return computeDisplayName(
+        getFacetToDisplayNames().containsKey(facetName) ? facetName : sourceField);
+  }
+
   private String computeDisplayName(String name) {
     if (getFacetToDisplayNames().containsKey(name)) {
       return getFacetToDisplayNames().get(name);
@@ -370,10 +385,25 @@ public class AggregationQueryBuilder {
     if (oneTermAggResult.isEmpty()) {
       return;
     }
+    final String facetName = MERGED_FACETS.getOrDefault(entry.getKey(), entry.getKey());
+    final Optional<AggregationMetadata> mergeTarget =
+        aggregationMetadataList.stream()
+            .filter(aggregation -> aggregation.getName().equals(facetName))
+            .findFirst();
+    if (mergeTarget.isPresent()) {
+      final Map<String, Long> merged = new HashMap<>(mergeTarget.get().getAggregations());
+      oneTermAggResult.forEach((value, count) -> merged.merge(value, count, Long::sum));
+      mergeTarget
+          .get()
+          .setAggregations(new LongMap(merged))
+          .setFilterValues(
+              new FilterValueArray(SearchUtil.convertToFilters(merged, Collections.emptySet())));
+      return;
+    }
     final AggregationMetadata aggregationMetadata =
         new AggregationMetadata()
-            .setName(entry.getKey())
-            .setDisplayName(computeDisplayName(entry.getKey()))
+            .setName(facetName)
+            .setDisplayName(mergedFacetDisplayName(facetName, entry.getKey()))
             .setAggregations(new LongMap(oneTermAggResult))
             .setFilterValues(
                 new FilterValueArray(
@@ -554,7 +584,9 @@ public class AggregationQueryBuilder {
             .collect(Collectors.toMap(AggregationMetadata::getName, agg -> agg));
 
     // Map a filter criterion to a facet field (e.g. domains.keyword -> domains)
-    final String finalFacetField = toParentField(opContext, criterion.getField(), aspectRetriever);
+    final String parentField = toParentField(opContext, criterion.getField(), aspectRetriever);
+    final String finalFacetField =
+        parentField == null ? null : MERGED_FACETS.getOrDefault(parentField, parentField);
 
     if (finalFacetField == null) {
       log.warn(
@@ -607,11 +639,12 @@ public class AggregationQueryBuilder {
       // Simply replace suffix from original field when there are no aggregations for it. Prevents
       // bug where ES mappings for field are different from how we map the field back to UI
       // (ie. Structured Properties with dots in them)
-      String facetField = ESUtils.replaceSuffix(criterion.getField());
+      String sourceField = ESUtils.replaceSuffix(criterion.getField());
+      String facetField = MERGED_FACETS.getOrDefault(sourceField, sourceField);
       aggregationMetadata.add(
           buildAggregationMetadata(
               facetField,
-              getFacetToDisplayNames().getOrDefault(facetField, facetField),
+              mergedFacetDisplayName(facetField, sourceField),
               new LongMap(
                   criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
               new FilterValueArray(
