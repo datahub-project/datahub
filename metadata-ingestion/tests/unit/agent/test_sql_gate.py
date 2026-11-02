@@ -1,4 +1,9 @@
+import json
+import pathlib
+from typing import Set
+
 import pytest
+from sqlglot import exp
 
 from datahub.ingestion.agent.sql_gate import (
     CatalogScope,
@@ -248,6 +253,55 @@ def test_rejects_a_vendor_function_with_no_table_reference():
     # data without naming a table at all, so walking tables never sees it.
     with pytest.raises(SqlScopeError, match="pg_read_file"):
         check_query_scope("SELECT pg_read_file('/etc/passwd')", platform="postgres")
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT secret('my_scope', 'my_key') AS s "
+        "FROM system.information_schema.tables LIMIT 1",
+        # Not selected, but the row count still answers a guess about the value.
+        "SELECT table_name FROM system.information_schema.tables "
+        "WHERE secret('my_scope', 'my_key') LIKE 'a%'",
+    ],
+)
+def test_rejects_databricks_secret(sql):
+    # sqlglot 30.22 models secret() as exp.Secret, so the vendor-function rule,
+    # which only sees exp.Anonymous, no longer refuses it on its own.
+    with pytest.raises(SqlScopeError, match="secret"):
+        check_query_scope(sql, platform="databricks")
+
+
+_MODELED_FUNCTIONS_BASELINE = (
+    pathlib.Path(__file__).parent / "sqlglot_modeled_functions_baseline.json"
+)
+
+
+def _modeled_functions() -> Set[str]:
+    def subclasses(cls: type) -> Set[type]:
+        found: Set[type] = set()
+        for sub in cls.__subclasses__():
+            found |= {sub} | subclasses(sub)
+        return found
+
+    return {
+        cls.__name__
+        for cls in subclasses(exp.Func)
+        if cls.__module__.startswith("sqlglot.")
+    }
+
+
+def test_sqlglot_upgrade_reviews_newly_modeled_functions():
+    # The vendor-function rule refuses what sqlglot leaves as exp.Anonymous, so each
+    # function sqlglot learns to model slips past it. The baseline is what sqlglot
+    # 30.22 models; it is not an allowlist, and only the functions added since
+    # 30.12 were checked against the gate. On a sqlglot upgrade, check each new
+    # function: refuse it in sql_gate._REFUSED_FUNCTION_NODES if it reads anything
+    # but its arguments (secrets, files, other sessions, server state), then add it
+    # to the baseline.
+    baseline = set(json.loads(_MODELED_FUNCTIONS_BASELINE.read_text()))
+    new = sorted(_modeled_functions() - baseline)
+    assert not new, f"sqlglot models functions the SQL gate hasn't checked: {new}"
 
 
 def test_permits_standard_functions_over_catalog_tables():

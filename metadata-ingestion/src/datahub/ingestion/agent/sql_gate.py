@@ -117,6 +117,23 @@ _DEFAULT_SCOPE = CatalogScope()
 # catalog metadata and to read no user rows or host files.
 _ALLOWED_VENDOR_FUNCTIONS: FrozenSet[str] = frozenset()
 
+# The other side of the rule above: once sqlglot models a vendor function, it stops
+# being exp.Anonymous and the rule no longer sees it. These are the ones that read
+# something other than catalog metadata. tests/unit/agent/test_sql_gate.py fails when
+# a sqlglot upgrade models new functions, so each one gets checked here.
+_REFUSED_FUNCTION_NODES: Dict[type, str] = {
+    node: label
+    for node, label in (
+        (getattr(exp, name, None), label)
+        for name, label in (
+            # Databricks secret(scope, key): a value from a secret scope. Even when
+            # not selected, a WHERE on it leaks the value a row count at a time.
+            ("Secret", "secret()"),
+        )
+    )
+    if node is not None
+}
+
 
 # A refusal names the SQL keyword: sqlglot's node name can mislead (FLUSH
 # PRIVILEGES parses to an Alias).
@@ -295,6 +312,13 @@ def _check_withheld_columns(statement: exp.Expr) -> None:
 
 
 def _check_functions(statement: exp.Expr) -> None:
+    for node_type, label in _REFUSED_FUNCTION_NODES.items():
+        if next(statement.find_all(node_type), None) is None:
+            continue
+        raise SqlScopeError(
+            f"'{label}' reads a value that is not catalog metadata; only standard "
+            f"SQL over catalog tables is permitted"
+        )
     for func in statement.find_all(exp.Anonymous):
         if func.name.lower() in _ALLOWED_VENDOR_FUNCTIONS:
             continue
