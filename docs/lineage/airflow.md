@@ -96,6 +96,7 @@ enabled = True  # default
 | enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                                                                                                                                          |
 | capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).                                                                                                                          |
 | emit_mode                          | ASYNC                | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees.                               |
+| dedupe_dataflow_per_dag_run        | false                | If true, a task start emits its DAG run's DataFlow once per worker, not on every task, using a marker file per run in the worker's temp directory. Cuts writes for DAGs with many tasks or runs.                                                          |
 
 #### Materializing lineage iolets
 
@@ -672,6 +673,8 @@ _Changes_
 - New `dataset_pattern` option to drop individual inlets and outlets by `<platform>:<name>` pattern. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).
 - `file` datasets reported through OpenLineage (worker scratch paths) are no longer captured by default; set `capture_ol_file_datasets = true` to keep them. BigQuery tables in hidden `_`-prefixed datasets are dropped by default; set `capture_bigquery_temp_datasets = true` to keep them.
 - Airflow Assets with a `file:///` URI keep the leading slash in the dataset name (`file:///tmp/x` becomes `/tmp/x`, not `tmp/x`), matching OpenLineage and the Spark agent.
+- A task start no longer emits a `status` aspect for every task in its DAG. Each task still emits its own DataJob when it runs, so a DAG run now costs O(tasks) writes instead of O(tasks²). The scheduler's DAG-run event still marks every task.
+- New `dedupe_dataflow_per_dag_run` option (default `false`) emits a DAG run's DataFlow once per worker instead of on every task start.
 
 ### Versions 1.7.0 through 1.7.0.10
 

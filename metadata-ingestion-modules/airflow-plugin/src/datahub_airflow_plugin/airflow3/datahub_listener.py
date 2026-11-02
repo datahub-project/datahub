@@ -61,6 +61,7 @@ from datahub_airflow_plugin._airflow_asset_adapter import (
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._constants import DATAHUB_SQL_PARSING_RESULT_KEY
+from datahub_airflow_plugin._dataflow_dedupe import DagRunEmissionTracker
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_datasets
 from datahub_airflow_plugin._dataset_filter import DatasetFilter, apply_dataset_filter
 from datahub_airflow_plugin._version import __package_name__, __version__
@@ -421,6 +422,8 @@ class DataHubListener:
 
         # Cache initial datajob objects to merge with completion events
         self._datajob_holder: Dict[str, DataJob] = {}
+
+        self._dataflow_emission_tracker = DagRunEmissionTracker()
 
         self._dataset_filter = DatasetFilter(
             pattern=config.dataset_pattern,
@@ -1322,7 +1325,7 @@ class DataHubListener:
         # on worker processes. This means the scheduler's on_dag_run_running never triggers
         # DataFlow emission. By emitting here, we ensure the DataFlow exists before the
         # DataJob references it. DataHub's UPSERT semantics make duplicate emissions safe.
-        self.on_dag_start(dagrun)
+        self._emit_dataflow_for_task_event(dagrun)
 
         # Generate and emit datajob
         # Task type can vary between Airflow versions (MappedOperator from different modules)
@@ -1501,7 +1504,29 @@ class DataHubListener:
             f"DataHub listener finished processing task instance failure for {task_instance.task_id}"
         )
 
-    def on_dag_start(self, dag_run: "DagRun") -> None:  # type: ignore[no-untyped-def]
+    def _emit_dataflow_for_task_event(self, dag_run: "DagRun") -> None:
+        """Emit the DataFlow from a task start, the fallback for workers that never see
+        the scheduler's DAG-run event.
+
+        Each task emits its own DataJob, so the per-task Status loop is skipped here:
+        repeating it on every task start costs O(tasks) writes per task and O(tasks^2)
+        per DAG run.
+        """
+        if self.config.dedupe_dataflow_per_dag_run and not (
+            self._dataflow_emission_tracker.claim(
+                str(dag_run.dag_id), str(dag_run.run_id)
+            )
+        ):
+            logger.debug(
+                f"DataFlow for dag_id={dag_run.dag_id}, run_id={dag_run.run_id} "
+                "already emitted on this worker; skipping"
+            )
+            return
+        self.on_dag_start(dag_run, emit_task_statuses=False)
+
+    def on_dag_start(  # type: ignore[no-untyped-def]
+        self, dag_run: "DagRun", emit_task_statuses: bool = True
+    ) -> None:
         logger.debug(
             f"DataHub on_dag_start called for dag_id={dag_run.dag_id}, run_id={dag_run.run_id}"
         )
@@ -1536,14 +1561,15 @@ class DataHubListener:
         )
         emitter.emit(event)
 
-        for task in dag.tasks:
-            task_urn = builder.make_data_job_urn_with_flow(
-                str(dataflow.urn), task.task_id
-            )
-            event = MetadataChangeProposalWrapper(
-                entityUrn=task_urn, aspect=StatusClass(removed=False)
-            )
-            emitter.emit(event)
+        if emit_task_statuses:
+            for task in dag.tasks:
+                task_urn = builder.make_data_job_urn_with_flow(
+                    str(dataflow.urn), task.task_id
+                )
+                event = MetadataChangeProposalWrapper(
+                    entityUrn=task_urn, aspect=StatusClass(removed=False)
+                )
+                emitter.emit(event)
 
         if self.config.platform_instance:
             instance = make_dataplatform_instance_urn(
