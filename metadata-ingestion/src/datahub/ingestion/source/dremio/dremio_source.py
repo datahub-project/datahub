@@ -44,6 +44,11 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioSourceContainer,
 )
 from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
+from datahub.ingestion.source.dremio.dremio_naming import (
+    DREMIO_DATABASE_NAME,
+    DremioSchemaResolver,
+    dremio_dataset_name,
+)
 from datahub.ingestion.source.dremio.dremio_profiling import (
     DremioProfiler,
     ProfileTarget,
@@ -69,8 +74,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import CorpUserUrn
-from datahub.sql_parsing._models import _TableName
-from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
@@ -78,9 +81,6 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
-
-# Dremio uses 'dremio' as the default database name in all SQL contexts
-DREMIO_DATABASE_NAME = "dremio"
 
 
 def passes_dremio_filters(
@@ -115,61 +115,6 @@ def passes_dremio_filters(
             return False
 
     return True
-
-
-class DremioSchemaResolver(SchemaResolver):
-    """Custom schema resolver for Dremio multi-part table names.
-
-    Dremio uses 'dremio' as the database in all URNs. For multi-part tables (>3 parts),
-    uses table.parts to preserve the full hierarchy: dremio.part1.part2.part3.table
-
-    Note: Folder names containing dots (e.g., "folder.with.dots") create ambiguous URNs
-    in SQL parsing since dots are path delimiters. However, catalog-based ingestion
-    correctly handles these via the Dremio API's incremental path resolution. See
-    dremio_api.DremioAPIOperations.get_dataset_id() for implementation details.
-    """
-
-    def _get_table_name_parts(self, table: _TableName) -> List[Optional[str]]:
-        if table.parts:
-            return [DREMIO_DATABASE_NAME, *table.parts]
-        elif table.database and table.database.lower() != DREMIO_DATABASE_NAME:
-            return [
-                DREMIO_DATABASE_NAME,
-                table.database,
-                table.db_schema,
-                table.table,
-            ]
-        else:
-            return [
-                table.database or DREMIO_DATABASE_NAME,
-                table.db_schema,
-                table.table,
-            ]
-
-    def _construct_table_name(self, table: _TableName) -> str:
-        parts = self._get_table_name_parts(table)
-        return ".".join(filter(None, parts))
-
-    def get_urn_for_table(
-        self, table: _TableName, lower: bool = False, mixed: bool = False
-    ) -> str:
-        table_name = self._construct_table_name(table)
-        platform_instance = self.platform_instance
-
-        if lower:
-            table_name = table_name.lower()
-            if not mixed:
-                platform_instance = (
-                    platform_instance.lower() if platform_instance else None
-                )
-
-        urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=table_name,
-            env=self.env,
-            platform_instance=platform_instance,
-        )
-        return urn
 
 
 @dataclass
@@ -494,12 +439,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
         self.catalog_dataset_names.add(dataset_name)
 
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=make_data_platform_urn(self.get_platform()),
-            name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
-        )
+        dataset_urn = self._make_dataset_urn(dataset_info)
 
         for dremio_mcp in self.dremio_aspects.populate_dataset_mcp(
             dataset_urn, dataset_info
@@ -572,11 +512,9 @@ class DremioSource(StatefulIngestionSourceBase):
         yield from self.dremio_aspects.populate_glossary_term_mcp(glossary_term_info)
 
     def _make_dataset_urn(self, dataset_info: DremioDataset) -> str:
-        schema_str = ".".join(dataset_info.path)
-        dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
         return make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(self.get_platform()),
-            name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
+            name=dremio_dataset_name([*dataset_info.path, dataset_info.resource_name]),
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
@@ -603,7 +541,7 @@ class DremioSource(StatefulIngestionSourceBase):
             upstream_urns.append(
                 make_dataset_urn_with_platform_instance(
                     platform=make_data_platform_urn(self.get_platform()),
-                    name=f"{DREMIO_DATABASE_NAME}.{upstream_name}",
+                    name=dremio_dataset_name([upstream_name]),
                     env=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )

@@ -1157,6 +1157,22 @@ class TestExpressionParameterResolution:
             == "my_db.orders"
         )
 
+    @pytest.mark.parametrize(
+        ("statement", "expected"),
+        [
+            ("TRUNCATE TABLE dbo.sales", "my_db.dbo.sales"),
+            ("DROP TABLE IF EXISTS dbo.sales", "my_db.dbo.sales"),
+            # The index and the procedure are not the copy's destination.
+            ("DROP INDEX IX_sales_date ON dbo.sales", None),
+            ("EXEC @rc = dbo.usp_prepare_sales", None),
+        ],
+    )
+    def test_ddl_target_table_skips_statements_naming_other_objects(
+        self, statement: str, expected: Optional[str]
+    ) -> None:
+        source = self._make_source()
+        assert source._extract_ddl_target_table(statement, "mssql", "my_db") == expected
+
     def test_resolve_literal_or_global_parameter_resolves_global_reference(
         self,
     ) -> None:

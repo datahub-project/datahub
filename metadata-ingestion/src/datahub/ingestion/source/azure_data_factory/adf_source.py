@@ -3217,6 +3217,15 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             )
             return None
 
+        # The first Table of these names something other than the table written
+        # to: the procedure an EXEC calls, the index a DROP INDEX drops. sqlglot
+        # 30.22 parses both forms on MSSQL, where older versions failed.
+        if isinstance(parsed, sqlglot_exp.Execute) or (
+            isinstance(parsed, sqlglot_exp.Drop)
+            and (parsed.args.get("kind") or "").upper() not in {"TABLE", "VIEW"}
+        ):
+            return None
+
         table = parsed.find(sqlglot_exp.Table)
         if table is None:
             return None
