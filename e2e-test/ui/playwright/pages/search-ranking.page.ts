@@ -13,13 +13,38 @@ export class SearchRankingPage extends SearchPage {
     this.resultRange = page.getByText(/of [\d,]+ results?/);
   }
 
-  /** URNs of the cards on the current page, top to bottom. */
+  /**
+   * URNs of the cards on the current page, top to bottom. The result wrapper names the served
+   * entity in its `entityUrn-<urn>` class; a column card's preview names its parent dataset instead.
+   */
   async urnsOnPage(): Promise<string[]> {
     await expect(this.resultItems.first()).toBeVisible({ timeout: 30_000 });
-    const ids = await this.resultItems.evaluateAll((items) =>
-      items.map((item) => item.querySelector('[data-testid^="preview-"]')?.getAttribute('data-testid') ?? ''),
+    return this.resultItems.evaluateAll((items) =>
+      items.map((item) => {
+        for (let node: Element | null = item; node; node = node.parentElement) {
+          // The class attribute is space-separated, and a URN may hold spaces: read up to the
+          // parenthesis that closes the URN, or to the next space for a URN without one.
+          const attr = node.getAttribute('class') ?? '';
+          const start = attr.indexOf('entityUrn-');
+          if (start >= 0) {
+            const rest = attr.slice(start + 'entityUrn-'.length);
+            let depth = 0;
+            for (let i = 0; i < rest.length; i += 1) {
+              if (rest[i] === '(') depth += 1;
+              if (rest[i] === ')') depth -= 1;
+              if (
+                (depth === 0 && rest[i] === ')') ||
+                (depth === 0 && rest[i] === ' ' && !rest.slice(0, i).includes('('))
+              ) {
+                return rest[i] === ')' ? rest.slice(0, i + 1) : rest.slice(0, i);
+              }
+            }
+            return rest;
+          }
+        }
+        return '';
+      }),
     );
-    return ids.map((id) => id.replace(/^preview-/, ''));
   }
 
   async totalResults(): Promise<number> {

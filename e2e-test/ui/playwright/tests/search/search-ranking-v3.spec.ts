@@ -11,8 +11,8 @@
  *   EXACT_NAME > EXACT_COPIED > EXACT_COLUMN > EXACT_COLUMN_COPIED >
  *   PARTIAL_NAME > PARTIAL_COPIED > PARTIAL_COLUMN > PARTIAL_COLUMN_COPIED > OTHER
  *
- * Exact is a whole-value match ignoring case; partial is every query word starting a word of the
- * value (see `tranche` in the seeder). A value that differs from the query only in separators is
+ * Exact is a whole-value match ignoring case; partial is every separator-delimited substring of the
+ * query starting one of the value (see `tranche` in the seeder). A value that differs from the query only in separators is
  * left out of the comparison. A tranche holds ties in any order; a result in the wrong tranche
  * fails the test, and the failure message shows the expected and the actual order. Each search attaches its served rows, their
  * tranches and the first results page to the test (attachments `ranking-<n>.json` and

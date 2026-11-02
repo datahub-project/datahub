@@ -122,13 +122,14 @@ import org.testng.annotations.BeforeClass;
  * EXACT_COPIED, PARTIAL_NAME, PARTIAL_COPIED, then OTHER. Exact means the query as typed equals the
  * whole value, ignoring case: kennel_booking is exact for kennel_booking, never for
  * kennel_booking_archive or booking. A value that differs from the query only in separators may
- * rank either way and is left out of the comparison. Partial means every query word starts a word
- * of the value, or the value starts with the query, with no stemming. Queries are typed without
- * quotes, as a user types them; one scenario checks that quoting gives the same order. A dataset
- * takes its best tranche, graded on its real name first, so a dataset whose own title equals or
- * holds the query is graded on its real name. Column tranches (EXACT_COLUMN, EXACT_COLUMN_COPIED,
- * PARTIAL_COLUMN, PARTIAL_COLUMN_COPIED) follow the dataset tranches of the same match quality. A
- * record ID typed as the query is checked on its own: that asset first.
+ * rank either way and is left out of the comparison. Partial means every separator-delimited
+ * substring of the query starts one of the value, in any order, or the value starts with the query,
+ * with no stemming. Separators are space, underscore, dot and slash; a hyphen is not one. Queries
+ * are typed without quotes, as a user types them; one scenario checks that quoting gives the same
+ * order. A dataset takes its best tranche, graded on its real name first, so a dataset whose own
+ * title equals or holds the query is graded on its real name. Column tranches (EXACT_COLUMN,
+ * EXACT_COLUMN_COPIED, PARTIAL_COLUMN, PARTIAL_COLUMN_COPIED) follow the dataset tranches of the
+ * same match quality. A record ID typed as the query is checked on its own: that asset first.
  *
  * <p>Every scenario runs three ways: the shipped templates; the class-order body selected per
  * request with {@code searchFlags.searchTemplate}; and the class-order router set as the search-box
@@ -472,13 +473,16 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   private static final int OTHER = 9;
   private static final int SEPARATOR_ONLY = 10;
 
-  /** Words for a partial match: lowercased, accents folded, split on any separator. */
+  /**
+   * Separator-delimited substrings: lowercased, accents folded, split on space, underscore, dot and
+   * slash. A hyphen is not a separator, so PET-ADOPT-0042 and a GUID stay one substring.
+   */
   static List<String> words(String text) {
     String folded =
         java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
             .replaceAll("\\p{M}", "")
             .toLowerCase();
-    return java.util.Arrays.stream(folded.split("[^a-z0-9]+")).filter(w -> !w.isEmpty()).toList();
+    return java.util.Arrays.stream(folded.split("[\\s_./]+")).filter(w -> !w.isEmpty()).toList();
   }
 
   /** The query as typed, without surrounding quotes. */
@@ -494,12 +498,15 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     return value != null && typed(query).equalsIgnoreCase(value.trim());
   }
 
-  /** The same words as the query, differing only in separators: not part of the rule. */
+  /** The same substrings as the query, differing only in separators: not part of the rule. */
   static boolean separatorOnly(String query, @Nullable String value) {
     return value != null && !exact(query, value) && words(typed(query)).equals(words(value));
   }
 
-  /** Partial: every query word starts a word of the value, or the value starts with the query. */
+  /**
+   * Partial: every separator-delimited substring of the query starts one of the value, in any
+   * order, or the value starts with the query.
+   */
   static boolean starts(String query, @Nullable String value) {
     if (value == null) {
       return false;

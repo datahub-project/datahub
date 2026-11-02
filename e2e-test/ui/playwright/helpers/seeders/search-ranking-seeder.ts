@@ -134,8 +134,9 @@ export function buildRankingCorpus(): CorpusEntry[] {
  *
  *   Exact: the whole value equals the query, ignoring case. kennel_booking is exact for
  *   kennel_booking, never for kennel_booking_archive or booking.
- *   Partial: every query word starts a word of the value, or the value starts with the query.
- *   Words split on any separator; there is no stemming, so "groomed" does not start "groom_0001".
+ *   Partial: every separator-delimited substring of the query starts one of the value, in any
+ *   order, or the value starts with the query. Separators are space, underscore, dot and slash; a
+ *   hyphen is not one. There is no stemming, so "groomed" does not start "groom_0001".
  *   SEPARATOR_ONLY: the value differs from the query only in separators ("kennel booking" and
  *   kennel_booking). The rule does not decide where it ranks, so it is left out of comparisons.
  */
@@ -154,13 +155,16 @@ export const TRANCHES = [
 ] as const;
 export type Tranche = (typeof TRANCHES)[number];
 
-/** Lowercased, accent-folded words; `_`, `-`, `.`, `/` and spaces all separate words. */
+/**
+ * Separator-delimited substrings, lowercased and accent-folded. Separators are space, underscore,
+ * dot and slash; a hyphen is not one, so PET-ADOPT-0042 and a GUID stay one substring.
+ */
 export const words = (text: string): string[] =>
   text
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .split(/[^a-z0-9]+/)
+    .split(/[\s_./]+/)
     .filter(Boolean);
 
 /** The query as typed, without surrounding quotes. */
