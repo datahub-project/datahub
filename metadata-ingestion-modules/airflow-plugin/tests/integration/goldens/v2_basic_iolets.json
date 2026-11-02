@@ -489,6 +489,17 @@
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:5d666eaf9015a31b3e305e8bc2dba078",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:5d666eaf9015a31b3e305e8bc2dba078",
+    "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
         "json": {
