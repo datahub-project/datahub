@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -9,7 +10,12 @@ from typing import (
     Tuple,
 )
 
-from datahub.ingestion.agent.pattern_path import require_pattern_at, unset_block_on
+from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.agent.pattern_path import (
+    pattern_at,
+    require_pattern_at,
+    unset_block_on,
+)
 
 
 @dataclass(frozen=True)
@@ -68,6 +74,11 @@ class ClassifyContext:
     # Report a degraded judgement (a less precise target). Deduplicated by
     # message, so a connector-wide reason is reported once.
     warn: Callable[[str], None]
+    # Record that this target was built without the container ingestion
+    # matches on. Asked after the verdict, never raised here: see
+    # ContainerNeed. Defaulted, so a connector or test building a context by
+    # hand needs no change.
+    note_container: Callable[["ContainerNeed"], None] = lambda _need: None
     # The kind being judged, canonicalised by check_filters.
     kind: str = ""
 
@@ -92,6 +103,232 @@ def parent_required(ctx: ClassifyContext) -> bool:
     return True
 
 
+def _hint_container(config: object, kind: str) -> Tuple[Optional[str], Optional[str]]:
+    """(container kind, the command listing it) for a refusal's remedy, either
+    of which may be None.
+
+    Any failure is swallowed: this runs while a refusal is being built, and a
+    connector whose hooks raise would otherwise replace an actionable
+    "pass --parent" with an exit-1 defect report the caller cannot act on.
+    """
+    try:
+        container_kind = _container_kind_for(config, kind)
+        if container_kind is None:
+            return None, None
+        return container_kind, _listing_command_for(config, container_kind)
+    except Exception:
+        return None, None
+
+
+def _container_kind_for(config: object, kind: str) -> Optional[str]:
+    """The kind of the container a `kind` is qualified by, or None."""
+    from datahub.ingestion.agent.probe_methods import config_hook
+
+    ancestors_for = config_hook(config, "probe_ancestor_kinds")
+    ancestors = ancestors_for(kind=kind) if ancestors_for else None
+    if not isinstance(ancestors, (list, tuple)) or not ancestors:
+        return None
+    return str(ancestors[0])
+
+
+def _listing_command_for(config: object, container_kind: str) -> Optional[str]:
+    """A probe command that lists `container_kind`, or None.
+
+    Looked up by kind rather than named per connector, so a source that gains
+    a container listing earns the "run this first" sentence without the
+    framework learning its name. Lazy import: probe_methods imports this
+    module.
+    """
+    from datahub.ingestion.agent.probe_methods import (
+        listing_command_for_kind,
+        provider_class_for_config,
+    )
+
+    provider_cls = provider_class_for_config(type(config))
+    if provider_cls is None:
+        return None
+    return listing_command_for_kind(config, provider_cls, container_kind)
+
+
+# An entry of the form `^?.*<literal>$`, where the literal carries no dot or
+# regex syntax, matches `<container>.<name>` exactly when it matches `<name>`:
+# the suffix cannot reach back across the dot. So the question is not whether a
+# pattern filters -- a deny list filters and is still blind to the container --
+# but whether the container could change what it says.
+_CONTAINER_BLIND = re.compile(r"\^?\.\*[A-Za-z0-9_\-]*\$")
+
+# Allow entries that admit every name, so the container cannot change them.
+_MATCHES_ANYTHING = frozenset({".*", "^.*", ".*$", "^.*$", ".+", "^.+", ".+$", "^.+$"})
+
+
+def _admits_everything(pattern: Optional[AllowDenyPattern]) -> bool:
+    """Whether `pattern` keeps every name it is shown -- a different question
+    from container_blind, which asks whether a missing container changes the
+    answer. `.*_prod$` is blind to its container and still excludes plenty."""
+    if pattern is None:
+        return True
+    return not pattern.deny and any(a in _MATCHES_ANYTHING for a in pattern.allow)
+
+
+def container_blind(pattern: Optional[AllowDenyPattern]) -> bool:
+    """Whether the missing container could change what `pattern` says.
+
+    False keeps the verdict unasked; True lets it stand on the bare name.
+    Testing "filters nothing" instead refused recipes whose verdict no
+    container could alter -- every Snowflake recipe, because
+    `validate_legacy_schema_pattern` always appends a `.*INFORMATION_SCHEMA$`
+    deny, and a `dataset_pattern` denying `.*_staging$` for the same reason.
+    """
+    if pattern is None:
+        return True
+    allow_blind = any(a in _MATCHES_ANYTHING for a in pattern.allow) or all(
+        _CONTAINER_BLIND.fullmatch(a) for a in pattern.allow
+    )
+    return allow_blind and all(_CONTAINER_BLIND.fullmatch(d) for d in pattern.deny)
+
+
+@dataclass(frozen=True)
+class ContainerNeed:
+    """A target built without the container ingestion matches on.
+
+    Recorded while the target is built, and asked about after the verdict.
+    By then the kind switch, the connector's own override and the --parent
+    container have each had their say, and any of them can decide a name in
+    every container -- which is what makes "this cannot be judged without the
+    container" false. Raising where the target is built asks too early to
+    know that.
+    """
+
+    config: object
+    kind: str
+    pattern_field: Optional[str]
+    shape: str
+
+    def refusal(self) -> "ProbeArgumentError":
+        """The refusal to raise when nothing else decided the name."""
+        from datahub.ingestion.agent.declarations import qualifier_field
+
+        wanted, listing = _hint_container(self.config, self.kind)
+        # Named even with no listing to point at: a caller who passed
+        # `--parent PUBLIC` and is told to "pass --parent" cannot tell that
+        # what is missing is the database ABOVE it. Not called "outermost":
+        # a chain can have containers the source leaves out of it on purpose
+        # (Unity's metastore), so this promises only the level, not the slot.
+        naming = (
+            f"the {wanted} as a --parent, before any already named"
+            if wanted
+            else "--parent"
+        )
+        remedies = []
+        if listing:
+            remedies.append(
+                f"run `probe run {listing}` to list them, then pass {naming}"
+            )
+        else:
+            remedies.append(f"pass {naming}")
+        pin = qualifier_field(self.config)
+        if pin:
+            # Second, and qualified: pinning does not just answer the
+            # question, it narrows what the recipe ingests.
+            remedies.append(
+                f"or narrow the recipe to one by pinning `{pin}`, which "
+                f"changes what it reads"
+            )
+        return ContainerUnknown(
+            f"this source matches `{self.pattern_field}` against the "
+            f"qualified '{self.shape}', and nothing here says which container "
+            f"to use. Judging the bare name against that pattern would report "
+            f"a verdict ingestion does not make, so none is given: "
+            + ", ".join(remedies)
+            + "."
+        )
+
+
+def _container_filter_caveat(config: object, kind: str) -> str:
+    """A clause naming the container's own pattern, when it filters.
+
+    Said only then: a recipe with no filters at all is the common case this
+    note exists to keep answerable, and hedging it there would make every
+    unfiltered probe call read as doubtful.
+    """
+    from datahub.ingestion.agent.introspect import pattern_field_for_config
+
+    try:
+        container_kind = _container_kind_for(config, kind)
+        if container_kind is None:
+            return ""
+        field = pattern_field_for_config(config, container_kind)
+        if field is None or field == UNFILTERED:
+            return ""
+        if _admits_everything(pattern_at(config, field)):
+            return ""
+    except Exception:
+        # A hint on a warning; a connector defect must not replace the note.
+        return ""
+    return (
+        f" -- though `{field}` filters the {container_kind} itself, so naming "
+        f"one with --parent may still exclude this"
+    )
+
+
+def _container_decides(config: object, kind: str, pattern_field: Optional[str]) -> bool:
+    """Whether the missing container could change ANY field a verdict for
+    `kind` may rest on.
+
+    Not the kind's own field alone. A connector whose override reaches past it
+    -- `Filters(..., also_filters=[...])` says which -- can answer on a
+    container-dependent pattern while the kind's own filters nothing, and
+    asking only about the primary left exactly that case unrecorded: a Unity
+    view with an explicit allow-all `view_pattern` was judged on `schema.view`
+    against a `table_pattern` written for `catalog.schema.view`.
+    """
+    from datahub.ingestion.agent.declarations import also_filtering_fields
+
+    fields = also_filtering_fields(config, kind)
+    if pattern_field and pattern_field != UNFILTERED:
+        fields.add(pattern_field)
+    return any(not container_blind(pattern_at(config, field)) for field in fields)
+
+
+def require_container(
+    container: Optional[str],
+    *,
+    config: object,
+    kind: str,
+    pattern_field: Optional[str],
+    shape: str,
+    warn: Callable[[str], None],
+    note: Callable[["ContainerNeed"], None],
+) -> Optional[str]:
+    """`container`, or None -- after warning when the container cannot change
+    the verdict, or after recording what a refusal would say when it can.
+
+    Never raises. The decision belongs after the verdict, so this records and
+    check_filters asks; see ContainerNeed.
+    """
+    if container:
+        return container
+    if not _container_decides(config, kind, pattern_field):
+        where = f"`{pattern_field}`" if pattern_field else "nothing here"
+        # The claim is about the field deciding THIS kind, and it is exact.
+        # The container has a pattern of its own, though, and naming one can
+        # exclude the lot -- so where that pattern filters, "the verdict
+        # stands" would carry more than it licenses.
+        caveat = _container_filter_caveat(config, kind)
+        warn(
+            f"no container was given, so `target` below is not qualified with "
+            f"the container this source matches on ('{shape}'); the verdict "
+            f"stands because {where} cannot match one differently{caveat}"
+        )
+        return None
+    note(
+        ContainerNeed(
+            config=config, kind=kind, pattern_field=pattern_field, shape=shape
+        )
+    )
+    return None
+
+
 @dataclass(frozen=True)
 class VerdictContext:
     """What probe_verdict_override is told about one name. A context object, so
@@ -112,6 +349,8 @@ class VerdictContext:
     # Empty for bare names: an override needing one degrades with a warning.
     attributes: Mapping[str, str]
     warn: Callable[[str], None]
+    # As ClassifyContext.note_container.
+    note_container: Callable[["ContainerNeed"], None] = lambda _need: None
 
 
 def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> Verdict:
@@ -144,6 +383,15 @@ class ProbeArgumentError(ValueError):
     Text is shown by type only (agent.error_policy), so a plain ValueError
     keeps exit 2 but loses its message. After recorded read failures the call
     reports ProbeReadFailed (exit 3) instead.
+    """
+
+
+class ContainerUnknown(ProbeArgumentError):
+    """A verdict needed the container ingestion matches on, and nothing named
+    it. A type rather than a sentence, so a test can pin the refusal without
+    pinning its wording -- as SqlScopeError and ApiScopeError are. A
+    ProbeArgumentError, so exit 2 and every `except ProbeArgumentError` in the
+    framework cover it unchanged.
     """
 
 

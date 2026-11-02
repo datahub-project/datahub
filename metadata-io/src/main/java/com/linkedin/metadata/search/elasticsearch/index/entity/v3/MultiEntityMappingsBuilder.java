@@ -6,7 +6,10 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.getEntityType
 import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.NORMALIZER;
 import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
+import static com.linkedin.metadata.search.utils.ESUtils.FIELDS;
+import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
@@ -426,7 +429,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @SuppressWarnings("unchecked")
       Map<String, Object> properties = (Map<String, Object>) combinedMappings.get("properties");
       if (properties != null) {
-        placeSharedFieldsAtRoot(properties, searchSection);
+        placeSharedFieldsAtRoot(properties, searchSection, entitySpecs);
       }
     }
 
@@ -436,12 +439,14 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   /**
    * Puts each shared label on the document root. When a source field has the label's name, that
    * document path is the label: the label mapping replaces the root projection and keeps {@code
-   * copy_to}. Cross-aspect system metadata stays in the root {@code _system} object.
+   * copy_to} and {@code v3.lowercase}. Cross-aspect system metadata stays in the root {@code
+   * _system} object.
    */
   @SuppressWarnings("unchecked")
   private static void placeSharedFieldsAtRoot(
       @Nonnull final Map<String, Object> properties,
-      @Nonnull final Map<String, Object> searchSection) {
+      @Nonnull final Map<String, Object> searchSection,
+      @Nonnull final Collection<EntitySpec> entitySpecs) {
     properties.remove("_search");
     final Map<String, Object> searchProperties =
         searchSection.get(PROPERTIES) instanceof Map
@@ -454,11 +459,19 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
               || isObjectMapping(properties.get(name))) {
             return;
           }
+          final Map<String, Object> placed;
           if (properties.get(name) instanceof Map) {
-            properties.put(name, withPreservedCopyTo(properties.get(name), mapping));
-          } else if (!properties.containsKey(name)) {
+            placed = withPreservedCopyTo(properties.get(name), mapping);
+          } else if (properties.containsKey(name)) {
+            return;
+          } else if (mapping instanceof Map) {
+            placed = new HashMap<>((Map<String, Object>) mapping);
+          } else {
             properties.put(name, mapping);
+            return;
           }
+          applyLowercaseSubfield(placed, name, lowercaseContributors(name, entitySpecs));
+          properties.put(name, placed);
         });
   }
 
@@ -1014,17 +1027,21 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
             continue;
           }
           SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
-          resolved
-              .indexedHasValuesFieldName()
-              .ifPresent(
-                  fieldName ->
-                      rootFields.putIfAbsent(
-                          fieldName, ImmutableMap.of(TYPE, ESUtils.BOOLEAN_FIELD_TYPE)));
-          SearchableAnnotation.sharedHasValuesName(resolved)
-              .ifPresent(
-                  fieldName ->
-                      rootFields.putIfAbsent(
-                          fieldName, ImmutableMap.of(TYPE, ESUtils.BOOLEAN_FIELD_TYPE)));
+          // A has* boolean is a shared-label presence flag. A field with no searchLabel is present
+          // when its own value is present.
+          if (resolved.indexedFieldName().isPresent()) {
+            resolved
+                .indexedHasValuesFieldName()
+                .ifPresent(
+                    fieldName ->
+                        rootFields.putIfAbsent(
+                            fieldName, ImmutableMap.of(TYPE, ESUtils.BOOLEAN_FIELD_TYPE)));
+            SearchableAnnotation.sharedHasValuesName(resolved)
+                .ifPresent(
+                    fieldName ->
+                        rootFields.putIfAbsent(
+                            fieldName, ImmutableMap.of(TYPE, ESUtils.BOOLEAN_FIELD_TYPE)));
+          }
           fieldSpec
               .getSearchableAnnotation()
               .getNumValuesFieldName()
@@ -1065,6 +1082,11 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
     final List<SearchableFieldSpec> sourceFieldSpecs =
         findSearchableFieldSpecsForPaths(entitySpecs, allPaths);
+    if (V3SearchFields.dedicatedParsedNameRoot(rootFieldName, entitySpecs)) {
+      // The parsed name is not a shared label. Keep the full URN sibling only.
+      putFullUrnSibling(rootFields, rootFieldName, sourceFieldSpecs);
+      return;
+    }
     final Map<String, Object> rootFieldMapping =
         resolveProjectedRootFieldMapping(rootFieldName, sourceFieldSpecs, entitySpecs, allPaths);
 
@@ -1073,20 +1095,27 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
     rootFields.put(rootFieldName, rootFieldMapping);
     if (V3SearchFields.isParsedUrnRoot(rootFieldName, entitySpecs)) {
-      final String sibling = V3SearchFields.fullUrnField(rootFieldName);
-      if (rootFields.containsKey(sibling)) {
-        throw new IllegalArgumentException(
-            "Search V3 field '"
-                + sibling
-                + "' collides with the full URN sibling of '"
-                + rootFieldName
-                + "'");
-      }
-      final Map<String, Object> fullUrn = V3SearchFields.fullUrnRootMapping();
-      applyProjectedRootFieldOptions(fullUrn, sourceFieldSpecs);
-      rootFields.put(sibling, fullUrn);
+      putFullUrnSibling(rootFields, rootFieldName, sourceFieldSpecs);
     }
     log.debug("Creating real root projection field '{}'", rootFieldName);
+  }
+
+  private static void putFullUrnSibling(
+      @Nonnull Map<String, Object> rootFields,
+      @Nonnull String rootFieldName,
+      @Nonnull List<SearchableFieldSpec> sourceFieldSpecs) {
+    final String sibling = V3SearchFields.fullUrnField(rootFieldName);
+    if (rootFields.containsKey(sibling)) {
+      throw new IllegalArgumentException(
+          "Search V3 field '"
+              + sibling
+              + "' collides with the full URN sibling of '"
+              + rootFieldName
+              + "'");
+    }
+    final Map<String, Object> fullUrn = V3SearchFields.fullUrnRootMapping();
+    applyProjectedRootFieldOptions(fullUrn, sourceFieldSpecs);
+    rootFields.put(sibling, fullUrn);
   }
 
   private static List<SearchableFieldSpec> findSearchableFieldSpecsForPaths(
@@ -1214,7 +1243,69 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         new HashMap<>(FieldTypeMapper.mappingForRoot(root, sourceFieldSpecs.get(0)));
 
     applyProjectedRootFieldOptions(rootFieldMapping, sourceFieldSpecs);
+    applyLowercaseSubfield(
+        rootFieldMapping, rootFieldName, lowercaseContributors(rootFieldName, entitySpecs));
     return rootFieldMapping;
+  }
+
+  /** Fields whose Search V3 name is this root, including a field copied in by a label. */
+  @Nonnull
+  private static List<SearchableFieldSpec> lowercaseContributors(
+      @Nonnull String rootFieldName, @Nonnull Collection<EntitySpec> entitySpecs) {
+    List<SearchableFieldSpec> contributors = new ArrayList<>();
+    for (EntitySpec entitySpec : entitySpecs) {
+      if (entitySpec.getAspectSpecs() == null) {
+        continue;
+      }
+      for (AspectSpec aspectSpec : entitySpec.getAspectSpecs()) {
+        if (aspectSpec.getSearchableFieldSpecs() == null) {
+          continue;
+        }
+        for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+          SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+          if (!resolved.isV3Searchable()) {
+            continue;
+          }
+          String indexed = resolved.indexedFieldName().orElse(resolved.getFieldName());
+          if (rootFieldName.equals(indexed)) {
+            contributors.add(fieldSpec);
+          }
+        }
+      }
+    }
+    return contributors;
+  }
+
+  /**
+   * {@code v3.lowercase} adds {@code <field>.lowercase}. Every contributor of the root must agree.
+   * The default leaves the keyword case-sensitive.
+   */
+  @SuppressWarnings("unchecked")
+  static void applyLowercaseSubfield(
+      @Nonnull Map<String, Object> rootFieldMapping,
+      @Nonnull String rootFieldName,
+      @Nonnull List<SearchableFieldSpec> sourceFieldSpecs) {
+    Boolean lowercase = null;
+    for (SearchableFieldSpec fieldSpec : sourceFieldSpecs) {
+      SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+      boolean value = resolved.isV3Lowercase();
+      if (lowercase != null && lowercase != value) {
+        throw new IllegalArgumentException(
+            "Search V3 field '" + rootFieldName + "' contributors disagree on v3.lowercase");
+      }
+      lowercase = value;
+    }
+    if (!Boolean.TRUE.equals(lowercase)
+        || !KEYWORD_FIELD_TYPE.equals(rootFieldMapping.get(TYPE))
+        || rootFieldMapping.containsKey(NORMALIZER)) {
+      return;
+    }
+    Map<String, Object> fields = new HashMap<>();
+    if (rootFieldMapping.get(FIELDS) instanceof Map<?, ?> existing) {
+      existing.forEach((key, value) -> fields.put(String.valueOf(key), value));
+    }
+    fields.put(V3SearchFields.LOWERCASE, V3SearchFields.lowercaseKeywordField());
+    rootFieldMapping.put(FIELDS, fields);
   }
 
   private static void applyProjectedRootFieldOptions(
@@ -1233,23 +1324,14 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   }
 
   /**
-   * Turns on eager global ordinals on the {@code .keyword} subfield that filters and facets read,
-   * or on the field itself when it has none.
+   * Turns on eager global ordinals on the keyword root that filters and facets read. An object
+   * mapping takes them on its {@code keyword} property instead.
    */
   @SuppressWarnings("unchecked")
   private static void putEagerGlobalOrdinals(@Nonnull Map<String, Object> fieldMapping) {
     if (fieldMapping.get(PROPERTIES) instanceof Map<?, ?> properties
         && properties.get(ESUtils.KEYWORD) instanceof Map<?, ?> keywordProperty) {
       ((Map<String, Object>) keywordProperty).put("eager_global_ordinals", true);
-      return;
-    }
-    if (fieldMapping.get(ESUtils.FIELDS) instanceof Map<?, ?> subfields
-        && subfields.get(ESUtils.KEYWORD) instanceof Map<?, ?> keyword) {
-      Map<String, Object> keywordMapping = new HashMap<>((Map<String, Object>) keyword);
-      keywordMapping.put("eager_global_ordinals", true);
-      Map<String, Object> subfieldMappings = new HashMap<>((Map<String, Object>) subfields);
-      subfieldMappings.put(ESUtils.KEYWORD, keywordMapping);
-      fieldMapping.put(ESUtils.FIELDS, subfieldMappings);
       return;
     }
     fieldMapping.put("eager_global_ordinals", true);
@@ -1323,7 +1405,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    *   <li>Field type mapping based on annotations
    *   <li>Eager global ordinals configuration
    *   <li>Optional search label and entity field name copy_to fields
-   *   <li>HasValues and numValues field creation
+   *   <li>numValues field creation. A has* boolean is added separately when it copies into a label
    *   <li>SystemModifiedAt field creation
    * </ul>
    *
@@ -1441,14 +1523,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
     mappings.put(fieldName, mappingForField);
 
-    // Add hasValues and numValues fields if specified
-    searchableFieldSpec
-        .getSearchableAnnotation()
-        .getHasValuesFieldName()
-        .ifPresent(
-            hasValuesFieldName -> {
-              mappings.put(hasValuesFieldName, ImmutableMap.of(TYPE, ESUtils.BOOLEAN_FIELD_TYPE));
-            });
+    // A has* boolean is mapped under the aspect only by copySharedHasValues, and only when it
+    // copy_to's a search label. A field with no label has no boolean.
     searchableFieldSpec
         .getSearchableAnnotation()
         .getNumValuesFieldName()

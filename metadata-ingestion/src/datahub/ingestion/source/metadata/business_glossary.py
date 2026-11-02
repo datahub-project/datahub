@@ -3,7 +3,7 @@ import pathlib
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, TypeVar, Union
+from typing import Dict, Iterable, List, Optional, TypeVar, Union
 
 import pydantic
 from pydantic.fields import Field
@@ -238,17 +238,17 @@ def get_owners(owners: Owners) -> Iterable[models.OwnerClass]:
             )
 
 
-def get_mces(
+def _gen_glossary_mcps(
     glossary: BusinessGlossaryConfig,
     path_vs_id: Dict[str, str],
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
-) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
+) -> Iterable[MetadataChangeProposalWrapper]:
     root_owners = get_owners_multiple_types(glossary.owners)
 
     if glossary.nodes:
         for node in glossary.nodes:
-            yield from get_mces_from_node(
+            yield from _gen_node_mcps(
                 node,
                 path_vs_id=path_vs_id,
                 parentNode=None,
@@ -260,7 +260,7 @@ def get_mces(
 
     if glossary.terms:
         for term in glossary.terms:
-            yield from get_mces_from_term(
+            yield from _gen_term_mcps(
                 term,
                 path_vs_id=path_vs_id,
                 parentNode=None,
@@ -269,10 +269,6 @@ def get_mces(
                 ingestion_config=ingestion_config,
                 ctx=ctx,
             )
-
-
-def get_mce_from_snapshot(snapshot: Any) -> models.MetadataChangeEventClass:
-    return models.MetadataChangeEventClass(proposedSnapshot=snapshot)
 
 
 def make_institutional_memory_mcp(
@@ -309,7 +305,7 @@ def make_domain_mcp(
     return MetadataChangeProposalWrapper(entityUrn=term_urn, aspect=domain_aspect)
 
 
-def get_mces_from_node(
+def _gen_node_mcps(
     glossaryNode: GlossaryNodeConfig,
     path_vs_id: Dict[str, str],
     parentNode: Optional[str],
@@ -317,7 +313,7 @@ def get_mces_from_node(
     defaults: DefaultConfig,
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
-) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
+) -> Iterable[MetadataChangeProposalWrapper]:
     node_urn = glossaryNode._urn
 
     node_info = models.GlossaryNodeInfoClass(
@@ -331,11 +327,9 @@ def get_mces_from_node(
         assert glossaryNode.owners is not None
         node_owners = get_owners_multiple_types(glossaryNode.owners)
 
-    node_snapshot = models.GlossaryNodeSnapshotClass(
-        urn=node_urn,
-        aspects=[node_info, node_owners],
+    yield from MetadataChangeProposalWrapper.construct_many(
+        entityUrn=node_urn, aspects=[node_info, node_owners]
     )
-    yield get_mce_from_snapshot(node_snapshot)
 
     if glossaryNode.knowledge_links is not None:
         mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(
@@ -346,7 +340,7 @@ def get_mces_from_node(
 
     if glossaryNode.nodes:
         for node in glossaryNode.nodes:
-            yield from get_mces_from_node(
+            yield from _gen_node_mcps(
                 node,
                 path_vs_id=path_vs_id,
                 parentNode=node_urn,
@@ -358,7 +352,7 @@ def get_mces_from_node(
 
     if glossaryNode.terms:
         for term in glossaryNode.terms:
-            yield from get_mces_from_term(
+            yield from _gen_term_mcps(
                 glossaryTerm=term,
                 path_vs_id=path_vs_id,
                 parentNode=node_urn,
@@ -385,7 +379,7 @@ def get_domain_class(
     return domain_class
 
 
-def get_mces_from_term(
+def _gen_term_mcps(
     glossaryTerm: GlossaryTermConfig,
     path_vs_id: Dict[str, str],
     parentNode: Optional[str],
@@ -393,7 +387,7 @@ def get_mces_from_term(
     defaults: DefaultConfig,
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
-) -> Iterable[Union[models.MetadataChangeEventClass, MetadataChangeProposalWrapper]]:
+) -> Iterable[MetadataChangeProposalWrapper]:
     term_urn = glossaryTerm._urn
 
     aspects: List[
@@ -401,9 +395,6 @@ def get_mces_from_term(
             models.GlossaryTermInfoClass,
             models.GlossaryRelatedTermsClass,
             models.OwnershipClass,
-            models.GlossaryTermKeyClass,
-            models.StatusClass,
-            models.BrowsePathsClass,
         ]
     ] = []
     term_info = models.GlossaryTermInfoClass(
@@ -493,11 +484,9 @@ def get_mces_from_term(
             term_urn, get_domain_class(ctx.graph, [glossaryTerm.domain])
         )
 
-    term_snapshot: models.GlossaryTermSnapshotClass = models.GlossaryTermSnapshotClass(
-        urn=term_urn,
-        aspects=aspects,
+    yield from MetadataChangeProposalWrapper.construct_many(
+        entityUrn=term_urn, aspects=aspects
     )
-    yield get_mce_from_snapshot(term_snapshot)
 
     if glossaryTerm.knowledge_links:
         mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(
@@ -583,7 +572,7 @@ class BusinessGlossaryFileSource(Source):
         path_vs_id = populate_path_vs_id(glossary_config)
 
         yield from auto_workunit(
-            get_mces(
+            _gen_glossary_mcps(
                 glossary_config, path_vs_id, ingestion_config=self.config, ctx=self.ctx
             )
         )

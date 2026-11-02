@@ -52,6 +52,12 @@ public class SearchTemplateConfiguration {
   /** Bound from application.yaml. A stored route regex may not be longer than this. */
   private int maxRoutePatternLength;
 
+  /** Bound from application.yaml. A template ranking may not declare more signals than this. */
+  private int maxRankingSignals;
+
+  /** Bound from application.yaml. A template ranking window may not exceed this value. */
+  private int maxRankingWindow;
+
   /** Bound from application.yaml. Selection may not follow more templates than this. */
   private int maxRouteHops;
 
