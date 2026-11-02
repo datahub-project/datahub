@@ -15,7 +15,9 @@ from datahub.ingestion.source.boomi.component_parser import (
 from datahub.ingestion.source.boomi.config import BoomiSourceConfig
 from datahub.ingestion.source.boomi.lineage import (
     BoomiLineageResolver,
+    InsertColumns,
     MapFieldEdge,
+    insert_columns,
     map_field_edges,
 )
 from datahub.ingestion.source.boomi.models import (
@@ -443,6 +445,34 @@ def test_insert_select_column_lineage(
         assert SOURCE in lineage.input_datasets
 
 
+def test_insert_select_columns_take_precedence_over_map_edges() -> None:
+    # rna_db_id comes from staging_orders in the SQL, so the map's edge into it
+    # is dropped. rna_db_label is a parameter, so the map's edge is kept.
+    components = _components(
+        **{
+            MY_TABLE_PROFILE: {
+                "INSERT INTO my_table (rna_db_id, rna_db_label, loaded_at) VALUES (?, ?, ?)": (
+                    "INSERT INTO my_table (rna_db_id, rna_db_label) "
+                    "SELECT id, ? FROM staging_orders"
+                ),
+                'statementType="dynamicinsert"': 'statementType="standardinsert"',
+            }
+        }
+    )
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    assert lineage.column_lineage == [
+        _edge([(SOURCE, "id")], (MY_TABLE, "rna_db_id"), "IDENTITY"),
+        _edge(
+            [(RNA_TABLE, "descr"), (RNA_TABLE, "display_name")],
+            (MY_TABLE, "rna_db_label"),
+            "StringConcat",
+        ),
+    ]
+    assert report.column_lineage_fields_skipped["written_by_sql"] == 1
+
+
 def test_write_sql_fields_must_be_in_insert_column_list() -> None:
     components = _components(
         **{
@@ -461,19 +491,18 @@ def test_write_sql_fields_must_be_in_insert_column_list() -> None:
     assert dict(report.column_lineage_fields_skipped) == {"not_in_insert_columns": 1}
 
 
-def test_db_v2_write_query_maps_fields_through_insert_columns() -> None:
-    # A Database V2 write with a query names its columns in the INSERT, as a
-    # legacy profile's SQL does.
+def _db_v2_send_components(
+    request_profile: str, query: str, **replacements: Dict[str, str]
+) -> Dict[str, str]:
     v2_send = (
         _xml(MY_TABLE_SEND)
         .replace('subType="database"', f'subType="{DB_V2}"')
         .replace(
             f'<DatabaseSendAction batchCount="10" commitOption="commitrows" enableBatching="true"><WriteProfile profileId="{MY_TABLE_PROFILE}"/>\n        </DatabaseSendAction>',
             '<GenericOperationConfig customOperationType="INSERT" objectTypeId="" '
-            f'operationType="EXECUTE" requestProfile="{MY_TABLE_PROFILE}" '
+            f'operationType="EXECUTE" requestProfile="{request_profile}" '
             'requestProfileType="json" responseProfileType="json">'
-            '<field id="query" type="string" value="INSERT INTO my_table '
-            '(rna_db_label, rna_db_id) VALUES (?, ?)"/></GenericOperationConfig>',
+            f'<field id="query" type="string" value="{query}"/></GenericOperationConfig>',
         )
     )
     assert "GenericOperationConfig" in v2_send
@@ -483,10 +512,21 @@ def test_db_v2_write_query_maps_fields_through_insert_columns() -> None:
                 f'actionType="Send" allowDynamicCredentials="NONE" connectionId="{POSTGRES_CONNECTION}" connectorType="database"': (
                     f'actionType="Send" allowDynamicCredentials="NONE" connectionId="{V2_MYSQL_CONNECTION}" connectorType="{DB_V2}"'
                 ),
-            }
+            },
+            **replacements,
         }
     )
     components[MY_TABLE_SEND] = v2_send
+    return components
+
+
+def test_db_v2_write_query_maps_fields_through_insert_columns() -> None:
+    # A Database V2 write with a query names its columns in the INSERT, as a
+    # legacy profile's SQL does.
+    components = _db_v2_send_components(
+        MY_TABLE_PROFILE,
+        "INSERT INTO my_table (rna_db_label, rna_db_id) VALUES (?, ?)",
+    )
 
     lineage, report = _resolve(RNA_PROCESS, components)
 
@@ -501,6 +541,29 @@ def test_db_v2_write_query_maps_fields_through_insert_columns() -> None:
     ]
     assert dict(report.column_lineage_maps_skipped) == {}
     assert dict(report.column_lineage_fields_skipped) == {}
+
+
+def test_db_v2_write_skips_nested_json_fields() -> None:
+    # The JSON request profile's author/name field is nested, so it is not
+    # the table's name column even though the INSERT lists one.
+    components = _db_v2_send_components(
+        JSON_PROFILE,
+        "INSERT INTO my_table (id, name) VALUES (?, ?)",
+        **{
+            RNA_MAP: {
+                f'toProfile="{MY_TABLE_PROFILE}"': f'toProfile="{JSON_PROFILE}"',
+                'toKey="5" toType="profile"': 'toKey="3" toType="profile"',
+                'toKey="6" toType="profile"': 'toKey="7" toType="profile"',
+            }
+        },
+    )
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    assert lineage.column_lineage == [
+        _edge([(RNA_TABLE, "id")], (V2_MY_TABLE, "id"), "IDENTITY"),
+    ]
+    assert dict(report.column_lineage_fields_skipped) == {"nested_field": 1}
 
 
 @pytest.mark.parametrize("missing", [RNA_MAP, SF_PROFILE])
@@ -535,9 +598,12 @@ def test_graph_schema_sets_column_casing_and_drops_unknown_columns() -> None:
             ],
         )
 
+    v2_id = "[version=2.0].[type=int].RNA_DB_ID"
+    v2_label = "[version=2.0].[type=string].RNA_DB_LABEL"
     schemas = {
         RNA_TABLE: schema("ID", "DESCR"),
-        MY_TABLE: schema("RNA_DB_ID", "RNA_DB_LABEL"),
+        # Some sources store v2 field paths; the URN must use them as stored.
+        MY_TABLE: schema(v2_id, v2_label),
     }
     graph = MagicMock()
     graph.get_aspect.side_effect = lambda urn, aspect: schemas.get(urn)
@@ -545,7 +611,92 @@ def test_graph_schema_sets_column_casing_and_drops_unknown_columns() -> None:
     lineage, report = _resolve(RNA_PROCESS, _components(), graph=graph)
 
     assert lineage.column_lineage == [
-        _edge([(RNA_TABLE, "ID")], (MY_TABLE, "RNA_DB_ID"), "IDENTITY"),
-        _edge([(RNA_TABLE, "DESCR")], (MY_TABLE, "RNA_DB_LABEL"), "StringConcat"),
+        _edge([(RNA_TABLE, "ID")], (MY_TABLE, v2_id), "IDENTITY"),
+        _edge([(RNA_TABLE, "DESCR")], (MY_TABLE, v2_label), "StringConcat"),
     ]
     assert dict(report.column_lineage_fields_skipped) == {"not_in_schema": 1}
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        ("INSERT INTO (", InsertColumns(parsed=False)),
+        ("UPDATE my_table SET a = ?", InsertColumns(parsed=True)),
+        (
+            "INSERT INTO my_table SELECT a FROM src",
+            InsertColumns(parsed=True, is_insert=True, by_output=None),
+        ),
+        # Without one SELECT output per listed column, position says nothing.
+        (
+            "INSERT INTO my_table (a, b) SELECT * FROM src",
+            InsertColumns(parsed=True, is_insert=True, by_output={}),
+        ),
+        (
+            "INSERT INTO my_table (a, b) SELECT x FROM src",
+            InsertColumns(parsed=True, is_insert=True, by_output={}),
+        ),
+        # An output name used twice cannot be tied to one column.
+        (
+            "INSERT INTO my_table (a, b, c) SELECT x, x, y FROM src",
+            InsertColumns(parsed=True, is_insert=True, by_output={"y": "c"}),
+        ),
+    ],
+)
+def test_insert_columns(sql: str, expected: InsertColumns) -> None:
+    assert insert_columns(sql, "postgres") == expected
+
+
+def test_schema_lookup_failure_falls_back_to_boomi_names() -> None:
+    graph = MagicMock()
+    graph.get_aspect.side_effect = RuntimeError("GMS unavailable")
+
+    lineage, report = _resolve(RNA_PROCESS, _components(), graph=graph)
+
+    assert lineage.column_lineage == [
+        _edge([(RNA_TABLE, "id")], (MY_TABLE, "rna_db_id"), "IDENTITY"),
+        _edge(
+            [(RNA_TABLE, "descr"), (RNA_TABLE, "display_name")],
+            (MY_TABLE, "rna_db_label"),
+            "StringConcat",
+        ),
+    ]
+    assert [w.title for w in report.warnings] == [
+        "Failed to read dataset schemas from DataHub"
+    ]
+    # Each dataset's schema is requested once, even after a failure.
+    assert graph.get_aspect.call_count == 2
+
+
+def test_db_v2_read_query_maps_select_outputs() -> None:
+    components = _components(
+        **{
+            RNA_PROCESS: {
+                f'actionType="Get" allowDynamicCredentials="NONE" connectionId="{POSTGRES_CONNECTION}" connectorType="database"': (
+                    f'actionType="Get" allowDynamicCredentials="NONE" connectionId="{V2_MYSQL_CONNECTION}" connectorType="{DB_V2}"'
+                ),
+            },
+            RNA_GET: {
+                'subType="database"': f'subType="{DB_V2}"',
+                f'<DatabaseGetAction batchCount="0" maxRows="0"><ReadProfile profileId="{RNA_PROFILE}"/>\n        </DatabaseGetAction>': (
+                    '<GenericOperationConfig customOperationType="QUERY" objectTypeId="" '
+                    f'operationType="QUERY" responseProfile="{RNA_PROFILE}" '
+                    'requestProfileType="json" responseProfileType="json">'
+                    f'<field id="query" type="string" value="{RNA_SQL}"/>'
+                    "</GenericOperationConfig>"
+                ),
+            },
+        }
+    )
+    v2_rna_table = "urn:li:dataset:(urn:li:dataPlatform:mysql,homo_sapiens_core_116_38.rnc_database,PROD)"
+
+    lineage, report = _resolve(RNA_PROCESS, components)
+
+    assert lineage.input_datasets == [v2_rna_table]
+    assert lineage.column_lineage == [
+        _edge([(v2_rna_table, "id")], (MY_TABLE, "rna_db_id"), "IDENTITY"),
+        _edge(
+            [(v2_rna_table, "descr"), (v2_rna_table, "display_name")],
+            (MY_TABLE, "rna_db_label"),
+            "StringConcat",
+        ),
+    ]

@@ -310,6 +310,9 @@ class _ProcessEdges:
     resolved: Dict[str, _ResolvedShape] = field(default_factory=dict)
     # (downstream field URN, transform) -> upstream field URNs.
     columns: Dict[Tuple[str, str], Set[str]] = field(default_factory=dict)
+    # Downstream field URNs that a write's own SQL fills from the tables it
+    # reads, such as INSERT ... SELECT.
+    sql_columns: Set[str] = field(default_factory=set)
 
     def add_column_edge(
         self, upstreams: Iterable[str], downstream: str, transform: str
@@ -702,6 +705,7 @@ class BoomiLineageResolver:
                 else TRANSFORM_SQL
             )
             edges.add_column_edge(resolved, downstream, transform)
+            edges.sql_columns.add(downstream)
 
     def _resolve_map_shape(
         self, info: ProcessComponentInfo, map_shape: MapShape, edges: _ProcessEdges
@@ -776,6 +780,12 @@ class BoomiLineageResolver:
             if not upstreams:
                 continue
             for downstream in downstreams:
+                # The write's SQL decides what lands in the columns it fills
+                # from other tables, so a document field mapped to the same
+                # column is not what the table receives.
+                if downstream in edges.sql_columns:
+                    self._skip_column(ColumnSkipReason.WRITTEN_BY_SQL)
+                    continue
                 edges.add_column_edge(upstreams, downstream, field_edge.transform)
 
     def _neighbour_operations(
@@ -935,6 +945,9 @@ class BoomiLineageResolver:
         columns = _FieldColumns()
         listed = insert_column_list(sql, shape.target.platform)
         for key, profile_field in profile.fields.items():
+            if not self._is_record_field(profile, profile_field):
+                columns.skipped[key] = ColumnSkipReason.NESTED_FIELD
+                continue
             column = listed.get(profile_field.name.lower())
             if column is None:
                 columns.skipped[key] = ColumnSkipReason.NOT_IN_INSERT_COLUMNS
@@ -1008,11 +1021,14 @@ class BoomiLineageResolver:
             schema = self.graph.get_aspect(dataset_urn, SchemaMetadataClass)
             if schema is not None:
                 fields = {}
+                # Match on the simple path, but keep the stored field path for
+                # the URN: v2 paths such as "[version=2.0].[type=int].id" are
+                # what the dataset's schemaField URNs are built from.
                 for schema_field in schema.fields:
                     path = get_simple_field_path_from_v2_field_path(
                         schema_field.fieldPath
                     )
-                    fields.setdefault(path.lower(), path)
+                    fields.setdefault(path.lower(), schema_field.fieldPath)
         except Exception as e:
             self._warn_once(
                 "schema_lookup",

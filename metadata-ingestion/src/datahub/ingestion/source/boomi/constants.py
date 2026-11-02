@@ -322,6 +322,8 @@ class ColumnSkipReason(StrEnum):
     NOT_IN_SCHEMA = "not_in_schema"
     UNMAPPED_SQL_COLUMN = "unmapped_sql_column"
     INSERT_WITHOUT_COLUMN_LIST = "insert_without_column_list"
+    # A map field targets a column the write's own SQL fills from a table.
+    WRITTEN_BY_SQL = "written_by_sql"
 
 
 class MapSkipReason(StrEnum):
