@@ -206,9 +206,10 @@ public final class SearchTemplateRequestApplier {
         opContext.getSearchContext().getCallerOptionalFilterFields() == null
             ? Set.of()
             : opContext.getSearchContext().getCallerOptionalFilterFields();
-    Map<String, String> labels = V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels();
     boolean explain = explains(opContext);
     boolean deferred = HighlightCarry.isDeferred();
+    Map<String, String> labels =
+        deferred ? V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels() : Map.of();
     return hit -> {
       if (!deferred) {
         return matchFields(

@@ -58,6 +58,35 @@ public class StageMatchedFieldsTest {
   }
 
   @Test
+  public void aLabelStoredOnItsKeyAndACopiedPathReportsOneName() {
+    StageMatchedFields.stash(
+        URN,
+        Map.of("name", "orders", "_aspects.doc.name", "orders catalog"),
+        new MatchedFields("orders", 3),
+        Map.of("_aspects.doc.name", "name"));
+    SearchEntity hit = entity(URN);
+
+    StageMatchedFields.fill(List.of(hit), List.of("name"));
+
+    assertEquals(names(hit), List.of("name"));
+    assertEquals(hit.getMatchedFields().get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void aRequestedPathKeepsItsOwnNameWhenItsLabelIsAlsoRequested() {
+    StageMatchedFields.stash(
+        URN,
+        Map.of("_aspects.doc.name", "orders"),
+        new MatchedFields("orders", 3),
+        Map.of("_aspects.doc.name", "name"));
+    SearchEntity hit = entity(URN);
+
+    StageMatchedFields.fill(List.of(hit), List.of("_aspects.doc.name", "name"));
+
+    assertEquals(names(hit), List.of("_aspects.doc.name"));
+  }
+
+  @Test
   public void aHitWithoutStashedSourceKeepsItsMatches() {
     SearchEntity injected =
         entity("urn:li:corpuser:orders").setMatchedFields(new MatchedFieldArray(name("orders")));

@@ -1,13 +1,16 @@
 package com.linkedin.metadata.search.elasticsearch.query.request.v3;
 
+import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchHitMatches;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 
 /**
@@ -65,23 +68,31 @@ public final class StageMatchedFields {
   @Nonnull
   private static SearchHitMatches scan(@Nonnull Stash stash, @Nonnull List<String> fields) {
     List<String> paths = new ArrayList<>();
-    Map<String, String> names = new LinkedHashMap<>();
     for (String field : fields) {
       if (!paths.contains(field)) {
         paths.add(field);
       }
+    }
+    Map<String, String> names = new LinkedHashMap<>();
+    for (String field : fields) {
       for (Map.Entry<String, String> label : stash.labels.entrySet()) {
         String path = label.getKey();
         if (!field.equals(label.getValue()) || paths.contains(path)) {
           continue;
         }
         paths.add(path);
-        if (!field.equals(path)) {
-          names.put(path, field);
-        }
+        names.put(path, field);
       }
     }
-    return stash.matcher.matches(stash.source, paths, names, false);
+    SearchHitMatches scanned = stash.matcher.matches(stash.source, paths, names, false);
+    List<MatchedField> first = new ArrayList<>();
+    Set<String> seen = new LinkedHashSet<>();
+    for (MatchedField field : scanned.matched()) {
+      if (seen.add(field.getName())) {
+        first.add(field);
+      }
+    }
+    return new SearchHitMatches(first, List.of());
   }
 
   private record Stash(
