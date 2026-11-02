@@ -179,8 +179,22 @@ export const getAssertionsSummary = (assertions: Assertion[]): AssertionStatusSu
     return summary;
 };
 
+// Uses the stored info.type only, so the list's label, grouping and type filter agree with the
+// server-side assertionType index that filters and sorts the list.
 export const getAssertionType = (assertion: Assertion): string | undefined => {
-    return assertion?.info?.customAssertion?.type?.toUpperCase() || assertion?.info?.type?.toUpperCase();
+    return assertion?.info?.type?.toUpperCase();
+};
+
+/**
+ * Free-text type reported for a CUSTOM assertion (e.g. "dbt", or a Monte Carlo monitor type such as
+ * "FRESHNESS"). The custom assertion API documents it as how the assertion is categorized, so the
+ * list shows it on hover over the Custom type rather than replacing that type.
+ */
+export const getCustomAssertionType = (assertion: Assertion): string | undefined => {
+    if (assertion?.info?.type !== AssertionType.Custom) {
+        return undefined;
+    }
+    return assertion.info.customAssertion?.type || undefined;
 };
 
 /**

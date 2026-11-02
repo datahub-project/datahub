@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Set
 
+from datahub.ingestion.source.sap_datasphere.analytic_model import parse_from_sources
 from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_ARGS,
     CSN_AS,
@@ -9,6 +10,7 @@ from datahub.ingestion.source.sap_datasphere.constants import (
     CSN_COLUMNS,
     CSN_FROM,
     CSN_FUNC,
+    CSN_ID,
     CSN_JOIN,
     CSN_KEY_ELEMENTS,
     CSN_KEY_QUERY,
@@ -38,17 +40,6 @@ from datahub.ingestion.source.sap_datasphere.models import (
     UpstreamRef,
     dedup_preserving_order,
 )
-
-
-def is_qualified(name: str) -> bool:
-    # A dotted target is already space-qualified (cross-space or a built-in
-    # like SAP.TIME.*); a bare name is a same-space sibling to be prefixed.
-    # Dot-heuristic, not a real parse: a same-space object whose technical name
-    # legitimately contains a dot would be mis-treated as already-qualified, but
-    # Datasphere technical names are effectively alphanumeric/underscore so this
-    # is not observed in practice. Shared by query-FROM and business-layer keys.
-    return "." in name
-
 
 # CDS navigation element types — both name a target entity for lineage purposes.
 _NAVIGATION_TYPES = frozenset({CSN_TYPE_ASSOCIATION, CSN_TYPE_COMPOSITION})
@@ -159,30 +150,25 @@ class CsnLineageExtractor:
         return selects
 
     def extract_upstream_refs(self, csn_def: dict) -> List[UpstreamRef]:
-        """A dotted ref (e.g. ``SAP_BW.V_X`` or a built-in ``SAP.TIME.*``) is already
-        space-qualified and used as-is; a bare technical name is a same-space
-        sibling that the source layer prefixes with the asset's space. Setting
-        ``qualified`` here (rather than blindly in the source) is what keeps a
-        cross-space FROM ref from being double-prefixed into a phantom URN.
-        """
+        """FROM refs as written; the source layer decides whether a dotted name
+        is cross-space or a same-space name containing a dot."""
         query = csn_def.get(CSN_KEY_QUERY)
         names: List[str] = []
         for select in self._iter_selects(query):
             from_clause = select.get(CSN_FROM)
             if from_clause is not None:
                 self._walk_from(from_clause, names)
-        return [
-            UpstreamRef(name=name, qualified=is_qualified(name))
-            for name in dedup_preserving_order(names)
-        ]
+        return [UpstreamRef(name=name) for name in dedup_preserving_order(names)]
 
     def _walk_from(self, node: object, out: List[str]) -> None:
         if not isinstance(node, dict):
             return
         if CSN_REF in node and isinstance(node[CSN_REF], list) and node[CSN_REF]:
-            # Dict refs (parametrized / inline-defined entities) carry no target
-            # name and are skipped to avoid malformed URNs downstream.
+            # A parameterized source is `{"id": name, "args": ...}`; other dict
+            # refs carry no target name and are skipped.
             first = node[CSN_REF][0]
+            if isinstance(first, dict):
+                first = first.get(CSN_ID)
             if isinstance(first, str):
                 out.append(first)
             return
@@ -196,40 +182,17 @@ class CsnLineageExtractor:
                 self._walk_from(inner_select[CSN_FROM], out)
 
     def _build_alias_map(self, from_node: object) -> Dict[str, str]:
-        """For single-source FROMs the empty-string key ``""`` also maps to the
-        source so unqualified column refs resolve unambiguously — real SAP CSN
-        frequently uses ``FROM T AS T`` with unqualified column refs. For
-        multi-source JOINs only explicit aliases appear; unqualified refs there
-        can't be attributed and are skipped at walk time.
+        """Alias, or name and implicit alias, -> source object, as type
+        resolution reads the FROM. The empty-string key maps to the source when
+        the FROM has exactly one, so unqualified column refs resolve; real SAP
+        CSN frequently uses ``FROM T AS T`` with unqualified refs. Column lineage
+        through FROM subqueries is not supported, so they leave no single source.
         """
-        result: Dict[str, str] = {}
-        sources: List[str] = []
-        self._walk_alias(from_node, result, sources)
-        if len(sources) == 1:
-            result[""] = sources[0]
+        from_sources = parse_from_sources(from_node)
+        result = dict(from_sources.by_name)
+        if from_sources.single_source is not None:
+            result[""] = from_sources.single_source
         return result
-
-    def _walk_alias(
-        self,
-        node: object,
-        out: Dict[str, str],
-        sources: List[str],
-    ) -> None:
-        if not isinstance(node, dict):
-            return
-        if CSN_REF in node and isinstance(node[CSN_REF], list) and node[CSN_REF]:
-            first = node[CSN_REF][0]
-            if isinstance(first, str):
-                alias = node.get(CSN_AS, first)
-                if isinstance(alias, str):
-                    out[alias] = first
-                sources.append(first)
-            return
-        if CSN_JOIN in node and isinstance(node.get(CSN_ARGS), list):
-            for arg in node[CSN_ARGS]:
-                self._walk_alias(arg, out, sources)
-            return
-        # Column lineage through FROM-clause subqueries is not yet supported.
 
     def _walk_expr(
         self,
@@ -287,11 +250,7 @@ class CsnLineageExtractor:
                     # A field projected through a CDS association navigates to the
                     # association's target entity.
                     target = association_map[alias]
-                    out.append(
-                        UpstreamColRef(
-                            qname=target, col=col, qualified=is_qualified(target)
-                        )
-                    )
+                    out.append(UpstreamColRef(qname=target, col=col))
                 elif alias in alias_map:
                     out.append(UpstreamColRef(qname=alias_map[alias], col=col))
                 else:
@@ -572,9 +531,8 @@ class CsnLineageExtractor:
 
     def extract_association_targets(self, csn_def: dict) -> List[UpstreamRef]:
         """These become table-level upstream edges (the association navigates to
-        another entity the model consumes). Targets are de-duplicated; a dotted
-        target is treated as already space-qualified, a bare one as a same-space
-        sibling.
+        another entity the model consumes). Targets are de-duplicated and kept as
+        written; the source layer resolves their space.
         """
         association_map = self._association_map(csn_def.get(CSN_KEY_ELEMENTS))
         if not association_map:
@@ -591,7 +549,7 @@ class CsnLineageExtractor:
             if target in seen:
                 continue
             seen.add(target)
-            targets.append(UpstreamRef(name=target, qualified=is_qualified(target)))
+            targets.append(UpstreamRef(name=target))
         return targets
 
     def remote_source(self, csn_def: dict) -> Optional[str]:

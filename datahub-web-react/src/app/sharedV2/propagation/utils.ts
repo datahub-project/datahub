@@ -1,4 +1,4 @@
-import { isPropagated } from '@app/entity/shared/propagation/utils';
+import { isExternal, isPropagated } from '@app/entity/shared/propagation/utils';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { PropagationContext } from '@app/sharedV2/tags/usePropagationContextEntities';
 
@@ -16,12 +16,15 @@ export function parsePropagationContext(context?: string | null): PropagationCon
  * Whether `HoverCardAttributionDetails` will render anything.
  *
  * Attribution rides along with most associations, so the mere presence of `propagationDetails`
- * says nothing — only propagated ones produce output. Callers that reserve layout space for the
- * section must agree with this predicate, or they reserve space for a component that renders null.
+ * says nothing — only propagated or externally-ingested (e.g. Lake Formation) ones produce output.
+ * Callers that reserve layout space for the section must agree with this predicate, or they reserve
+ * space for a component that renders null.
  */
 export function hasPropagationDetails(propagationDetails?: AttributionDetails): boolean {
+    const sourceDetail = propagationDetails?.attribution?.sourceDetail;
     return (
-        isPropagated(propagationDetails?.attribution?.sourceDetail) ||
+        isPropagated(sourceDetail) ||
+        isExternal(sourceDetail) ||
         !!parsePropagationContext(propagationDetails?.context)?.propagated
     );
 }

@@ -24,6 +24,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import org.testng.annotations.Test;
 
 public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
@@ -38,12 +39,19 @@ public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
             null);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, template);
     OperationContext bound =
-        new SearchTemplateCoordinator(v3Config(), null, loader).bind(opContext, "customer orders");
+        new SearchTemplateCoordinator(
+                v3Config(),
+                null,
+                loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty())
+            .bind(opContext, "customer orders");
     String rendered =
         new SearchTemplateRenderer(loader, new SearchConfiguration(), null)
             .render(bound, List.of(TestEntitySpecBuilder.getSpec()), "orders", true)
             .toString();
-    assertTrue(rendered.contains("structuredProperties.certification_status.keyword"));
+    assertTrue(rendered.contains("structuredProperties.certification_status"));
+    assertFalse(rendered.contains("structuredProperties.certification_status.keyword"));
     assertFalse(rendered.contains("urn:li:structuredProperty:"));
   }
 
@@ -58,7 +66,13 @@ public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
             null);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, template);
     OperationContext bound =
-        new SearchTemplateCoordinator(v3Config(), null, loader).bind(opContext, "customer orders");
+        new SearchTemplateCoordinator(
+                v3Config(),
+                null,
+                loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty())
+            .bind(opContext, "customer orders");
     String rendered =
         new SearchTemplateRenderer(loader, new SearchConfiguration(), null)
             .render(bound, List.of(TestEntitySpecBuilder.getSpec()), "orders", true)
@@ -147,7 +161,8 @@ public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
         renderer
             .render(bound, List.of(registry.getEntitySpec(DATASET_ENTITY_NAME)), "gold", true)
             .toString();
-    assertTrue(rendered.contains("structuredProperties.certification_status.keyword"), rendered);
+    assertTrue(rendered.contains("structuredProperties.certification_status"), rendered);
+    assertFalse(rendered.contains("structuredProperties.certification_status.keyword"), rendered);
     assertTrue(rendered.contains("gold"), rendered);
     assertFalse(rendered.contains("structuredProperties.certification_status^"), rendered);
     assertFalse(rendered.contains("structuredProperties.priority"), rendered);
@@ -209,14 +224,16 @@ public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
     installCertification(null);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, nameValueTemplate(null));
     String gold = renderStored("gold", false);
-    assertTrue(gold.contains("structuredProperties.certification_status.keyword"), gold);
+    assertTrue(gold.contains("structuredProperties.certification_status"), gold);
+    assertFalse(gold.contains("structuredProperties.certification_status.keyword"), gold);
     assertTrue(gold.contains("gold"), gold);
     assertFalse(gold.contains("dis_max"), gold);
 
     String named = renderStored("certification status gold", false);
     assertTrue(named.contains("dis_max"), named);
     assertTrue(named.contains("\"gold\""), named);
-    assertTrue(named.contains("structuredProperties.certification_status.keyword"), named);
+    assertTrue(named.contains("structuredProperties.certification_status"), named);
+    assertFalse(named.contains("structuredProperties.certification_status.keyword"), named);
     assertTrue(named.contains("certification status gold"), named);
 
     String silver = renderStored("certification status silver", false);
@@ -284,7 +301,8 @@ public class SearchTemplateStructuredClauseTest extends SearchTemplateFixture {
     store(SEARCH_TEMPLATE_FULLTEXT_URN, nameValueTemplate(null));
     String rich = renderStored("notes gold", false);
     assertTrue(rich.contains("dis_max"), rich);
-    assertTrue(rich.contains("structuredProperties.notes.keyword"), rich);
+    assertTrue(rich.contains("structuredProperties.notes"), rich);
+    assertFalse(rich.contains("structuredProperties.notes.keyword"), rich);
     assertTrue(rich.contains("\"gold\""), rich);
 
     String numbered = renderStored("priority gold", false);

@@ -52,6 +52,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
     METRIC_TYPE_SIMPLE,
     DBTColumn,
     DBTCommonConfig,
+    DBTConstraint,
+    DBTContract,
     DBTExposure,
     DBTMetric,
     DBTMetricInput,
@@ -62,6 +64,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceBase,
     DBTSourceReport,
     convert_semantic_model_fields_to_columns,
+    parse_dbt_constraint,
     parse_dbt_timestamp,
     parse_semantic_model,
 )
@@ -241,13 +244,48 @@ def _artifact_directory(path: str) -> str:
     return os.path.abspath(directory)
 
 
+def extract_contract_columns(
+    manifest_node: dict,
+    tag_prefix: str,
+) -> List[DBTColumn]:
+    """Return the columns a dbt contract declares, verbatim from the manifest.
+
+    Unlike :func:`get_columns`, this does not consult the catalog — the
+    returned ``data_type`` is whatever the user wrote in YAML (e.g. ``int``,
+    ``varchar(64)``). With ``contract.alias_types: true`` (the dbt default)
+    those values may be generic type names that don't match the warehouse's
+    platform-specific equivalent.
+    """
+    manifest_columns = manifest_node.get("columns") or {}
+    columns: List[DBTColumn] = []
+    for index, (_, manifest_column) in enumerate(manifest_columns.items()):
+        tags = [tag_prefix + tag for tag in manifest_column.get("tags", []) or []]
+        constraints = [
+            parse_dbt_constraint(constraint_dict)
+            for constraint_dict in manifest_column.get("constraints", []) or []
+        ]
+        columns.append(
+            DBTColumn(
+                name=manifest_column["name"],
+                comment="",
+                description=manifest_column.get("description", "") or "",
+                data_type=manifest_column.get("data_type") or "",
+                index=index,
+                meta=manifest_column.get("meta", {}) or {},
+                tags=tags,
+                constraints=constraints,
+            )
+        )
+    return columns
+
+
 def get_columns(
     dbt_name: str,
     catalog_node: Optional[dict],
     manifest_node: dict,
     tag_prefix: str,
 ) -> List[DBTColumn]:
-    manifest_columns = manifest_node.get("columns", {})
+    manifest_columns = manifest_node.get("columns") or {}
     manifest_columns_lower = {k.lower(): v for k, v in manifest_columns.items()}
 
     if catalog_node is not None:
@@ -470,7 +508,25 @@ def extract_dbt_entities(
                     qualified_test_name=qualified_test_name,
                     column_name=kw_args.get("column_name"),
                     kw_args=kw_args,
+                    attached_node=manifest_node.get("attached_node"),
+                    where=(manifest_node.get("config") or {}).get("where"),
                 )
+
+            contract = None
+            contract_columns: Optional[List[DBTColumn]] = None
+            model_constraints: List[DBTConstraint] = []
+            contract_config = (manifest_node.get("config") or {}).get("contract") or {}
+            if contract_config.get("enforced"):
+                top_level_contract = manifest_node.get("contract") or {}
+                contract = DBTContract(
+                    enforced=True,
+                    checksum=top_level_contract.get("checksum"),
+                )
+                contract_columns = extract_contract_columns(manifest_node, tag_prefix)
+                model_constraints = [
+                    parse_dbt_constraint(constraint_dict)
+                    for constraint_dict in manifest_node.get("constraints") or []
+                ]
 
             dbtNode = DBTNode(
                 dbt_name=key,
@@ -480,6 +536,12 @@ def extract_dbt_entities(
                 schema=manifest_node["schema"],
                 name=name,
                 alias=manifest_node.get("alias"),
+                identifier=manifest_node.get("identifier"),
+                latest_version=(
+                    str(manifest_node["latest_version"])
+                    if manifest_node.get("latest_version") is not None
+                    else None
+                ),
                 dbt_file_path=manifest_node["original_file_path"],
                 node_type=manifest_node["resource_type"],
                 max_loaded_at=max_loaded_at,
@@ -506,6 +568,9 @@ def extract_dbt_entities(
                 freshness_info=freshness_info,
                 row_count=row_count,
                 size_in_bytes=size_in_bytes,
+                contract=contract,
+                model_constraints=model_constraints,
+                contract_columns=contract_columns,
             )
 
             # Load columns from catalog, and override some properties from manifest.
@@ -966,25 +1031,57 @@ def _parse_test_result(
     )
 
 
+# dbt commands whose model results come from running the materialization
+# (and with it the contract preflight and constraint DDL). ``compile`` and
+# ``show`` report model "success" without touching the warehouse relation.
+_RELATION_BUILDING_COMMANDS = frozenset({"run", "build", "retry"})
+
+
 def _parse_model_run(
     dbt_metadata: DBTRunMetadata,
     run_result: DBTRunResult,
+    *,
+    allow_missing_timing: bool = False,
+    built_relation: bool = True,
 ) -> Optional[DBTModelPerformance]:
     status = run_result.status
     if status not in {"success", "error"}:
         return None
 
     execution_timestamp = run_result.timing_map.get("execute")
-    if not execution_timestamp:
-        return None
-    if not execution_timestamp.started_at or not execution_timestamp.completed_at:
+    started = (
+        parse_dbt_timestamp(execution_timestamp.started_at)
+        if execution_timestamp and execution_timestamp.started_at
+        else None
+    )
+    completed = (
+        parse_dbt_timestamp(execution_timestamp.completed_at)
+        if execution_timestamp and execution_timestamp.completed_at
+        else None
+    )
+    timing_inferred = False
+    if started and completed:
+        start_time, end_time = started, completed
+    elif allow_missing_timing:
+        # Contract run events still need a timestamp when execute timing is
+        # incomplete (preflight failures often are). Keep any known endpoint
+        # and fill only the missing side from generated_at. Do not invent
+        # times for the default DataProcessInstance path.
+        fallback = parse_dbt_timestamp(dbt_metadata.generated_at)
+        start_time = started or fallback
+        end_time = completed or fallback
+        timing_inferred = True
+    else:
         return None
 
     return DBTModelPerformance(
         run_id=dbt_metadata.invocation_id,
         status=status,
-        start_time=parse_dbt_timestamp(execution_timestamp.started_at),
-        end_time=parse_dbt_timestamp(execution_timestamp.completed_at),
+        start_time=start_time,
+        end_time=end_time,
+        message=run_result.message,
+        timing_inferred=timing_inferred,
+        built_relation=built_relation,
     )
 
 
@@ -1000,12 +1097,20 @@ def load_run_results(
     O(files x total_nodes) over the whole multi-project node union, and all but the
     first build was wasted - the nodes are mutated in place.
     """
-    if test_results_json.get("args", {}).get("which") == "generate":
+    which = test_results_json.get("args", {}).get("which")
+    if which == "generate":
         logger.warning(
             "The run results file is from a `dbt docs generate` command, "
             "instead of a build/run/test command. Skipping this file."
         )
         return
+
+    if which not in _RELATION_BUILDING_COMMANDS:
+        # Model results from other commands (or files without args.which) say
+        # nothing about contracts, so they produce no contract run events.
+        logger.debug(
+            f"run_results from command {which!r} will not produce contract run events"
+        )
 
     dbt_metadata = DBTRunMetadata.model_validate(test_results_json.get("metadata", {}))
 
@@ -1031,7 +1136,12 @@ def load_run_results(
             test_results.append((test_node, test_result))
 
         else:
-            model_performance = _parse_model_run(dbt_metadata, run_result)
+            model_performance = _parse_model_run(
+                dbt_metadata,
+                run_result,
+                allow_missing_timing=config.ingest_contracts,
+                built_relation=which in _RELATION_BUILDING_COMMANDS,
+            )
             if not model_performance:
                 continue
 
@@ -1535,6 +1645,17 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                     run_results_path, prefetched
                 )
                 load_run_results(self.config, run_results_json, nodes_by_name)
+                if (
+                    self.config.ingest_contracts
+                    and run_results_json.get("args", {}).get("which") is None
+                ):
+                    self.report.warning(
+                        title="run_results without a dbt command",
+                        message="The run_results file does not record which dbt "
+                        "command produced it (args.which), so its model results "
+                        "produce no contract run events.",
+                        context=run_results_path,
+                    )
             except MemoryError:
                 raise
             except Exception as e:

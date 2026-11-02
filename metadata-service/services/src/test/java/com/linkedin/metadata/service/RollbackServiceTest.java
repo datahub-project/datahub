@@ -1380,4 +1380,24 @@ public class RollbackServiceTest {
         keyAffected,
         additionalRowsAffected);
   }
+
+  /**
+   * The run status names who asked for the rollback, not the system. Before, every ROLLING_BACK,
+   * ROLLED_BACK and FAILED write was stamped as the system whoever ran it.
+   */
+  @Test
+  public void testExecutionStatusIsStampedWithTheCaller() throws Exception {
+    final Urn user = UrnUtils.getUrn("urn:li:corpuser:alice");
+    final OperationContext userContext =
+        TestOperationContexts.userContextNoSearchAuthorization(user);
+    stubExecutionRequestResult();
+
+    rollbackService.updateExecutionRequestStatus(
+        userContext, TEST_RUN_ID, RollbackService.ROLLING_BACK_STATUS);
+
+    final ArgumentCaptor<AuditStamp> stamp = ArgumentCaptor.forClass(AuditStamp.class);
+    verify(mockEntityService)
+        .ingestProposal(any(OperationContext.class), any(), stamp.capture(), eq(false));
+    assertEquals(stamp.getValue().getActor(), user);
+  }
 }

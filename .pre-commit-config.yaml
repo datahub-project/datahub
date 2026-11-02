@@ -732,3 +732,13 @@ repos:
         pass_filenames: false
         stages:
           - pre-commit
+      - id: playwright-p0-tags
+        name: Playwright P0 tags must not split serial chains
+        description: --grep @p0 selects single tests, so a P0 tag inside a serial
+          describe runs a chain step without its predecessors
+        entry: python3 .github/scripts/check_playwright_p0.py
+        language: system
+        files: ^(e2e-test/ui/playwright/tests/.*\.spec\.ts|\.github/scripts/check_playwright_p0\.py)$
+        pass_filenames: false
+        stages:
+          - pre-commit

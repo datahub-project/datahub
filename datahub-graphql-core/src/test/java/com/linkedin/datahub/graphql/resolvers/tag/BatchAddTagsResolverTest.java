@@ -15,15 +15,26 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchAddTagsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchAddTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.EditableSchemaFieldInfo;
+import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaFieldArray;
+import com.linkedin.schema.SchemaMetadata;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -170,6 +181,66 @@ public class BatchAddTagsResolverTest {
   /** One batched existence call for the tags, one for the resources — never one per urn. */
   private static void verifyBatchedExistenceChecks(EntityService<?> mockService) {
     verifyExistenceResolvedInBatches(mockService, 2);
+  }
+
+  @Test
+  public void testGetSuccessColumnsOnTwoDatasets() throws Exception {
+    EntityService<?> mockService = getMockEntityService();
+    Urn datasetUrn1 = UrnUtils.getUrn(TEST_ENTITY_URN_1);
+    Urn datasetUrn2 = UrnUtils.getUrn(TEST_ENTITY_URN_2);
+
+    for (Urn datasetUrn : List.of(datasetUrn1, datasetUrn2)) {
+      Mockito.when(
+              mockService.getAspect(
+                  any(),
+                  Mockito.eq(datasetUrn),
+                  Mockito.eq(SCHEMA_METADATA_ASPECT_NAME),
+                  Mockito.eq(0L)))
+          .thenReturn(
+              new SchemaMetadata()
+                  .setFields(
+                      new SchemaFieldArray(
+                          ImmutableList.of(
+                              new SchemaField().setFieldPath("col_a"),
+                              new SchemaField().setFieldPath("col_b")))));
+    }
+
+    stubAllUrnsExist(mockService);
+
+    BatchAddTagsResolver resolver = new BatchAddTagsResolver(mockService);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    BatchAddTagsInput input =
+        new BatchAddTagsInput(
+            ImmutableList.of(TEST_TAG_1_URN),
+            ImmutableList.of(
+                new ResourceRefInput(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "col_a"),
+                new ResourceRefInput(TEST_ENTITY_URN_1, SubResourceType.DATASET_FIELD, "col_b"),
+                new ResourceRefInput(TEST_ENTITY_URN_2, SubResourceType.DATASET_FIELD, "col_a")));
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    assertTrue(resolver.get(mockEnv).get());
+
+    ArgumentCaptor<AspectsBatchImpl> batchCaptor = ArgumentCaptor.forClass(AspectsBatchImpl.class);
+    Mockito.verify(mockService, Mockito.times(1))
+        .ingestProposal(any(), batchCaptor.capture(), Mockito.eq(false));
+
+    // One editableSchemaMetadata write per dataset, carrying every column edited on it.
+    Map<Urn, EditableSchemaMetadata> writes =
+        batchCaptor.getValue().getItems().stream()
+            .collect(
+                Collectors.toMap(
+                    BatchItem::getUrn, item -> item.getAspect(EditableSchemaMetadata.class)));
+    assertEquals(writes.keySet(), Set.of(datasetUrn1, datasetUrn2));
+    assertEquals(writes.get(datasetUrn1).getEditableSchemaFieldInfo().size(), 2);
+    assertEquals(writes.get(datasetUrn2).getEditableSchemaFieldInfo().size(), 1);
+    for (EditableSchemaMetadata written : writes.values()) {
+      for (EditableSchemaFieldInfo fieldInfo : written.getEditableSchemaFieldInfo()) {
+        assertEquals(
+            fieldInfo.getGlobalTags().getTags().get(0).getTag().toString(), TEST_TAG_1_URN);
+      }
+    }
   }
 
   @Test

@@ -58,7 +58,8 @@ public class AspectMappingCompletenessTest {
     "versioning.graphql",
     "assertions.graphql",
     "dataProduct.graphql",
-    "api.graphql"
+    "api.graphql",
+    "repository.graphql"
   };
 
   private TypeDefinitionRegistry typeRegistry;

@@ -2,6 +2,7 @@ import { SnowflakeFormDetails } from '@pages/ingestion/base/sources/SnowflakeSou
 import { test } from '../../fixtures/base-test';
 import { IngestionV2Page } from '../../pages/ingestion/v2/ingestion-v2.page';
 import { generateRandomString } from '../../utils/random';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'ingestion-v2' });
 
@@ -20,7 +21,7 @@ test.describe('secrets tab in manage data sources', () => {
     await ingestionPage.secretsTab.navigate();
   });
 
-  test('create and delete a secret', async () => {
+  test('create and delete a secret', { tag: [TestTag.P0, DomainTag.Ingestion] }, async () => {
     const suffix = generateRandomString();
     const secretName = `playwright_secret_${suffix}`;
     const secretValue = `secret-value-${suffix}`;

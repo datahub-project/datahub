@@ -202,8 +202,10 @@ you guessing which field that is.
 
 Both passthroughs can be switched off for a deployment
 (`DATAHUB_PROBE_DISABLE_RAW_ACCESS`). The refusal tells you what is left for **this** connector,
-because it varies: most have typed commands to fall back on, but Snowflake and BigQuery expose
-`sql` as their only command, so switching it off withholds their probe entirely. Read what the
+because it varies: most have typed commands to fall back on, but Snowflake exposes
+`sql` as its only command, so switching it off withholds its probe entirely. BigQuery also
+declares `projects`, which takes no caller-supplied query, so switching it off narrows
+BigQuery's probe rather than withholding it. Read what the
 message names and do not look for another route to raw access.
 
 A deployment can also switch off `probe run` entirely (`DATAHUB_PROBE_DISABLED`). Then every

@@ -22,8 +22,13 @@
                     <exclude name=".*" />
                 </methods>
             </class>
-            <!-- PostgreSQL Testcontainers IT; runs in testng-postgresql.xml, not the default suite -->
+            <!-- PostgreSQL Testcontainers ITs; run in testng-postgresql.xml, not the default suite -->
             <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoLockingPostgresIT">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+            <class name="com.linkedin.metadata.entity.ebean.EbeanAspectDaoOptimisticLockingPostgresIT">
                 <methods>
                     <exclude name=".*" />
                 </methods>
@@ -45,6 +50,7 @@
             <class name="com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.OnnxEmbeddingProviderTest"/>
             <class name="com.linkedin.metadata.search.embedding.ClassicalEmbeddingProviderTest"/>
+            <class name="com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfigMappingDiffTest"/>
         </classes>
     </test>
 

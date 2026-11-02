@@ -28,7 +28,7 @@
                 "number_of_files": "1",
                 "size_in_bytes": "172"
             },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/no_extension/small",
+            "externalUrl": "https://s3.console.aws.amazon.com/s3/buckets/my-test-bucket?region=us-east-1&prefix=folder_a/folder_aa/folder_aaa/no_extension/small",
             "name": "small",
             "description": "",
             "tags": []

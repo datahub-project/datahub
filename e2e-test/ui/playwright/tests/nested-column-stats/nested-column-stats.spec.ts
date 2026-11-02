@@ -22,6 +22,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'nested-column-stats' });
 
@@ -30,32 +31,34 @@ const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_tes
 const TOP_LEVEL_FIELD = 'order_id';
 
 test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
-  test('nested struct field shows sample values in Statistics tab (not "No column statistics found")', async ({
-    page,
-  }) => {
-    await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/Schema`);
-    await page.waitForLoadState('networkidle');
+  test(
+    'nested struct field shows sample values in Statistics tab (not "No column statistics found")',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page }) => {
+      await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/Schema`);
+      await page.waitForLoadState('networkidle');
 
-    // Wait for schema table to render
-    // eslint-disable-next-line playwright/no-raw-locators -- id-prefix attribute selector has no semantic equivalent
-    await expect(page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
+      // Wait for schema table to render
+      // eslint-disable-next-line playwright/no-raw-locators -- id-prefix attribute selector has no semantic equivalent
+      await expect(page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
 
-    // Click the 'address' struct row. Its id contains a V2 path with brackets;
-    // use XPath on the id attribute for reliable exact matching (CSS id selector
-    // cannot handle the brackets and dots in V2 field paths).
-    // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match id containing reserved characters ([], =, .)
-    const addressRow = page.locator('xpath=//tr[@id="column-[version=2.0].[type=struct].address"]');
-    await expect(addressRow).toBeVisible({ timeout: 10000 });
-    await addressRow.click();
+      // Click the 'address' struct row. Its id contains a V2 path with brackets;
+      // use XPath on the id attribute for reliable exact matching (CSS id selector
+      // cannot handle the brackets and dots in V2 field paths).
+      // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match id containing reserved characters ([], =, .)
+      const addressRow = page.locator('xpath=//tr[@id="column-[version=2.0].[type=struct].address"]');
+      await expect(addressRow).toBeVisible({ timeout: 10000 });
+      await addressRow.click();
 
-    // Open the Statistics tab in the schema field drawer
-    await page.getByTestId('Statistics-field-drawer-tab-header').click();
+      // Open the Statistics tab in the schema field drawer
+      await page.getByTestId('Statistics-field-drawer-tab-header').click();
 
-    // Pre-fix: "No column statistics found" appears — V2 fieldPath can't match V1 profile path
-    // Post-fix: sample values from the profile are shown
-    await expect(page.getByText('No column statistics found')).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('123 Main St Seattle')).toBeVisible({ timeout: 10000 });
-  });
+      // Pre-fix: "No column statistics found" appears — V2 fieldPath can't match V1 profile path
+      // Post-fix: sample values from the profile are shown
+      await expect(page.getByText('No column statistics found')).not.toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('123 Main St Seattle')).toBeVisible({ timeout: 10000 });
+    },
+  );
 
   test('lowercased schema path (ING-2174 case-fold) shows sample values in About tab from Columns tab', async ({
     page,

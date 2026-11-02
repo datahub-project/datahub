@@ -15,6 +15,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/en
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
+    DataProductSection,
     DocumentationTab,
     EntityProfile,
     PropertiesTab,
@@ -47,7 +48,12 @@ const ApplicationEntitiesTab = lazyProfileComponent('ApplicationEntitiesTab', ()
     })),
 );
 
-const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.DELETE, EntityMenuItems.EDIT]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+    EntityMenuItems.EDIT,
+]);
 
 type ApplicationWithChildren = Application & {
     children?: {
@@ -128,6 +134,9 @@ export class ApplicationEntity implements Entity<Application> {
         },
         {
             component: SidebarGlossaryTermsSection,
+        },
+        {
+            component: DataProductSection,
         },
         {
             component: SidebarStructuredProperties,
@@ -260,6 +269,7 @@ export class ApplicationEntity implements Entity<Application> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
         ]);

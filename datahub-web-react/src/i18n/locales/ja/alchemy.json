@@ -9,6 +9,7 @@
     "calendarChart.weekday.wed": "水",
     "codeBlock.editorLabel": "コードエディター",
     "codeBlock.format": "整形",
+    "codeBlock.formatFailed": "SQLフォーマッターを読み込めませんでした。もう一度お試しください。",
     "codeBlock.formatInvalid": "このコードを整形できませんでした。有効なコードか確認してください。",
     "codeBlock.formatSuccess": "整形しました",
     "codeBlock.languageSelectLabel": "言語",

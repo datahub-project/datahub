@@ -2,7 +2,18 @@ import base64
 import copy
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -16,7 +27,7 @@ import datahub.metadata.schema_classes as models
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
-from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mce_builder import make_schema_field_urn, make_tag_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -29,9 +40,11 @@ from datahub.ingestion.source.aws.glue import (
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    TargetPlatformConfig,
     _redact_secret_fields_in_dataflow_script,
     _sanitize_jdbc_url,
 )
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -44,6 +57,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.testing import mce_helpers
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
@@ -197,11 +211,11 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
     [
-        (None, "glue_mces.json", "glue_mces_golden.json"),
+        (None, "glue.json", "glue_golden.json"),
         (
             "some_instance_name",
-            "glue_mces_platform_instance.json",
-            "glue_mces_platform_instance_golden.json",
+            "glue_platform_instance.json",
+            "glue_platform_instance_golden.json",
         ),
     ],
 )
@@ -301,6 +315,7 @@ def test_glue_ingest(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        fail_on_output_mces=True,
     )
 
 
@@ -330,12 +345,13 @@ def test_glue_view_lineage_ingest(
         mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
         glue_stubber.assert_no_pending_responses()
 
-        write_metadata_file(tmp_path / "glue_views_mces.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_views.json", mce_objects)
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_views_mces.json",
-        golden_path=test_resources_dir / "glue_views_mces_golden.json",
+        output_path=tmp_path / "glue_views.json",
+        golden_path=test_resources_dir / "glue_views_golden.json",
+        fail_on_output_mces=True,
     )
 
 
@@ -432,7 +448,7 @@ def test_catalog_to_platform_instance_is_region_specific():
     )
 
 
-def test_resource_link_emits_upstream_edge_to_owner():
+def test_resource_link_upstream_urn_uses_owner_instance():
     # A Lake Formation resource link (shared-transactions) points at transactions in the owner
     # account 432143214321. The consumer-instance table should get an upstream edge to the owner's
     # table URN, stamped with the owner account's instance.
@@ -450,17 +466,14 @@ def test_resource_link_emits_upstream_edge_to_owner():
             },
         ),
     )
-    upstreams = source._resource_link_owner_upstreams(
+    owner_urn = source._resource_link_upstream_urn(
         resource_link_table_in_mixed_database, "urn:li:dataset:(consumer)"
     )
 
-    assert [u.dataset for u in upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
-    ]
-    assert upstreams[0].type == models.DatasetLineageTypeClass.COPY
+    assert owner_urn == OWNER_TABLE_URN
 
 
-def test_resource_link_owner_upstreams_handles_malformed_target():
+def test_resource_link_upstream_urn_handles_malformed_target():
     # A TargetTable missing its Name must not crash the whole run; it should be skipped with a
     # reported warning and no upstream produced.
     source = GlueSource(
@@ -473,11 +486,11 @@ def test_resource_link_owner_upstreams_handles_malformed_target():
         "TargetTable": {"CatalogId": "432143214321", "DatabaseName": "test-database"},
     }
 
-    upstreams = source._resource_link_owner_upstreams(
+    owner_urn = source._resource_link_upstream_urn(
         malformed, "urn:li:dataset:(consumer)"
     )
 
-    assert upstreams == []
+    assert owner_urn is None
     assert source.report.warnings
     assert source.report.num_resource_link_missing_target == 1
 
@@ -510,17 +523,22 @@ def test_database_resource_link_without_owner_catalog_reports_missing_target() -
     assert "Failed to read resource-link owner schema from Glue" not in titles
 
 
-def test_resource_link_upstream_merged_with_storage_lineage():
-    # A resource link with a backfilled StorageDescriptor (so storage lineage also fires) must not
-    # lose either edge: the owner upstream and the S3 storage upstream must land in a SINGLE
-    # UpstreamLineage aspect on the dataset, not two aspects that clobber each other.
+@pytest.mark.parametrize("include_column_lineage", [True, False])
+def test_resource_link_upstream_merged_with_storage_lineage(
+    include_column_lineage: bool,
+) -> None:
+    # Glue's GetTables returns a table-level resource link with its target's StorageDescriptor, so
+    # storage lineage also fires. The link must not lose either edge: the owner upstream and the
+    # S3 storage upstream must land in a single UpstreamLineage aspect on the dataset, not two
+    # aspects that clobber each other. With column lineage on, that aspect must carry both the
+    # storage and the owner column edges.
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
             aws_region="us-east-1",
             platform_instance="consumer_inst",
             emit_storage_lineage=True,
-            include_column_lineage=False,
+            include_column_lineage=include_column_lineage,
             use_s3_bucket_tags=False,
             use_s3_object_tags=False,
             catalog_to_platform_instance={
@@ -553,12 +571,18 @@ def test_resource_link_upstream_merged_with_storage_lineage():
         and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
     ]
     assert len(upstream_aspects) == 1
-    datasets = {u.dataset for u in upstream_aspects[0].upstreams}
-    assert (
-        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
-        in datasets
+    storage_urn = make_s3_urn_for_lineage("s3://owner-bucket/transactions", "PROD")
+    assert {u.dataset for u in upstream_aspects[0].upstreams} == {
+        OWNER_TABLE_URN,
+        storage_urn,
+    }
+
+    expected_column_edges = _same_name_column_edges(
+        OWNER_TABLE_URN, CONSUMER_LINK_URN, ["txn_id"]
+    ) | _same_name_column_edges(storage_urn, CONSUMER_LINK_URN, ["txn_id"])
+    assert _column_edges(upstream_aspects[0]) == (
+        expected_column_edges if include_column_lineage else set()
     )
-    assert any("dataPlatform:s3" in d for d in datasets)
 
 
 def test_resource_link_no_self_lineage_when_owner_unresolved():
@@ -581,15 +605,19 @@ def test_resource_link_no_self_lineage_when_owner_unresolved():
     }
     dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,acct.db.shared,PROD)"
 
-    upstreams = source._resource_link_owner_upstreams(table, dataset_urn)
+    owner_urn = source._resource_link_upstream_urn(table, dataset_urn)
 
-    assert upstreams == []
+    assert owner_urn is None
     assert source.report.num_resource_link_self_referential == 1
     assert "Resource link owner catalog not mapped" in [
         w.title for w in source.report.warnings
     ]
 
 
+OWNER_CATALOG_MAPPING = {
+    "arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}
+}
+ColumnEdge = Tuple[Tuple[str, ...], Tuple[str, ...]]
 CONSUMER_LINK_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:glue,"
     "consumer_inst.mixed-database.shared-transactions,PROD)"
@@ -695,6 +723,77 @@ def test_resource_link_schema_resolved_from_glue_when_absent_in_datahub():
     assert schema is not None
     assert {f.fieldPath.split(".")[-1] for f in schema.fields} == {"txn_id", "amount"}
     assert source.report.num_resource_link_schema_from_glue == 1
+
+
+def _owner_placeholder_view_response(view_original_text: str) -> Dict[str, Any]:
+    return {
+        "Table": {
+            "Name": "transactions",
+            "DatabaseName": "test-database",
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": view_original_text,
+            "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+        }
+    }
+
+
+@pytest.mark.parametrize("valid_payload", [True, False])
+def test_resource_link_to_placeholder_view_recovers_columns_from_glue(
+    valid_payload: bool,
+) -> None:
+    source = _resource_link_schema_source()
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = None
+    source.ctx.graph = graph
+    view_original_text = (
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "txn_id", "type": "bigint"},
+                    {"name": "booked_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        )
+        if valid_payload
+        else "/* Presto View: not!valid!base64 */"
+    )
+
+    with Stubber(source.glue_client) as stubber:
+        stubber.add_response(
+            "get_table",
+            _owner_placeholder_view_response(view_original_text),
+            {
+                "CatalogId": "432143214321",
+                "DatabaseName": "test-database",
+                "Name": "transactions",
+            },
+        )
+        schema = source._resource_link_schema(
+            resource_link_table_in_mixed_database,
+            CONSUMER_LINK_URN,
+            "mixed-database.shared-transactions",
+        )
+
+    assert schema is not None
+    field_names = [
+        get_simple_field_path_from_v2_field_path(f.fieldPath) for f in schema.fields
+    ]
+    placeholder_contexts = [
+        context
+        for w in source.report.warnings
+        if w.title == "View schema is a placeholder column"
+        for context in w.context
+    ]
+    if valid_payload:
+        assert field_names == ["txn_id", "booked_at"]
+        assert not placeholder_contexts
+    else:
+        assert field_names == ["dummy"]
+        assert len(placeholder_contexts) == 1
+        assert placeholder_contexts[0].startswith(
+            "mixed-database.shared-transactions -> test-database.transactions: "
+        )
 
 
 def test_resource_link_schema_unresolved_leaves_link_schemaless():
@@ -850,9 +949,12 @@ def test_resource_link_schema_not_resolved_when_disabled():
     graph.get_schema_metadata.assert_not_called()
 
 
-def test_resource_link_downstream_direction_emits_separate_dataset_aspect():
+@pytest.mark.parametrize("include_column_lineage", [True, False])
+def test_resource_link_downstream_direction_emits_separate_dataset_aspect(
+    include_column_lineage: bool,
+) -> None:
     # In downstream storage-lineage mode the storage aspect targets the S3 URN, so the resource-link
-    # owner edge must be emitted as its own aspect on the dataset URN (no clobber, no merge).
+    # owner edge, and its column edges, must be emitted as their own aspect on the dataset URN.
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),
         config=GlueSourceConfig(
@@ -860,7 +962,7 @@ def test_resource_link_downstream_direction_emits_separate_dataset_aspect():
             platform_instance="consumer_inst",
             emit_storage_lineage=True,
             glue_storage_lineage_direction="downstream",
-            include_column_lineage=False,
+            include_column_lineage=include_column_lineage,
             use_s3_bucket_tags=False,
             use_s3_object_tags=False,
             catalog_to_platform_instance={
@@ -891,13 +993,18 @@ def test_resource_link_downstream_direction_emits_separate_dataset_aspect():
         if isinstance(wu.metadata, MetadataChangeProposalWrapper)
         and isinstance(wu.metadata.aspect, models.UpstreamLineageClass)
     }
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_inst.mixed-database.shared-transactions,PROD)"
-    # One aspect on the S3 URN (storage downstream) and one on the dataset URN (resource link).
-    assert any(e and "dataPlatform:s3" in e for e in by_entity)
-    assert dataset_urn in by_entity
-    assert [u.dataset for u in by_entity[dataset_urn].upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:glue,owner_inst.test-database.transactions,PROD)"
+    storage_urn = make_s3_urn_for_lineage("s3://owner-bucket/transactions", "PROD")
+    assert set(by_entity) == {storage_urn, CONSUMER_LINK_URN}
+    assert by_entity[storage_urn].fineGrainedLineages is None
+    assert [u.dataset for u in by_entity[CONSUMER_LINK_URN].upstreams] == [
+        OWNER_TABLE_URN
     ]
+    expected_column_edges = _same_name_column_edges(
+        OWNER_TABLE_URN, CONSUMER_LINK_URN, ["txn_id"]
+    )
+    assert _column_edges(by_entity[CONSUMER_LINK_URN]) == (
+        expected_column_edges if include_column_lineage else set()
+    )
 
 
 def test_dataflow_node_uses_owning_catalog_instance():
@@ -1154,12 +1261,13 @@ def test_glue_ingest_cross_account_and_resource_links(
         mce_objects = [wu.metadata for wu in source.get_workunits()]
         glue_stubber.assert_no_pending_responses()
 
-        write_metadata_file(tmp_path / "glue_mces_cross_account.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_cross_account.json", mce_objects)
 
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_mces_cross_account.json",
-        golden_path=test_resources_dir / "glue_mces_cross_account_golden.json",
+        output_path=tmp_path / "glue_cross_account.json",
+        golden_path=test_resources_dir / "glue_cross_account_golden.json",
+        fail_on_output_mces=True,
     )
 
 
@@ -1272,10 +1380,10 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
 
     wus = list(source.get_workunits())
 
-    snapshot_urns = {
-        wu.metadata.proposedSnapshot.urn
+    dataset_urns = {
+        wu.get_urn()
         for wu in wus
-        if isinstance(wu.metadata, models.MetadataChangeEventClass)
+        if wu.get_aspect_of_type(models.DatasetPropertiesClass) is not None
     }
 
     events_urn = (
@@ -1294,19 +1402,13 @@ def test_glue_moto_cross_account_and_resource_link_lineage() -> None:
     # (1) The mapping is consulted for the table's own CatalogId: tables are stamped with the mapped
     # "consumer_inst", not the source's own "ingestion_acct". owner_db is excluded by the pattern,
     # so it is never emitted as a dataset (it exists only as the lineage target).
-    assert events_urn in snapshot_urns
-    assert shared_events_urn in snapshot_urns
-    assert all("ingestion_acct" not in urn for urn in snapshot_urns)
-    assert all("owner_db" not in urn for urn in snapshot_urns)
+    assert events_urn in dataset_urns
+    assert shared_events_urn in dataset_urns
+    assert all("ingestion_acct" not in urn for urn in dataset_urns)
+    assert all("owner_db" not in urn for urn in dataset_urns)
 
     # (2) The resource link stitches back to the owner account's URN via TargetTable.CatalogId.
-    upstreams = [
-        aspect
-        for wu in wus
-        if wu.get_urn() == shared_events_urn
-        for aspect in [wu.get_aspect_of_type(models.UpstreamLineageClass)]
-        if aspect is not None
-    ]
+    upstreams = _upstream_lineage(wus, shared_events_urn)
     assert len(upstreams) == 1
     assert [u.dataset for u in upstreams[0].upstreams] == [owner_urn]
 
@@ -1430,6 +1532,8 @@ def _ingest_database_resource_link(
     databases_response: Optional[Dict[str, Any]] = None,
     graph: Optional[DataHubGraph] = None,
     owner_get_table_response: Optional[Dict[str, Any]] = None,
+    include_column_lineage: bool = True,
+    resolve_resource_link_schema: bool = True,
 ) -> Tuple[GlueSource, List[Dict[str, Any]], List[MetadataWorkUnit]]:
     # resource-link-test-database (catalog 123412341234) is a database-level link to
     # test-database in 432143214321; Glue returns its tables with the owner's CatalogId and
@@ -1448,6 +1552,8 @@ def _ingest_database_resource_link(
             use_s3_bucket_tags=False,
             use_s3_object_tags=False,
             catalog_to_platform_instance=catalog_to_platform_instance,
+            include_column_lineage=include_column_lineage,
+            resolve_resource_link_schema=resolve_resource_link_schema,
         ),
     )
     source.ctx.graph = graph
@@ -1476,15 +1582,43 @@ def _ingest_database_resource_link(
     return source, tables, wus
 
 
-def _upstream_urns(wus: List[MetadataWorkUnit], dataset_urn: str) -> List[str]:
+def _upstream_lineage(
+    wus: List[MetadataWorkUnit], dataset_urn: str
+) -> List[models.UpstreamLineageClass]:
     return [
-        upstream.dataset
+        aspect
         for wu in wus
         if wu.get_urn() == dataset_urn
         for aspect in [wu.get_aspect_of_type(models.UpstreamLineageClass)]
         if aspect is not None
+    ]
+
+
+def _upstream_urns(wus: List[MetadataWorkUnit], dataset_urn: str) -> List[str]:
+    return [
+        upstream.dataset
+        for aspect in _upstream_lineage(wus, dataset_urn)
         for upstream in aspect.upstreams
     ]
+
+
+def _column_edges(lineage: models.UpstreamLineageClass) -> Set[ColumnEdge]:
+    return {
+        (tuple(fgl.upstreams or []), tuple(fgl.downstreams or []))
+        for fgl in lineage.fineGrainedLineages or []
+    }
+
+
+def _same_name_column_edges(
+    upstream_urn: str, downstream_urn: str, columns: Iterable[str]
+) -> Set[ColumnEdge]:
+    return {
+        (
+            (make_schema_field_urn(upstream_urn, column),),
+            (make_schema_field_urn(downstream_urn, column),),
+        )
+        for column in columns
+    }
 
 
 def test_database_resource_link_tables_rekeyed_to_link() -> None:
@@ -1502,9 +1636,7 @@ def test_database_resource_link_tables_rekeyed_to_link() -> None:
 
 
 def test_database_resource_link_emits_owner_lineage_with_catalog_mapping() -> None:
-    source, _, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}}
-    )
+    source, _, wus = _ingest_database_resource_link(OWNER_CATALOG_MAPPING)
 
     link_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:glue,"
@@ -1586,7 +1718,7 @@ def test_database_resource_link_same_name_mapped_owner_does_not_overwrite_owner(
     databases_response["DatabaseList"][0]["Name"] = "test-database"
 
     source, _, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        OWNER_CATALOG_MAPPING,
         databases_response=databases_response,
     )
 
@@ -1614,7 +1746,7 @@ def test_database_resource_link_target_falls_back_to_owner_table_identity(
     del databases_response["DatabaseList"][0]["TargetDatabase"][missing_key]
 
     source, tables, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        OWNER_CATALOG_MAPPING,
         databases_response=databases_response,
     )
 
@@ -1669,7 +1801,7 @@ def test_database_resource_link_schema_resolved_from_owner(
     graph.get_schema_metadata.return_value = _owner_schema()
 
     source, _, wus = _ingest_database_resource_link(
-        {"arn:aws:glue:us-east-1:432143214321": {"platform_instance": "owner_inst"}},
+        OWNER_CATALOG_MAPPING,
         tables_response=_schemaless_database_link_tables(),
         graph=graph if owner_in_datahub else None,
         owner_get_table_response=None
@@ -1692,13 +1824,19 @@ def test_database_resource_link_schema_resolved_from_owner(
     assert schema is not None
     assert schema.schemaName == "resource-link-test-database.transactions"
     fields = {f.fieldPath.split(".")[-1] for f in schema.fields}
+    expected_columns = ["txn_id"] if owner_in_datahub else ["txn_id", "amount"]
+    assert fields == set(expected_columns)
     if owner_in_datahub:
-        assert fields == {"txn_id"}
         graph.get_schema_metadata.assert_called_once_with(OWNER_TABLE_URN)
         assert source.report.num_resource_link_schema_from_datahub == 1
     else:
-        assert fields == {"txn_id", "amount"}
         assert source.report.num_resource_link_schema_from_glue == 1
+
+    lineage = _upstream_lineage(wus, DB_LINK_URN)
+    assert len(lineage) == 1
+    assert _column_edges(lineage[0]) == _same_name_column_edges(
+        OWNER_TABLE_URN, DB_LINK_URN, expected_columns
+    )
 
 
 def test_database_resource_link_table_placed_in_link_database_container() -> None:
@@ -1742,6 +1880,39 @@ def test_database_resource_link_table_placed_in_link_database_container() -> Non
         if aspect is not None
     ]
     assert containers == [link_container_urn]
+
+
+@pytest.mark.parametrize("include_column_lineage", [True, False])
+def test_database_resource_link_emits_column_lineage_to_owner(
+    include_column_lineage: bool,
+) -> None:
+    # A resource link is a 1:1 copy of the owner's table, so each link column maps to the
+    # same-named owner column, on the same aspect as the table-level edge.
+    _, _, wus = _ingest_database_resource_link(
+        OWNER_CATALOG_MAPPING,
+        include_column_lineage=include_column_lineage,
+    )
+
+    lineage = _upstream_lineage(wus, DB_LINK_URN)
+    assert len(lineage) == 1
+    assert [u.dataset for u in lineage[0].upstreams] == [OWNER_TABLE_URN]
+    assert lineage[0].upstreams[0].type == models.DatasetLineageTypeClass.COPY
+    expected = _same_name_column_edges(OWNER_TABLE_URN, DB_LINK_URN, ["id", "name"])
+    assert _column_edges(lineage[0]) == (expected if include_column_lineage else set())
+
+
+def test_schemaless_resource_link_gets_table_lineage_only() -> None:
+    # Without a schema there are no columns to map, so the link keeps only its table-level edge.
+    _, _, wus = _ingest_database_resource_link(
+        OWNER_CATALOG_MAPPING,
+        tables_response=_schemaless_database_link_tables(),
+        resolve_resource_link_schema=False,
+    )
+
+    lineage = _upstream_lineage(wus, DB_LINK_URN)
+    assert len(lineage) == 1
+    assert [u.dataset for u in lineage[0].upstreams] == [OWNER_TABLE_URN]
+    assert lineage[0].fineGrainedLineages is None
 
 
 def test_database_resource_link_preserves_existing_target_table() -> None:
@@ -1810,7 +1981,7 @@ def test_get_databases_filters_by_catalog():
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
-    deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
+    deleted_actor_golden_mcs = "{}/glue_deleted_actor_golden.json".format(
         test_resources_dir
     )
 
@@ -1867,7 +2038,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             assert checkpoint1.state
 
             # Capture MCEs of second run to validate Status(removed=true)
-            deleted_mces_path = "{}/{}".format(tmp_path, "glue_deleted_mces.json")
+            deleted_mces_path = "{}/{}".format(tmp_path, "glue_deleted.json")
             pipeline_config_dict["sink"]["type"] = "file"
             pipeline_config_dict["sink"]["config"] = {"filename": deleted_mces_path}
 
@@ -1891,6 +2062,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 pytestconfig,
                 output_path=deleted_mces_path,
                 golden_path=deleted_actor_golden_mcs,
+                fail_on_output_mces=True,
             )
 
             # Perform all assertions on the states. The deleted table should not be
@@ -1932,13 +2104,14 @@ def test_glue_with_delta_schema_ingest(
 
         assert glue_source_instance.get_report().num_dataset_valid_delta_schema == 1
 
-        write_metadata_file(tmp_path / "glue_delta_mces.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_delta.json", mce_objects)
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_delta_mces.json",
-        golden_path=test_resources_dir / "glue_delta_mces_golden.json",
+        output_path=tmp_path / "glue_delta.json",
+        golden_path=test_resources_dir / "glue_delta_golden.json",
+        fail_on_output_mces=True,
     )
 
 
@@ -1968,20 +2141,21 @@ def test_glue_with_malformed_delta_schema_ingest(
 
         assert glue_source_instance.get_report().num_dataset_invalid_delta_schema == 1
 
-        write_metadata_file(tmp_path / "glue_malformed_delta_mces.json", mce_objects)
+        write_metadata_file(tmp_path / "glue_malformed_delta.json", mce_objects)
 
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "glue_malformed_delta_mces.json",
-        golden_path=test_resources_dir / "glue_malformed_delta_mces_golden.json",
+        output_path=tmp_path / "glue_malformed_delta.json",
+        golden_path=test_resources_dir / "glue_malformed_delta_golden.json",
+        fail_on_output_mces=True,
     )
 
 
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
     [
-        (None, "glue_mces.json", "glue_mces_golden_table_lineage.json"),
+        (None, "glue.json", "glue_golden_table_lineage.json"),
     ],
 )
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2083,13 +2257,14 @@ def test_glue_ingest_include_table_lineage(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        fail_on_output_mces=True,
     )
 
 
 @pytest.mark.parametrize(
     "platform_instance, mce_file, mce_golden_file",
     [
-        (None, "glue_mces.json", "glue_mces_golden_table_column_lineage.json"),
+        (None, "glue.json", "glue_golden_table_column_lineage.json"),
     ],
 )
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2189,6 +2364,7 @@ def test_glue_ingest_include_column_lineage(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        fail_on_output_mces=True,
     )
 
 
@@ -2198,8 +2374,8 @@ def test_glue_ingest_with_profiling(
     pytestconfig: pytest.Config,
 ) -> None:
     glue_source_instance = glue_source_with_profiling()
-    mce_file = "glue_mces.json"
-    mce_golden_file = "glue_mces_golden_profiling.json"
+    mce_file = "glue.json"
+    mce_golden_file = "glue_golden_profiling.json"
     with Stubber(glue_source_instance.glue_client) as glue_stubber:
         glue_stubber.add_response("get_databases", get_databases_response_profiling, {})
 
@@ -2226,6 +2402,7 @@ def test_glue_ingest_with_profiling(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        fail_on_output_mces=True,
     )
 
 
@@ -2234,8 +2411,8 @@ def test_glue_ingest_with_profiling(
     [
         (
             None,
-            "glue_mces_lake_formation_tags.json",
-            "glue_mces_lake_formation_tags_golden.json",
+            "glue_lake_formation_tags.json",
+            "glue_lake_formation_tags_golden.json",
         ),
     ],
 )
@@ -2435,6 +2612,7 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
         pytestconfig,
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
+        fail_on_output_mces=True,
     )
 
 
@@ -2484,12 +2662,10 @@ def test_no_lakeformation_extraction_when_disabled() -> None:
 
     source.lf_client.get_resource_lf_tags.assert_not_called()
     for wu in workunits:
-        mce = wu.metadata
-        if isinstance(mce, models.MetadataChangeEventClass):
-            for aspect in mce.proposedSnapshot.aspects:
-                assert not isinstance(aspect, models.GlobalTagsClass)
-                if isinstance(aspect, models.SchemaMetadataClass):
-                    assert all(f.globalTags is None for f in aspect.fields)
+        assert wu.get_aspect_of_type(models.GlobalTagsClass) is None
+        schema_metadata = wu.get_aspect_of_type(models.SchemaMetadataClass)
+        if schema_metadata is not None:
+            assert all(f.globalTags is None for f in schema_metadata.fields)
 
 
 def _resolved_table_tag_names(source: GlueSource, response: Dict[str, Any]) -> Set[str]:
@@ -2751,8 +2927,12 @@ def test_propagated_table_tag_is_marked_as_propagated() -> None:
     assert global_tags is not None
     by_urn = {a.tag: a for a in global_tags.tags}
 
-    # Directly-assigned table tag is not marked as propagated.
-    assert by_urn[make_tag_urn("DataClassification:Sensitive")].attribution is None
+    # Directly-assigned table tag carries Lake Formation attribution (not propagated),
+    # so it can be told apart from a tag added in the DataHub UI.
+    direct = by_urn[make_tag_urn("DataClassification:Sensitive")]
+    assert direct.attribution is not None
+    assert direct.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in direct.attribution.sourceDetail
     # Inherited database tag is marked as propagated, with origin + legacy context.
     propagated = by_urn[make_tag_urn("Owner:DataTeam")]
     assert propagated.attribution is not None
@@ -2795,8 +2975,12 @@ def test_propagated_column_tag_is_marked_as_propagated() -> None:
         for f in schema.fields
         if f.globalTags
     }
-    # Inherited tag on customer_id is marked propagated; its own pii tag is not.
-    assert by_field["customer_id"][make_tag_urn("pii:true")].attribution is None
+    # customer_id's own pii tag is directly assigned: Lake Formation attribution,
+    # not propagated. The inherited DataClassification tag is marked propagated.
+    own = by_field["customer_id"][make_tag_urn("pii:true")]
+    assert own.attribution is not None
+    assert own.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in own.attribution.sourceDetail
     inherited = by_field["customer_id"][make_tag_urn("DataClassification:Sensitive")]
     assert inherited.attribution is not None
     assert inherited.attribution.sourceDetail["propagated"] == "true"
@@ -2805,6 +2989,66 @@ def test_propagated_column_tag_is_marked_as_propagated() -> None:
         by_field["id"][make_tag_urn("DataClassification:Sensitive")].attribution
         is not None
     )
+
+
+def test_direct_table_tag_carries_lake_formation_attribution() -> None:
+    # A directly-assigned Lake Formation tag is stamped with attribution so it
+    # can be distinguished from a tag added in the DataHub UI (which has none).
+    source = glue_source(extract_lakeformation_tags=True)
+    direct = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c"),
+        LakeFormationTag(key="Owner", value="DataTeam", catalog="c"),
+    ]
+    global_tags = source._build_lf_global_tags(direct)
+    assert global_tags is not None
+    for assoc in global_tags.tags:
+        assert assoc.attribution is not None
+        assert assoc.attribution.source == "urn:li:dataPlatform:glue"
+        assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+        assert assoc.attribution.sourceDetail["external"] == "true"
+        assert "propagated" not in assoc.attribution.sourceDetail
+        # Legacy context mirrors sourceDetail for older readers.
+        assert assoc.context is not None
+        assert json.loads(assoc.context)["origin"] == "lake-formation"
+
+
+def test_direct_column_tag_carries_lake_formation_attribution() -> None:
+    source = glue_source(extract_lakeformation_tags=True)
+    table = {
+        "Name": "sales",
+        "StorageDescriptor": {"Columns": [{"Name": "customer_id", "Type": "string"}]},
+    }
+    column_tags = {
+        "customer_id": [LakeFormationTag(key="pii", value="true", catalog="c")]
+    }
+    schema = source._get_glue_schema_metadata(table, "sales", column_tags)
+    assert schema is not None
+    field = next(f for f in schema.fields if f.fieldPath.endswith("customer_id"))
+    assert field.globalTags is not None
+    assoc = field.globalTags.tags[0]
+    assert assoc.tag == make_tag_urn("pii:true")
+    assert assoc.attribution is not None
+    assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in assoc.attribution.sourceDetail
+
+
+def test_direct_tag_precedence_keeps_direct_attribution_over_propagated() -> None:
+    # The same tag URN assigned directly and inherited: the direct assignment
+    # wins, so the association keeps Lake Formation (not propagated) attribution.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    same = LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c")
+    global_tags = source._build_lf_global_tags(
+        [same], [same], propagated_origin="urn:li:container:db"
+    )
+    assert global_tags is not None
+    assert len(global_tags.tags) == 1
+    assoc = global_tags.tags[0]
+    assert assoc.attribution is not None
+    assert assoc.attribution.sourceDetail["origin"] == "lake-formation"
+    assert "propagated" not in assoc.attribution.sourceDetail
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
@@ -2848,25 +3092,23 @@ def test_lf_tags_propagated_and_column_tagged_end_to_end() -> None:
             "get_tables", {"TableList": []}, {"DatabaseName": "empty-database"}
         )
 
-        mce_objects = [wu.metadata for wu in source.get_workunits()]
+        workunits = list(source.get_workunits())
 
     table_tags = None
     column_tag_fields = set()
-    for mce in mce_objects:
-        if not isinstance(mce, models.MetadataChangeEventClass):
+    for wu in workunits:
+        if "flights-database.avro" not in wu.get_urn():
             continue
-        snapshot = mce.proposedSnapshot
-        if "flights-database.avro" not in snapshot.urn:
-            continue
-        for aspect in snapshot.aspects:
-            if isinstance(aspect, models.GlobalTagsClass):
-                table_tags = {assoc.tag for assoc in aspect.tags}
-            if isinstance(aspect, models.SchemaMetadataClass):
-                for f in aspect.fields:
-                    if f.globalTags and any(
-                        t.tag == make_tag_urn("pii:true") for t in f.globalTags.tags
-                    ):
-                        column_tag_fields.add(f.fieldPath)
+        global_tags = wu.get_aspect_of_type(models.GlobalTagsClass)
+        if global_tags is not None:
+            table_tags = {assoc.tag for assoc in global_tags.tags}
+        schema_metadata = wu.get_aspect_of_type(models.SchemaMetadataClass)
+        if schema_metadata is not None:
+            for f in schema_metadata.fields:
+                if f.globalTags and any(
+                    t.tag == make_tag_urn("pii:true") for t in f.globalTags.tags
+                ):
+                    column_tag_fields.add(f.fieldPath)
 
     assert table_tags is not None, "flights-database.avro had no GlobalTags aspect"
     assert make_tag_urn("DataClassification:Sensitive") in table_tags
@@ -3324,6 +3566,280 @@ def test_process_dataflow_node_jdbc_query_fallback() -> None:
     )
 
 
+def _make_dynamodb_node(
+    node_id: str,
+    node_type: str,
+    connection_options: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {"Name": "connection_type", "Value": '"dynamodb"', "Param": False},
+            {
+                "Name": "connection_options",
+                "Value": json.dumps(connection_options),
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "connection_options, expected_name",
+    [
+        pytest.param(
+            {
+                "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+                "dynamodb.sts.roleArn": "arn:aws:iam::444455556666:role/GlueCrossAccountRole",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-account-wins",
+        ),
+        pytest.param(
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.sts.region": "us-east-1",
+                "dynamodb.sts.roleArn": "arn:aws:iam::444455556666:role/GlueCrossAccountRole",
+            },
+            "444455556666.us-east-1.orders",
+            id="role-arn-account",
+        ),
+        pytest.param(
+            {"dynamodb.input.tableName": "orders", "dynamodb.region": "us-west-2"},
+            "999888777666.us-west-2.orders",
+            id="caller-account-not-catalog-id",
+        ),
+        pytest.param(
+            {"dynamodb.output.tableName": "orders"},
+            "999888777666.us-west-2.orders",
+            id="output-table-falls-back-to-source-region",
+        ),
+        pytest.param(
+            {
+                "dynamodb.tableArn": "arn:aws:dynamodb:us-east-1:123456789012:table/customers",
+                "dynamodb.sts.roleArn": "args['ROLE_ARN']",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-wins-over-malformed-role-arn",
+        ),
+        pytest.param(
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.sts.region": "us-gov-west-1",
+                "dynamodb.sts.roleArn": " arn:aws-us-gov:iam::444455556666:role/GlueRole\n",
+            },
+            "444455556666.us-gov-west-1.orders",
+            id="govcloud-role-arn-with-whitespace",
+        ),
+        pytest.param(
+            {
+                "dynamodb.tableArn": " arn:aws:dynamodb:us-east-1:123456789012:table/customers\n",
+            },
+            "123456789012.us-east-1.customers",
+            id="table-arn-with-whitespace",
+        ),
+    ],
+)
+def test_process_dataflow_node_dynamodb_account_precedence(
+    connection_options: Dict[str, Any], expected_name: str
+) -> None:
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-dynamodb-account"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2", extract_transforms=True, catalog_id="111122223333"
+        ),
+    )
+    node = _make_dynamodb_node("DataSource0", "DataSource", connection_options)
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is not None
+    assert result["urn"] == (
+        f"urn:li:dataset:(urn:li:dataPlatform:dynamodb,{expected_name},PROD)"
+    )
+
+
+def test_process_dataflow_node_dynamodb_target_platform_config() -> None:
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-dynamodb-target"),
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=True,
+            target_platform_configs={
+                "dynamodb": TargetPlatformConfig(platform_instance="ddb-prod"),
+            },
+        ),
+    )
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id") as mock_account_id:
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    mock_account_id.assert_not_called()
+    assert result is not None
+    assert result["urn"] == (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,ddb-prod.us-west-2.orders,PROD)"
+    )
+
+
+@pytest.mark.parametrize(
+    "connection_options, warning_title",
+    [
+        pytest.param(
+            {"dynamodb.region": "us-west-2"},
+            "Missing DynamoDB table name or region for node",
+            id="missing-table",
+        ),
+        pytest.param(
+            # An unparseable ARN must not fall through to tableName and the caller's account.
+            {
+                "dynamodb.tableArn": (
+                    "arn:aws:dynamodb:us-east-1:123456789012:table/customers/export/abc"
+                ),
+                "dynamodb.input.tableName": "customers",
+                "dynamodb.region": "us-east-1",
+            },
+            "Failed to parse DynamoDB table ARN for node",
+            id="malformed-table-arn",
+        ),
+        pytest.param(
+            # A role ARN means a cross-account read, so the caller's account would be wrong.
+            {
+                "dynamodb.input.tableName": "orders",
+                "dynamodb.region": "us-east-1",
+                "dynamodb.sts.roleArn": "args['ROLE_ARN']",
+            },
+            "Failed to parse DynamoDB cross-account role ARN for node",
+            id="malformed-role-arn",
+        ),
+    ],
+)
+def test_process_dataflow_node_dynamodb_is_skipped(
+    connection_options: Dict[str, Any], warning_title: str
+) -> None:
+    source = glue_source()
+    node = _make_dynamodb_node("DataSource0", "DataSource", connection_options)
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is None
+    assert [w.title for w in source.report.warnings] == [warning_title]
+
+
+def test_process_dataflow_graph_dynamodb_sink_populates_output_datasets() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    transform = {
+        "Id": "Transform0",
+        "NodeType": "ApplyMapping",
+        "Args": [],
+        "LineNumber": 1,
+    }
+    sink = _make_dynamodb_node(
+        node_id="DataSink0",
+        node_type="DataSink",
+        connection_options={
+            "dynamodb.output.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+    graph = {
+        "DagNodes": [transform, sink],
+        "DagEdges": [{"Source": "Transform0", "Target": "DataSink0"}],
+    }
+
+    with patch.object(source, "_get_aws_account_id", return_value="999888777666"):
+        nodes = source.process_dataflow_graph(graph, flow_urn)
+
+    sink_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:dynamodb,"
+        "999888777666.us-west-2.orders,PROD)"
+    )
+    assert nodes["DataSink0"]["urn"] == sink_urn
+    assert nodes["Transform0"]["outputDatasets"] == [sink_urn]
+
+
+def test_process_dataflow_node_dynamodb_unresolved_account_is_skipped() -> None:
+    source = glue_source()
+    node = _make_dynamodb_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_options={
+            "dynamodb.input.tableName": "orders",
+            "dynamodb.region": "us-west-2",
+        },
+    )
+
+    with patch.object(source, "_get_aws_account_id", return_value=None):
+        result = source.process_dataflow_node(
+            node, "urn:li:dataFlow:(glue,test-job,PROD)"
+        )
+
+    assert result is None
+    assert [w.title for w in source.report.warnings] == [
+        "Could not resolve DynamoDB account id for node"
+    ]
+
+
+def test_get_aws_account_id_caches_success() -> None:
+    source = glue_source()
+    # Patch on the class, not the pydantic-v2 config instance (instance setattr is intercepted).
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        mock_sts.return_value.get_caller_identity.return_value = {
+            "Account": "999999999999"
+        }
+        assert source._get_aws_account_id() == "999999999999"
+        assert source._get_aws_account_id() == "999999999999"
+        # A successful lookup is cached: STS is called once, not per node.
+        assert mock_sts.return_value.get_caller_identity.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "sts_result",
+    [
+        pytest.param(Exception("throttled"), id="sts-error"),
+        pytest.param({}, id="no-account-in-response"),
+    ],
+)
+def test_get_aws_account_id_failure_is_cached_and_warned_once(
+    sts_result: Union[Exception, Dict[str, str]],
+) -> None:
+    source = glue_source()
+    with patch.object(GlueSourceConfig, "get_sts_client") as mock_sts:
+        get_caller_identity = mock_sts.return_value.get_caller_identity
+        if isinstance(sts_result, Exception):
+            get_caller_identity.side_effect = sts_result
+        else:
+            get_caller_identity.return_value = sts_result
+        assert source._get_aws_account_id() is None
+        assert source._get_aws_account_id() is None
+        assert get_caller_identity.call_count == 1
+    account_id_warnings = [
+        w
+        for w in source.report.warnings
+        if w.title == "Could not resolve AWS account id via STS"
+    ]
+    assert len(account_id_warnings) == 1
+    assert len(account_id_warnings[0].context) == 1
+
+
 @pytest.mark.parametrize(
     "raw_url, expected_safe",
     [
@@ -3439,22 +3955,12 @@ def test_incremental_properties_emits_patch_mcps(
         assert isinstance(patch_ops, list)
         assert all("op" in op and "path" in op for op in patch_ops)
 
-    # Verify that dataset MCEs do NOT contain DatasetProperties aspect
-    mce_wus = [
-        wu
-        for wu in workunits
-        if wu.metadata
-        and isinstance(wu.metadata, models.MetadataChangeEventClass)
-        and wu.metadata.proposedSnapshot
-    ]
-    for wu in mce_wus:
-        assert isinstance(wu.metadata, models.MetadataChangeEventClass)
-        snapshot = wu.metadata.proposedSnapshot
-        if snapshot and hasattr(snapshot, "aspects"):
-            for aspect in snapshot.aspects:
-                assert not isinstance(aspect, models.DatasetPropertiesClass), (
-                    "DatasetPropertiesClass should not be in MCE snapshot in PATCH mode"
-                )
+    # Verify that no work unit UPSERTs the DatasetProperties aspect
+    for wu in workunits:
+        assert not (
+            isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, models.DatasetPropertiesClass)
+        ), "DatasetPropertiesClass should not be UPSERTed in PATCH mode"
 
 
 # ── extract_column_parameters (structured properties) ─────────────────────────
@@ -3885,6 +4391,272 @@ def test_glue_view_lineage_links_view_to_upstream_table() -> None:
     }
     assert ("id", "id") in column_edges
     assert ("name", "name") in column_edges
+
+
+def test_glue_athena_view_with_dummy_placeholder_column_uses_view_columns() -> None:
+    # When an Athena view has an output column Hive cannot represent (e.g.
+    # `timestamp with time zone` from AT TIME ZONE, or char(>255)), Athena writes a
+    # single placeholder column named `dummy` into StorageDescriptor.Columns. The
+    # real output columns survive only in the encoded Presto view definition.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    original_sql = (
+        "SELECT id, created_at AT TIME ZONE 'US/Pacific' AS created_at "
+        "FROM my_db.events"
+    )
+    encoded = base64.b64encode(
+        json.dumps(
+            {
+                "originalSql": original_sql,
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "created_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        ).encode()
+    ).decode()
+    view = {
+        "Name": "events_view",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "ViewOriginalText": f"/* Presto View: {encoded} */",
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "dummy",
+                    "Type": "string",
+                    "Comment": "Unsupported type for column created_at",
+                }
+            ]
+        },
+    }
+
+    schema_metadatas = [
+        wu.get_aspect_of_type(models.SchemaMetadataClass)
+        for wu in source._gen_table_wu(view)
+    ]
+    found = [s for s in schema_metadatas if s is not None]
+
+    assert len(found) == 1
+    fields_by_name = {
+        get_simple_field_path_from_v2_field_path(f.fieldPath): f
+        for f in found[0].fields
+    }
+    assert set(fields_by_name) == {"id", "created_at"}
+    created_at = fields_by_name["created_at"]
+    assert isinstance(created_at.type.type, models.TimeTypeClass)
+    assert created_at.nativeDataType == "timestamp(3) with time zone"
+    assert source.report.num_view_schema_from_view_definition == 1
+
+
+def _placeholder_view(name: str, view_original_text: Optional[str]) -> Dict[str, Any]:
+    view: Dict[str, Any] = {
+        "Name": name,
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "VIRTUAL_VIEW",
+        "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+    }
+    if view_original_text is not None:
+        view["ViewOriginalText"] = view_original_text
+    return view
+
+
+def _schema_column_names(workunits: List[Any]) -> List[str]:
+    names: List[str] = []
+    for wu in workunits:
+        schema = wu.get_aspect_of_type(models.SchemaMetadataClass)
+        if schema is not None:
+            names.extend(
+                get_simple_field_path_from_v2_field_path(f.fieldPath)
+                for f in schema.fields
+            )
+    return names
+
+
+def _presto_view_text(payload: Any) -> str:
+    encoded = base64.b64encode(json.dumps(payload).encode()).decode()
+    return f"/* Presto View: {encoded} */"
+
+
+@pytest.mark.parametrize(
+    "view_original_text",
+    [
+        "/* Presto View: not!valid!base64 */",
+        # A non-list `columns` must not raise out of the table loop and abort the run.
+        _presto_view_text({"originalSql": "SELECT 1", "columns": 5}),
+        # Pathologically nested JSON can segfault json.loads on Python 3.12+; it must
+        # be rejected before parsing and must not escape either.
+        "/* Presto View: "
+        + base64.b64encode(("[" * 10_000 + "]" * 10_000).encode()).decode()
+        + " */",
+    ],
+    ids=["invalid_base64", "columns_not_a_list", "deeply_nested_json"],
+)
+def test_glue_placeholder_view_without_recoverable_columns_keeps_dummy_and_warns(
+    view_original_text: str,
+) -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view("broken_view", view_original_text)
+
+    assert _schema_column_names(list(source._gen_table_wu(view))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 1
+    assert source.report.num_view_schema_from_view_definition == 0
+    placeholder_contexts = [
+        context
+        for w in source.report.warnings
+        if w.title == "View schema is a placeholder column"
+        for context in w.context
+    ]
+    assert len(placeholder_contexts) == 1
+    assert placeholder_contexts[0].startswith("my_db.broken_view: ")
+    # The view-definition path decodes the same payload; one root cause must
+    # produce one report entry.
+    assert not any(
+        w.title == "Failed to decode Presto view definition"
+        for w in source.report.warnings
+    )
+
+
+def test_glue_placeholder_view_recovered_columns_inherit_lake_formation_tags() -> None:
+    # Lake Formation can only tag columns Glue lists (here just `dummy`), so the
+    # realistic case is table/database tags propagating to the recovered columns.
+    source = glue_source(
+        extract_lakeformation_tags=True,
+        propagate_lakeformation_tags=True,
+    )
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "created_at", "type": "timestamp(3) with time zone"},
+                ],
+            }
+        ),
+    )
+    parent_tags = [
+        LakeFormationTag(key="DataClassification", value="Sensitive", catalog="c"),
+    ]
+
+    schema = source._get_glue_schema_metadata(view, "events_view", None, parent_tags)
+    assert schema is not None
+    by_col = _column_tag_names_by_field(schema)
+
+    expected = {make_tag_urn("DataClassification:Sensitive")}
+    assert by_col == {"id": expected, "created_at": expected}
+
+
+@pytest.mark.parametrize(
+    "view_original_text", [None, "SELECT id AS dummy FROM my_db.events"]
+)
+def test_glue_non_presto_view_with_column_named_dummy_is_kept_without_warning(
+    view_original_text: Optional[str],
+) -> None:
+    # Only Presto/Athena writes the placeholder; a Spark/Hive view's single
+    # `dummy` column is real, so it is neither replaced nor reported.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view("spark_view", view_original_text)
+
+    assert _schema_column_names(list(source._gen_table_wu(view))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 0
+    assert not any(
+        w.title == "View schema is a placeholder column" for w in source.report.warnings
+    )
+
+
+def test_glue_placeholder_view_reports_columns_left_without_a_type() -> None:
+    # A quoted row field name the Hive parser cannot read leaves that column
+    # untyped; the view is still recovered, but the column is reported.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    # Deliberate Hive parser failure: `(` in a struct field name.
+                    {"name": "payload", "type": 'row("a(b" bigint)'},
+                ],
+            }
+        ),
+    )
+
+    assert sorted(_schema_column_names(list(source._gen_table_wu(view)))) == [
+        "id",
+        "payload",
+    ]
+    assert source.report.num_view_schema_from_view_definition == 1
+    assert source.report.num_view_columns_type_unresolved == 1
+    assert any(
+        w.title == "View column types could not be converted"
+        for w in source.report.warnings
+    )
+
+
+def test_glue_placeholder_view_reports_nested_untyped_field() -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [{"name": "payload", "type": "row(a bigint, b foo)"}],
+            }
+        ),
+    )
+
+    # The decoder maps unknown scalars to string, so force a Hive type whose
+    # nested field the Hive parser cannot read while the top level still parses.
+    with patch(
+        "datahub.ingestion.source.aws.glue.trino_type_to_hive_type",
+        return_value="struct<a:bigint,b:foo>",
+    ):
+        list(source._gen_table_wu(view))
+
+    assert source.report.num_view_schema_from_view_definition == 1
+    assert source.report.num_view_columns_type_unresolved == 1
+
+
+def test_glue_placeholder_view_reports_columns_too_nested_to_convert() -> None:
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    view = _placeholder_view(
+        "events_view",
+        _presto_view_text(
+            {
+                "originalSql": "SELECT 1",
+                "columns": [
+                    {"name": "id", "type": "bigint"},
+                    {"name": "deep", "type": "array(" * 100 + "bigint" + ")" * 100},
+                ],
+            }
+        ),
+    )
+
+    schema = source._get_glue_schema_metadata(view, "my_db.events_view")
+
+    assert schema is not None
+    deep = next(f for f in schema.fields if f.fieldPath.endswith(".deep"))
+    assert isinstance(deep.type.type, models.StringTypeClass)
+    assert source.report.num_view_columns_type_unresolved == 1
+
+
+def test_glue_table_with_column_named_dummy_is_not_treated_as_placeholder() -> None:
+    # Only views get the fallback; a real table column named `dummy` is kept as-is.
+    source = glue_source(use_s3_bucket_tags=False, use_s3_object_tags=False)
+    table = {
+        "Name": "my_table",
+        "DatabaseName": "my_db",
+        "CatalogId": "123412341234",
+        "TableType": "EXTERNAL_TABLE",
+        "StorageDescriptor": {"Columns": [{"Name": "dummy", "Type": "string"}]},
+    }
+
+    assert _schema_column_names(list(source._gen_table_wu(table))) == ["dummy"]
+    assert source.report.num_view_placeholder_schema_unresolved == 0
 
 
 def test_glue_view_lineage_disabled_creates_no_aggregator() -> None:

@@ -1,8 +1,11 @@
 import React, { useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { glossaryTermUrlPreservingTab } from '@app/entityV2/glossaryTerm/glossaryTermUrl';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/entityData';
 import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -33,6 +36,13 @@ export const Preview = ({
     headerDropdownItems?: Set<EntityMenuItems>;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { pathname } = useLocation();
+    const activeTabPath = useGlossaryActiveTabPath();
+    const url = glossaryTermUrlPreservingTab(
+        entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn),
+        pathname,
+        activeTabPath,
+    );
     const iconEntity = useMemo(
         () =>
             ({
@@ -46,7 +56,7 @@ export const Preview = ({
     return (
         <DefaultPreviewCard
             previewType={previewType}
-            url={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}
+            url={url}
             name={name || ''}
             urn={urn}
             data={data}

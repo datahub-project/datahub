@@ -71,6 +71,12 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     # can also flag a UNION name-alignment regression, so keep it visible.
     formula_columns_unmatched: LossyList[str] = field(default_factory=LossyList)
     assets_csn_fetch_failed: LossyList[str] = field(default_factory=LossyList)
+    # `SAP.`-prefixed references outside the known generated prefixes, resolved
+    # to a space named SAP. Entries here may be a generated namespace whose
+    # lineage points at a dataset that is never ingested.
+    sap_refs_outside_generated_prefixes: LossyList[str] = field(
+        default_factory=LossyList
+    )
     # Non-empty means the supportsAnalyticalQueries routing heuristic was wrong
     # for those assets but the sibling-type fallback recovered them.
     assets_csn_object_type_corrected: LossyList[str] = field(default_factory=LossyList)

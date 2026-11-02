@@ -503,6 +503,9 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      # Static and stdlib-only, so it runs before the yarn install.
+      - name: Check Playwright P0 tags
+        run: python3 ./.github/scripts/check_playwright_p0.py
       # Restore-only, from yarn's default cache dir, using the same key family as
       # resusable-playwright-tests.yml (key must stay byte-identical with it and with
       # ci-cache-warmup.yml warm-playwright-yarn-cache, whose GitHub-hosted save is
