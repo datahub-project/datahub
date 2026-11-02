@@ -144,9 +144,7 @@ class AirflowGenerator:
         Task SDK timetables (Airflow 3.2+) have no `summary` and are coerced to
         core first. `"None"` means unscheduled; Python `None` means unknown.
         """
-        timetable = getattr(dag, "timetable", None)
-        if timetable is None:
-            return None
+        timetable = dag.timetable
         summary = getattr(timetable, "summary", None)
         if summary is None:
             try:
