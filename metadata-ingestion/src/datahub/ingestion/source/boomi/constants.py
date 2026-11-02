@@ -227,33 +227,12 @@ DRIVER_ID_PLATFORM_MAP: Dict[str, str] = {
     "snowflake": "snowflake",
 }
 
-JDBC_PREFIX = "jdbc:"
-JDBC_SCHEME_PLATFORM_MAP: Dict[str, str] = {
-    "sqlserver": "mssql",
-    "mysql": "mysql",
-    "mariadb": "mariadb",
-    "postgresql": "postgres",
-    "oracle": "oracle",
-    "snowflake": "snowflake",
-    "redshift": "redshift",
-    "db2": "db2",
-}
-JDBC_SQLSERVER_DATABASE_KEYS: FrozenSet[str] = frozenset({"databasename", "database"})
-JDBC_SNOWFLAKE_DATABASE_KEY = "db"
-JDBC_SNOWFLAKE_SCHEMA_KEY = "schema"
-# Platforms whose JDBC URL carries the database as the first path segment.
-JDBC_PATH_DATABASE_PLATFORMS: FrozenSet[str] = frozenset(
-    {"mysql", "mariadb", "postgres", "redshift", "db2"}
-)
-
 # DataHub names MySQL and MariaDB tables `<database>.<table>`, with no schema.
 TWO_TIER_PLATFORMS: FrozenSet[str] = frozenset({"mysql", "mariadb"})
 # The Oracle source leaves the database (SID or service) out of its URNs by
 # default, so a database read from the connection would not join.
 PLATFORMS_WITHOUT_DATABASE: FrozenSet[str] = frozenset({"oracle"})
 SALESFORCE_PLATFORM = "salesforce"
-MSSQL_PLATFORM = "mssql"
-SNOWFLAKE_PLATFORM = "snowflake"
 
 
 class OperationDirection(StrEnum):

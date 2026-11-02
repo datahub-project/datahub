@@ -17,7 +17,6 @@ from datahub.ingestion.source.boomi.constants import OperationDirection
 from datahub.ingestion.source.boomi.lineage import (
     BoomiLineageResolver,
     connection_location,
-    parse_jdbc_url,
     qualify_table_name,
 )
 from datahub.ingestion.source.boomi.models import (
@@ -343,37 +342,17 @@ def test_operation_direction(
 @pytest.mark.parametrize(
     "url, expected",
     [
-        (
-            "jdbc:sqlserver://db.example.com:1433;encrypt=true;databaseName=my_db",
-            JdbcLocation(platform="mssql", database="my_db"),
-        ),
-        (
-            "jdbc:mysql://db.example.com:3306/shop?useSSL=true",
-            JdbcLocation(platform="mysql", database="shop"),
-        ),
-        (
-            "jdbc:postgresql://pg.example.com/app",
-            JdbcLocation(platform="postgres", database="app"),
-        ),
-        (
-            "jdbc:db2://db2.example.com:50000/SAMPLE:currentSchema=APP;",
-            JdbcLocation(platform="db2", database="SAMPLE"),
-        ),
-        (
-            "jdbc:snowflake://acct.snowflakecomputing.com/?db=MY_DB&schema=PUBLIC",
-            JdbcLocation(platform="snowflake", database="MY_DB", schema_name="PUBLIC"),
-        ),
+        # Oracle URNs leave the SID or service out by default.
         (
             "jdbc:oracle:thin:@//ora.example.com:1521/ORCL",
             JdbcLocation(platform="oracle"),
         ),
-        ("jdbc:sqlserver://db.example.com:1433", JdbcLocation(platform="mssql")),
         ("jdbc:unknowndb://host/db", JdbcLocation()),
-        ("https://not-jdbc", JdbcLocation()),
     ],
 )
-def test_parse_jdbc_url(url: str, expected: JdbcLocation) -> None:
-    assert parse_jdbc_url(url) == expected
+def test_v2_connection_location(url: str, expected: JdbcLocation) -> None:
+    connection = parse_connection_component(_v2_connection(url))
+    assert connection_location(connection) == expected
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Set, TypeVar
-from urllib.parse import parse_qsl, urlparse
 
 import requests
 from defusedxml.common import DefusedXmlException
@@ -19,17 +18,9 @@ from datahub.ingestion.source.boomi.constants import (
     ACTION_TYPE_LISTEN,
     DRIVER_ID_CUSTOM,
     DRIVER_ID_PLATFORM_MAP,
-    JDBC_PATH_DATABASE_PLATFORMS,
-    JDBC_PREFIX,
-    JDBC_SCHEME_PLATFORM_MAP,
-    JDBC_SNOWFLAKE_DATABASE_KEY,
-    JDBC_SNOWFLAKE_SCHEMA_KEY,
-    JDBC_SQLSERVER_DATABASE_KEYS,
-    MSSQL_PLATFORM,
     NON_DATASET_SUBTYPES,
     PLATFORMS_WITHOUT_DATABASE,
     SALESFORCE_PLATFORM,
-    SNOWFLAKE_PLATFORM,
     SUBTYPE_DATABASE,
     SUBTYPE_DATABASE_V2,
     SUBTYPE_SALESFORCE,
@@ -49,6 +40,7 @@ from datahub.ingestion.source.boomi.models import (
     ProcessLineage,
 )
 from datahub.ingestion.source.boomi.report import BoomiSourceReport
+from datahub.ingestion.source.common.jdbc import parse_jdbc_url
 from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_from_sql_statements
 
@@ -59,36 +51,11 @@ T = TypeVar("T")
 _QUOTE_CHARS = '[]"`'
 
 
-def parse_jdbc_url(url: str) -> JdbcLocation:
-    if not url.lower().startswith(JDBC_PREFIX):
-        return JdbcLocation()
-    scheme, _, remainder = url[len(JDBC_PREFIX) :].partition(":")
-    platform = JDBC_SCHEME_PLATFORM_MAP.get(scheme.lower())
-    if platform is None:
-        return JdbcLocation()
-    if platform == MSSQL_PLATFORM:
-        # jdbc:sqlserver://host:port;databaseName=db;...
-        database: Optional[str] = None
-        for part in remainder.split(";")[1:]:
-            key, _, value = part.partition("=")
-            if key.strip().lower() in JDBC_SQLSERVER_DATABASE_KEYS and value.strip():
-                database = value.strip()
-        return JdbcLocation(platform=platform, database=database)
-    parsed = urlparse(remainder)
-    if platform == SNOWFLAKE_PLATFORM:
-        params = {key.lower(): value for key, value in parse_qsl(parsed.query)}
-        return JdbcLocation(
-            platform=platform,
-            database=params.get(JDBC_SNOWFLAKE_DATABASE_KEY) or None,
-            schema_name=params.get(JDBC_SNOWFLAKE_SCHEMA_KEY) or None,
-        )
-    if platform in JDBC_PATH_DATABASE_PLATFORMS:
-        # DB2 appends `:prop=value;` to the database, others use `?` or `;`.
-        segment = parsed.path.strip("/").split("/")[0]
-        database = segment.split(";")[0].split(":")[0].strip() or None
-        return JdbcLocation(platform=platform, database=database)
-    # Oracle URLs carry a SID or service name, which is not a URN segment.
-    return JdbcLocation(platform=platform)
+def _jdbc_location(url: str) -> JdbcLocation:
+    info = parse_jdbc_url(url)
+    return JdbcLocation(
+        platform=info.platform, database=info.database, schema_name=info.schema_name
+    )
 
 
 def qualify_table_name(
@@ -128,7 +95,7 @@ def connection_location(connection: ConnectionComponent) -> JdbcLocation:
     if connection.sub_type == SUBTYPE_DATABASE:
         driver = (connection.driver_id or "").lower()
         if driver == DRIVER_ID_CUSTOM:
-            location = parse_jdbc_url(fill_url_format(connection))
+            location = _jdbc_location(fill_url_format(connection))
             # A placeholder the template still holds is not a database name.
             if location.database and URL_FORMAT_PLACEHOLDER_START in location.database:
                 location.database = None
@@ -138,7 +105,7 @@ def connection_location(connection: ConnectionComponent) -> JdbcLocation:
                 database=connection.dbname,
             )
     elif connection.sub_type == SUBTYPE_DATABASE_V2:
-        location = parse_jdbc_url(connection.url or "")
+        location = _jdbc_location(connection.url or "")
         if connection.schema_name:
             location.schema_name = connection.schema_name
     elif connection.sub_type == SUBTYPE_SALESFORCE:
