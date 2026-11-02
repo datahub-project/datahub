@@ -28,6 +28,10 @@ concurrency:
 jobs:
   setup:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: read
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
       cloudflare_token_available: ${{ steps.cloudflare-token-check.outputs.cloudflare_token_available }}
@@ -36,6 +40,21 @@ jobs:
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+      # Same checkout and path filter as the rest of this workflow. A backend-only
+      # master push records a non-transient Preview deployment for the SHA, aimed
+      # at the last published Pages URL. Meticulous base runs come from that
+      # Preview environment. The deploy job below stays skipped, so this does not
+      # start a second runner or rebuild the frontend.
+      # Best-effort: a failed record only costs Meticulous a base for this SHA,
+      # so it must not turn master red. The script also refuses when a newer
+      # frontend commit never published, so a cancelled build is not papered
+      # over with the previous bundle.
+      - name: Record inherited Meticulous base deployment
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && steps.ci-optimize.outputs.frontend-change == 'false' }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/record_inherited_frontend_deployment.py
       - name: Check if cloudflare api token is available
         id: cloudflare-token-check
         env:
@@ -52,7 +71,7 @@ jobs:
       pull-requests: write
     timeout-minutes: 45
     needs: setup
-    if: ${{ github.event.pull_request.head.repo.fork != 'true' }}
+    if: ${{ needs.setup.outputs.frontend_change == 'true' && github.event.pull_request.head.repo.fork != 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -79,6 +98,8 @@ jobs:
       # which broke Meticulous. pages-action named them "datahub-project-web-react (Preview)" on
       # pull requests and "datahub-project-web-react (Production)" on the main branch. Record
       # those names ourselves after a successful Pages upload.
+      # Master pushes with no frontend change never reach this step. The setup job
+      # records a Preview deployment for those SHAs instead.
       - name: Publish
         id: cloudflare
         if: ${{ needs.setup.outputs.frontend_change == 'true' && needs.setup.outputs.cloudflare_token_available == 'true' }}
