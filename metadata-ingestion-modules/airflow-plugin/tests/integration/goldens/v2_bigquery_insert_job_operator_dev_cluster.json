@@ -16,7 +16,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=bigquery_insert_job_operator",
+            "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator",
             "name": "bigquery_insert_job_operator",
             "env": "DEV"
         }
@@ -133,7 +133,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=bigquery_insert_job_operator",
+            "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator",
             "name": "bigquery_insert_job_operator",
             "env": "DEV"
         }
@@ -384,7 +384,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=bigquery_insert_job_operator",
+            "externalUrl": "http://airflow.example.com/dags/bigquery_insert_job_operator",
             "name": "bigquery_insert_job_operator",
             "env": "DEV"
         }

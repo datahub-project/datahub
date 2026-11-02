@@ -261,6 +261,15 @@ def test_get_base_url_prefers_api_over_webserver():
         ),
         # only webserver set -> webserver fallback
         ({("webserver", "base_url"): "http://web:8080"}, "http://web:8080"),
+        # trailing slashes are stripped so path-prefixed deployments get clean links
+        (
+            {("api", "base_url"): "https://airflow.example.com/airflow/"},
+            "https://airflow.example.com/airflow",
+        ),
+        (
+            {("webserver", "base_url"): "http://web:8080/"},
+            "http://web:8080",
+        ),
         # neither set -> localhost default
         ({}, "http://localhost:8080"),
     ]
@@ -270,6 +279,35 @@ def test_get_base_url_prefers_api_over_webserver():
             side_effect=conf_get(values),
         ):
             assert _get_base_url() == expected
+
+
+@pytest.mark.parametrize(
+    "base_url, expected_url",
+    [
+        ("http://localhost:8080", "http://localhost:8080/dags/example_dag"),
+        (
+            "https://airflow.example.com/airflow/",
+            "https://airflow.example.com/airflow/dags/example_dag",
+        ),
+    ],
+)
+def test_dataflow_url_uses_airflow_dag_route(base_url: str, expected_url: str) -> None:
+    from airflow.sdk import DAG
+
+    from datahub_airflow_plugin._config import get_lineage_config
+    from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+
+    config = get_lineage_config()
+    dag = DAG(dag_id="example_dag")
+    with mock.patch(
+        "datahub_airflow_plugin.client.airflow_generator.conf.get",
+        side_effect=lambda section, key, fallback=None: (
+            base_url if (section, key) == ("api", "base_url") else fallback
+        ),
+    ):
+        dataflow = AirflowGenerator.generate_dataflow(config, dag)
+
+    assert dataflow.url == expected_url
 
 
 def test_entities():
