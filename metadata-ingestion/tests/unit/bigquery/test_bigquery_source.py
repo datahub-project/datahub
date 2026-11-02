@@ -81,6 +81,7 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
+from tests.unit.bigquery.query_result_fakes import FakeResultPage
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -576,6 +577,13 @@ def test_gen_table_dataset_workunits(
     assert len(mcps) >= 7
 
 
+def _query_result(items: list[Any]) -> MagicMock:
+    rows = MagicMock()
+    rows.total_rows = len(items)
+    rows.pages = [FakeResultPage(items)]
+    return rows
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
@@ -623,11 +631,11 @@ def test_get_datasets_for_project_id_with_timestamps(
     def mock_query(query, location=None, job_retry=None):
         mock_job = MagicMock()
         if location == "US":
-            mock_job.result.return_value = [mock_row_dataset1]
+            mock_job.result.return_value = _query_result([mock_row_dataset1])
         elif location == "EU":
-            mock_job.result.return_value = [mock_row_dataset2]
+            mock_job.result.return_value = _query_result([mock_row_dataset2])
         else:
-            mock_job.result.return_value = []
+            mock_job.result.return_value = _query_result([])
         return mock_job
 
     mock_bq_client.query.side_effect = mock_query
