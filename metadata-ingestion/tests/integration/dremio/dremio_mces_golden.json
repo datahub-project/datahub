@@ -7642,19 +7642,47 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.dremio.s3.warehouse,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD)",
                 "value": {
                     "auditStamp": {
-                        "time": 1697349614148,
+                        "time": 1697353213164,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.dremio.s3.warehouse,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD)",
                     "type": "VIEW",
                     "query": "urn:li:query:view_8852b1045564b4f548a776196d645ad0f51e9e511c0b7d25d75e9874cdf1e414"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/COPY: \"warehouse\".\"id\" AS \"id\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.raw,PROD),id)/urn:li:query:view_8852b1045564b4f548a776196d645ad0f51e9e511c0b7d25d75e9874cdf1e414/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),id)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/COPY: \"warehouse\".\"name\" AS \"name\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.raw,PROD),name)/urn:li:query:view_8852b1045564b4f548a776196d645ad0f51e9e511c0b7d25d75e9874cdf1e414/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),name)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/COPY: \"warehouse\".\"age\" AS \"age\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.raw,PROD),age)/urn:li:query:view_8852b1045564b4f548a776196d645ad0f51e9e511c0b7d25d75e9874cdf1e414/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),age)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/COPY: \"warehouse\".\"salary\" AS \"salary\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.raw,PROD),salary)/urn:li:query:view_8852b1045564b4f548a776196d645ad0f51e9e511c0b7d25d75e9874cdf1e414/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),salary)",
+                "value": {
+                    "confidenceScore": 0.9
                 }
             }
         ]
@@ -7703,10 +7731,34 @@
         "json": {
             "subjects": [
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.dremio.s3.warehouse,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD)"
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.raw,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),age)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),name)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),salary)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.raw,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.raw,PROD),name)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.raw,PROD),age)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.space.test_folder.raw,PROD),salary)"
                 }
             ]
         }
