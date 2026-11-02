@@ -18,7 +18,10 @@ decorated_asset_ref = Asset("decorated_asset_producer")
 with DAG(
     "consume_decorated_assets",
     start_date=datetime(2023, 1, 1),
-    schedule=None,
+    # Asset-scheduled so the `schedule` property ("Asset") is covered end to
+    # end. Nothing produces this asset, so the scheduler never starts a run on
+    # its own and the test's manual trigger stays the only run.
+    schedule=[Asset("s3://unused/never-produced")],
     catchup=False,
 ) as dag:
     # Task that consumes the decorated asset as inlet
