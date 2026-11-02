@@ -330,38 +330,39 @@ def test_generate_dataflow_captures_schedule(
         assert properties["schedule"] == expected
 
 
-def test_get_schedule_swallows_coercion_errors(
+def test_generate_dataflow_omits_schedule_for_unregistered_timetable(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A timetable the serializer can't convert (e.g. an unregistered custom
-    timetable raises TimetableNotRegistered) must degrade to None rather than
-    propagating out of generate_dataflow and dropping the entire DAG's
-    metadata emission. The failure is logged at warning so the missing
-    `schedule` property is diagnosable."""
-    from types import SimpleNamespace
+    """A Task SDK timetable that isn't registered as a plugin has no `summary`,
+    and converting it to a core timetable raises TimetableNotRegistered. That
+    must not propagate out of generate_dataflow and drop the DAG's metadata;
+    the `schedule` property is omitted and the failure logged at warning."""
+    try:
+        from airflow.sdk.bases.timetable import BaseTimetable
+    except ImportError:
+        pytest.skip("Task SDK timetables require Airflow 3.2+")
 
+    from datahub_airflow_plugin._config import get_lineage_config
     from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 
-    encoders = pytest.importorskip("airflow.serialization.encoders")
-    if not hasattr(encoders, "coerce_to_core_timetable"):
-        pytest.skip("coerce_to_core_timetable not available in this Airflow version")
+    class _Unregistered(BaseTimetable):
+        pass
 
-    # A timetable with no `summary`, forcing the coercion fallback path.
-    # `_get_schedule` only duck-types `dag.timetable.summary`, so a stub suffices.
-    dag = SimpleNamespace(dag_id="my_dag", timetable=SimpleNamespace(summary=None))
+    dag = DAG(
+        dag_id="test_dag_unregistered_timetable",
+        schedule=_Unregistered(),
+        start_date=datetime(2024, 1, 1),
+    )
 
-    with (
-        mock.patch.object(
-            encoders,
-            "coerce_to_core_timetable",
-            side_effect=RuntimeError("can not serialize timetable"),
-        ),
-        caplog.at_level(logging.WARNING),
-    ):
-        assert AirflowGenerator._get_schedule(dag) is None  # type: ignore[arg-type]
+    with caplog.at_level(logging.WARNING):
+        properties = AirflowGenerator.generate_dataflow(
+            get_lineage_config(), dag
+        ).properties
 
+    assert "schedule" not in properties
     assert any(
-        r.levelno == logging.WARNING and "my_dag" in r.getMessage()
+        r.levelno == logging.WARNING
+        and "test_dag_unregistered_timetable" in r.getMessage()
         for r in caplog.records
     )
 
