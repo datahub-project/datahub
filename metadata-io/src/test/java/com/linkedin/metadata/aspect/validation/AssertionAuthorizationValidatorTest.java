@@ -23,8 +23,13 @@ import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionType;
+import com.linkedin.assertion.DatasetAssertionInfo;
+import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionType;
+import com.linkedin.assertion.VolumeAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionType;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -178,6 +183,94 @@ public class AssertionAuthorizationValidatorTest {
                 OperationFingerprint.EMPTY,
                 genericPatch("/freshnessAssertion/entity", DATASET_B.toString()))
             .isEmpty());
+
+    grantEditAssertionsOn(DATASET_B);
+    Assert.assertTrue(
+        validate(
+                OperationFingerprint.EMPTY,
+                genericPatch("/freshnessAssertion/entity", DATASET_B.toString()))
+            .isEmpty());
+  }
+
+  @Test
+  public void testSameBatchWritesAppliedInOrder() {
+    // The PATCH applies on top of the upsert before it, not on the stored value, so it moves the
+    // volume sub-record the upsert created to DATASET_B.
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+    BatchItem upsert = upsert(volumeOn(DATASET_A));
+    BatchItem patch = genericPatch("/volumeAssertion/entity", DATASET_B.toString());
+
+    List<AspectValidationException> failures = validate(OperationFingerprint.EMPTY, upsert, patch);
+    Assert.assertEquals(failures.size(), 1);
+    Assert.assertSame(failures.get(0).getItem(), patch);
+
+    grantEditAssertionsOn(DATASET_B);
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, upsert, patch).isEmpty());
+  }
+
+  @Test
+  public void testSiblingSubRecordRequiresPrivilege() {
+    // type selects the freshness sub-record, but a populated volume sub-record is indexed as an
+    // Asserts edge too, so it lists the assertion on DATASET_B.
+    grantEditAssertionsOn(DATASET_A);
+    AssertionInfo info =
+        freshnessOn(DATASET_A)
+            .setVolumeAssertion(
+                new VolumeAssertionInfo()
+                    .setType(VolumeAssertionType.ROW_COUNT_TOTAL)
+                    .setEntity(DATASET_B));
+
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, upsert(info)).isEmpty());
+
+    grantEditAssertionsOn(DATASET_B);
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, upsert(info)).isEmpty());
+  }
+
+  @Test
+  public void testSchemaFieldTargetsCheckedOnParentDataset() {
+    grantEditAssertionsOn(DATASET_A);
+    AssertionInfo info =
+        new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setDatasetAssertion(
+                new DatasetAssertionInfo()
+                    .setDataset(DATASET_A)
+                    .setScope(DatasetAssertionScope.DATASET_COLUMN)
+                    .setFields(
+                        new UrnArray(
+                            UrnUtils.getUrn("urn:li:schemaField:(" + DATASET_B + ",col_a)"))));
+
+    Assert.assertFalse(validate(OperationFingerprint.EMPTY, upsert(info)).isEmpty());
+
+    grantEditAssertionsOn(DATASET_B);
+    Assert.assertTrue(validate(OperationFingerprint.EMPTY, upsert(info)).isEmpty());
+  }
+
+  @Test
+  public void testPrivilegeOnAssertionItselfDoesNotAttach() {
+    grantEditAssertionsOn(ASSERTION_URN);
+
+    Assert.assertFalse(
+        validate(OperationFingerprint.EMPTY, upsert(freshnessOn(DATASET_A))).isEmpty());
+  }
+
+  @Test
+  public void testRunEventWithoutAsserteeRejected() {
+    mockPersisted(freshnessOn(DATASET_A));
+    grantEditAssertionsOn(DATASET_A);
+    AssertionRunEvent runEvent =
+        new AssertionRunEvent()
+            .setTimestampMillis(0L)
+            .setRunId("run")
+            .setAssertionUrn(ASSERTION_URN)
+            .setStatus(AssertionRunStatus.COMPLETE);
+    BatchItem item =
+        TestMCP.ofOneUpsertItem(ASSERTION_URN, runEvent, new TestEntityRegistry()).stream()
+            .findFirst()
+            .get();
+
+    Assert.assertEquals(validate(OperationFingerprint.EMPTY, item).size(), 1);
   }
 
   @Test
@@ -315,6 +408,16 @@ public class AssertionAuthorizationValidatorTest {
         .setFreshnessAssertion(
             new FreshnessAssertionInfo()
                 .setType(FreshnessAssertionType.DATASET_CHANGE)
+                .setEntity(entityUrn))
+        .setSource(new AssertionSource().setType(AssertionSourceType.NATIVE));
+  }
+
+  private static AssertionInfo volumeOn(Urn entityUrn) {
+    return new AssertionInfo()
+        .setType(AssertionType.VOLUME)
+        .setVolumeAssertion(
+            new VolumeAssertionInfo()
+                .setType(VolumeAssertionType.ROW_COUNT_TOTAL)
                 .setEntity(entityUrn))
         .setSource(new AssertionSource().setType(AssertionSourceType.NATIVE));
   }
