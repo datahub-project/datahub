@@ -212,17 +212,20 @@ def test_table_without_columns_is_dropped() -> None:
     assert "main.sales.orders" in profiler.report.filtered
 
 
-def test_stale_table_is_skipped_entirely() -> None:
-    """profile_if_updated_since_days drops tables not touched recently."""
+def test_stale_table_gets_no_profile_request() -> None:
+    """profile_if_updated_since_days drops tables not touched recently. The
+    size lookup still runs first (it feeds the same eligibility check), but no
+    row count or profile follows."""
     profiler = _profiler(profile_if_updated_since_days=1)
     stale = datetime.now(timezone.utc) - timedelta(days=10)
+    engine = FakeSqlEngine(size_in_bytes=1)
 
     request = profiler.get_unity_profile_request(
-        UnityCatalogSQLGenericTable(_table(updated_at=stale)),
-        FakeSqlEngine(size_in_bytes=1).engine,
+        UnityCatalogSQLGenericTable(_table(updated_at=stale)), engine.engine
     )
 
     assert request is None
+    assert engine.executed == ["DESCRIBE DETAIL `main`.`sales`.`orders`"]
     assert profiler.report.entities_profiled == 0
 
 

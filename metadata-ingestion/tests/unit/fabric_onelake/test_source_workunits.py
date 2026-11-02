@@ -2,7 +2,7 @@
 containers and tables one ingestion emits, and how a failing Fabric call
 degrades to a warning or a failure instead of aborting the run."""
 
-from typing import Any, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from unittest.mock import create_autospec, patch
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -65,6 +65,20 @@ def test_workspace_items_and_tables_are_emitted_under_their_containers(
     assert set(datasets) == {"orders", "refunds", "tmp_load", "facts"}
     assert f"{WS.id}.{LH_ID}.dbo.orders" in datasets["orders"]
     assert f"{WS.id}.{WH_ID}.dbo.facts" in datasets["facts"]
+
+    # Each table sits under its schema container, which sits under its item.
+    by_urn = {str(c.urn): c for c in _containers(emitted)}
+    placement: Dict[Optional[str], Tuple[str, str]] = {}
+    for dataset in _datasets(emitted):
+        schema = by_urn[str(dataset.parent_container)]
+        item = by_urn[str(schema.parent_container)]
+        placement[dataset.display_name] = (schema.display_name, item.display_name)
+    assert placement == {
+        "orders": ("dbo", "lh_main"),
+        "refunds": ("finance", "lh_main"),
+        "tmp_load": ("staging", "lh_main"),
+        "facts": ("dbo", "wh_main"),
+    }
 
     assert list(source.report.filtered_workspaces) == ["hr-ws"]
     assert list(source.report.filtered_lakehouses) == ["shared_name"]
@@ -151,12 +165,7 @@ def test_aggregator_output_is_emitted_after_the_catalog(
 ) -> None:
     """Lineage and usage are generated once every view definition and query
     has been registered, so they have to come last."""
-    source = make_onelake_source(
-        FakeOneLakeClient(),
-        **REST_ONLY,
-        extract_lakehouses=False,
-        extract_warehouses=False,
-    )
+    source = make_onelake_source(FakeOneLakeClient(), **REST_ONLY, **_ONE_OF_EACH)
     aggregator = create_autospec(SqlParsingAggregator, instance=True)
     mcp = MetadataChangeProposalWrapper(
         entityUrn="urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,x,PROD)",
@@ -167,6 +176,12 @@ def test_aggregator_output_is_emitted_after_the_catalog(
 
     emitted = list(source.get_workunits_internal())
 
+    assert {d.display_name for d in _datasets(emitted[:-1])} == {
+        "orders",
+        "refunds",
+        "tmp_load",
+        "facts",
+    }
     assert isinstance(emitted[-1], MetadataWorkUnit)
     assert emitted[-1].metadata is mcp
     assert not source.report.failures

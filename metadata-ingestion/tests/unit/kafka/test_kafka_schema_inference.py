@@ -343,6 +343,7 @@ def test_oauth_callback_config_polls_before_sampling(fallback_config):
             "test-topic", OffsetResetStrategy.EARLIEST
         )
 
+    assert scripted.calls[:2] == ["poll", "subscribe"]
     assert scripted.poll_timeouts[0] == OAUTH_CALLBACK_POLL_TIMEOUT_SECONDS
     assert result == [{"a": 1}]
 

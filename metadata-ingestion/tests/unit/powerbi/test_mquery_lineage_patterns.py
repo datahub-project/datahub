@@ -38,6 +38,7 @@ def test_redshift_without_table_step_yields_no_lineage() -> None:
         ' public = Source{[Name="public"]}[Data]\nin\n public'
     )
     assert lineages == []
+    assert reporter.m_query_resolver_errors == 0
     assert reporter.m_query_resolver_no_lineage == 1
 
 
@@ -58,11 +59,13 @@ def test_mysql_navigation_resolves_schema_qualified_urn() -> None:
 
 
 def test_mysql_with_unresolved_server_parameter_yields_no_lineage() -> None:
-    lineages, _ = m_query_lineages(
+    lineages, reporter = m_query_lineages(
         'let\n Source = MySQL.Database(ServerParam, "shop"),\n'
         ' orders = Source{[Schema="shop",Item="orders"]}[Data]\nin\n orders'
     )
     assert lineages == []
+    assert reporter.m_query_resolver_errors == 0
+    assert reporter.m_query_resolver_no_lineage == 1
 
 
 # --- PostgreSQL / Databricks ----------------------------------------------------
@@ -127,20 +130,24 @@ def test_mssql_multi_database_navigation_resolves_urn() -> None:
 
 
 def test_mssql_multi_database_requires_two_navigation_steps() -> None:
-    lineages, _ = m_query_lineages(
+    lineages, reporter = m_query_lineages(
         'let\n Source = Sql.Databases("sql-host"),\n'
         ' db = Source{[Name="library"]}[Data]\nin\n db'
     )
     assert lineages == []
+    assert reporter.m_query_resolver_errors == 0
+    assert reporter.m_query_resolver_no_lineage == 1
 
 
 def test_mssql_multi_database_with_unresolved_server_yields_no_lineage() -> None:
-    lineages, _ = m_query_lineages(
+    lineages, reporter = m_query_lineages(
         "let\n Source = Sql.Databases(HostParam),\n"
         ' db = Source{[Name="library"]}[Data],\n'
         ' tbl = db{[Schema="dbo",Item="book_issue"]}[Data]\nin\n tbl'
     )
     assert lineages == []
+    assert reporter.m_query_resolver_errors == 0
+    assert reporter.m_query_resolver_no_lineage == 1
 
 
 @pytest.mark.parametrize(
@@ -242,12 +249,14 @@ def test_snowflake_navigation_resolves_three_part_urn() -> None:
 
 
 def test_snowflake_navigation_short_of_table_step_yields_no_lineage() -> None:
-    lineages, _ = m_query_lineages(
+    lineages, reporter = m_query_lineages(
         'let\n Source = Snowflake.Databases("acct.snowflakecomputing.com","WH"),\n'
         ' db = Source{[Name="SALES_DB",Kind="Database"]}[Data],\n'
         ' sch = db{[Name="PUBLIC",Kind="Schema"]}[Data]\nin\n sch'
     )
     assert lineages == []
+    assert reporter.m_query_resolver_errors == 0
+    assert reporter.m_query_resolver_no_lineage == 1
 
 
 @pytest.mark.parametrize(
@@ -333,24 +342,28 @@ def test_native_query_legacy_parser_keeps_only_fully_qualified_tables() -> None:
 
 
 def test_native_query_with_fewer_than_two_arguments_yields_no_lineage() -> None:
-    lineages, _ = m_query_lineages(
+    lineages, reporter = m_query_lineages(
         f"let\n Source = Value.NativeQuery({_SNOWFLAKE_NATIVE_SOURCE})\nin\n Source",
         config_overrides={"native_query_parsing": True},
     )
     assert lineages == []
+    assert reporter.m_query_resolver_errors == 0
+    assert reporter.m_query_resolver_no_lineage == 1
 
 
 def test_native_query_with_non_literal_sql_yields_no_lineage() -> None:
-    lineages, _ = m_query_lineages(
+    lineages, reporter = m_query_lineages(
         f"let\n Source = Value.NativeQuery({_SNOWFLAKE_NATIVE_SOURCE}, SqlParam)\n"
         "in\n Source",
         config_overrides={"native_query_parsing": True},
     )
     assert lineages == []
+    assert reporter.m_query_resolver_errors == 0
+    assert reporter.m_query_resolver_no_lineage == 1
 
 
 def test_native_query_on_unsupported_connector_yields_no_lineage() -> None:
-    lineages, _ = m_query_lineages(
+    lineages, reporter = m_query_lineages(
         'let\n Source = Value.NativeQuery(Oracle.Database("orcl"), '
         '"select * from sales.orders")\nin\n Source',
         config_overrides={
@@ -359,6 +372,8 @@ def test_native_query_on_unsupported_connector_yields_no_lineage() -> None:
         },
     )
     assert lineages == []
+    assert reporter.m_query_resolver_errors == 0
+    assert reporter.m_query_resolver_no_lineage == 1
 
 
 @pytest.mark.parametrize(

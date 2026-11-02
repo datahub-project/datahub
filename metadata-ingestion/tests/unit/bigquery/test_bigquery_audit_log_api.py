@@ -137,7 +137,8 @@ class TestExportedAuditMetadataApi:
             assert end.strftime(BQ_DATE_SHARD_FORMAT) in query
             assert "{" not in query, "unfilled template placeholder"
             assert "limit 10" in query
-        assert api.report.num_get_exported_log_entries_api_requests == 1
+        # One query job per dataset, so one request each.
+        assert api.report.num_get_exported_log_entries_api_requests == 2
 
     def test_rate_limited_iteration_yields_every_row(self) -> None:
         client = MagicMock()

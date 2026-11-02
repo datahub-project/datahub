@@ -57,6 +57,39 @@ def test_paginate_post_handles_dict_and_bare_list_pages(
     assert request.call_args_list[1].kwargs["json"]["continuationToken"] == "tok-1"
 
 
+def test_paginate_stops_on_repeated_continuation_token(
+    core_client: FabricCoreClient,
+) -> None:
+    """A server that keeps returning the same token must not send the GET
+    listing into an endless re-request of one page."""
+    pages = [
+        fabric_response(200, {"value": [{"id": "w1"}], "continuationToken": "tok"}),
+        fabric_response(200, {"value": [{"id": "w2"}], "continuationToken": "tok"}),
+        fabric_response(200, {"value": [{"id": "w3"}]}),
+    ]
+    with patch.object(core_client._session, "request", side_effect=pages):
+        ids = [ws.id for ws in core_client.list_workspaces()]
+
+    assert ids == ["w1", "w2"]
+    assert len(core_client.report.api_parse_failures) == 1
+
+
+def test_paginate_post_stops_on_repeated_continuation_token(
+    core_client: FabricCoreClient,
+) -> None:
+    """Same repeated-token guard for the POST listings (activity runs)."""
+    pages = [
+        fabric_response(200, {"value": [{"id": 1}], "continuationToken": "tok"}),
+        fabric_response(200, {"value": [{"id": 2}], "continuationToken": "tok"}),
+        fabric_response(200, {"value": [{"id": 3}]}),
+    ]
+    with patch.object(core_client._session, "request", side_effect=pages):
+        items = list(core_client._paginate_post("workspaces/ws/query", {}))
+
+    assert [item["id"] for item in items] == [1, 2]
+    assert len(core_client.report.api_parse_failures) == 1
+
+
 def test_http_error_is_raised_and_counted(core_client: FabricCoreClient) -> None:
     with (
         patch.object(

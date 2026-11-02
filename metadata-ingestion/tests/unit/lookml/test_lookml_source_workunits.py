@@ -24,6 +24,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     GlobalTagsClass,
     SchemaMetadataClass,
+    TagPropertiesClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
@@ -247,6 +248,13 @@ class TestLookMLSourceEmission:
         assert any(
             w.title == "LookML constant not found" for w in run.source.reporter.warnings
         )
+        orders = run.aspects(UpstreamLineageClass)[
+            dataset_urn("my_project.view.orders")
+        ]
+        assert isinstance(orders, UpstreamLineageClass)
+        assert [u.dataset for u in orders.upstreams] == [
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,warehouse.@{schema_name}.orders,PROD)"
+        ]
 
     def test_column_lineage_and_schema_for_regular_view(
         self, project: pathlib.Path
@@ -333,17 +341,19 @@ class TestLookMLSourceEmission:
         """The Dimension/Temporal/Measure tag entities are emitted exactly once
         per run, after the views that reference them."""
         run = run_source(base_config(project))
+        # Status aspects for the tags are added by the workunit processors, so
+        # count the definitions (TagProperties) only.
         tag_urns = [
             wu.get_urn()
             for wu in run.workunits
             if isinstance(wu, MetadataWorkUnit)
-            and wu.get_urn().startswith("urn:li:tag:")
+            and isinstance(getattr(wu.metadata, "aspect", None), TagPropertiesClass)
         ]
-        assert set(tag_urns) == {
+        assert sorted(tag_urns) == [
             "urn:li:tag:Dimension",
-            "urn:li:tag:Temporal",
             "urn:li:tag:Measure",
-        }
+            "urn:li:tag:Temporal",
+        ]
 
     def test_tags_disabled_puts_field_type_in_description(
         self, project: pathlib.Path

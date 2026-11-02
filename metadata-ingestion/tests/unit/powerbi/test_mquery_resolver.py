@@ -36,6 +36,7 @@ from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     MSSqlLineage,
     SupportedPattern,
     _data_platform_pair_for,
+    _get_arg_values,
 )
 from datahub.utilities.threading_timeout import TimeoutException
 from tests.unit.powerbi.conftest import m_query_lineages
@@ -80,6 +81,8 @@ def test_if_expression_over_bound_sources_yields_both_branches() -> None:
         [{"Schema": "dbo", "Item": "t"}],
         [{"Schema": "dbo", "Item": "t"}],
     ]
+    servers = [_get_arg_values(d.arg_list, parameters={})[0] for d in details]
+    assert sorted(s or "" for s in servers) == ["dev-host", "prod-host"]
 
 
 @pytest.mark.xfail(

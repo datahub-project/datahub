@@ -81,11 +81,13 @@ def test_schemas_enabled_lakehouse_lists_tables_per_schema_with_storage_scope(
         "catalog_name": "lh",
         "schema_name": "dbo",
     }
-    scopes = {
+    # The item GET uses the Fabric API token; the schema and table listings
+    # each need the storage-scoped one.
+    scopes = [
         call.kwargs.get("scope")
         for call in auth_helper.get_authorization_header.call_args_list
-    }
-    assert ONELAKE_STORAGE_SCOPE in scopes
+    ]
+    assert scopes == [None, ONELAKE_STORAGE_SCOPE, ONELAKE_STORAGE_SCOPE]
 
 
 def test_schema_detection_failure_falls_back_to_the_rest_tables_endpoint(

@@ -20,12 +20,13 @@ FABRIC_API_URL = "https://api.fabric.microsoft.com/v1/x"
 
 def fabric_response(status: int, body: Optional[object] = None) -> requests.Response:
     """A real `requests.Response`, so `raise_for_status()` and `.json()` behave
-    as they do against Fabric. `body` is JSON-encoded unless it is already bytes."""
+    as they do against Fabric. `body` is JSON-encoded unless it is already bytes;
+    an omitted body is `{}`, but falsey payloads like `[]` are sent as given."""
     response = requests.Response()
     response.status_code = status
-    response._content = (
-        body if isinstance(body, bytes) else json.dumps(body or {}).encode()
-    )
+    if body is None:
+        body = {}
+    response._content = body if isinstance(body, bytes) else json.dumps(body).encode()
     response.url = FABRIC_API_URL
     return response
 

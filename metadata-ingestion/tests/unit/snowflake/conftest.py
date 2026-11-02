@@ -254,15 +254,15 @@ def column(name: str, position: int = 1) -> SnowflakeColumn:
 
 
 def table(name: str, **overrides: object) -> SnowflakeTable:
-    return SnowflakeTable(
-        name=name,
-        comment=None,
-        created=CREATED,
-        last_altered=None,
-        size_in_bytes=None,
-        rows_count=None,
-        **overrides,  # type: ignore[arg-type]
-    )
+    fields: Dict[str, object] = {
+        "comment": None,
+        "created": CREATED,
+        "last_altered": None,
+        "size_in_bytes": None,
+        "rows_count": None,
+        **overrides,
+    }
+    return SnowflakeTable(name=name, **fields)  # type: ignore[arg-type]
 
 
 def dynamic_table(
@@ -283,25 +283,25 @@ def dynamic_table(
 
 
 def view(name: str, **overrides: object) -> SnowflakeView:
-    return SnowflakeView(
-        name=name,
-        comment=None,
-        created=CREATED,
-        last_altered=None,
-        view_definition="select 1",
-        **overrides,  # type: ignore[arg-type]
-    )
+    fields: Dict[str, object] = {
+        "comment": None,
+        "created": CREATED,
+        "last_altered": None,
+        "view_definition": "select 1",
+        **overrides,
+    }
+    return SnowflakeView(name=name, **fields)  # type: ignore[arg-type]
 
 
 def semantic_view(name: str, **overrides: object) -> SnowflakeSemanticView:
-    return SnowflakeSemanticView(
-        name=name,
-        comment=None,
-        created=CREATED,
-        last_altered=None,
-        view_definition="create semantic view ...",
-        **overrides,  # type: ignore[arg-type]
-    )
+    fields: Dict[str, object] = {
+        "comment": None,
+        "created": CREATED,
+        "last_altered": None,
+        "view_definition": "create semantic view ...",
+        **overrides,
+    }
+    return SnowflakeSemanticView(name=name, **fields)  # type: ignore[arg-type]
 
 
 def schema(name: str = SCHEMA) -> SnowflakeSchema:

@@ -27,6 +27,7 @@ from datahub.ingestion.source.kafka_connect.common import (
 )
 from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
 from datahub.sql_parsing.schema_resolver import SchemaResolverInterface
+from datahub.utilities.java_runtime import prepare_jvm_settings
 
 CONNECT_URI = "http://connect.example:8083"
 CLOUD_CONNECT_URI = (
@@ -39,9 +40,12 @@ KAFKA_TOPICS_URL = f"{KAFKA_REST_ENDPOINT}/kafka/v3/clusters/lkc-1/topics"
 @pytest.fixture(scope="session", autouse=True)
 def ensure_jvm_started() -> None:
     """Debezium include/exclude lists and RegexRouter are Java regexes; the
-    connectors evaluate them on a JVM through JPype."""
+    connectors evaluate them on a JVM through JPype. Uses the connector's own JVM
+    discovery (system JVM, else the bundled jdk4py). A start failure is not
+    swallowed: the suite asserts Java-regex behaviour, and the no-JVM degradation
+    has its own tests that stub jpype."""
     if not jpype.isJVMStarted():
-        jpype.startJVM(jpype.getDefaultJVMPath())
+        jpype.startJVM(*prepare_jvm_settings())
 
 
 @pytest.fixture
@@ -170,7 +174,7 @@ def cloud_source(m: requests_mock.Mocker, **overrides: Any) -> KafkaConnectSourc
         confluent_cloud_cluster_id="lkc-1",
         username="connect-key",
         password="connect-secret",
-        use_schema_resolver=False,
+        use_schema_resolver=overrides.pop("use_schema_resolver", False),
         **overrides,
     )
     ctx = PipelineContext(run_id="test")

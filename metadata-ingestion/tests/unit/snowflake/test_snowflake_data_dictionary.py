@@ -115,7 +115,7 @@ def test_tables_for_database_groups_by_schema_and_detects_dynamic_tables() -> No
         return rows
 
     tables = _make_dictionary(dispatch).get_tables_for_database(
-        DB, table_types=frozenset({"BASE TABLE"}), exclude_dynamic_tables=True
+        DB, table_types=frozenset({"BASE TABLE"}), exclude_dynamic_tables=False
     )
     assert tables is not None
     assert sorted(tables) == [SCHEMA, "S2"]
@@ -183,10 +183,18 @@ def test_columns_for_schema_groups_columns_by_table() -> None:
     assert "OTHER" not in columns
 
     # A single object is fetched by exact match (used for stream source tables).
-    single = dictionary.get_columns_for_schema(
+    # A fresh dictionary, because the cache key ignores the object list.
+    queries: List[str] = []
+
+    def record(sql: str) -> List[dict]:
+        queries.append(sql)
+        return column_rows
+
+    single = _make_dictionary(record).get_columns_for_schema(
         SCHEMA, DB, cache_exclude_all_objects=["T"]
     )
     assert "T" in single
+    assert queries and all("table_name = 'T'" in q for q in queries)
 
 
 def _fk_row(fk_name: str, fk_table: str, fk_column: str, pk_column: str) -> dict:

@@ -1390,7 +1390,11 @@ class TestSinkFineGrainedLineage:
             connector,
             self._resolver(
                 platform="postgres",
-                db_schemas={"testdb.public.orders": {"id": "INTEGER"}},
+                # internal_note exists in the target table, so only the
+                # transform can be what keeps it out of the lineage.
+                db_schemas={
+                    "testdb.public.orders": {"id": "INTEGER", "internal_note": "TEXT"}
+                },
                 kafka_schemas={
                     self._KAFKA_ORDERS_URN: ["id", "internal_note", "legacy_flag"]
                 },

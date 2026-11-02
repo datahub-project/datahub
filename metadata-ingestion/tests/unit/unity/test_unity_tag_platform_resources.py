@@ -13,7 +13,10 @@ from datahub.api.entities.external.external_entities import LinkedResourceSet
 from datahub.api.entities.external.unity_catalog_external_entites import (
     UnityCatalogTag,
 )
-from datahub.api.entities.platformresource.platform_resource import PlatformResource
+from datahub.api.entities.platformresource.platform_resource import (
+    PlatformResource,
+    PlatformResourceKey,
+)
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.unity.platform_resource_repository import (
     UnityCatalogPlatformResourceRepository,
@@ -52,11 +55,14 @@ def test_tag_id_reuses_the_resource_already_registered_for_the_datahub_tag() -> 
         persisted=True,
     )
 
+    repository = _repository(existing)
+
     resolved = UnityCatalogTagPlatformResourceId.get_or_create_from_tag(
-        UnityCatalogTag(key="pii", value="email"), _repository(existing)
+        UnityCatalogTag(key="pii", value="email"), repository
     )
 
     assert resolved is existing
+    repository.search_entity_by_urn.assert_called_once_with("urn:li:tag:pii:email")
 
 
 def test_datahub_tag_urn_resolves_to_a_new_id_marked_as_unknown_in_unity(
@@ -72,6 +78,15 @@ def test_datahub_tag_urn_resolves_to_a_new_id_marked_as_unknown_in_unity(
     assert (resolved.tag_key, resolved.tag_value) == ("pii", "email")
     assert resolved.platform_instance == "ws1"
     assert not resolved.exists_in_unity_catalog
+    repository.search_entity_by_urn.assert_called_once_with("urn:li:tag:pii:email")
+    repository.get.assert_called_once_with(
+        PlatformResourceKey(
+            platform="databricks",
+            resource_type="UnityCatalogTagPlatformResource",
+            primary_key="pii:email",
+            platform_instance="ws1",
+        )
+    )
 
 
 def test_datahub_tag_urn_already_persisted_as_a_resource_is_marked_existing(
@@ -88,6 +103,7 @@ def test_datahub_tag_urn_already_persisted_as_a_resource_is_marked_existing(
 
     assert resolved.tag_key == "pii" and resolved.tag_value is None
     assert resolved.exists_in_unity_catalog
+    repository.get.assert_called_once_with(resolved.to_platform_resource_key())
 
 
 def test_non_tag_urn_cannot_become_a_unity_tag(graph: MagicMock) -> None:

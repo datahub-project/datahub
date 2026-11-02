@@ -28,11 +28,13 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
 )
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
 from tests.unit.snowflake.conftest import (
     QueryHandler,
     QueryResult,
     as_mock,
+    aspects,
     fake_connection,
     log_keys,
 )
@@ -126,6 +128,7 @@ def test_audit_log_feeds_users_copy_history_and_query_log_into_lineage(
         DIRECT_OBJECTS_ACCESSED=json.dumps(
             [{"objectName": "DB.S.SRC", "objectDomain": "Table", "columns": []}]
         ),
+        ROOT_QUERY_ID="q-call",  # issued inside the stored procedure below
     )
     call = _audit_row("q-call", "CALL", "call db.s.my_proc()")
     rows: Dict[str, QueryResult] = {
@@ -134,7 +137,7 @@ def test_audit_log_feeds_users_copy_history_and_query_log_into_lineage(
             {"NAME": "BROKEN"},  # missing EMAIL: reported, not fatal
         ],
         "COPY_HISTORY": [{"row": 1}, {"row": 2}],
-        "QUERY_HISTORY": [insert, call],
+        "QUERY_HISTORY": [call, insert],
     }
     extractor = _make_extractor(_dispatch_for(rows), local_temp_path=tmp_path)
     copy_mapping = KnownLineageMapping(
@@ -152,10 +155,19 @@ def test_audit_log_feeds_users_copy_history_and_query_log_into_lineage(
     assert {"Error parsing user row", "Error parsing copy history row"} <= log_keys(
         extractor.structured_reporter.warnings
     )
-    assert extractor.report.stored_proc_lineage is not None
+    stored_proc = extractor.report.stored_proc_lineage
+    assert stored_proc is not None
+    assert stored_proc.num_stored_proc_calls == 1
+    assert stored_proc.num_related_queries == 1
+    assert stored_proc.num_stored_proc_lineage_entries == 1
     assert extractor.report.audit_log_path == str(tmp_path / "audit_log.sqlite")
+    target = extractor.identifiers.gen_dataset_urn("db.s.target")
+    lineage = aspects(workunits, UpstreamLineageClass)
+    assert {u.dataset for u in lineage[target].upstreams} >= {
+        copy_mapping.upstream_urn,
+        extractor.identifiers.gen_dataset_urn("db.s.src"),
+    }
     urns = {wu.get_urn() for wu in workunits}
-    assert extractor.identifiers.gen_dataset_urn("db.s.target") in urns
     extractor.close()
     # With an explicit local_temp_path the audit log is kept for reuse...
     assert (tmp_path / "audit_log.sqlite").exists()
@@ -165,13 +177,14 @@ def test_audit_log_feeds_users_copy_history_and_query_log_into_lineage(
         _dispatch_for({"SNOWFLAKE.ACCOUNT_USAGE.USERS": []}),
         local_temp_path=tmp_path,
     )
-    list(cached.get_workunits_internal())
+    assert {wu.get_urn() for wu in cached.get_workunits_internal()} == urns
     cached.close()
 
 
 def test_query_log_fetch_is_skipped_when_no_query_feature_is_enabled() -> None:
-    """With every query feature off, the query log is never fetched (checked on
-    the issued SQL) and the default-location audit log is removed on close."""
+    """With every query feature off, neither the query log nor copy history is
+    fetched (checked on the issued SQL) and the default-location audit log is
+    removed on close."""
     extractor = _make_extractor(
         _dispatch_for({"SNOWFLAKE.ACCOUNT_USAGE.USERS": []}),
         include_lineage=False,
@@ -185,7 +198,7 @@ def test_query_log_fetch_is_skipped_when_no_query_feature_is_enabled() -> None:
     issued = [
         c.args[0].upper() for c in as_mock(extractor.connection).query.call_args_list
     ]
-    assert not any("QUERY_HISTORY" in q for q in issued)
+    assert not any("QUERY_HISTORY" in q or "COPY_HISTORY" in q for q in issued)
     extractor.close()
     # The default temp dir audit log is removed on close.
     assert not pathlib.Path(extractor.report.audit_log_path or "").exists()

@@ -154,7 +154,8 @@ class FakeMessage:
 
 
 class FakeConsumer:
-    """Serves scripted batches from consume() and records what was requested."""
+    """Serves scripted batches from consume() and records what was assigned and
+    requested."""
 
     def __init__(
         self,
@@ -163,6 +164,7 @@ class FakeConsumer:
     ) -> None:
         self._batches = list(batches)
         self._watermarks = partitions or {}
+        self.assigned: List[Tuple[int, int]] = []
         self.requested: List[int] = []
         self.unassigned = False
 
@@ -179,7 +181,7 @@ class FakeConsumer:
         return self._watermarks[partition.partition]
 
     def assign(self, partitions: List[confluent_kafka.TopicPartition]) -> None:
-        pass
+        self.assigned = [(p.partition, p.offset) for p in partitions]
 
     def consume(self, num_messages: int, timeout: float) -> List[FakeMessage]:
         self.requested.append(num_messages)
@@ -202,9 +204,11 @@ class ScriptedConsumer:
         self._messages = list(messages)
         self._subscribe_error = subscribe_error
         self.poll_timeouts: List[float] = []
+        self.calls: List[str] = []
         self.closed = False
 
     def subscribe(self, topics: List[str]) -> None:
+        self.calls.append("subscribe")
         if self._subscribe_error is not None:
             raise self._subscribe_error
 
@@ -215,6 +219,7 @@ class ScriptedConsumer:
         pass
 
     def poll(self, timeout: float) -> object:
+        self.calls.append("poll")
         self.poll_timeouts.append(timeout)
         return self._messages.pop(0) if self._messages else None
 

@@ -8,7 +8,7 @@ the emitted-aspect level rather than at the method-call level.
 
 from datetime import datetime, timezone
 from typing import Dict, List, Set, Union
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -215,7 +215,9 @@ def test_get_sources_without_schema_or_file_returns_empty() -> None:
     assert sources == []
 
 
-def test_get_sources_from_query_unparseable_ddl_is_counted_not_raised() -> None:
+def test_get_sources_from_query_unparseable_ddl_yields_no_sources() -> None:
+    """The parser reports a syntax error as a table_error rather than raising, so
+    an unparseable DDL must come back empty instead of aborting the lineage pass."""
     extractor = make_lineage_extractor()
     sources, cll = extractor._get_sources(
         lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
@@ -227,6 +229,26 @@ def test_get_sources_from_query_unparseable_ddl_is_counted_not_raised() -> None:
     )
     assert sources == []
     assert cll is None
+
+
+def test_get_sources_counts_a_query_whose_parsing_raises() -> None:
+    """A parser exception drops that query's lineage; it must be counted in the
+    report rather than dropped silently or propagated."""
+    extractor = make_lineage_extractor()
+    with patch.object(
+        extractor, "_get_sources_from_query", side_effect=ValueError("boom")
+    ):
+        sources, cll = extractor._get_sources(
+            lineage_type=LineageCollectorType.QUERY_SQL_PARSER,
+            db_name=DB,
+            source_schema=None,
+            source_table=None,
+            ddl="select a from public.src",
+            filename=None,
+        )
+    assert sources == []
+    assert cll is None
+    assert extractor.report.num_lineage_dropped_query_parser == 1
 
 
 def test_get_sources_from_query_returns_none_cll_when_disabled() -> None:

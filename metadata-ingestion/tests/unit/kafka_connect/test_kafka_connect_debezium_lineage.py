@@ -400,6 +400,8 @@ class TestEventRouter:
         assert connector.extract_lineages() == []
 
     def test_literal_regex_router_replacement_scopes_cluster_topics(self) -> None:
+        """A literal replacement produces exactly one topic; a cluster topic that
+        merely shares its prefix must not be attributed to the outbox table."""
         connector = _debezium(
             self._config(
                 **{
@@ -413,10 +415,7 @@ class TestEventRouter:
             cluster_topics=["shop.events", "shop.events.v2", "billing.events"],
         )
 
-        assert lineage_map(connector) == {
-            "shop.events": "shop.outbox",
-            "shop.events.v2": "shop.outbox",
-        }
+        assert lineage_map(connector) == {"shop.events": "shop.outbox"}
 
     def test_without_regex_router_every_cluster_topic_is_a_candidate(self) -> None:
         connector = _debezium(

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.redshift.query import RedshiftServerlessQuery
@@ -185,7 +186,11 @@ def test_operation_aspects_filtered_for_tables_outside_scope(
     "the usage and operation URNs, so for mixed-case names they land on a "
     "different dataset than the schemaMetadata emitted by RedshiftSource.",
 )
-def test_usage_and_operations_land_on_the_dataset_urn_for_mixed_case_names() -> None:
+def test_usage_and_operations_land_on_the_dataset_urn_for_mixed_case_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # With URN lowercasing on, both sides lowercase and the defect is masked.
+    monkeypatch.setattr(mce_builder, "DATASET_URN_TO_LOWER", False)
     extractor = make_usage_extractor(include_operational_stats=True)
     mixed_case_tables: AllTables = {
         DB: {"Sales": [make_table("Orders", schema="Sales")]}

@@ -191,11 +191,16 @@ def make_usage_extractor(
         "include_operational_stats": False,
     }
     values.update(overrides)
+    config = make_config(**values)
     return RedshiftUsageExtractor(
-        config=make_config(**values),
+        config=config,
         connection=MagicMock(),
         report=RedshiftReport(),
-        dataset_urn_builder=lambda table: make_dataset_urn("redshift", table),
+        # The builder RedshiftSource itself passes, so env / platform_instance
+        # overrides reach the usage URNs the way they do in a real run.
+        dataset_urn_builder=RedshiftSource(
+            config, ctx=PipelineContext(run_id="test")
+        ).gen_dataset_urn,
         redundant_run_skip_handler=skip_handler,
     )
 
@@ -246,7 +251,7 @@ def run_extract_metadata(source: RedshiftSource) -> ExtractMetadataRun:
             source, "extract_lineage_v2", return_value=iter([])
         ) as extract_lineage,
     ):
-        workunits = list(source._extract_metadata(MagicMock(), DB))
+        workunits = list(source._extract_metadata(MagicMock(), source.config.database))
     return ExtractMetadataRun(workunits=workunits, extract_lineage=extract_lineage)
 
 

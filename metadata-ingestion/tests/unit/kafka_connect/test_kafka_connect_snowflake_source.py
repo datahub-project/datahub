@@ -674,11 +674,14 @@ def test_snowflake_source_expanded_patterns_are_reused_for_lineage(
         "analytics.public.users",
         "analytics.public.orders",
     ]
+    assert not reported(report.warnings, CONNECTOR)
 
 
 def test_snowflake_source_patterns_without_resolver_derive_no_topics(
     config: KafkaConnectSourceConfig, report: KafkaConnectSourceReport
 ) -> None:
+    """The same patterns that expand cleanly with a resolver (no warning, see
+    above) yield nothing and a warning when the resolver is missing."""
     connector = _snowflake(config, report, {"table.include.list": "ANALYTICS.PUBLIC.*"})
 
     assert connector.get_topics_from_config() == []

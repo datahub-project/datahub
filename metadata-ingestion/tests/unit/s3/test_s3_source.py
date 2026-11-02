@@ -421,6 +421,9 @@ def test_get_folder_info_ignores_disallowed_path(s3_resource, caplog):
     bucket.put_object(Key="my-folder/ignore/this/path/0001.csv")
 
     s3_source = make_s3_source_for_spec(path_spec)
+    # The skip is logged at DEBUG; pin the level so an earlier test that raised
+    # the datahub logger's level cannot hide it.
+    caplog.set_level(logging.DEBUG, logger="datahub.ingestion.source.s3.source")
 
     # act
     with patch(

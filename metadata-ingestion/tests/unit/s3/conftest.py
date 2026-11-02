@@ -56,17 +56,9 @@ def make_s3_source(path_spec: Dict[str, Any], **config: Any) -> S3Source:
 
 
 def make_s3_source_for_spec(path_spec: PathSpec) -> S3Source:
-    """An S3Source on moto credentials for an already-built PathSpec."""
-    return make_s3_source(
-        {
-            "include": path_spec.include,
-            "table_name": path_spec.table_name,
-            "emit_folders_only": path_spec.emit_folders_only,
-            "exclude": path_spec.exclude,
-            "include_hidden_folders": path_spec.include_hidden_folders,
-        },
-        aws_config=AWS_CONFIG,
-    )
+    """An S3Source on moto credentials for an already-built PathSpec; every
+    field is carried over so non-default traversal/filter settings are tested."""
+    return make_s3_source(path_spec.model_dump(), aws_config=AWS_CONFIG)
 
 
 def make_table_data(

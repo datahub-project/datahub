@@ -117,11 +117,30 @@ def test_upstreams_from_other_queries_or_unparseable_names_are_dropped() -> None
             upstream_object_name="DB.S.B",
             query_id="other",
         ),
+        UpstreamTableNode(
+            upstream_object_domain="TABLE",
+            upstream_object_name="DB.S.BAD",
+            query_id="q1",
+        ),
     ]
+    real_identifiers = extractor.identifiers
     extractor.identifiers = create_autospec(SnowflakeIdentifierBuilder, instance=True)
-    as_mock(
-        extractor.identifiers
-    ).get_dataset_identifier_from_qualified_name.side_effect = ValueError("bad name")
 
-    assert extractor.map_query_result_upstreams(nodes, "q1") == []
+    def identifier(name: str) -> str:
+        if name == "DB.S.BAD":
+            raise ValueError("bad name")
+        return name.lower()
+
+    identifiers = as_mock(extractor.identifiers)
+    identifiers.get_dataset_identifier_from_qualified_name.side_effect = identifier
+    identifiers.gen_dataset_urn.side_effect = real_identifiers.gen_dataset_urn
+
+    assert extractor.map_query_result_upstreams(nodes, "q1") == [
+        real_identifiers.gen_dataset_urn("db.s.a")
+    ]
+    looked_up = [
+        c.args[0]
+        for c in identifiers.get_dataset_identifier_from_qualified_name.call_args_list
+    ]
+    assert "DB.S.B" not in looked_up
     assert extractor.map_query_result_upstreams(None, "q1") == []

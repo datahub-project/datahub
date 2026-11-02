@@ -72,13 +72,16 @@ def test_without_graph_a_new_resource_is_created_and_cached() -> None:
 
 
 def test_existing_resource_with_same_mapping_is_reused() -> None:
+    # One helper for both lookups: the cache is meant to be per helper, and the
+    # process-wide sharing is the defect pinned below.
+    the_helper = helper()
     with patch(
         f"{MODULE}.PlatformResource.from_datahub", return_value=existing_resource()
     ) as from_datahub:
-        resource = helper().generate_label_platform_resource(
+        resource = the_helper.generate_label_platform_resource(
             LABEL, TAG, managed_by_datahub=False
         )
-        again = helper().generate_label_platform_resource(
+        again = the_helper.generate_label_platform_resource(
             LABEL, TAG, managed_by_datahub=False
         )
 

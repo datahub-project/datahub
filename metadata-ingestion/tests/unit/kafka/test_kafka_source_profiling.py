@@ -71,7 +71,8 @@ def source(make_kafka_source: SourceFactory) -> KafkaSource:
 
 
 def test_get_sample_messages_reads_from_every_partition(source: KafkaSource) -> None:
-    """Never reads more than sample_size, and releases the assignment afterwards."""
+    """Assigns every partition at its latest-N offset, never reads more than
+    sample_size, and releases the assignment afterwards."""
     messages = [
         FakeMessage(json.dumps({"amount": i}).encode(), offset=i) for i in range(6, 10)
     ]
@@ -84,6 +85,7 @@ def test_get_sample_messages_reads_from_every_partition(source: KafkaSource) -> 
     )
 
     assert samples is not None
+    assert consumer.assigned == [(0, 6), (1, 6)]
     assert [s["offset"] for s in samples] == [6, 7, 8, 9]
     assert samples[0]["amount"] == "6"
     assert "timestamp" in samples[0]
@@ -210,6 +212,41 @@ def test_tombstone_keeps_its_key_fields(source: KafkaSource) -> None:
         samples,
         TOPIC,
         SCHEMALESS_METADATA,
+    )
+
+    [sample] = samples
+    assert sample["key.id"] == "1"
+    assert "value" not in sample
+    assert source.report.profiling_samples_skipped == 0
+
+
+NULLABLE_SCHEMA = '["null", "string"]'
+
+
+@pytest.mark.parametrize(
+    "value, schema_metadata",
+    [
+        pytest.param(b"null", SCHEMALESS_METADATA, id="json-null"),
+        pytest.param(
+            avro_encode(NULLABLE_SCHEMA, None),
+            avro_schema_metadata(NULLABLE_SCHEMA),
+            id="avro-null",
+        ),
+    ],
+)
+def test_decoded_null_value_keeps_its_key_fields(
+    source: KafkaSource, value: bytes, schema_metadata: SchemaMetadataClass
+) -> None:
+    """A payload that decodes to null is a valid value, not a decode failure:
+    the key is still sampled and nothing is counted as skipped."""
+    samples: List[Dict[str, Any]] = []
+    msg = FakeMessage(value, key=b'{"id": 1}', offset=9)
+
+    source._process_message_to_sample(
+        msg,  # type: ignore[arg-type]
+        samples,
+        TOPIC,
+        schema_metadata,
     )
 
     [sample] = samples

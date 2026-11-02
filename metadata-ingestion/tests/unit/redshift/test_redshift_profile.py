@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from datahub.emitter import mce_builder
 from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
 from datahub.ingestion.source.redshift.redshift_schema import RedshiftTable
@@ -88,7 +89,11 @@ def test_schema_pattern_filters_profiled_tables() -> None:
     "aspects) land on a lowercased URN while schemaMetadata is emitted on the "
     "mixed-case one built by RedshiftSource.gen_dataset_urn.",
 )
-def test_profile_urn_matches_the_dataset_urn_for_mixed_case_names() -> None:
+def test_profile_urn_matches_the_dataset_urn_for_mixed_case_names(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # With URN lowercasing on, both sides lowercase and the defect is masked.
+    monkeypatch.setattr(mce_builder, "DATASET_URN_TO_LOWER", False)
     profiler = make_profiler()
     names = _profiled_names(profiler, _tables(name="Orders", schema="Sales"))
     assert [profiler.dataset_urn_builder(n) for n in names] == [

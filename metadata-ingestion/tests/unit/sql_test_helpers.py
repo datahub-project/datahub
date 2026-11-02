@@ -47,8 +47,11 @@ class FakeConnection:
     ``handlers`` maps a substring of the SQL to its outcome: rows to return, an
     exception to raise, or a callable taking the bound ``params`` and returning
     either. The first matching needle wins, so an empty-string needle acts as a
-    catch-all when listed last. Statements nothing matches fail the test, so a
-    source cannot silently run a query the test did not anticipate.
+    catch-all when listed last. A statement nothing matches raises
+    ``AssertionError``, which fails the test only if it propagates: source code
+    that catches ``Exception`` around the read (``sql_common._get_columns``, for
+    one) turns it into a report warning, so a test driving such a path should
+    also assert the report has no unexpected warnings.
 
     Usable directly where the source takes a connection, as the result of
     ``engine.connect()`` (it is its own context manager), or as the

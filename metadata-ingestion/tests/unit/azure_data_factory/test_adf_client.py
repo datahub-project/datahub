@@ -168,6 +168,10 @@ def test_activity_runs_follow_continuation_tokens_for_one_pipeline_run(
     assert [r.activity_name for r in runs] == ["Copy"]
     assert query.call_count == 2
     assert all(c.kwargs["run_id"] == "run-1" for c in query.call_args_list)
+    second_filter: adf.RunFilterParameters = query.call_args_list[1].kwargs[
+        "filter_parameters"
+    ]
+    assert second_filter.continuation_token == "more"
 
 
 def test_run_queries_propagate_sdk_errors(client: AzureDataFactoryClient) -> None:

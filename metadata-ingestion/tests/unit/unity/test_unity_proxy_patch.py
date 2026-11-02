@@ -123,7 +123,10 @@ def test_proxy_credentials_from_the_environment_become_proxy_auth_headers(
         _create_patched_open_method(original)(client)
 
     assert proxy_manager.call_args.args == (PROXY_URL_WITH_AUTH,)
-    assert "proxy-authorization" in proxy_manager.call_args.kwargs["proxy_headers"]
+    # base64("alice:s3cret"), the credentials embedded in PROXY_URL_WITH_AUTH.
+    assert proxy_manager.call_args.kwargs["proxy_headers"] == {
+        "proxy-authorization": "Basic YWxpY2U6czNjcmV0"
+    }
     connection = proxy_manager.return_value.connection_from_host
     connection.assert_called_once()
     assert connection.call_args.kwargs["host"] == client.realhost

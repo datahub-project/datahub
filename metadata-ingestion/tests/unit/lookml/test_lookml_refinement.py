@@ -1,5 +1,6 @@
 """LookML refinements (``view: +name``) merged into views and explores."""
 
+import itertools
 from typing import Callable, Dict
 
 import pytest
@@ -150,6 +151,34 @@ class TestApplyExploreRefinement:
         refined = project.refinement_resolver.apply_explore_refinement(raw_explore)
 
         assert set(refined["extends"]) == {"customers", "products"}
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "Bug: add_extended_explore replaces the explore's own extends / "
+            "extends__all with only the refinements' explores, and writes them as "
+            "a flat list while LookerExplore.from_dict flattens one more level, so "
+            "the extended explore names are read character by character."
+        ),
+    )
+    def test_refinement_extends_add_to_the_explores_own_extends(
+        self, project: LookMLProject
+    ) -> None:
+        """Refinement `extends` is additive: the explore keeps what it already
+        extends, and LookerExplore.from_dict reads the merged names intact."""
+        project.model.explores = [
+            {"name": "+orders", "extends": [["customers"]]},
+            {"name": "+orders", "extends__all": [["products"]]},
+        ]
+        raw_explore: Dict = {"name": "orders", "extends__all": [["base_orders"]]}
+
+        refined = project.refinement_resolver.apply_explore_refinement(raw_explore)
+
+        # The same lookup LookerExplore.from_dict does.
+        resolved = itertools.chain.from_iterable(
+            refined.get("extends", refined.get("extends__all", []))
+        )
+        assert set(resolved) == {"base_orders", "customers", "products"}
 
     def test_explore_without_refinements_gets_no_extends(
         self, project: LookMLProject

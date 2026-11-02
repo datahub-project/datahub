@@ -647,16 +647,10 @@ def test_flatten_preserves_excluded_fields():
 )
 def test_struct_transforms_without_a_field_leave_columns_unchanged(
     transform_type: str,
-    config: KafkaConnectSourceConfig,
-    report: KafkaConnectSourceReport,
 ) -> None:
-    manifest = ConnectorManifest(
-        name="test-connector",
-        type="source",
-        config={"transforms": "t", "transforms.t.type": transform_type},
-        tasks=[],
+    connector = _make_connector(
+        {"transforms": "t", "transforms.t.type": transform_type}
     )
-    connector = BaseConnector(manifest, config, report)
 
     assert connector._apply_field_transforms(["id", "name"]) == {
         "id": "id",

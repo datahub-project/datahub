@@ -174,11 +174,14 @@ def make_onelake_source() -> Iterator[OneLakeSourceFactory]:
             dict(recipe), PipelineContext(run_id="fabric-onelake-test")
         )
         source.client.close()
-        source.client = (
-            cast(OneLakeClient, client)
-            if client is not None
-            else create_autospec(OneLakeClient, instance=True)
-        )
+        if client is not None:
+            source.client = cast(OneLakeClient, client)
+        else:
+            specced = create_autospec(OneLakeClient, instance=True)
+            # Set in __init__, so the autospec does not carry it; the SQL
+            # endpoint factory reads it before making any request.
+            specced.auth_helper = specced_auth_helper()
+            source.client = specced
         sources.append(source)
         return source
 

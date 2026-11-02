@@ -93,7 +93,10 @@ def test_get_all_views_excludes_system_schemas_and_keeps_null_definitions() -> N
         ("dbo", "v1", "SELECT 1", "lh"),
         ("sales", "v2", None, "lh"),
     ]
-    _, params = engine.connection.executed[0]
+    # The exclusion happens server-side, so pin the predicate and its binding.
+    sql, params = engine.connection.executed[0]
+    where = " ".join(sql.split()).split(" WHERE ", 1)[1]
+    assert where.startswith("TABLE_SCHEMA NOT IN (") and "system_schemas" in where
     excluded = params["system_schemas"]
     assert isinstance(excluded, list)
     assert {"INFORMATION_SCHEMA", "sys", "queryinsights"} <= set(excluded)

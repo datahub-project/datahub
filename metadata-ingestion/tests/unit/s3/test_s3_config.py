@@ -137,8 +137,13 @@ class TestS3Config:
 
 
 def test_table_level_only_profiling_disables_field_metrics() -> None:
+    """Every include_field_* flag must be normalized off, not just a few of them."""
     config = DataLakeProfilerConfig(enabled=True, profile_table_level_only=True)
 
-    assert not config.include_field_null_count
-    assert not config.include_field_min_value
-    assert not config.include_field_sample_values
+    field_flags = {
+        name: getattr(config, name)
+        for name in DataLakeProfilerConfig.model_fields
+        if name.startswith("include_field_")
+    }
+    assert "include_field_histogram" in field_flags
+    assert [name for name, enabled in field_flags.items() if enabled] == []

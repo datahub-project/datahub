@@ -66,6 +66,7 @@ def test_encrypted_private_key_file_is_decrypted_with_the_configured_password(
     kwargs = _connect_kwargs(config)
 
     assert isinstance(kwargs["private_key"], bytes)
+    assert kwargs["private_key"][:1] == b"\x30"  # DER sequence, not the PEM file
 
 
 def test_oauth_token_from_recipe_is_passed_through_verbatim() -> None:
@@ -111,6 +112,8 @@ def test_oauth_client_secret_flow_exchanges_a_token_before_connecting() -> None:
 
 
 def test_oauth_certificate_flow_uses_the_certificate_grant() -> None:
+    """The private and public keys must reach the grant in their own slots; swapped,
+    the thumbprint is computed from the private key and the token request fails."""
     config = SnowflakeConnectionConfig.model_validate(
         _oauth_config(
             use_certificate=True,
@@ -125,7 +128,9 @@ def test_oauth_certificate_flow_uses_the_certificate_grant() -> None:
         }
         kwargs = _connect_kwargs(config)
 
-    generator.return_value.get_token_with_certificate.assert_called_once()
+    generator.return_value.get_token_with_certificate.assert_called_once_with(
+        private_key_content="cHJpdg==", public_key_content="cHVi", scopes=["scope"]
+    )
     assert kwargs["token"] == "cert-token"
 
 

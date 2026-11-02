@@ -398,6 +398,9 @@ class TestLookerQueryApiUpstream:
             ORDERS_VIEW, "orders", looker_client=client, view_to_explore_map=EXPLORE_MAP
         )
         assert isinstance(upstream, RegularViewUpstream)
+        assert upstream.get_upstream_dataset_urn() == [
+            dataset_urn("db.analytics.orders")
+        ]
         titles = project.warning_titles()
         assert "Table Level Lineage Extraction Failed" in titles
         assert "Looker Query API based View Upstream Failed" in titles
@@ -496,6 +499,10 @@ class TestFieldSplitting:
             SMALL_VIEW, "orders", looker_client=client, view_to_explore_map=EXPLORE_MAP
         )
         assert isinstance(upstream, RegularViewUpstream)
+        # sql_table_name, not the (failed) API SQL, is what the fallback reads.
+        assert upstream.get_upstream_dataset_urn() == [
+            dataset_urn("db.analytics.orders")
+        ]
         titles = project.warning_titles()
         assert "Field Chunk Processing Failed" in titles
         assert "Looker Query API based View Upstream Failed" in titles

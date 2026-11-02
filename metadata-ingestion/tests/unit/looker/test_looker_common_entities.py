@@ -3,6 +3,7 @@ de-duplication, LookML `extends` resolution, tag definitions, the user
 registry and explore fetch failures."""
 
 import datetime
+import json
 from typing import Callable, Dict, List, Optional
 from unittest import mock
 
@@ -42,6 +43,7 @@ from datahub.ingestion.source.looker.lookml_config import (
 from datahub.metadata.schema_classes import (
     NullTypeClass,
     NumberTypeClass,
+    PlatformResourceInfoClass,
 )
 
 
@@ -277,8 +279,14 @@ class TestUserRegistry:
             lambda id_, user_fields: None,
         )
         mcps = list(registry.to_platform_resource(platform_instance=None))
-        assert mcps
+        infos = [
+            m.aspect for m in mcps if isinstance(m.aspect, PlatformResourceInfoClass)
+        ]
+        assert len(infos) == 1
+        info = infos[0]
+        assert isinstance(info, PlatformResourceInfoClass) and info.value is not None
         # Only users with an email make it into the id -> email mapping.
+        assert json.loads(info.value.blob) == {"1": "one@example.com"}
         assert registry.report.looker_user_count == 1
 
     def test_user_cache_is_not_shared_between_registries(self) -> None:

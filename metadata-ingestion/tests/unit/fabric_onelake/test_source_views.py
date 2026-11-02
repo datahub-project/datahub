@@ -18,7 +18,13 @@ from datahub.sdk.dataset import Dataset
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from tests.unit.conftest import log_titles
 from tests.unit.fabric_common.conftest import fabric_response
-from tests.unit.fabric_onelake.conftest import LH_ID, WS, OneLakeSourceFactory
+from tests.unit.fabric_onelake.conftest import (
+    ENDPOINT_HOST,
+    LH_ID,
+    PROVISIONED,
+    WS,
+    OneLakeSourceFactory,
+)
 
 _KEY = LakehouseKey(workspace_id=WS.id, lakehouse_id=LH_ID)
 
@@ -212,9 +218,28 @@ def test_an_item_without_a_provisioned_endpoint_is_a_warning(
     client.get.return_value = fabric_response(200, {"properties": {}})
 
     assert source._create_schema_client(WS, LH_ID, "Lakehouse", "lh_main") is None
+    client.get.assert_called_once()
     assert "SQL Analytics Endpoint Initialization Failed" in log_titles(
         source.report.warnings
     )
+
+
+def test_a_provisioned_endpoint_yields_a_schema_client_for_that_host(
+    make_onelake_source: OneLakeSourceFactory,
+) -> None:
+    """The endpoint host read from the item GET is what the SQL client connects
+    to; without it every column, view and usage query targets nothing."""
+    source, _ = _source(make_onelake_source, sql_endpoint={"enabled": True})
+    client = source.client
+    assert isinstance(client, NonCallableMagicMock)
+    client.get.return_value = fabric_response(200, PROVISIONED)
+
+    schema_client = source._create_schema_client(WS, LH_ID, "Lakehouse", "lh_main")
+
+    assert isinstance(schema_client, SqlAnalyticsEndpointClient)
+    assert schema_client.endpoint_url == ENDPOINT_HOST
+    assert schema_client.auth_helper is client.auth_helper
+    assert not source.report.warnings
 
 
 def test_usage_is_skipped_for_items_without_an_endpoint(

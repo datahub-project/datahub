@@ -106,14 +106,17 @@ def test_only_topics_without_registry_schema_are_resolved(source: KafkaSource) -
         source._resolve_missing_schemas(
             ["registered", "empty", "unknown"], value_schemas, key_schemas
         )
-        source._resolve_missing_schemas(["unknown"], value_schemas, key_schemas)
+        source._resolve_missing_schemas(["later"], value_schemas, key_schemas)
 
     resolver_cls.assert_called_once()
-    first_call = resolver_cls.return_value.resolve_schemas_batch.call_args_list[0]
-    assert first_call.args[0] == ["empty", "unknown"]
+    resolve_batch = resolver_cls.return_value.resolve_schemas_batch
+    batches = [c.args[0] for c in resolve_batch.call_args_list]
+    assert batches[0] == ["empty", "unknown"]
+    assert ["later"] in batches
     assert value_schemas["registered"] is registered
     assert value_schemas["empty"].fields == resolved_fields
     assert value_schemas["unknown"].fields == resolved_fields
+    assert value_schemas["later"].fields == resolved_fields
     assert key_schemas["empty"] == SchemaAndFields()
     assert key_schemas["unknown"] == SchemaAndFields()
 

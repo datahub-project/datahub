@@ -1,7 +1,7 @@
 """BaseConnector helpers shared by every connector type."""
 
 from typing import List, Optional
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceConfig,
@@ -69,12 +69,18 @@ class TestSourceFineGrainedLineageGuard:
     def test_kafka_sourced_dataset_never_gets_source_column_lineage(self) -> None:
         """The source-side helper resolves the source table through a database
         SchemaResolver; handed a Kafka topic it must opt out, not query."""
-        graph = mock_graph()
-        connector = _regex_sink(graph)
+        connector = _regex_sink(mock_graph())
+        resolver = StubSchemaResolver()
+        # A resolvable schema, so only the Kafka guard can produce the None.
+        resolver.add_schema("orders", {"id": "INTEGER"})
+        attach_resolver(connector, resolver)
 
-        result = connector._extract_fine_grained_lineage(
-            source_dataset="orders", source_platform="kafka", target_dataset="t"
-        )
+        with patch.object(
+            resolver, "resolve_table", wraps=resolver.resolve_table
+        ) as resolve_table:
+            result = connector._extract_fine_grained_lineage(
+                source_dataset="orders", source_platform="kafka", target_dataset="t"
+            )
 
         assert result is None
-        graph.get_aspect.assert_not_called()
+        resolve_table.assert_not_called()

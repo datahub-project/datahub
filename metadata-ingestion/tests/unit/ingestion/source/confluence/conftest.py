@@ -40,7 +40,7 @@ def cloud_config_dict(**overrides: Any) -> Dict[str, Any]:
 
 def make_config(**overrides: Any) -> ConfluenceSourceConfig:
     return ConfluenceSourceConfig.model_validate(
-        cloud_config_dict(cloud=True, **overrides)
+        cloud_config_dict(**{"cloud": True, **overrides})
     )
 
 

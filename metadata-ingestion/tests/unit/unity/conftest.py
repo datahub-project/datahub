@@ -228,7 +228,9 @@ def run_source() -> Callable[..., SourceRun]:
     The databricks-sql ``connect`` used for information_schema tag queries is
     replaced by a cursor whose ``fetchall`` answers from ``tag_rows``. Its
     ``fetchmany`` must return a real empty list: a bare MagicMock there is
-    truthy, and the system-tables readers would loop on it forever.
+    truthy, and the system-tables readers would loop on it forever. The same
+    cursor backs both ``with connection.cursor()`` and the streaming reader's
+    plain ``connection.cursor()`` call.
     """
 
     def run(
@@ -243,7 +245,8 @@ def run_source() -> Callable[..., SourceRun]:
         fake_cursor.fetchmany.return_value = []
         fake_connection = MagicMock()
         fake_connection.__enter__.return_value = fake_connection
-        fake_connection.cursor.return_value.__enter__.return_value = fake_cursor
+        fake_cursor.__enter__.return_value = fake_cursor
+        fake_connection.cursor.return_value = fake_cursor
         with (
             patch(
                 "datahub.ingestion.source.unity.source.create_workspace_client",

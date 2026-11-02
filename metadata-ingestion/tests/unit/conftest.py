@@ -32,6 +32,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
+    MetadataChangeProposalClass,
     _Aspect,
 )
 from tests.test_helpers.masking_state_helpers import reset_masking_process_state
@@ -91,11 +92,20 @@ def single_aspect(
 
 
 def aspects_by_urn(workunits: Iterable[MetadataWorkUnit]) -> Dict[str, List[_Aspect]]:
-    """Every aspect emitted per entity urn, whether it came as an MCP or
-    inside an MCE dataset snapshot."""
+    """Every aspect emitted per entity urn, whether it came as an MCP (wrapped or
+    raw) or inside an MCE dataset snapshot.
+
+    Raw PATCH proposals carry a JSON patch rather than an aspect, so they have
+    nothing to decode and are not included.
+    """
     aspects: Dict[str, List[_Aspect]] = {}
     for wu in workunits:
         metadata = wu.metadata
+        if isinstance(metadata, MetadataChangeProposalClass):
+            decoded = MetadataChangeProposalWrapper.try_from_mcpc(metadata)
+            if decoded is None:
+                continue
+            metadata = decoded
         if isinstance(metadata, MetadataChangeProposalWrapper):
             assert metadata.entityUrn is not None
             if metadata.aspect is not None:
