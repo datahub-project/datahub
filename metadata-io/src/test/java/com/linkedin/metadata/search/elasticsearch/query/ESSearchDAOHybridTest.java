@@ -68,6 +68,7 @@ import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -80,6 +81,7 @@ public class ESSearchDAOHybridTest {
   private HybridSearchResultReranker reranker;
   private OperationContext opContext;
   private MetricUtils metrics;
+  private ExecutorService hybridExecutor;
   private ESSearchDAO dao;
 
   @BeforeMethod
@@ -115,6 +117,16 @@ public class ESSearchDAOHybridTest {
             TEST_SEARCH_SERVICE_CONFIG,
             new Sha256UrnEntityDocumentIdHasher(),
             reranker);
+    // Each test gets its own pool. The shared one keeps the workers earlier tests started, idle,
+    // and a burst of searches can fill its queue before they take tasks, so a test that fills the
+    // pool would see more rejections than the pool's capacity allows
+    hybridExecutor = ESSearchDAO.newHybridExecutor();
+    dao.setHybridExecutor(hybridExecutor);
+  }
+
+  @AfterMethod(alwaysRun = true)
+  public void tearDown() {
+    hybridExecutor.shutdownNow();
   }
 
   @Test
