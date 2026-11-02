@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INVITE_TOKEN_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ROLE_MEMBERSHIP_ASPECT_NAME;
@@ -22,6 +23,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.identity.InviteToken;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -77,6 +79,12 @@ import lombok.extern.slf4j.Slf4j;
  * An actor holding Manage Policies can already grant Admin to any other account and act as it, so
  * blocking self-assignment would add friction without security.
  *
+ * <p>An invite token that names a role is the same grant, held until acceptance assigns {@code
+ * roleMembership} as the system actor. Adding or changing {@code inviteToken.role} requires Manage
+ * Policies. A role-less token, removing the role, and rewriting the same role are not grants. The
+ * redeemable link is still withheld without Manage Policies, because reading or rotating the secret
+ * does not change the role.
+ *
  * <p>The resource a privilege is checked against is not always the aspect's own entity. Group
  * membership lives on the member's corpuser entity, but {@code EDIT_GROUP_MEMBERS} is held on the
  * group - so it is authorized against each added group, matching {@code
@@ -94,6 +102,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthorizationValidator {
 
   private static final String ROLES_LABEL = "roles";
+  private static final String INVITE_ROLE_LABEL = "role";
   private static final String GROUPS_LABEL = "groups";
   private static final String OWNERS_LABEL = "owners";
 
@@ -149,7 +158,16 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
               SELF_GRANT_FLOOR,
               Beneficiary.GRANTED_URNS,
               AuthResource.ENTITY,
-              OWNERS_LABEL));
+              OWNERS_LABEL),
+          INVITE_TOKEN_ASPECT_NAME,
+          new GrantRule<>(
+              InviteToken.class,
+              PrivilegeGrantAuthorizationValidator::inviteTokenRole,
+              List.of(PoliciesConfig.MANAGE_POLICIES_PRIVILEGE),
+              null,
+              Beneficiary.ENTITY,
+              AuthResource.ENTITY,
+              INVITE_ROLE_LABEL));
 
   @Nonnull private AspectPluginConfig config;
 
@@ -317,6 +335,14 @@ public class PrivilegeGrantAuthorizationValidator extends AbstractAspectAuthoriz
   @Nonnull
   private static Collection<Urn> orEmpty(@Nullable Collection<Urn> urns) {
     return urns == null ? List.of() : urns;
+  }
+
+  @Nonnull
+  private static Collection<Urn> inviteTokenRole(@Nullable InviteToken inviteToken) {
+    if (inviteToken == null || !inviteToken.hasRole() || inviteToken.getRole() == null) {
+      return List.of();
+    }
+    return List.of(inviteToken.getRole());
   }
 
   @Nonnull

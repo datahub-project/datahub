@@ -1,12 +1,15 @@
 package com.datahub.authentication.invite;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -112,9 +115,68 @@ public class InviteTokenServiceTest {
 
   @Test
   public void getInviteTokenRoleUrnDoesNotExist() throws Exception {
+    allowManagePolicies();
     when(_entityClient.exists(any(OperationContext.class), eq(roleUrn))).thenReturn(false);
 
     assertThrows(() -> _inviteTokenService.getInviteToken(opContext, roleUrn.toString(), false));
+  }
+
+  @Test
+  public void getInviteTokenForRoleDeniedWithoutManagePolicies() throws Exception {
+    denyManagePolicies();
+
+    assertThrows(
+        InviteTokenAuthorizationException.class,
+        () -> _inviteTokenService.getInviteToken(opContext, ROLE_URN_STRING, true));
+    verify(_entityClient, never()).filter(any(), any(), any(), any(), anyInt(), anyInt());
+    verify(_entityClient, never()).ingestProposal(any(), any());
+    verify(_secretService, never()).decrypt(any(), anyString());
+    verify(_secretService, never()).generateUrlSafeToken(anyInt());
+  }
+
+  @Test
+  public void getInviteTokenForRoleAllowedWithManagePolicies() throws Exception {
+    allowManagePolicies();
+    final SearchResult searchResult = new SearchResult();
+    searchResult.setEntities(new SearchEntityArray());
+    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
+    when(_entityClient.filter(
+            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
+    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
+    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
+    when(_secretService.encrypt(any(), anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+
+    assertEquals(
+        _inviteTokenService.getInviteToken(opContext, ROLE_URN_STRING, true), INVITE_TOKEN_STRING);
+    verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
+  }
+
+  @Test
+  public void getInviteTokenWithoutRoleDoesNotRequireManagePolicies() throws Exception {
+    final SearchResult searchResult = new SearchResult();
+    searchResult.setEntities(new SearchEntityArray());
+    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
+    when(_entityClient.filter(
+            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
+    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
+    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
+    when(_secretService.encrypt(any(), anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+
+    assertEquals(_inviteTokenService.getInviteToken(opContext, null, true), INVITE_TOKEN_STRING);
+    assertEquals(_inviteTokenService.getInviteToken(opContext, "  ", false), INVITE_TOKEN_STRING);
+    verify(opContext, never()).authorize(anyString(), nullable(EntitySpec.class), any());
+  }
+
+  private void allowManagePolicies() {
+    when(opContext.authorize(eq("MANAGE_POLICIES"), nullable(EntitySpec.class), any()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+  }
+
+  private void denyManagePolicies() {
+    when(opContext.authorize(anyString(), nullable(EntitySpec.class), any()))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
   }
 
   @Test
