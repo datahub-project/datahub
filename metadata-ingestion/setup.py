@@ -222,7 +222,7 @@ aws_common = {
 
 path_spec_common = {
     "parse>=1.19.0,<2.0.0",
-    "wcmatch<11.0.0",
+    "wcmatch>=10.1,<11.0.0",
 }
 
 looker_common = {
