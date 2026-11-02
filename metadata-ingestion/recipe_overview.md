@@ -230,7 +230,7 @@ It is optional, but four features depend on it:
 - **Provenance.** Every aspect the run emits is stamped with `systemMetadata.pipelineName`, so you can tell which recipe wrote a given piece of metadata.
 - **`datahub ingest deploy`.** When `--urn` is not given, the command falls back to `pipeline_name` to decide whether to update an existing ingestion source or create a new one.
 
-Stateful ingestion turns on automatically when `pipeline_name` is set **and** the pipeline can reach DataHub (a `datahub-rest` sink, or an explicit `datahub_api`). Setting a name therefore enables state tracking for connectors that support it.
+Stateful ingestion turns on automatically when you omit the `stateful_ingestion` block entirely, `pipeline_name` is set, **and** the pipeline can reach DataHub (a `datahub-rest` sink, or an explicit `datahub_api`). If you write a `stateful_ingestion` block, it is disabled unless you set `enabled: true` in it.
 
 ### Use a unique pipeline name for every source configuration
 
@@ -409,6 +409,12 @@ failure_log:
 :::note Beta
 Recording and replay is in beta. The archive format may change between releases.
 :::
+
+Recording needs an optional extra; without it the run fails when recording starts:
+
+```bash
+pip install --upgrade 'acryl-datahub[debug-recording]'
+```
 
 | Field         | Type    | Required              | Default                                           | Description                                                           | Example                 |
 | ------------- | ------- | --------------------- | ------------------------------------------------- | --------------------------------------------------------------------- | ----------------------- |
