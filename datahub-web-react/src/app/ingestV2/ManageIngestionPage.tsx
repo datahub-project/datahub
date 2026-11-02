@@ -81,7 +81,11 @@ export const ManageIngestionPage = () => {
     const location = useLocation();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     const canManageIngestion = platformPrivileges?.manageIngestion;
-    const showIngestionTab = isIngestionEnabled && canManageIngestion;
+    // With the flag on, users without Manage Metadata Ingestion see the sources they can view.
+    const canViewIngestionSources = canManageIngestion || config?.featureFlags?.viewIngestionSourcePrivilegesEnabled;
+    const showIngestionTab = isIngestionEnabled && canViewIngestionSources;
+    // Run history lists executions of every source, so it stays limited to managers.
+    const showRunHistoryTab = isIngestionEnabled && canManageIngestion;
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
     const showIngestionOnboardingRedesignV1 = useIngestionOnboardingRedesignV1();
 
@@ -146,7 +150,7 @@ export const ManageIngestionPage = () => {
             // Check if current URL matches any tab URL
             const currentTab = Object.entries(tabUrlMap).find(([, url]) => url === currentPath)?.[0] as TabType;
 
-            if (currentTab) {
+            if (currentTab && !(currentTab === TabType.RunHistory && !showRunHistoryTab)) {
                 // We're on a valid tab URL, set that tab
                 setSelectedTab(currentTab);
             } else if (showIngestionTab) {
@@ -170,6 +174,7 @@ export const ManageIngestionPage = () => {
         loadedAppConfig,
         loadedPlatformPrivileges,
         showIngestionTab,
+        showRunHistoryTab,
         showSecretsTab,
         selectedTab,
         history,
@@ -198,7 +203,7 @@ export const ManageIngestionPage = () => {
             key: TabType.Sources as string,
             name: t('page.tabSources'),
         },
-        {
+        showRunHistoryTab && {
             component: (
                 <ExecutionsTab
                     shouldPreserveParams={shouldPreserveParams}

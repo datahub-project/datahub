@@ -1276,7 +1276,8 @@ public class GmsGraphQLEngine {
                     "getSecretValues",
                     new GetSecretValuesResolver(this.entityClient, this.secretService))
                 .dataFetcher(
-                    "listIngestionSources", new ListIngestionSourcesResolver(this.entityClient))
+                    "listIngestionSources",
+                    new ListIngestionSourcesResolver(this.entityClient, this.featureFlags))
                 .dataFetcher("ingestionSource", getResolver(ingestionSourceType))
                 .dataFetcher(
                     "listExecutionRequests", new ListExecutionRequestsResolver(this.entityClient))

@@ -4,8 +4,13 @@ import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.*;
 
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -24,7 +29,9 @@ import graphql.execution.MergedField;
 import graphql.language.Field;
 import graphql.language.SelectionSet;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -68,7 +75,8 @@ public class ListIngestionSourceResolverTest {
                                                 .setValue("snowflake")
                                                 .setFacetCount(1)))))));
 
-    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+    ListIngestionSourcesResolver resolver =
+        new ListIngestionSourcesResolver(mockClient, new FeatureFlags());
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -125,7 +133,8 @@ public class ListIngestionSourceResolverTest {
                 .setMetadata(
                     new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
 
-    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+    ListIngestionSourcesResolver resolver =
+        new ListIngestionSourcesResolver(mockClient, new FeatureFlags());
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -145,7 +154,8 @@ public class ListIngestionSourceResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+    ListIngestionSourcesResolver resolver =
+        new ListIngestionSourcesResolver(mockClient, new FeatureFlags());
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -175,7 +185,8 @@ public class ListIngestionSourceResolverTest {
     Mockito.doThrow(RemoteInvocationException.class)
         .when(mockClient)
         .batchGetV2(any(), Mockito.any(), Mockito.anySet(), Mockito.anySet());
-    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+    ListIngestionSourcesResolver resolver =
+        new ListIngestionSourcesResolver(mockClient, new FeatureFlags());
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -192,6 +203,142 @@ public class ListIngestionSourceResolverTest {
    * Builds a real query AST for {@code listIngestionSources { <selectedFields> }} so the resolver
    * reads the selection the same way it does at runtime.
    */
+  private static final Urn OTHER_INGESTION_SOURCE_URN =
+      UrnUtils.getUrn("urn:li:dataHubIngestionSource:other");
+
+  /**
+   * Actor without MANAGE_INGESTION (type-level checks are denied) who may read only the given
+   * ingestion source URNs.
+   */
+  private static QueryContext getMockViewerContext(Set<Urn> readableUrns) {
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
+    OperationContext opContext = Mockito.mock(OperationContext.class);
+    Mockito.when(mockContext.getOperationContext()).thenReturn(opContext);
+    Mockito.when(opContext.withSearchFlags(any())).thenReturn(opContext);
+    Mockito.when(opContext.authorize(any(), Mockito.nullable(EntitySpec.class), any()))
+        .thenAnswer(
+            invocation -> {
+              EntitySpec spec = invocation.getArgument(1);
+              boolean allow =
+                  spec != null
+                      && !spec.getEntity().isEmpty()
+                      && readableUrns.contains(UrnUtils.getUrn(spec.getEntity()));
+              return new AuthorizationResult(
+                  null, allow ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY, "");
+            });
+    return mockContext;
+  }
+
+  private static FeatureFlags viewPrivilegesEnabled() {
+    FeatureFlags featureFlags = new FeatureFlags();
+    featureFlags.setViewIngestionSourcePrivilegesEnabled(true);
+    return featureFlags;
+  }
+
+  private static SearchResult searchResultOf(Urn... urns) {
+    SearchEntityArray entities = new SearchEntityArray();
+    for (Urn urn : urns) {
+      entities.add(new SearchEntity().setEntity(urn));
+    }
+    return new SearchResult()
+        .setFrom(0)
+        .setPageSize(urns.length)
+        .setNumEntities(urns.length)
+        .setEntities(entities)
+        .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
+  }
+
+  @Test
+  public void testViewerSeesOnlyReadableSourcesWhenFlagEnabled() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                Mockito.eq(List.of(Constants.INGESTION_SOURCE_ENTITY_NAME)),
+                Mockito.eq(""),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(ListIngestionSourcesResolver.AUTHORIZED_SOURCES_SCAN_LIMIT),
+                Mockito.any(),
+                Mockito.eq(List.of())))
+        .thenReturn(searchResultOf(OTHER_INGESTION_SOURCE_URN, TEST_INGESTION_SOURCE_URN));
+
+    ListIngestionSourcesResolver resolver =
+        new ListIngestionSourcesResolver(mockClient, viewPrivilegesEnabled());
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    QueryContext viewerContext = getMockViewerContext(Set.of(TEST_INGESTION_SOURCE_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(viewerContext);
+    Mockito.when(mockEnv.getMergedField())
+        .thenReturn(
+            mergedListIngestionSourcesField(
+                "start", "count", "total", "ingestionSources", "facets"));
+    var result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getTotal(), 1);
+    assertEquals(result.getIngestionSources().size(), 1);
+    assertEquals(
+        result.getIngestionSources().get(0).getUrn(), TEST_INGESTION_SOURCE_URN.toString());
+    // Facets are aggregated over every matching source, so viewers never get them.
+    assertEquals(result.getFacets().size(), 0);
+  }
+
+  @Test
+  public void testViewerPaginationAppliesAfterAuthorizationFilter() throws Exception {
+    Urn first = UrnUtils.getUrn("urn:li:dataHubIngestionSource:first");
+    Urn hidden = UrnUtils.getUrn("urn:li:dataHubIngestionSource:hidden");
+    Urn second = UrnUtils.getUrn("urn:li:dataHubIngestionSource:second");
+    Urn third = UrnUtils.getUrn("urn:li:dataHubIngestionSource:third");
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                Mockito.eq(List.of(Constants.INGESTION_SOURCE_ENTITY_NAME)),
+                Mockito.eq(""),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(ListIngestionSourcesResolver.AUTHORIZED_SOURCES_SCAN_LIMIT),
+                Mockito.any(),
+                Mockito.eq(List.of())))
+        .thenReturn(searchResultOf(first, hidden, second, third));
+
+    ListIngestionSourcesResolver resolver =
+        new ListIngestionSourcesResolver(mockClient, viewPrivilegesEnabled());
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(new ListIngestionSourcesInput(1, 1, null, null, null));
+    QueryContext viewerContext = getMockViewerContext(Set.of(first, second, third));
+    Mockito.when(mockEnv.getContext()).thenReturn(viewerContext);
+    Mockito.when(mockEnv.getMergedField())
+        .thenReturn(mergedListIngestionSourcesField("start", "count", "total"));
+    var result = resolver.get(mockEnv).get();
+
+    assertEquals(result.getStart(), 1);
+    assertEquals(result.getCount(), 1);
+    assertEquals(result.getTotal(), 3);
+    assertEquals(result.getIngestionSources().size(), 1);
+    assertEquals(result.getIngestionSources().get(0).getUrn(), second.toString());
+  }
+
+  @Test
+  public void testViewerUnauthorizedWhenFlagDisabled() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    ListIngestionSourcesResolver resolver =
+        new ListIngestionSourcesResolver(mockClient, new FeatureFlags());
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    QueryContext viewerContext = getMockViewerContext(Set.of(TEST_INGESTION_SOURCE_URN));
+    Mockito.when(mockEnv.getContext()).thenReturn(viewerContext);
+
+    assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verifyNoInteractions(mockClient);
+  }
+
   private static MergedField mergedListIngestionSourcesField(final String... selectedFields) {
     final SelectionSet.Builder selectionSet = SelectionSet.newSelectionSet();
     for (String name : selectedFields) {
@@ -206,7 +353,8 @@ public class ListIngestionSourceResolverTest {
   void testDefaultBuildSortCriteria() {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+    ListIngestionSourcesResolver resolver =
+        new ListIngestionSourcesResolver(mockClient, new FeatureFlags());
 
     List<SortCriterion> result = resolver.buildSortCriteria(null);
 
@@ -217,7 +365,8 @@ public class ListIngestionSourceResolverTest {
   void testBuildSortCriteriaForNameField() {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+    ListIngestionSourcesResolver resolver =
+        new ListIngestionSourcesResolver(mockClient, new FeatureFlags());
 
     com.linkedin.datahub.graphql.generated.SortCriterion input =
         new com.linkedin.datahub.graphql.generated.SortCriterion();

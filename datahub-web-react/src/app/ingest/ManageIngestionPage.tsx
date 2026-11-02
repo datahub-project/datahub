@@ -79,7 +79,9 @@ export const ManageIngestionPage = () => {
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
-    const showIngestionTab = isIngestionEnabled && platformPrivileges?.manageIngestion;
+    const showIngestionTab =
+        isIngestionEnabled &&
+        (platformPrivileges?.manageIngestion || config?.featureFlags?.viewIngestionSourcePrivilegesEnabled);
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
 
     // undefined == not loaded, null == no permissions
