@@ -57,8 +57,11 @@ import {
 const MODE = process.env.SEARCH_RANKING_MODE;
 
 const corpus = buildRankingCorpus();
-/** Extra rows read past the requested depth, so other data on a shared stack cannot crowd out the catalog. */
-const FOREIGN_ROWS = 60;
+/**
+ * Extra rows read past the requested depth, so other data on a shared stack (for example an earlier
+ * copy of this catalog under other names) cannot crowd out the catalog. RANKING_FOREIGN_ROWS overrides.
+ */
+const FOREIGN_ROWS = Number(process.env.RANKING_FOREIGN_ROWS ?? 300);
 const byUrn = new Map(corpus.map((e) => [e.urn, e]));
 
 /** Entries the rule places: every match except values that differ from the query only in separators. */
