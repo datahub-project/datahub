@@ -889,6 +889,10 @@ def test_extract_table_name_and_path_with_table() -> None:
         ("s3://bucket/{table}/**", [], True),
         ("s3://bucket/{table}/*.csv", ["*/temp/*", "*/staging/*"], False),
         ("s3://bucket/data/*/*.parquet", ["*/_delta_log/*"], False),
+        # Included paths that an exclude also matches, so the "exclude" verdict runs.
+        ("s3://bucket/{table}/*.csv", ["s3://bucket/table/*.csv"], False),
+        ("s3://bucket/{table}/**", ["**/temp/**", "**/staging/*"], True),
+        ("s3://bucket/data/*/*.parquet", ["s3://bucket/data/t1/*"], False),
     ],
 )
 def test_rejection_reason_matches_reference_globmatch(
