@@ -1,8 +1,9 @@
 """The scope gate for `probe run sql`: one SELECT that reads only catalog relations.
 
 Fail-closed at every step. Refused: an unresolvable dialect or unparseable query;
-a write anywhere in the tree; a vendor function; server or session state; a
-withheld column name, an alias column list or a NATURAL JOIN; a reference outside
+a write anywhere in the tree; a vendor function; a model call, decryption, a file
+or secret read, or a sequence increment; server or session state; a withheld
+column name, an alias column list or a NATURAL JOIN; a reference outside
 the connector's CatalogScope; and a query that reads no relation at all.
 
 The gate bounds which relations a query may name, and the credential's grants
@@ -210,8 +211,8 @@ def check_query_scope(
         )
 
     # Before the table walk: `SELECT pg_read_file('/etc/passwd')` names no table.
-    _check_functions(statement)
-    _check_server_state(statement)
+    _check_functions(statement, dialect)
+    _check_server_state(statement, dialect)
     # The first of two layers over redact.WITHHELD_COLUMN_NAMES, deliberately
     # one constant: the gate refuses a query naming a withheld column (the
     # caller chooses output names), mask_identity_columns covers `SELECT *`.
@@ -316,6 +317,8 @@ _REFUSED_FUNCTION_CLASSES: FrozenSet[str] = frozenset(
         "ReadCSV",
         "ReadParquet",
         "ToFile",
+        # Databricks secret(); sqlglot models it from 30.22, before which it is
+        # exp.Anonymous and refused by the vendor-function rule.
         "Secret",
         "NextValueFor",
     }
@@ -334,11 +337,22 @@ def _is_refused_function(func: exp.Func) -> bool:
     )
 
 
-def _check_functions(statement: exp.Expr) -> None:
+def _function_label(func: exp.Func, dialect: sqlglot.Dialect) -> str:
+    """The function's name as the query wrote it: `ML.FORECAST`, not the
+    `M_L_FORECAST` that sql_name() makes of the MLForecast class."""
+    # BigQuery's AI.* / ML.* calls parse as a Dot around the function, which on
+    # its own renders without the namespace.
+    node: exp.Expr = func
+    while isinstance(node.parent, exp.Dot):
+        node = node.parent
+    return node.sql(dialect=dialect).split("(", 1)[0].strip()
+
+
+def _check_functions(statement: exp.Expr, dialect: sqlglot.Dialect) -> None:
     for func in statement.find_all(exp.Func):
         if _is_refused_function(func):
             raise SqlScopeError(
-                f"'{func.sql_name()}' reaches beyond catalog metadata (a model, a "
+                f"'{_function_label(func, dialect)}' reaches beyond catalog metadata (a model, a "
                 f"secret, a file or a sequence); only standard SQL over catalog "
                 f"tables is permitted"
             )
@@ -385,11 +399,14 @@ _CLOCK_FUNCTIONS: FrozenSet[str] = frozenset(
         "CurrentTime",
         "CurrentTimestamp",
         "CurrentTimestampLTZ",
+        # The session's time zone: it says no more than a clock does, and a probe
+        # formatting timestamps may need it.
+        "CurrentTimezone",
     }
 )
 
 
-def _check_server_state(statement: exp.Expr) -> None:
+def _check_server_state(statement: exp.Expr, dialect: sqlglot.Dialect) -> None:
     """Refuse server or session state (`@@datadir`, CURRENT_USER, VERSION())
     anywhere, a UNION branch beside a real catalog table included."""
     for param in statement.find_all(exp.SessionParameter):
@@ -411,7 +428,7 @@ def _check_server_state(statement: exp.Expr) -> None:
         name = type(func).__name__
         if name.startswith("Current") and name not in _CLOCK_FUNCTIONS:
             raise SqlScopeError(
-                f"'{func.sql_name()}' reads server or session state rather than "
+                f"'{_function_label(func, dialect)}' reads server or session state rather than "
                 f"catalog metadata; only SELECTs over catalog tables are permitted"
             )
 
