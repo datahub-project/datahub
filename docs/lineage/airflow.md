@@ -672,6 +672,7 @@ _Changes_
 - New `dataset_pattern` option to drop individual inlets and outlets by `<platform>:<name>` pattern. See [Filtering inlets and outlets](#filtering-inlets-and-outlets).
 - `file` datasets reported through OpenLineage (worker scratch paths) are no longer captured by default; set `capture_ol_file_datasets = true` to keep them. BigQuery tables in hidden `_`-prefixed datasets are dropped by default; set `capture_bigquery_temp_datasets = true` to keep them.
 - Airflow Assets with a `file:///` URI keep the leading slash in the dataset name (`file:///tmp/x` becomes `/tmp/x`, not `tmp/x`), matching OpenLineage and the Spark agent.
+- DataFlows now carry a `schedule` custom property with the DAG's schedule as the Airflow UI shows it (for example `0 6 * * *`, `2:00:00` or `Asset`; `None` for an unscheduled DAG). The value is the same whether the DAG-run or the task hooks emitted the DataFlow. If the schedule cannot be resolved, for example a custom timetable that isn't registered through an Airflow plugin, the property is omitted and a warning is logged ([#20101](https://github.com/datahub-project/datahub/pull/20101)).
 
 ### Versions 1.7.0 through 1.7.0.10
 
