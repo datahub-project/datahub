@@ -15,6 +15,17 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
     "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:66c5ac35f0bfc521dee6f7d9533a8056",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
