@@ -38,9 +38,11 @@ def _execute_by_query(
     describe_rows: Sequence[Sequence[Any]] = (),
     column_comment_rows: Sequence[Sequence[Any]] = (),
     table_comment_rows: Sequence[Sequence[Any]] = (),
+    table_catalog: Optional[str] = "my_catalog",
 ) -> Callable[..., List[Sequence[Any]]]:
-    """Answer each statement the dialect issues with its own rows. Requires `text`
-    to be patched to pass the SQL string through unchanged."""
+    """Answer each statement the dialect issues with its own rows, each comment row
+    led by `table_catalog` as its TABLE_CATALOG. Requires `text` to be patched to
+    pass the SQL string through unchanged."""
 
     def execute(
         statement: str, params: Optional[Dict[str, Any]] = None
@@ -48,9 +50,9 @@ def _execute_by_query(
         if statement.startswith("DESCRIBE"):
             return list(describe_rows)
         if "information_schema.COLUMNS" in statement:
-            return list(column_comment_rows)
+            return [(table_catalog, *row) for row in column_comment_rows]
         if "information_schema.TABLES" in statement:
-            return list(table_comment_rows)
+            return [(table_catalog, *row) for row in table_comment_rows]
         raise AssertionError(f"Unexpected statement: {statement}")
 
     return execute
@@ -196,6 +198,8 @@ class TestDorisDialect:
     def test_get_columns_success(self, mock_text):
         """Test get_columns() successfully fetches and parses DESCRIBE output."""
         dialect = DorisDialect()
+        # The mock answers every statement with DESCRIBE rows.
+        dialect.read_comments = False
 
         # Mock connection and result
         mock_connection = Mock()
@@ -433,6 +437,8 @@ class TestDorisDialect:
         """A missing grant degrades the same way an async MV does, but must not be
         reported under the same benign heading."""
         dialect = DorisDialect()
+        # The mock answers every statement with DESCRIBE rows.
+        dialect.read_comments = False
 
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_db"
@@ -456,6 +462,8 @@ class TestDorisDialect:
         """The MySQL DDL parser raises TypeError (not SQLAlchemyError) building
         NullType(*args) for a type it cannot model, so that branch must degrade too."""
         dialect = DorisDialect()
+        # The mock answers every statement with DESCRIBE rows.
+        dialect.read_comments = False
 
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_db"
@@ -479,6 +487,8 @@ class TestDorisDialect:
         """The NullType anchor keeps an unrelated 'takes no arguments' TypeError from
         being waved through under the benign heading."""
         dialect = DorisDialect()
+        # The mock answers every statement with DESCRIBE rows.
+        dialect.read_comments = False
 
         mock_connection = Mock()
         mock_connection.engine.url.database = "my_db"
@@ -761,6 +771,27 @@ class TestDorisComments:
         for call in comment_calls:
             assert "TABLE_SCHEMA = :schema" in call.args[0]
             assert " IN " not in call.args[0].upper()
+            # Naming the catalog's information_schema costs the push-down.
+            assert "FROM information_schema." in call.args[0]
+
+    @pytest.mark.parametrize("table_catalog", ["internal", None])
+    def test_another_catalogs_rows_do_not_lend_their_comments(
+        self, mock_text, table_catalog
+    ):
+        """Before Doris 2.1 an external catalog has no information_schema, so the
+        internal catalog's answers, including any same-named database's rows."""
+        dialect = DorisDialect()
+        mock_connection = Mock()
+        mock_connection.engine.url.database = "my_catalog.my_db"
+        mock_connection.execute.side_effect = _execute_by_query(
+            column_comment_rows=[("my_table", "col_a", "Internal table's comment")],
+            table_catalog=table_catalog,
+        )
+
+        columns = self._get_columns(dialect, mock_connection, "my_table")
+
+        assert columns[0]["comment"] is None
+        assert list(dialect.pop_comment_lookup_failures()) == ["my_catalog.my_db"]
 
     def test_internal_catalog_never_retries_with_qualified_name(self, mock_text):
         """Outside an external catalog the bare and qualified names are the same, so
@@ -774,6 +805,7 @@ class TestDorisComments:
 
         assert columns[2]["comment"] == "Parsed from DDL"
         assert _count_queries(mock_connection, "information_schema.COLUMNS") == 1
+        assert _count_queries(mock_connection, "FROM information_schema.COLUMNS") == 1
 
     def test_paimon_catalog_ddl_gets_comments_from_information_schema(self, mock_text):
         """A Paimon table's DDL quotes every column comment with double quotes, so
@@ -1019,3 +1051,13 @@ class TestDorisComments:
 
         assert columns[0]["comment"] is None
         assert _count_queries(mock_connection, "information_schema") == 0
+
+    def test_names_are_matched_by_lower_casing_like_doris(self, mock_text):
+        """casefold() would match `strasse` to `straße`; Doris' toLowerCase does not."""
+        _, table_comment = self._comments_for(
+            "strasse",
+            column_comment_rows=[],
+            table_comment_rows=[("straße", "Another table")],
+        )
+
+        assert table_comment == {"text": None}

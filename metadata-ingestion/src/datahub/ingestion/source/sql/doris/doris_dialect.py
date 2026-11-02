@@ -2,7 +2,8 @@ import functools
 import logging
 import re
 import warnings
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 from typing import (
     Any,
     Dict,
@@ -140,13 +141,15 @@ _DESCRIBE_DEFAULT_INDEX = 4
 # down into the information_schema scan, and anything else (IN, OR) makes it walk
 # every database and table in the catalog first, which on an external catalog means
 # loading every remote schema and can run for minutes.
+# TABLE_CATALOG is selected rather than filtered on, for the same reason: it lets the
+# rows be checked against the expected catalog without touching the push-down.
 _COLUMN_COMMENTS_SQL = (
-    "SELECT TABLE_NAME, COLUMN_NAME, COLUMN_COMMENT FROM information_schema.COLUMNS "
-    "WHERE TABLE_SCHEMA = :schema"
+    "SELECT TABLE_CATALOG, TABLE_NAME, COLUMN_NAME, COLUMN_COMMENT "
+    "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = :schema"
 )
 _TABLE_COMMENTS_SQL = (
-    "SELECT TABLE_NAME, TABLE_COMMENT FROM information_schema.TABLES "
-    "WHERE TABLE_SCHEMA = :schema"
+    "SELECT TABLE_CATALOG, TABLE_NAME, TABLE_COMMENT "
+    "FROM information_schema.TABLES WHERE TABLE_SCHEMA = :schema"
 )
 
 _CommentValue = TypeVar("_CommentValue")
@@ -163,8 +166,12 @@ class ReflectionFallback:
 @dataclass(frozen=True)
 class CommentScope:
     database: str
-    # `catalog.database` for an external catalog, otherwise the same as `database`.
-    qualified_database: str
+    # The external catalog the database belongs to, or None for the internal one.
+    catalog: Optional[str]
+
+    @property
+    def qualified_database(self) -> str:
+        return f"{self.catalog}.{self.database}" if self.catalog else self.database
 
 
 @dataclass(frozen=True)
@@ -181,25 +188,23 @@ class CommentIndex(Generic[_CommentValue]):
     # Every name information_schema returned, including those without a comment, so
     # that an uncommented name is an exact hit rather than a miss that falls through
     # to a case-insensitive sibling.
-    entries: Dict[str, Optional[_CommentValue]]
-    # Casefolded name to the single name that folds to it, or None when several do
-    # and the match would be a guess.
-    folded: Dict[str, Optional[str]]
+    entries: Mapping[str, Optional[_CommentValue]]
+    # Lower-cased name to the one name that lower-cases to it. Names that collide are
+    # left out, since picking one of them would be a guess. lower() rather than
+    # casefold(), which folds further (ß to ss) than Doris' own Java toLowerCase.
+    _lowered: Dict[str, str] = field(init=False, repr=False, compare=False)
 
-    @classmethod
-    def build(
-        cls, entries: Dict[str, Optional[_CommentValue]]
-    ) -> "CommentIndex[_CommentValue]":
-        folded: Dict[str, Optional[str]] = {}
-        for name in entries:
-            key = name.casefold()
-            folded[key] = None if key in folded else name
-        return cls(entries=entries, folded=folded)
+    def __post_init__(self) -> None:
+        counts = Counter(name.lower() for name in self.entries)
+        lowered = {
+            name.lower(): name for name in self.entries if counts[name.lower()] == 1
+        }
+        object.__setattr__(self, "_lowered", lowered)
 
     def get(self, name: str) -> Optional[_CommentValue]:
         if name in self.entries:
             return self.entries[name]
-        match = self.folded.get(name.casefold())
+        match = self._lowered.get(name.lower())
         return None if match is None else self.entries[match]
 
 
@@ -460,15 +465,13 @@ class DorisDialect(MySQLDialect_pymysql):
     ) -> CommentIndex[CommentIndex[str]]:
         if scope not in self._column_comment_cache:
             tables: Dict[str, Dict[str, Optional[str]]] = {}
-            for row in self._query_comments(connection, _COLUMN_COMMENTS_SQL, scope):
-                tables.setdefault(str(row[0]), {})[str(row[1])] = _non_empty_comment(
-                    row[2]
+            rows = self._query_comments(connection, _COLUMN_COMMENTS_SQL, scope)
+            for table, column, comment in rows:
+                tables.setdefault(str(table), {})[str(column)] = _non_empty_comment(
+                    comment
                 )
-            self._column_comment_cache[scope] = CommentIndex.build(
-                {
-                    table: CommentIndex.build(columns)
-                    for table, columns in tables.items()
-                }
+            self._column_comment_cache[scope] = CommentIndex(
+                {table: CommentIndex(columns) for table, columns in tables.items()}
             )
         return self._column_comment_cache[scope]
 
@@ -476,13 +479,9 @@ class DorisDialect(MySQLDialect_pymysql):
         self, connection: Connection, scope: CommentScope
     ) -> CommentIndex[str]:
         if scope not in self._table_comment_cache:
-            self._table_comment_cache[scope] = CommentIndex.build(
-                {
-                    str(row[0]): _non_empty_comment(row[1])
-                    for row in self._query_comments(
-                        connection, _TABLE_COMMENTS_SQL, scope
-                    )
-                }
+            rows = self._query_comments(connection, _TABLE_COMMENTS_SQL, scope)
+            self._table_comment_cache[scope] = CommentIndex(
+                {str(table): _non_empty_comment(comment) for table, comment in rows}
             )
         return self._table_comment_cache[scope]
 
@@ -490,20 +489,18 @@ class DorisDialect(MySQLDialect_pymysql):
         self, connection: Connection, sql: str, scope: CommentScope
     ) -> List[Sequence[Any]]:
         qualified_database = scope.qualified_database
+        statement = text(sql)
         try:
             # An external catalog keys its rows by the bare database name by default,
-            # and by `catalog.database` once the global
-            # show_full_dbname_in_info_schema_db is on. Trying the bare name first
-            # and the qualified one only on a miss keeps each query an equality the
-            # server can push down; a miss costs one cheap empty query.
+            # and by `catalog.database` once show_full_dbname_in_info_schema_db is on.
+            # The bare name goes first, and a miss costs one cheap empty query.
             rows: List[Sequence[Any]] = list(
-                connection.execute(text(sql), {"schema": scope.database})
+                connection.execute(statement, {"schema": scope.database})
             )
             if not rows and qualified_database != scope.database:
                 rows = list(
-                    connection.execute(text(sql), {"schema": qualified_database})
+                    connection.execute(statement, {"schema": qualified_database})
                 )
-            return rows
         except SQLAlchemyError as e:
             if _is_connection_lost(e):
                 # A dropped connection is not a missing grant: every later statement
@@ -522,6 +519,30 @@ class DorisDialect(MySQLDialect_pymysql):
                 f"will have no descriptions."
             )
             return []
+        return self._rows_in_catalog(rows, scope)
+
+    def _rows_in_catalog(
+        self, rows: List[Sequence[Any]], scope: CommentScope
+    ) -> List[Sequence[Any]]:
+        """Drop the leading TABLE_CATALOG column, keeping only the scope's own rows.
+
+        Before Doris 2.1 an external catalog has no information_schema of its own
+        (apache/doris#28919), so the query reads the internal catalog's, where a
+        database of the same name would lend its comments to the external tables.
+        Naming `<catalog>`.information_schema instead would fail there, but it made
+        the lookup tens of times slower on a Paimon catalog, so the rows are checked.
+        """
+        if scope.catalog is None:
+            return [row[1:] for row in rows]
+        matching = [row[1:] for row in rows if row[0] == scope.catalog]
+        if rows and not matching:
+            self.comment_lookup_failures.setdefault(
+                scope.qualified_database,
+                f"information_schema returned rows of catalog {rows[0][0]!r} rather "
+                f"than {scope.catalog!r}; per-catalog information_schema needs "
+                f"Doris 2.1 or later",
+            )
+        return matching
 
     def _comment_scope(
         self, connection: Connection, schema: Optional[str]
@@ -535,10 +556,7 @@ class DorisDialect(MySQLDialect_pymysql):
         catalog, _, database = current_schema.rpartition(".")
         if not catalog:
             catalog = (connection.engine.url.database or "").rpartition(".")[0]
-        return CommentScope(
-            database=database,
-            qualified_database=f"{catalog}.{database}" if catalog else database,
-        )
+        return CommentScope(database=database, catalog=catalog or None)
 
     def _overlay_doris_types(
         self, connection: Connection, full_name: str, columns: List[ReflectedColumn]

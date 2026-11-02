@@ -6,7 +6,7 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 Table and column comments are read from `information_schema.TABLES` and `information_schema.COLUMNS`, with one query each per database (two when an external catalog needs the retry below), and ingested as dataset and field descriptions. They are not taken from `SHOW CREATE TABLE`: Doris writes comments there in double quotes, which the MySQL DDL parser does not read.
 
-External catalogs (Paimon, Hive, Iceberg, …) are covered the same way on Doris 2.1 and later, where each catalog has its own `information_schema` ([apache/doris#28919](https://github.com/apache/doris/pull/28919)). When the global `show_full_dbname_in_info_schema_db` is enabled, those rows are keyed by `catalog.database`, and the source retries with that name when the bare one returns nothing.
+External catalogs (Paimon, Hive, Iceberg, …) are covered the same way on Doris 2.1 and later, where each catalog has its own `information_schema` ([apache/doris#28919](https://github.com/apache/doris/pull/28919)). On older versions the query reads the internal catalog's `information_schema` instead; the source detects those rows by their `TABLE_CATALOG`, ignores them and reports "Doris table and column comments unavailable". When the global `show_full_dbname_in_info_schema_db` is enabled, an external catalog's rows are keyed by `catalog.database`, and the source retries with that name when the bare one returns nothing.
 
 #### Migration from MySQL Connector
 
