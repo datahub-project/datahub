@@ -4,13 +4,19 @@ import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ParentDocumentsResult;
@@ -24,9 +30,12 @@ import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.knowledge.ParentDocument;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.lang.reflect.Field;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -259,6 +268,48 @@ public class ParentDocumentsResolverTest {
 
     assertEquals(result.getCount(), 1);
     assertEquals(result.getDocuments().get(0).getUrn(), p1.toString());
+  }
+
+  @Test
+  public void testHiddenParentStopsChain() throws Exception {
+    Urn source = Urn.createFromString("urn:li:document:h-source");
+    Urn visibleParent = Urn.createFromString("urn:li:document:h-visible");
+    Urn hiddenParent = Urn.createFromString("urn:li:document:h-hidden");
+    Urn aboveHidden = Urn.createFromString("urn:li:document:h-above");
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    stubDocInfo(mockClient, source, visibleParent);
+    stubFullDoc(mockClient, visibleParent, hiddenParent);
+    stubFullDoc(mockClient, hiddenParent, aboveHidden);
+    stubFullDoc(mockClient, aboveHidden, null);
+
+    ExecutorService previous = GraphQLConcurrencyUtils.getExecutorService();
+    GraphQLConcurrencyUtils.setExecutorService(MoreExecutors.newDirectExecutorService());
+    try (MockedStatic<AuthorizationUtils> authorizationUtils =
+        Mockito.mockStatic(AuthorizationUtils.class, CALLS_REAL_METHODS)) {
+      authorizationUtils
+          .when(
+              () ->
+                  AuthorizationUtils.canViewDocument(
+                      any(),
+                      eq(hiddenParent),
+                      nullable(DocumentInfo.class),
+                      nullable(SubTypes.class)))
+          .thenReturn(false);
+
+      ParentDocumentsResult result =
+          new ParentDocumentsResolver(mockClient).get(envFor(source, 50)).get();
+
+      assertEquals(result.getCount(), 1);
+      assertEquals(result.getDocuments().get(0).getUrn(), visibleParent.toString());
+      assertNotNull(result.getDocuments().get(0).getInfo());
+      Mockito.verify(mockClient, Mockito.never())
+          .getV2(any(), eq(DOCUMENT_ENTITY_NAME), eq(aboveHidden), any());
+    } finally {
+      Field executor = GraphQLConcurrencyUtils.class.getDeclaredField("graphQLExecutorService");
+      executor.setAccessible(true);
+      executor.set(null, previous);
+    }
   }
 
   @Test
