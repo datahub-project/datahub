@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -593,6 +594,37 @@ class TestAwsCommon:
             client2 = config.get_s3_client()
             assert client2 is not client1
             assert mock_get_session.call_count == 2
+
+    def test_get_s3_client_rebuilt_after_another_getter_refreshed_credentials(self):
+        """
+        get_session re-assumes the role for any client getter, so a refresh can
+        happen outside get_s3_client. The swapped credentials carry a fresh
+        expiry, so the expiry check alone would keep serving the client built
+        with the old keys.
+        """
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+        config._cached_credentials = {"AccessKeyId": "OLD_KEY"}
+        config._credentials_expiration = datetime.now(timezone.utc) + timedelta(hours=1)
+
+        with patch.object(AwsConnectionConfig, "get_session") as mock_get_session:
+            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
+                MagicMock()
+            )
+            client1 = config.get_s3_client()
+            assert config.get_s3_client() is client1
+
+            # What get_session does when e.g. get_glue_client triggers a refresh.
+            config._cached_credentials = {"AccessKeyId": "NEW_KEY"}
+            config._credentials_expiration = datetime.now(timezone.utc) + timedelta(
+                hours=1
+            )
+
+            client2 = config.get_s3_client()
+            assert client2 is not client1
+            assert config.get_s3_client() is client2
 
     def test_get_s3_client_cached_when_role_matches_ambient_identity(self):
         """

@@ -285,6 +285,8 @@ class AwsConnectionConfig(ConfigModel):
 
     _credentials_expiration: Optional[datetime] = None
     _cached_credentials: Optional[dict] = None
+    # The assumed-role credentials the cached S3 clients were built with.
+    _s3_client_cache_credentials: Optional[dict] = None
     # boto3 clients are thread-safe (Sessions are not), so cached clients may be
     # shared across threads; only construction is guarded by the lock.
     _s3_client_cache: Dict[Optional[Union[bool, str]], "S3Client"] = PrivateAttr(
@@ -502,10 +504,15 @@ class AwsConnectionConfig(ConfigModel):
             # it rather than on aws_role merely being configured, else a role that
             # matches the ambient identity (never assumed, so no expiry recorded)
             # would rebuild the client on every call.
+            # Another client getter (e.g. get_glue_client) may already have
+            # re-assumed the role through get_session, which swaps
+            # _cached_credentials and pushes the expiry out; the cached clients
+            # still hold the old keys then, so compare against what they were
+            # built with.
             if (
                 self._cached_credentials is not None
                 and self._should_refresh_credentials()
-            ):
+            ) or self._cached_credentials is not self._s3_client_cache_credentials:
                 self._s3_client_cache.clear()
             if verify_ssl not in self._s3_client_cache:
                 self._s3_client_cache[verify_ssl] = self.get_session().client(
@@ -514,6 +521,7 @@ class AwsConnectionConfig(ConfigModel):
                     config=self._aws_config(),
                     verify=verify_ssl,
                 )
+                self._s3_client_cache_credentials = self._cached_credentials
             return self._s3_client_cache[verify_ssl]
 
     def close_cached_s3_clients(self) -> None:

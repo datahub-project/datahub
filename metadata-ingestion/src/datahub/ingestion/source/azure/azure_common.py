@@ -1,4 +1,5 @@
-from typing import Optional, Union
+import threading
+from typing import ClassVar, Optional, Union
 
 from azure.identity import ClientSecretCredential
 from azure.storage.blob import BlobServiceClient
@@ -24,6 +25,9 @@ class AzureConnectionConfig(ConfigModel):
     # (ClientSecretCredential refreshes its own tokens).
     _blob_service_client: Optional[BlobServiceClient] = None
     _data_lake_service_client: Optional[DataLakeServiceClient] = None
+    # Class-level for the same reason as AwsConnectionConfig._s3_client_lock: a
+    # lock can't be deep-copied. Only guards the one-time client construction.
+    _client_lock: ClassVar[threading.Lock] = threading.Lock()
 
     base_path: str = Field(
         default="/",
@@ -75,32 +79,34 @@ class AzureConnectionConfig(ConfigModel):
         )
 
     def get_blob_service_client(self):
-        if self._blob_service_client is None:
-            self._blob_service_client = (
-                BlobServiceClient.from_connection_string(
-                    self.connection_string.get_secret_value()
+        with self._client_lock:
+            if self._blob_service_client is None:
+                self._blob_service_client = (
+                    BlobServiceClient.from_connection_string(
+                        self.connection_string.get_secret_value()
+                    )
+                    if self.connection_string is not None
+                    else BlobServiceClient(
+                        account_url=f"https://{self.account_name}.blob.core.windows.net",
+                        credential=self.get_credentials(),
+                    )
                 )
-                if self.connection_string is not None
-                else BlobServiceClient(
-                    account_url=f"https://{self.account_name}.blob.core.windows.net",
-                    credential=self.get_credentials(),
-                )
-            )
-        return self._blob_service_client
+            return self._blob_service_client
 
     def get_data_lake_service_client(self) -> DataLakeServiceClient:
-        if self._data_lake_service_client is None:
-            self._data_lake_service_client = (
-                DataLakeServiceClient.from_connection_string(
-                    self.connection_string.get_secret_value()
+        with self._client_lock:
+            if self._data_lake_service_client is None:
+                self._data_lake_service_client = (
+                    DataLakeServiceClient.from_connection_string(
+                        self.connection_string.get_secret_value()
+                    )
+                    if self.connection_string is not None
+                    else DataLakeServiceClient(
+                        account_url=f"https://{self.account_name}.dfs.core.windows.net",
+                        credential=self.get_credentials(),
+                    )
                 )
-                if self.connection_string is not None
-                else DataLakeServiceClient(
-                    account_url=f"https://{self.account_name}.dfs.core.windows.net",
-                    credential=self.get_credentials(),
-                )
-            )
-        return self._data_lake_service_client
+            return self._data_lake_service_client
 
     def get_credentials(
         self,
