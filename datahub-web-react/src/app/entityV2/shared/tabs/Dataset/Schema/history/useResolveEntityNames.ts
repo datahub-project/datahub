@@ -8,9 +8,13 @@ import { ChangeTransaction, Entity } from '@types';
 const URN_PREFIX = 'urn:li:';
 
 /**
- * Collects all entity URNs referenced in timeline change events (from modifier
- * and parameters) and batch-resolves them to display names via a single GraphQL
- * query using the entityDisplayNameFields fragment.
+ * Collects all entity URNs referenced in timeline change events (from modifier,
+ * parameters, and the transaction actor) and batch-resolves them to display
+ * names via a single GraphQL query using the entityDisplayNameFields fragment.
+ *
+ * Including the actor here lets the change-history sidebar show a CorpUser's
+ * configured display name (e.g. a service account's "example_ingestion_service")
+ * instead of falling back to its raw username segment of the actor URN.
  *
  * Returns a Map<string, string> from URN → human-readable display name.
  */
@@ -22,6 +26,9 @@ export function useResolveEntityNames(transactions: ChangeTransaction[] | undefi
         const urnSet = new Set<string>();
 
         transactions.forEach((tx) => {
+            if (tx.actor?.startsWith(URN_PREFIX)) {
+                urnSet.add(tx.actor);
+            }
             (tx.changes ?? []).forEach((change) => {
                 if (change?.modifier?.startsWith(URN_PREFIX)) {
                     urnSet.add(change.modifier);

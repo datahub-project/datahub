@@ -149,9 +149,10 @@ class TestDiscoveryPriority:
             make_table(), PROJECT, SCHEMA, execute, cached_partition_metadata=cached
         )
 
-        # Nothing populated -> profiled unfiltered, but with an explicit warning.
-        assert filters == []
-        assert warnings_titled(report, "Profiled without a partition filter")
+        # Nothing populated -> narrowed to a guessed date partition, with a warning.
+        assert filters is not None and len(filters) == 1
+        assert filters[0].startswith("`dt` >= '"), filters
+        assert warnings_titled(report, "Partition discovery guessed a fallback date")
         assert not any("INFORMATION_SCHEMA.COLUMNS" in q for q in queries)
 
     def test_zero_scan_max_partition_id_wins_over_information_schema(self) -> None:

@@ -35,7 +35,7 @@
                 "auto_generate_synonyms_phrase_query" : true,
                 "boost" : 1.0,
                 "default_operator" : "or",
-                "fields" : [ "glossaryTerms.stemmed^0.1", "tags.text^0.2", "other.stemmed^0.1", "description.stemmed^0.2", "tags.stemmed^0.1", "description.text^0.4", "name.text^4.0", "name.stemmed^2.0", "glossaryTerms.text^0.2", "other.text^0.2" ],
+                "fields" : [ "text.stemmed^0.2", "glossaryTerms.stemmed^0.1", "tags.text^0.2", "other.stemmed^0.1", "description.stemmed^0.2", "tags.stemmed^0.1", "description.text^0.4", "glossaryTerms.text^0.2", "other.text^0.2", "text.text^0.4" ],
                 "flags" : -1,
                 "fuzzy_max_expansions" : 10,
                 "fuzzy_prefix_length" : 0,
@@ -48,7 +48,33 @@
                 "auto_generate_synonyms_phrase_query" : true,
                 "boost" : 1.0,
                 "default_operator" : "or",
+                "fields" : [ "name.text^4.0", "name.stemmed^2.0" ],
+                "flags" : -1,
+                "fuzzy_max_expansions" : 50,
+                "fuzzy_prefix_length" : 0,
+                "fuzzy_transpositions" : true,
+                "query" : "customer~2 orders~1"
+              }
+            }, {
+              "simple_query_string" : {
+                "analyze_wildcard" : false,
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 1.0,
+                "default_operator" : "or",
                 "fields" : [ "qualifiedName.text^4.0", "qualifiedName.stemmed^2.0" ],
+                "flags" : -1,
+                "fuzzy_max_expansions" : 50,
+                "fuzzy_prefix_length" : 0,
+                "fuzzy_transpositions" : true,
+                "query" : "customer~2 orders~1"
+              }
+            }, {
+              "simple_query_string" : {
+                "analyze_wildcard" : false,
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 1.0,
+                "default_operator" : "or",
+                "fields" : [ "id.text^0.8", "id.stemmed^0.4" ],
                 "flags" : -1,
                 "fuzzy_max_expansions" : 50,
                 "fuzzy_prefix_length" : 0,
@@ -98,6 +124,7 @@
             }, {
               "term" : {
                 "name" : {
+                  "_name" : "matchedField:name",
                   "boost" : 100.0,
                   "case_insensitive" : true,
                   "value" : "customer orders"
@@ -106,6 +133,16 @@
             }, {
               "term" : {
                 "qualifiedName" : {
+                  "_name" : "matchedField:qualifiedName",
+                  "boost" : 100.0,
+                  "case_insensitive" : true,
+                  "value" : "customer orders"
+                }
+              }
+            }, {
+              "term" : {
+                "id" : {
+                  "_name" : "matchedField:id",
                   "boost" : 100.0,
                   "case_insensitive" : true,
                   "value" : "customer orders"
@@ -131,6 +168,19 @@
                 "boost" : 3.0,
                 "default_operator" : "and",
                 "fields" : [ "qualifiedName.text^4.0", "qualifiedName.stemmed^2.0" ],
+                "flags" : -1,
+                "fuzzy_max_expansions" : 50,
+                "fuzzy_prefix_length" : 0,
+                "fuzzy_transpositions" : true,
+                "query" : "customer orders"
+              }
+            }, {
+              "simple_query_string" : {
+                "analyze_wildcard" : false,
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 3.0,
+                "default_operator" : "and",
+                "fields" : [ "id.text^0.8", "id.stemmed^0.4" ],
                 "flags" : -1,
                 "fuzzy_max_expansions" : 50,
                 "fuzzy_prefix_length" : 0,
