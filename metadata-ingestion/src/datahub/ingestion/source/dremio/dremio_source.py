@@ -286,6 +286,7 @@ class DremioSource(StatefulIngestionSourceBase):
         self.sql_parsing_aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.get_platform()),
             platform_instance=self.config.platform_instance,
+            emit_query_platform_instance=self.config.emit_query_platform_instance,
             env=self.config.env,
             schema_resolver=self.dremio_schema_resolver,
             graph=self.ctx.graph,

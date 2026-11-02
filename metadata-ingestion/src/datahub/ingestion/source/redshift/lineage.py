@@ -155,6 +155,7 @@ class RedshiftSqlLineage(Closeable):
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
+            emit_query_platform_instance=self.config.emit_query_platform_instance,
             env=self.config.env,
             generate_lineage=lineage_enabled,
             generate_queries=self.config.lineage_generate_queries,
