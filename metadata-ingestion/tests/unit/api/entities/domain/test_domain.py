@@ -103,7 +103,7 @@ def test_domain_resolves_parent_by_name(
     test_resources_dir: Path, base_mock_graph: MockDataHubGraph
 ) -> None:
     domain = Domain.from_yaml(test_resources_dir / "domain_child.yaml", base_mock_graph)
-    assert domain._resolved_parent_domain_urn == "urn:li:domain:12345"
+    assert domain.resolved_parent_domain_urn == "urn:li:domain:12345"
 
     for mcp in domain.generate_mcp(upsert=False):
         base_mock_graph.emit(mcp)
@@ -129,7 +129,7 @@ def test_domain_resolves_parent_name_with_four_hyphens(tmp_path: Path) -> None:
     )
     yaml_file = tmp_path / "child.yaml"
     yaml_file.write_text("id: child\nparent_domain: eu-west-1-sales-ops\n")
-    assert Domain.from_yaml(yaml_file, graph)._resolved_parent_domain_urn == (
+    assert Domain.from_yaml(yaml_file, graph).resolved_parent_domain_urn == (
         "urn:li:domain:abc"
     )
 
@@ -149,7 +149,7 @@ def test_domain_with_urn_parent_does_not_require_graph() -> None:
         display_name="Brand",
         parent_domain="urn:li:domain:12345",
     )
-    assert domain._resolved_parent_domain_urn == "urn:li:domain:12345"
+    assert domain.resolved_parent_domain_urn == "urn:li:domain:12345"
     properties_aspect = next(
         m
         for m in domain.generate_mcp(upsert=False)

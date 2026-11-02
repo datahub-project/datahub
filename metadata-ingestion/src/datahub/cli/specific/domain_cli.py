@@ -59,10 +59,8 @@ def domain() -> None:
 def _mutate(file: Path, upsert: bool) -> None:
     with get_default_graph(ClientMode.CLI) as graph:
         loaded = Domain.from_yaml(Path(file), graph)
-        if loaded._resolved_parent_domain_urn:
-            _abort_if_parent_cycle(
-                graph, loaded.urn, loaded._resolved_parent_domain_urn
-            )
+        if loaded.resolved_parent_domain_urn:
+            _abort_if_parent_cycle(graph, loaded.urn, loaded.resolved_parent_domain_urn)
         if upsert and not graph.exists(loaded.urn):
             logger.info(f"Domain {loaded.urn} does not exist, will create.")
             upsert = False

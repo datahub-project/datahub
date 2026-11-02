@@ -88,6 +88,11 @@ class Domain(ConfigModel):
             return self.id
         return f"urn:li:domain:{self.id}"
 
+    @property
+    def resolved_parent_domain_urn(self) -> Optional[str]:
+        """``parent_domain`` as a URN, once it is one or ``from_yaml`` resolved it."""
+        return self._resolved_parent_domain_urn
+
     @model_validator(mode="after")
     def _resolve_urn_parent_domain(self) -> "Domain":
         if self.parent_domain and self.parent_domain.startswith("urn:li:"):
