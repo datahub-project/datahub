@@ -44,9 +44,33 @@ DREMIO_SYSTEM_TABLES_PATTERN = [
 _DREMIO_SYSTEM_NAMES = AllowDenyPattern(deny=DREMIO_SYSTEM_TABLES_PATTERN)
 
 
+_REGEX_SPECIAL = frozenset(".^$*+?{}[]|()\\")
+
+
+def _regex_literal_prefix(pattern: str) -> str:
+    """Text every match of `pattern` starts with ("" when unknown)."""
+    chars: List[str] = []
+    rest = pattern.removeprefix("^")
+    i = 0
+    while i < len(rest):
+        char = rest[i]
+        if char == "\\" and i + 1 < len(rest) and not rest[i + 1].isalnum():
+            chars.append(rest[i + 1])
+            i += 2
+            continue
+        if char in _REGEX_SPECIAL:
+            # A quantifier makes the character before it optional.
+            if char in "?*{" and chars:
+                chars.pop()
+            break
+        chars.append(char)
+        i += 1
+    return "".join(chars)
+
+
 def is_dremio_system_name(name: str) -> bool:
-    """INFORMATION_SCHEMA / SYS, or anything under them (lowercased name)."""
-    return not _DREMIO_SYSTEM_NAMES.allowed(name.lower())
+    """INFORMATION_SCHEMA / SYS, or anything under them, in any case."""
+    return not _DREMIO_SYSTEM_NAMES.allowed(name)
 
 
 # Defensive ceiling on the LIMIT we ever issue per page. Dremio's REST job-results
@@ -939,12 +963,29 @@ class DremioAPIOperations:
                 if source.get("path")
                 else source.get("name", "")
             )
-            # Only the system-schema deny applies here: schema_pattern is part
-            # of each per-container query, and its prefix check on the root
-            # name would wrongly skip roots of patterns like ^space\.finance.*
-            if name and self.filter.is_system_schema_allowed(name):
+            if (
+                name
+                and self.filter.is_system_schema_allowed(name)
+                and self._root_may_hold_allowed_schemas(name)
+            ):
                 names.append(name)
         return names
+
+    def _root_may_hold_allowed_schemas(self, root: str) -> bool:
+        """Conservative: False only when no schema_pattern allow regex can
+        match the root or a path under it, so the root's query is wasted.
+        Each per-container query still applies schema_pattern exactly. Large
+        catalogs, the ones that reach this fallback, often have a HOME root
+        per user, and a query per excluded root adds up."""
+        schema_pattern = self.filter.config.schema_pattern
+        if schema_pattern.allowed(root):
+            return True
+        root = root.lower()
+        for pattern in schema_pattern.allow:
+            prefix = _regex_literal_prefix(pattern).lower()
+            if prefix.startswith(f"{root}.") or root.startswith(prefix):
+                return True
+        return False
 
     def _get_all_tables_partitioned_by_container(
         self,

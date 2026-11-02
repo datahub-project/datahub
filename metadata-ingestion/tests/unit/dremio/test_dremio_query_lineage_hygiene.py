@@ -231,9 +231,13 @@ def _warning_titles(source: DremioSource) -> List[str]:
     return [w.title for w in source.report.warnings if w.title]
 
 
-def test_system_tables_are_filtered_not_reported_as_dropped(source):
+@pytest.mark.parametrize("fetch_incomplete", [False, True])
+def test_system_tables_are_filtered_not_reported_as_dropped(source, fetch_incomplete):
     # The connector's own metadata queries are in job history; the catalog
     # query never returns system tables, whatever include_system_tables says.
+    # The default allow-all schema_pattern would otherwise let them through.
+    source.config.schema_pattern = AllowDenyPattern.allow_all()
+    source.report.dataset_fetch_incomplete = fetch_incomplete
     for name in ["information_schema.tables", "sys.jobs_recent", "SYS.JOBS"]:
         assert not source._is_allowed_table(f"dremio.{name}")
     assert source.report.lineage_dropped_filtered == 3
@@ -242,6 +246,7 @@ def test_system_tables_are_filtered_not_reported_as_dropped(source):
 
 def test_double_prefixed_name_is_reported_apart_from_dropped_tables(source):
     # A two-part reference reaches the callback as dremio.dremio.<path>.
+    assert not source._is_allowed_table("dremio.dremio.src_db.sales.orders")
     assert not source._is_allowed_table("dremio.dremio.src_db.sales.orders")
     assert list(source.report.lineage_dropped_unresolved_names) == [
         "dremio.src_db.sales.orders"
@@ -411,3 +416,32 @@ def test_end_to_end_incomplete_fetch_warns(source):
         mcps, _urn("my_s3.materialize.orders_blue", _instance(source))
     ) == [_urn("src_db.sales.orders", _instance(source))]
     assert _warning_titles(source) == ["Query lineage not limited to the catalog"]
+
+
+def test_no_query_lineage_scope_warning_without_query_lineage(source):
+    source.config.include_query_lineage = False
+    _run_ingestion(source, datasets=[], queries=[])
+
+    assert _warning_titles(source) == []
+
+
+def test_mixed_case_platform_instance_is_stripped(source):
+    # The schema resolver lowercases the instance; the aggregator's strip is
+    # case-sensitive, so the callback can receive it still prefixed.
+    source.config.platform_instance = "MyInst"
+    source.dremio_api.datasets_without_columns.add("my_s3.materialize.no_columns")
+
+    assert source._is_allowed_table("myinst.dremio.my_s3.materialize.no_columns")
+    assert source._is_allowed_table("myinst.dremio.my_s3.materialize.orders_green")
+    assert not source._is_allowed_table("myinst.dremio.dremio.src_db.sales.orders")
+    assert list(source.report.lineage_dropped_unresolved_names) == [
+        "dremio.src_db.sales.orders"
+    ]
+    assert list(source.report.lineage_dropped_not_in_catalog) == []
+
+
+def test_no_fallback_warning_when_nothing_took_the_fallback(source):
+    # Patterns that exclude everything also leave the catalog empty.
+    _run_ingestion(source, datasets=[], queries=[])
+
+    assert _warning_titles(source) == []

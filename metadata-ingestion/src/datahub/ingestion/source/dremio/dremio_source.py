@@ -296,6 +296,7 @@ class DremioSource(StatefulIngestionSourceBase):
         self._views_with_definition: Set[str] = set()
         self._names_not_in_catalog: Set[str] = set()
         self._unresolved_names: Set[str] = set()
+        self._fallback_names_allowed = False
 
         self.sql_parsing_aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.get_platform()),
@@ -323,6 +324,11 @@ class DremioSource(StatefulIngestionSourceBase):
         self.profiler = DremioProfiler(config, self.report, api, profiling_handler)
 
     def _is_allowed_table(self, name: str) -> bool:
+        name = name.lower()
+        if self.config.platform_instance:
+            # The aggregator strips the instance case-sensitively, but the
+            # schema resolver lowercases it, so a mixed-case one stays on.
+            name = name.removeprefix(f"{self.config.platform_instance.lower()}.")
         name = normalize_dremio_name(name)
         # The aggregator only calls this after the catalog walk, so a name
         # that passes the filters but isn't in the catalog was dropped (or was
@@ -354,6 +360,7 @@ class DremioSource(StatefulIngestionSourceBase):
         # lose its lineage for good once the query time window advances, so
         # fall back to the filters alone.
         if self._catalog_names_incomplete():
+            self._fallback_names_allowed = True
             return True
         if name not in self._names_not_in_catalog:
             self._names_not_in_catalog.add(name)
@@ -775,7 +782,9 @@ class DremioSource(StatefulIngestionSourceBase):
                     )
 
     def _warn_query_lineage_scope(self) -> None:
-        if self._catalog_names_incomplete():
+        # Only when a name actually took the fallback: an empty catalog is
+        # also what patterns that exclude everything produce.
+        if self._fallback_names_allowed:
             self.report.warning(
                 title="Query lineage not limited to the catalog",
                 message="The Dremio dataset fetch was incomplete or returned no "

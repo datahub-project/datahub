@@ -105,6 +105,16 @@ class TestDremioPartitioning:
         assert dremio_api.datasets_without_columns == {"src_a.offline"}
         assert list(dremio_api.report.datasets_without_columns) == ["src_a.offline"]
 
+    def test_dataset_without_column_rows_is_recorded_community(self, dremio_api):
+        dremio_api.report = DremioSourceReport()
+
+        tables = dremio_api.community_get_formatted_tables(
+            [{"FULL_TABLE_PATH": "Src_A.Offline", "TABLE_NAME": "Offline"}]
+        )
+
+        assert tables == []
+        assert dremio_api.datasets_without_columns == {"src_a.offline"}
+
     def test_one_scoped_query_per_container(self, dremio_api):
         dremio_api._get_root_container_names = Mock(return_value=["src_a", "src_b"])
         dremio_api._get_all_tables_global_chunked = Mock(
@@ -193,14 +203,50 @@ class TestDremioPartitioning:
                 ]
             }
         )
-        dremio_api.filter.is_system_schema_allowed = Mock(
-            side_effect=lambda name: name != "space_b"
-        )
 
         names = dremio_api._get_root_container_names()
 
-        # FOLDER is not a root; space_b is filtered out.
-        assert names == ["src_a", "@me"]
+        # FOLDER is not a root.
+        assert names == ["src_a", "space_b", "@me"]
+
+    def test_root_container_names_drop_system_roots(self, dremio_api):
+        dremio_api.filter.config.include_system_tables = False
+        dremio_api.get = Mock(
+            return_value={
+                "data": [
+                    {"containerType": "SOURCE", "path": ["src_a"]},
+                    {"containerType": "SOURCE", "path": ["SYS"]},
+                    {"containerType": "SOURCE", "path": ["INFORMATION_SCHEMA"]},
+                ]
+            }
+        )
+
+        assert dremio_api._get_root_container_names() == ["src_a"]
+
+    @pytest.mark.parametrize(
+        "allow, expected",
+        [
+            (["^space\\.finance.*"], ["space"]),
+            (["^finance.*"], ["finance_src"]),
+            # No literal prefix to rule a root out with: keep every root.
+            (["^(space|other)\\..*"], ["space", "finance_src", "@alice"]),
+        ],
+    )
+    def test_root_container_names_skip_roots_schema_pattern_cannot_match(
+        self, dremio_api, allow, expected
+    ):
+        dremio_api.filter.config.schema_pattern = AllowDenyPattern(allow=allow)
+        dremio_api.get = Mock(
+            return_value={
+                "data": [
+                    {"containerType": "SPACE", "path": ["space"]},
+                    {"containerType": "SOURCE", "path": ["finance_src"]},
+                    {"containerType": "HOME", "name": "@alice"},
+                ]
+            }
+        )
+
+        assert dremio_api._get_root_container_names() == expected
 
     def test_root_container_names_ignore_schema_pattern(self, dremio_api):
         # Each per-container query applies schema_pattern itself; filtering
