@@ -2009,6 +2009,120 @@ def _extract_select_from_update(
     return select_statement
 
 
+def _merge_assignments(
+    statement: sqlglot.exp.Merge,
+    source_identifier: Optional[sqlglot.exp.Identifier],
+) -> Dict[str, Tuple[sqlglot.exp.Identifier, Dict[str, sqlglot.exp.Expression]]]:
+    """Target column -> the distinct expressions the WHEN clauses assign to it.
+
+    Covers ``UPDATE SET col = expr`` and ``INSERT (cols) VALUES (exprs)``. An
+    ``INSERT VALUES (...)`` without a column list has no names to map to.
+    """
+    assignments: Dict[
+        str, Tuple[sqlglot.exp.Identifier, Dict[str, sqlglot.exp.Expression]]
+    ] = {}
+
+    def add_assignment(
+        column: sqlglot.exp.Column,
+        value: sqlglot.exp.Expression,
+        qualify_with_source: bool = False,
+    ) -> None:
+        identifier = column.this
+        if not isinstance(identifier, sqlglot.exp.Identifier):
+            return
+        value = value.copy()
+        if qualify_with_source and source_identifier is not None:
+            # Only the USING source is visible to a NOT MATCHED ... INSERT, so its
+            # bare column names cannot refer to the target table.
+            for ref in value.find_all(sqlglot.exp.Column):
+                if not ref.args.get("table"):
+                    ref.set("table", source_identifier.copy())
+        _, values = assignments.setdefault(identifier.name, (identifier, {}))
+        values.setdefault(value.sql(), value)
+
+    whens = statement.args.get("whens")
+    for when in whens.expressions if isinstance(whens, sqlglot.exp.Whens) else []:
+        then = when.args.get("then")
+        if isinstance(then, sqlglot.exp.Update):
+            for expr in then.expressions:
+                if isinstance(expr, sqlglot.exp.EQ) and isinstance(
+                    expr.this, sqlglot.exp.Column
+                ):
+                    add_assignment(expr.this, expr.expression)
+        elif isinstance(then, sqlglot.exp.Insert):
+            columns = then.this
+            values = then.expression
+            if (
+                isinstance(columns, sqlglot.exp.Tuple)
+                and isinstance(values, sqlglot.exp.Tuple)
+                and len(columns.expressions) == len(values.expressions)
+            ):
+                for column, value in zip(
+                    columns.expressions, values.expressions, strict=True
+                ):
+                    if isinstance(column, sqlglot.exp.Column):
+                        add_assignment(column, value, qualify_with_source=True)
+
+    return assignments
+
+
+def _extract_select_from_merge(
+    statement: sqlglot.exp.Merge,
+) -> sqlglot.exp.Expression:
+    """Rewrite a MERGE as a SELECT whose output columns are the target columns it writes.
+
+    Each ``WHEN ... THEN UPDATE SET col = expr`` assignment and each ``INSERT (cols)
+    VALUES (exprs)`` pair becomes ``expr AS col``, so downstream columns are named
+    after the target table rather than after the USING source. A target column that
+    several WHEN clauses write gets a single output carrying every clause's upstreams.
+    """
+    source = statement.args["using"]
+    source_alias = source.args.get("alias")
+    source_identifier: Optional[sqlglot.exp.Identifier] = None
+    if isinstance(source_alias, sqlglot.exp.TableAlias) and isinstance(
+        source_alias.this, sqlglot.exp.Identifier
+    ):
+        source_identifier = source_alias.this
+    elif isinstance(source, sqlglot.exp.Table) and isinstance(
+        source.this, sqlglot.exp.Identifier
+    ):
+        source_identifier = source.this
+
+    assignments = _merge_assignments(statement, source_identifier)
+    if not assignments:
+        # Nothing to map, so fall back to the USING source's own output columns.
+        if isinstance(source, sqlglot.exp.Table):
+            # If we're querying a table directly, wrap it in a SELECT.
+            return sqlglot.exp.Select().select("*").from_(source)
+        return source
+
+    projections: List[sqlglot.exp.Expression] = []
+    for identifier, values in assignments.values():
+        distinct_values = list(values.values())
+        if len(distinct_values) == 1:
+            (value,) = distinct_values
+        else:
+            # MERGE applies exactly one clause per row, so there is no single
+            # expression for the column. COALESCE is only the vehicle that keeps
+            # every clause's upstream columns in one projection.
+            value = sqlglot.exp.Coalesce(
+                this=distinct_values[0], expressions=distinct_values[1:]
+            )
+        projections.append(sqlglot.exp.Alias(this=value, alias=identifier.copy()))
+
+    # Like UPDATE, a MERGE implicitly has the target table in scope: assignments
+    # may read the target's own columns (e.g. `t.total = t.total + s.amount`).
+    # Joining on the MERGE's own ON clause keeps that join real rather than a
+    # phantom cross join.
+    select_statement = sqlglot.exp.Select().select(*projections).from_(source.copy())
+    on_clause = statement.args.get("on")
+    if on_clause is not None:
+        return select_statement.join(
+            statement.this.copy(), on=on_clause.copy(), join_type="full outer"
+        )
+    return select_statement.join(statement.this.copy(), join_type="cross")
+
+
 def _try_extract_select(
     statement: sqlglot.exp.Expression,
     dialect: Optional[sqlglot.Dialect] = None,
@@ -2017,12 +2131,8 @@ def _try_extract_select(
     # If it fails, just return the original statement.
 
     if isinstance(statement, sqlglot.exp.Merge):
-        # TODO Need to map column renames in the expressions part of the statement.
-        # Likely need to use the named_selects attr.
-        statement = statement.args["using"]
-        if isinstance(statement, sqlglot.exp.Table):
-            # If we're querying a table directly, wrap it in a SELECT.
-            statement = sqlglot.exp.Select().select("*").from_(statement)
+        # Assumption: the output table is already captured in the modified tables list.
+        statement = _extract_select_from_merge(statement)
     elif isinstance(statement, sqlglot.exp.Insert):
         # Preserve CTEs when extracting the SELECT expression from INSERT
         original_ctes = statement.ctes
