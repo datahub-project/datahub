@@ -39,7 +39,9 @@ from datahub.ingestion.source.boomi.constants import (
     EXECUTION_STATUS_RESULTS,
     EXECUTION_STATUSES_IN_PROGRESS,
     EXECUTION_TYPE_MANUAL,
+    HTTP_BAD_REQUEST,
     HTTP_FORBIDDEN,
+    NO_RUNTIMES_ERROR_MESSAGE,
     PLATFORM,
     PROCESS_JOB_ID,
     PROCESS_URL_TEMPLATE,
@@ -164,6 +166,14 @@ def select_recent_executions(
             entry[3] for entry in sorted(heap, reverse=True)
         ]
     return selection
+
+
+def is_no_runtimes_error(error: Exception) -> bool:
+    return (
+        isinstance(error, BoomiApiError)
+        and error.status_code == HTTP_BAD_REQUEST
+        and NO_RUNTIMES_ERROR_MESSAGE in str(error).lower()
+    )
 
 
 def ui_host_for_api_url(api_url: str) -> Optional[str]:
@@ -562,6 +572,8 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_executions(
         self, process_jobs: Dict[str, DataJobUrn]
     ) -> Iterable[MetadataWorkUnit]:
+        if not process_jobs:
+            return
         since = datetime.now(timezone.utc) - timedelta(
             days=self.config.execution_history_days
         )
@@ -572,6 +584,13 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.max_executions_per_process,
             )
         except (BoomiApiError, requests.RequestException, ValidationError) as e:
+            if is_no_runtimes_error(e):
+                self.report.executions_no_runtimes = True
+                self.report.info(
+                    title="No Boomi runtimes",
+                    message="The account has no runtimes the API token can see, so there is no execution history.",
+                )
+                return
             self.report.executions_unavailable = True
             if isinstance(e, BoomiApiError) and e.status_code == HTTP_FORBIDDEN:
                 self.report.warning(
@@ -609,8 +628,9 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             and execution.status.upper() not in EXECUTION_STATUSES_IN_PROGRESS
         ):
             self.report.executions_unknown_status += 1
-            if execution.status not in unknown_statuses:
-                unknown_statuses.add(execution.status)
+            status_key = execution.status.upper()
+            if status_key not in unknown_statuses:
+                unknown_statuses.add(status_key)
                 self.report.warning(
                     title="Unknown Boomi execution status",
                     message="Executions with this status are emitted with a start event only.",

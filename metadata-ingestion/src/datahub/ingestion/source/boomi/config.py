@@ -73,8 +73,9 @@ class BoomiSourceConfig(
         description=(
             "Regex patterns matched against the environment name. Only deployments "
             "to allowed environments count towards deployment properties and "
-            "`include_undeployed_processes`. It does not filter execution history, "
-            "because execution records name the runtime (atom), not the environment."
+            "`include_undeployed_processes`. Execution records are not filtered by "
+            "environment directly, because they name the runtime (atom), not the "
+            "environment. Runs follow the ingested processes."
         ),
     )
     include_undeployed_processes: bool = Field(

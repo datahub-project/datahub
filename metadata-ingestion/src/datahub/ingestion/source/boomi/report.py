@@ -30,6 +30,7 @@ class BoomiSourceReport(StaleEntityRemovalSourceReport):
     executions_scanned: int = 0
     executions_emitted: int = 0
     executions_unavailable: bool = False
+    executions_no_runtimes: bool = False
     executions_process_not_emitted: int = 0
     executions_over_cap: int = 0
     executions_unknown_status: int = 0

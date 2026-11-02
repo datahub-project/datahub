@@ -55,6 +55,10 @@ RETRY_METHODS: FrozenSet[str] = frozenset({"GET", "POST"})
 RETRY_TOTAL = 5
 RETRY_BACKOFF_FACTOR = 1.0
 HTTP_FORBIDDEN = 403
+HTTP_BAD_REQUEST = 400
+# ExecutionRecord/query answers HTTP 400 with this message when the account
+# has no runtimes (Atoms) the token can see, which just means no runs.
+NO_RUNTIMES_ERROR_MESSAGE = "do not have access to any containers"
 
 # Boomi documents 10 requests/second per account; stay below it by default.
 DEFAULT_MAX_REQUESTS_PER_SECOND = 8

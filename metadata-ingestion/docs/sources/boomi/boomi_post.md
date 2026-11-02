@@ -13,7 +13,7 @@ Active deployments come from `DeployedPackage`, joined to environment names. `en
 
 With `include_execution_history: true` (the default), the source plugin reads `ExecutionRecord` for the last `execution_history_days` days (7 by default, at most 30) in one query for the whole account. For each ingested process it keeps the `max_executions_per_process` most recent executions (50 by default) and emits each one as a DataProcessInstance run of the process DataJob, with the custom properties `status`, `atomName`, `executionType`, `parentExecutionId`, `topLevelExecutionId`, `inboundDocumentCount`, `outboundDocumentCount` and `inboundErrorDocumentCount`. Manual executions (`exec_manual`) are typed as ad hoc runs and all others as scheduled runs.
 
-Each run gets a start event at `executionTime`. Finished runs also get an end event at `executionTime` plus `executionDuration`:
+Each run gets a start event at `executionTime`. Finished runs also get an end event at `executionTime` plus `executionDuration`, or at `executionTime` when Boomi reports no duration:
 
 | Boomi status                                             | Run result       |
 | -------------------------------------------------------- | ---------------- |
@@ -22,7 +22,7 @@ Each run gets a start event at `executionTime`. Finished runs also get an end ev
 | `DISCARDED`                                              | Skipped          |
 | `INPROCESS`, `STARTED`, `ENQUEUED`, `ABORTED_RECOVERING` | Start event only |
 
-Any other status gets a start event only and is counted in `executions_unknown_status`. Executions of processes that were not ingested (filtered or undeployed) are skipped and counted in `executions_process_not_emitted`. `environment_pattern` does not filter executions, because an execution record names the runtime (atom) it ran on, not the environment.
+Any other status gets a start event only and is counted in `executions_unknown_status`. Executions of processes that were not ingested (filtered or undeployed) are skipped and counted in `executions_process_not_emitted`. `environment_pattern` does not filter executions directly, because an execution record names the runtime (atom) it ran on, not the environment. Runs follow the ingested processes, so a process skipped because it is only deployed to denied environments gets no runs.
 
 Boomi purges execution history after the runtime's purge setting, 30 days by default, so runs older than that cannot be ingested. Schedule ingestion more often than the purge interval to keep a continuous history. The window query pages through every execution in the account, so busy accounts with a long window need more API calls.
 
@@ -60,6 +60,8 @@ The token's role lacks the privilege to query `DeployedPackage`. The run continu
 #### Warning "Cannot read Boomi execution history"
 
 The token's role lacks **View Results**, so `ExecutionRecord` returns HTTP 403. The run continues without run history. Grant **View Results**, or set `include_execution_history: false` to skip the query.
+
+If the account has no runtimes (Atoms) the token can see, Boomi rejects the execution query with HTTP 400. The source plugin treats that as no execution history, sets `executions_no_runtimes` in the report and does not warn.
 
 #### Fewer processes than expected
 

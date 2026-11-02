@@ -556,7 +556,7 @@ def test_executions_emit_end_event_only_for_terminal_status() -> None:
                 _execution("done", status="COMPLETE"),
                 _execution("running", status="INPROCESS", duration=None),
                 _execution("new-1", status="PAUSED"),
-                _execution("new-2", status="PAUSED"),
+                _execution("new-2", status="paused"),
                 _execution("orphan", process_id="p-unknown"),
             ],
         )
@@ -606,3 +606,36 @@ def test_execution_server_error_is_a_failure_and_processes_still_emit() -> None:
     assert [f.title for f in source.get_report().failures] == [
         "Failed to list Boomi executions"
     ]
+
+
+def test_execution_no_runtimes_400_is_not_a_failure() -> None:
+    source = _source(include_undeployed_processes=True)
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        mock.post(
+            f"{BASE_URL}/ExecutionRecord/query",
+            status_code=400,
+            json={
+                "@type": "Error",
+                "message": "You do not have access to any containers",
+            },
+        )
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        flows = _flows(source)
+
+    report = source.get_report()
+    assert len(flows) == 1
+    assert report.executions_no_runtimes
+    assert not report.executions_unavailable
+    assert not report.failures
+    assert not report.warnings
+
+
+def test_executions_not_queried_when_no_process_emitted() -> None:
+    source = _source()
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        assert _flows(source) == []
+        paths = [r.path for r in mock.request_history]
+
+    assert not any(path.endswith("/executionrecord/query") for path in paths)
