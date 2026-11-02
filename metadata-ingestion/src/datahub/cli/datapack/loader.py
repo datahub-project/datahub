@@ -283,6 +283,10 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
     # Record the new version only when every data file was refetched. Otherwise
     # the next load would treat the pack as current and skip the missing files.
     if resolved.failed_urls:
+        click.echo(
+            f"Warning: {len(resolved.failed_urls)} data file(s) could not be "
+            "fetched. The next load will try them again."
+        )
         return resolved.entries
     try:
         with open(cache_path) as f:
@@ -354,9 +358,19 @@ def _resolve_index_file(
         try:
             _fetch_url_to_path(file_url, cached)
             entries.append(IndexFileEntry(path=cached, wait_for_completion=wait))
-        except Exception:
-            logger.warning("Failed to fetch %s, skipping", file_url, exc_info=True)
+        except Exception as e:
+            logger.debug("Failed to fetch %s", file_url, exc_info=True)
             failed_urls.append(file_url)
+            # A failed fetch leaves any cached copy intact, so loading it is
+            # better than silently dropping the file from the load.
+            if cached.exists():
+                click.echo(
+                    f"Warning: could not fetch {filename} ({e}). "
+                    "Loading the previously cached copy."
+                )
+                entries.append(IndexFileEntry(path=cached, wait_for_completion=wait))
+            else:
+                click.echo(f"Warning: could not fetch {filename} ({e}). Skipping it.")
 
     click.echo(f"Resolved {len(entries)} data files from index.")
     if not entries:

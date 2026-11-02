@@ -1084,7 +1084,9 @@ class TestIndexFileResolution:
         assert entries[0].wait_for_completion is True
         assert entries[1].wait_for_completion is False
 
-    def test_index_skips_missing_files(self, tmp_path: pathlib.Path) -> None:
+    def test_index_skips_missing_files(
+        self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         from datahub.cli.datapack.loader import _resolve_index_file
 
         (tmp_path / "exists.json").write_text(
@@ -1100,6 +1102,7 @@ class TestIndexFileResolution:
             entries = _resolve_index_file(index_file, pack, no_cache=False).entries
 
         assert len(entries) == 1
+        assert "missing.json" in capsys.readouterr().out
 
     def test_unknown_object_passes_through(self, tmp_path: pathlib.Path) -> None:
         from datahub.cli.datapack.loader import _resolve_index_file
@@ -1261,10 +1264,10 @@ class TestIndexVersionCache:
         assert [e.path for e in entries] == [cached_child]
         assert cached_child.read_text() == expected_content
 
-    def test_failed_refetch_keeps_cache_and_retries(
-        self, tmp_path: pathlib.Path
+    def test_failed_refetch_falls_back_to_cache_and_retries(
+        self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """A refetch that fails partway leaves the cached file intact and is retried next load."""
+        """A failed refetch loads the intact cached copy, reports it, and is retried next load."""
         from datahub.cli.datapack.loader import _cached_index_version
 
         remote = tmp_path / "remote"
@@ -1301,8 +1304,9 @@ class TestIndexVersionCache:
             ):
                 entries = download_pack(pack)
 
-            assert cached_child not in [e.path for e in entries]
+            assert cached_child in [e.path for e in entries]
             assert cached_child.read_text() == "old"
+            assert "04-queries.json" in capsys.readouterr().out
             assert _cached_index_version(pack) == "4"
             assert not [p for p in cache_dir.iterdir() if p.name.startswith(".")]
 
