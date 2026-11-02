@@ -3,13 +3,11 @@ package com.linkedin.gms.factory.search;
 import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVENTION_BEAN;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.DelegatingSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
@@ -23,21 +21,14 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 
 @Configuration
-@Import(EntityRegistryFactory.class)
 @Slf4j
 public class SettingsBuilderFactory {
-
-  @Autowired
-  @Qualifier("entityRegistry")
-  private EntityRegistry entityRegistry;
 
   @Bean("legacySettingsBuilder")
   @ConditionalOnProperty(name = "elasticsearch.entityIndex.v2.enabled", havingValue = "true")

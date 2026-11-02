@@ -374,6 +374,19 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
     }
   }
 
+  /** Records caller-owned optional filter fields for template matched-field reporting. */
+  @Nonnull
+  public OperationContext withCallerOptionalFilterFields(@Nonnull Set<String> fields) {
+    try {
+      return toBuilder()
+          .searchContext(
+              getSearchContext().toBuilder().callerOptionalFilterFields(Set.copyOf(fields)).build())
+          .build(getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   /**
    * Records the template chosen for this invocation. Selection does not read this field. Replaces
    * any template recorded by a previous query on the copied context.

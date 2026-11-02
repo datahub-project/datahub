@@ -13,7 +13,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -22,6 +21,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -202,7 +202,7 @@ public class ResolverUtils {
     if (viewInfo == null) {
       return null;
     }
-    Filter result = SearchUtils.combineFilters(null, viewInfo.getDefinition().getFilter());
+    Filter result = FilterUtils.combineFilters(null, viewInfo.getDefinition().getFilter());
     return result;
   }
 

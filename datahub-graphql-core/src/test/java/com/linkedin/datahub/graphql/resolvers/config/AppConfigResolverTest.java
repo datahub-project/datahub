@@ -11,8 +11,11 @@ import com.datahub.authorization.DefaultAuthorizerConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AppConfig;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.PersonalSidebarSection;
+import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
 import com.linkedin.datahub.graphql.generated.SearchBarAPI;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.config.*;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
@@ -436,6 +439,42 @@ public class AppConfigResolverTest {
     // Verify that the privileges lists are populated (they come from static config)
     assertFalse(result.getPoliciesConfig().getPlatformPrivileges().isEmpty());
     assertFalse(result.getPoliciesConfig().getResourcePrivileges().isEmpty());
+  }
+
+  @Test
+  public void testResourcePrivilegesEntityTypeMapping() throws Exception {
+    AppConfig result = resolver.get(mockDataFetchingEnvironment).get();
+
+    // The policy builder narrows resource search to these entity types; a null entityType
+    // drops the resource type from the search.
+    Map<String, EntityType> entityTypeByResourceType = new HashMap<>();
+    for (ResourcePrivileges privileges : result.getPoliciesConfig().getResourcePrivileges()) {
+      entityTypeByResourceType.put(privileges.getResourceType(), privileges.getEntityType());
+    }
+
+    assertEquals(
+        entityTypeByResourceType.get(
+            PoliciesConfig.STRUCTURED_PROPERTIES_PRIVILEGES.getResourceType()),
+        EntityType.STRUCTURED_PROPERTY);
+    assertEquals(
+        entityTypeByResourceType.get(
+            PoliciesConfig.DATA_PROCESS_INSTANCE_PRIVILEGES.getResourceType()),
+        EntityType.DATA_PROCESS_INSTANCE);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.NOTEBOOK_PRIVILEGES.getResourceType()),
+        EntityType.NOTEBOOK);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.DATA_PRODUCT_PRIVILEGES.getResourceType()),
+        EntityType.DATA_PRODUCT);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.VERSION_SET_PRIVILEGES.getResourceType()),
+        EntityType.VERSION_SET);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.INGESTION_SOURCE_PRIVILEGES.getResourceType()),
+        EntityType.INGESTION_SOURCE);
+    assertEquals(
+        entityTypeByResourceType.get(PoliciesConfig.APPLICATION_PRIVILEGES.getResourceType()),
+        EntityType.APPLICATION);
   }
 
   @Test

@@ -23,7 +23,7 @@ dependencies {
   }
   implementation 'com.github.java-json-tools:json-schema-validator:2.2.14'
   // Keep in sync with project.ext.externalDependency['guava'] in root build.gradle
-  implementation 'com.google.guava:guava:33.6.0-jre'
+  implementation 'com.google.guava:guava:33.7.2-jre'
   implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
   implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}"
   implementation 'commons-io:commons-io:2.17.0'

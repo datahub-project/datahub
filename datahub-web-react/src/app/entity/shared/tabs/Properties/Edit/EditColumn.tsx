@@ -7,6 +7,7 @@ import { ItemType } from '@components/components/Menu/types';
 
 import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { Button, Menu, toast } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
@@ -70,8 +71,11 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
                     entityRefetch();
                 }
             })
-            .catch(() => {
-                toast.error(t('properties.removed.error'), { duration: 3 });
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: t('properties.removed.error'),
+                });
             });
 
         setShowConfirmRemove(false);

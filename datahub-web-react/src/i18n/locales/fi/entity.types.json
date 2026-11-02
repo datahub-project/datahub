@@ -1,9 +1,13 @@
 {
     "api.name": "API",
     "api.namePlural": "API:t",
+    "api.signature.definedByDataset_one": "Tietoaineiston määrittämä",
+    "api.signature.definedByDataset_other": "Tietoaineistojen määrittämä",
+    "api.signature.inputDatasetsTitle": "Syöteskeema",
     "api.signature.inputTitle": "Syöteparametrit",
     "api.signature.noInput": "Ei syöteparametreja",
     "api.signature.noOutput": "Ei määritettyä tulostetta",
+    "api.signature.outputDatasetsTitle": "Tulosteskeema",
     "api.signature.outputTitle": "Tuloste",
     "api.signature.returns": "Palauttaa",
     "api.signature.tableDescription": "Kuvaus",

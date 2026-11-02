@@ -9,6 +9,7 @@
     "calendarChart.weekday.wed": "Ons",
     "codeBlock.editorLabel": "Kodredigerare",
     "codeBlock.format": "Formatera",
+    "codeBlock.formatFailed": "Det gick inte att läsa in SQL-formateraren. Försök igen.",
     "codeBlock.formatInvalid": "Det gick inte att formatera koden. Kontrollera att den är giltig.",
     "codeBlock.formatSuccess": "Formaterad",
     "codeBlock.languageSelectLabel": "Språk",

@@ -9,6 +9,7 @@
     "calendarChart.weekday.wed": "週三",
     "codeBlock.editorLabel": "程式碼編輯器",
     "codeBlock.format": "格式化",
+    "codeBlock.formatFailed": "無法載入 SQL 格式化工具。請再試一次。",
     "codeBlock.formatInvalid": "無法格式化這段程式碼，請確認其是否有效。",
     "codeBlock.formatSuccess": "已格式化",
     "codeBlock.languageSelectLabel": "語言",

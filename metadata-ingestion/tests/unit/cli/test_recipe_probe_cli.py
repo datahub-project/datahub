@@ -3085,3 +3085,80 @@ def test_validate_masks_inline_secrets_when_a_reference_cannot_resolve(
     assert res.exit_code == 0, res.output
     assert _INLINE_SECRET not in res.output
     assert all("***" in error for error in json.loads(res.stdout)["errors"])
+
+
+def test_probe_filter_refuses_a_bigquery_dataset_it_cannot_qualify(tmp_path):
+    """End to end: the refusal has to reach a caller through the structured
+    channel, not as a traceback.
+
+    BigQuery ships match_fully_qualified_names=True and discovers its own
+    projects, so this recipe -- a dataset_pattern and nothing else -- is the
+    ordinary shape. The command used to answer `included: false` about a
+    dataset every real run ingests. It now writes nothing to stdout: a
+    half-answer beside an error is what let the wrong verdict be read.
+    """
+    p = tmp_path / "bq.yml"
+    p.write_text(
+        "source:\n"
+        "  type: bigquery\n"
+        "  config:\n"
+        "    dataset_pattern:\n"
+        "      allow: ['^analytics$']\n"
+    )
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            str(p),
+            "--kind",
+            "Schema",
+            "--name",
+            "analytics",
+        ],
+    )
+    assert res.exit_code == 2, res.output
+    assert res.stdout.strip() == "", res.stdout
+    error = json.loads(res.stderr)["error"]
+    assert "--parent" in error
+    assert "project_ids" in error
+    # The listing that resolves it, so the caller's next step is named.
+    assert "probe run projects" in error
+
+
+def test_probe_filter_answers_the_same_recipe_once_the_project_is_named(tmp_path):
+    """The other half: what the refusal asks for is enough to get a verdict."""
+    p = tmp_path / "bq.yml"
+    p.write_text(
+        "source:\n"
+        "  type: bigquery\n"
+        "  config:\n"
+        "    dataset_pattern:\n"
+        "      allow: ['^analytics$']\n"
+    )
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            str(p),
+            "--kind",
+            "Schema",
+            "--parent",
+            "proj1",
+            "--name",
+            "analytics",
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    payload = json.loads(res.stdout)
+    assert payload["results"] == [
+        {
+            "name": "analytics",
+            "target": "proj1.analytics",
+            "included": True,
+            "excluded_by": None,
+        }
+    ]
