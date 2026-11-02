@@ -1,7 +1,9 @@
+from typing import List
 from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
+from wcmatch import pathlib as wcmatch_pathlib
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.data_lake_common.path_spec import (
@@ -875,3 +877,59 @@ def test_extract_table_name_and_path_with_table() -> None:
 
     assert table_name == "users"
     assert table_path == "s3://bucket/users"
+
+
+# The precompiled include/exclude matchers must give the same verdicts as the
+# per-call PurePath.globmatch they replaced.
+@pytest.mark.parametrize(
+    "include, exclude, allow_double_stars",
+    [
+        ("s3://bucket/{table}/*.csv", [], False),
+        ("s3://bucket/{table}/{partition0}/*.csv", [], False),
+        ("s3://bucket/{table}/**", [], True),
+        ("s3://bucket/{table}/*.csv", ["*/temp/*", "*/staging/*"], False),
+        ("s3://bucket/data/*/*.parquet", ["*/_delta_log/*"], False),
+        # Included paths that an exclude also matches, so the "exclude" verdict runs.
+        ("s3://bucket/{table}/*.csv", ["s3://bucket/table/*.csv"], False),
+        ("s3://bucket/{table}/**", ["**/temp/**", "**/staging/*"], True),
+        ("s3://bucket/data/*/*.parquet", ["s3://bucket/data/t1/*"], False),
+    ],
+)
+def test_rejection_reason_matches_reference_globmatch(
+    include: str, exclude: List[str], allow_double_stars: bool
+) -> None:
+    # Hidden folders are let through so `_delta_log` reaches the glob checks.
+    path_spec = PathSpec(
+        include=include,
+        exclude=exclude,
+        allow_double_stars=allow_double_stars,
+        include_hidden_folders=True,
+    )
+
+    paths = [
+        "s3://bucket/table/f.csv",
+        "s3://bucket/table/p1/f.csv",
+        "s3://bucket/table/p1/p2/f.csv",
+        "s3://bucket/table/temp/f.csv",
+        "s3://bucket/table/staging/f.csv",
+        "s3://bucket/data/t1/f.parquet",
+        "s3://bucket/data/t1/_delta_log/000.parquet",
+        "s3://bucket//table/f.csv",
+        "s3://bucket/table/f.json",
+        "s3://bucket/table/sub/",
+    ]
+    for path in paths:
+        included = wcmatch_pathlib.PurePath(path).globmatch(
+            path_spec.glob_include, flags=wcmatch_pathlib.GLOBSTAR
+        )
+        excluded = any(
+            wcmatch_pathlib.PurePath(path).globmatch(e, flags=wcmatch_pathlib.GLOBSTAR)
+            for e in exclude
+        )
+        reason = path_spec.rejection_reason(path)
+        if not included:
+            assert reason == "include", path
+        elif excluded:
+            assert reason == "exclude", path
+        else:
+            assert reason not in ("include", "exclude"), path

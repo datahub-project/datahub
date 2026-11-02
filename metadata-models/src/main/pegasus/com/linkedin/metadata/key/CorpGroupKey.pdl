@@ -13,7 +13,14 @@ record CorpGroupKey {
   @Searchable = {
     "v3": {
       "queryByDefault": true,
-      "lowercase": true
+      "searchLabel": "name",
+      "boostScore": 10.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
     },
     "fieldType": "WORD_GRAM",
     "queryByDefault": true,

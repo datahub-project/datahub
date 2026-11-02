@@ -469,6 +469,14 @@ source:
 
 If you have models that have tons of sources from other projects listed in the "Composed Of" section, it may also make sense to hide sources.
 
+#### Dremio
+
+With `target_platform: dremio`, dbt names datasets the way the Dremio source does (`dremio.<space or source>.<folders>.<table>`, lowercased, without dbt-dremio's `no_schema` folder), so dbt models link to the Dremio datasets as siblings and dbt lineage points at them.
+
+- Write `target_platform` in lowercase. Other casings name the data platform itself differently, and those datasets don't link to the Dremio source's.
+- Keep `include_database_name` at its default (`true`). Without the space or source, the names can't match.
+- For tables in nested folders (paths of more than 3 parts), column-level lineage may be missing for columns not qualified with a table alias; table-level lineage is unaffected.
+
 #### Reducing "composed of" sprawl by hiding sources
 
 When many dbt projects use a single table as a source, the "Composed Of" relationships can become very large and difficult to navigate
