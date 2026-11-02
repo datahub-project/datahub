@@ -1,6 +1,7 @@
 import json
 import logging
 from pathlib import Path
+from typing import Optional, Set
 
 import click
 from click_default_group import DefaultGroup
@@ -12,7 +13,7 @@ from datahub.cli.specific.dataproduct_cli import (
 )
 from datahub.emitter.mce_builder import validate_ownership_type
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
@@ -23,6 +24,25 @@ from datahub.specific.domain import DomainPatchBuilder
 from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
+
+
+def _abort_if_parent_cycle(graph: DataHubGraph, urn: str, parent_urn: str) -> None:
+    """Refuse to nest a Domain under itself or one of its descendants.
+
+    GMS only rejects a self-parent; GraphQL ``moveDomain`` does this walk, so
+    the CLI has to as well or it can persist a cycle in the hierarchy.
+    """
+    seen: Set[str] = set()
+    current: Optional[str] = parent_urn
+    while current and current not in seen:
+        if current == urn:
+            raise click.ClickException(
+                f"Cannot move {urn} under {parent_urn}: it is the domain itself "
+                "or one of its descendants."
+            )
+        seen.add(current)
+        properties = graph.get_aspect(current, DomainPropertiesClass)
+        current = properties.parentDomain if properties else None
 
 
 def _normalize_domain_urn(urn: str) -> str:
@@ -39,6 +59,10 @@ def domain() -> None:
 def _mutate(file: Path, upsert: bool) -> None:
     with get_default_graph(ClientMode.CLI) as graph:
         loaded = Domain.from_yaml(Path(file), graph)
+        if loaded._resolved_parent_domain_urn:
+            _abort_if_parent_cycle(
+                graph, loaded.urn, loaded._resolved_parent_domain_urn
+            )
         if upsert and not graph.exists(loaded.urn):
             logger.info(f"Domain {loaded.urn} does not exist, will create.")
             upsert = False
@@ -47,13 +71,14 @@ def _mutate(file: Path, upsert: bool) -> None:
         )
         try:
             for mcp in loaded.generate_mcp(upsert=upsert):
-                # A full replace must not wipe the server-set creation stamp.
+                # The YAML can't express these, so a full replace keeps them.
                 if (
                     existing
                     and isinstance(mcp, MetadataChangeProposalWrapper)
                     and isinstance(mcp.aspect, DomainPropertiesClass)
                 ):
                     mcp.aspect.created = existing.created
+                    mcp.aspect.customProperties = existing.customProperties
                 graph.emit(mcp)
             click.secho(f"Update succeeded for urn {loaded.urn}.", fg="green")
         except Exception as e:
@@ -76,7 +101,8 @@ def upsert(file: Path) -> None:
 @upgrade.check_upgrade
 def update(file: Path) -> None:
     """Create a Domain, or overwrite the aspects the YAML sets. Aspects the YAML
-    omits (owners, links) are left as they are; use upsert for partial updates."""
+    omits (owners, links) and custom properties are left as they are; use upsert
+    for partial updates."""
     _mutate(file, upsert=False)
 
 
@@ -194,6 +220,7 @@ def set_parent(urn: str, parent: str) -> None:
         _abort_if_non_existent_urn(graph, urn, "set parent")
         if parent_urn:
             _abort_if_non_existent_urn(graph, parent_urn, "set parent")
+            _abort_if_parent_cycle(graph, urn, parent_urn)
         else:
             current = graph.get_aspect(urn, DomainPropertiesClass)
             # JSON Patch rejects removing a field that isn't there.

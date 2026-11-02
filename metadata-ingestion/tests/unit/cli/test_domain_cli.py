@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterator, List
+from typing import Callable, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -66,11 +66,13 @@ def test_upsert_creates_missing_domain_with_full_aspect(
     assert [p.name for p in properties] == ["Marketing"]
 
 
-def test_update_keeps_existing_created_stamp(
+def test_update_keeps_existing_created_stamp_and_custom_properties(
     graph: MagicMock, domain_yaml: Path
 ) -> None:
     created = AuditStampClass(time=1, actor="urn:li:corpuser:admin")
-    graph.get_aspect.return_value = DomainPropertiesClass(name="Old", created=created)
+    graph.get_aspect.return_value = DomainPropertiesClass(
+        name="Old", created=created, customProperties={"team": "growth"}
+    )
 
     result = _invoke(["update", "-f", str(domain_yaml)])
 
@@ -78,6 +80,7 @@ def test_update_keeps_existing_created_stamp(
     properties = _emitted(graph)[0].aspect
     assert properties.name == "Marketing"
     assert properties.created == created
+    assert properties.customProperties == {"team": "growth"}
 
 
 def test_delete_removes_references_and_hard_deletes(graph: MagicMock) -> None:
@@ -111,3 +114,52 @@ def test_clearing_absent_parent_emits_nothing(graph: MagicMock) -> None:
 
     assert result.exit_code == 0, result.output
     graph.emit.assert_not_called()
+
+
+def _hierarchy(
+    parents: Dict[str, str],
+) -> Callable[..., Optional[DomainPropertiesClass]]:
+    def get_aspect(urn: str, aspect_type: type) -> Optional[DomainPropertiesClass]:
+        return DomainPropertiesClass(name=urn, parentDomain=parents.get(urn))
+
+    return get_aspect
+
+
+def test_set_parent_rejects_moving_under_a_descendant(graph: MagicMock) -> None:
+    # root <- child <- grandchild
+    graph.get_aspect.side_effect = _hierarchy(
+        {
+            "urn:li:domain:child": "urn:li:domain:root",
+            "urn:li:domain:grandchild": "urn:li:domain:child",
+        }
+    )
+
+    result = _invoke(["set_parent", "--urn", "root", "--parent", "grandchild"])
+
+    assert result.exit_code != 0
+    assert "descendants" in result.output
+    graph.emit.assert_not_called()
+
+
+def test_upsert_rejects_parent_cycle(graph: MagicMock, tmp_path: Path) -> None:
+    graph.get_aspect.side_effect = _hierarchy(
+        {"urn:li:domain:child": "urn:li:domain:marketing"}
+    )
+    yaml_file = tmp_path / "domain.yaml"
+    yaml_file.write_text("id: marketing\nparent_domain: urn:li:domain:child\n")
+
+    result = _invoke(["upsert", "-f", str(yaml_file)])
+
+    assert result.exit_code != 0
+    graph.emit.assert_not_called()
+
+
+def test_set_parent_allows_moving_under_an_unrelated_domain(graph: MagicMock) -> None:
+    graph.get_aspect.side_effect = _hierarchy(
+        {"urn:li:domain:sales": "urn:li:domain:root"}
+    )
+
+    result = _invoke(["set_parent", "--urn", "marketing", "--parent", "sales"])
+
+    assert result.exit_code == 0, result.output
+    graph.emit.assert_called_once()
