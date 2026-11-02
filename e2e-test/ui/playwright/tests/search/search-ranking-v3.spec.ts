@@ -218,6 +218,22 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
     ).toBe('ragdoll lounge');
   });
 
+  test('an exact structured-property match ranks above longer matches that are not exact, in names or properties', async ({}, testInfo) => {
+    // No dataset is named "persian nook". The four titled exactly "Persian Nook", including
+    // pn_ref_long_name_persian_nook_history, come before every dataset whose name or title is a
+    // longer superset (persian_nook_daily_NN, "Persian Nook Weekly NN", "persian nook archive").
+    const query = 'persian nook';
+    const exactTitles = corpus.filter((e) => tranche(query, e) === 'EXACT_COPIED').map((e) => e.name);
+    const { actual } = await searchAndRecord(testInfo, query, 30);
+    expect(
+      actual
+        .slice(0, exactTitles.length)
+        .map((e) => e?.name)
+        .sort(),
+      `query ${query}: the ${exactTitles.length} exact-title datasets should come before every longer match\n  actual:   ${summarize(query, actual)}`,
+    ).toEqual([...exactTitles].sort());
+  });
+
   test('the exact name is the first result when it has no title of its own', async ({}, testInfo) => {
     // Control for the test above: the same shape, but the asset has no title of its own.
     const { actual } = await searchAndRecord(testInfo, 'siberian lounge', 10);

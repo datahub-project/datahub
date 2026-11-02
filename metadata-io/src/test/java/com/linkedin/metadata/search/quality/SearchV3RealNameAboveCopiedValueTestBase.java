@@ -266,6 +266,25 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
       addKeyed("ragdoll_lounge.ragdoll_lounge_" + n, "ragdoll_lounge_" + n, "Ragdoll Lounge");
       addKeyed("siberian_lounge.siberian_lounge_" + n, "siberian_lounge_" + n, "Siberian Lounge");
     }
+    // Longer supersets of "ragdoll lounge" in names and in titles, none of them exact.
+    add("ragdoll lounge visits", null);
+    for (int i = 0; i < 12; i++) {
+      String n = String.format("%02d", i);
+      addKeyed("ragdoll_lounge.ragdoll_lounge_visits_" + n, "ragdoll_lounge_visits_" + n, null);
+      addKeyed("ragdoll_lounge.rl_" + n, "rl_" + n, "Ragdoll Lounge Visits " + n);
+    }
+    // No dataset is named "persian nook". Four carry the exact title, one of them with a longer
+    // real name of its own; longer supersets sit in names and titles.
+    for (int i = 0; i < 3; i++) {
+      add(String.format("pn_ref_%02d", i), "Persian Nook");
+    }
+    add("pn_ref_long_name_persian_nook_history", "Persian Nook");
+    add("persian nook archive", null);
+    for (int i = 0; i < 12; i++) {
+      String n = String.format("%02d", i);
+      addKeyed("persian_nook.persian_nook_daily_" + n, "persian_nook_daily_" + n, null);
+      addKeyed("persian_nook.pnw_" + n, "pnw_" + n, "Persian Nook Weekly " + n);
+    }
     // Record identifiers, and a dataset that only mentions them in its description.
     addDataset("adoption_register", "Adoption Register", GUID, null);
     addDataset("adoption_ledger", null, HYPHENATED_ID, null);
@@ -386,6 +405,32 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    */
   protected void assertExactNameRanksFirstAboveLongerMatches() throws Exception {
     assertFirst("ragdoll lounge");
+  }
+
+  /**
+   * A structured-property value equal to the search ranks above every asset whose name or title is
+   * a longer match that is not exact. No dataset is named "persian nook"; the four titled exactly
+   * "Persian Nook", including pn_ref_long_name_persian_nook_history, come before every dataset
+   * named or titled with a longer superset (persian_nook_daily_NN, "Persian Nook Weekly NN",
+   * "persian nook archive").
+   */
+  protected void assertExactTitleRanksAboveLongerMatches() throws Exception {
+    String query = "persian nook";
+    List<String> exactTitles =
+        corpus.values().stream()
+            .filter(d -> rank(query, d) == 2)
+            .map(Dataset::name)
+            .sorted()
+            .toList();
+    List<Dataset> served = search(query, 0, 30).served();
+    List<String> first =
+        served.stream().limit(exactTitles.size()).map(Dataset::name).sorted().toList();
+    assertEquals(
+        first,
+        exactTitles,
+        String.format(
+            "query %s: the %d exact-title datasets should come before every longer match%n  actual: %s",
+            query, exactTitles.size(), describe(query, served)));
   }
 
   /** Control for the case above: the same shape, but the asset has no title of its own. */

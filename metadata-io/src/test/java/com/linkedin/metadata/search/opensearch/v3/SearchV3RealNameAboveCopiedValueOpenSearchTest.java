@@ -76,4 +76,9 @@ public class SearchV3RealNameAboveCopiedValueOpenSearchTest
   public void testClassOrderDefaultExactNameWithoutOwnTitleRanksFirst() throws Exception {
     assertExactNameWithoutOwnTitleRanksFirst();
   }
+
+  @Test
+  public void testClassOrderDefaultExactTitleRanksAboveLongerMatches() throws Exception {
+    assertExactTitleRanksAboveLongerMatches();
+  }
 }

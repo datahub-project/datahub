@@ -134,6 +134,42 @@ export function buildRankingCorpus(): CorpusEntry[] {
     });
   }
 
+  // Longer supersets of "ragdoll lounge" in names and in titles, none of them exact.
+  entries.push(dataset('ragdoll lounge visits'));
+  for (let i = 0; i < 12; i += 1) {
+    const n = pad(i, 2);
+    entries.push({
+      urn: keyedDatasetUrn(`ragdoll_lounge.ragdoll_lounge_visits_${n}`),
+      kind: 'dataset',
+      name: `ragdoll_lounge_visits_${n}`,
+    });
+    entries.push({
+      urn: keyedDatasetUrn(`ragdoll_lounge.rl_${n}`),
+      kind: 'dataset',
+      name: `rl_${n}`,
+      title: `Ragdoll Lounge Visits ${n}`,
+    });
+  }
+  // No dataset is named "persian nook". Four carry the exact title, one of them with a longer real
+  // name of its own; longer supersets sit in names and titles.
+  for (let i = 0; i < 3; i += 1) entries.push(dataset(`pn_ref_${pad(i, 2)}`, 'Persian Nook'));
+  entries.push(dataset('pn_ref_long_name_persian_nook_history', 'Persian Nook'));
+  entries.push(dataset('persian nook archive'));
+  for (let i = 0; i < 12; i += 1) {
+    const n = pad(i, 2);
+    entries.push({
+      urn: keyedDatasetUrn(`persian_nook.persian_nook_daily_${n}`),
+      kind: 'dataset',
+      name: `persian_nook_daily_${n}`,
+    });
+    entries.push({
+      urn: keyedDatasetUrn(`persian_nook.pnw_${n}`),
+      kind: 'dataset',
+      name: `pnw_${n}`,
+      title: `Persian Nook Weekly ${n}`,
+    });
+  }
+
   // Record identifiers.
   entries.push(dataset('adoption_register', 'Adoption Register', GUID));
   entries.push(dataset('adoption_register_archive', undefined, OTHER_GUID));
