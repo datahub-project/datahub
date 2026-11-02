@@ -191,7 +191,9 @@ public class BulkListener implements BulkProcessor.Listener {
       }
 
       boolean versionConflict = BulkItemFailureClassifier.isVersionConflict(failureMessage);
-      boolean retriable = BulkItemFailureClassifier.isRetriableFailure(status, failureMessage);
+      boolean retriable =
+          !BulkItemFailureClassifier.isCreateConflict(writeRequest, status, failureMessage)
+              && BulkItemFailureClassifier.isRetriableFailure(status, failureMessage);
 
       if (retriable && requeueSupport != null && requeueSupport.tryRequeue(writeRequest)) {
         incrementMetric(METRIC_ITEM_REQUEUE);
