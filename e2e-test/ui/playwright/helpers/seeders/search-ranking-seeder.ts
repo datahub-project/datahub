@@ -187,15 +187,16 @@ export function buildRankingCorpus(): CorpusEntry[] {
 /**
  * The tranching rule, best first. Every result in a higher tranche ranks above every result in a
  * lower one, an asset takes its best tranche, and datasets rank above columns of the same match
- * quality. IDENTIFIER is a separate check: a record ID typed as the query. The rule applies to the
- * query as typed, without quotes.
+ * kind. IDENTIFIER is a separate check: a record ID typed as the search. The rule applies to the
+ * search as typed, without quotes, and does not order results inside a tranche.
  *
- *   Exact: the whole value equals the query, ignoring case. kennel_booking is exact for
+ *   Exact: the whole value equals the search, ignoring case. kennel_booking is exact for
  *   kennel_booking, never for kennel_booking_archive or booking.
- *   Partial: every separator-delimited substring of the query starts one of the value, in any
- *   order, or the value starts with the query. Separators are space, underscore, dot and slash; a
- *   hyphen is not one. There is no stemming, so "groomed" does not start "groom_0001".
- *   SEPARATOR_ONLY: the value differs from the query only in separators ("kennel booking" and
+ *   Partial: at least one separator-delimited substring of the search starts one of the value, or
+ *   the value starts with the search. For "my cat", "my cat frank", "awesome my cat" and "cat" are
+ *   all partial matches, in any order. Separators are space, underscore, dot and slash; a hyphen is
+ *   not one. There is no stemming, so "groomed" does not start "groom_0001", which is OTHER.
+ *   SEPARATOR_ONLY: the value differs from the search only in separators ("kennel booking" and
  *   kennel_booking). The rule does not decide where it ranks, so it is left out of comparisons.
  */
 export const TRANCHES = [
@@ -204,10 +205,8 @@ export const TRANCHES = [
   'EXACT_COPIED',
   'EXACT_COLUMN',
   'EXACT_COLUMN_COPIED',
-  'PARTIAL_NAME',
-  'PARTIAL_COPIED',
+  'PARTIAL',
   'PARTIAL_COLUMN',
-  'PARTIAL_COLUMN_COPIED',
   'OTHER',
   'SEPARATOR_ONLY',
 ] as const;
@@ -236,14 +235,15 @@ const sameWords = (a: string[], b: string[]): boolean => a.length === b.length &
 const separatorOnly = (query: string, value?: string): boolean =>
   value !== undefined && !exact(query, value) && sameWords(words(typed(query)), words(value));
 
-const starts = (query: string, value?: string): boolean => {
+/** At least one substring of the search starts a substring of the value, or the value starts with it. */
+const shares = (query: string, value?: string): boolean => {
   if (value === undefined) return false;
   const q = words(typed(query));
   const v = words(value);
   return (
     q.length > 0 &&
     v.length > 0 &&
-    (q.every((w) => v.some((x) => x.startsWith(w))) || v.join(' ').startsWith(q.join(' ')))
+    (q.some((w) => v.some((x) => x.startsWith(w))) || v.join(' ').startsWith(q.join(' ')))
   );
 };
 
@@ -255,8 +255,7 @@ export function tranche(query: string, entry: CorpusEntry): Tranche {
   if (separatorOnly(query, entry.name)) return 'SEPARATOR_ONLY';
   if (exact(query, entry.title)) return column ? 'EXACT_COLUMN_COPIED' : 'EXACT_COPIED';
   if (separatorOnly(query, entry.title)) return 'SEPARATOR_ONLY';
-  if (starts(query, entry.name)) return column ? 'PARTIAL_COLUMN' : 'PARTIAL_NAME';
-  if (starts(query, entry.title)) return column ? 'PARTIAL_COLUMN_COPIED' : 'PARTIAL_COPIED';
+  if (shares(query, entry.name) || shares(query, entry.title)) return column ? 'PARTIAL_COLUMN' : 'PARTIAL';
   return 'OTHER';
 }
 

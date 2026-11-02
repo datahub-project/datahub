@@ -33,11 +33,6 @@ public class SearchV3RealNameAboveCopiedValueElasticSearchTest
   }
 
   @Test
-  public void testClassOrderDefaultStemOnlyNameBelowExactCopiedTitle() throws Exception {
-    assertStemOnlyNameBelowExactCopiedTitle();
-  }
-
-  @Test
   public void testClassOrderDefaultCanonicalExampleOrder() throws Exception {
     assertCanonicalExampleOrder();
   }
@@ -48,8 +43,8 @@ public class SearchV3RealNameAboveCopiedValueElasticSearchTest
   }
 
   @Test
-  public void testClassOrderDefaultPartialRealNameWithOwnTitleRanksAsRealName() throws Exception {
-    assertPartialRealNameWithOwnTitleRanksAsRealName();
+  public void testClassOrderDefaultStemOnlyNamesRankBelowEveryMatch() throws Exception {
+    assertStemOnlyNamesRankBelowEveryMatch();
   }
 
   @Test

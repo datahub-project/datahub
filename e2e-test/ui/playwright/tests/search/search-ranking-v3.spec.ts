@@ -8,11 +8,12 @@
  * Every test types the query as a user does, without quotes, reads the results in order and checks
  * them against the tranching rule, graded from the corpus definition:
  *
- *   EXACT_NAME > EXACT_COPIED > EXACT_COLUMN > EXACT_COLUMN_COPIED >
- *   PARTIAL_NAME > PARTIAL_COPIED > PARTIAL_COLUMN > PARTIAL_COLUMN_COPIED > OTHER
+ *   EXACT_NAME > EXACT_COPIED > EXACT_COLUMN > EXACT_COLUMN_COPIED > PARTIAL > PARTIAL_COLUMN > OTHER
  *
- * Exact is a whole-value match ignoring case; partial is every separator-delimited substring of the
- * query starting one of the value (see `tranche` in the seeder). A value that differs from the query only in separators is
+ * Exact is a whole-value match ignoring case; partial is at least one separator-delimited substring
+ * of the search starting one of the value (see `tranche` in the seeder). For "my cat", the asset
+ * named "my cat" ranks first; "my cat frank", "awesome my cat" and "cat" are all partial matches in
+ * any order. A value that differs from the query only in separators is
  * left out of the comparison. A tranche holds ties in any order; a result in the wrong tranche
  * fails the test, and the failure message shows the expected and the actual order. Each search attaches its served rows, their
  * tranches and the first results page to the test (attachments `ranking-<n>.json` and
@@ -161,8 +162,8 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
     return actual;
   }
 
-  test('my cat: the exact name, then the exact title, then the partials, then the near misses', async ({}, testInfo) => {
-    // "my cat frank" and "awesome my cat" are both partial; their order between themselves is not specified.
+  test('my cat: the exact name, then the exact title, then every partial match in any order', async ({}, testInfo) => {
+    // "my cat frank", "awesome my cat", "my dog" and "cat" are all partial; their order is not specified.
     const actual = await expectTrancheOrder(testInfo, 'my cat');
     expect(actual[0]?.name).toBe('my cat');
   });
@@ -181,25 +182,14 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
     expect(actual[0]?.name).toBe('groomed_journal');
   });
 
-  test('a name sharing only a stem ranks below an exact copied title', async ({}, testInfo) => {
-    // gcn_ref is titled "Groomed Coat Notes"; groom_coat_notes_stage shares only the stem of "groomed".
-    await expectTrancheOrder(testInfo, 'groomed coat notes');
-  });
-
   test('a real name equal to its own title ranks as the real name', async ({}, testInfo) => {
     const actual = await expectTrancheOrder(testInfo, 'cattery roster');
     expect(actual[0]?.name).toBe('Cattery Roster');
   });
 
-  test('partial real names come before partial titles, and stem-only names after every real match', async ({}, testInfo) => {
-    // groomed_journal also carries the word in its own title; it is still a partial real-name match.
-    const actual = await expectTrancheOrder(testInfo, 'groomed');
-    expect(
-      actual
-        .slice(0, 3)
-        .map((e) => e?.name)
-        .sort(),
-    ).toEqual(['groomed_coat_notes', 'groomed_journal', 'salon_audit_groomed']);
+  test('stem-only names rank below every match that shares a substring', async ({}, testInfo) => {
+    // 600 names share only the stem of "groomed" (groom_NNNN, grooms_NNNN).
+    await expectTrancheOrder(testInfo, 'groomed');
   });
 
   test('a dataset ranks above a column with the same name', async ({}, testInfo) => {

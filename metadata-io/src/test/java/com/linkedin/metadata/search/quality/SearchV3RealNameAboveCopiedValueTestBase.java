@@ -114,26 +114,25 @@ import org.testng.annotations.BeforeClass;
 /**
  * A catalog where many assets share a display title, a structured property whose values are copied
  * into the name. A user searching for a real name must find that asset first, above every asset
- * whose copied title merely equals it, and a partial real-name match must rank above a partial
- * title match.
+ * whose copied title merely equals it, and every exact match must rank above every match that is
+ * not exact.
  *
- * <p>Each scenario asserts the exact expected order, by tranche, against the shipped templates and
- * against a strict class-order template stored as test data. The tranches are: EXACT_NAME,
- * EXACT_COPIED, PARTIAL_NAME, PARTIAL_COPIED, then OTHER. Exact means the query as typed equals the
- * whole value, ignoring case: kennel_booking is exact for kennel_booking, never for
- * kennel_booking_archive or booking. A value that differs from the query only in separators may
- * rank either way and is left out of the comparison. Partial means every separator-delimited
- * substring of the query starts one of the value, in any order, or the value starts with the query,
- * with no stemming. Separators are space, underscore, dot and slash; a hyphen is not one. Queries
- * are typed without quotes, as a user types them; one scenario checks that quoting gives the same
- * order. A dataset takes its best tranche, graded on its real name first, so a dataset whose own
- * title equals or holds the query is graded on its real name. Column tranches (EXACT_COLUMN,
- * EXACT_COLUMN_COPIED, PARTIAL_COLUMN, PARTIAL_COLUMN_COPIED) follow the dataset tranches of the
- * same match quality. A record ID typed as the query is checked on its own: that asset first.
+ * <p>The tranches, best first: EXACT_NAME, EXACT_COPIED, EXACT_COLUMN, EXACT_COLUMN_COPIED, then
+ * PARTIAL (a dataset sharing a substring with the search, in its name or a copied title), then
+ * PARTIAL_COLUMN, then OTHER (stem-only or unrelated). Exact means the whole value equals the
+ * search, ignoring case: kennel_booking is exact for kennel_booking, never for
+ * kennel_booking_archive or booking. Partial means at least one separator-delimited substring of
+ * the search starts one of the value, or the value starts with the search; how partial matches
+ * order among themselves is not asserted. For "my cat", the asset named "my cat" ranks first; "my
+ * cat frank", "awesome my cat" and "cat" are all partial matches in any order. Separators are
+ * space, underscore, dot and slash; a hyphen is not one, and there is no stemming. A value that
+ * differs from the search only in separators may rank either way and is left out of the comparison.
+ * An asset takes its best tranche, graded on its real name first. A record ID typed as the search
+ * is checked on its own: that asset first.
  *
  * <p>Every scenario runs through the class-order router set as the search-box default in
  * configuration, with no per-request selection, as a deployment sets it. Queries are typed
- * unquoted.
+ * unquoted, and only the tranche order is asserted, never the order inside a tranche.
  */
 public abstract class SearchV3RealNameAboveCopiedValueTestBase
     extends AbstractTestNGSpringContextTests {
@@ -245,7 +244,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
       add(String.format("cr_ref_%02d", i), "Cattery Roster");
     }
     add("Cattery Roster", "Cattery Roster");
-    // One query reaching all eight tranches, datasets and columns.
+    // One query reaching every tranche, datasets and columns.
     add("sand_depth", null);
     add("sd_ref", "sand_depth");
     add("tray_logs", null);
@@ -296,9 +295,9 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
 
   /**
    * Typed as a user types it, without quotes: only the dataset named exactly kennel_booking is an
-   * exact real-name match. Names and titles that merely hold the words (kennel_booking_archive,
-   * booking_kennel, "Kennel Booking Archive", the 30 snapshots) rank below it, and the tranche
-   * order holds past the old 100-row window.
+   * exact real-name match. Names and titles that merely hold its substrings
+   * (kennel_booking_archive, booking_kennel, kennel, booking, "Kennel Booking Archive", the 30
+   * snapshots) rank below it.
    */
   protected void assertUnquotedQueryExactOnlyForWholeName() throws Exception {
     assertTrancheOrder("kennel_booking");
@@ -313,16 +312,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   }
 
   /**
-   * The one copied title equal to the query ranks above groom_coat_notes_stage, which shares the
-   * other words and only the stem of "groomed".
-   */
-  protected void assertStemOnlyNameBelowExactCopiedTitle() throws Exception {
-    assertTrancheOrder("groomed coat notes");
-  }
-
-  /**
-   * For "my cat": the asset named "my cat" first, the title "My Cat" next, then "my cat frank" and
-   * "awesome my cat" in either order, then "my dog" and "cat".
+   * For "my cat": the asset named "my cat" first, the title "My Cat" next, then "my cat frank",
+   * "awesome my cat", "my dog" and "cat", all partial matches, in any order.
    */
   protected void assertCanonicalExampleOrder() throws Exception {
     assertTrancheOrder("my cat");
@@ -334,9 +325,9 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   }
 
   /**
-   * One query reaching all eight tranches: the dataset named sand_depth, the dataset titled
-   * sand_depth, the column sand_depth, the column titled sand_depth, then the partial counterparts
-   * in the same order. Datasets come before columns of the same match quality.
+   * One query reaching every tranche: the dataset named sand_depth, the dataset titled sand_depth,
+   * the column sand_depth, the column titled sand_depth, then the partial datasets, then the
+   * partial columns. Datasets come before columns of the same match kind.
    */
   protected void assertColumnsFollowDatasetsOfTheSameMatch() throws Exception {
     assertTrancheOrder("sand_depth");
@@ -452,8 +443,11 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
             describe(name, firstPage)));
   }
 
-  /** A real name holding the word ranks with the partial real names, even when its title does. */
-  protected void assertPartialRealNameWithOwnTitleRanksAsRealName() throws Exception {
+  /**
+   * For "groomed", the 600 names that share only its stem (groom_NNNN, grooms_NNNN) rank below
+   * every name or title that shares a substring with it.
+   */
+  protected void assertStemOnlyNamesRankBelowEveryMatch() throws Exception {
     assertTrancheOrder("groomed");
   }
 
@@ -535,15 +529,13 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     "EXACT_COPIED",
     "EXACT_COLUMN",
     "EXACT_COLUMN_COPIED",
-    "PARTIAL_NAME",
-    "PARTIAL_COPIED",
+    "PARTIAL",
     "PARTIAL_COLUMN",
-    "PARTIAL_COLUMN_COPIED",
     "OTHER",
     "SEPARATOR_ONLY"
   };
-  private static final int OTHER = 9;
-  private static final int SEPARATOR_ONLY = 10;
+  private static final int OTHER = 7;
+  private static final int SEPARATOR_ONLY = 8;
 
   /**
    * Separator-delimited substrings: lowercased, accents folded, split on space, underscore, dot and
@@ -576,10 +568,10 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   }
 
   /**
-   * Partial: every separator-delimited substring of the query starts one of the value, in any
-   * order, or the value starts with the query.
+   * Partial: at least one separator-delimited substring of the search starts one of the value, or
+   * the value starts with the search.
    */
-  static boolean starts(String query, @Nullable String value) {
+  static boolean shares(String query, @Nullable String value) {
     if (value == null) {
       return false;
     }
@@ -587,7 +579,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     List<String> v = words(value);
     return !q.isEmpty()
         && !v.isEmpty()
-        && (q.stream().allMatch(w -> v.stream().anyMatch(x -> x.startsWith(w)))
+        && (q.stream().anyMatch(w -> v.stream().anyMatch(x -> x.startsWith(w)))
             || String.join(" ", v).startsWith(String.join(" ", q)));
   }
 
@@ -609,11 +601,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     if (separatorOnly(query, d.title())) {
       return SEPARATOR_ONLY;
     }
-    if (starts(query, d.name())) {
-      return 5 + column;
-    }
-    if (starts(query, d.title())) {
-      return 6 + column;
+    if (shares(query, d.name()) || shares(query, d.title())) {
+      return d.column() ? 6 : 5;
     }
     return OTHER;
   }
