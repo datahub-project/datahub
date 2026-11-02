@@ -1,5 +1,7 @@
 import contextlib
+import copy
 import json
+import re
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
@@ -17,178 +19,183 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-FROZEN_TIME = "2026-10-01 12:00:00"
+FROZEN_TIME = "2026-11-02 20:00:00"
 ACCOUNT_ID = "acme-AB1CD2"
 BASE_URL = f"https://api.boomi.com/api/rest/v1/{ACCOUNT_ID}"
 GOLDEN_DIR = Path(__file__).parent / "golden"
+# Responses captured from a Boomi trial account and anonymised: the account id
+# and user emails are replaced and encrypted passwords zeroed.
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
-FOLDERS: List[Dict[str, object]] = [
-    {"id": "F0", "name": "Acme", "fullPath": "Acme", "deleted": False},
-    {
-        "id": "F1",
-        "name": "Production",
-        "parentId": "F0",
-        "fullPath": "Acme/Production",
-        "deleted": False,
-    },
-    {
-        "id": "F2",
-        "name": "Orders",
-        "parentId": "F1",
-        "fullPath": "Acme/Production/Orders",
-        "deleted": False,
-    },
-    {
-        "id": "F3",
-        "name": "Finance",
-        "parentId": "F1",
-        "fullPath": "Acme/Production/Finance",
-        "deleted": False,
-    },
-    {
-        "id": "F4",
-        "name": "Sandbox",
-        "parentId": "F0",
-        "fullPath": "Acme/Sandbox",
-        "deleted": False,
-    },
-    {
-        "id": "F5",
-        "name": "Archive",
-        "parentId": "F0",
-        "fullPath": "Acme/Archive",
-        "deleted": True,
-    },
-]
+ORDERS_EXTRACT = "e1b56fb6-0dae-4c33-9a9d-e5af9b8aedbc"
+CATALOG_SYNC = "6363d3f8-93fa-4c4d-a399-45bde722ee63"
 
-ENVIRONMENTS: List[Dict[str, object]] = [
-    {"id": "env-prod", "name": "Production", "classification": "PROD"},
-    {"id": "env-test", "name": "Test", "classification": "TEST"},
-    {"id": "env-dev", "name": "Dev", "classification": "TEST"},
-]
+# The ids below are not in the captures. Their records are copied from
+# captured ones, so the shape stays real, and cover cases the trial account
+# does not have.
+INVOICE_EXPORT = "5b1e0c2a-6f0d-4c1e-9a43-000000000001"
+SHIPMENT_NOTIFY = "5b1e0c2a-6f0d-4c1e-9a43-000000000002"
+SANDBOX_PROBE = "5b1e0c2a-6f0d-4c1e-9a43-000000000003"
+ORDERS_EXTRACT_TEST = "5b1e0c2a-6f0d-4c1e-9a43-000000000004"
+SANDBOX_FOLDER = "Rjo4OTQzNDk5"
+SQLSERVER_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000011"
+INVOICES_GET = "5b1e0c2a-6f0d-4c1e-9a43-000000000012"
+INVOICES_PROFILE = "5b1e0c2a-6f0d-4c1e-9a43-000000000013"
+SNOWFLAKE_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000014"
+INVOICE_FACTS_UPSERT = "5b1e0c2a-6f0d-4c1e-9a43-000000000015"
+NETSUITE_CONNECTION = "5b1e0c2a-6f0d-4c1e-9a43-000000000016"
+NETSUITE_UPSERT = "5b1e0c2a-6f0d-4c1e-9a43-000000000017"
+SNOWFLAKE_SUBTYPE = "officialboomi-X3979C-snowfl-prod"
+DB_V2_SUBTYPE = "officialboomi-X3979C-dbv2da-prod"
+# Captured components that synthetic ones are derived from.
+HTTP_CONNECTION = "aff32f06-3c23-4012-8d05-e488bd3490e2"
+GET_POSTS_OPERATION = "d311ffe2-9cb5-42f4-951f-83d07a606d92"
+POSTGRES_CONNECTION = "1a5d3fed-78e7-48d6-83e3-886669a42439"
+RNA_DATABASES_GET = "b8cb6962-9950-4dfa-9bcb-d5670375ca82"
+RNA_DATABASES_PROFILE = "9b842e54-05ff-435a-a87d-209d92a690cb"
+ENSEMBL_CONNECTION = "64f429a7-f94a-420d-a5d0-03385e9c3fc8"
+COORD_SYSTEM_GET = "60a37dba-4e38-42b2-b451-2fe2dab0109c"
+DEV_ENVIRONMENT = "9c0a7e51-2d4b-4f3e-8a61-000000000001"
 
+START_STOP_SHAPES = (
+    '<shape image="start" name="shape1" shapetype="start" userlabel="" x="48.0" y="48.0">'
+    "<configuration><noaction/></configuration><dragpoints>"
+    '<dragpoint name="shape1.dragpoint1" toShape="shape2" x="257.0" y="56.0"/>'
+    "</dragpoints></shape>"
+    '<shape image="stop_icon" name="shape2" shapetype="stop" userlabel="" x="273.0" y="48.0">'
+    '<configuration><stop continue="true"/></configuration><dragpoints/></shape>'
+)
 
-def _process(
-    component_id: str,
-    name: str,
-    folder_id: str,
-    folder_name: str,
-    version: object = 1,
-    created_by: str = "svc@example.com",
-    modified_by: str = "svc@example.com",
-    modified_date: str = "2026-09-01T10:00:00Z",
-    branch_name: Optional[str] = "main",
-) -> Dict[str, object]:
-    record: Dict[str, object] = {
-        "@type": "ComponentMetadata",
-        "componentId": component_id,
-        "version": version,
-        "name": name,
-        "type": "process",
-        "subType": "",
-        "createdBy": created_by,
-        "createdDate": "2026-01-15T08:30:00Z",
-        "modifiedBy": modified_by,
-        "modifiedDate": modified_date,
-        "deleted": False,
-        "currentVersion": True,
-        "folderName": folder_name,
-        "folderId": folder_id,
-    }
-    if branch_name:
-        record["branchName"] = branch_name
-        record["branchId"] = f"branch-{branch_name}"
-    return record
+_COMPONENT_ID_RE = re.compile(f'componentId="{ORDERS_EXTRACT}"')
+_NAME_RE = re.compile(re.escape(' name="DH Test - Orders Extract"'))
+_DESCRIPTION_RE = re.compile("<bns:description>.*?</bns:description>", re.S)
+_SHAPES_RE = re.compile("<shapes>.*</shapes>", re.S)
 
 
-PROCESSES_PAGE_1 = [
-    _process(
-        "p-orders-sync",
-        "Orders Sync",
-        "F2",
-        "Orders",
-        version=["Long", 7],
-        modified_by="dev@example.com",
-    ),
-    _process("p-invoice-export", "Invoice Export", "F3", "Finance", version=3),
-    _process(
-        "p-customer-upsert",
-        "Customer Upsert",
-        "F2",
-        "Orders",
-        version=2,
-        modified_date="2026-08-01T10:00:00Z",
-    ),
-]
+def _fixture(name: str) -> str:
+    return (FIXTURES_DIR / name).read_text()
+
+
+def _records(name: str) -> List[Dict[str, object]]:
+    return json.loads(_fixture(name))["result"]
+
+
+def _copy(record: Dict[str, object], **overrides: object) -> Dict[str, object]:
+    copied = copy.deepcopy(record)
+    copied.update(overrides)
+    return copied
+
+
+def _splice(xml: str, pattern: "re.Pattern[str]", replacement: str) -> str:
+    # Fail loudly if a fixture refresh moves a target, rather than letting the
+    # golden file silently pick up the base process's values.
+    spliced, count = pattern.subn(lambda _: replacement, xml)
+    assert count == 1, f"{pattern.pattern!r} matched {count} times in the fixture"
+    return spliced
+
+
+def _process_xml(
+    component_id: str, name: str, description: str, shapes: str = START_STOP_SHAPES
+) -> str:
+    xml = _fixture(f"components/{ORDERS_EXTRACT}.xml")
+    xml = _splice(xml, _COMPONENT_ID_RE, f'componentId="{component_id}"')
+    xml = _splice(xml, _NAME_RE, f' name="{name}"')
+    xml = _splice(
+        xml, _DESCRIPTION_RE, f"<bns:description>{description}</bns:description>"
+    )
+    return _splice(xml, _SHAPES_RE, f"<shapes>{shapes}</shapes>")
+
+
+FOLDERS = _records("folder_query.json")
+FOLDERS.extend(
+    [
+        _copy(
+            FOLDERS[-1],
+            id=SANDBOX_FOLDER,
+            name="Sandbox",
+            fullPath="Test Account/DataHub Test/Sandbox",
+        ),
+        _copy(
+            FOLDERS[-1],
+            id="Rjo4OTQzNDk4",
+            name="Archive",
+            fullPath="Test Account/DataHub Test/Archive",
+            deleted=True,
+        ),
+    ]
+)
+
+ENVIRONMENTS = _records("environment_query.json")
+ENVIRONMENTS.append(_copy(ENVIRONMENTS[0], id=DEV_ENVIRONMENT, name="DH Test Dev Env"))
+
+DEPLOYMENTS = _records("deployed_package_query.json")
+DEPLOYMENTS.extend(
+    [
+        _copy(
+            DEPLOYMENTS[-1],
+            deploymentId="0d1e2f30-0000-4000-8000-000000000001",
+            componentId=INVOICE_EXPORT,
+            packageVersion="2.0",
+        ),
+        _copy(
+            DEPLOYMENTS[-1],
+            deploymentId="0d1e2f30-0000-4000-8000-000000000002",
+            componentId=SANDBOX_PROBE,
+        ),
+        _copy(
+            DEPLOYMENTS[-1],
+            deploymentId="0d1e2f30-0000-4000-8000-000000000003",
+            componentId=ORDERS_EXTRACT_TEST,
+        ),
+        # Only deployed to an environment denied by environment_pattern.
+        _copy(
+            DEPLOYMENTS[-1],
+            deploymentId="0d1e2f30-0000-4000-8000-000000000004",
+            componentId=SHIPMENT_NOTIFY,
+            environmentId=DEV_ENVIRONMENT,
+        ),
+    ]
+)
+
+PROCESSES_PAGE_1 = _records("component_metadata_query.json")
+_PROCESS_TEMPLATE = PROCESSES_PAGE_1[0]
 PROCESSES_PAGE_2 = [
-    # Same component returned twice; the newer copy must win.
-    _process(
-        "p-customer-upsert",
-        "Customer Upsert",
-        "F2",
-        "Orders",
-        version=4,
-        modified_by="ops@example.com",
-        modified_date="2026-09-20T10:00:00Z",
+    _copy(
+        _PROCESS_TEMPLATE,
+        componentId=INVOICE_EXPORT,
+        name="DH Test - Invoice Export",
+        version=["Long", 3],
+        modifiedBy="dev@example.com",
+        modifiedDate="2026-11-02T19:30:00Z",
     ),
-    _process("p-legacy-cleanup", "Legacy Cleanup", "F1", "Production"),
-    _process("p-orders-sync-test", "Orders Sync Test", "F2", "Orders"),
-    _process("p-sandbox-probe", "Sandbox Probe", "F4", "Sandbox"),
-    _process("p-shipment-notify", "Shipment Notify", "F3", "Finance"),
+    # A stale branch copy of Orders Extract; the newer copy on page 1 wins.
+    _copy(
+        _PROCESS_TEMPLATE,
+        version=4,
+        modifiedBy="dev@example.com",
+        modifiedDate="2026-10-20T10:00:00Z",
+    ),
+    _copy(
+        _PROCESS_TEMPLATE,
+        componentId=SHIPMENT_NOTIFY,
+        name="DH Test - Shipment Notify",
+    ),
+    _copy(
+        _PROCESS_TEMPLATE,
+        componentId=SANDBOX_PROBE,
+        name="DH Test - Sandbox Probe",
+        folderName="Sandbox",
+        folderId=SANDBOX_FOLDER,
+    ),
+    _copy(
+        _PROCESS_TEMPLATE,
+        componentId=ORDERS_EXTRACT_TEST,
+        name="DH Test - Orders Extract Test",
+    ),
 ]
 
-DEPLOYMENTS: List[Dict[str, object]] = [
-    {
-        "componentId": "p-orders-sync",
-        "componentType": "process",
-        "environmentId": "env-prod",
-        "packageVersion": "3.0",
-        "active": True,
-    },
-    {
-        "componentId": "p-orders-sync",
-        "componentType": "process",
-        "environmentId": "env-test",
-        "packageVersion": "4.0",
-        "active": True,
-    },
-    {
-        "componentId": "p-invoice-export",
-        "componentType": "process",
-        "environmentId": "env-prod",
-        "packageVersion": "1.2",
-        "active": True,
-    },
-    {
-        "componentId": "p-customer-upsert",
-        "componentType": "process",
-        "environmentId": "env-test",
-        "packageVersion": "2.0",
-        "active": True,
-    },
-    {
-        "componentId": "p-orders-sync-test",
-        "componentType": "process",
-        "environmentId": "env-test",
-        "packageVersion": "1.0",
-        "active": True,
-    },
-    {
-        "componentId": "p-sandbox-probe",
-        "componentType": "process",
-        "environmentId": "env-prod",
-        "packageVersion": "1.0",
-        "active": True,
-    },
-    # Only deployed to an environment denied by environment_pattern.
-    {
-        "componentId": "p-shipment-notify",
-        "componentType": "process",
-        "environmentId": "env-dev",
-        "packageVersion": "1.0",
-        "active": True,
-    },
-]
+EXECUTIONS_PAGE_1 = _records("execution_record_query.json")
+_EXECUTION_TEMPLATE = EXECUTIONS_PAGE_1[-1]
 
 
 def _execution(
@@ -196,354 +203,212 @@ def _execution(
     process_id: str,
     time: str,
     status: str,
-    duration: object = None,
-    execution_type: str = "exec_scheduled",
+    duration: Optional[int] = 1000,
+    execution_type: str = "exec_sched",
+    top_level_execution_id: Optional[str] = None,
 ) -> Dict[str, object]:
-    record: Dict[str, object] = {
-        "@type": "ExecutionRecord",
-        "executionId": execution_id,
-        "executionTime": time,
-        "status": status,
-        "processId": process_id,
-        "atomId": "atom-1",
-        "atomName": "Production Atom",
-        "executionType": execution_type,
-        "topLevelExecutionId": execution_id,
-        "inboundDocumentCount": ["Long", 12],
-        "outboundDocumentCount": 10,
-        "inboundErrorDocumentCount": 0,
-    }
-    if duration is not None:
-        record["executionDuration"] = duration
+    record = _copy(
+        _EXECUTION_TEMPLATE,
+        executionId=execution_id,
+        processId=process_id,
+        executionTime=time,
+        recordedDate=time,
+        status=status,
+        executionType=execution_type,
+        nodeId=f"atom02[{execution_id}]",
+    )
+    for key in ("message", "processName", "topLevelExecutionId"):
+        record.pop(key, None)
+    if duration is None:
+        record.pop("executionDuration")
+    else:
+        record["executionDuration"] = ["Long", duration]
+    if top_level_execution_id:
+        record["topLevelExecutionId"] = top_level_execution_id
     return record
 
 
-EXECUTIONS_PAGE_1: List[Dict[str, object]] = [
+EXECUTIONS_PAGE_2 = [
     _execution(
-        "execution-os-1",
-        "p-orders-sync",
-        "2026-09-30T08:00:00Z",
-        "COMPLETE",
-        ["Long", 125000],
+        "execution-ie-1", INVOICE_EXPORT, "2026-11-02T08:00:00Z", "COMPLETE_WARN"
+    ),
+    _execution("execution-ie-2", INVOICE_EXPORT, "2026-11-02T09:00:00Z", "ABORTED"),
+    _execution(
+        "execution-ie-3", INVOICE_EXPORT, "2026-11-02T10:00:00Z", "discarded", 0
     ),
     _execution(
-        "execution-os-2", "p-orders-sync", "2026-09-30T09:00:00Z", "COMPLETE_WARN", 5000
+        "execution-ie-4", INVOICE_EXPORT, "2026-11-02T19:55:00Z", "INPROCESS", None
     ),
     _execution(
-        "execution-os-3",
-        "p-orders-sync",
-        "2026-09-30T10:00:00Z",
-        "error",
-        ["Long", 2500],
-        execution_type="exec_manual",
+        "execution-sn-1", SHIPMENT_NOTIFY, "2026-11-02T19:58:00Z", "STARTED", None
     ),
     _execution(
-        "execution-os-0", "p-orders-sync", "2026-09-29T08:00:00Z", "COMPLETE", 1000
-    ),
-    # Oldest orders-sync run; dropped by max_executions_per_process.
-    _execution(
-        "execution-os-old", "p-orders-sync", "2026-09-25T08:00:00Z", "COMPLETE", 1000
+        "execution-sn-2", SHIPMENT_NOTIFY, "2026-11-02T19:59:00Z", "ENQUEUED", None
     ),
     _execution(
-        "execution-ie-1", "p-invoice-export", "2026-09-30T11:00:00Z", "ABORTED", 700
-    ),
-    _execution(
-        "execution-ie-2", "p-invoice-export", "2026-09-30T11:30:00Z", "DISCARDED", 0
-    ),
-    _execution(
-        "execution-ie-3", "p-invoice-export", "2026-10-01T11:55:00Z", "INPROCESS"
-    ),
-]
-EXECUTIONS_PAGE_2: List[Dict[str, object]] = [
-    _execution(
-        "execution-cu-1", "p-customer-upsert", "2026-10-01T11:58:00Z", "STARTED"
-    ),
-    _execution(
-        "execution-cu-2", "p-customer-upsert", "2026-10-01T11:59:00Z", "ENQUEUED"
-    ),
-    _execution(
-        "execution-cu-3",
-        "p-customer-upsert",
-        "2026-10-01T11:00:00Z",
+        "execution-sn-3",
+        SHIPMENT_NOTIFY,
+        "2026-11-02T19:00:00Z",
         "ABORTED_RECOVERING",
+        None,
     ),
+    _execution("execution-sn-4", SHIPMENT_NOTIFY, "2026-11-01T07:00:00Z", "PAUSED"),
+    # Called by a run that is older than the window, so it has no caller to
+    # link to and keeps its own trigger.
     _execution(
-        "execution-cu-4", "p-customer-upsert", "2026-09-30T07:00:00Z", "PAUSED", 400
+        "execution-cs-sub",
+        CATALOG_SYNC,
+        "2026-11-01T06:00:00Z",
+        "COMPLETE",
+        execution_type="sub_process",
+        top_level_execution_id="execution-outside-window",
     ),
-    # Processes that are filtered out or undeployed.
-    _execution(
-        "execution-sp-1", "p-sandbox-probe", "2026-09-30T08:00:00Z", "COMPLETE", 100
-    ),
-    _execution(
-        "execution-lc-1", "p-legacy-cleanup", "2026-09-30T08:00:00Z", "COMPLETE", 100
-    ),
+    # A process that is filtered out.
+    _execution("execution-sp-1", SANDBOX_PROBE, "2026-11-02T08:00:00Z", "COMPLETE"),
 ]
 
-PROCESS_XML_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
-<bns:Component xmlns:bns="http://api.platform.boomi.com/" componentId="{id}" name="{name}" type="process" folderFullPath="{path}" createdBy="svc@example.com" branchName="main">
-  <bns:encryptedValues/>
-  <bns:description>{description}</bns:description>
-  <bns:object>
-    <process xmlns="" allowSimultaneous="false">
-      <shapes>
-        <shape image="start" name="shape1" shapetype="start"/>
-{shapes}
-        <shape image="stop" name="shape99" shapetype="stop"/>
-      </shapes>
-    </process>
-  </bns:object>
-</bns:Component>
-"""
 
-CONNECTOR_SHAPE_TEMPLATE = """        <shape image="connectoraction_icon" name="{name}" shapetype="connectoraction">
-          <configuration>
-            <connectoraction actionType="{action}" connectionId="{connection}" connectorType="{connector}" operationId="{operation}">
-              <parameters/>
-            </connectoraction>
-          </configuration>
-          <dragpoints><dragpoint name="{name}.dragpoint1" toShape="shape99"/></dragpoints>
-        </shape>"""
-
-PROCESS_CALL_SHAPE_TEMPLATE = """        <shape image="processcall_icon" name="{name}" shapetype="processcall">
-          <configuration>
-            <processcall abort="true" processId="{process}" wait="true"><parameters/></processcall>
-          </configuration>
-        </shape>"""
-
-COMPONENT_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
-<bns:Component xmlns:bns="http://api.platform.boomi.com/" componentId="{id}" name="{id}" type="{type}" subType="{sub_type}" folderFullPath="Acme/Shared">
-  <bns:encryptedValues/>
-  <bns:object>
-{body}
-  </bns:object>
-</bns:Component>
-"""
+def _derive_component(
+    source_id: str, component_id: str, name: str, replacements: Dict[str, str]
+) -> str:
+    xml = _fixture(f"components/{source_id}.xml")
+    xml = xml.replace(f'componentId="{source_id}"', f'componentId="{component_id}"')
+    xml = re.sub(' name="[^"]*" type=', f' name="{name}" type=', xml, count=1)
+    for old, new in replacements.items():
+        assert old in xml, old
+        xml = xml.replace(old, new)
+    return xml
 
 
 def _connector_shape(
-    name: str, action: str, connection: str, connector: str, operation: str = ""
+    name: str,
+    label: str,
+    action_type: str,
+    connection_id: str,
+    connector_type: str,
+    operation_id: str = "",
 ) -> str:
-    return CONNECTOR_SHAPE_TEMPLATE.format(
-        name=name,
-        action=action,
-        connection=connection,
-        connector=connector,
-        operation=operation,
+    return (
+        f'<shape image="connectoraction_icon" name="{name}" shapetype="connectoraction" userlabel="{label}" x="273.0" y="48.0">'
+        f'<configuration><connectoraction actionType="{action_type}" allowDynamicCredentials="NONE" '
+        f'connectionId="{connection_id}" connectorType="{connector_type}" hideSettings="false" '
+        f'operationId="{operation_id}"><parameters/><dynamicProperties/></connectoraction></configuration>'
+        "<dragpoints/></shape>"
     )
 
 
-def _component(component_id: str, type_: str, sub_type: str, body: str) -> str:
-    return COMPONENT_TEMPLATE.format(
-        id=component_id, type=type_, sub_type=sub_type, body=body
-    )
-
-
-SNOWFLAKE_SUBTYPE = "officialboomi-X3979C-snowfl-prod"
-DB_V2_SUBTYPE = "officialboomi-X3979C-dbv2da-prod"
-
-PROCESS_XML: Dict[str, str] = {
-    "p-orders-sync": PROCESS_XML_TEMPLATE.format(
-        id="p-orders-sync",
-        name="Orders Sync",
-        path="Acme/Production/Orders",
-        description="Copies new orders from the web shop into the ERP.",
-        shapes="\n".join(
-            [
-                _connector_shape("shape2", "Listen", "conn-http", "http"),
-                _connector_shape(
-                    "shape3", "Get", "conn-salesforce", "salesforce", "op-sf-orders"
-                ),
-                _connector_shape(
-                    "shape4", "Send", "conn-erp", "database", "op-erp-insert-orders"
-                ),
-                PROCESS_CALL_SHAPE_TEMPLATE.format(
-                    name="shape5", process="p-customer-upsert"
-                ),
-            ]
+INVOICE_EXPORT_SHAPES = START_STOP_SHAPES + "".join(
+    [
+        _connector_shape(
+            "shape3", "Receive invoices", "Listen", HTTP_CONNECTION, "http"
         ),
-    ),
-    "p-invoice-export": PROCESS_XML_TEMPLATE.format(
-        id="p-invoice-export",
-        name="Invoice Export",
-        path="Acme/Production/Finance",
-        description="Exports posted invoices to the finance warehouse.",
-        shapes="\n".join(
-            [
-                _connector_shape(
-                    "shape2", "Get", "conn-erp", "database", "op-erp-get-invoices"
-                ),
-                _connector_shape(
-                    "shape3", "QUERY", "conn-finance", DB_V2_SUBTYPE, "op-v2-payments"
-                ),
-                _connector_shape(
-                    "shape4", "QUERY", "conn-finance", DB_V2_SUBTYPE, "op-v2-lines"
-                ),
-                _connector_shape(
-                    "shape5",
-                    "UPSERT",
-                    "conn-snowflake",
-                    SNOWFLAKE_SUBTYPE,
-                    "op-snowflake-facts",
-                ),
-            ]
+        _connector_shape(
+            "shape4",
+            "Get invoices",
+            "Get",
+            SQLSERVER_CONNECTION,
+            "database",
+            INVOICES_GET,
         ),
-    ),
-    "p-customer-upsert": PROCESS_XML_TEMPLATE.format(
-        id="p-customer-upsert",
-        name="Customer Upsert",
-        path="Acme/Production/Orders",
-        description="",
-        shapes="\n".join(
-            [
-                _connector_shape(
-                    "shape2", "Get", "conn-erp", "database", "op-erp-get-customers"
-                ),
-                _connector_shape(
-                    "shape3", "GET", "conn-http", "http", "op-http-get-customers"
-                ),
-                _connector_shape(
-                    "shape4", "Send", "conn-netsuite", "netsuitesdk", "op-ns-upsert"
-                ),
-                PROCESS_CALL_SHAPE_TEMPLATE.format(
-                    name="shape5", process="p-legacy-cleanup"
-                ),
-            ]
+        _connector_shape(
+            "shape5",
+            "Upsert invoice facts",
+            "UPSERT",
+            SNOWFLAKE_CONNECTION,
+            SNOWFLAKE_SUBTYPE,
+            INVOICE_FACTS_UPSERT,
         ),
-    ),
-}
+        _connector_shape(
+            "shape6",
+            "Upsert customers",
+            "UPSERT",
+            NETSUITE_CONNECTION,
+            "netsuitesdk",
+            NETSUITE_UPSERT,
+        ),
+        '<shape image="processcall_icon" name="shape7" shapetype="processcall" userlabel="Call test copy" x="723.0" y="48.0">'
+        f'<configuration><processcall abort="false" processId="{ORDERS_EXTRACT_TEST}" wait="true">'
+        "<parameters/><returnpaths/></processcall></configuration><dragpoints/></shape>",
+    ]
+)
 
-CONNECTION_XML: Dict[str, str] = {
-    "conn-erp": _component(
-        "conn-erp",
-        "connector-settings",
-        "database",
-        '    <DatabaseConnection xmlns=""><DatabaseConnectionSettings driverId="sqlserver" host="db.example.com" port="1433" dbname="my_db" userName="svc@example.com"/></DatabaseConnection>',
+# Connectors the trial account cannot run, derived from captured components.
+SYNTHETIC_COMPONENT_XML: Dict[str, str] = {
+    SQLSERVER_CONNECTION: _derive_component(
+        POSTGRES_CONNECTION,
+        SQLSERVER_CONNECTION,
+        "DH Test - ERP SQL Server",
+        {
+            'className="org.postgresql.Driver"': 'className=""',
+            'dbname="pfmegrnargs"': 'dbname="my_db"',
+            'driverId="custom"': 'driverId="sqlserver"',
+            'host="hh-pgsql-public.ebi.ac.uk"': 'host="db.example.com"',
+            'port="5432"': 'port="1433"',
+            ' urlFormat="jdbc:postgresql://{0}:{1}/{2}{3}"': "",
+        },
     ),
-    "conn-finance": _component(
-        "conn-finance",
-        "connector-settings",
-        DB_V2_SUBTYPE,
-        """    <GenericConnectionConfig xmlns="">
-      <field id="url" type="string" value="jdbc:postgresql://pg.example.com:5432/finance"/>
-      <field id="schemaName" type="string" value="billing"/>
-    </GenericConnectionConfig>""",
+    INVOICES_GET: _derive_component(
+        RNA_DATABASES_GET,
+        INVOICES_GET,
+        "DH Test - Invoices Get",
+        {RNA_DATABASES_PROFILE: INVOICES_PROFILE},
     ),
-    "conn-salesforce": _component(
-        "conn-salesforce",
-        "connector-settings",
-        "salesforce",
-        '    <SalesforceConnection xmlns="" url="https://login.example.com/services/Soap/u/60.0" user="svc@example.com"/>',
+    # A profile that names its table but has no SQL.
+    INVOICES_PROFILE: _derive_component(
+        RNA_DATABASES_PROFILE,
+        INVOICES_PROFILE,
+        "DH Test - Invoices Profile",
+        {
+            'tableName=""': 'tableName="dbo.Invoices"',
+            "<sql>SELECT id, descr, display_name FROM rnc_database ORDER BY id</sql>": "",
+        },
     ),
-    "conn-snowflake": _component(
-        "conn-snowflake",
-        "connector-settings",
-        SNOWFLAKE_SUBTYPE,
-        '    <GenericConnectionConfig xmlns=""><field id="user" type="string" value="svc@example.com"/></GenericConnectionConfig>',
+    SNOWFLAKE_CONNECTION: _derive_component(
+        ENSEMBL_CONNECTION,
+        SNOWFLAKE_CONNECTION,
+        "DH Test - Snowflake",
+        {f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"'},
     ),
-    "conn-http": _component(
-        "conn-http",
-        "connector-settings",
-        "http",
-        '    <HttpSettings xmlns="" url="https://api.example.com"/>',
+    INVOICE_FACTS_UPSERT: _derive_component(
+        COORD_SYSTEM_GET,
+        INVOICE_FACTS_UPSERT,
+        "DH Test - Invoice Facts Upsert",
+        {
+            f'subType="{DB_V2_SUBTYPE}"': f'subType="{SNOWFLAKE_SUBTYPE}"',
+            'customOperationType="GET" objectTypeId="coord_system" operationType="EXECUTE"': (
+                'customOperationType="UPSERT" objectTypeId="INVOICE_FACTS" operationType="UPSERT"'
+            ),
+            '<field id="query" type="string" value="select * from coord_system"/>': "",
+        },
     ),
-    "conn-netsuite": _component(
-        "conn-netsuite",
-        "connector-settings",
-        "netsuitesdk",
-        '    <GenericConnectionConfig xmlns=""><field id="account" type="string" value="000000"/></GenericConnectionConfig>',
+    NETSUITE_CONNECTION: _derive_component(
+        ENSEMBL_CONNECTION,
+        NETSUITE_CONNECTION,
+        "DH Test - NetSuite",
+        {f'subType="{DB_V2_SUBTYPE}"': 'subType="netsuitesdk"'},
     ),
-}
-
-OPERATION_XML: Dict[str, str] = {
-    "op-sf-orders": _component(
-        "op-sf-orders",
-        "connector-action",
-        "salesforce",
-        '    <Operation xmlns=""><Configuration><SalesforceGetAction objectAction="query" objectName="Order"/></Configuration></Operation>',
-    ),
-    "op-erp-insert-orders": _component(
-        "op-erp-insert-orders",
-        "connector-action",
-        "database",
-        '    <Operation xmlns=""><Configuration><DatabaseSendAction batchCount="0" commitOption="commitprofile"><WriteProfile profileId="prof-insert-orders"/></DatabaseSendAction></Configuration></Operation>',
-    ),
-    "op-erp-get-invoices": _component(
-        "op-erp-get-invoices",
-        "connector-action",
-        "database",
-        '    <Operation xmlns=""><Configuration><DatabaseGetAction batchCount="0" maxRows="0"><ReadProfile profileId="prof-invoices"/></DatabaseGetAction></Configuration></Operation>',
-    ),
-    "op-erp-get-customers": _component(
-        "op-erp-get-customers",
-        "connector-action",
-        "database",
-        '    <Operation xmlns=""><Configuration><DatabaseGetAction batchCount="0" maxRows="0"><ReadProfile profileId="prof-customers"/></DatabaseGetAction></Configuration></Operation>',
-    ),
-    "op-v2-payments": _component(
-        "op-v2-payments",
-        "connector-action",
-        DB_V2_SUBTYPE,
-        '    <Operation xmlns=""><Configuration><GenericOperationConfig customOperationType="QUERY" objectTypeId="payments" objectTypeName="payments" operationType="QUERY"/></Configuration></Operation>',
-    ),
-    "op-v2-lines": _component(
-        "op-v2-lines",
-        "connector-action",
-        DB_V2_SUBTYPE,
-        """    <Operation xmlns=""><Configuration><GenericOperationConfig customOperationType="QUERY" operationType="QUERY">
-      <field id="query" type="string" value="SELECT l.invoice_id, l.amount, c.name FROM invoice_lines l JOIN crm.customers c ON c.id = l.customer_id WHERE l.posted = ?"/>
-    </GenericOperationConfig></Configuration></Operation>""",
-    ),
-    "op-snowflake-facts": _component(
-        "op-snowflake-facts",
-        "connector-action",
-        SNOWFLAKE_SUBTYPE,
-        '    <Operation xmlns=""><Configuration><GenericOperationConfig customOperationType="UPSERT" objectTypeId="INVOICE_FACTS" objectTypeName="INVOICE_FACTS" operationType="UPSERT"/></Configuration></Operation>',
-    ),
-    "op-ns-upsert": _component(
-        "op-ns-upsert",
-        "connector-action",
-        "netsuitesdk",
-        '    <Operation xmlns=""><Configuration><GenericOperationConfig objectTypeId="customer" objectTypeName="Customer" operationType="UPSERT"/></Configuration></Operation>',
-    ),
-}
-
-PROFILE_XML: Dict[str, str] = {
-    "prof-insert-orders": _component(
-        "prof-insert-orders",
-        "profile.db",
-        "",
-        """    <DatabaseProfile xmlns=""><ProfileProperties>
-      <DBStatement statementType="dynamicinsert" tableName="dbo.orders">
-        <sql>INSERT INTO dbo.orders (order_id, amount) VALUES (?, ?)</sql>
-      </DBStatement>
-    </ProfileProperties></DatabaseProfile>""",
-    ),
-    "prof-invoices": _component(
-        "prof-invoices",
-        "profile.db",
-        "",
-        """    <DatabaseProfile xmlns=""><ProfileProperties>
-      <DBStatement statementType="select" tableName="dbo.Invoices"/>
-    </ProfileProperties></DatabaseProfile>""",
-    ),
-    "prof-customers": _component(
-        "prof-customers",
-        "profile.db",
-        "",
-        """    <DatabaseProfile xmlns=""><ProfileProperties>
-      <DBStatement statementType="select" tableName="dbo.customers">
-        <sql>SELECT id, name FROM dbo.customers WHERE updated_at &gt; ?</sql>
-      </DBStatement>
-    </ProfileProperties></DatabaseProfile>""",
+    NETSUITE_UPSERT: _derive_component(
+        COORD_SYSTEM_GET,
+        NETSUITE_UPSERT,
+        "DH Test - NetSuite Customer Upsert",
+        {f'subType="{DB_V2_SUBTYPE}"': 'subType="netsuitesdk"'},
     ),
 }
 
 COMPONENT_XML: Dict[str, str] = {
-    **PROCESS_XML,
-    **CONNECTION_XML,
-    **OPERATION_XML,
-    **PROFILE_XML,
+    path.stem: path.read_text()
+    for path in sorted((FIXTURES_DIR / "components").glob("*.xml"))
 }
+COMPONENT_XML.update(SYNTHETIC_COMPONENT_XML)
+COMPONENT_XML[INVOICE_EXPORT] = _process_xml(
+    INVOICE_EXPORT,
+    "DH Test - Invoice Export",
+    "Exports posted invoices to the finance warehouse.",
+    shapes=INVOICE_EXPORT_SHAPES,
+)
+COMPONENT_XML[SHIPMENT_NOTIFY] = _process_xml(
+    SHIPMENT_NOTIFY, "DH Test - Shipment Notify", ""
+)
 
 
 @pytest.fixture(autouse=True)
@@ -603,14 +468,15 @@ def _recipe(output_path: Path) -> Dict[str, object]:
                 "username": "svc@example.com",
                 "api_token": "dummy-token",
                 "branch_name": "main",
-                "folder_pattern": {"deny": ["^Acme/Sandbox.*"]},
+                "folder_pattern": {"deny": [".*/Sandbox$"]},
                 "process_pattern": {"deny": [".* Test$"]},
-                "environment_pattern": {"deny": ["^Dev$"]},
+                "environment_pattern": {"deny": [".* Dev Env$"]},
+                "include_undeployed_processes": True,
                 "max_requests_per_second": 10,
                 "max_executions_per_process": 4,
                 "connection_type_platform_map": {SNOWFLAKE_SUBTYPE: "snowflake"},
                 "connection_to_platform": {
-                    "conn-snowflake": {
+                    SNOWFLAKE_CONNECTION: {
                         "platform": "snowflake",
                         "platform_instance": "snow_prod",
                         "database": "ANALYTICS",
@@ -633,45 +499,52 @@ def test_boomi_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
         pipeline.run()
         pipeline.raise_from_status()
 
-        component_gets = [
-            r.path.rsplit("/", 1)[-1]
-            for r in mock.request_history
-            if "/component/" in r.path
-        ]
-        # The legacy database connection is shared by three shapes.
-        assert component_gets.count("conn-erp") == 1
-        assert "op-http-get-customers" not in component_gets
-
         query_more = [r for r in mock.request_history if r.path.endswith("/querymore")]
         assert [r.text for r in query_more] == [
             "page-2-token",
             "executions-page-2-token",
         ]
         assert query_more[0].headers["Content-Type"] == "text/plain"
+        component_gets = [
+            r.path.rsplit("/", 1)[-1]
+            for r in mock.request_history
+            if "/component/" in r.path
+        ]
+        # Orders Extract and Salesforce Accounts share the Postgres connection.
+        assert component_gets.count(POSTGRES_CONNECTION) == 1
+        # Operations of skipped connectors are never read.
+        assert GET_POSTS_OPERATION not in component_gets
         execution_query = next(
             r for r in mock.request_history if r.path.endswith("/executionrecord/query")
         )
         assert execution_query.json()["QueryFilter"]["expression"]["argument"] == [
-            "2026-09-24T12:00:00Z"
+            "2026-10-26T20:00:00Z"
         ]
 
     report = pipeline.source.get_report()
     assert isinstance(report, BoomiSourceReport)
-    assert report.processes_emitted == 3
+    assert report.folders_emitted == 5
+    assert report.processes_emitted == 7
     assert report.processes_duplicate_branch_copies == 1
-    assert sorted(report.processes_undeployed_skipped) == [
-        "Legacy Cleanup",
-        "Shipment Notify",
+    assert list(report.processes_undeployed_skipped) == []
+    assert list(report.environments_filtered) == ["DH Test Dev Env"]
+    assert sorted(report.processes_filtered) == [
+        "DH Test - Orders Extract Test",
+        "DH Test - Sandbox Probe",
     ]
-    assert sorted(report.processes_filtered) == ["Orders Sync Test", "Sandbox Probe"]
-    assert report.executions_scanned == 14
-    assert report.executions_emitted == 11
+    # Orders Extract has five runs in the captures; the oldest is over the cap.
+    assert report.executions_scanned == 20
+    assert report.executions_emitted == 18
     assert report.executions_over_cap == 1
-    assert report.executions_process_not_emitted == 2
+    assert report.executions_process_not_emitted == 1
     assert report.executions_unknown_status == 1
     assert report.lineage_edges_resolved == 8
     assert dict(report.lineage_edges_unresolved) == {"unsupported_connector": 1}
-    assert dict(report.lineage_skipped_subtypes) == {"http": 1}
+    assert dict(report.lineage_skipped_subtypes) == {
+        "http": 1,
+        "disk-sdk": 3,
+        "officialboomi-X3979C-sftpvx-prod": 1,
+    }
     assert report.lineage_listen_shapes_skipped == 1
     assert report.process_calls_resolved == 1
     assert report.process_calls_child_not_emitted == 1
@@ -694,6 +567,7 @@ def test_boomi_stateful_removes_undeployed_process(
 ) -> None:
     recipe = _recipe(tmp_path / "run1.json")
     source_config = recipe["source"]["config"]  # type: ignore[index]
+    source_config["include_undeployed_processes"] = False
     source_config["stateful_ingestion"] = {
         "enabled": True,
         "remove_stale_metadata": True,
@@ -717,12 +591,10 @@ def test_boomi_stateful_removes_undeployed_process(
         pipeline_run1 = run_and_get_pipeline(recipe)
         checkpoint1 = get_current_checkpoint_from_pipeline(pipeline_run1)
 
-        # The invoice export loses its only deployment between runs.
+        # Catalog Sync loses its only deployment between runs.
         _register_mocks(
             mock,
-            deployments=[
-                d for d in DEPLOYMENTS if d["componentId"] != "p-invoice-export"
-            ],
+            deployments=[d for d in DEPLOYMENTS if d["componentId"] != CATALOG_SYNC],
         )
         recipe["sink"] = {
             "type": "file",
@@ -731,6 +603,15 @@ def test_boomi_stateful_removes_undeployed_process(
         pipeline_run2 = run_and_get_pipeline(recipe)
         checkpoint2 = get_current_checkpoint_from_pipeline(pipeline_run2)
 
+    report = pipeline_run1.source.get_report()
+    assert isinstance(report, BoomiSourceReport)
+    # The trial account's two never-deployed processes, plus one deployed only
+    # to a denied environment.
+    assert sorted(report.processes_undeployed_skipped) == [
+        "DH Test - SFTP Pickup",
+        "DH Test - Salesforce Accounts",
+        "DH Test - Shipment Notify",
+    ]
     assert checkpoint1 and checkpoint1.state
     assert checkpoint2 and checkpoint2.state
     validate_all_providers_have_committed_successfully(pipeline_run1, 1)
@@ -745,8 +626,8 @@ def test_boomi_stateful_removes_undeployed_process(
         )
     )
     assert removed == {
-        "urn:li:dataFlow:(boomi,p-invoice-export,PROD)",
-        "urn:li:dataJob:(urn:li:dataFlow:(boomi,p-invoice-export,PROD),process)",
+        f"urn:li:dataFlow:(boomi,{CATALOG_SYNC},PROD)",
+        f"urn:li:dataJob:(urn:li:dataFlow:(boomi,{CATALOG_SYNC},PROD),process)",
     }
     soft_deleted = {
         mcp["entityUrn"]

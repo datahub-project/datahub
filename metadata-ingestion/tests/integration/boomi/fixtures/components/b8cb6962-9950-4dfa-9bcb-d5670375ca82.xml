@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?><bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bns="http://api.platform.boomi.com/" folderFullPath="Test Account/DataHub Test/Shared" componentId="b8cb6962-9950-4dfa-9bcb-d5670375ca82" version="1" name="DH Test - RNA Databases Get" type="connector-action" subType="database" createdDate="2026-11-02T19:15:00Z" createdBy="svc@example.com" modifiedDate="2026-11-02T19:15:00Z" modifiedBy="svc@example.com" deleted="false" currentVersion="true" folderName="Shared" folderId="Rjo4OTQzNDEy" branchName="main" branchId="Qjo2MDk0Mzg"><bns:encryptedValues/><bns:object><Operation xmlns=""><Archiving directory="" enabled="false"/><Configuration><DatabaseGetAction batchCount="0" maxRows="0"><ReadProfile profileId="9b842e54-05ff-435a-a87d-209d92a690cb"/>
+        </DatabaseGetAction>
+      </Configuration><Tracking><TrackedFields/></Tracking><Caching/>
+    </Operation></bns:object></bns:Component>

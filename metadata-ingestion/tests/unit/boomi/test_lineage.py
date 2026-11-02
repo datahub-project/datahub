@@ -33,10 +33,19 @@ SNOWFLAKE = "officialboomi-X3979C-snowfl-prod"
 
 
 def _component(type_: str, sub_type: str, body: str) -> str:
+    # The envelope of a live GET Component/{id} response.
+    sub_type_attribute = f'subType="{sub_type}" ' if sub_type else ""
     return (
-        '<bns:Component xmlns:bns="http://api.platform.boomi.com/" '
-        f'componentId="c1" type="{type_}" subType="{sub_type}">'
-        f"<bns:object>{body}</bns:object></bns:Component>"
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+        'xmlns:bns="http://api.platform.boomi.com/" '
+        'folderFullPath="Test Account/Shared" componentId="c1" version="1" '
+        f'name="Component" type="{type_}" {sub_type_attribute}'
+        'createdDate="2026-11-02T19:14:48Z" createdBy="svc@example.com" '
+        'modifiedDate="2026-11-02T19:14:48Z" modifiedBy="svc@example.com" '
+        'deleted="false" currentVersion="true" folderName="Shared" '
+        'folderId="Rjo4OTQzNDEy" branchName="main" branchId="Qjo2MDk0Mzg">'
+        f"<bns:encryptedValues/><bns:object>{body}</bns:object></bns:Component>"
     )
 
 
@@ -44,21 +53,27 @@ def _legacy_connection(driver: str = "sqlserver", extra: str = "") -> str:
     return _component(
         "connector-settings",
         "database",
-        '<DatabaseConnection xmlns=""><DatabaseConnectionSettings '
-        f'driverId="{driver}" host="db.example.com" port="1433" dbname="my_db" {extra}/>'
-        "</DatabaseConnection>",
+        '<DatabaseConnectionSettings xmlns="" additional="" className="" '
+        f'dbname="my_db" driverId="{driver}" host="db.example.com" '
+        f'isPoolEnabled="false" password="0000" port="1433" username="svc" {extra}>'
+        '<WriteOptions sqlFilePath="" writeSQLToFile="false"/>'
+        "</DatabaseConnectionSettings>",
     )
 
 
-def _v2_connection(url: str, schema: Optional[str] = None) -> str:
-    schema_field = (
-        f'<field id="schemaName" type="string" value="{schema}"/>' if schema else ""
-    )
+def _v2_connection(url: str, schema: str = "") -> str:
     return _component(
         "connector-settings",
         DB_V2,
-        f'<GenericConnectionConfig xmlns=""><field id="url" type="string" value="{url}"/>'
-        f"{schema_field}</GenericConnectionConfig>",
+        '<GenericConnectionConfig xmlns="">'
+        f'<field id="url" type="string" value="{url}"/>'
+        '<field id="className" type="string" value=""/>'
+        '<field id="username" type="string" value="svc"/>'
+        '<field id="password" type="password" value=""/>'
+        '<field id="CustomProperties" type="customproperties"><customProperties/></field>'
+        f'<field id="schemaName" type="string" value="{schema}"/>'
+        '<field id="enablePooling" type="boolean" value="false"/>'
+        "</GenericConnectionConfig>",
     )
 
 
@@ -69,37 +84,51 @@ def _generic_operation(
     query: str = "",
     custom_operation_type: str = "",
 ) -> str:
-    query_field = f'<field id="query" type="string" value="{query}"/>' if query else ""
+    # Database V2 always writes a query field, empty unless the operation
+    # runs custom SQL.
     return _component(
         "connector-action",
         sub_type,
-        '<Operation xmlns=""><Configuration><GenericOperationConfig '
+        '<Operation xmlns="" returnApplicationErrors="true" trackResponse="false">'
+        '<Archiving directory="" enabled="false"/><Configuration>'
+        f'<GenericOperationConfig customOperationType="{custom_operation_type}" '
         f'objectTypeId="{object_type_id}" operationType="{operation_type}" '
-        f'customOperationType="{custom_operation_type}">{query_field}'
-        "</GenericOperationConfig></Configuration></Operation>",
+        'requestProfileType="json" responseProfileType="json">'
+        '<field id="GetType" type="string" value="Standard Get"/>'
+        '<field id="schemaName" type="string" value=""/>'
+        f'<field id="query" type="string" value="{query}"/>'
+        '<field id="maxRows" type="integer" value="25"/>'
+        "</GenericOperationConfig></Configuration>"
+        "<Tracking><TrackedFields/></Tracking><Caching/></Operation>",
     )
 
 
 def _db_operation(action: str, profile_id: str) -> str:
-    # Documented legacy shape: the profile sits on a ReadProfile/WriteProfile child.
+    # Legacy operations name the profile on a ReadProfile/WriteProfile child.
     profile_element = "ReadProfile" if action.endswith("GetAction") else "WriteProfile"
     return _component(
         "connector-action",
         "database",
-        f'<Operation xmlns=""><Configuration><{action} batchCount="0">'
-        f'<{profile_element} profileId="{profile_id}"/></{action}>'
-        "</Configuration></Operation>",
+        '<Operation xmlns=""><Archiving directory="" enabled="false"/><Configuration>'
+        f'<{action} batchCount="0" maxRows="0"><{profile_element} profileId="{profile_id}"/>'
+        f"</{action}></Configuration><Tracking><TrackedFields/></Tracking><Caching/>"
+        "</Operation>",
     )
 
 
 def _db_profile(table_name: str, sql: Optional[str] = None) -> str:
+    # profile.db components carry no subType.
     sql_element = f"<sql>{sql}</sql>" if sql is not None else ""
     return _component(
         "profile.db",
         "",
-        '<DatabaseProfile xmlns=""><ProfileProperties>'
-        f'<DBStatement statementType="select" tableName="{table_name}">{sql_element}'
-        "</DBStatement></ProfileProperties></DatabaseProfile>",
+        '<DatabaseProfile xmlns="" strict="true" version="2"><ProfileProperties>'
+        '<DatabaseGeneralInfo executionType="dbread"/></ProfileProperties>'
+        '<DataElements><DBStatement isNode="true" key="2" name="Statement" '
+        f'statementType="select" storedProcedure="" tableName="{table_name}">'
+        '<DBFields isNode="true" key="3" name="Fields" type="result_set"/>'
+        f'<DBParameters isNode="true" key="4" name="Parameters"/>{sql_element}'
+        "</DBStatement></DataElements></DatabaseProfile>",
     )
 
 
@@ -107,13 +136,22 @@ def _salesforce_operation(action: str, object_name: str) -> str:
     return _component(
         "connector-action",
         "salesforce",
-        f'<Operation xmlns=""><Configuration><{action} objectAction="query" '
-        f'objectName="{object_name}"/></Configuration></Operation>',
+        '<Operation xmlns=""><Archiving directory="" enabled="false"/><Configuration>'
+        f'<{action} objectAction="query" objectName="{object_name}"><Options>'
+        f'<QueryOptions><Fields><SalesforceObject name="{object_name}"><FieldList>'
+        '<SalesforceField dataType="character" name="Id"/></FieldList>'
+        "</SalesforceObject></Fields><Inputs/></QueryOptions></Options>"
+        f"</{action}></Configuration><Tracking><TrackedFields/></Tracking><Caching/>"
+        "</Operation>",
     )
 
 
 SALESFORCE_CONNECTION = _component(
-    "connector-settings", "salesforce", '<SalesforceConnection xmlns=""/>'
+    "connector-settings",
+    "salesforce",
+    '<SalesforceSettings xmlns="" maxActiveConnections="10" '
+    'url="https://login.salesforce.com/services/Soap/u/39.0" version="vx">'
+    '<AuthSettings password="0000" user="svc@example.com"/></SalesforceSettings>',
 )
 
 
@@ -154,31 +192,41 @@ def _info(*shapes: ConnectorActionShape) -> ProcessComponentInfo:
     return ProcessComponentInfo(connector_actions=list(shapes))
 
 
-PROCESS_XML = """<bns:Component xmlns:bns="http://api.platform.boomi.com/" type="process">
-  <bns:description>Orders</bns:description>
-  <bns:object>
-    <process xmlns="">
-      <shapes>
-        <shape shapetype="start" name="shape1"/>
-        <shape shapetype="connectoraction" name="shape2">
-          <configuration>
-            <connectoraction actionType="Listen" connectionId="conn-http" connectorType="http"/>
-          </configuration>
-        </shape>
-        <shape shapetype="connectoraction" name="shape3">
-          <configuration>
-            <connectoraction actionType="UPSERT" connectionId="conn-1" connectorType="database" operationId="op-1"/>
-          </configuration>
-        </shape>
-        <shape shapetype="processcall" name="shape4">
-          <configuration><processcall abort="true" processId="p-child" wait="true"/></configuration>
-        </shape>
-        <shape shapetype="map" name="shape5"><configuration/></shape>
-      </shapes>
-    </process>
-  </bns:object>
-</bns:Component>
-"""
+def _connector_shape(
+    name: str,
+    action_type: str,
+    connection_id: str,
+    connector_type: str,
+    operation_id: str,
+) -> str:
+    return (
+        f'<shape image="connectoraction_icon" name="{name}" shapetype="connectoraction" userlabel="" x="273.0" y="48.0">'
+        f'<configuration><connectoraction actionType="{action_type}" allowDynamicCredentials="NONE" '
+        f'connectionId="{connection_id}" connectorType="{connector_type}" hideSettings="false" '
+        f'operationId="{operation_id}"><parameters/><dynamicProperties/></connectoraction>'
+        "</configuration><dragpoints/></shape>"
+    )
+
+
+# Shaped like a live process export; actionType values are mixed case there.
+PROCESS_XML = (
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    '<bns:Component xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" '
+    'xmlns:bns="http://api.platform.boomi.com/" folderFullPath="Test Account/Orders" '
+    'componentId="p1" version="1" name="Orders" type="process">'
+    "<bns:encryptedValues/><bns:description>Orders</bns:description><bns:object>"
+    '<process xmlns="" allowSimultaneous="false" workload="general"><shapes>'
+    '<shape image="start" name="shape1" shapetype="start" userlabel="">'
+    "<configuration><noaction/></configuration><dragpoints/></shape>"
+    + _connector_shape("shape2", "Listen", "conn-http", "http", "")
+    + _connector_shape("shape3", "CREATE", "conn-1", "database", "op-1")
+    + '<shape image="processcall_icon" name="shape4" shapetype="processcall" userlabel="">'
+    '<configuration><processcall abort="false" processId="p-child" wait="true">'
+    "<parameters/><returnpaths/></processcall></configuration><dragpoints/></shape>"
+    '<shape image="map_icon" name="shape5" shapetype="map" userlabel="">'
+    "<configuration/><dragpoints/></shape>"
+    "</shapes></process></bns:object><bns:processOverrides/></bns:Component>"
+)
 
 
 def test_parse_process_shapes() -> None:
@@ -191,7 +239,7 @@ def test_parse_process_shapes() -> None:
         ),
         ConnectorActionShape(
             connector_type="database",
-            action_type="UPSERT",
+            action_type="CREATE",
             connection_id="conn-1",
             operation_id="op-1",
         ),

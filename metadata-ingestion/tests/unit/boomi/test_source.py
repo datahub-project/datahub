@@ -769,15 +769,12 @@ def test_executions_not_queried_when_no_process_emitted() -> None:
 
 def _process_call_xml(*child_ids: str) -> str:
     shapes = "".join(
-        f'<shape shapetype="processcall" name="shape{i}"><configuration>'
-        f'<processcall processId="{child_id}" wait="true"/></configuration></shape>'
+        f'<shape image="processcall_icon" name="shape{i + 2}" shapetype="processcall" userlabel="">'
+        f'<configuration><processcall abort="false" processId="{child_id}" wait="true">'
+        "<parameters/><returnpaths/></processcall></configuration><dragpoints/></shape>"
         for i, child_id in enumerate(child_ids)
     )
-    return (
-        '<bns:Component xmlns:bns="http://api.platform.boomi.com/">'
-        f'<bns:object><process xmlns=""><shapes>{shapes}</shapes></process>'
-        "</bns:object></bns:Component>"
-    )
+    return XML.replace("</shapes>", f"{shapes}</shapes>")
 
 
 def _job_io(source: BoomiSource) -> Dict[str, Optional[DataJobInputOutputClass]]:
