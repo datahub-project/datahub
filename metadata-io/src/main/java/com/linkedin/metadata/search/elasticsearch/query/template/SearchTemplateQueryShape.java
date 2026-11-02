@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryIntent;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +48,18 @@ public final class SearchTemplateQueryShape {
   public final String fqnQuery;
   public final List<String> synonyms;
 
+  /**
+   * A dotted query with no whitespace, at least two non-empty segments, and not a URN or storage
+   * path. Cranfield sentences that end in a period are not this shape.
+   */
+  public final boolean spacelessDotted;
+
+  /** Last non-empty dot segment. Set only when {@link #spacelessDotted} is true. */
+  public final String terminalSegment;
+
+  /** Dot segments before {@link #terminalSegment}. Empty when {@link #spacelessDotted} is false. */
+  public final List<String> qualifierSegments;
+
   private SearchTemplateQueryShape(
       String raw,
       String escaped,
@@ -69,7 +82,10 @@ public final class SearchTemplateQueryShape {
       String wholeIdentifier,
       String letterDigitQuery,
       String fqnQuery,
-      List<String> synonyms) {
+      List<String> synonyms,
+      boolean spacelessDotted,
+      String terminalSegment,
+      List<String> qualifierSegments) {
     this.raw = raw;
     this.escaped = escaped;
     this.unsplit = unsplit;
@@ -92,6 +108,9 @@ public final class SearchTemplateQueryShape {
     this.letterDigitQuery = letterDigitQuery;
     this.fqnQuery = fqnQuery;
     this.synonyms = synonyms;
+    this.spacelessDotted = spacelessDotted;
+    this.terminalSegment = terminalSegment;
+    this.qualifierSegments = qualifierSegments;
   }
 
   @Nonnull
@@ -126,6 +145,8 @@ public final class SearchTemplateQueryShape {
         dots >= 2 ? raw.trim().replace('.', ' ').replaceAll("\\s+", " ").trim() : null;
     boolean delimitedIdentifier =
         !raw.contains(" ") && (raw.indexOf('_') >= 0 || raw.indexOf('-') >= 0);
+    List<String> dottedSegments = dotSegments(raw);
+    boolean spacelessDotted = !dottedSegments.isEmpty();
     return new SearchTemplateQueryShape(
         raw,
         plain,
@@ -148,7 +169,46 @@ public final class SearchTemplateQueryShape {
         letterDigit || delimitedIdentifier ? raw.trim() : null,
         letterDigit ? normalized : null,
         fqnQuery,
-        SearchTemplateSynonyms.expansions(raw));
+        SearchTemplateSynonyms.expansions(raw),
+        spacelessDotted,
+        spacelessDotted ? dottedSegments.get(dottedSegments.size() - 1) : null,
+        spacelessDotted
+            ? List.copyOf(dottedSegments.subList(0, dottedSegments.size() - 1))
+            : List.of());
+  }
+
+  /**
+   * Non-empty dot segments of a spaceless, non-identity query. Empty unless there are at least two,
+   * so {@code orders.} and a sentence ending in {@code .} do not qualify.
+   */
+  @Nonnull
+  private static List<String> dotSegments(@Nonnull String raw) {
+    if (raw.isEmpty()
+        || isIdentity(raw)
+        || raw.chars().anyMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))) {
+      return List.of();
+    }
+    List<String> segments = new ArrayList<>();
+    for (String part : raw.split("\\.", -1)) {
+      if (!part.isEmpty()) {
+        segments.add(part);
+      }
+    }
+    return segments.size() >= 2 ? List.copyOf(segments) : List.of();
+  }
+
+  /** Escapes wildcard metacharacters so a segment is matched literally inside a wildcard query. */
+  @Nonnull
+  public static String wildcardLiteral(@Nonnull String value) {
+    StringBuilder out = new StringBuilder(value.length());
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      if (c == '\\' || c == '*' || c == '?') {
+        out.append('\\');
+      }
+      out.append(c);
+    }
+    return out.toString();
   }
 
   private static int delimiterParts(@Nonnull String text) {

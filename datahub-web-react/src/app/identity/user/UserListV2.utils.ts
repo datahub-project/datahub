@@ -65,3 +65,11 @@ export function extractUserRole(
 
 // Role assignment constants
 export const NO_ROLE_URN = '';
+
+/**
+ * Only native users (with stored DataHub credentials) can have their password reset.
+ * SSO users and the root user defined in user.props are not native.
+ */
+export function canResetUserPassword(user: Pick<CorpUser, 'isNativeUser'>, canManageUserCredentials: boolean): boolean {
+    return canManageUserCredentials && !!user.isNativeUser;
+}

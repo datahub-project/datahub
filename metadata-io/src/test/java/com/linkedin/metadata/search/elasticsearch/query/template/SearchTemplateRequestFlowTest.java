@@ -2,12 +2,16 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
+import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_BY_URN_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_SEARCH_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_STRUCTURED_URN;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -15,11 +19,19 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
+import com.datahub.authorization.SessionActorIdentity;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.domain.Domains;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -65,17 +77,23 @@ import com.linkedin.search.template.SearchFieldOverrides;
 import com.linkedin.search.template.SearchTemplateBoost;
 import com.linkedin.search.template.SearchTemplateBoostArray;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateSearchType;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchType;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.index.query.QueryBuilders;
@@ -92,7 +110,13 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     installShippedRoutes();
     ElasticSearchConfiguration elastic = v3Config();
     elastic.getSearch().getV3().setTemplates(templates);
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(elastic, null, loader);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
 
     OperationContext unset =
         opContext.withSearchFlags(flags -> new SearchFlags()).withSearchSurface(null);
@@ -118,7 +142,13 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     store(SEARCH_TEMPLATE_FULLTEXT_URN, properties);
     ElasticSearchConfiguration elastic = v3Config();
     elastic.getSearch().getV3().setTemplates(templates);
-    SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, loader));
+    useRuntime(
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
 
     SearchRequestHandler handler =
         SearchRequestHandler.getBuilder(
@@ -160,8 +190,14 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     store(SEARCH_TEMPLATE_FULLTEXT_URN, properties);
 
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(elastic, null, loader);
-    SearchTemplates.install(coordinator);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
+    useRuntime(coordinator);
     OperationContext searching =
         opContext.withSearchFlags(
             flags ->
@@ -392,7 +428,13 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     EntityIndexVersionConfiguration v2 = new EntityIndexVersionConfiguration();
     v2.setEnabled(true);
     elastic.getEntityIndex().setV2(v2);
-    SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, loader));
+    useRuntime(
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
     SearchConfiguration search = new SearchConfiguration();
     search.setPartial(new PartialConfiguration());
     search.setExactMatch(new ExactMatchConfiguration());
@@ -410,7 +452,13 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     fulltext.setRoutes(routes(route("^\\*?$", SEARCH_TEMPLATE_LIST_URN)));
     store(SEARCH_TEMPLATE_FULLTEXT_URN, fulltext);
     store(SEARCH_TEMPLATE_LIST_URN, body("List", "{ \"match_all\": {} }", LIST_SCORE));
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(v3Config(), null, loader);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     OperationContext first = coordinator.bind(opContext, "customer orders");
     OperationContext second = coordinator.bind(first, "*");
     assertEquals(
@@ -458,7 +506,13 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         body("Viewed", "{ \"term\": { \"urn\": \"{{viewerUrn}}\" } }", null);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, viewed);
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(elastic, null, loader);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     OperationContext bound = coordinator.bind(opContext, "customer orders");
     String key = bound.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent();
     assertTrue(key.contains("@viewer=" + opContext.getSessionActorContext().getActorUrn()));
@@ -504,7 +558,13 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         new StringMap(Map.of(SearchTemplateViewer.DOMAIN_LIST, "[\"urn:li:domain:spoof\"]")));
     store(SEARCH_TEMPLATE_FULLTEXT_URN, scored);
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(elastic, null, loader);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     OperationContext bound = coordinator.bind(opContext, "customer orders");
     assertTrue(
         bound
@@ -524,7 +584,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
                 null,
                 List.of(
                     new SearchTemplateJson.TermsBoost(
-                        "domains", List.of("urn:li:domain:finance"), 1.5)))
+                        "domains", List.of("urn:li:domain:finance"), 1.5)),
+                SearchTemplateJson.FunctionScoreTail.none())
             .toString();
     assertTrue(weighted.contains("1.5"));
     assertTrue(weighted.contains("urn:li:domain:finance"));
@@ -539,6 +600,124 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             .getResolvedSearchTemplate()
             .cacheKeyComponent()
             .contains("@domains="));
+  }
+
+  @Test
+  public void testViewerDomainBoostChangesRenderedListAndCacheIdentity() {
+    Urn finance = UrnUtils.getUrn("urn:li:domain:finance");
+    when(retriever.getLatestAspectObject(any(), eq(USER), eq("domains")))
+        .thenReturn(new Aspect(new Domains().setDomains(new UrnArray(finance)).data()));
+
+    SearchTemplateProperties scored = body("List", "{ \"match_all\": {} }", null);
+    SearchTemplateBoost boost = new SearchTemplateBoost();
+    boost.setField("domains_urn");
+    boost.setValues(SearchTemplateViewer.DOMAINS);
+    boost.setWeight(1.25);
+    scored.setBoosts(new SearchTemplateBoostArray(boost));
+    store(SEARCH_TEMPLATE_FULLTEXT_URN, scored);
+
+    OperationContext financeViewer =
+        opContext.asSession(
+            RequestContext.TEST,
+            Authorizer.EMPTY,
+            new Authentication(new Actor(ActorType.USER, USER.getId()), ""));
+    Urn other = UrnUtils.getUrn("urn:li:corpuser:other");
+    OperationContext otherViewer =
+        opContext.asSession(
+            RequestContext.TEST,
+            Authorizer.EMPTY,
+            new Authentication(new Actor(ActorType.USER, other.getId()), ""));
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
+    OperationContext financeBound = coordinator.bind(financeViewer, "customer orders");
+    OperationContext otherBound = coordinator.bind(otherViewer, "customer orders");
+
+    String financeKey =
+        financeBound.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent();
+    String otherKey = otherBound.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent();
+    assertTrue(financeKey.contains("@domains=[\"urn:li:domain:finance\"]"), financeKey);
+    assertTrue(otherKey.contains("@domains=[]"), otherKey);
+    assertFalse(financeKey.equals(otherKey));
+
+    SearchTemplateRenderer renderer =
+        new SearchTemplateRenderer(loader, new SearchConfiguration(), null);
+    String financeQuery =
+        renderer
+            .render(financeBound, List.of(TestEntitySpecBuilder.getSpec()), "customer orders", true)
+            .toString();
+    String otherQuery =
+        renderer
+            .render(otherBound, List.of(TestEntitySpecBuilder.getSpec()), "customer orders", true)
+            .toString();
+    assertTrue(financeQuery.contains("domains_urn"), financeQuery);
+    assertTrue(financeQuery.contains("urn:li:domain:finance"), financeQuery);
+    assertTrue(financeQuery.contains("1.25"), financeQuery);
+    assertFalse(otherQuery.contains("1.25"), otherQuery);
+  }
+
+  @Test
+  public void testShippedListRendersViewerOwnerAndGroupBoosts() {
+    installShippedRoutes();
+    Map<String, Object> searchLight = new HashMap<>();
+    searchLight.put("default", "urn:li:searchTemplate:searchLight");
+    templates.setSurfaces(
+        Map.of(SearchTemplateSurfaces.SEARCH_ENTITIES, Map.of("fulltext", searchLight)));
+    Urn team = UrnUtils.getUrn("urn:li:corpGroup:rankTeam");
+    Authorizer authorizer =
+        new Authorizer() {
+          @Override
+          public Optional<SessionActorIdentity> resolveSessionActorIdentity(Urn actorUrn) {
+            return Optional.of(new SessionActorIdentity(actorUrn, List.of(team), Set.of()));
+          }
+
+          @Override
+          public List<Urn> getActorGroups(Urn actorUrn) {
+            return List.of(team);
+          }
+        };
+    OperationContext viewer =
+        OperationContext.asSession(
+                opContext,
+                RequestContext.TEST,
+                authorizer,
+                new Authentication(new Actor(ActorType.USER, USER.getId()), ""),
+                false)
+            .withSearchFlags(flags -> flags.setFulltext(true))
+            .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
+    for (String templateUrn : SearchTemplateBootstrap.urns()) {
+      store(templateUrn, SearchTemplateBootstrap.get(templateUrn));
+    }
+    SearchTemplateLoader storage = new SearchTemplateLoader(0, SearchTemplateSource.STORAGE);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            storage,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
+    OperationContext bound = coordinator.bind(viewer, "*");
+    assertEquals(
+        bound.getSearchContext().getResolvedSearchTemplate().getUrn(), SEARCH_TEMPLATE_LIST_URN);
+    MergedSearchTemplate list = storage.load(bound, SEARCH_TEMPLATE_LIST_URN);
+    assertNotNull(list.getFunctionScore());
+    assertFalse(list.isClasspathBridge());
+    assertNotNull(list.getBoosts());
+    String rendered =
+        new SearchTemplateRenderer(storage, new SearchConfiguration(), null)
+            .render(bound, List.of(TestEntitySpecBuilder.getSpec()), "*", true)
+            .toString();
+
+    assertTrue(rendered.contains(USER.toString()), rendered);
+    assertTrue(rendered.contains(team.toString()), rendered);
+    assertTrue(rendered.contains("owners_urn"), rendered);
+    String key = bound.getSearchContext().getResolvedSearchTemplate().cacheKeyComponent();
+    assertTrue(key.contains("@viewer=" + USER), key);
+    assertTrue(key.contains("@groups=[\"" + team + "\"]"), key);
   }
 
   @Test
@@ -599,13 +778,19 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     try {
       ElasticSearchConfiguration elastic = v3Config();
       SearchTemplateLoader classpath = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
-      SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, classpath));
+      useRuntime(
+          new SearchTemplateCoordinator(
+              elastic,
+              null,
+              classpath,
+              ForkJoinPool.commonPool(),
+              SearchTemplateComponentRegistry.empty()));
 
       OperationContext aggregate =
           opContext.withSearchSurface(SearchTemplateSurfaces.AGGREGATE_ENTITIES);
       assertEquals(
           routeChain(aggregate, "*"),
-          List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_LIST_URN));
+          List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_LIST_BY_URN_URN));
       assertEquals(
           routeChain(aggregate, "orders"),
           List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_FULLTEXT_URN));
@@ -614,11 +799,12 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
       OperationContext browsing =
           opContext.withSearchSurface(null).withResolvedSearchTemplate(null);
       assertEquals(
-          routeChain(browsing, "*"), List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_LIST_URN));
+          routeChain(browsing, "*"),
+          List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_LIST_BY_URN_URN));
       assertEquals(
           routeChain(browsing, "orders"),
           List.of(SEARCH_TEMPLATE_SEARCH_URN, SEARCH_TEMPLATE_FULLTEXT_URN));
-      assertNotNull(classpath.load(opContext, SEARCH_TEMPLATE_LIST_URN).getFunctionScore());
+      assertNull(classpath.load(opContext, SEARCH_TEMPLATE_LIST_BY_URN_URN).getFunctionScore());
       assertNotNull(classpath.load(opContext, SEARCH_TEMPLATE_FULLTEXT_URN).getFunctionScore());
 
       SearchRequestHandler handler =
@@ -631,7 +817,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
               TEST_SEARCH_SERVICE_CONFIG);
       String star = handler.getQuery(browsing, "*", true).toString();
       assertTrue(star.contains("match_all"), star);
-      assertTrue(star.contains("function_score"), star);
+      assertFalse(star.contains("function_score"), star);
       String keyword = handler.getQuery(browsing, "orders", true).toString();
       assertTrue(keyword.contains("simple_query_string"), keyword);
       assertTrue(keyword.contains("function_score"), keyword);
@@ -656,7 +842,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
               .anyMatch(aggregation -> "_entityType".equals(aggregation.getName())));
     } finally {
       templates = previous;
-      SearchTemplates.install(null);
+      useRuntime(null);
     }
   }
 
@@ -676,6 +862,36 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             .render(bound, List.of(TestEntitySpecBuilder.getSpec()), "orders", true, null, false)
             .highlights()
             .contains("tags_1"));
+
+    OperationContext adjusted =
+        bound.withSearchFlags(
+            flags -> {
+              HighlightFieldOverrides request = new HighlightFieldOverrides();
+              request.setRemove(new StringArray("tags_1"));
+              request.setAdd(new StringArray("name.ngram"));
+              return flags.setHighlightFields(request);
+            });
+    assertEquals(
+        new SearchV3QueryBuilder(loader, new SearchConfiguration(), null)
+            .render(adjusted, List.of(TestEntitySpecBuilder.getSpec()), "orders", true, null, false)
+            .highlights(),
+        List.of("name"));
+
+    OperationContext override =
+        bound.withSearchFlags(
+            flags -> flags.setCustomHighlightingFields(new StringArray("description.delimited")));
+    assertEquals(
+        new SearchV3QueryBuilder(loader, new SearchConfiguration(), null)
+            .render(override, List.of(TestEntitySpecBuilder.getSpec()), "orders", true, null, false)
+            .highlights(),
+        List.of("description"));
+
+    OperationContext skipped = override.withSearchFlags(flags -> flags.setSkipHighlighting(true));
+    assertTrue(
+        new SearchV3QueryBuilder(loader, new SearchConfiguration(), null)
+            .render(skipped, List.of(TestEntitySpecBuilder.getSpec()), "orders", true, null, false)
+            .highlights()
+            .isEmpty());
   }
 
   @Test
@@ -723,7 +939,13 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     template.setHighlightFields(highlights);
     store("urn:li:searchTemplate:literalHighlight", template);
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, loader));
+    useRuntime(
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
     OperationContext bound =
         opContext.withResolvedSearchTemplate(
             new ResolvedSearchTemplate(
@@ -741,7 +963,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
 
   @Test
   public void testTemplateSearchReportsAMatchedFieldFromSource() throws Exception {
-    SearchTemplateProperties template = body("Fulltext", "{ \"match_all\": {} }", null);
+    SearchTemplateProperties template =
+        body("Fulltext", "{ \"match\": { \"name.text\": { \"query\": \"{{query}}\" } } }", null);
     SearchFieldOverrides fields = new SearchFieldOverrides();
     SearchFieldBoost name = new SearchFieldBoost();
     name.setFieldName("name");
@@ -754,13 +977,22 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     added.add(tags);
     fields.setAdd(added);
     template.setFields(fields);
+    HighlightFieldOverrides highlights = new HighlightFieldOverrides();
+    highlights.setAdd(new StringArray("name"));
+    template.setHighlightFields(highlights);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, template);
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, loader));
+    useRuntime(
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
     OperationContext searching =
         opContext
             .withSearchFlags(
-                flags -> flags.setFulltext(true).setSkipHighlighting(true).setSkipAggregates(true))
+                flags -> flags.setFulltext(true).setSkipHighlighting(false).setSkipAggregates(true))
             .withResolvedSearchTemplate(
                 new ResolvedSearchTemplate(SEARCH_TEMPLATE_FULLTEXT_URN, 1L, "fulltext", null));
     SearchRequestHandler handler =
@@ -815,7 +1047,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         matched.toString());
     assertFalse(
         matched.stream().anyMatch(field -> "tags".equals(field.getName())), matched.toString());
-    assertTrue(
+    assertFalse(
         matched.stream().anyMatch(field -> "exactName".equals(field.getName())),
         matched.toString());
     assertFalse(result.getEntities().get(0).hasExplainMatches());
@@ -848,7 +1080,13 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     elastic.getEntityIndex().setV3(indexV3);
     elastic.getSearch().getV3().setTemplates(templates);
     templates.getDefaults().put("fulltext", Map.of("default", "urn:li:searchTemplate:knnChild"));
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(elastic, null, loader);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     assertThrows(
         SearchTemplateException.class,
         () -> coordinator.bind(opContext, "customer orders", false, List.of("dataset")));
@@ -883,7 +1121,13 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         "{ \"platform\": { \"terms\": { \"field\": \"platform.keyword\", \"size\": 5000 } }, \"_entityType\": { \"terms\": { \"field\": \"stolen\", \"size\": 1 } }, \"textFieldOverride\": { \"terms\": { \"field\": \"stolen\", \"size\": 5000 } } }");
     store(SEARCH_TEMPLATE_FULLTEXT_URN, properties);
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, loader));
+    useRuntime(
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
     OperationContext searching =
         opContext.withSearchFlags(
             flags ->
@@ -909,7 +1153,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
       assertEquals(termsAggregation(count, "platform").size(), 7);
       assertEquals(termsAggregation(count, "platform").field(), "platform.keyword");
     } finally {
-      SearchTemplates.install(null);
+      useRuntime(null);
     }
   }
 
@@ -923,10 +1167,16 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         "{ \"window_size\": 10, \"query\": { \"rescore_query\": { \"match_all\": {} }, \"query_weight\": 1.0, \"rescore_query_weight\": 1.0 } }");
     list.setAggregations(
         "{ \"platform\": { \"terms\": { \"field\": \"stolen\", \"size\": 5000 } }, \"groups\": { \"terms\": { \"field\": \"browsePathV2\", \"size\": 3 } } }");
-    store(SEARCH_TEMPLATE_LIST_URN, list);
+    store(SEARCH_TEMPLATE_LIST_BY_URN_URN, list);
     expire();
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, loader));
+    useRuntime(
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
     try {
       ESSearchDAO dao =
           new ESSearchDAO(
@@ -945,7 +1195,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
       assertEquals(platform.size(), 10);
       assertFalse("stolen".equals(platform.field()));
     } finally {
-      SearchTemplates.install(null);
+      useRuntime(null);
     }
   }
 
@@ -956,10 +1206,19 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
         SEARCH_TEMPLATE_LIST_URN,
         pinned("List", "{ \"term\": { \"templateMarker\": \"list-body\" } }"));
     store(
+        SEARCH_TEMPLATE_LIST_BY_URN_URN,
+        pinned("List by URN", "{ \"term\": { \"templateMarker\": \"complete-list-body\" } }"));
+    store(
         "urn:li:searchTemplate:customList",
         pinned("Custom", "{ \"term\": { \"templateMarker\": \"custom-body\" } }"));
     ElasticSearchConfiguration elastic = v3Config();
-    SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, loader));
+    useRuntime(
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
     ESSearchDAO dao =
         new ESSearchDAO(
             false, elastic, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
@@ -981,10 +1240,10 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             .source()
             .query()
             .toString();
-    assertTrue(filterQuery.contains("list-body"), filterQuery);
-    assertTrue(countQuery.contains("list-body"), countQuery);
+    assertTrue(filterQuery.contains("complete-list-body"), filterQuery);
+    assertTrue(countQuery.contains("complete-list-body"), countQuery);
     assertFalse(occupancyCountQuery.contains("list-body"), occupancyCountQuery);
-    assertTrue(aggregateQuery.contains("list-body"), aggregateQuery);
+    assertTrue(aggregateQuery.contains("complete-list-body"), aggregateQuery);
     assertTrue(
         dao
             .buildAggregateByValue(opContext, List.of(DATASET_ENTITY_NAME), "platform", null, 10)
@@ -1028,8 +1287,8 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             .query()
             .toString();
     assertTrue(searchQuery.contains("list-body"), searchQuery);
-    assertTrue(scrollQuery.contains("list-body"), scrollQuery);
-    assertTrue(browseQuery.contains("list-body"), browseQuery);
+    assertTrue(scrollQuery.contains("complete-list-body"), scrollQuery);
+    assertTrue(browseQuery.contains("complete-list-body"), browseQuery);
     assertTrue(lineageQuery.contains("list-body"), lineageQuery);
     assertTrue(keywordQuery.contains("simple_query_string"), keywordQuery);
     assertTrue(keywordQuery.contains("customer orders"), keywordQuery);
@@ -1046,7 +1305,7 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     assertTrue(explicitQuery.contains("custom-body"), explicitQuery);
     assertFalse(explicitQuery.contains("list-body"), explicitQuery);
 
-    SearchTemplates.install(null);
+    useRuntime(null);
     String legacy =
         dao.buildFilterRequest(opContext, DATASET_ENTITY_NAME, null, null, 0, 10)
             .source()
@@ -1100,10 +1359,13 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
             null,
             List.of(new FieldSortBuilder("name.keyword")),
             List.of(),
+            true,
             List.of(),
             "orders",
             Map.of(),
-            12);
+            12,
+            Map.of(),
+            null);
     SearchSourceBuilder source = new SearchSourceBuilder();
     SearchFlags flags = new SearchFlags().setSkipHighlighting(true).setSkipAggregates(true);
     applier.apply(opContext, source, flags, null, List.of(), template, false, 10, "orders");
@@ -1140,17 +1402,348 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     assertTrue(matchAll.apply(hit).explain().isEmpty(), matchAll.apply(hit).toString());
   }
 
+  @Test
+  public void testQueriedStoredFieldsAreReportedWithoutHighlighting() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,user_basic_info,PROD)\","
+                + "\"name\":\"user_basic_info\","
+                + "\"qualifiedName\":\"demo_pipeline.public.user_basic_info\"}");
+    List<MatchedField> matched =
+        matched(queriedTemplate("user", List.of(), List.of("name", "qualifiedName")), hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()),
+        List.of("name", "qualifiedName"));
+    assertEquals(matched.get(0).getValue(), "user_basic_info");
+    assertEquals(matched.get(1).getValue(), "demo_pipeline.public.user_basic_info");
+  }
+
+  @Test
+  public void testAHitOnlyInOtherReturnsNoMatchedField() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"unrelated\",\"domains\":[\"orders\"]}");
+    List<MatchedField> matched =
+        matched(
+            queriedTemplate(
+                "orders", List.of("name", "description", "other"), List.of("name", "description")),
+            hit);
+    assertTrue(matched.isEmpty(), matched.toString());
+  }
+
+  @Test
+  public void testAStoredFieldTheQueryDoesNotSearchIsNotReported() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"unrelated\",\"description\":\"orders\"}");
+    List<MatchedField> matched =
+        matched(queriedTemplate("orders", List.of(), List.of("name")), hit);
+    assertTrue(matched.isEmpty(), matched.toString());
+  }
+
+  @Test
+  public void testHighlightOptInSelectsDescription() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"unrelated\",\"description\":\"orders\"}");
+    List<MatchedField> nameOnly =
+        matched(queriedTemplate("orders", List.of("name"), List.of("name")), hit);
+    assertTrue(nameOnly.isEmpty(), nameOnly.toString());
+    List<MatchedField> description =
+        matched(queriedTemplate("orders", List.of("description"), List.of("description")), hit);
+    assertEquals(
+        description.stream().map(MatchedField::getName).collect(Collectors.toList()),
+        List.of("description"));
+    assertEquals(description.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testQueriedLabelReadsTheStoredSourcePath() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"editedDescription\":\"orders\"}");
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    sources.put("description", List.of("editedDescription"));
+    List<MatchedField> matched =
+        matched(
+            new RenderedSearchTemplate(
+                QueryBuilders.matchAllQuery(),
+                null,
+                null,
+                null,
+                List.of("description"),
+                true,
+                List.of("description"),
+                "orders",
+                Map.of(),
+                1,
+                sources,
+                null),
+            hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()),
+        List.of("description"));
+    assertEquals(matched.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testCopyToOtherReportsTheLabelFromTheStoredSource() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"editedDescription\":\"orders\"}");
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    sources.put("other", List.of("editedDescription"));
+    List<MatchedField> matched =
+        matched(
+            new RenderedSearchTemplate(
+                QueryBuilders.matchAllQuery(),
+                null,
+                null,
+                null,
+                List.of("other"),
+                true,
+                List.of("other"),
+                "orders",
+                Map.of(),
+                1,
+                sources,
+                null),
+            hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()), List.of("other"));
+    assertEquals(matched.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testALabelMatchStillReportsAnotherLabelsStoredSource() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"orders\",\"editedDescription\":\"orders\",\"alias\":\"orders\"}");
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    sources.put("name", List.of("name", "alias"));
+    sources.put("description", List.of("editedDescription"));
+    List<MatchedField> matched =
+        matched(
+            new RenderedSearchTemplate(
+                QueryBuilders.matchAllQuery(),
+                null,
+                null,
+                null,
+                List.of("name", "description"),
+                true,
+                List.of("name", "description"),
+                "orders",
+                Map.of(),
+                1,
+                sources,
+                null),
+            hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()),
+        List.of("name", "description"));
+    assertEquals(matched.get(0).getValue(), "orders");
+    assertEquals(matched.get(1).getValue(), "orders");
+  }
+
+  @Test
+  public void testCopyToOtherHasNoStoredMatchedField() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\",\"other\":\"orders\"}");
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    sources.put("other", List.of("editedDescription"));
+    List<MatchedField> matched =
+        matched(
+            new RenderedSearchTemplate(
+                QueryBuilders.matchAllQuery(),
+                null,
+                null,
+                null,
+                List.of("other"),
+                true,
+                List.of("other"),
+                "orders",
+                Map.of(),
+                1,
+                sources,
+                null),
+            hit);
+    assertTrue(matched.isEmpty(), matched.toString());
+  }
+
+  @Test
+  public void testNamedQueryDoesNotDuplicateAScannedLabel() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"orders\"}");
+    hit.matchedQueries(new String[] {SearchTemplateMatchReport.queryName("name")});
+    List<MatchedField> matched = matched(queriedNameTemplate("orders"), hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()), List.of("name"));
+    assertEquals(matched.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testNamedQueryStillReportsALabelTheScanMissed() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"unrelated\"}");
+    hit.matchedQueries(new String[] {SearchTemplateMatchReport.queryName("name")});
+    List<MatchedField> matched = matched(queriedNameTemplate("orders"), hit);
+    assertEquals(matched.size(), 1, matched.toString());
+    assertEquals(matched.get(0).getName(), "name");
+    assertEquals(matched.get(0).getValue(), "");
+  }
+
+  @Test
+  public void testReportDropsAPrefixedEmptyLabelWhenTheBareLabelIsPresent() {
+    Map<String, Set<String>> matched = new LinkedHashMap<>();
+    matched.put("name", Set.of("orders"));
+    matched.put(SearchTemplateMatchReport.queryName("name"), Set.of(""));
+    List<MatchedField> fields =
+        SearchTemplateMatchReport.fields(matched, Map.of("name", "orders"), "orders", Map.of());
+    assertEquals(fields.size(), 1);
+    assertEquals(fields.get(0).getName(), "name");
+    assertEquals(fields.get(0).getValue(), "orders");
+  }
+
+  @Test
+  public void testReplacedFieldsDoNotReportTheRemovedLabel() {
+    SearchHit hit =
+        sourceHit(
+            "{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)\","
+                + "\"name\":\"orders\",\"description\":\"orders\"}");
+    List<MatchedField> matched =
+        matched(queriedTemplate("orders", List.of("name", "description"), List.of("name")), hit);
+    assertEquals(
+        matched.stream().map(MatchedField::getName).collect(Collectors.toList()), List.of("name"));
+  }
+
+  @Test
+  public void testTemplateSearchTypeIgnoresTheRequestFlag() {
+    SearchTemplateProperties queryThenFetch = body("List", "{ \"match_all\": {} }", null);
+    queryThenFetch.setSearchType(SearchTemplateSearchType.QUERY_THEN_FETCH);
+    store(SEARCH_TEMPLATE_LIST_URN, queryThenFetch);
+    assertEquals(
+        preparedSearch("orders", "DFS_QUERY_THEN_FETCH", SEARCH_TEMPLATE_LIST_URN).searchType(),
+        SearchType.QUERY_THEN_FETCH);
+
+    SearchTemplateProperties dfs = body("Fulltext", "{ \"match_all\": {} }", null);
+    dfs.setSearchType(SearchTemplateSearchType.DFS_QUERY_THEN_FETCH);
+    store(SEARCH_TEMPLATE_FULLTEXT_URN, dfs);
+    expire();
+    assertEquals(
+        preparedSearch("orders", null, SEARCH_TEMPLATE_FULLTEXT_URN).searchType(),
+        SearchType.DFS_QUERY_THEN_FETCH);
+
+    store(SEARCH_TEMPLATE_FULLTEXT_URN, body("Fulltext", "{ \"match_all\": {} }", null));
+    expire();
+    assertEquals(
+        preparedSearch("orders", null, SEARCH_TEMPLATE_FULLTEXT_URN).searchType(),
+        SearchType.QUERY_THEN_FETCH);
+    assertEquals(
+        preparedSearch("orders", "DFS_QUERY_THEN_FETCH", SEARCH_TEMPLATE_FULLTEXT_URN).searchType(),
+        SearchType.QUERY_THEN_FETCH);
+  }
+
+  private SearchRequest preparedSearch(String query, String flagSearchType, String templateUrn) {
+    useRuntime(
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
+    OperationContext searching =
+        opContext
+            .withSearchFlags(
+                flags -> {
+                  flags.setFulltext(true).setSkipAggregates(true);
+                  if (flagSearchType != null) {
+                    flags.setSearchType(flagSearchType);
+                  }
+                  return flags;
+                })
+            .withResolvedSearchTemplate(
+                new ResolvedSearchTemplate(templateUrn, 1L, "template", null));
+    return SearchRequestHandler.getBuilder(
+            searching,
+            registry.getEntitySpec(DATASET_ENTITY_NAME),
+            v3Config(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .prepareSearchRequest(searching, query, null, null, 0, 10, List.of(), null, false)
+        .request();
+  }
+
+  private SearchTemplateRequestApplier datasetApplier() {
+    return new SearchTemplateRequestApplier(
+        mock(AggregationQueryBuilder.class),
+        25,
+        List.of(opContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME)),
+        null,
+        3,
+        new V3SearchQueryBuilder(v3Config().getSearch(), null));
+  }
+
+  private List<MatchedField> matched(RenderedSearchTemplate template, SearchHit hit) {
+    return datasetApplier().matchedFieldsOf(opContext, template).apply(hit).matched();
+  }
+
+  private static SearchHit sourceHit(String source) {
+    SearchHit hit = new SearchHit(1);
+    hit.sourceRef(new BytesArray(source));
+    return hit;
+  }
+
+  private static RenderedSearchTemplate queriedTemplate(
+      String query, List<String> highlights, List<String> queriedFields) {
+    return new RenderedSearchTemplate(
+        QueryBuilders.matchAllQuery(),
+        null,
+        null,
+        null,
+        highlights,
+        true,
+        queriedFields,
+        query,
+        Map.of(),
+        1,
+        identitySources(queriedFields),
+        null);
+  }
+
   private static RenderedSearchTemplate queriedNameTemplate(String query) {
     return new RenderedSearchTemplate(
         QueryBuilders.matchAllQuery(),
         null,
         null,
         null,
-        List.of(),
+        List.of("name"),
+        true,
         List.of("name"),
         query,
         Map.of(),
-        1);
+        1,
+        identitySources(List.of("name")),
+        null);
+  }
+
+  private static Map<String, List<String>> identitySources(List<String> fields) {
+    Map<String, List<String>> sources = new LinkedHashMap<>();
+    for (String field : fields) {
+      sources.put(field, List.of(field));
+    }
+    return sources;
   }
 
   private static int occurrences(String value, String needle) {

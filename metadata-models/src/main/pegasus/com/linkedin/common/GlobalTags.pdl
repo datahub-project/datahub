@@ -27,6 +27,7 @@ record GlobalTags {
       "hasValuesFieldName": "hasTags",
       "filterNameOverride": "Tagged With",
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "tags",
         "mappings": [
           { "type": "URN" }

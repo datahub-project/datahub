@@ -344,6 +344,7 @@ def _with_aliased_copies(document: str, copies: int) -> str:
     return f"{header}{{\n{aliased}\n}}\n{fragments}"
 
 
+@pytest.mark.p0
 def test_container_entities_survives_large_query_normalization(auth_session):
     """Regression test for "Maximum field count exceeded. 100001 > 100000".
 

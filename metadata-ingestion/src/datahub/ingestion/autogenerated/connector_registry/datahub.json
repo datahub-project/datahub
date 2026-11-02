@@ -1390,6 +1390,12 @@
     "dynamodb": {
       "capabilities": [
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Optionally enabled via `include_s3_export_lineage` with `include_s3_export_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -1404,6 +1410,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "By default, platform_instance will use the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via `include_s3_export_lineage` for DynamoDB Export to S3 destinations",
           "subtype_modifier": null,
           "supported": true
         }
@@ -1736,7 +1748,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Support via the `emit_storage_lineage` config field",
+          "description": "Enabled by default via `include_column_lineage` for Lake Formation resource links; storage column lineage also needs `emit_storage_lineage` in the upstream direction",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2545,6 +2557,32 @@
       "classname": "datahub.ingestion.source.kinesis.kinesis.KinesisSource",
       "platform_id": "kinesis",
       "platform_name": "Amazon Kinesis Data Streams",
+      "support_status": "ALPHA"
+    },
+    "langfuse": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default (Project container)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled for Prompts only (fully enumerated each run). NOT enabled for Traces/Generations, which are retrieved through a rolling time window and are excluded from stale-entity tracking to avoid incorrectly soft-deleting entities that simply aged out of the window.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default: Generation -> Prompt version lineage via DataProcessInstanceInput",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.langfuse.langfuse.LangfuseSource",
+      "platform_id": "langfuse",
+      "platform_name": "Langfuse",
       "support_status": "ALPHA"
     },
     "ldap": {

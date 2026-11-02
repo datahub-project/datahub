@@ -37,7 +37,7 @@ import HistorySidebar from '@app/entityV2/shared/tabs/Dataset/Schema/history/His
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import VersionsDrawer from '@app/entityV2/shared/versioning/VersionsDrawer';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import useIsLineageMode from '@app/lineageV3/utils/useIsLineageMode';
 import { useUpdateMarketplaceEntityDataOnChange } from '@app/marketplace/useUpdateMarketplaceEntityDataOnChange';
 import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';

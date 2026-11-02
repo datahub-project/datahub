@@ -21,6 +21,7 @@ class UnityCatalogReport(SQLSourceReport):
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
+    genie_spaces: EntityFilterReport = EntityFilterReport.field(type="genie_space")
     ml_models: EntityFilterReport = EntityFilterReport.field(type="ml_model")
     ml_model_versions: EntityFilterReport = EntityFilterReport.field(
         type="ml_model_version"

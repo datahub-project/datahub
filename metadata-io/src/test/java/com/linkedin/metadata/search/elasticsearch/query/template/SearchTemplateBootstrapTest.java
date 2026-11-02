@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -19,6 +20,7 @@ import com.linkedin.metadata.config.search.SearchTemplateSource;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateSearchType;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
@@ -77,6 +79,21 @@ public class SearchTemplateBootstrapTest {
   }
 
   @Test
+  public void testShippedListSkipsDfsAndTextTemplatesLeaveItUnset() {
+    SearchTemplateLoader loader = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
+    assertEquals(
+        loader.load(harness.opContext, "urn:li:searchTemplate:list").getSearchType(),
+        SearchTemplateSearchType.QUERY_THEN_FETCH);
+    assertEquals(
+        loader.load(harness.opContext, "urn:li:searchTemplate:listUrn").getSearchType(),
+        SearchTemplateSearchType.QUERY_THEN_FETCH);
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:fulltext").getSearchType());
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:light").getSearchType());
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:exact").getSearchType());
+    assertNull(loader.load(harness.opContext, "urn:li:searchTemplate:identity").getSearchType());
+  }
+
+  @Test
   public void testStoragePrefersStoredAspect() {
     harness.store(STRUCTURED, marker("STORED-MARKER"));
     MergedSearchTemplate structured = harness.loader.load(harness.opContext, STRUCTURED);
@@ -131,6 +148,7 @@ public class SearchTemplateBootstrapTest {
     assertFalse(urns.contains("urn:li:searchTemplate:browseV2"));
     assertFalse(urns.contains("urn:li:searchTemplate:browseV2List"));
     assertFalse(urns.contains("urn:li:searchTemplate:browseV2Fulltext"));
+    assertTrue(urns.contains("urn:li:searchTemplate:listUrn"));
     for (String urn : urns) {
       SearchTemplateProperties shipped = SearchTemplateBootstrap.get(urn);
       SearchTemplateChecks.check(shipped, 1024);
@@ -139,6 +157,17 @@ public class SearchTemplateBootstrapTest {
 
     SearchTemplateProperties fulltext =
         SearchTemplateBootstrap.get("urn:li:searchTemplate:fulltext");
+    MergedSearchTemplate list = loader.load(harness.opContext, "urn:li:searchTemplate:list");
+    MergedSearchTemplate listUrn = loader.load(harness.opContext, "urn:li:searchTemplate:listUrn");
+    MergedSearchTemplate autocomplete =
+        loader.load(harness.opContext, "urn:li:searchTemplate:autocomplete");
+    assertNull(list.getEntityTypeBoosts());
+    assertNull(listUrn.getEntityTypeBoosts());
+    assertNull(autocomplete.getEntityTypeBoosts());
+    assertNull(listUrn.getFunctionScore());
+    assertNull(listUrn.getBoosts());
+    assertTrue(fulltext.hasEntityTypeBoosts());
+    assertTrue(listUrn.getSort().contains("\"urn\""));
     Map<String, Object> context =
         SearchTemplateMustache.validationContext(fulltext.getFunctionScore());
     @SuppressWarnings("unchecked")
@@ -188,21 +217,25 @@ public class SearchTemplateBootstrapTest {
     assertFalse(name.toString().contains("description"));
   }
 
-  /** A compound synonym requires every word. The original one-token query stays lenient. */
+  /**
+   * A compound synonym requires every word. The original one-token query stays lenient. Fulltext
+   * repeats each on the shared fields and on name, qualifiedName, and id. A single word skips the
+   * shared fields on the light query and keeps the three identity clauses.
+   */
   @Test
   public void testCompoundSynonymRequiresEveryToken() throws Exception {
     SearchTemplateLoader loader = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
     JsonNode fulltext =
         SearchTemplateFixtures.JSON.readTree(
             render(loader, "urn:li:searchTemplate:fulltext", "dataPlatform"));
-    assertClause(fulltext, "simple_query_string", "data platform", "default_operator", "and");
-    assertClause(fulltext, "simple_query_string", "dataPlatform~2", "default_operator", "or");
+    assertClause(fulltext, "simple_query_string", "data platform", "default_operator", "and", 4);
+    assertClause(fulltext, "simple_query_string", "dataPlatform~2", "default_operator", "or", 4);
 
     JsonNode light =
         SearchTemplateFixtures.JSON.readTree(
             render(loader, "urn:li:searchTemplate:light", "dataPlatform"));
-    assertClause(light, "multi_match", "data platform", "operator", "and");
-    assertClause(light, "multi_match", "dataPlatform", "operator", "or");
+    assertClause(light, "multi_match", "data platform", "operator", "and", 3);
+    assertClause(light, "multi_match", "dataPlatform", "operator", "or", 3);
   }
 
   private String render(SearchTemplateLoader loader, String urn) {
@@ -232,11 +265,18 @@ public class SearchTemplateBootstrapTest {
   }
 
   private static void assertClause(
-      JsonNode node, String clause, String query, String operatorField, String operator) {
+      JsonNode node,
+      String clause,
+      String query,
+      String operatorField,
+      String operator,
+      int expected) {
     List<JsonNode> matches = new ArrayList<>();
     collectClauses(node, clause, query, matches);
-    assertEquals(matches.size(), 1, clause + " " + query);
-    assertEquals(matches.get(0).path(operatorField).asText().toLowerCase(Locale.ROOT), operator);
+    assertEquals(matches.size(), expected, clause + " " + query);
+    for (JsonNode match : matches) {
+      assertEquals(match.path(operatorField).asText().toLowerCase(Locale.ROOT), operator);
+    }
   }
 
   private static void collectClauses(

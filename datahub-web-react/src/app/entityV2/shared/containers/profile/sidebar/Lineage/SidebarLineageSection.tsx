@@ -21,7 +21,7 @@ import {
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { useGetDefaultLineageStartTimeMillis } from '@app/lineageV3/utils/useGetLineageTimeParams';
 import { formatNumber } from '@app/sharedV2/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';

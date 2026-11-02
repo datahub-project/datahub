@@ -45,7 +45,7 @@ omitted optional fields are cleared.
 `upsertCustomAssertion` requires:
 
 - `entityUrn` — dataset URN being monitored
-- `type` — free-text category shown in the UI (for example `My Custom Category`)
+- `type` — free-text category (for example `My Custom Category`). The assertion list shows these assertions as **Custom** in its Type column, and this value appears when you hover over **Custom**
 - `description` — human-readable assertion description
 - `platform` — **either** `platform.urn` **or** `platform.name` (at least one). An empty `platform: {}` fails with
   `Failed to upsert Custom Assertion. Platform Name or Platform Urn must be specified.`
@@ -129,7 +129,7 @@ mutation upsertCustomAssertion {
     urn: "urn:li:assertion:my-custom-assertion-id" # Optional: if you want to provide a custom id. If not, one will be generated for you.
     input: {
       entityUrn: "<urn of entity being monitored>"
-      type: "My Custom Category" # This is how your assertion will appear categorized in DataHub.
+      type: "My Custom Category" # Shown when hovering over "Custom" in the assertion list's Type column.
       description: "The description of my external assertion for my dataset"
       platform: {
         urn: "urn:li:dataPlatform:great-expectations" # OR you can provide name: "My Custom Platform" if you do not have an URN for the platform.
@@ -265,6 +265,31 @@ The full list of supported error types include:
 
 If the result is `true`, the result was successfully reported.
 
+You can also report the numeric values observed during the run with the optional `actualAggValue` (Float), `rowCount`,
+`unexpectedCount` and `missingCount` (Long) fields. They are stored only for `SUCCESS` and `FAILURE` results. For example:
+
+```graphql
+mutation reportAssertionResult {
+  reportAssertionResult(
+    urn: "urn:li:assertion:<your-new-assertion-id>"
+    result: {
+      type: FAILURE
+      actualAggValue: 0.12 # e.g. the observed null fraction (12% of rows are null)
+      rowCount: 1000
+      missingCount: 120
+    }
+  )
+}
+```
+
+`actualAggValue` is stored as a 32-bit float, so only about 7 significant digits are kept (for example `123456789` is
+stored as `123456792`). Use `rowCount`, `unexpectedCount` and `missingCount` for exact counts.
+
+These values are not yet shown in the DataHub UI. They can be read back through the API by requesting the same fields
+on `runEvents { runEvents { result { ... } } }` (see
+[Retrieve Results For Custom Assertions](#retrieve-results-for-custom-assertions)). To also show them alongside the
+result in the UI, include them in `properties` as well.
+
 </TabItem>
 <TabItem value="python" label="Python">
 
@@ -276,6 +301,27 @@ installed.
 ```python
 {{ inline /metadata-ingestion/examples/library/report_assertion_result.py show_path_as_comment }}
 ```
+
+To also report the numeric values observed during the run, pass the optional `actual_agg_value`, `row_count`,
+`unexpected_count` and `missing_count` arguments. They are sent only when set, and need a DataHub server that supports
+these fields. They are stored only for `SUCCESS` and `FAILURE` results, and `actual_agg_value` keeps only about 7
+significant digits, so use the count arguments for exact counts. `actual_agg_value` must be finite and within the
+32-bit float range (so not `NaN` or infinity), and the counts must be non-negative integers that fit in a signed 64-bit
+integer; invalid values raise an error before anything is sent.
+
+```python
+graph.report_assertion_result(
+    urn="urn:li:assertion:<your-new-assertion-id>",
+    timestamp_millis=int(time.time() * 1000),
+    type="FAILURE",
+    actual_agg_value=0.12,  # e.g. the observed null fraction
+    row_count=1000,
+    missing_count=120,
+)
+```
+
+These values are not yet shown in the DataHub UI. To also show them alongside the result in the UI, include them in
+`properties` as well.
 
 </TabItem>
 </Tabs>

@@ -17,7 +17,7 @@ import { useDocumentationPermission } from '@app/entityV2/summary/documentation/
 import { useEntityHasSummaryTab } from '@app/entityV2/summary/useEntityHasSummaryTab';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
-import useIsLineageMode from '@src/app/lineage/utils/useIsLineageMode';
+import useIsLineageMode from '@src/app/lineageV3/utils/useIsLineageMode';
 import { useIsEmbeddedProfile } from '@src/app/sharedV2/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 

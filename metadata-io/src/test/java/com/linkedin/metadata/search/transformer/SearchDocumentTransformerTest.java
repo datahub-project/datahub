@@ -27,7 +27,9 @@ import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -1282,5 +1284,34 @@ public class SearchDocumentTransformerTest {
     // previous skip marker under doc_as_upsert merging.
     assertTrue(doc.get("skipReason").isNull(), "Embed must clear skipReason");
     assertTrue(doc.get("skippedAt").isNull(), "Embed must clear skippedAt");
+  }
+
+  @Test
+  public void testEmptySiblingDoesNotClearSharedHasValues() {
+    AspectSpec relatedTerms =
+        ENTITY_REGISTRY
+            .getEntitySpec(GLOSSARY_TERM_ENTITY_NAME)
+            .getAspectSpec(GLOSSARY_RELATED_TERM_ASPECT_NAME);
+    SearchableFieldSpec isRelated = searchableField(relatedTerms, "isRelatedTerms");
+    SearchableFieldSpec hasRelated = searchableField(relatedTerms, "hasRelatedTerms");
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    ObjectNode doc = JsonNodeFactory.instance.objectNode();
+    AuditStamp stamp = AuditStampUtils.createDefaultAuditStamp();
+
+    transformer.setSearchableValue(
+        isRelated, List.of("urn:li:glossaryTerm:color"), doc, false, stamp);
+    transformer.setSearchableValue(hasRelated, List.of(), doc, false, stamp);
+
+    assertEquals(doc.get("isRelatedTerms").get(0).asText(), "urn:li:glossaryTerm:color");
+    assertTrue(doc.get("hasRelatedTerms").isEmpty());
+    assertTrue(doc.get("hasGlossaryTerms").asBoolean());
+  }
+
+  private static SearchableFieldSpec searchableField(AspectSpec aspect, String fieldName) {
+    return aspect.getSearchableFieldSpecs().stream()
+        .filter(spec -> fieldName.equals(spec.getSearchableAnnotation().getFieldName()))
+        .findFirst()
+        .orElseThrow();
   }
 }

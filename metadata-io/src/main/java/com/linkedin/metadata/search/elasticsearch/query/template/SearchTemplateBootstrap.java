@@ -14,6 +14,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -33,7 +34,7 @@ import org.springframework.core.io.ClassPathResource;
 @Slf4j
 public final class SearchTemplateBootstrap {
   static final String INDEX = "bootstrap_mcps.yaml";
-  static final String ENTRY = "search-templates";
+  static final String ENTRY_PREFIX = "search-templates";
   private static final String ASPECT = "searchTemplateProperties";
   // This pass only consumes delimiter switches. Interpolated values are JSON and must be inserted
   // unchanged. The default factory HTML-encodes them.
@@ -84,53 +85,63 @@ public final class SearchTemplateBootstrap {
 
   @Nonnull
   private static Map<String, SearchTemplateProperties> load() {
-    String location = location();
-    if (location == null) {
+    List<String> locations = locations();
+    if (locations.isEmpty()) {
       log.info("No shipped search templates at {}", INDEX);
       return Map.of();
     }
-    String raw = read(location);
-    if (raw == null) {
-      log.info("Shipped search templates were not found at {}", location);
-      return Map.of();
-    }
-    String rendered = render(raw, location);
-    List<JsonNode> rows;
-    try {
-      rows = SearchTemplateMappers.YAML.readValue(rendered, ROWS);
-    } catch (IOException e) {
-      throw new IllegalStateException("Could not parse shipped search templates at " + location, e);
-    }
     Map<String, SearchTemplateProperties> byUrn = new LinkedHashMap<>();
-    for (JsonNode row : rows) {
-      if (!ASPECT.equals(row.path("aspectName").asText())) {
-        continue;
+    for (String location : locations) {
+      String raw = read(location);
+      if (raw == null) {
+        throw new IllegalStateException("Shipped search templates were not found at " + location);
       }
-      String urn = row.path("entityUrn").asText();
+      List<JsonNode> rows;
       try {
-        String aspect = SearchTemplateMappers.JSON.writeValueAsString(row.get("aspect"));
-        byUrn.put(urn, RecordUtils.toRecordTemplate(SearchTemplateProperties.class, aspect));
+        rows = SearchTemplateMappers.YAML.readValue(render(raw, location), ROWS);
       } catch (IOException e) {
-        throw new IllegalStateException("Could not read shipped search template " + urn, e);
+        throw new IllegalStateException(
+            "Could not parse shipped search templates at " + location, e);
+      }
+      for (JsonNode row : rows) {
+        if (!ASPECT.equals(row.path("aspectName").asText())) {
+          continue;
+        }
+        String urn = row.path("entityUrn").asText();
+        try {
+          String aspect = SearchTemplateMappers.JSON.writeValueAsString(row.get("aspect"));
+          SearchTemplateProperties previous =
+              byUrn.putIfAbsent(
+                  urn, RecordUtils.toRecordTemplate(SearchTemplateProperties.class, aspect));
+          if (previous != null) {
+            throw new IllegalStateException(
+                "Duplicate shipped search template " + urn + " in " + location);
+          }
+        } catch (IOException e) {
+          throw new IllegalStateException("Could not read shipped search template " + urn, e);
+        }
       }
     }
-    log.info("Loaded {} shipped search templates from {}", byUrn.size(), location);
+    log.info("Loaded {} shipped search templates from {}", byUrn.size(), locations);
     return Collections.unmodifiableMap(byUrn);
   }
 
-  @Nullable
-  private static String location() {
+  @Nonnull
+  private static List<String> locations() {
     JsonNode index = readTree(INDEX);
     if (index == null) {
-      return null;
+      return List.of();
     }
+    List<String> locations = new ArrayList<>();
     for (JsonNode entry : index.path("bootstrap").path("templates")) {
-      if (ENTRY.equals(entry.path("name").asText())) {
+      if (entry.path("name").asText().startsWith(ENTRY_PREFIX)) {
         String location = entry.path("mcps_location").asText(null);
-        return location == null || location.isBlank() ? null : location;
+        if (location != null && !location.isBlank()) {
+          locations.add(location);
+        }
       }
     }
-    return null;
+    return List.copyOf(locations);
   }
 
   @Nonnull

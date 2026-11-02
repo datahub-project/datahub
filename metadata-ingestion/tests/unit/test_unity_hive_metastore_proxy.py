@@ -1,10 +1,13 @@
-from typing import Any, List, Sequence, Tuple
-from unittest.mock import MagicMock
+from typing import Any, Dict, List, Sequence, Tuple
+from unittest.mock import MagicMock, patch
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Row
 
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
+from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 
 def _sa_rows(values: List[Tuple[Any, Any, Any]]) -> Sequence[Row[Any]]:
@@ -52,3 +55,38 @@ def test_table_info_without_detailed_section_is_reported():
 
     assert proxy._get_table_info("my_schema", "events_no_details") == {}
     report.warning.assert_called_once()
+
+
+def _hive_source(options: Dict[str, Any]) -> MagicMock:
+    """Build the source with the Databricks DBAPI patched; return the patched connect."""
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "workspace_url": "https://my-workspace.cloud.databricks.com",
+            "token": "my-pat",
+            "warehouse_id": "my_warehouse",
+            "include_hive_metastore": True,
+            "options": options,
+        }
+    )
+    with patch("databricks.sql.connect") as connect:
+        UnityCatalogSource(PipelineContext(run_id="hive-auth-test"), config)
+    return connect
+
+
+def test_hive_metastore_connection_uses_recipe_auth():
+    connect = _hive_source({})
+
+    kwargs = connect.call_args.kwargs
+    assert kwargs["http_path"] == "/sql/1.0/warehouses/my_warehouse"
+    headers = kwargs["credentials_provider"]()()
+    assert headers["Authorization"] == "Bearer my-pat"
+
+
+def test_hive_metastore_user_connect_args_take_precedence():
+    connect = _hive_source(
+        {"connect_args": {"http_path": "/sql/1.0/warehouses/user_warehouse"}}
+    )
+
+    kwargs = connect.call_args.kwargs
+    assert kwargs["http_path"] == "/sql/1.0/warehouses/user_warehouse"
+    assert "credentials_provider" in kwargs

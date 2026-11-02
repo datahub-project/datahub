@@ -80,6 +80,7 @@ public class EntityTypeUrnMapper {
               "urn:li:entityType:datahub.businessAttribute")
           .put(Constants.APPLICATION_ENTITY_NAME, "urn:li:entityType:datahub.application")
           .put(Constants.API_ENTITY_NAME, "urn:li:entityType:datahub.api")
+          .put(Constants.REPOSITORY_ENTITY_NAME, "urn:li:entityType:datahub.repository")
           .put(Constants.DOCUMENT_ENTITY_NAME, "urn:li:entityType:datahub.document")
           .put(Constants.METRIC_ENTITY_NAME, "urn:li:entityType:datahub.metric")
           .put(Constants.SEMANTIC_MODEL_ENTITY_NAME, "urn:li:entityType:datahub.semanticModel")

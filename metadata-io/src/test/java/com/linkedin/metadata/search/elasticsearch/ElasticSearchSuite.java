@@ -58,7 +58,7 @@ public class ElasticSearchSuite extends AbstractTestNGSpringContextTests {
     }
   }
 
-  @Bean(name = "testSearchContainer")
+  @Bean(name = "testSearchContainer", destroyMethod = "")
   public GenericContainer<?> testSearchContainer() {
     String currentVersion = System.getProperty("ELASTIC_VERSION");
     boolean versionMismatch =

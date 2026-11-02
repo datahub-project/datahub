@@ -8,7 +8,6 @@ import static com.linkedin.metadata.utils.metrics.LongRunningOperationMetrics.TA
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.plugins.auth.authorization.Authorizer;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EnvelopedAspect;
@@ -381,13 +380,9 @@ public class RollbackService {
         proposal.setAspect(GenericRecordUtils.serializeAspect(requestResult));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        entityService.ingestProposal(
-            opContext,
-            proposal,
-            new AuditStamp()
-                .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
-                .setTime(System.currentTimeMillis()),
-            false);
+        // The caller's stamp: the user who asked for the rollback (the session, or an audit actor
+        // set by a trusted caller), or the system when the system runs it.
+        entityService.ingestProposal(opContext, proposal, opContext.getAuditStamp(), false);
       }
     } catch (Exception e) {
       log.error(

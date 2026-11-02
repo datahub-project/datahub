@@ -26,7 +26,9 @@ record ChartInfo includes CustomProperties, ExternalReference {
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ],
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
+      "lowercase": true,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },
@@ -42,6 +44,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -83,7 +86,11 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart
    */
   @Searchable = {
-    "fieldType": "KEYWORD"
+    "fieldType": "KEYWORD",
+    "v3": {
+      "searchLabel": "externalUrl",
+      "queryByDefault": false
+    }
   }
   chartUrl: optional Url
 

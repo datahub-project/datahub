@@ -412,7 +412,7 @@ def test_an_activity_record_never_carries_headers_or_sql_text() -> None:
     assert PLANTED not in json.dumps(probe.activities("my-factory", "sales_pipeline"))
 
 
-def test_nested_activities_are_counted_and_warned_about() -> None:
+def test_nested_activities_are_listed_like_top_level_ones() -> None:
     branch = adf.IfConditionActivity(
         name="IfBig",
         expression=adf.Expression(type="Expression", value="@true"),
@@ -424,10 +424,17 @@ def test_nested_activities_are_counted_and_warned_about() -> None:
         activities=[_copy("CopyOne", "a", "b"), branch],
     )
     probe = _probe(_with_pipeline([loop]))
-    [record] = probe.activities("my-factory", "sales_pipeline")
-    # CopyOne, IfBig and CopyThree, two levels deep.
-    assert record["nested_activities"] == 3
-    assert any("nested" in w for w in probe.warnings)
+    records = probe.activities("my-factory", "sales_pipeline")
+    # EachTable (top-level), then CopyOne and IfBig (its children), then
+    # CopyThree (IfBig's own child) - ingestion recurses the same way and
+    # emits a DataJob for each, so the probe must list all four too.
+    assert [r["name"] for r in records] == [
+        "EachTable",
+        "CopyOne",
+        "IfBig",
+        "CopyThree",
+    ]
+    assert not probe.warnings
 
 
 def test_an_unknown_pipeline_is_a_bad_argument() -> None:

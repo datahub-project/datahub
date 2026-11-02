@@ -1,8 +1,10 @@
 package com.linkedin.metadata.event;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.entity.ebean.batch.AttributedActorHeaders;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.usage.instrumentation.UsageMetadataChangeProposalEnricher;
@@ -94,6 +96,12 @@ public abstract class EventProducer {
       @Nonnull final Urn urn,
       @Nonnull MetadataChangeProposal metadataChangeProposal) {
     UsageMetadataChangeProposalEnricher.enrich(opContext, metadataChangeProposal);
+    // The MCE consumer writes queued proposals with system credentials; this is the last point
+    // where the authenticated caller is known. Overwrites any client-supplied value.
+    Authentication session = opContext.getSessionAuthentication();
+    if (!opContext.isSystemAuth() && session != null && session.getActor() != null) {
+      AttributedActorHeaders.stamp(metadataChangeProposal, session.getActor().toUrnStr());
+    }
     return doProduceMetadataChangeProposal(opContext, urn, metadataChangeProposal);
   }
 

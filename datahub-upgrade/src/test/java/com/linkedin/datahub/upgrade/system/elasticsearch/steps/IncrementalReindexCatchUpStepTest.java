@@ -1307,7 +1307,7 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   @Test
-  public void testTimeseriesWithoutIndexBuilderSkipsCatchUp() throws Exception {
+  public void testTimeseriesWithoutIndexBuilderFailsAndRetries() throws Throwable {
     Map<String, String> phase1State =
         IncrementalReindexState.setPhase1State(
             null,
@@ -1325,9 +1325,51 @@ public class IncrementalReindexCatchUpStepTest {
     setupPhase1Result(phase1State);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of());
 
-    UpgradeStepResult result = step.executable().apply(upgradeContext);
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    BuildIndicesConfiguration configWithPoll = new BuildIndicesConfiguration();
+    configWithPoll.setTaskPollIntervalSeconds(0);
+    IncrementalReindexCatchUpStep timeseriesStep =
+        new IncrementalReindexCatchUpStep(
+            opContext,
+            entityService,
+            aspectDao,
+            List.of(indexedService),
+            Set.of(),
+            UPGRADE_VERSION,
+            configWithPoll);
+
+    UpgradeStepResult failed = timeseriesStep.executable().apply(upgradeContext);
+    assertEquals(failed.result(), DataHubUpgradeState.FAILED);
+    Map<String, String> afterFailure = lastPersistedCatchUpResult();
+    assertEquals(
+        IncrementalReindexState.getCatchUpStatus(afterFailure, TIMESERIES_INDEX),
+        Optional.of(IncrementalReindexState.CatchUpStatus.FAILED));
     verify(indexBuilder, never()).submitFilteredReindex(any(), any(), any(), any(), anyInt());
+
+    stubUpgradeResults(phase1State, afterFailure, DataHubUpgradeState.FAILED);
+    ReindexConfig config = org.mockito.Mockito.mock(ReindexConfig.class);
+    when(config.name()).thenReturn(TIMESERIES_INDEX);
+    when(config.targetSettings()).thenReturn(Map.of("index", Map.of("number_of_shards", 1)));
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(config));
+    when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
+    doReturn("task-1")
+        .when(indexBuilder)
+        .submitFilteredReindex(any(), any(), any(), any(QueryBuilder.class), anyInt());
+    doReturn(Optional.empty()).when(indexBuilder).getTaskInfoByHeader(any(), any());
+    when(indexBuilder.computeTimeoutAt()).thenReturn(System.currentTimeMillis() + 60_000L);
+
+    UpgradeStepResult retried = timeseriesStep.executable().apply(upgradeContext);
+    assertEquals(retried.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder)
+        .submitFilteredReindex(
+            eq(opContext),
+            eq(TIMESERIES_INDEX + "_old"),
+            eq(TIMESERIES_INDEX + "_next"),
+            any(QueryBuilder.class),
+            anyInt());
+    assertEquals(
+        IncrementalReindexState.getCatchUpStatus(lastPersistedCatchUpResult(), TIMESERIES_INDEX),
+        Optional.of(IncrementalReindexState.CatchUpStatus.COMPLETED));
   }
 
   @Test
@@ -1365,6 +1407,58 @@ public class IncrementalReindexCatchUpStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
     verify(indexBuilder).markMigrationComplete(opContext, alias);
+  }
+
+  @Test
+  public void testIndexConfigurationsAreBuiltOnceForTheWholeCatchUp() throws Exception {
+    String datasetAlias = v3AliasFor("dataset");
+    String chartAlias = v3AliasFor("chart");
+    Map<String, String> phase1State = completedV3Row(datasetAlias, 1000L, 1000L);
+    phase1State.putAll(completedV3Row(chartAlias, 1000L, 1000L));
+    setupPhase1Result(phase1State);
+    mockEmptyAspectStream();
+
+    ReindexConfig datasetConfig = mock(ReindexConfig.class);
+    when(datasetConfig.name()).thenReturn(datasetAlias);
+    ReindexConfig chartConfig = mock(ReindexConfig.class);
+    when(chartConfig.name()).thenReturn(chartAlias);
+    when(indexedService.buildReindexConfigs(any(), any()))
+        .thenReturn(List.of(datasetConfig, chartConfig));
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexedService, times(1)).buildReindexConfigs(any(), any());
+    verify(indexBuilder).markMigrationComplete(opContext, datasetAlias);
+    verify(indexBuilder).markMigrationComplete(opContext, chartAlias);
+  }
+
+  @Test
+  public void testAnUnresolvedIndexDoesNotDropTheRestOfItsService() throws Exception {
+    String datasetAlias = v3AliasFor("dataset");
+    String chartAlias = v3AliasFor("chart");
+    Map<String, String> phase1State = completedV3Row(datasetAlias, 1000L, 1000L);
+    phase1State.putAll(completedV3Row(chartAlias, 1000L, 1000L));
+    setupPhase1Result(phase1State);
+    mockEmptyAspectStream();
+
+    ReindexConfig datasetConfig = mock(ReindexConfig.class);
+    when(datasetConfig.name()).thenReturn(datasetAlias);
+    ReindexConfig chartConfig = mock(ReindexConfig.class);
+    when(chartConfig.name()).thenReturn(chartAlias);
+    when(indexedService.buildReindexConfigs(any(), any()))
+        .thenReturn(List.of(datasetConfig, chartConfig));
+    when(indexedService.getIndexBuilder(datasetAlias))
+        .thenThrow(new IllegalArgumentException("not a search index"));
+    when(indexedService.getIndexBuilder(chartAlias)).thenReturn(indexBuilder);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    verify(indexBuilder, never())
+        .markMigrationComplete(any(OperationContext.class), eq(datasetAlias));
+    verify(indexBuilder).markMigrationComplete(opContext, chartAlias);
   }
 
   @Test
@@ -1407,7 +1501,11 @@ public class IncrementalReindexCatchUpStepTest {
   }
 
   private String v3Alias() {
-    String key = V3IndexKeys.resolve(opContext.getEntityRegistry().getEntitySpec("dataset"));
+    return v3AliasFor("dataset");
+  }
+
+  private String v3AliasFor(String entityName) {
+    String key = V3IndexKeys.resolve(opContext.getEntityRegistry().getEntitySpec(entityName));
     return opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(opContext, key);
   }
 
