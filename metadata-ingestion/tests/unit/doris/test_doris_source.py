@@ -1,16 +1,21 @@
-from typing import Generator, cast
+from typing import Any, Generator, Iterator, List, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Inspector
+from sqlalchemy.engine import Connection, Inspector
+from sqlalchemy.exc import PendingRollbackError, ProgrammingError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.doris.doris_dialect import (
     DorisDialect,
     ReflectionFallback,
 )
-from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSource
+from datahub.ingestion.source.sql.doris.doris_source import (
+    DorisConfig,
+    DorisConnectionLostError,
+    DorisSource,
+)
 from datahub.ingestion.source.sql.mysql import MySQLSource
 
 
@@ -540,20 +545,74 @@ class TestDorisSourceMethods:
         assert contexts.count("db2: Access denied") == 1
         assert all(dialect.comment_lookup_failures == {} for dialect in dialects)
 
-    def test_comment_lookup_failure_reported_once_across_passes(self):
-        """Profiling reflects every table again through a new engine, so the same
-        failed lookup is recorded a second time but must be reported once."""
+    def test_only_the_metadata_pass_reads_comments(self):
+        """Profiling reflects every table again but never uses comments, so a lookup
+        failing there must not report descriptions the metadata pass ingested."""
+        config = DorisConfig(host_port="localhost:9030", database="db1")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+        engines: List[MagicMock] = []
+
+        def make_engine(url: str, **kwargs: Any) -> MagicMock:
+            engine = MagicMock()
+            engine.dialect = DorisDialect()
+            engine.connect.return_value.__enter__.return_value = _mock_list_conn()
+            engines.append(engine)
+            return engine
+
+        def profile_each_database(self: DorisSource) -> Iterator[Any]:
+            for _ in self.get_inspectors():
+                yield from ()
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.doris.doris_source.create_engine",
+                side_effect=make_engine,
+            ),
+            patch("datahub.ingestion.source.sql.doris.doris_source.inspect"),
+            patch.object(MySQLSource, "get_profiling_internal", profile_each_database),
+        ):
+            list(source.get_inspectors())
+            list(source.get_profiling_internal())
+            list(source.get_inspectors())
+
+        # Each pass opens a listing engine, then one per database.
+        db_dialects = [engine.dialect for engine in engines[1::2]]
+        assert [dialect.read_comments for dialect in db_dialects] == [
+            True,
+            False,
+            True,
+        ]
+
+    def test_lost_connection_skips_the_table_instead_of_emptying_its_schema(self):
+        """The base class would emit the table with no columns, overwriting its
+        schema in DataHub."""
         config = DorisConfig(host_port="localhost:9030")
         source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+        inspector = MagicMock(spec=Inspector)
+        inspector.get_columns.side_effect = PendingRollbackError(
+            "Can't reconnect until invalid transaction is rolled back."
+        )
+        inspector.bind = MagicMock(spec=Connection, invalidated=True)
 
-        for _ in ("metadata", "profiling"):
-            dialect = DorisDialect()
-            dialect.comment_lookup_failures["db1"] = "Access denied"
-            conn = MagicMock()
-            conn.dialect = dialect
-            source._report_reflection_fallbacks(conn)
+        with pytest.raises(DorisConnectionLostError):
+            source._get_columns("db1.my_table", inspector, "db1", "my_table")
 
-        assert source.report.databases_without_comments == 1
+        # A failure, not a warning, so stale-entity removal leaves the table alone.
+        assert [failure.title for failure in source.report.failures] == [
+            "Lost the Doris connection while reflecting a table"
+        ]
+
+    def test_column_errors_on_a_live_connection_keep_the_base_behaviour(self):
+        config = DorisConfig(host_port="localhost:9030")
+        source = DorisSource(ctx=PipelineContext(run_id="test"), config=config)
+        inspector = MagicMock(spec=Inspector)
+        inspector.get_columns.side_effect = ProgrammingError(
+            "DESCRIBE", {}, Exception("Access denied")
+        )
+        inspector.bind = MagicMock(spec=Connection, invalidated=False)
+
+        assert source._get_columns("db1.my_table", inspector, "db1", "my_table") == []
+        assert len(source.report.failures) == 0
 
     def test_get_inspectors_exception_handling(self):
         config = DorisConfig(host_port="localhost:9030")

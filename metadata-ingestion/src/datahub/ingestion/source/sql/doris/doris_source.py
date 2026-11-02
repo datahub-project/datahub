@@ -2,7 +2,7 @@ import functools
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set
 
 from pydantic import Field, field_validator, model_validator
 from sqlalchemy import create_engine, inspect, text
@@ -19,6 +19,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source_protocols import MetadataWorkUnitIterable
 from datahub.ingestion.source.sql.doris.doris_dialect import (
     AGG_STATE,
     BITMAP,
@@ -224,6 +225,10 @@ class DorisConfig(MySQLConfig):
         return self
 
 
+class DorisConnectionLostError(Exception):
+    """The connection dropped mid-reflection, so the table cannot be trusted."""
+
+
 @dataclass
 class DorisSourceReport(SQLSourceReport):
     # Views whose lineage was dropped because they reference another Doris
@@ -269,9 +274,8 @@ class DorisSource(MySQLSource):
 
         self._session_catalog: Optional[str] = config.catalog
         self._catalog_detection_failed = False
-        # The metadata and profiling passes each open their own engine per database,
-        # so a failing comment lookup is recorded once by each; report it once.
-        self._databases_reported_without_comments: Set[str] = set()
+        # Only the metadata pass reads comments; see DorisDialect.read_comments.
+        self._read_comments = True
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "DorisSource":
@@ -356,6 +360,8 @@ class DorisSource(MySQLSource):
             try:
                 db_url = self.config.get_sql_alchemy_url(current_db=qualified_db)
                 db_engine = create_engine(db_url, **self.config.options)
+                if isinstance(db_engine.dialect, DorisDialect):
+                    db_engine.dialect.read_comments = self._read_comments
                 db_conn = db_engine.connect()
             except Exception as e:
                 if db_engine is not None:
@@ -422,15 +428,37 @@ class DorisSource(MySQLSource):
             )
 
         for database, error in dialect.pop_comment_lookup_failures().items():
-            if database in self._databases_reported_without_comments:
-                continue
-            self._databases_reported_without_comments.add(database)
             self.report.databases_without_comments += 1
             self.report.warning(
                 title="Doris table and column comments unavailable",
                 message="Reading comments from information_schema failed, so some or all of this database's table and column descriptions are missing. Check that the account can read information_schema.TABLES and information_schema.COLUMNS.",
                 context=f"{database}: {error}",
             )
+
+    def get_profiling_internal(self) -> MetadataWorkUnitIterable:
+        self._read_comments = False
+        try:
+            yield from super().get_profiling_internal()
+        finally:
+            self._read_comments = True
+
+    def _get_columns(
+        self, dataset_name: str, inspector: Inspector, schema: str, table: str
+    ) -> Sequence[Mapping[str, Any]]:
+        columns = super()._get_columns(dataset_name, inspector, schema, table)
+        connection = inspector.bind
+        if isinstance(connection, Connection) and connection.invalidated:
+            # The base class turns any reflection error into an empty column list,
+            # and the table would then be emitted with a field-less schema that
+            # overwrites the good one. Abort the table instead, so loop_tables skips
+            # it. The failure keeps stale-entity removal from deleting it, too.
+            self.report.failure(
+                title="Lost the Doris connection while reflecting a table",
+                message="The connection dropped while reading the table's columns, so the table was skipped rather than ingested without them.",
+                context=dataset_name,
+            )
+            raise DorisConnectionLostError(dataset_name)
+        return columns
 
     def get_platform(self) -> str:
         return "doris"

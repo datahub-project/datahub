@@ -10,7 +10,12 @@ from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
 from sqlalchemy.dialects.mysql.reflection import ReflectedState
 from sqlalchemy.engine import Connection, reflection
 from sqlalchemy.engine.interfaces import ReflectedColumn, ReflectedTableComment
-from sqlalchemy.exc import DBAPIError, SAWarning, SQLAlchemyError
+from sqlalchemy.exc import (
+    DBAPIError,
+    PendingRollbackError,
+    SAWarning,
+    SQLAlchemyError,
+)
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 
@@ -182,6 +187,18 @@ def _non_empty_comment(value: object) -> Optional[str]:
     return comment if comment.strip() else None
 
 
+def _is_connection_lost(error: BaseException) -> bool:
+    """Whether `error` means the connection is gone rather than the statement failed.
+
+    A dropped connection invalidates the SQLAlchemy connection, and every later
+    statement on it raises PendingRollbackError until it is rolled back, so both
+    forms mean that nothing read over this connection from here on can be trusted.
+    """
+    if isinstance(error, DBAPIError):
+        return error.connection_invalidated
+    return isinstance(error, PendingRollbackError)
+
+
 @functools.lru_cache(maxsize=None)
 def _warn_type_not_instantiable(type_name: str) -> None:
     # lru_cache keeps this to one line per type name: a registered type that cannot be
@@ -241,12 +258,15 @@ class DorisDialect(MySQLDialect_pymysql):
         # `catalog.database` for an external catalog and the database name otherwise,
         # drained the same way.
         self.comment_lookup_failures: Dict[str, str] = {}
-        # Memoised here rather than with @reflection.cache: the profiler reflects
-        # each table through its own Inspector, so a per-inspector cache would rerun
-        # both database-wide queries for every profiled table. The dialect lives as
-        # long as the engine, which DorisSource opens per database.
+        # Memoised on the dialect, which lives as long as the engine DorisSource
+        # opens per database, so each database-wide query runs once per database
+        # however many Inspectors reflect its tables.
         self._column_comment_cache: Dict[CommentScope, Dict[str, Dict[str, str]]] = {}
         self._table_comment_cache: Dict[CommentScope, Dict[str, str]] = {}
+        # Off for the profiling pass, which reflects each table only to build its
+        # queries: it never uses comments, and a lookup failing there would report
+        # descriptions missing that the metadata pass already ingested.
+        self.read_comments = True
 
     def pop_reflection_fallbacks(self) -> Dict[str, ReflectionFallback]:
         fallbacks = self.reflection_fallbacks
@@ -349,7 +369,7 @@ class DorisDialect(MySQLDialect_pymysql):
         if full_name not in self.reflection_fallbacks:
             self._overlay_doris_types(connection, full_name, columns)
 
-        scope = self._comment_scope(connection, schema)
+        scope = self._comment_scope(connection, schema) if self.read_comments else None
         if scope is not None:
             table_comments = self._column_comments(connection, scope).get(
                 table_name, {}
@@ -375,7 +395,7 @@ class DorisDialect(MySQLDialect_pymysql):
         """
         table_comment = super().get_table_comment(connection, table_name, schema, **kw)
 
-        scope = self._comment_scope(connection, schema)
+        scope = self._comment_scope(connection, schema) if self.read_comments else None
         if scope is None:
             return table_comment
 
@@ -423,7 +443,7 @@ class DorisDialect(MySQLDialect_pymysql):
                 )
             )
         except SQLAlchemyError as e:
-            if isinstance(e, DBAPIError) and e.connection_invalidated:
+            if _is_connection_lost(e):
                 # A dropped connection is not a missing grant: every later statement
                 # on it fails too, so reporting it as missing comments would hide
                 # the real cause behind the next table's error.

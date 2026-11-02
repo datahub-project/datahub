@@ -62,3 +62,9 @@ Confirm the ingestion account can run `DESCRIBE` on the tables named in the warn
 The `information_schema` comment lookup failed for the database named in the warning context, so some or all of its table and column descriptions are missing. Everything else about those tables is unaffected.
 
 Confirm the ingestion account can query `information_schema.TABLES` and `information_schema.COLUMNS`.
+
+#### "Lost the Doris connection while reflecting a table"
+
+The connection dropped while the table named in the failure context was being reflected, so the table was skipped rather than ingested with an empty schema, and stale-entity removal is skipped for this run so the table is not deleted. Tables reflected after it in the same database usually fail the same way.
+
+Check FE availability and any proxy or load-balancer idle timeout between the ingestion executor and Doris, then rerun.
