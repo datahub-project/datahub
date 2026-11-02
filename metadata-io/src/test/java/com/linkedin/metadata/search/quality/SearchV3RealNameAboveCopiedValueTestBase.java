@@ -209,6 +209,12 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         new Dataset(datasetUrn(name), DATASET_ENTITY_NAME, name, title, recordId, description));
   }
 
+  /** A dataset whose key differs from its display name, e.g. a table in a schema named like it. */
+  private void addKeyed(String key, String name, @Nullable String title) {
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:hive," + key + ",PROD)";
+    corpus.put(urn, new Dataset(urn, DATASET_ENTITY_NAME, name, title, null, null));
+  }
+
   private void addColumn(String parent, String fieldPath, @Nullable String title) {
     String urn = "urn:li:schemaField:(" + datasetUrn(parent) + "," + fieldPath + ")";
     corpus.put(urn, new Dataset(urn, SCHEMA_FIELD_ENTITY_NAME, fieldPath, title, null, null));
@@ -260,6 +266,15 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     addColumn("tray_logs", "sand_depth_cm", null);
     addColumn("tray_logs", "m_008", "Sand Depth Notes");
     add("sand", null);
+    // A real name with a longer title of its own, against 12 tables titled exactly the query that
+    // live in a schema named like the table family; and a control whose real name has no title.
+    add("ragdoll lounge", "Ragdoll Lounge Visits");
+    add("siberian lounge", null);
+    for (int i = 0; i < 12; i++) {
+      String n = String.format("%02d", i);
+      addKeyed("ragdoll_lounge.ragdoll_lounge_" + n, "ragdoll_lounge_" + n, "Ragdoll Lounge");
+      addKeyed("siberian_lounge.siberian_lounge_" + n, "siberian_lounge_" + n, "Siberian Lounge");
+    }
     // Record identifiers, and a dataset that only mentions them in its description.
     addDataset("adoption_register", "Adoption Register", GUID, null);
     addDataset("adoption_ledger", null, HYPHENATED_ID, null);
@@ -378,6 +393,29 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         graded.stream().map(Dataset::urn).filter(u -> !seen.contains(u)).toList();
     assertEquals(missing, List.of(), mode + ": graded results never shown");
     assertTranchesMatch(mode, query, walked, "paged in tens");
+  }
+
+  /**
+   * An exact real name whose own title is longer stays first on the first page, above 12 datasets
+   * titled exactly the query whose names and schema repeat it. The control has no title of its own.
+   */
+  protected void assertExactNameWithLongerOwnTitleStaysFirst(Mode mode) throws Exception {
+    for (String[] c :
+        new String[][] {
+          {"ragdoll lounge", "ragdoll lounge"}, {"siberian lounge", "siberian lounge"}
+        }) {
+      List<Dataset> firstPage = search(mode, c[0], 0, 10).served();
+      assertEquals(
+          firstPage.isEmpty() ? null : firstPage.get(0).name(),
+          c[1],
+          String.format(
+              "%s, query %s: %s (EXACT_NAME) should be #1 on the first page, at #%s%n  actual: %s",
+              mode,
+              c[0],
+              c[1],
+              indexOfName(search(mode, c[0], 0, 30).served(), c[1]) + 1,
+              describe(c[0], firstPage)));
+    }
   }
 
   /** A real name holding the word ranks with the partial real names, even when its title does. */

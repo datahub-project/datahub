@@ -212,6 +212,18 @@ test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () =>
     expect(actual.slice(0, 2).map((e) => e?.kind)).toEqual(['dataset', 'column']);
   });
 
+  test('an exact name with a longer title of its own stays on the first page', async ({}, testInfo) => {
+    // 12 datasets titled exactly the query live in a schema named like the table family; the real
+    // name's own title is longer. The control's real name has no title.
+    for (const query of ['ragdoll lounge', 'siberian lounge']) {
+      const { actual } = await searchAndRecord(testInfo, query, 10);
+      expect(
+        actual[0]?.name,
+        `query ${query}: the exact real name should be #1 on the first page\n  actual:   ${summarize(query, actual)}`,
+      ).toBe(query);
+    }
+  });
+
   test('a record identifier finds its dataset first, as typed and in upper case', async ({}, testInfo) => {
     for (const query of [GUID, GUID.toUpperCase()]) {
       const { urns } = await searchAndRecord(testInfo, query, 1);

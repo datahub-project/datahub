@@ -171,4 +171,19 @@ public class SearchV3RealNameAboveCopiedValueOpenSearchTest
   public void testClassOrderDefaultPagingKeepsTrancheOrder() throws Exception {
     assertPagingKeepsTrancheOrder(Mode.CLASS_ORDER_DEFAULT);
   }
+
+  @Test
+  public void testShippedExactNameWithLongerOwnTitleStaysFirst() throws Exception {
+    assertExactNameWithLongerOwnTitleStaysFirst(Mode.SHIPPED);
+  }
+
+  @Test
+  public void testClassOrderPerRequestExactNameWithLongerOwnTitleStaysFirst() throws Exception {
+    assertExactNameWithLongerOwnTitleStaysFirst(Mode.CLASS_ORDER_PER_REQUEST);
+  }
+
+  @Test
+  public void testClassOrderDefaultExactNameWithLongerOwnTitleStaysFirst() throws Exception {
+    assertExactNameWithLongerOwnTitleStaysFirst(Mode.CLASS_ORDER_DEFAULT);
+  }
 }

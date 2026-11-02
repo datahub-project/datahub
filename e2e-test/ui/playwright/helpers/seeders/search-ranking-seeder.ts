@@ -36,6 +36,8 @@ export const CLASS_ORDER_TEMPLATE_URN = 'urn:li:searchTemplate:rankingClassOrder
 export const CLASS_ORDER_ROUTER_URN = 'urn:li:searchTemplate:rankingClassOrderSearch';
 
 export const datasetUrn = (name: string): string => `urn:li:dataset:(${PLATFORM_URN},${PREFIX}.${name},PROD)`;
+/** A dataset whose key differs from its display name, e.g. a table in a schema named like it. */
+export const keyedDatasetUrn = (key: string): string => `urn:li:dataset:(${PLATFORM_URN},${key},PROD)`;
 export const columnUrn = (dataset: string, fieldPath: string): string =>
   `urn:li:schemaField:(${datasetUrn(dataset)},${fieldPath})`;
 
@@ -111,6 +113,26 @@ export function buildRankingCorpus(): CorpusEntry[] {
   entries.push(dataset('litter_tray'));
   entries.push(dataset('tray_logs'));
   entries.push({ urn: columnUrn('tray_logs', 'litter_tray'), kind: 'column', name: 'litter_tray' });
+
+  // A real name with a longer title of its own, against 12 tables titled exactly the query that
+  // live in a schema named like the table family; and a control whose real name has no title.
+  entries.push(dataset('ragdoll lounge', 'Ragdoll Lounge Visits'));
+  entries.push(dataset('siberian lounge'));
+  for (let i = 0; i < 12; i += 1) {
+    const n = pad(i, 2);
+    entries.push({
+      urn: keyedDatasetUrn(`ragdoll_lounge.ragdoll_lounge_${n}`),
+      kind: 'dataset',
+      name: `ragdoll_lounge_${n}`,
+      title: 'Ragdoll Lounge',
+    });
+    entries.push({
+      urn: keyedDatasetUrn(`siberian_lounge.siberian_lounge_${n}`),
+      kind: 'dataset',
+      name: `siberian_lounge_${n}`,
+      title: 'Siberian Lounge',
+    });
+  }
 
   // Record identifiers.
   entries.push(dataset('adoption_register', 'Adoption Register', GUID));
