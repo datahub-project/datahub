@@ -156,6 +156,19 @@ class TestRegexRouterPlugin:
         # Should return unchanged (replaceFirst doesn't modify if no match)
         assert result == ["order-events"]
 
+    def test_apply_forward_partial_match(self) -> None:
+        """Test that a regex matching only part of the topic leaves it unchanged."""
+        plugin = RegexRouterPlugin()
+        config = TransformConfig(
+            name="Router",
+            type="org.apache.kafka.connect.transforms.RegexRouter",
+            config={"regex": "orders", "replacement": "sales_orders"},
+        )
+
+        result = plugin.apply_forward(["orders", "orders_archive"], config)
+
+        assert result == ["sales_orders", "orders_archive"]
+
     def test_apply_reverse(self) -> None:
         """Test reverse transformation (limited support)."""
         plugin = RegexRouterPlugin()

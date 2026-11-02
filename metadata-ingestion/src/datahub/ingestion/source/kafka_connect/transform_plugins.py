@@ -138,7 +138,11 @@ class RegexRouterPlugin(TransformPlugin):
             try:
                 pattern = JavaPattern.compile(regex_pattern)
                 matcher = pattern.matcher(topic)
-                transformed_topic = str(matcher.replaceFirst(replacement))
+                # Kafka's RegexRouter only renames when the regex matches the whole topic
+                if matcher.matches():
+                    transformed_topic = str(matcher.replaceFirst(replacement))
+                else:
+                    transformed_topic = topic
 
                 if transformed_topic != topic:
                     logger.info(
