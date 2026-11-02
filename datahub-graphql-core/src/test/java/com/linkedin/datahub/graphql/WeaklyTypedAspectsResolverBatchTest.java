@@ -7,6 +7,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.AuthorizationSession;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,6 +26,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -910,5 +913,99 @@ public class WeaklyTypedAspectsResolverBatchTest {
     assertEquals(result.size(), 1);
     assertEquals(result.get(0).getAspectName(), ASPECT_A);
     assertTrue(result.get(0).getPayload().contains(DATASET_URN_1.toString()));
+  }
+
+  /**
+   * Credential-bearing aspects are dropped from the fetch (and therefore the response) unless the
+   * actor holds the mapped platform privilege. Other aspects on the same entity are unaffected.
+   */
+  @Test
+  public void testSensitiveAspectDroppedWithoutPrivilege() throws Exception {
+    final EntityClient client = Mockito.mock(EntityClient.class);
+    final EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+    final QueryContext ctx = mockQueryContext();
+    final Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:victim");
+
+    stubEntitySpec(
+        registry,
+        "corpuser",
+        ImmutableList.of(
+            mockAspectSpec("corpUserInfo", false, null),
+            mockAspectSpec("corpUserCredentials", false, null)));
+    Mockito.when(
+            client.batchGetV2(
+                nullable(OperationContext.class),
+                eq("corpuser"),
+                eq(Collections.singleton(userUrn)),
+                eq(Collections.singleton("corpUserInfo"))))
+        .thenReturn(ImmutableMap.of(userUrn, entityResponseWithAspects(userUrn, "corpUserInfo")));
+
+    final AspectParams params = new AspectParams();
+    params.setAspectNames(ImmutableList.of("corpUserInfo", "corpUserCredentials"));
+    final List<AspectsKey> keys =
+        ImmutableList.of(AspectsKey.from(userUrn.toString(), "corpuser", params));
+
+    try (MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class)) {
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      any(AuthorizationSession.class),
+                      eq(PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE)))
+          .thenReturn(false);
+
+      final List<List<RawAspect>> result =
+          WeaklyTypedAspectsResolver.batchLoad(keys, ctx, client, registry);
+
+      assertEquals(result.size(), 1);
+      assertEquals(result.get(0).size(), 1);
+      assertEquals(result.get(0).get(0).getAspectName(), "corpUserInfo");
+      Mockito.verify(client)
+          .batchGetV2(
+              nullable(OperationContext.class),
+              eq("corpuser"),
+              Mockito.anySet(),
+              eq(Collections.singleton("corpUserInfo")));
+    }
+  }
+
+  @Test
+  public void testSensitiveAspectReturnedWithPrivilege() throws Exception {
+    final EntityClient client = Mockito.mock(EntityClient.class);
+    final EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+    final QueryContext ctx = mockQueryContext();
+    final Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:victim");
+
+    stubEntitySpec(
+        registry, "corpuser", ImmutableList.of(mockAspectSpec("corpUserCredentials", false, null)));
+    Mockito.when(
+            client.batchGetV2(
+                nullable(OperationContext.class),
+                eq("corpuser"),
+                eq(Collections.singleton(userUrn)),
+                eq(Collections.singleton("corpUserCredentials"))))
+        .thenReturn(
+            ImmutableMap.of(userUrn, entityResponseWithAspects(userUrn, "corpUserCredentials")));
+
+    final AspectParams params = new AspectParams();
+    params.setAspectNames(ImmutableList.of("corpUserCredentials"));
+    final List<AspectsKey> keys =
+        ImmutableList.of(AspectsKey.from(userUrn.toString(), "corpuser", params));
+
+    try (MockedStatic<AuthUtil> authUtil = Mockito.mockStatic(AuthUtil.class)) {
+      authUtil
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      any(AuthorizationSession.class),
+                      eq(PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE)))
+          .thenReturn(true);
+
+      final List<List<RawAspect>> result =
+          WeaklyTypedAspectsResolver.batchLoad(keys, ctx, client, registry);
+
+      assertEquals(result.get(0).size(), 1);
+      assertEquals(result.get(0).get(0).getAspectName(), "corpUserCredentials");
+    }
   }
 }

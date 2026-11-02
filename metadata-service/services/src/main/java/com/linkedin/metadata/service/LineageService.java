@@ -11,6 +11,7 @@ import com.linkedin.common.DataJobUrnArray;
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.Edge;
 import com.linkedin.common.EdgeArray;
+import com.linkedin.common.UpstreamMetrics;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -26,9 +27,11 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.repository.RepositoryLineage;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -103,6 +106,136 @@ public class LineageService {
   }
 
   /**
+   * Validates that {@code consumerUrn} may own {@code upstreamMetrics} and that every URN is an
+   * existing Metric. Chart, dashboard, and dataset are the v1 consumers.
+   */
+  public void validateUpstreamMetricUrns(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn consumerUrn,
+      @Nonnull final List<Urn> urns)
+      throws Exception {
+    String consumerType = consumerUrn.getEntityType();
+    if (!Constants.CHART_ENTITY_NAME.equals(consumerType)
+        && !Constants.DASHBOARD_ENTITY_NAME.equals(consumerType)
+        && !Constants.DATASET_ENTITY_NAME.equals(consumerType)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Tried to add metric lineage on unsupported consumer type %s. Consumer urn: %s",
+              consumerType, consumerUrn));
+    }
+    for (final Urn urn : urns) {
+      if (!Constants.METRIC_ENTITY_NAME.equals(urn.getEntityType())) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Tried to add lineage edge with non-metric node when we expect a metric. Upstream urn: %s",
+                urn));
+      }
+      validateUrnExists(opContext, urn);
+    }
+  }
+
+  /**
+   * Updates consumer-owned Metric lineage on the shared {@code upstreamMetrics} aspect. One writer
+   * serves chart, dashboard, and dataset.
+   */
+  public void updateUpstreamMetricsLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn consumerUrn,
+      @Nonnull final List<Urn> metricsToAdd,
+      @Nonnull final List<Urn> metricsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    validateUpstreamMetricUrns(opContext, consumerUrn, metricsToAdd);
+    try {
+      MetadataChangeProposal changeProposal =
+          buildUpstreamMetricsProposal(
+              opContext, consumerUrn, metricsToAdd, metricsToRemove, actor);
+      _entityClient.ingestProposal(opContext, changeProposal, false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update upstream metrics lineage for urn %s", consumerUrn), e);
+    }
+  }
+
+  /**
+   * Builds an MCP of {@link UpstreamMetrics} for chart, dashboard, or dataset. Absent aspect
+   * becomes an empty edge list.
+   */
+  @Nonnull
+  public MetadataChangeProposal buildUpstreamMetricsProposal(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn consumerUrn,
+      @Nonnull final List<Urn> metricsToAdd,
+      @Nonnull final List<Urn> metricsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    EntityResponse entityResponse =
+        _entityClient.getV2(
+            opContext,
+            consumerUrn.getEntityType(),
+            consumerUrn,
+            ImmutableSet.of(Constants.UPSTREAM_METRICS_ASPECT_NAME));
+
+    UpstreamMetrics upstreamMetrics = new UpstreamMetrics();
+    if (entityResponse != null
+        && entityResponse.getAspects().containsKey(Constants.UPSTREAM_METRICS_ASPECT_NAME)) {
+      DataMap dataMap =
+          entityResponse.getAspects().get(Constants.UPSTREAM_METRICS_ASPECT_NAME).getValue().data();
+      upstreamMetrics = new UpstreamMetrics(dataMap);
+    }
+
+    final EdgeArray metrics =
+        upstreamMetrics.hasMetrics() ? upstreamMetrics.getMetrics() : new EdgeArray();
+    for (Urn metricUrn : metricsToAdd) {
+      if (metrics.stream().noneMatch(edge -> edge.getDestinationUrn().equals(metricUrn))) {
+        addNewEdge(metricUrn, consumerUrn, actor, metrics);
+      }
+    }
+
+    metrics.removeIf(edge -> metricsToRemove.contains(edge.getDestinationUrn()));
+    upstreamMetrics.setMetrics(metrics);
+
+    return buildMetadataChangeProposal(
+        consumerUrn, Constants.UPSTREAM_METRICS_ASPECT_NAME, upstreamMetrics);
+  }
+
+  private static List<Urn> filterMetricUrns(@Nonnull final List<Urn> urns) {
+    return urns.stream()
+        .filter(urn -> Constants.METRIC_ENTITY_NAME.equals(urn.getEntityType()))
+        .collect(Collectors.toList());
+  }
+
+  private static List<Urn> filterOutMetricUrns(@Nonnull final List<Urn> urns) {
+    return urns.stream()
+        .filter(urn -> !Constants.METRIC_ENTITY_NAME.equals(urn.getEntityType()))
+        .collect(Collectors.toList());
+  }
+
+  private static List<Urn> filterOutRepositoryUrns(@Nonnull final List<Urn> urns) {
+    return urns.stream()
+        .filter(urn -> !Constants.REPOSITORY_ENTITY_NAME.equals(urn.getEntityType()))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Metric upstreams are stored on {@code upstreamMetrics}, not on the consumer's chart/dashboard
+   * /dataset lineage aspect. Peel them off here so GraphQL can keep a generic type switch.
+   */
+  private void maybeUpdateUpstreamMetrics(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn consumerUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    List<Urn> metricsToAdd = filterMetricUrns(upstreamUrnsToAdd);
+    List<Urn> metricsToRemove = filterMetricUrns(upstreamUrnsToRemove);
+    if (!metricsToAdd.isEmpty() || !metricsToRemove.isEmpty()) {
+      updateUpstreamMetricsLineage(opContext, consumerUrn, metricsToAdd, metricsToRemove, actor);
+    }
+  }
+
+  /**
    * Updates dataset lineage by taking in a list of upstreams to add and to remove and updating the
    * existing upstreamLineage aspect.
    */
@@ -113,14 +246,24 @@ public class LineageService {
       @Nonnull final List<Urn> upstreamUrnsToRemove,
       @Nonnull final Urn actor)
       throws Exception {
-    validateDatasetUrns(opContext, upstreamUrnsToAdd);
+    final List<Urn> remainingToAdd = filterOutMetricUrns(upstreamUrnsToAdd);
+    final List<Urn> remainingToRemove = filterOutMetricUrns(upstreamUrnsToRemove);
+    MetadataChangeProposal leftoverProposal = null;
+    if (!remainingToAdd.isEmpty() || !remainingToRemove.isEmpty()) {
+      validateDatasetUrns(opContext, remainingToAdd);
+      leftoverProposal =
+          buildDatasetLineageProposal(
+              opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
+    }
+    maybeUpdateUpstreamMetrics(
+        opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+    if (leftoverProposal == null) {
+      return;
+    }
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
     try {
-      MetadataChangeProposal changeProposal =
-          buildDatasetLineageProposal(
-              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, leftoverProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update dataset lineage for urn %s", downstreamUrn), e);
@@ -192,16 +335,26 @@ public class LineageService {
       @Nonnull final List<Urn> upstreamUrnsToRemove,
       @Nonnull final Urn actor)
       throws Exception {
-    // ensure all upstream urns are either dataset or chart urns and they exist
-    validateChartUpstreamUrns(opContext, upstreamUrnsToAdd);
+    final List<Urn> remainingToAdd = filterOutMetricUrns(upstreamUrnsToAdd);
+    final List<Urn> remainingToRemove = filterOutMetricUrns(upstreamUrnsToRemove);
+    MetadataChangeProposal leftoverProposal = null;
+    if (!remainingToAdd.isEmpty() || !remainingToRemove.isEmpty()) {
+      // ensure all upstream urns are either dataset or chart urns and they exist
+      validateChartUpstreamUrns(opContext, remainingToAdd);
+      leftoverProposal =
+          buildChartLineageProposal(
+              opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
+    }
+    maybeUpdateUpstreamMetrics(
+        opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+    if (leftoverProposal == null) {
+      return;
+    }
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
     try {
-      MetadataChangeProposal changeProposal =
-          buildChartLineageProposal(
-              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, leftoverProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
@@ -275,15 +428,25 @@ public class LineageService {
       @Nonnull final List<Urn> upstreamUrnsToRemove,
       @Nonnull final Urn actor)
       throws Exception {
-    validateDashboardUpstreamUrns(opContext, upstreamUrnsToAdd);
+    final List<Urn> remainingToAdd = filterOutMetricUrns(upstreamUrnsToAdd);
+    final List<Urn> remainingToRemove = filterOutMetricUrns(upstreamUrnsToRemove);
+    MetadataChangeProposal leftoverProposal = null;
+    if (!remainingToAdd.isEmpty() || !remainingToRemove.isEmpty()) {
+      validateDashboardUpstreamUrns(opContext, remainingToAdd);
+      leftoverProposal =
+          buildDashboardLineageProposal(
+              opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor);
+    }
+    maybeUpdateUpstreamMetrics(
+        opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+    if (leftoverProposal == null) {
+      return;
+    }
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
     try {
-      MetadataChangeProposal changeProposal =
-          buildDashboardLineageProposal(
-              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      _entityClient.ingestProposal(opContext, leftoverProposal, false);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
@@ -466,24 +629,53 @@ public class LineageService {
   }
 
   /**
-   * Validates that a given list of urns are all either datasets or dataJobs and that they exist.
-   * Otherwise, throw an error.
+   * Validates that a given list of urns are all either datasets, dataJobs, or repositories and that
+   * they exist. Otherwise, throw an error. Repositories are valid because dataJob registers the
+   * repositoryLineage aspect (see entity-registry.yml) to let a DataJob link to its source code
+   * repository.
    */
   public void validateDataJobUpstreamUrns(
       @Nonnull OperationContext opContext, @Nonnull final List<Urn> urns) throws Exception {
     for (final Urn urn : urns) {
       if (!urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)
-          && !urn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)) {
+          && !urn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)
+          && !urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME)) {
         throw new IllegalArgumentException(
             String.format(
-                "Tried to add an upstream to a dataJob that isn't a datJob or dataset. Upstream urn: %s",
+                "Tried to add an upstream to a dataJob that isn't a dataJob, dataset, or repository. Upstream urn: %s",
                 urn));
       }
       validateUrnExists(opContext, urn);
     }
   }
 
-  /** Updates DataJob lineage by building and ingesting an MCP based on inputs. */
+  /**
+   * Validates that a given list of urns are all repositories and that they exist. Otherwise, throw
+   * an error. Used for dataFlow, which has no dataset/dataJob-shaped input/output aspect --
+   * repositoryLineage is its only lineage aspect.
+   */
+  public void validateDataFlowUpstreamUrns(
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> urns) throws Exception {
+    for (final Urn urn : urns) {
+      if (!urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Tried to add an upstream to a dataFlow that isn't a repository. Upstream urn: %s",
+                urn));
+      }
+      validateUrnExists(opContext, urn);
+    }
+  }
+
+  /**
+   * Updates DataJob lineage by building and ingesting an MCP based on inputs. Repository-typed
+   * upstream urns are split out and written to the separate repositoryLineage aspect. The
+   * dataJobInputOutput aspect is only touched when a dataset or dataJob upstream is involved, the
+   * same way dataset lineage leaves its own aspect alone for a metrics-only edit: a repository-only
+   * edit must not rewrite job IO or create an empty dataJobInputOutput where none existed. A mixed
+   * edit fails fast if the dataJobInputOutput ingest fails, like every other method in this class,
+   * so the caller gets a clear failure to retry rather than a half-applied edit.
+   */
   public void updateDataJobUpstreamLineage(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
@@ -495,15 +687,188 @@ public class LineageService {
     // TODO: add permissions check here for entity type - or have one overall permissions check
     // above
 
+    final List<Urn> remainingToAdd = filterOutRepositoryUrns(upstreamUrnsToAdd);
+    final List<Urn> remainingToRemove = filterOutRepositoryUrns(upstreamUrnsToRemove);
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
+    if (!remainingToAdd.isEmpty() || !remainingToRemove.isEmpty()) {
+      try {
+        proposals.add(
+            buildDataJobUpstreamLineageProposal(
+                opContext, downstreamUrn, remainingToAdd, remainingToRemove, actor));
+      } catch (Exception e) {
+        throw new RuntimeException(
+            String.format("Failed to update dataJob lineage for urn %s", downstreamUrn), e);
+      }
+    }
+
+    buildRepositoryLineageProposalIfPresent(
+            opContext,
+            Constants.DATA_JOB_ENTITY_NAME,
+            downstreamUrn,
+            upstreamUrnsToAdd,
+            upstreamUrnsToRemove,
+            actor)
+        .ifPresent(proposals::add);
+    ingestLineageProposals(opContext, downstreamUrn, proposals);
+  }
+
+  private static void requireRepositoryUrns(@Nonnull final List<Urn> urns) {
+    for (final Urn urn : urns) {
+      if (!urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Tried to remove an upstream from a dataFlow that isn't a repository. Upstream urn: %s",
+                urn));
+      }
+    }
+  }
+
+  /**
+   * Updates DataFlow lineage by writing to the repositoryLineage aspect. DataFlow has no
+   * dataset/dataJob-shaped input/output aspect, so Repository is its only valid upstream type.
+   */
+  public void updateDataFlowUpstreamLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    validateDataFlowUpstreamUrns(opContext, upstreamUrnsToAdd);
+    // Removals are type-checked only: an edge to a repository that has since been hard-deleted
+    // must stay removable, so no existence check here.
+    requireRepositoryUrns(upstreamUrnsToRemove);
+    // TODO: add permissions check here for entity type - or have one overall permissions check
+    // above
+
+    final List<MetadataChangeProposal> proposals = new ArrayList<>();
+    buildRepositoryLineageProposalIfPresent(
+            opContext,
+            Constants.DATA_FLOW_ENTITY_NAME,
+            downstreamUrn,
+            upstreamUrnsToAdd,
+            upstreamUrnsToRemove,
+            actor)
+        .ifPresent(proposals::add);
+    ingestLineageProposals(opContext, downstreamUrn, proposals);
+  }
+
+  /**
+   * Builds the repositoryLineage proposal for {@code downstreamUrn} (a dataJob or dataFlow) when
+   * either upstream list contains at least one repository-typed urn. Empty otherwise, so the
+   * overwhelmingly common case where no repository is involved never reads or writes the aspect.
+   * The caller ingests it, together with any dataJobInputOutput proposal from the same edit, in a
+   * single batch.
+   */
+  private Optional<MetadataChangeProposal> buildRepositoryLineageProposalIfPresent(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityName,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    final List<Urn> repositoryUrnsToAdd =
+        upstreamUrnsToAdd.stream()
+            .filter(urn -> urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME))
+            .collect(Collectors.toList());
+    final List<Urn> repositoryUrnsToRemove =
+        upstreamUrnsToRemove.stream()
+            .filter(urn -> urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME))
+            .collect(Collectors.toList());
+    if (repositoryUrnsToAdd.isEmpty() && repositoryUrnsToRemove.isEmpty()) {
+      return Optional.empty();
+    }
+
     try {
-      MetadataChangeProposal changeProposal =
-          buildDataJobUpstreamLineageProposal(
-              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
-      _entityClient.ingestProposal(opContext, changeProposal, false);
+      return Optional.of(
+          buildRepositoryLineageProposal(
+              opContext,
+              entityName,
+              downstreamUrn,
+              repositoryUrnsToAdd,
+              repositoryUrnsToRemove,
+              actor));
     } catch (Exception e) {
       throw new RuntimeException(
-          String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
+          String.format("Failed to update repository lineage for urn %s", downstreamUrn), e);
     }
+  }
+
+  /**
+   * Ingests the proposals produced by one upstream edit. A mixed edit touches two aspects on the
+   * same urn (dataJobInputOutput and repositoryLineage); sending them as one batch keeps the write
+   * atomic, so a failure on the second aspect cannot leave the first one committed.
+   */
+  private void ingestLineageProposals(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<MetadataChangeProposal> proposals) {
+    if (proposals.isEmpty()) {
+      return;
+    }
+    try {
+      if (proposals.size() == 1) {
+        _entityClient.ingestProposal(opContext, proposals.get(0), false);
+      } else {
+        _entityClient.batchIngestProposals(opContext, proposals, false);
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update lineage for urn %s", downstreamUrn), e);
+    }
+  }
+
+  /**
+   * Builds an MCP of RepositoryLineage.inputEdges for a dataJob or dataFlow entity. Reads the
+   * entity's existing repositoryLineage aspect (if any) and merges the requested edges into it
+   * rather than replacing the whole aspect -- same read-merge-upsert pattern as the dataset/dataJob
+   * edge helpers above.
+   */
+  @Nonnull
+  private MetadataChangeProposal buildRepositoryLineageProposal(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityName,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    EntityResponse entityResponse =
+        _entityClient.getV2(
+            opContext,
+            entityName,
+            downstreamUrn,
+            ImmutableSet.of(Constants.REPOSITORY_LINEAGE_ASPECT_NAME));
+
+    RepositoryLineage repositoryLineage = new RepositoryLineage();
+    if (entityResponse != null
+        && entityResponse.getAspects().containsKey(Constants.REPOSITORY_LINEAGE_ASPECT_NAME)) {
+      DataMap dataMap =
+          entityResponse
+              .getAspects()
+              .get(Constants.REPOSITORY_LINEAGE_ASPECT_NAME)
+              .getValue()
+              .data();
+      repositoryLineage = new RepositoryLineage(dataMap);
+    }
+    if (!repositoryLineage.hasInputEdges()) {
+      repositoryLineage.setInputEdges(new EdgeArray());
+    }
+    final EdgeArray inputEdges = repositoryLineage.getInputEdges();
+
+    for (final Urn upstreamUrn : upstreamUrnsToAdd) {
+      if (inputEdges.stream()
+          .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
+        continue;
+      }
+      addNewEdge(upstreamUrn, downstreamUrn, actor, inputEdges);
+    }
+    inputEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
+    repositoryLineage.setInputEdges(inputEdges);
+
+    return buildMetadataChangeProposal(
+        downstreamUrn, Constants.REPOSITORY_LINEAGE_ASPECT_NAME, repositoryLineage);
   }
 
   /**

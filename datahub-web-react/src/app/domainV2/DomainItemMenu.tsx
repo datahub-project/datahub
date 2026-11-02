@@ -1,7 +1,9 @@
-import { DeleteOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message } from 'antd';
+import { Menu, toast } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import { ItemType } from '@components/components/Menu/types';
 
 import { MenuIcon } from '@app/entity/shared/EntityDropdown/EntityDropdown';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -31,39 +33,48 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success(t('itemMenu.deleteSuccess'));
+                    toast.success(t('itemMenu.deleteSuccess'));
                     onDelete?.();
                 }
             })
             .catch((e) => {
                 console.error('Issue deleting a domain:', e);
-                message.destroy();
-                message.error({ content: t('itemMenu.deleteError'), duration: 3 });
+                toast.destroy();
+                toast.error(t('itemMenu.deleteError'), { duration: 3 });
             });
     };
 
+    const handleDelete = () => {
+        setShowDeleteModal(false);
+        deleteDomain();
+    };
+
+    const items: ItemType[] = [
+        {
+            type: 'item',
+            key: 'delete',
+            title: tc('delete'),
+            icon: Trash,
+            danger: true,
+            onClick: () => setShowDeleteModal(true),
+        },
+    ];
+
     return (
         <>
-            <Dropdown
-                trigger={['click']}
-                overlay={
-                    <Menu>
-                        <Menu.Item onClick={() => setShowDeleteModal(true)} key="delete" danger>
-                            <DeleteOutlined /> &nbsp;{tc('delete')}
-                        </Menu.Item>
-                    </Menu>
-                }
-            >
+            <Menu items={items} trigger={['click']}>
                 <MenuIcon data-testid={`dropdown-menu-${urn}`} fontSize={20} />
-            </Dropdown>
+            </Menu>
             <ConfirmationModal
                 isOpen={showDeleteModal}
                 handleClose={() => setShowDeleteModal(false)}
-                handleConfirm={deleteDomain}
+                handleConfirm={handleDelete}
                 modalTitle={t('itemMenu.deleteConfirmTitle', { name })}
                 modalText={t('itemMenu.deleteConfirmText', {
                     entityName: entityRegistry.getEntityName(EntityType.Domain),
                 })}
+                confirmButtonText={tc('delete')}
+                isDeleteModal
             />
         </>
     );

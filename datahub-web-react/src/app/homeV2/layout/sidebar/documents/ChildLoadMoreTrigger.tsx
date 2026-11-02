@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useInView } from 'react-intersection-observer';
 import styled from 'styled-components';
 
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 
 const ObserverContainer = styled.div`
     height: 1px;

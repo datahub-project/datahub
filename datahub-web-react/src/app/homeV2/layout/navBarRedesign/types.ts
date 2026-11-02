@@ -8,7 +8,7 @@ export enum NavBarMenuItemTypes {
     Custom = 'CUSTOM',
 }
 
-export interface NavBarMenuBaseElement {
+interface NavBarMenuBaseElement {
     type: NavBarMenuItemTypes;
     key: string;
     description?: string;
@@ -26,9 +26,11 @@ export interface NavBarMenuBaseElement {
     icon?: React.ReactNode;
 }
 
-export type Badge = {
-    count: number;
+type Badge = {
+    count?: number;
+    label?: string; // For showing text like "New" instead of count
     show?: boolean;
+    showDot?: boolean; // Whether to show blue dot on icon (for left nav)
 };
 
 export interface NavBarMenuBaseItem extends NavBarMenuBaseElement {
@@ -60,7 +62,7 @@ export type NavBarMenuGroup = NavBarMenuBaseElement & {
     renderTitle?: () => React.ReactNode;
 };
 
-export type NavBarCustomElement = NavBarMenuBaseElement & {
+type NavBarCustomElement = NavBarMenuBaseElement & {
     type: NavBarMenuItemTypes.Custom;
     render: () => React.ReactNode;
 };

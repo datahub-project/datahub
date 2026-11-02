@@ -17,6 +17,7 @@ validateSchemaAnnotation.dependsOn copyMetadataModels
 mainTranslateSchemas.dependsOn copyMetadataModels
 generateDataTemplate.dependsOn copyMetadataModels
 mainCopySchemas.dependsOn copyMetadataModels
+processResources.dependsOn copyMetadataModels
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
 task renameNamespace(type: Sync, dependsOn: generateAvroSchema) {
@@ -24,7 +25,7 @@ task renameNamespace(type: Sync, dependsOn: generateAvroSchema) {
   into file("src/renamed/avro")
 
   doLast {
-    project.exec {
+    execOps.exec {
       commandLine 'bash', './rename-namespace.sh'
     }
   }

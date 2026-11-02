@@ -30,6 +30,25 @@ export const TabsWrapper = styled.div<{ $fit: TabButtonsFit }>`
     width: ${(props) => (props.$fit === 'hug' ? 'fit-content' : '100%')};
 `;
 
-export const TabContentWrapper = styled.div<{ $visible?: boolean }>`
+export const ButtonTabsContainer = styled.div<{ $fillHeight?: boolean }>`
+    ${(props) =>
+        props.$fillHeight &&
+        `
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+    `}
+`;
+
+export const TabContentWrapper = styled.div<{ $visible?: boolean; $fillHeight?: boolean }>`
+    ${(props) =>
+        props.$fillHeight &&
+        `
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 0;
+    `}
     ${(props) => !props.$visible && 'display: none;'}
 `;

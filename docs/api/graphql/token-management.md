@@ -35,6 +35,9 @@ mutation {
 }
 ```
 
+You may use either `duration` (enum) or `durationIso` (ISO-8601 string such as `P30D`). Exactly one is required.
+`NO_EXPIRY` requires `ACCESS_TOKEN_ALLOW_NO_EXPIRY=true`. Allowed finite durations are configured with `ACCESS_TOKEN_ALLOWED_DURATIONS`.
+
 _As CURL_
 
 ```curl

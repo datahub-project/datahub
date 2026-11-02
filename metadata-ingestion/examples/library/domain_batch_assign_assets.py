@@ -1,12 +1,7 @@
-import logging
-
 from datahub.emitter.mce_builder import make_dataset_urn, make_domain_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import DomainsClass
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # Batch assign multiple datasets to the same domain
 domain_urn = make_domain_urn("marketing")
@@ -32,6 +27,6 @@ for dataset_name in datasets:
     )
 
     rest_emitter.emit(event)
-    log.info(f"Assigned {dataset_urn} to domain {domain_urn}")
+    print(f"Assigned {dataset_urn} to domain {domain_urn}")
 
-log.info(f"Successfully assigned {len(datasets)} datasets to domain {domain_urn}")
+print(f"Successfully assigned {len(datasets)} datasets to domain {domain_urn}")

@@ -127,10 +127,10 @@ The `applications` aspect is attached to the data assets (not the application en
 
 ### Querying Applications
 
-Applications can be queried using the standard DataHub REST API to retrieve all aspects and metadata.
+Applications can be queried with the Python SDK to retrieve all aspects and metadata.
 
 <details>
-<summary>Fetch application entity via REST API</summary>
+<summary>Python SDK: Fetch application entity</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/application_query_rest_api.py show_path_as_comment }}

@@ -4,8 +4,8 @@ import i18next from 'i18next';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
-import { TimeWindowSize } from '@app/shared/time/timeUtils';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
+import { TimeWindowSize } from '@app/sharedV2/time/timeUtils';
 
 import {
     ChartProperties,
@@ -148,6 +148,13 @@ export const handleBatchError = (urns, e, defaultMessage) => {
             content: i18next.t('entity.shared.actions:bulkEditUnauthorized'),
             duration: 3,
         };
+    }
+    if (getGraphqlErrorCode(e) === 400) {
+        // Other 400 messages may carry server internals, so only VALIDATION ones are shown verbatim.
+        const firstError = e.graphQLErrors?.[0];
+        if (firstError?.extensions?.errorSource === 'VALIDATION' && firstError?.message) {
+            return { content: firstError.message, duration: 3 };
+        }
     }
     return defaultMessage;
 };

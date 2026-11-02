@@ -1,6 +1,16 @@
 import json
 import pathlib
-from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Tuple,
+    cast,
+)
 from unittest import mock
 
 import pytest
@@ -45,6 +55,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    OwnershipClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -693,6 +704,30 @@ def test_make_fine_grained_lineage_class_skips_unresolved_downstream_column():
 
     assert len(result) == 1
     assert result[0].downstreams == []
+
+
+def test_make_fine_grained_lineage_class_ignores_out_columns_with_null_name():
+    upstream_table_urn = "urn:li:dataset:(urn:li:dataPlatform:athena,db.table,PROD)"
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,ds-1,PROD)"
+    parsed_result = SqlParsingResult(
+        in_tables=[upstream_table_urn],
+        out_tables=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(column="my_col"),
+                upstreams=[ColumnRef(table=upstream_table_urn, column="src_col")],
+            )
+        ],
+    )
+
+    result = make_fine_grained_lineage_class(
+        parsed_result,
+        dataset_urn=dataset_urn,
+        out_columns=[{"name": None}, {"name": "My_Col"}],
+    )
+
+    assert len(result) == 1
+    assert result[0].downstreams == [f"urn:li:schemaField:({dataset_urn},My_Col)"]
 
 
 def test_database_hostname_to_platform_instance_map():
@@ -1697,7 +1732,11 @@ class ProjectSpec(NamedTuple):
     parent_id: Optional[str]
 
 
-def _tsc_project(spec: ProjectSpec) -> mock.MagicMock:
+def _tsc_project(
+    spec: ProjectSpec,
+    owner_username: Optional[str] = None,
+    owner_email: Optional[str] = None,
+) -> mock.MagicMock:
     """Minimal stand-in for a tableauserverclient ProjectItem, as returned by the
     projects Pager."""
     project = mock.MagicMock()
@@ -1705,6 +1744,13 @@ def _tsc_project(spec: ProjectSpec) -> mock.MagicMock:
     project.name = spec.name
     project.parent_id = spec.parent_id
     project.description = None
+    if owner_username is not None or owner_email is not None:
+        owner = mock.MagicMock()
+        owner.name = owner_username
+        owner.email = owner_email
+        project.owner = owner
+    else:
+        project.owner = None
     return project
 
 
@@ -1712,8 +1758,8 @@ def _collect_container_tree(
     source: TableauSiteSource,
     all_project_map: Dict[str, TableauProject],
 ) -> Dict[str, Dict[str, Optional[str]]]:
-    """Run emit_project_containers and return {project_id: {name, parent}} so
-    assertions read in terms of project ids rather than opaque container urns. A
+    """Run emit_project_containers and return {project_id: {name, parent, owner_urn}}
+    so assertions read in terms of project ids rather than opaque container urns. A
     root project's parent resolves to the "site" sentinel (its container nests under
     the site container, which emit_site_container emits separately)."""
     urn_to_id = {
@@ -1724,13 +1770,18 @@ def _collect_container_tree(
     tree: Dict[str, Dict[str, Optional[str]]] = {}
     for wu in source.emit_project_containers(all_project_map):
         project_id = urn_to_id[wu.get_urn()]
-        entry = tree.setdefault(project_id, {"name": None, "parent": None})
+        entry = tree.setdefault(
+            project_id, {"name": None, "parent": None, "owner_urn": None}
+        )
         props = wu.get_aspect_of_type(ContainerPropertiesClass)
         if props is not None:
             entry["name"] = props.name
         parent = wu.get_aspect_of_type(ContainerClass)
         if parent is not None:
             entry["parent"] = urn_to_id.get(parent.container)
+        ownership = wu.get_aspect_of_type(OwnershipClass)
+        if ownership is not None and ownership.owners:
+            entry["owner_urn"] = ownership.owners[0].owner
     return tree
 
 
@@ -1752,14 +1803,21 @@ class TestProjectContainerHierarchy:
         allow: Optional[List[str]] = None,
         deny: Optional[List[str]] = None,
         extract_project_hierarchy: bool = True,
+        ingest_owner: bool = False,
+        owner_by_project_id: Optional[
+            Dict[str, Tuple[Optional[str], Optional[str]]]
+        ] = None,
     ) -> Tuple[TableauSiteSource, Dict[str, Dict[str, Optional[str]]]]:
         """Feed ``projects`` through the real projects Pager and run filtering +
         registry building + container emission.
 
-        Returns (source, tree), where tree is {project_id: {name, parent}} and a
-        root project's parent resolves to the "site" sentinel (its container nests
-        under the site container). Sites are always added as containers here to
+        Returns (source, tree), where tree is {project_id: {name, parent, owner_urn}}
+        and a root project's parent resolves to the "site" sentinel (its container
+        nests under the site container). Sites are always added as containers here to
         mirror a typical deployment.
+
+        Pass ``ingest_owner=True`` and ``owner_by_project_id`` to verify ownership
+        propagation without duplicating setup across tests.
         """
         project_pattern: Dict[str, List[str]] = {}
         if allow is not None:
@@ -1772,6 +1830,7 @@ class TestProjectContainerHierarchy:
             project_pattern=project_pattern or {"allow": [".*"]},
             extract_project_hierarchy=extract_project_hierarchy,
             add_site_container=True,
+            ingest_owner=ingest_owner,
         )
         config = TableauConfig.model_validate(config_dict)
 
@@ -1785,7 +1844,15 @@ class TestProjectContainerHierarchy:
                 server=mock.MagicMock(),
             )
 
-        project_items = [_tsc_project(p) for p in projects]
+        owners = owner_by_project_id or {}
+        project_items = [
+            _tsc_project(
+                p,
+                owner_username=owners.get(p.id, (None, None))[0],
+                owner_email=owners.get(p.id, (None, None))[1],
+            )
+            for p in projects
+        ]
 
         def fake_pager(endpoint: Any, **kwargs: Any) -> Any:
             # Only the projects endpoint has data; the datasource/workbook registries
@@ -1990,6 +2057,26 @@ class TestProjectContainerHierarchy:
         # The dangling parent reference is surfaced to operators, not swallowed.
         assert "Incomplete project hierarchy" in source.report.as_string()
 
+    def test_project_container_owner_ingested_when_ingest_owner_true(self) -> None:
+        """Project containers include an owner when ingest_owner=True and the TSC
+        ProjectItem carries owner info."""
+        _, tree = self._run(
+            [ProjectSpec("p1", "Project_1", None)],
+            ingest_owner=True,
+            owner_by_project_id={"p1": ("alice", "alice@example.com")},
+        )
+        assert tree["p1"]["owner_urn"] == "urn:li:corpuser:alice"
+
+    def test_project_container_no_owner_when_ingest_owner_false(self) -> None:
+        """Project containers have no owner when ingest_owner=False, even if the TSC
+        ProjectItem carries owner info."""
+        _, tree = self._run(
+            [ProjectSpec("p1", "Project_1", None)],
+            ingest_owner=False,
+            owner_by_project_id={"p1": ("alice", "alice@example.com")},
+        )
+        assert tree["p1"]["owner_urn"] is None
+
     def test_dangling_parent_id_raises_actionable_error(self) -> None:
         """emit_project_containers relies on _get_all_project having nulled out any
         parent_id absent from the project map. If a future regression breaks that
@@ -2156,3 +2243,137 @@ class TestNullApiResponseHandling:
         assert result is not None
         assert len(result.fields) == 1
         assert result.fields[0].fieldPath == "my_column"
+
+
+def _report_titles(entries: Iterable[Any]) -> List[Optional[str]]:
+    # _make_site_source() always reports "Insufficient Permissions" because the mocked
+    # server cannot verify the user's role; it is unrelated to what these tests check.
+    return [e.title for e in entries if e.title != "Insufficient Permissions"]
+
+
+def _registry_project(project_id: str, name: str = "default") -> TableauProject:
+    return TableauProject(
+        id=project_id,
+        name=name,
+        description="",
+        parent_id=None,
+        parent_name=None,
+        path=[name],
+    )
+
+
+def test_workbook_project_luid_falls_back_to_rest_lookup() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.tableau_project_registry = {"project-1": _registry_project("project-1")}
+    source.server.workbooks.get_by_id.return_value = mock.MagicMock(
+        project_id="project-1"
+    )
+    workbook = {c.ID: "wb-1", c.NAME: "wb", c.LUID: "wb-luid-1"}
+
+    assert source._get_workbook_project_luid(workbook) == "project-1"
+    # The second call is served from the map; the REST API is only hit once.
+    assert source._get_workbook_project_luid(workbook) == "project-1"
+
+    source.server.workbooks.get_by_id.assert_called_once_with("wb-luid-1")
+    assert source.report.num_workbook_project_lookups == 1
+
+
+def test_workbook_project_luid_lookup_failure_is_not_retried() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.server.workbooks.get_by_id.side_effect = Exception("boom")
+    workbook = {c.ID: "wb-1", c.NAME: "wb", c.LUID: "wb-luid-1"}
+
+    assert source._get_workbook_project_luid(workbook) is None
+    assert source._get_workbook_project_luid(workbook) is None
+
+    source.server.workbooks.get_by_id.assert_called_once_with("wb-luid-1")
+    assert source.report.num_get_workbook_query_failures == 1
+    # The skip is reported once by emit_workbooks; the lookup itself only logs.
+    assert _report_titles(source.report.warnings) == []
+
+
+def test_workbook_project_luid_without_luid_skips_lookup() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+
+    assert source._get_workbook_project_luid({c.ID: "wb-1", c.NAME: "wb"}) is None
+    source.server.workbooks.get_by_id.assert_not_called()
+
+
+def test_emit_workbooks_distinguishes_unresolved_from_unselected_project() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.server.workbooks.get_by_id.return_value = mock.MagicMock(project_id=None)
+    source.tableau_project_registry = {"project-1": _registry_project("project-1")}
+    source.workbook_project_map = {"wb-luid-unselected": "project-other"}
+
+    workbooks = [
+        {
+            c.ID: "wb-unresolved",
+            c.NAME: "Unresolved",
+            c.LUID: "wb-luid-unresolved",
+            c.PROJECT_NAME: "default",
+        },
+        {
+            c.ID: "wb-unselected",
+            c.NAME: "Unselected",
+            c.LUID: "wb-luid-unselected",
+            c.PROJECT_NAME: "default",
+        },
+    ]
+
+    with mock.patch.object(source, "get_connection_objects", return_value=workbooks):
+        work_units = list(source.emit_workbooks())
+
+    assert work_units == []
+    assert _report_titles(source.report.warnings) == [
+        "Unable to Resolve Workbook Project"
+    ]
+    assert _report_titles(source.report.infos) == [
+        "Skipping Workbook in Unselected Project"
+    ]
+
+
+def test_emit_workbooks_resolves_missing_workbook_via_rest_lookup() -> None:
+    source = _make_site_source()
+    source.server = mock.MagicMock()
+    source.server.workbooks.get_by_id.return_value = mock.MagicMock(
+        project_id="project-1"
+    )
+    source.tableau_project_registry = {"project-1": _registry_project("project-1")}
+    source.workbook_project_map = {}
+
+    workbook = {
+        c.ID: "wb-resolved",
+        c.NAME: "Resolved",
+        c.LUID: "wb-luid-resolved",
+        c.PROJECT_NAME: "default",
+        c.SHEETS: [{c.ID: "sheet-1"}],
+        c.DASHBOARDS: [{c.ID: "dashboard-1"}],
+        c.EMBEDDED_DATA_SOURCES: [{c.ID: "embedded-ds-1"}],
+    }
+
+    with mock.patch.object(source, "get_connection_objects", return_value=[workbook]):
+        work_units = list(source.emit_workbooks())
+
+    source.server.workbooks.get_by_id.assert_called_once_with("wb-luid-resolved")
+
+    aspects = [
+        wu.metadata.aspect
+        for wu in work_units
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and wu.metadata.entityUrn == source.gen_workbook_key("wb-resolved").as_urn()
+    ]
+    container_props = [a for a in aspects if isinstance(a, ContainerPropertiesClass)]
+    assert [p.name for p in container_props] == ["Resolved"]
+    parent = [a for a in aspects if isinstance(a, ContainerClass)]
+    assert [p.container for p in parent] == [
+        source.gen_project_key("project-1").as_urn()
+    ]
+
+    assert source.sheet_ids == ["sheet-1"]
+    assert source.dashboard_ids == ["dashboard-1"]
+    assert source.embedded_datasource_ids_being_used == ["embedded-ds-1"]
+    assert _report_titles(source.report.warnings) == []

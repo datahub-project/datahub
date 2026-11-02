@@ -1,7 +1,6 @@
 import { useApolloClient } from '@apollo/client';
-import { Text } from '@components';
-import { message } from 'antd';
-import React, { useCallback, useMemo, useState } from 'react';
+import { Text, toast } from '@components';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 
@@ -50,6 +49,22 @@ export function IngestionSourceCreatePage() {
         [location.state?.initialBuilderState],
     );
     const initialStepIndex = location.state?.initialStepIndex ?? 0;
+
+    const analyticsRef = useRef(false);
+
+    useEffect(() => {
+        if (analyticsRef.current) return;
+
+        // Direct page load
+        if (history.action === 'POP') {
+            analyticsRef.current = true;
+            analytics.event({
+                type: EventType.EnterIngestionFlowEvent,
+                entryPoint: 'direct_url',
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const STEPS: IngestionSourceFormStep[] = useMemo(
         () => [
@@ -115,19 +130,13 @@ export function IngestionSourceCreatePage() {
                     exitType: shouldRun ? 'save_and_run' : 'save_draft',
                 });
 
-                message.success({
-                    content: t('multiStep.createPage.successMessage'),
-                    duration: 3,
-                });
+                toast.success(t('multiStep.createPage.successMessage'), { duration: 3 });
 
                 history.push(`${PageRoutes.INGESTION}/sources`);
             } catch (e: unknown) {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: e.message,
-                        duration: 3,
-                    });
+                    toast.error(e.message, { duration: 3 });
                 }
             }
 
@@ -157,11 +166,7 @@ export function IngestionSourceCreatePage() {
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
             confirmationModalTitle={t('multiStep.builder.discard.title')}
-            confirmationModalContent={
-                <Text color="gray" colorLevel={1700}>
-                    {t('multiStep.builder.discard.description')}
-                </Text>
-            }
+            confirmModalContent={<Text color="textSecondary">{t('multiStep.builder.discard.description')}</Text>}
             confirmButtonText={t('multiStep.builder.discard.confirm')}
             closeButtonText={t('multiStep.builder.discard.close')}
         >

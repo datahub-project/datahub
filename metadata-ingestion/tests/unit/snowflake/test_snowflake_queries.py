@@ -3,7 +3,7 @@ import itertools
 import json
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Set
 from unittest.mock import Mock, patch
 
 import pytest
@@ -712,6 +712,56 @@ class TestSnowflakeQueryParser:
         assert result.default_db == "test_db"
         assert result.default_schema == "test_schema"
 
+    def test_refresh_dynamic_table_statement_is_filtered(self):
+        """fetch_query_log drops dynamic-table refresh bookkeeping statements before parsing,
+        so they feed neither lineage nor usage (and cannot cross-attribute)."""
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+            ),
+        )
+        mock_identifiers = Mock(spec=SnowflakeIdentifierBuilder)
+        mock_identifiers.platform = "snowflake"
+        mock_identifiers.identifier_config = SnowflakeIdentifierConfig()
+        mock_identifiers.get_user_identifier = Mock(return_value="u")
+
+        extractor = SnowflakeQueriesExtractor(
+            connection=Mock(),
+            config=config,
+            structured_report=Mock(),
+            filters=Mock(),
+            identifiers=mock_identifiers,
+        )
+
+        parsed_query_types = []
+
+        def spy(row, users):
+            parsed_query_types.append(row["QUERY_TYPE"])
+            return iter(())
+
+        with (
+            patch.object(extractor, "_parse_audit_log_row", side_effect=spy),
+            patch.object(
+                extractor.structured_reporter,
+                "report_exc",
+                return_value=contextlib.nullcontext(),
+            ),
+            patch.object(
+                extractor.connection,
+                "query",
+                return_value=[
+                    {"QUERY_TYPE": "REFRESH_DYNAMIC_TABLE_AT_REFRESH_VERSION"},
+                    {"QUERY_TYPE": "SELECT"},
+                ],
+            ),
+        ):
+            list(extractor.fetch_query_log({}))
+
+        # The refresh row is dropped before the parser; only the SELECT reaches it.
+        assert parsed_query_types == ["SELECT"]
+        assert extractor.report.num_dynamic_table_refresh_stmts_filtered == 1
+
     def test_parse_query_with_valid_columns_returns_preparsed_query(self):
         """Test that queries with all valid column names return PreparsedQuery."""
         mock_connection = Mock()
@@ -1386,21 +1436,24 @@ class TestMultiTableInsert:
         assert entry1.downstream == self.DOWNSTREAM_URN_1
         assert entry1.column_lineage is not None
         assert len(entry1.column_lineage) == 1
-        assert entry1.column_lineage[0].downstream.column == "id"
+        # Compared case-insensitively: which column the lineage points at is what
+        # this test is about, and the casing follows preserve_column_case, which
+        # TestColumnCaseInParsedLineage below pins directly.
+        assert entry1.column_lineage[0].downstream.column.lower() == "id"
         assert entry1.column_lineage[0].downstream.table == self.DOWNSTREAM_URN_1
         assert len(entry1.column_lineage[0].upstreams) == 1
         assert entry1.column_lineage[0].upstreams[0].table == self.UPSTREAM_URN
-        assert entry1.column_lineage[0].upstreams[0].column == "reservation_id"
+        assert entry1.column_lineage[0].upstreams[0].column.lower() == "reservation_id"
 
         assert isinstance(entry2, PreparsedQuery)
         assert entry2.downstream == self.DOWNSTREAM_URN_2
         assert entry2.column_lineage is not None
         assert len(entry2.column_lineage) == 1
-        assert entry2.column_lineage[0].downstream.column == "created"
+        assert entry2.column_lineage[0].downstream.column.lower() == "created"
         assert entry2.column_lineage[0].downstream.table == self.DOWNSTREAM_URN_2
         assert len(entry2.column_lineage[0].upstreams) == 1
         assert entry2.column_lineage[0].upstreams[0].table == self.UPSTREAM_URN_2
-        assert entry2.column_lineage[0].upstreams[0].column == "created"
+        assert entry2.column_lineage[0].upstreams[0].column.lower() == "created"
 
         assert entry1.query_text == entry2.query_text
         assert entry1.upstreams == entry2.upstreams
@@ -3645,3 +3698,374 @@ def test_compose_deny_drops_patterns_past_byte_budget():
 def test_compose_deny_returns_none_when_nothing_fits():
     # Even the first pattern exceeds the budget -> no server-side clause at all.
     assert _compose_deny(["AAAA"], "col", False, deny_budget=5) is None
+
+
+class TestColumnCaseInParsedLineage:
+    """Column casing on the queries-v2 path, which is the default one.
+
+    The extractor names columns through snowflake_column_identifier in three
+    places: the columns of an accessed object, and both ends of a parsed
+    column-lineage edge. Every other test here compares those case-insensitively
+    and defers the casing question elsewhere, so nothing was actually asserting
+    it and this path could have named columns any way at all.
+
+    Snowflake keeps `"MixedCol"` as written because it is quoted, so the stored
+    spelling is what reaches the audit log -- and what a preserved run has to
+    carry through unchanged.
+    """
+
+    UPSTREAM = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,reporting.public.src,PROD)"
+    )
+
+    @staticmethod
+    def _extractor(**identifier_overrides: object) -> SnowflakeQueriesExtractor:
+        # Pinned rather than inherited: these assert exact field paths, so they
+        # must not follow the ambient default that the flag-on sweep flips.
+        # Without it the default cases assert the folded spelling while the
+        # config says preserve, and the no_lowercase case passes through the
+        # preserve branch instead of the one it is meant to cover.
+        identifier_overrides.setdefault("preserve_column_case", False)
+        report = Mock(spec=SourceReport)
+        return SnowflakeQueriesExtractor(
+            connection=Mock(query=Mock(return_value=[])),
+            config=SnowflakeQueriesExtractorConfig(
+                window=BaseTimeWindowConfig(
+                    start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                    end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+                ),
+            ),
+            structured_report=report,
+            filters=Mock(spec=SnowflakeFilter),
+            identifiers=SnowflakeIdentifierBuilder(
+                identifier_config=SnowflakeIdentifierConfig(**identifier_overrides),
+                structured_reporter=report,
+            ),
+            redundant_run_skip_handler=None,
+        )
+
+    @staticmethod
+    def _row() -> dict:
+        return {
+            "QUERY_ID": "q1",
+            "QUERY_TEXT": 'INSERT INTO dst ("MixedCol") SELECT "MixedCol" FROM src',
+            "QUERY_START_TIME": datetime(2021, 1, 1, 10, tzinfo=timezone.utc),
+            "QUERY_TYPE": "INSERT",
+            "ROWS_INSERTED": 1,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "USER_NAME": "TEST_USER",
+            "ROLE_NAME": "TEST_ROLE",
+            "SESSION_ID": "1",
+            "WAREHOUSE_NAME": "WH",
+            "DATABASE_NAME": "REPORTING",
+            "SCHEMA_NAME": "PUBLIC",
+            "DEFAULT_DB": "REPORTING",
+            "DEFAULT_SCHEMA": "PUBLIC",
+            "ROOT_QUERY_ID": None,
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": None,
+            "QUERY_DURATION": 1,
+            "OBJECTS_MODIFIED": json.dumps(
+                [
+                    {
+                        "objectName": "REPORTING.PUBLIC.DST",
+                        "objectDomain": "Table",
+                        "columns": [
+                            {
+                                "columnName": "MixedCol",
+                                "directSources": [
+                                    {
+                                        "objectName": "REPORTING.PUBLIC.SRC",
+                                        "objectDomain": "Table",
+                                        "columnName": "MixedCol",
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            ),
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(
+                [
+                    {
+                        "objectName": "REPORTING.PUBLIC.SRC",
+                        "objectDomain": "Table",
+                        "columns": [{"columnName": "MixedCol"}],
+                    }
+                ]
+            ),
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+    @pytest.mark.parametrize(
+        ("overrides", "expected"),
+        [
+            ({}, "mixedcol"),
+            ({"preserve_column_case": True}, "MixedCol"),
+            ({"convert_urns_to_lowercase": False}, "MixedCol"),
+        ],
+        ids=["default", "preserve_column_case", "no_lowercase"],
+    )
+    def test_both_ends_of_a_lineage_edge_follow_the_configured_casing(
+        self, overrides: Dict[str, object], expected: str
+    ) -> None:
+        results = list(
+            self._extractor(**overrides)._parse_audit_log_row(self._row(), {})
+        )
+
+        assert len(results) == 1
+        entry = results[0]
+        assert isinstance(entry, PreparsedQuery)
+        assert entry.column_lineage is not None
+        edge = entry.column_lineage[0]
+
+        assert edge.downstream.column == expected
+        assert [ref.column for ref in edge.upstreams] == [expected]
+
+    @pytest.mark.parametrize(
+        ("overrides", "expected"),
+        [({}, "mixedcol"), ({"preserve_column_case": True}, "MixedCol")],
+        ids=["default", "preserve_column_case"],
+    )
+    def test_accessed_columns_follow_the_configured_casing(
+        self, overrides: Dict[str, object], expected: str
+    ) -> None:
+        # A separate call site from the lineage edge above, feeding column usage
+        # rather than lineage, so it can drift independently.
+        row = self._row()
+        row["OBJECTS_MODIFIED"] = json.dumps([])
+        row["QUERY_TYPE"] = "SELECT"
+
+        results = list(self._extractor(**overrides)._parse_audit_log_row(row, {}))
+
+        assert len(results) == 1
+        entry = results[0]
+        assert isinstance(entry, PreparsedQuery)
+        assert entry.column_usage is not None
+        assert set(entry.column_usage[self.UPSTREAM]) == {expected}
+
+
+class TestDynamicTableLineageSuppression:
+    """Query-log rows that WRITE a dynamic table (the CUSTOM_INCREMENTAL refresh MERGE, or a
+    CREATE ... AS SELECT) are dropped before parsing, so the definition/INPUTS path is authoritative
+    for dynamic-table lineage and the spurious self-loop / phantom-CLL edges never get emitted."""
+
+    def _extractor(self, dynamic_table_identifiers):
+        mock_connection = Mock()
+        mock_connection.query.return_value = []
+        config = SnowflakeQueriesExtractorConfig(
+            window=BaseTimeWindowConfig(
+                start_time=datetime(2026, 4, 30, tzinfo=timezone.utc),
+                end_time=datetime(2026, 4, 30, 23, 59, 59, tzinfo=timezone.utc),
+            ),
+        )
+        structured_report = SourceReport()
+        return SnowflakeQueriesExtractor(
+            connection=mock_connection,
+            config=config,
+            structured_report=structured_report,
+            filters=Mock(spec=SnowflakeFilter),
+            identifiers=SnowflakeIdentifierBuilder(
+                identifier_config=SnowflakeIdentifierConfig(),
+                structured_reporter=structured_report,
+            ),
+            redundant_run_skip_handler=None,
+            dynamic_table_identifiers=dynamic_table_identifiers,
+        )
+
+    def _row(self, objects_modified, query_id="dt-q1", query_type="MERGE"):
+        return {
+            "QUERY_ID": query_id,
+            "ROOT_QUERY_ID": None,
+            "QUERY_TEXT": "merge into prod.public.my_dt as t using (...) on ...",
+            "QUERY_TYPE": query_type,
+            "SESSION_ID": "s1",
+            "USER_NAME": "u",
+            "ROLE_NAME": "r",
+            "QUERY_START_TIME": datetime(2026, 4, 30, 12, 0, 0, tzinfo=timezone.utc),
+            "END_TIME": datetime(2026, 4, 30, 12, 0, 1, tzinfo=timezone.utc),
+            "QUERY_DURATION": 1,
+            "ROWS_INSERTED": 0,
+            "ROWS_UPDATED": 0,
+            "ROWS_DELETED": 0,
+            "DEFAULT_DB": "prod",
+            "DEFAULT_SCHEMA": "public",
+            "QUERY_COUNT": 1,
+            "QUERY_SECONDARY_FINGERPRINT": None,
+            "DIRECT_OBJECTS_ACCESSED": json.dumps(
+                [
+                    {
+                        "objectName": "prod.public.src",
+                        "objectDomain": "Table",
+                        "columns": [],
+                    }
+                ]
+            ),
+            "OBJECTS_MODIFIED": json.dumps(objects_modified),
+            "OBJECT_MODIFIED_BY_DDL": None,
+        }
+
+    def _dt_identifier(self):
+        ids = SnowflakeIdentifierBuilder(
+            identifier_config=SnowflakeIdentifierConfig(),
+            structured_reporter=SourceReport(),
+        )
+        return ids.get_dataset_identifier_from_qualified_name("PROD.PUBLIC.MY_DT")
+
+    def _modified(self, object_name):
+        return [{"objectName": object_name, "objectDomain": "Table", "columns": []}]
+
+    def _reached_parser(self, extractor, rows):
+        """Drive fetch_query_log over `rows`; return the QUERY_IDs that reached the parser (i.e. were
+        not dropped by the pre-parse filters)."""
+        reached = []
+
+        def spy(row, users):
+            reached.append(row.get("QUERY_ID"))
+            return iter(())
+
+        with (
+            patch.object(extractor, "_parse_audit_log_row", side_effect=spy),
+            patch.object(
+                extractor.structured_reporter,
+                "report_exc",
+                return_value=contextlib.nullcontext(),
+            ),
+            patch.object(extractor.connection, "query", return_value=rows),
+        ):
+            list(extractor.fetch_query_log({}))
+        return reached
+
+    def test_dynamic_table_write_dropped_regular_kept(self):
+        """A row writing a known dynamic table is dropped before parsing; a row writing a regular
+        table is not."""
+        dt_id = self._dt_identifier()
+        extractor = self._extractor(dynamic_table_identifiers={dt_id})
+        rows = [
+            self._row(self._modified("PROD.PUBLIC.MY_DT"), query_id="dt-row"),
+            self._row(
+                self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="regular-row"
+            ),
+        ]
+
+        reached = self._reached_parser(extractor, rows)
+
+        assert reached == ["regular-row"]
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 1
+
+    def test_empty_dynamic_table_set_no_suppression(self):
+        """With no known dynamic tables (e.g. standalone queries mode) nothing is suppressed."""
+        extractor = self._extractor(dynamic_table_identifiers=set())
+        rows = [self._row(self._modified("PROD.PUBLIC.MY_DT"), query_id="dt-row")]
+
+        reached = self._reached_parser(extractor, rows)
+
+        assert reached == ["dt-row"]
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 0
+
+    def test_modified_object_missing_name_does_not_crash(self):
+        """A modified-object entry without objectName is skipped, not fatal (row reaches the parser)."""
+        dt_id = self._dt_identifier()
+        extractor = self._extractor(dynamic_table_identifiers={dt_id})
+        rows = [
+            self._row([{"objectDomain": "Table", "columns": []}], query_id="noname-row")
+        ]
+
+        reached = self._reached_parser(extractor, rows)
+
+        assert reached == ["noname-row"]
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 0
+
+    def test_malformed_objects_modified_does_not_abort_stage(self):
+        """Unexpected OBJECTS_MODIFIED shapes (invalid JSON, a non-list, a non-dict element, or a
+        non-string objectName) must not raise out of the pre-parse check, which would abort the whole
+        query-log stage and silently drop every remaining row. Each such row instead falls through to
+        the parser."""
+        dt_id = self._dt_identifier()
+        extractor = self._extractor(dynamic_table_identifiers={dt_id})
+        invalid_json = self._row(
+            self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="invalid-json"
+        )
+        invalid_json["OBJECTS_MODIFIED"] = "{not valid json"  # unparseable string
+        non_list = self._row(
+            self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="non-list"
+        )
+        non_list["OBJECTS_MODIFIED"] = json.dumps(
+            {"objectName": "PROD.PUBLIC.MY_DT"}
+        )  # a dict, not a list
+        non_dict_element = self._row(
+            self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="non-dict-element"
+        )
+        non_dict_element["OBJECTS_MODIFIED"] = json.dumps(
+            ["a bare string"]
+        )  # a list whose element is not a dict
+        non_string_name = self._row(
+            self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="non-string"
+        )
+        non_string_name["OBJECTS_MODIFIED"] = json.dumps(
+            [{"objectName": 123}]
+        )  # objectName is not a string
+        good = self._row(self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="good")
+
+        reached = self._reached_parser(
+            extractor,
+            [invalid_json, non_list, non_dict_element, non_string_name, good],
+        )
+
+        # No malformed row raised out of the pre-parse filter, so every row reached the parser.
+        assert reached == [
+            "invalid-json",
+            "non-list",
+            "non-dict-element",
+            "non-string",
+            "good",
+        ]
+
+    def test_collect_and_lookup_use_matching_identifier_forms(self):
+        """The seam: the DT set is BUILT with get_dataset_identifier (as _process_tables does) but a
+        query-log row is matched with get_dataset_identifier_from_qualified_name. If those two ever
+        normalize the same table differently, suppression silently stops, so pin them with real
+        builders (no mocks, no building the set via the lookup method)."""
+        ids = SnowflakeIdentifierBuilder(
+            identifier_config=SnowflakeIdentifierConfig(),
+            structured_reporter=SourceReport(),
+        )
+        dt_id = ids.get_dataset_identifier(
+            "MY_DT", "PUBLIC", "PROD"
+        )  # the collection method
+        extractor = self._extractor(dynamic_table_identifiers={dt_id})
+        rows = [self._row(self._modified("PROD.PUBLIC.MY_DT"), query_id="dt-row")]
+
+        reached = self._reached_parser(extractor, rows)
+
+        assert reached == []  # dropped: the lookup form matched the collected form
+        assert extractor.report.num_dynamic_table_write_stmts_filtered == 1
+
+    def test_dynamic_table_identifiers_held_by_reference_reflects_late_population(self):
+        """The extractor holds the DT identifier set by reference, so tables discovered after it is
+        constructed are still suppressed. A copy would silently turn a construct-before-discovery
+        reordering into a no-op."""
+        shared: Set[str] = (
+            set()
+        )  # empty at construction, as if built before schema discovery
+        extractor = self._extractor(dynamic_table_identifiers=shared)
+        shared.add(self._dt_identifier())  # discovery populates the set afterwards
+        rows = [self._row(self._modified("PROD.PUBLIC.MY_DT"), query_id="dt-row")]
+
+        reached = self._reached_parser(extractor, rows)
+
+        assert reached == []  # suppressed via the identifier added after construction
+
+    def test_parse_audit_log_row_accepts_preparsed_objects_modified(self):
+        """_parse_audit_log_row must accept an already-parsed OBJECTS_MODIFIED (a list) rather than
+        re-parsing it; json.loads on a list would raise TypeError."""
+        dt_id = self._dt_identifier()
+        extractor = self._extractor(dynamic_table_identifiers={dt_id})
+        row = self._row(self._modified("PROD.PUBLIC.REGULAR_TABLE"), query_id="regular")
+        row["OBJECTS_MODIFIED"] = self._modified(
+            "PROD.PUBLIC.REGULAR_TABLE"
+        )  # already parsed
+
+        # Must not raise (a missing isinstance guard would json.loads(list) -> TypeError).
+        list(extractor._parse_audit_log_row(row, {}))

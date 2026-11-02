@@ -3,10 +3,12 @@ package com.linkedin.datahub.upgrade.system.schemafield;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_KEY_ASPECT;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -46,8 +48,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
-import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.BooleanType;
 import com.linkedin.schema.SchemaField;
@@ -181,59 +181,6 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
   }
 
   @Test
-  public void testBuildDisabledAspectDeletesBothFlagsOnEmitsNothing() {
-    GenerateSchemaFieldsFromSchemaMetadataStep step = newStep(false, true, true);
-    List<MCPItem> deletes = step.buildDisabledAspectDeletes(List.of(schemaMetadataMclItem(3)));
-    assertTrue(deletes.isEmpty());
-  }
-
-  @Test
-  public void testBuildDisabledAspectDeletesBothFlagsOffEmitsFieldsTimesTwo() {
-    int fieldCount = 4;
-    GenerateSchemaFieldsFromSchemaMetadataStep step = newStep(false, false, false);
-    List<MCPItem> deletes =
-        step.buildDisabledAspectDeletes(List.of(schemaMetadataMclItem(fieldCount)));
-
-    assertEquals(deletes.size(), fieldCount * 2);
-    assertEquals(
-        deletes.stream().map(MCPItem::getAspectName).collect(Collectors.toSet()),
-        Set.of(DOMAINS_ASPECT_NAME, OWNERSHIP_ASPECT_NAME));
-    assertEquals(
-        deletes.stream().map(MCPItem::getUrn).collect(Collectors.toSet()).size(), fieldCount);
-  }
-
-  @Test
-  public void testBuildDisabledAspectDeletesDomainOffOnlyEmitsDomainDeletes() {
-    int fieldCount = 3;
-    GenerateSchemaFieldsFromSchemaMetadataStep step = newStep(false, false, true);
-    List<MCPItem> deletes =
-        step.buildDisabledAspectDeletes(List.of(schemaMetadataMclItem(fieldCount)));
-
-    assertEquals(deletes.size(), fieldCount);
-    assertTrue(deletes.stream().allMatch(d -> DOMAINS_ASPECT_NAME.equals(d.getAspectName())));
-  }
-
-  @Test
-  public void testBuildDisabledAspectDeletesIgnoresNonSchemaMetadataItems() {
-    GenerateSchemaFieldsFromSchemaMetadataStep step = newStep(false, false, false);
-    EntitySpec datasetSpec = OP_CONTEXT.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME);
-    SystemAspect statusAspect = mock(SystemAspect.class);
-    when(statusAspect.getUrn()).thenReturn(DATASET_URN);
-    when(statusAspect.getEntitySpec()).thenReturn(datasetSpec);
-    when(statusAspect.getAspectName())
-        .thenReturn(com.linkedin.metadata.Constants.STATUS_ASPECT_NAME);
-    when(statusAspect.getAspectSpec())
-        .thenReturn(datasetSpec.getAspectSpec(com.linkedin.metadata.Constants.STATUS_ASPECT_NAME));
-    when(statusAspect.getRecordTemplate())
-        .thenReturn(new com.linkedin.common.Status().setRemoved(false));
-    when(statusAspect.getAuditStamp()).thenReturn(AUDIT_STAMP);
-    when(statusAspect.getSystemMetadata()).thenReturn(new SystemMetadata());
-
-    List<MCLItem> statusOnly = step.toRestateMclItems(List.of(statusAspect));
-    assertTrue(step.buildDisabledAspectDeletes(statusOnly).isEmpty());
-  }
-
-  @Test
   public void testPartitionChunksBySize() {
     List<Integer> items = List.of(1, 2, 3, 4, 5, 6, 7);
     List<List<Integer>> chunks = GenerateSchemaFieldsFromSchemaMetadataStep.partition(items, 3);
@@ -356,7 +303,9 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
 
     List<MCPItem> proposals = new ArrayList<>();
     for (int i = 0; i < 12; i++) {
-      proposals.add(mock(MCPItem.class));
+      MCPItem item = mock(MCPItem.class);
+      when(item.getChangeType()).thenReturn(ChangeType.UPSERT);
+      proposals.add(item);
     }
 
     step.ingestSideEffectProposals(proposals);
@@ -366,11 +315,45 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
         .ingestProposal(eq(OP_CONTEXT), batchCaptor.capture(), eq(true));
     verify(mockEntityService, times(0))
         .ingestAspects(any(), any(), any(Boolean.class), any(Boolean.class));
+    verify(mockEntityService, times(0))
+        .deleteAspect(any(), anyString(), anyString(), any(), anyBoolean());
 
     List<AspectsBatch> batches = batchCaptor.getAllValues();
     assertEquals(batches.get(0).getItems().size(), 5);
     assertEquals(batches.get(1).getItems().size(), 5);
     assertEquals(batches.get(2).getItems().size(), 2);
+  }
+
+  @Test
+  public void testIngestSideEffectProposalsDeletesSyncNotAsync() {
+    GenerateSchemaFieldsFromSchemaMetadataStep step = newStep(false, true, true);
+    Urn fieldUrn =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD),col_a)");
+
+    MCPItem deleteItem = mock(MCPItem.class);
+    when(deleteItem.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(deleteItem.getUrn()).thenReturn(fieldUrn);
+    when(deleteItem.getAspectName()).thenReturn(DOMAINS_ASPECT_NAME);
+
+    MCPItem keyDeleteItem = mock(MCPItem.class);
+    when(keyDeleteItem.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(keyDeleteItem.getUrn()).thenReturn(fieldUrn);
+    when(keyDeleteItem.getAspectName()).thenReturn(SCHEMA_FIELD_KEY_ASPECT);
+
+    MCPItem upsertItem = mock(MCPItem.class);
+    when(upsertItem.getChangeType()).thenReturn(ChangeType.UPSERT);
+
+    step.ingestSideEffectProposals(List.of(deleteItem, keyDeleteItem, upsertItem));
+
+    verify(mockEntityService, times(1))
+        .deleteAspect(
+            eq(OP_CONTEXT), eq(fieldUrn.toString()), eq(DOMAINS_ASPECT_NAME), any(), eq(false));
+    verify(mockEntityService, times(1))
+        .deleteAspect(
+            eq(OP_CONTEXT), eq(fieldUrn.toString()), eq(SCHEMA_FIELD_KEY_ASPECT), any(), eq(true));
+    verify(mockEntityService, times(1))
+        .ingestProposal(eq(OP_CONTEXT), any(AspectsBatch.class), eq(true));
   }
 
   @Test
@@ -494,19 +477,5 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
             SchemaMetadata.PlatformSchema.create(
                 new com.linkedin.schema.OtherSchema().setRawSchema("{}")))
         .setFields(fields);
-  }
-
-  private static MCLItem schemaMetadataMclItem(int fieldCount) {
-    SchemaMetadata schemaMetadata = schemaMetadata(fieldCount);
-    MetadataChangeLog mcl =
-        new MetadataChangeLog()
-            .setEntityUrn(DATASET_URN)
-            .setEntityType(DATASET_URN.getEntityType())
-            .setChangeType(ChangeType.RESTATE)
-            .setAspectName(SCHEMA_METADATA_ASPECT_NAME)
-            .setAspect(GenericRecordUtils.serializeAspect(schemaMetadata))
-            .setCreated(AUDIT_STAMP);
-    return com.linkedin.metadata.entity.ebean.batch.MCLItemImpl.builder()
-        .build(mcl, OP_CONTEXT.getAspectRetriever());
   }
 }

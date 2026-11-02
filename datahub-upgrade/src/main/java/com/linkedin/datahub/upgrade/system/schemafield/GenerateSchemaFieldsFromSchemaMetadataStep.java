@@ -3,9 +3,6 @@ package com.linkedin.datahub.upgrade.system.schemafield;
 import static com.linkedin.datahub.upgrade.system.AbstractMCLStep.LAST_URN_KEY;
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
@@ -27,17 +24,11 @@ import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
-import com.linkedin.metadata.entity.ebean.batch.DeleteItemImpl;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.schema.SchemaField;
-import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -63,11 +54,9 @@ import org.jetbrains.annotations.Nullable;
  * change to a new flag combination automatically schedules a new run. Returning to a fingerprint
  * that already SUCCEEDED (toggling in cycles) does <strong>not</strong> re-run — use manual
  * reprocess ({@code SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS=true}) or
- * clear/modify the stored {@code dataHubUpgradeResult} for that upgrade URN (either is valid). When
- * a flag is off, this step also deletes the corresponding aspects from schemaFields (cleanup for
- * disable). That cleanup is <strong>not provenance-aware</strong>: it deletes the aspect on every
- * field under each scanned dataset, including aspects written directly on the schemaField — not
- * only copies produced by dataset mirroring.
+ * clear/modify the stored {@code dataHubUpgradeResult} for that upgrade URN (either is valid).
+ * Turning a mirror flag off stops further backfill for that aspect; this step does
+ * <strong>not</strong> delete leftover field {@code domains}/{@code ownership}.
  *
  * <p>Environment Variables:
  *
@@ -244,14 +233,9 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
 
                       // Force SchemaFieldSideEffect without a no-op parent upsert: RESTATE
                       // MCLItems + post-MCP side effects → async ingestProposal.
+                      // When a mirror flag is off, that aspect is simply not backfilled — no
+                      // disable-cleanup deletes.
                       ingestSideEffectProposals(buildSideEffectProposals(restateMclItems));
-
-                      // When a mirror flag is off, remove leftover field aspects from prior
-                      // enables.
-                      // Chunk by batchSize — wide schemas can produce fields × disabled-aspects
-                      // deletes
-                      // per SQL batch (far larger than batchSize).
-                      ingestSideEffectProposals(buildDisabledAspectDeletes(restateMclItems));
 
                       // record progress
                       Urn lastUrn =
@@ -343,80 +327,55 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
   }
 
   /**
-   * For each schemaMetadata item in the batch, emit schemaField deletes for mirror aspects whose
-   * flags are currently off. Deletes are not limited to previously mirrored copies — any existing
-   * field {@code domains}/{@code ownership} aspect is removed.
-   */
-  @VisibleForTesting
-  List<MCPItem> buildDisabledAspectDeletes(List<MCLItem> mclItems) {
-    if (domainEnabled && ownershipEnabled) {
-      return List.of();
-    }
-
-    EntitySpec schemaFieldSpec =
-        opContext.getEntityRegistry().getEntitySpec(SCHEMA_FIELD_ENTITY_NAME);
-    AspectSpec domainsSpec =
-        domainEnabled ? null : schemaFieldSpec.getAspectSpec(DOMAINS_ASPECT_NAME);
-    AspectSpec ownershipSpec =
-        ownershipEnabled ? null : schemaFieldSpec.getAspectSpec(OWNERSHIP_ASPECT_NAME);
-    if (domainsSpec == null && ownershipSpec == null) {
-      return List.of();
-    }
-
-    List<MCPItem> deletes = new ArrayList<>();
-    for (MCLItem item : mclItems) {
-      if (!SCHEMA_METADATA_ASPECT_NAME.equals(item.getAspectName())
-          || item.getRecordTemplate() == null) {
-        continue;
-      }
-      SchemaMetadata schemaMetadata = item.getAspect(SchemaMetadata.class);
-      if (schemaMetadata == null || !schemaMetadata.hasFields()) {
-        continue;
-      }
-      for (SchemaField field : schemaMetadata.getFields()) {
-        Urn fieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(item.getUrn(), field);
-        if (domainsSpec != null) {
-          deletes.add(
-              DeleteItemImpl.builder()
-                  .urn(fieldUrn)
-                  .aspectName(DOMAINS_ASPECT_NAME)
-                  .auditStamp(item.getAuditStamp())
-                  .entitySpec(schemaFieldSpec)
-                  .aspectSpec(domainsSpec)
-                  .build(opContext.getAspectRetriever()));
-        }
-        if (ownershipSpec != null) {
-          deletes.add(
-              DeleteItemImpl.builder()
-                  .urn(fieldUrn)
-                  .aspectName(OWNERSHIP_ASPECT_NAME)
-                  .auditStamp(item.getAuditStamp())
-                  .entitySpec(schemaFieldSpec)
-                  .aspectSpec(ownershipSpec)
-                  .build(opContext.getAspectRetriever()));
-        }
-      }
-    }
-    return deletes;
-  }
-
-  /**
-   * Ingests side-effect MCPs (enable backfill upserts or disable-cleanup deletes) in chunks of at
-   * most {@code batchSize}, sleeping {@code batchDelayMs} between chunks (not after the last). Uses
-   * async {@code ingestProposal} because {@code DeleteItemImpl} cannot go through {@code
-   * ingestAspects}/{@code toUpsertBatchItems}, and to keep enable/disable paths consistent.
+   * Ingests side-effect MCPs: non-DELETE proposals via async {@code ingestProposal}; DELETE
+   * proposals synchronously via {@code deleteAspect} (async MCP DELETE is not supported
+   * end-to-end). Chunks async upserts by {@code batchSize}, sleeping {@code batchDelayMs} between
+   * chunks (not after the last).
    */
   @VisibleForTesting
   void ingestSideEffectProposals(List<MCPItem> proposals) {
     if (proposals.isEmpty()) {
       return;
     }
+
+    List<MCPItem> deletes = new ArrayList<>();
+    List<MCPItem> nonDeletes = new ArrayList<>();
+    for (MCPItem item : proposals) {
+      if (ChangeType.DELETE.equals(item.getChangeType())) {
+        deletes.add(item);
+      } else {
+        nonDeletes.add(item);
+      }
+    }
+
+    for (MCPItem delete : deletes) {
+      try {
+        boolean hardDelete =
+            EntityUtils.shouldHardDeleteAspect(opContext, delete.getUrn(), delete.getAspectName());
+        entityService.deleteAspect(
+            opContext, delete.getUrn().toString(), delete.getAspectName(), Map.of(), hardDelete);
+      } catch (Exception e) {
+        log.error(
+            "Failed schemaField side-effect delete for urn={} aspect={}: {}",
+            delete.getUrn(),
+            delete.getAspectName(),
+            e.getMessage(),
+            e);
+      }
+    }
+
+    if (nonDeletes.isEmpty()) {
+      return;
+    }
+
     int chunkSize = Math.max(1, batchSize);
-    List<List<MCPItem>> chunks = partition(proposals, chunkSize);
+    List<List<MCPItem>> chunks = partition(nonDeletes, chunkSize);
     log.info(
-        "Ingesting {} schemaField side-effect MCPs (domainEnabled={}, ownershipEnabled={}) "
-            + "in {} chunk(s) of ≤{}",
+        "Ingesting {} schemaField side-effect MCPs ({} deletes sync, {} async; domainEnabled={}, ownershipEnabled={}) "
+            + "in {} async chunk(s) of ≤{}",
         proposals.size(),
+        deletes.size(),
+        nonDeletes.size(),
         domainEnabled,
         ownershipEnabled,
         chunks.size(),

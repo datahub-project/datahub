@@ -1,41 +1,63 @@
-import { AppstoreOutlined, FileOutlined, UnlockOutlined } from '@ant-design/icons';
+import { File } from '@phosphor-icons/react/dist/csr/File';
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { LockOpen } from '@phosphor-icons/react/dist/csr/LockOpen';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
-import { ContainerEntitiesTab } from '@app/entityV2/container/ContainerEntitiesTab';
-import ContainerSummaryTab from '@app/entityV2/container/ContainerSummaryTab';
 import { Preview } from '@app/entityV2/container/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import SidebarContentsSection from '@app/entityV2/shared/containers/profile/sidebar/Container/SidebarContentsSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import EmbeddedProfile from '@app/entityV2/shared/embed/EmbeddedProfile';
-import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    AccessManagement,
+    DataProductSection,
+    DocumentationTab,
+    EmbeddedProfile,
+    EntityProfile,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarNotesSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+    SummaryTab,
+} from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntityTab } from '@app/entityV2/shared/types';
 import { getDataProduct, getFirstSubType, isOutputPort } from '@app/entityV2/shared/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { GetContainerQuery, useGetContainerQuery } from '@graphql/container.generated';
 import { Container, EntityType, SearchResult } from '@types';
 
+const ContainerSummaryTab = lazyProfileComponent(
+    'ContainerSummaryTab',
+    () => import('@app/entityV2/container/ContainerSummaryTab'),
+);
+
+const ContainerEntitiesTab = lazyProfileComponent('ContainerEntitiesTab', () =>
+    import('@app/entityV2/container/ContainerEntitiesTab').then((module) => ({
+        default: module.ContainerEntitiesTab,
+    })),
+);
+const SidebarContentsSection = lazyProfileComponent(
+    'SidebarContentsSection',
+    () => import('@app/entityV2/shared/containers/profile/sidebar/Container/SidebarContentsSection'),
+);
+
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -92,51 +114,67 @@ export class ContainerEntity implements Entity<Container> {
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             headerDropdownItems={headerDropdownItems}
-            tabs={[
-                {
-                    name: i18next.t('entity.types:tab.summary'),
-                    component: ContainerSummaryTab,
-                    icon: SUMMARY_TAB_ICON,
-                    display: {
-                        visible: (_, container: GetContainerQuery) =>
-                            !!container?.container?.subTypes?.typeNames?.includes(SubType.TableauWorkbook),
-                        enabled: () => true,
-                    },
-                },
-                {
-                    name: i18next.t('entity.types:tab.contents'),
-                    component: ContainerEntitiesTab,
-                    icon: AppstoreOutlined,
-                },
-                {
-                    name: i18next.t('entity.types:tab.documentation'),
-                    component: DocumentationTab,
-                    icon: FileOutlined,
-                },
-                {
-                    name: i18next.t('entity.types:tab.properties'),
-                    component: PropertiesTab,
-                    icon: ListBullets,
-                },
-                {
-                    name: i18next.t('entity.types:shared.accessTab'),
-                    component: AccessManagement,
-                    icon: UnlockOutlined,
-                    display: {
-                        visible: (_, container: GetContainerQuery) => {
-                            return (
-                                this.appconfig().config.featureFlags.showAccessManagement &&
-                                !!container?.container?.access
-                            );
-                        },
-                        enabled: (_, _2) => true,
-                    },
-                },
-            ]}
+            tabs={this.getProfileTabs()}
             sidebarSections={this.getSidebarSections()}
             sidebarTabs={this.getSidebarTabs()}
         />
     );
+
+    getProfileTabs = (): EntityTab[] => {
+        const showSummaryTab = useShowAssetSummaryPage();
+
+        return [
+            {
+                name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
+                component: showSummaryTab ? SummaryTab : ContainerSummaryTab,
+                icon: SUMMARY_TAB_ICON,
+                display: showSummaryTab
+                    ? undefined
+                    : {
+                          visible: (_, container: GetContainerQuery) =>
+                              !!container?.container?.subTypes?.typeNames?.includes(SubType.TableauWorkbook),
+                          enabled: () => true,
+                      },
+            },
+            {
+                name: i18next.t('entity.types:tab.contents'),
+                path: EntityTabPath.CONTENTS,
+                component: ContainerEntitiesTab,
+                icon: SquaresFour,
+            },
+            ...(!showSummaryTab
+                ? [
+                      {
+                          name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
+                          component: DocumentationTab,
+                          icon: File,
+                      },
+                  ]
+                : []),
+            {
+                name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
+                component: PropertiesTab,
+                icon: ListBullets,
+            },
+            {
+                name: i18next.t('entity.types:shared.accessTab'),
+                path: EntityTabPath.ACCESS,
+                component: AccessManagement,
+                icon: LockOpen,
+                display: {
+                    visible: (_, container: GetContainerQuery) => {
+                        return (
+                            this.appconfig().config.featureFlags.showAccessManagement && !!container?.container?.access
+                        );
+                    },
+                    enabled: (_, _2) => true,
+                },
+            },
+        ];
+    };
 
     getSidebarSections = () => [
         {
@@ -262,6 +300,10 @@ export class ContainerEntity implements Entity<Container> {
         return data?.properties?.name || data?.properties?.qualifiedName || data?.urn;
     };
 
+    createdTime = (data: Container) => {
+        return data?.properties?.created?.time;
+    };
+
     getOverridePropertiesFromEntity = (data: Container) => {
         return {
             name: this.displayName(data),
@@ -301,4 +343,8 @@ export class ContainerEntity implements Entity<Container> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
+
+    getPlatformProperties = (data: Container) => {
+        return data?.platform;
+    };
 }

@@ -16,6 +16,12 @@
       },
       "browserId": {
         "type": "keyword"
+      },
+      "language": {
+        "type": "keyword"
+      },
+      "appLanguage": {
+        "type": "keyword"
       }
     }
   },

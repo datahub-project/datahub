@@ -1,10 +1,12 @@
-import { ColorPicker, Editor, Input, Modal, Text, toast } from '@components';
+import { ColorPicker, Input, Modal, Text, toast } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import DOMPurify from 'dompurify';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components/macro';
+
+import { Editor } from '@components/components/Editor';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
@@ -18,7 +20,7 @@ import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContex
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { GLOSSARY_SEARCH_INDEX_REFRESH_MS, buildOptimisticGlossaryEntity } from '@app/glossaryV2/utils';
-import { validateCustomUrnId } from '@app/shared/textUtil';
+import { validateCustomUrnId } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
@@ -54,7 +56,6 @@ interface Props {
     entityType: EntityType;
     onClose: () => void;
     refetchData?: () => void;
-    // acryl-main only prop
     canCreateGlossaryEntity: boolean;
     isCloning?: boolean;
 }

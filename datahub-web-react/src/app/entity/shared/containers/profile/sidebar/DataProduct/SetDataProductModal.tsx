@@ -4,10 +4,10 @@ import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entity/Entity';
 import { tagRender } from '@app/entity/shared/containers/profile/sidebar/tagRenderer';
 import { handleBatchError } from '@app/entity/shared/utils';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { IconStyleType } from '@app/entityV2/Entity';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { getModalDomContainer } from '@utils/focus';
 

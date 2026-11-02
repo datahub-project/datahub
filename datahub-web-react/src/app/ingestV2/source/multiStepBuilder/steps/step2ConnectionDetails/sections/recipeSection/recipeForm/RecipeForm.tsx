@@ -1,5 +1,5 @@
-import { spacing } from '@components';
-import { Form, FormInstance, message } from 'antd';
+import { LegacyForm as Form, LegacyFormInstance as FormInstance, spacing, toast } from '@components';
+import i18next from 'i18next';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
@@ -42,7 +42,7 @@ function getInitialValues(displayRecipe: string, allFields: RecipeField[]) {
     try {
         return getValuesFromRecipe(displayRecipe, allFields);
     } catch (e) {
-        message.warn('Found invalid YAML. Please check your recipe configuration.');
+        toast.warning(i18next.t('ingestion.sourceBuilder:recipeForm.invalidYaml.error'));
         return {};
     }
 }

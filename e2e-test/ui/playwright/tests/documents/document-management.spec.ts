@@ -13,6 +13,7 @@ import { test, expect } from '../../fixtures/base-test';
 import { withRandomSuffix } from '../../utils/random';
 import { DocumentPage } from '../../pages/entity/document.page';
 import { TIMEOUTS, LOAD_STATES, KEYS } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // Test constants
 const STATUS_PUBLISHED = 'PUBLISHED';
@@ -71,21 +72,25 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should update document title and verify persistence', async ({ page, cleanup }) => {
-    const initialTitle = withRandomSuffix('doc');
-    const updatedTitle = `${initialTitle}_updated`;
+  test(
+    'should update document title and verify persistence',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page, cleanup }) => {
+      const initialTitle = withRandomSuffix('doc');
+      const updatedTitle = `${initialTitle}_updated`;
 
-    const docUrn = await documentPage.createDocumentWithTitle(initialTitle);
-    cleanup.track(docUrn);
-    await documentPage.navigateToDocument(docUrn);
-    await documentPage.setDocumentTitle(updatedTitle);
-    await page.reload();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      const docUrn = await documentPage.createDocumentWithTitle(initialTitle);
+      cleanup.track(docUrn);
+      await documentPage.navigateToDocument(docUrn);
+      await documentPage.setDocumentTitle(updatedTitle);
+      await page.reload();
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    await documentPage.expectTitleInput(updatedTitle);
+      await documentPage.expectTitleInput(updatedTitle);
 
-    await cleanup.flush();
-  });
+      await cleanup.flush();
+    },
+  );
 
   test('should update document content', async ({ page, cleanup }) => {
     const docTitle = withRandomSuffix('content-test');
@@ -95,6 +100,7 @@ test.describe('Document Management', () => {
     cleanup.track(docUrn);
     await documentPage.clickEditorAndType(testContent);
     await page.keyboard.press(KEYS.ESCAPE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.OPERATION);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
@@ -149,10 +155,12 @@ test.describe('Document Management', () => {
     await documentPage.expectSidebarContains('Documents');
 
     await documentPage.clickCollapseButton();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
     await documentPage.expectCreateButtonHidden();
 
     await documentPage.clickCollapseButton();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.QUICK);
     await documentPage.expectSidebarContains('Documents');
     await documentPage.expectCreateButtonEnabled();
@@ -167,6 +175,7 @@ test.describe('Document Management', () => {
     cleanup.track(docUrn);
     await documentPage.expectSidebarVisible();
 
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.OPERATION);
 
     await documentPage.searchForDocument(searchTitle);
@@ -197,7 +206,7 @@ test.describe('Document Management', () => {
 
   // ── Deletion Operations ────────────────────────────────────────────────────
 
-  test('should create and delete a document', async ({ page }) => {
+  test('should create and delete a document', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page }) => {
     const docTitle = withRandomSuffix('delete-test');
     const docUrn = await documentPage.createDocumentWithTitle(docTitle);
 
@@ -205,6 +214,7 @@ test.describe('Document Management', () => {
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     await documentPage.navigateToDocuments();
@@ -231,6 +241,7 @@ test.describe('Document Management', () => {
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     await documentPage.navigateToDocuments();

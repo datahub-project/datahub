@@ -1,9 +1,10 @@
-import HeaderIcon from '@mui/icons-material/VisibilityOutlined';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
+import { safeUrl } from '@app/sharedV2/urlUtils';
 
 const Wrapper = styled.div`
     height: fit-content;
@@ -23,9 +24,9 @@ export default function EmbedPreview({ embedUrl }: Props) {
     return (
         <Wrapper>
             <SummaryTabHeaderWrapper>
-                <SummaryTabHeaderTitle icon={<HeaderIcon />} title={tc('preview')} />
+                <SummaryTabHeaderTitle icon={<Eye />} title={tc('preview')} />
             </SummaryTabHeaderWrapper>
-            <StyledIframe src={embedUrl} frameBorder={0} />
+            <StyledIframe src={safeUrl(embedUrl)} frameBorder={0} />
         </Wrapper>
     );
 }

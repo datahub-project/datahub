@@ -9,6 +9,7 @@
 import { test, expect } from '../../fixtures/login-test';
 import { WelcomeModalPage } from '../../pages/welcome-modal.page';
 import { users } from '../../data/users';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.describe('Login with Welcome Modal', () => {
   let welcomeModalPage: WelcomeModalPage;
@@ -27,13 +28,17 @@ test.describe('Login with Welcome Modal', () => {
     await loginPage.login(username, password);
   });
 
-  test('logs in and displays welcome modal for first-time users', async ({ page }) => {
-    await welcomeModalPage.expectModalVisible();
-    await expect(welcomeModalPage.modalTitle).toBeVisible();
-    await welcomeModalPage.closeViaButton();
+  test(
+    'logs in and displays welcome modal for first-time users',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page }) => {
+      await welcomeModalPage.expectModalVisible();
+      await expect(welcomeModalPage.modalTitle).toBeVisible();
+      await welcomeModalPage.closeViaButton();
 
-    await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible();
-  });
+      await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible();
+    },
+  );
 
   test('logs in and closes welcome modal via Get Started button', async ({ page }) => {
     await welcomeModalPage.expectModalVisible();

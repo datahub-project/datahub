@@ -48,6 +48,9 @@ query getMLModel($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
+        activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+            total
+        }
         ...notes
         ...entityProfileVersionProperties
     }

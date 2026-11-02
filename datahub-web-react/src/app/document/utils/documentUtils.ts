@@ -175,6 +175,17 @@ export function documentToTreeNode(doc: Document, hasChildren: boolean, childCou
     };
 }
 
+/** Map searchDocuments rows to tree nodes using a precomputed child-count map. */
+export function mapDocumentsToTreeNodes(
+    documents: Document[],
+    childCountMap: Record<string, number>,
+): DocumentTreeNode[] {
+    return documents.map((document) => {
+        const childCount = childCountMap[document.urn] || 0;
+        return documentToTreeNode(document, childCount > 0, childCount);
+    });
+}
+
 /**
  * Sorts documents by creation time in descending order (most recent first).
  *
@@ -225,7 +236,7 @@ export function extractRelatedDocumentUrns(
  * @param urnArrays - Variable number of URN arrays to merge
  * @returns A new array with unique URNs
  */
-export function mergeUrns(...urnArrays: (string[] | undefined | null)[]): string[] {
+function mergeUrns(...urnArrays: (string[] | undefined | null)[]): string[] {
     return [...new Set(urnArrays.flat().filter((urn): urn is string => Boolean(urn)))];
 }
 

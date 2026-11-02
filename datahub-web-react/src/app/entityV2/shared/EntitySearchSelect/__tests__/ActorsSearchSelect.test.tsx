@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useUserContext } from '@app/context/useUserContext';
 import { ActorsSearchSelect } from '@app/entityV2/shared/EntitySearchSelect/ActorsSearchSelect';
 import { ActorEntity } from '@app/entityV2/shared/utils/actorUtils';
-import { useGetRecommendations } from '@app/shared/recommendation';
+import { useGetRecommendations } from '@app/sharedV2/recommendation';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 import { act, fireEvent, render, screen, waitFor, within } from '@utils/test-utils/customRender';
 
@@ -16,7 +16,7 @@ vi.mock('@app/context/useUserContext', () => ({
     useUserContext: vi.fn(),
 }));
 
-vi.mock('@app/shared/recommendation', () => ({
+vi.mock('@app/sharedV2/recommendation', () => ({
     useGetRecommendations: vi.fn(),
 }));
 
@@ -33,7 +33,7 @@ vi.mock('@graphql/user.generated', () => ({
 }));
 
 vi.mock('@src/app/useEntityRegistry', () => ({
-    useEntityRegistryV2: () => ({
+    useEntityRegistry: () => ({
         getGenericEntityProperties: (_type: EntityType, entity: Entity) => entity,
         getIcon: () => null,
         getDisplayName: (_type: EntityType, entity: ActorEntity) => {

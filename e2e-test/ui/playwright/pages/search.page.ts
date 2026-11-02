@@ -2,6 +2,7 @@ import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { retryOnFail } from '@utils/retry';
+import { TIMEOUTS } from '../utils/constants';
 
 export class SearchPage extends BasePage {
   readonly searchInput: Locator;
@@ -44,7 +45,6 @@ export class SearchPage extends BasePage {
       localStorage.setItem('skipOnboardingTour', 'true');
     });
     await this.navigate('/');
-    await this.page.waitForLoadState('networkidle');
     await this.searchInput.waitFor({ state: 'visible', timeout: 10000 });
     // Dismiss any remaining dialog (e.g. "Narrow your search" welcome modal).
     await this.dismissOnboardingOverlays();
@@ -83,6 +83,7 @@ export class SearchPage extends BasePage {
   async search(query: string): Promise<void> {
     await this.searchInput.fill(query);
     await this.searchInput.press('Enter');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(2000);
   }
 
@@ -91,6 +92,7 @@ export class SearchPage extends BasePage {
     await this.searchInput.fill(query);
     await this.searchInput.press('Enter');
     await this.page.waitForLoadState('networkidle');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(waitTime);
   }
 
@@ -99,20 +101,42 @@ export class SearchPage extends BasePage {
   }
 
   async expectNoResults(): Promise<void> {
-    await expect(this.page.getByText('of 0 results')).toBeVisible();
+    await retryOnFail(
+      async () => {
+        await expect(this.page.getByText('of 0 results')).toBeVisible();
+      },
+      {
+        onRetry: async () => {
+          await this.page.reload();
+          await this.page.waitForLoadState('networkidle');
+          await this.dismissOnboardingOverlays();
+        },
+      },
+    );
   }
 
   async expectHasResults(): Promise<void> {
-    await expect(this.page.getByText('of 0 results')).toBeHidden();
-    await expect(this.page.getByText(/of [0-9]+ result/)).toBeVisible();
+    await retryOnFail(
+      async () => {
+        await expect(this.page.getByText('of 0 results')).toBeHidden();
+        await expect(this.page.getByText(/of [\d,]+ results?/)).toBeVisible();
+      },
+      {
+        onRetry: async () => {
+          await this.page.reload();
+          await this.page.waitForLoadState('networkidle');
+          await this.dismissOnboardingOverlays();
+        },
+      },
+    );
   }
 
   async getResultCount(): Promise<number> {
     // Extract count from text like "1-20 of 1234 results"
-    const resultText = await this.page.getByText(/of [0-9]+ result/).textContent();
+    const resultText = await this.page.getByText(/of [\d,]+ results?/).textContent();
     if (!resultText) return 0;
-    const match = resultText.match(/of (\d+) result/);
-    return match ? parseInt(match[1], 10) : 0;
+    const match = resultText.match(/of ([\d,]+) results?/);
+    return match ? parseInt(match[1].replaceAll(',', ''), 10) : 0;
   }
 
   async clickResult(resultName: string): Promise<void> {
@@ -144,6 +168,7 @@ export class SearchPage extends BasePage {
     if (!(await moreFiltersBtn.isVisible())) return false;
 
     await moreFiltersBtn.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(300);
     const moreFilterOption = this.page.getByTestId(`more-filter-${filterName}`);
     const found = await moreFilterOption.isVisible();
@@ -163,11 +188,13 @@ export class SearchPage extends BasePage {
       const moreFiltersVisible = await moreFiltersBtn.isVisible();
       if (moreFiltersVisible) {
         await moreFiltersBtn.click();
+        // eslint-disable-next-line playwright/no-wait-for-timeout
         await this.page.waitForTimeout(500);
         const moreFilterOption = this.page.getByTestId(`more-filter-${filterName}`);
         const moreFilterVisible = await moreFilterOption.isVisible();
         if (moreFilterVisible) {
           await moreFilterOption.click();
+          // eslint-disable-next-line playwright/no-wait-for-timeout
           await this.page.waitForTimeout(500);
           // After clicking the more-filter option, select the option within
           // the sub-dropdown that appears. Fall through to the selection logic.
@@ -184,6 +211,7 @@ export class SearchPage extends BasePage {
     await filterDropdown.click({ force: true });
 
     // Wait for the dropdown menu to appear
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(1000);
 
     await this.selectFilterValue(optionLabel);
@@ -225,6 +253,7 @@ export class SearchPage extends BasePage {
     const dropdownSearchInput = dropdownMenu.getByTestId('search-input').last();
     if (await dropdownSearchInput.isVisible()) {
       await dropdownSearchInput.fill(optionLabel);
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(500);
 
       if (await tryCheckbox()) {
@@ -468,6 +497,17 @@ export class SearchPage extends BasePage {
 
   getEntityPreviewLocator(entityUrn: string): Locator {
     return this.page.getByTestId(`preview-${entityUrn}`);
+  }
+
+  /**
+   * Open a search result by URN. Card click only selects the preview pane —
+   * navigate via the entity name link inside the preview card.
+   */
+  async openResultByUrn(entityUrn: string): Promise<void> {
+    this.logger?.step('openResultByUrn', { entityUrn });
+    const preview = this.getEntityPreviewLocator(entityUrn);
+    await expect(preview).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await preview.getByRole('link').first().click();
   }
 
   async searchByTag(tagUrn: string): Promise<void> {

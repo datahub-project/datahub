@@ -3,10 +3,12 @@ package com.linkedin.datahub.graphql.types.corpuser;
 import static com.linkedin.datahub.graphql.Constants.DEFAULT_PERSONA_URNS;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.CORP_USER_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
@@ -31,6 +33,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpUserEditableInfo;
@@ -46,6 +49,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -53,6 +57,17 @@ import javax.annotation.Nullable;
 
 public class CorpUserType
     implements SearchableEntityType<CorpUser, String>, MutableType<CorpUserUpdateInput, CorpUser> {
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(
+          CORP_USER_KEY_ASPECT_NAME,
+          CORP_USER_INFO_ASPECT_NAME,
+          CORP_USER_EDITABLE_INFO_ASPECT_NAME,
+          GLOBAL_TAGS_ASPECT_NAME,
+          CORP_USER_STATUS_ASPECT_NAME,
+          CORP_USER_CREDENTIALS_ASPECT_NAME,
+          CORP_USER_SETTINGS_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
   private final FeatureFlags _featureFlags;
@@ -84,12 +99,15 @@ public class CorpUserType
       final List<Urn> corpUserUrns =
           urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, CORP_USER_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> corpUserMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               CORP_USER_ENTITY_NAME,
               new HashSet<>(corpUserUrns),
-              null);
+              aspectsToResolve);
 
       final List<EntityResponse> results = new ArrayList<>(urns.size());
       for (Urn urn : corpUserUrns) {

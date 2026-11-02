@@ -3,7 +3,9 @@ package com.linkedin.metadata.kafka.batch;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
+import com.google.common.collect.Lists;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
@@ -18,6 +20,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.trace.Span;
@@ -27,7 +30,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -67,6 +69,8 @@ public class BatchMetadataChangeProposalsProcessor {
 
   private final ConfigurationProvider provider;
   private final ConsumerPauseSupport consumerPauseSupport;
+  // The entity client writes proposals in groups of its batchIngestSize.
+  private final EntityClientConfig entityClientConfig;
 
   @Value(
       "${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:"
@@ -275,22 +279,36 @@ public class BatchMetadataChangeProposalsProcessor {
         batch.size(),
         batchBytes);
 
-    try {
-      List<String> urns = entityClient.batchIngestProposals(sliceContext, batch, false);
-
-      log.debug(
-          "Successfully processed MCP event batch of size {} with urns: {}",
-          batch.size(),
-          urns.stream().filter(Objects::nonNull).toList());
-    } catch (Throwable throwable) {
-      log.error("MCP Processor Error", throwable);
-      Span currentSpan = Span.current();
-      currentSpan.recordException(throwable);
-      currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
-      currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
-
-      kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, batch, throwable);
+    // A batch holds unrelated queued proposals, so an invalid proposal must not fail the rest:
+    // the entity client returns the proposals it rejected, and those alone are dead-lettered.
+    // Each call carries one entity-client group, which the client writes in one go, so any
+    // other failure leaves nothing of that group written and dead-letters just that group.
+    for (List<MetadataChangeProposal> group :
+        Lists.partition(batch, Math.max(1, entityClientConfig.getBatchIngestSize()))) {
+      try {
+        for (Pair<MetadataChangeProposal, Exception> rejected :
+            entityClient.ingestValidProposals(sliceContext, group)) {
+          deadLetter(sliceContext, List.of(rejected.getFirst()), rejected.getSecond());
+        }
+      } catch (Throwable throwable) {
+        // Only a failed group write errors the consume span; a single rejected proposal does not,
+        // since the rest of its group was written.
+        Span.current().setStatus(StatusCode.ERROR, throwable.getMessage());
+        deadLetter(sliceContext, group, throwable);
+      }
     }
+  }
+
+  private void deadLetter(
+      @Nonnull OperationContext sliceContext,
+      List<MetadataChangeProposal> mcps,
+      Throwable throwable) {
+    log.error("MCP Processor Error", throwable);
+    Span currentSpan = Span.current();
+    currentSpan.recordException(throwable);
+    currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
+
+    kafkaProducer.produceFailedMetadataChangeProposal(sliceContext, mcps, throwable);
   }
 
   /**

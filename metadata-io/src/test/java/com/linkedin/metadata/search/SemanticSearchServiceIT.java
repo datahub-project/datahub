@@ -253,7 +253,7 @@ public class SemanticSearchServiceIT {
     assertNotNull(semanticResult.getMetadata(), "Metadata should be set");
 
     // Verify each returned entity exists in the base index
-    String baseIndex = indexConvention.getEntityIndexName("dataset");
+    String baseIndex = indexConvention.getEntityIndexName(opContext, "dataset");
     ObjectMapper mapper = new ObjectMapper();
 
     for (var semanticEntity : semanticResult.getEntities()) {

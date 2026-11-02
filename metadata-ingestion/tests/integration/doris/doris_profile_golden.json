@@ -1032,7 +1032,7 @@
                     "min": "1",
                     "max": "1",
                     "mean": "1.0",
-                    "median": "1",
+                    "median": "1.0",
                     "stdev": "0.0",
                     "sampleValues": [
                         "1"
@@ -1129,7 +1129,7 @@
                     "min": "1",
                     "max": "3",
                     "mean": "2.0",
-                    "median": "2",
+                    "median": "2.0",
                     "stdev": "1.0",
                     "sampleValues": [
                         "1",

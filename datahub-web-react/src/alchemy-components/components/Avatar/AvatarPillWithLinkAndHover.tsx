@@ -1,7 +1,7 @@
-import { Avatar } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+import { Avatar } from '@components/components/Avatar';
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { AvatarSizeOptions } from '@components/theme/config';
 

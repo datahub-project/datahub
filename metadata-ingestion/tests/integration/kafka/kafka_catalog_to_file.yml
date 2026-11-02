@@ -1,0 +1,19 @@
+run_id: kafka-catalog-test
+
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: "localhost:29092"
+      schema_registry_url: "http://localhost:28081"
+
+    confluent_catalog:
+      enabled: true
+      schema_registry_url: "https://psrc-stub.us-east-1.aws.confluent.cloud"
+      api_key: "registry-key"
+      api_secret: "registry-secret"
+
+sink:
+  type: file
+  config:
+    filename: "./kafka_catalog_mces.json"

@@ -33,6 +33,10 @@ import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -130,6 +134,25 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   private <T> AtomicReference<T> getReference(String messageKey) {
     return (AtomicReference<T>)
         references.computeIfAbsent(messageKey, k -> new AtomicReference<>());
+  }
+
+  @Test
+  public void testAssociationsByResourceNameReturnsEmptyListNot404()
+      throws IOException, InterruptedException {
+    HttpClient client = HttpClient.newHttpClient();
+    HttpRequest request =
+        HttpRequest.newBuilder()
+            .uri(
+                URI.create(
+                    "http://localhost:"
+                        + SERVER_PORT
+                        + "/schema-registry/api/associations/resources/-/MetadataChangeLog_Versioned_v1"))
+            .header("Accept", "application/json")
+            .GET()
+            .build();
+    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    assertEquals(response.statusCode(), 200);
+    assertEquals(response.body().trim(), "[]");
   }
 
   @Test
@@ -560,34 +583,6 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     } catch (IOException e) {
       log.error(
           "Failed to deserialize PE message with key: {}, error: {}",
-          consumerRecord.key(),
-          e.getMessage(),
-          e);
-      // Continue processing other messages instead of stopping the consumer
-    }
-  }
-
-  @KafkaListener(
-      id = "test-duhe-consumer",
-      topics = Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME,
-      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
-      properties = {
-        "auto.offset.reset:earliest",
-        "spring.kafka.listener.ack-mode:manual",
-        "spring.kafka.listener.ack-on-error:false",
-        "spring.kafka.listener.retry-after-error:false",
-        "spring.kafka.listener.fail-fast:false"
-      })
-  public void receiveDUHE(ConsumerRecord<String, GenericRecord> consumerRecord) {
-
-    final GenericRecord value = consumerRecord.value();
-    try {
-      String messageKey = consumerRecord.key();
-      getReference(messageKey).set(EventUtils.avroToPegasusDUHE(value));
-      getLatch(messageKey).countDown();
-    } catch (IOException e) {
-      log.error(
-          "Failed to deserialize DUHE message with key: {}, error: {}",
           consumerRecord.key(),
           e.getMessage(),
           e);
