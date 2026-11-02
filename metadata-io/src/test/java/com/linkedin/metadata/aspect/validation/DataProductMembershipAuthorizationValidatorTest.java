@@ -165,6 +165,32 @@ public class DataProductMembershipAuthorizationValidatorTest {
   }
 
   @Test
+  public void testFirstPropertiesWriteWithNameIsNotARename() {
+    // No persisted dataProductProperties: this write creates the data product. The domains aspect
+    // is typically written in a later proposal, so the rename check could not resolve the domain
+    // and would deny a domain-scoped MANAGE_DATA_PRODUCTS actor.
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(Map.of());
+    DataProductProperties proposed = new DataProductProperties();
+    proposed.setName("New data product");
+
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                    eq(mockAuthSession), any(Set.class), any(Map.class), any(Map.class)))
+        .thenReturn(Set.of(DATA_PRODUCT_URN));
+
+    Assert.assertTrue(validate(upsertItem(proposed)).findAny().isEmpty());
+    authUtilsMockedStatic.verify(
+        () ->
+            EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                any(), any(Set.class), any(Map.class), any(Map.class)),
+        Mockito.never());
+  }
+
+  @Test
   public void testAssetsDeltaTriggersAuthorizationCheck() {
     DataProductProperties current = propertiesWithAssets(MEMBER_DATASET_URN);
     DataProductProperties proposed = propertiesWithAssets(OTHER_DATASET_URN);

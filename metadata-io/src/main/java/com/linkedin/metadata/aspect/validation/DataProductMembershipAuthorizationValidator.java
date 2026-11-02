@@ -174,12 +174,24 @@ public class DataProductMembershipAuthorizationValidator
     return urns;
   }
 
+  /**
+   * A rename needs an existing {@code dataProductProperties} aspect to rename. The first write of
+   * the aspect is the creation of the data product: its authorization is enforced by the creating
+   * API (e.g. {@code MANAGE_DATA_PRODUCTS} on the target domain in {@code
+   * CreateDataProductResolver}, or the entity create privilege for REST/OpenAPI). The {@code
+   * domains} aspect is typically written in a later proposal, so running the rename check here
+   * cannot see the product's domain and would deny exactly the domain-scoped actors that are
+   * allowed to create products in that domain.
+   */
   private static boolean hasNameChange(
       @Nullable DataProductProperties current, @Nullable DataProductProperties proposed) {
     if (proposed == null || !proposed.hasName()) {
       return false;
     }
-    if (current == null || !current.hasName()) {
+    if (current == null) {
+      return false;
+    }
+    if (!current.hasName()) {
       return true;
     }
     return !proposed.getName().equals(current.getName());

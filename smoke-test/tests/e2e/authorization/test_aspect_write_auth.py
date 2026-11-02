@@ -865,3 +865,48 @@ def test_update_data_product_name_allowed_with_edit_entity_on_data_product(
     assert res.get("data", {}).get("updateName") is True, res
 
     remove_policy(policy_urn, admin_session)
+
+
+def test_create_data_product_allowed_with_manage_data_products_on_domain(
+    auth_session, graph_client
+):
+    """CreateDataProduct succeeds with MANAGE_DATA_PRODUCTS on the target domain only.
+
+    The first dataProductProperties write is the creation of the product and must not
+    be treated as a rename that needs EDIT_ENTITY on the not-yet-existing product.
+    """
+    admin_session = get_frontend_session()
+    policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test MANAGE_DATA_PRODUCTS create {_UNIQUE}",
+        description="Grant MANAGE_DATA_PRODUCTS on domain for create",
+        privileges=["MANAGE_DATA_PRODUCTS"],
+        user_urn=TEST_USER_URN,
+        resource_urn=TEST_DOMAIN_URN,
+    )
+    wait_for_writes_to_sync(mcp_only=True)
+
+    created_urn = None
+    try:
+        res = _post_graphql_as_user(
+            TEST_USER_EMAIL,
+            TEST_USER_PASSWORD,
+            {
+                "query": CREATE_DATA_PRODUCT_MUTATION,
+                "variables": {
+                    "domainUrn": TEST_DOMAIN_URN,
+                    "name": f"Created via manage {_UNIQUE}",
+                    "description": "Data product created with domain-scoped privilege",
+                },
+            },
+        )
+        created = (res.get("data") or {}).get("createDataProduct") or {}
+        created_urn = created.get("urn")
+        assert created_urn, res
+    finally:
+        if created_urn:
+            try:
+                graph_client.hard_delete_entity(urn=created_urn)
+            except Exception:
+                logger.warning("Failed to delete %s during cleanup", created_urn)
+        remove_policy(policy_urn, admin_session)
