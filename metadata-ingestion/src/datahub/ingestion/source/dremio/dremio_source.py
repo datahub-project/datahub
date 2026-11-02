@@ -3,6 +3,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Set
 
+import sqlglot
+
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -26,6 +28,7 @@ from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.dremio.dremio_api import (
     DremioAPIOperations,
     DremioEdition,
+    is_dremio_system_name,
 )
 from datahub.ingestion.source.dremio.dremio_aspects import DremioAspects
 from datahub.ingestion.source.dremio.dremio_config import (
@@ -78,9 +81,16 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_dremio_name(name: str) -> str:
+    """The form catalog_dataset_names uses: lowercased, one leading `dremio.`
+    removed."""
+    return name.lower().removeprefix(f"{DREMIO_DATABASE_NAME}.")
 
 
 def passes_dremio_filters(
@@ -92,9 +102,7 @@ def passes_dremio_filters(
     """Apply the catalog walk's filters to a name discovered via query/view
     lineage so SQL-derived URNs can't produce ghost datasets the operator
     excluded via schema_pattern / dataset_pattern."""
-    # Pattern matching is done against the post-`dremio.` form.
-    if name.startswith(f"{DREMIO_DATABASE_NAME}."):
-        name = name[len(DREMIO_DATABASE_NAME) + 1 :]
+    name = normalize_dremio_name(name)
 
     if name in catalog_dataset_names:
         return True
@@ -196,6 +204,7 @@ class DremioSource(StatefulIngestionSourceBase):
         self.source_map: Dict[str, DremioSourceMapEntry] = dict()
 
         api = DremioAPIOperations(self.config, self.report)
+        self.dremio_api = api
         self.source_type_mapper = api.source_type_mapper
         self.dremio_catalog = DremioCatalog(api)
 
@@ -227,6 +236,12 @@ class DremioSource(StatefulIngestionSourceBase):
         # Populated during the catalog walk; read by the aggregator's
         # is_allowed_table callback, so must exist before construction.
         self.catalog_dataset_names: Set[str] = set()
+        # Views whose current definition the catalog walk registered with the
+        # aggregator; observed CREATE VIEW DDL for them is stale.
+        self._views_with_definition: Set[str] = set()
+        self._names_not_in_catalog: Set[str] = set()
+        self._unresolved_names: Set[str] = set()
+        self._fallback_names_allowed = False
 
         self.sql_parsing_aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.get_platform()),
@@ -254,15 +269,56 @@ class DremioSource(StatefulIngestionSourceBase):
         self.profiler = DremioProfiler(config, self.report, api, profiling_handler)
 
     def _is_allowed_table(self, name: str) -> bool:
-        allowed = passes_dremio_filters(
+        name = name.lower()
+        if self.config.platform_instance:
+            # The aggregator strips the instance case-sensitively, but the
+            # schema resolver lowercases it, so a mixed-case one stays on.
+            name = name.removeprefix(f"{self.config.platform_instance.lower()}.")
+        name = normalize_dremio_name(name)
+        # The aggregator only calls this after the catalog walk, so a name
+        # that passes the filters but isn't in the catalog was dropped (or was
+        # temporary) since the job ran; letting it through resurrects it.
+        if name in self.catalog_dataset_names:
+            return True
+        if name.startswith(f"{DREMIO_DATABASE_NAME}."):
+            # A two-part reference qualified twice by the schema resolver: the
+            # aggregator would emit it as a `dremio.dremio.` ghost URN. Listed
+            # apart from dropped tables because the table may well exist.
+            if name not in self._unresolved_names:
+                self._unresolved_names.add(name)
+                self.report.lineage_dropped_unresolved_names.append(name)
+            return False
+        # The catalog query never returns system tables, whatever
+        # include_system_tables says, so they are never in the catalog.
+        if is_dremio_system_name(name) or not passes_dremio_filters(
             name=name,
             catalog_dataset_names=self.catalog_dataset_names,
             dataset_pattern=self.config.dataset_pattern,
             schema_pattern=self.config.schema_pattern,
-        )
-        if not allowed:
+        ):
             self.report.lineage_dropped_filtered += 1
-        return allowed
+            return False
+        # Live, but returned without column rows, so the walk didn't emit it.
+        if name in self.dremio_api.datasets_without_columns:
+            return True
+        # The name may be a live table the walk never saw; dropping it would
+        # lose its lineage for good once the query time window advances, so
+        # fall back to the filters alone.
+        if self._catalog_names_incomplete():
+            self._fallback_names_allowed = True
+            return True
+        if name not in self._names_not_in_catalog:
+            self._names_not_in_catalog.add(name)
+            self.report.lineage_dropped_not_in_catalog.append(name)
+        return False
+
+    def _catalog_names_incomplete(self) -> bool:
+        # An empty catalog with query lineage on is far more likely a fetch
+        # that silently returned nothing than a Dremio with no datasets. A walk
+        # that only found column-less datasets did return something.
+        return self.report.dataset_fetch_incomplete or not (
+            self.catalog_dataset_names or self.dremio_api.datasets_without_columns
+        )
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
@@ -374,6 +430,10 @@ class DremioSource(StatefulIngestionSourceBase):
 
             for mcp in self.sql_parsing_aggregator.gen_metadata():
                 yield mcp.as_workunit()
+            if self.config.include_query_lineage:
+                # After gen_metadata(): the aggregator applies
+                # _is_allowed_table while generating.
+                self._warn_query_lineage_scope()
 
             if profiling_enabled and profile_targets is not None:
                 with (
@@ -464,6 +524,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 )
 
             if dataset_info.sql_definition:
+                self._views_with_definition.add(dataset_name)
                 self.sql_parsing_aggregator.add_view_definition(
                     view_urn=dataset_urn,
                     view_definition=dataset_info.sql_definition,
@@ -661,7 +722,62 @@ class DremioSource(StatefulIngestionSourceBase):
                         f"This may be expected for cross-source references or if the dataset was filtered out."
                     )
 
+    def _warn_query_lineage_scope(self) -> None:
+        # Only when a name actually took the fallback: an empty catalog is
+        # also what patterns that exclude everything produce.
+        if self._fallback_names_allowed:
+            self.report.warning(
+                title="Query lineage not limited to the catalog",
+                message="The Dremio dataset fetch was incomplete or returned no "
+                "datasets, so query lineage is not limited to datasets found in "
+                "the catalog this run. Tables dropped since their jobs ran may "
+                "reappear until the next complete run.",
+                context="query_lineage",
+            )
+        elif self._names_not_in_catalog:
+            self.report.warning(
+                title="Query lineage dropped for tables not in the catalog",
+                message="Job history references tables that pass schema_pattern "
+                "and dataset_pattern but that the catalog walk did not find, so "
+                "their lineage, usage and operations were not emitted. They may "
+                "have been dropped or been temporary, or the ingestion user may "
+                "not be able to see them. See lineage_dropped_not_in_catalog in "
+                "the report for the names.",
+                context=f"{len(self._names_not_in_catalog)} tables",
+            )
+
+    def _is_stale_view_ddl(self, sql: str) -> bool:
+        """A CREATE [OR REPLACE] VIEW of a view whose current definition the
+        catalog registered. Its upstreams may be outdated; the catalog's are not.
+        Views without a registered definition keep their job-history lineage."""
+        # Cheap pre-check: parsing returns a copy of the AST, too costly to pay
+        # on every query in job history.
+        if not self._views_with_definition or "view" not in sql.lower():
+            return False
+        try:
+            statement = parse_statement(sql, get_dialect(self.get_platform()))
+        except Exception:
+            # This only decides whether to skip; the aggregator re-parses the
+            # text and reports any failure.
+            return False
+        if not (isinstance(statement, sqlglot.exp.Create) and statement.kind == "VIEW"):
+            return False
+        # A column list wraps the view's name in a Schema.
+        target = statement.this
+        if isinstance(target, sqlglot.exp.Schema):
+            target = target.this
+        if not isinstance(target, sqlglot.exp.Table):
+            return False
+        name = ".".join(part.name for part in target.parts)
+        return normalize_dremio_name(name) in self._views_with_definition
+
     def process_query(self, query: DremioQuery) -> None:
+        # View lineage comes from the catalog's current definition; an older
+        # CREATE [OR REPLACE] VIEW in job history would add stale upstreams.
+        if self._is_stale_view_ddl(query.query):
+            self.report.num_view_ddl_queries_skipped += 1
+            return
+
         self._validate_query_lineage_format(query)
 
         self.sql_parsing_aggregator.add_observed_query(
