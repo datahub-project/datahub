@@ -2,6 +2,18 @@ import re
 from datetime import datetime, timedelta
 from typing import List, Optional, Union
 
+# One escape sequence (backslash + next char) or any single character.
+_REGEX_TOKEN = re.compile(r"\\.|.", re.DOTALL)
+
+
+def _upper_regex(pattern: str) -> str:
+    """Uppercase a regex so it matches the UPPER()-ed schema field, leaving
+    escapes such as \\d or \\w as written: uppercasing them inverts them."""
+    return "".join(
+        token if token.startswith("\\") else token.upper()
+        for token in _REGEX_TOKEN.findall(pattern)
+    )
+
 
 class DremioSQLQueries:
     # VIEW_DEFINITION is fetched separately (QUERY_VIEW_DEFINITIONS_*) rather than
@@ -334,12 +346,12 @@ class DremioSQLQueries:
             return ""
 
         if isinstance(patterns, str):
-            patterns = [patterns.upper()]
+            patterns = [patterns]
 
         if ".*" in patterns and allow:
             return ""
 
-        patterns = [p.upper() for p in patterns if p != ".*"]
+        patterns = [_upper_regex(p) for p in patterns if p != ".*"]
         if not patterns:
             return ""
 
