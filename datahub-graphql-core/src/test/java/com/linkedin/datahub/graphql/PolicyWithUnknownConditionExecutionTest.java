@@ -91,6 +91,7 @@ public class PolicyWithUnknownConditionExecutionTest {
 
   @BeforeMethod
   public void tolerateUnknownData() {
+    failPolicyInfoRead = false;
     UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
   }
 

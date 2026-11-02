@@ -18,7 +18,7 @@ public class UnknownDataHandlingsTest {
       TolerantHandling.of(true, false, t -> true);
 
   @BeforeMethod
-  @AfterMethod
+  @AfterMethod(alwaysRun = true)
   public void startUninstalled() {
     UnknownDataHandlingsForTests.reset();
     UnknownDataHandlingsForTests.uninstall();
