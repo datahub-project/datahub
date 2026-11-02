@@ -172,6 +172,13 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     add("kennel", null);
     add("booking", null);
     add("kba_ref", "Kennel Booking Archive");
+    // The canonical example: "my cat" exact, two partials, two near misses, one equal copied title.
+    add("my cat", null);
+    add("my cat frank", null);
+    add("awesome my cat", null);
+    add("my dog", null);
+    add("cat", null);
+    add("mc_ref", "My Cat");
     add("groomed_coat_notes", null);
     add("gcn_ref", "Groomed Coat Notes");
     add("groom_coat_notes_stage", null);
@@ -221,6 +228,14 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   protected void assertStemOnlyNameBelowExactCopiedTitle(@Nullable String template)
       throws Exception {
     assertTrancheOrder(template, "groomed coat notes");
+  }
+
+  /**
+   * For "my cat": the asset named "my cat" first, the title "My Cat" next, then "my cat frank" and
+   * "awesome my cat" in either order, then "my dog" and "cat".
+   */
+  protected void assertCanonicalExampleOrder(@Nullable String template) throws Exception {
+    assertTrancheOrder(template, "my cat");
   }
 
   /** A real name equal to its own copied title is an exact real-name match. */

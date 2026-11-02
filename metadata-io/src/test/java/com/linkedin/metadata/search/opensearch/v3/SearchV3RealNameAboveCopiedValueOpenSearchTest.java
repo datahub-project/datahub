@@ -82,4 +82,14 @@ public class SearchV3RealNameAboveCopiedValueOpenSearchTest
   public void testClassOrderPartialRealNameWithOwnTitleRanksAsRealName() throws Exception {
     assertPartialRealNameWithOwnTitleRanksAsRealName(CLASS_ORDER);
   }
+
+  @Test
+  public void testShippedCanonicalExampleOrder() throws Exception {
+    assertCanonicalExampleOrder(SHIPPED);
+  }
+
+  @Test
+  public void testClassOrderCanonicalExampleOrder() throws Exception {
+    assertCanonicalExampleOrder(CLASS_ORDER);
+  }
 }
