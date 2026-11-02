@@ -24,56 +24,111 @@ public class SearchV3RealNameAboveCopiedValueElasticSearchTest
 
   @Test
   public void testClassOrderDefaultUnquotedQueryExactOnlyForWholeName() throws Exception {
-    assertUnquotedQueryExactOnlyForWholeName();
+    assertUnquotedQueryExactOnlyForWholeName(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyUnquotedQueryExactOnlyForWholeName() throws Exception {
+    assertUnquotedQueryExactOnlyForWholeName(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
 
   @Test
   public void testClassOrderDefaultExactCopiedOnlyForWholeTitle() throws Exception {
-    assertExactCopiedOnlyForWholeTitle();
+    assertExactCopiedOnlyForWholeTitle(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyExactCopiedOnlyForWholeTitle() throws Exception {
+    assertExactCopiedOnlyForWholeTitle(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
 
   @Test
   public void testClassOrderDefaultCanonicalExampleOrder() throws Exception {
-    assertCanonicalExampleOrder();
+    assertCanonicalExampleOrder(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyCanonicalExampleOrder() throws Exception {
+    assertCanonicalExampleOrder(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
 
   @Test
   public void testClassOrderDefaultRealNameEqualToOwnTitleIsExactRealName() throws Exception {
-    assertRealNameEqualToOwnTitleIsExactRealName();
+    assertRealNameEqualToOwnTitleIsExactRealName(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyRealNameEqualToOwnTitleIsExactRealName() throws Exception {
+    assertRealNameEqualToOwnTitleIsExactRealName(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
 
   @Test
   public void testClassOrderDefaultStemOnlyNamesRankBelowEveryMatch() throws Exception {
-    assertStemOnlyNamesRankBelowEveryMatch();
+    assertStemOnlyNamesRankBelowEveryMatch(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyStemOnlyNamesRankBelowEveryMatch() throws Exception {
+    assertStemOnlyNamesRankBelowEveryMatch(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
 
   @Test
   public void testClassOrderDefaultColumnsFollowDatasetsOfTheSameMatch() throws Exception {
-    assertColumnsFollowDatasetsOfTheSameMatch();
+    assertColumnsFollowDatasetsOfTheSameMatch(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyColumnsFollowDatasetsOfTheSameMatch() throws Exception {
+    assertColumnsFollowDatasetsOfTheSameMatch(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
 
   @Test
   public void testClassOrderDefaultRecordIdFindsItsAssetFirst() throws Exception {
-    assertRecordIdFindsItsAssetFirst();
+    assertRecordIdFindsItsAssetFirst(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyRecordIdFindsItsAssetFirst() throws Exception {
+    assertRecordIdFindsItsAssetFirst(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
 
   @Test
   public void testClassOrderDefaultPagingKeepsTrancheOrder() throws Exception {
-    assertPagingKeepsTrancheOrder();
+    assertPagingKeepsTrancheOrder(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyPagingKeepsTrancheOrder() throws Exception {
+    assertPagingKeepsTrancheOrder(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
 
   @Test
   public void testClassOrderDefaultExactNameRanksFirstAboveLongerMatches() throws Exception {
-    assertExactNameRanksFirstAboveLongerMatches();
+    assertExactNameRanksFirstAboveLongerMatches(Mode.CLASS_ORDER_DEFAULT);
   }
 
   @Test
-  public void testClassOrderDefaultExactNameWithoutOwnTitleRanksFirst() throws Exception {
-    assertExactNameWithoutOwnTitleRanksFirst();
+  public void testClassOrderDefaultNoCopyExactNameRanksFirstAboveLongerMatches() throws Exception {
+    assertExactNameRanksFirstAboveLongerMatches(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
 
   @Test
   public void testClassOrderDefaultExactTitleRanksAboveLongerMatches() throws Exception {
-    assertExactTitleRanksAboveLongerMatches();
+    assertExactTitleRanksAboveLongerMatches(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyExactTitleRanksAboveLongerMatches() throws Exception {
+    assertExactTitleRanksAboveLongerMatches(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
+  }
+
+  @Test
+  public void testClassOrderDefaultExactNameWithoutOwnTitleRanksFirst() throws Exception {
+    assertExactNameWithoutOwnTitleRanksFirst(Mode.CLASS_ORDER_DEFAULT);
+  }
+
+  @Test
+  public void testClassOrderDefaultNoCopyExactNameWithoutOwnTitleRanksFirst() throws Exception {
+    assertExactNameWithoutOwnTitleRanksFirst(Mode.CLASS_ORDER_DEFAULT_NO_COPY);
   }
 }

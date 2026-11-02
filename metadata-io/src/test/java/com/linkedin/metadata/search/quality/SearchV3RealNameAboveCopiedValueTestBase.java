@@ -131,7 +131,9 @@ import org.testng.annotations.BeforeClass;
  * is checked on its own: that asset first.
  *
  * <p>Every scenario runs through the class-order router set as the search-box default in
- * configuration, with no per-request selection, as a deployment sets it. Queries are typed
+ * configuration, with no per-request selection, as a deployment sets it. It runs on two indices:
+ * one where the display title is copied into the name and the template infers copied values, and
+ * one where it is not copied and the template reads the property's own field. Queries are typed
  * unquoted, and only the tranche order is asserted, never the order inside a tranche.
  */
 public abstract class SearchV3RealNameAboveCopiedValueTestBase
@@ -147,6 +149,24 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   static final Urn RECORD_ID_URN = UrnUtils.getUrn("urn:li:structuredProperty:" + RECORD_ID);
   static final String CLASS_ORDER = "urn:li:searchTemplate:rankingClassOrder";
   static final String CLASS_ORDER_ROUTER = "urn:li:searchTemplate:rankingClassOrderSearch";
+  static final String CLASS_ORDER_NO_COPY = "urn:li:searchTemplate:rankingClassOrderNoCopy";
+  static final String CLASS_ORDER_NO_COPY_ROUTER =
+      "urn:li:searchTemplate:rankingClassOrderNoCopySearch";
+
+  /** Which index and template the search box runs; each is the configured search-box default. */
+  protected enum Mode {
+    /** The display title is copied into the name; the class-order template infers copied values. */
+    CLASS_ORDER_DEFAULT,
+    /**
+     * The display title is not copied anywhere; the template queries the property's own field for
+     * the title tiers and the name field for the name tiers.
+     */
+    CLASS_ORDER_DEFAULT_NO_COPY
+  }
+
+  /** One index built from one property definition, searched through its configured default. */
+  private record Stack(ElasticSearchService service, OperationContext routerContext) {}
+
   static final String GUID = "3f2b9c1e-7d4a-4b8e-9a61-2c5d8e0f1a7b";
   static final String HYPHENATED_ID = "PET-ADOPT-0042";
 
@@ -155,9 +175,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
 
   private final List<String> createdIndices = new ArrayList<>();
   private final Map<String, Dataset> corpus = new LinkedHashMap<>();
-  private OperationContext opContext;
-  private OperationContext routerDefaultContext;
-  private ElasticSearchService searchService;
+  private Stack copyStack;
+  private Stack noCopyStack;
 
   @Nonnull
   protected abstract SearchClientShim<?> getSearchClient();
@@ -299,29 +318,29 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * (kennel_booking_archive, booking_kennel, kennel, booking, "Kennel Booking Archive", the 30
    * snapshots) rank below it.
    */
-  protected void assertUnquotedQueryExactOnlyForWholeName() throws Exception {
-    assertTrancheOrder("kennel_booking");
+  protected void assertUnquotedQueryExactOnlyForWholeName(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "kennel_booking");
   }
 
   /**
    * Only the title equal to the query is an exact copied match: groomed_journal, titled "Groomed
    * Journal Entries", ranks above the 20 titles "Groomed Journal Entries N".
    */
-  protected void assertExactCopiedOnlyForWholeTitle() throws Exception {
-    assertTrancheOrder("groomed journal entries");
+  protected void assertExactCopiedOnlyForWholeTitle(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "groomed journal entries");
   }
 
   /**
    * For "my cat": the asset named "my cat" first, the title "My Cat" next, then "my cat frank",
    * "awesome my cat", "my dog" and "cat", all partial matches, in any order.
    */
-  protected void assertCanonicalExampleOrder() throws Exception {
-    assertTrancheOrder("my cat");
+  protected void assertCanonicalExampleOrder(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "my cat");
   }
 
   /** A real name equal to its own copied title is an exact real-name match. */
-  protected void assertRealNameEqualToOwnTitleIsExactRealName() throws Exception {
-    assertTrancheOrder("cattery roster");
+  protected void assertRealNameEqualToOwnTitleIsExactRealName(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "cattery roster");
   }
 
   /**
@@ -329,29 +348,30 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * the column sand_depth, the column titled sand_depth, then the partial datasets, then the
    * partial columns. Datasets come before columns of the same match kind.
    */
-  protected void assertColumnsFollowDatasetsOfTheSameMatch() throws Exception {
-    assertTrancheOrder("sand_depth");
+  protected void assertColumnsFollowDatasetsOfTheSameMatch(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "sand_depth");
   }
 
   /**
    * A record ID typed as the query finds its asset first, as typed, in upper case, and for a
    * hyphenated ID. A dataset that only mentions the ID in its description ranks below it.
    */
-  protected void assertRecordIdFindsItsAssetFirst() throws Exception {
+  protected void assertRecordIdFindsItsAssetFirst(Mode mode) throws Exception {
     for (String[] c :
         new String[][] {
           {GUID, "adoption_register"},
           {GUID.toUpperCase(), "adoption_register"},
           {HYPHENATED_ID, "adoption_ledger"}
         }) {
-      List<Dataset> actual = search(c[0], 0, 10).served();
+      List<Dataset> actual = search(mode, c[0], 0, 10).served();
       int owner = indexOfName(actual, c[1]);
       int mention = indexOfName(actual, "adoption_notes");
       assertEquals(
           owner,
           0,
           String.format(
-              "query %s: %s should be #1%n  actual: %s", c[0], c[1], describe(c[0], actual)));
+              "%s, query %s: %s should be #1%n  actual: %s",
+              mode, c[0], c[1], describe(c[0], actual)));
       if (mention >= 0) {
         assertEquals(
             Math.min(owner, mention),
@@ -365,13 +385,13 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * Walking the result in pages of 10, past the old 100-row window: every graded result appears
    * exactly once, the tranche order holds across page boundaries, and the total does not change.
    */
-  protected void assertPagingKeepsTrancheOrder() throws Exception {
+  protected void assertPagingKeepsTrancheOrder(Mode mode) throws Exception {
     String query = "kennel_booking";
     List<Dataset> graded = corpus.values().stream().filter(d -> rank(query, d) != OTHER).toList();
     List<Dataset> walked = new ArrayList<>();
     java.util.Set<Integer> totals = new java.util.TreeSet<>();
     for (int from = 0; from < graded.size() + 10; from += 10) {
-      Page page = search(query, from, 10);
+      Page page = search(mode, query, from, 10);
       totals.add(page.total());
       walked.addAll(page.served());
       if (page.served().isEmpty()) {
@@ -386,7 +406,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     List<String> missing =
         graded.stream().map(Dataset::urn).filter(u -> !seen.contains(u)).toList();
     assertEquals(missing, List.of(), "graded results never shown");
-    assertTranchesMatch(query, walked, "paged in tens");
+    assertTranchesMatch(mode, query, walked, "paged in tens");
   }
 
   /**
@@ -394,8 +414,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * titles and names, are longer matches that contain the search: "ragdoll lounge" (titled "Ragdoll
    * Lounge Visits") above 12 tables titled "Ragdoll Lounge" in the schema ragdoll_lounge.
    */
-  protected void assertExactNameRanksFirstAboveLongerMatches() throws Exception {
-    assertFirst("ragdoll lounge");
+  protected void assertExactNameRanksFirstAboveLongerMatches(Mode mode) throws Exception {
+    assertFirst(mode, "ragdoll lounge");
   }
 
   /**
@@ -405,7 +425,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * named or titled with a longer superset (persian_nook_daily_NN, "Persian Nook Weekly NN",
    * "persian nook archive").
    */
-  protected void assertExactTitleRanksAboveLongerMatches() throws Exception {
+  protected void assertExactTitleRanksAboveLongerMatches(Mode mode) throws Exception {
     String query = "persian nook";
     List<String> exactTitles =
         corpus.values().stream()
@@ -413,33 +433,35 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
             .map(Dataset::name)
             .sorted()
             .toList();
-    List<Dataset> served = search(query, 0, 30).served();
+    List<Dataset> served = search(mode, query, 0, 30).served();
     List<String> first =
         served.stream().limit(exactTitles.size()).map(Dataset::name).sorted().toList();
     assertEquals(
         first,
         exactTitles,
         String.format(
-            "query %s: the %d exact-title datasets should come before every longer match%n  actual: %s",
-            query, exactTitles.size(), describe(query, served)));
+            "%s, query %s: the %d exact-title datasets should come before every longer match%n"
+                + "  actual: %s",
+            mode, query, exactTitles.size(), describe(query, served)));
   }
 
   /** Control for the case above: the same shape, but the asset has no title of its own. */
-  protected void assertExactNameWithoutOwnTitleRanksFirst() throws Exception {
-    assertFirst("siberian lounge");
+  protected void assertExactNameWithoutOwnTitleRanksFirst(Mode mode) throws Exception {
+    assertFirst(mode, "siberian lounge");
   }
 
   /** The dataset named exactly {@code name} is the first result for that query. */
-  private void assertFirst(String name) throws Exception {
-    List<Dataset> firstPage = search(name, 0, 10).served();
+  private void assertFirst(Mode mode, String name) throws Exception {
+    List<Dataset> firstPage = search(mode, name, 0, 10).served();
     assertEquals(
         firstPage.isEmpty() ? null : firstPage.get(0).name(),
         name,
         String.format(
-            "query %s: %s (EXACT_NAME) should be #1, at #%s%n  actual: %s",
+            "%s, query %s: %s (EXACT_NAME) should be #1, at #%s%n  actual: %s",
+            mode,
             name,
             name,
-            indexOfName(search(name, 0, 30).served(), name) + 1,
+            indexOfName(search(mode, name, 0, 30).served(), name) + 1,
             describe(name, firstPage)));
   }
 
@@ -447,8 +469,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * For "groomed", the 600 names that share only its stem (groom_NNNN, grooms_NNNN) rank below
    * every name or title that shares a substring with it.
    */
-  protected void assertStemOnlyNamesRankBelowEveryMatch() throws Exception {
-    assertTrancheOrder("groomed");
+  protected void assertStemOnlyNamesRankBelowEveryMatch(Mode mode) throws Exception {
+    assertTrancheOrder(mode, "groomed");
   }
 
   /**
@@ -456,13 +478,13 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
    * ties in any order; a position in the wrong tranche fails, and the message lists the actual
    * order beside the expected one.
    */
-  private void assertTrancheOrder(String query) throws Exception {
+  private void assertTrancheOrder(Mode mode, String query) throws Exception {
     List<Dataset> graded = corpus.values().stream().filter(d -> rank(query, d) != OTHER).toList();
-    assertTranchesMatch(query, search(query, 0, graded.size()).served(), "first page");
+    assertTranchesMatch(mode, query, search(mode, query, 0, graded.size()).served(), "first page");
   }
 
   /** Compares served results with the rule's tranche sequence; order inside a tranche is free. */
-  private void assertTranchesMatch(String query, List<Dataset> actual, String how) {
+  private void assertTranchesMatch(Mode mode, String query, List<Dataset> actual, String how) {
     List<Dataset> expected =
         corpus.values().stream()
             .filter(d -> rank(query, d) != OTHER && rank(query, d) != SEPARATOR_ONLY)
@@ -480,8 +502,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         actualTranches,
         expectedTranches,
         String.format(
-            "query %s (%s): results out of tranche order%n  expected: %s%n  actual:   %s",
-            query, how, describe(query, expected), describe(query, actual)));
+            "%s, query %s (%s): results out of tranche order%n  expected: %s%n  actual:   %s",
+            mode, query, how, describe(query, expected), describe(query, actual)));
   }
 
   private static int indexOfName(List<Dataset> served, String name) {
@@ -615,20 +637,23 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
 
   record Page(List<Dataset> served, int total) {}
 
-  private Page search(String query, int from, int size) throws Exception {
+  private Page search(Mode mode, String query, int from, int size) throws Exception {
     OperationContext context =
-        routerDefaultContext
+        (mode == Mode.CLASS_ORDER_DEFAULT ? copyStack : noCopyStack)
+            .routerContext()
             .withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES)
             .withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true));
     SearchResult result =
-        searchService.search(
-            context,
-            List.of(DATASET_ENTITY_NAME, SCHEMA_FIELD_ENTITY_NAME),
-            query,
-            null,
-            (List<SortCriterion>) null,
-            from,
-            size);
+        (mode == Mode.CLASS_ORDER_DEFAULT ? copyStack : noCopyStack)
+            .service()
+            .search(
+                context,
+                List.of(DATASET_ENTITY_NAME, SCHEMA_FIELD_ENTITY_NAME),
+                query,
+                null,
+                (List<SortCriterion>) null,
+                from,
+                size);
     List<Dataset> out = new ArrayList<>();
     for (SearchEntity entity : result.getEntities()) {
       String urn = entity.getEntity().toString();
@@ -701,6 +726,57 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     return MAPPER.writeValueAsString(body);
   }
 
+  /**
+   * The class-order body when the display title is not copied into the name: the name tiers read
+   * only the name field, and the title tiers read the property's own field (keyword for exact,
+   * {@code .text} for partial). Nothing has to be inferred, so there is no must_not.
+   */
+  static String classOrderNoCopyBody() throws Exception {
+    String title = "{{urn:li:structuredProperty:" + DISPLAY_TITLE + "}}";
+    String recordId = "{{urn:li:structuredProperty:" + RECORD_ID + "}}";
+    Map<String, Object> ds = Map.of("term", Map.of("_entityType", "dataset"));
+    Map<String, Object> col = Map.of("term", Map.of("_entityType", "schemaField"));
+    Map<String, Object> exactName =
+        Map.of("term", Map.of("name.lowercase", Map.of("value", "{{normalizedKeyword}}")));
+    // The stored value keeps its case; compare the query as typed, ignoring case.
+    Map<String, Object> exactTitle =
+        Map.of("term", Map.of(title, Map.of("value", "{{raw}}", "case_insensitive", true)));
+    Map<String, Object> partialAny =
+        Map.of("bool", Map.of("should", List.of(partial("name.text"), partial(title + ".text"))));
+    List<Object> tiers = new ArrayList<>();
+    tiers.add(
+        tier(
+            10000,
+            "IDENTIFIER",
+            List.of(
+                ds,
+                Map.of(
+                    "term",
+                    Map.of(recordId, Map.of("value", "{{raw}}", "case_insensitive", true)))),
+            null));
+    tiers.add(tier(9000, "EXACT_NAME", List.of(ds, exactName), null));
+    tiers.add(tier(8000, "EXACT_TITLE", List.of(ds, exactTitle), null));
+    tiers.add(tier(7000, "COLUMN_EXACT_NAME", List.of(col, exactName), null));
+    tiers.add(tier(6000, "COLUMN_EXACT_TITLE", List.of(col, exactTitle), null));
+    tiers.add(tier(5000, "PARTIAL", List.of(ds, partialAny), null));
+    tiers.add(tier(2000, "COLUMN_PARTIAL", List.of(col, partialAny), null));
+    Map<String, Object> body =
+        Map.of(
+            "bool",
+            Map.of(
+                "minimum_should_match",
+                1,
+                "should",
+                List.of(
+                    Map.of("dis_max", Map.of("tie_breaker", 0.0, "queries", tiers)),
+                    Map.of(
+                        "match",
+                        Map.of(
+                            "name.text",
+                            Map.of("query", "{{alphanumericSplit}}", "boost", 0.001))))));
+    return MAPPER.writeValueAsString(body);
+  }
+
   private static Map<String, Object> partial(String field) {
     return Map.of(
         "bool",
@@ -725,20 +801,20 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         Map.of("boost", boost, "_name", "class:" + name, "filter", Map.of("bool", bool)));
   }
 
-  private static SearchTemplateProperties classOrderTemplate() throws Exception {
+  private static SearchTemplateProperties classOrderTemplate(String body) {
     return new SearchTemplateProperties()
         .setName("Class order")
         .setDescription("Strict match-class order in the engine score.")
         .setApiVersion(1)
         .setEditable(true)
-        .setQuery(classOrderBody())
+        .setQuery(body)
         .setFunctionScore(
             "{\"functions\":[{\"weight\":1.0}],\"score_mode\":\"multiply\",\"boost_mode\":\"multiply\"}")
         .setRoutes(new com.linkedin.search.template.SearchTemplateRouteArray());
   }
 
   /** The shipped interactive router with ordinary queries sent to the class-order body. */
-  private static SearchTemplateProperties classOrderRouter() {
+  private static SearchTemplateProperties classOrderRouter(String bodyUrn) {
     return new SearchTemplateProperties()
         .setName("Class order search")
         .setDescription(
@@ -748,7 +824,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         .setParent(UrnUtils.getUrn("urn:li:searchTemplate:searchLight"))
         .setDefaultRoute(
             new com.linkedin.search.template.SearchTemplateDefaultRoute()
-                .setTemplate(UrnUtils.getUrn(CLASS_ORDER)));
+                .setTemplate(UrnUtils.getUrn(bodyUrn)));
   }
 
   // ── Index setup ────────────────────────────────────────────────────────────
@@ -756,6 +832,24 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
   @BeforeClass
   public void indexCorpus() throws Exception {
     buildCorpus();
+    copyStack =
+        buildStack("rankingrequirements", true, CLASS_ORDER, classOrderBody(), CLASS_ORDER_ROUTER);
+    noCopyStack =
+        buildStack(
+            "rankingrequirementsnocopy",
+            false,
+            CLASS_ORDER_NO_COPY,
+            classOrderNoCopyBody(),
+            CLASS_ORDER_NO_COPY_ROUTER);
+  }
+
+  /**
+   * Indexes the corpus into V3 indices under {@code prefix}, with the display title copied into the
+   * name or not, and returns a search context whose search-box default is {@code routerUrn}.
+   */
+  private Stack buildStack(
+      String prefix, boolean copyTitleToName, String bodyUrn, String body, String routerUrn)
+      throws Exception {
     EntityIndexConfiguration entityIndex =
         V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
@@ -787,9 +881,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         config.toBuilder()
             .search(
                 config.getSearch().toBuilder()
-                    .v3(
-                        new SearchV3Configuration()
-                            .setTemplates(templateConfiguration(CLASS_ORDER_ROUTER)))
+                    .v3(new SearchV3Configuration().setTemplates(templateConfiguration(routerUrn)))
                     .build())
             .build();
     SearchTemplateCoordinator routerCoordinator =
@@ -802,7 +894,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
-            new ConfiguredIndexPrefixResolver("rankingrequirements"),
+            new ConfiguredIndexPrefixResolver(prefix),
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
     MappingsBuilder mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
@@ -816,9 +908,11 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
                     UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
                     UrnUtils.getUrn("urn:li:entityType:datahub.schemaField")))
             .setSearchConfiguration(
-                new DataHubSearchConfig()
-                    .setQueryByDefault(true)
-                    .setCopyTo(new StringArray(List.of("name"))));
+                copyTitleToName
+                    ? new DataHubSearchConfig()
+                        .setQueryByDefault(true)
+                        .setCopyTo(new StringArray(List.of("name")))
+                    : new DataHubSearchConfig().setQueryByDefault(true));
     StructuredPropertyDefinition recordIdDefinition =
         new StructuredPropertyDefinition()
             .setQualifiedName(RECORD_ID)
@@ -835,8 +929,8 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
     definitionAspects.put(DISPLAY_TITLE_URN, List.of(displayTitle, new Status().setRemoved(false)));
     definitionAspects.put(
         RECORD_ID_URN, List.of(recordIdDefinition, new Status().setRemoved(false)));
-    definitionAspects.put(UrnUtils.getUrn(CLASS_ORDER), List.of(classOrderTemplate()));
-    definitionAspects.put(UrnUtils.getUrn(CLASS_ORDER_ROUTER), List.of(classOrderRouter()));
+    definitionAspects.put(UrnUtils.getUrn(bodyUrn), List.of(classOrderTemplate(body)));
+    definitionAspects.put(UrnUtils.getUrn(routerUrn), List.of(classOrderRouter(bodyUrn)));
     List<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
         List.of(
             Pair.of(DISPLAY_TITLE_URN, displayTitle), Pair.of(RECORD_ID_URN, recordIdDefinition));
@@ -877,10 +971,10 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         new StoredTemplateRetriever(
             definitionAspects,
             Map.of(
-                UrnUtils.getUrn(CLASS_ORDER),
-                classOrderTemplate(),
-                UrnUtils.getUrn(CLASS_ORDER_ROUTER),
-                classOrderRouter()));
+                UrnUtils.getUrn(bodyUrn),
+                classOrderTemplate(body),
+                UrnUtils.getUrn(routerUrn),
+                classOrderRouter(bodyUrn)));
     aspectRetriever.setEntityRegistry(entityRegistry);
     RetrieverContext retrieverContext =
         RetrieverContext.builder()
@@ -889,7 +983,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
             .graphRetriever(GraphRetriever.EMPTY)
             .searchRetriever(propertySearchRetriever(List.of(DISPLAY_TITLE_URN, RECORD_ID_URN)))
             .build();
-    opContext =
+    OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             () -> retrieverContext,
             SearchContext.builder()
@@ -900,7 +994,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
                     ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
                 .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
                 .build());
-    routerDefaultContext =
+    OperationContext routerDefaultContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             () -> retrieverContext,
             SearchContext.builder()
@@ -920,7 +1014,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
             new GitVersion("0.0.0-test", "123456", Optional.empty()));
     SettingsBuilder settingsBuilder =
         createDelegatingSettingsBuilder(entityIndex, config.getIndex(), indexConvention);
-    searchService =
+    ElasticSearchService searchService =
         new ElasticSearchService(
             indexBuilder,
             TEST_SEARCH_SERVICE_CONFIG,
@@ -967,6 +1061,7 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         .build()
         .processBatch(opContext, events, true);
     syncAfterWrite(getBulkProcessor());
+    return new Stack(searchService, routerDefaultContext);
   }
 
   @AfterClass(alwaysRun = true)
