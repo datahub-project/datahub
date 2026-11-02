@@ -205,6 +205,10 @@ bigquery-slim = [
     "wcmatch>=10.1,<11.0.0",
 ]
 
+boomi-data-integration = [
+    "requests<3.0.0",
+]
+
 cassandra = [
     "cachetools<6.0.0",
     "cassandra-driver>=3.30.1,<4.0.0",
@@ -1840,6 +1844,7 @@ fabric-data-factory = "datahub.ingestion.source.fabric.data_factory.source:Fabri
 bigid = "datahub.ingestion.source.bigid.bigid_source:BigIDSource"
 bigquery = "datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source"
 bigquery-queries = "datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource"
+boomi-data-integration = "datahub.ingestion.source.boomi_data_integration.source:BoomiDataIntegrationSource"
 clickhouse = "datahub.ingestion.source.sql.clickhouse:ClickHouseSource"
 clickhouse-usage = "datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource"
 cockroachdb = "datahub.ingestion.source.sql.cockroachdb:CockroachDBSource"

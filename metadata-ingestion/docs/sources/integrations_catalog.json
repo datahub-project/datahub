@@ -41,6 +41,13 @@
       "Status Aspect"
     ]
   },
+  "boomi-data-integration": {
+    "platform_type": "ETL/ELT",
+    "support_status": "Alpha",
+    "title": "Boomi Data Integration",
+    "description": "Import environments, groups, rivers, logic steps, and target lineage from Boomi Data Integration (formerly Rivery).",
+    "img_path": "img/logos/platforms/boomi-data-integration.svg"
+  },
   "business-glossary": {
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",

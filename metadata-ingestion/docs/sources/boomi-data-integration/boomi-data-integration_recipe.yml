@@ -1,0 +1,32 @@
+source:
+  type: boomi-data-integration
+  config:
+    account_id: "${BOOMI_DI_ACCOUNT_ID}"
+    # us, eu, il or au
+    region: us
+
+    # One token per environment, keyed by environment ID.
+    environment_tokens:
+      "<production environment id>": "${BOOMI_DI_TOKEN_PROD}"
+      "<development environment id>": "${BOOMI_DI_TOKEN_DEV}"
+    # Or, for a single environment:
+    # api_token: "${BOOMI_DI_TOKEN}"
+
+    environment_pattern:
+      allow:
+        - ".*"
+    river_pattern:
+      deny:
+        - "^tmp_.*"
+
+    # BigQuery targets need the project of the target connection.
+    connection_to_platform:
+      "<bigquery connection cross_id>":
+        platform: bigquery
+        database: my-gcp-project
+
+    stateful_ingestion:
+      enabled: true
+
+sink:
+  # sink configs

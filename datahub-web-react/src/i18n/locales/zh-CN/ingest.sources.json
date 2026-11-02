@@ -16,6 +16,7 @@
     "sources.athena.description": "从 Athena 导入架构、表、视图以及到 S3 的数据血缘。",
     "sources.azureAd.description": "从 Azure Active Directory 导入用户和用户组。",
     "sources.bigquery.description": "从 BigQuery 导入项目、数据集、表、视图、数据血缘、查询和统计信息。",
+    "sources.boomiDataIntegration.description": "从 Boomi Data Integration 导入环境、组、River、逻辑步骤以及到目标表的数据血缘。",
     "sources.cassandra.description": "从 Cassandra 导入表、键空间和列架构。",
     "sources.clickhouse.description": "从 ClickHouse 导入表、视图、物化视图、字典、统计信息、查询以及数据血缘。",
     "sources.cockroachdb.description": "从 CockroachDB 导入数据库、架构、表、视图、统计信息以及数据血缘。",

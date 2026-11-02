@@ -103,6 +103,9 @@ class DatasetContainerSubTypes(StrEnum):
     MATILLION_PROJECT = "Project"
     MATILLION_ENVIRONMENT = "Environment"
     MATILLION_FOLDER = "Folder"
+    # Boomi Data Integration
+    BOOMI_DI_ENVIRONMENT = "Environment"
+    BOOMI_DI_GROUP = "Group"
     # Microsoft Fabric
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
@@ -242,6 +245,8 @@ class DataFlowSubTypes(StrEnum):
     SAP_TASK_CHAIN = "Task Chain"
     # Amazon Data Firehose — each Firehose stream is its own pipeline (DataFlow).
     KINESIS_FIREHOSE_STREAM = "Firehose Stream"
+    # Boomi Data Integration
+    BOOMI_DI_RIVER = "River"
 
 
 class DataJobSubTypes(StrEnum):
@@ -252,6 +257,9 @@ class DataJobSubTypes(StrEnum):
     SAP_TASK_CHAIN_STEP = "Task Chain Step"
     # Amazon Data Firehose — the single delivery step within a Firehose stream.
     KINESIS_FIREHOSE_DELIVERY = "Delivery"
+    # Boomi Data Integration: one job per river, or one per logic river step.
+    BOOMI_DI_LOAD = "Load"
+    BOOMI_DI_LOGIC_STEP = "Logic Step"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
     ADF_DATA_FLOW_ACTIVITY = "Data Flow Activity"

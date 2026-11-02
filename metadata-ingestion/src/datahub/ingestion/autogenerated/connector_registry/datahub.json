@@ -415,6 +415,44 @@
       "platform_name": "BigQuery",
       "support_status": "GA"
     },
+    "boomi-data-integration": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Environments and groups as containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Rivers and logic SQL steps to the target tables they load",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.boomi_data_integration.source.BoomiDataIntegrationSource",
+      "platform_id": "boomi-data-integration",
+      "platform_name": "Boomi Data Integration",
+      "support_status": "ALPHA"
+    },
     "cassandra": {
       "capabilities": [
         {
