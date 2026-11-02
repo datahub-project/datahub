@@ -102,7 +102,6 @@ const rowOf = (query: string, rank: number, urn: string, e: CorpusEntry | undefi
 });
 
 test.describe('Search ranking on Search V3', { tag: [DomainTag.Catalog] }, () => {
-  test.describe.configure({ mode: 'serial' });
   test.setTimeout(5 * 60_000);
   test.skip(!MODE, 'Set SEARCH_RANKING_MODE=stock or classOrder on a stack with Search V3 keyword read on');
 

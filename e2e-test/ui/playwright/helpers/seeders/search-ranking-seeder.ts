@@ -22,6 +22,7 @@
  *     by pointing the search surface at it (see the spec header).
  */
 import type { APIRequestContext } from '@playwright/test';
+import { waitUntilSearchable } from './search-wait';
 
 export const PLATFORM_URN = 'urn:li:dataPlatform:hive';
 const PREFIX = 'rank_req';
@@ -236,7 +237,8 @@ export function classOrderTemplateBody(): Record<string, unknown> {
     },
   });
   const tiers = [
-    tier(10000, 'IDENTIFIER', [ds, { term: { [ref(RECORD_ID, '')]: { value: '{{normalizedKeyword}}' } } }]),
+    // The stored ID keeps its case; compare the query as typed, ignoring case.
+    tier(10000, 'IDENTIFIER', [ds, { term: { [ref(RECORD_ID, '')]: { value: '{{raw}}', case_insensitive: true } } }]),
   ];
   [
     { type: ds, tag: '', exact: [9000, 8000], partial: [5500, 5000, 4000] },
@@ -455,11 +457,10 @@ export async function ensureRankingCorpus(
   await seeder.seedTemplates();
   // Upserts are idempotent, so a rerun also brings an older copy of the corpus up to date.
   await seeder.seedCorpus(corpus);
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline && (await seeder.total('grooms')) < STEM_ONLY_NAMES / 2) {
-    await new Promise((resolve) => {
-      setTimeout(resolve, 1000);
-    });
-  }
+  // Every write is visible to search once the last entry of each kind is: wait for those.
+  const lastDataset = corpus.filter((e) => e.kind === 'dataset').at(-1)!;
+  const lastColumn = corpus.filter((e) => e.kind === 'column').at(-1)!;
+  await waitUntilSearchable(request, gmsUrl, gmsToken, 'DATASET', lastDataset.urn, 120_000);
+  await waitUntilSearchable(request, gmsUrl, gmsToken, 'SCHEMA_FIELD', lastColumn.urn, 120_000);
   return corpus;
 }

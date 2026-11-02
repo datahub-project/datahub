@@ -597,7 +597,12 @@ public abstract class SearchV3RealNameAboveCopiedValueTestBase
         tier(
             10000,
             "IDENTIFIER",
-            List.of(ds, Map.of("term", Map.of(recordId, Map.of("value", "{{normalizedKeyword}}")))),
+            // The stored ID keeps its case; compare the query as typed, ignoring case.
+            List.of(
+                ds,
+                Map.of(
+                    "term",
+                    Map.of(recordId, Map.of("value", "{{raw}}", "case_insensitive", true)))),
             null));
     for (Object[] t :
         new Object[][] {
