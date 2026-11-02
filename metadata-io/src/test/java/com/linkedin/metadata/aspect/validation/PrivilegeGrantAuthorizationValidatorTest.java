@@ -454,6 +454,58 @@ public class PrivilegeGrantAuthorizationValidatorTest {
     assertTrue(validate(unresolvablePatch()).isEmpty());
   }
 
+  // --- array-keyed patches (the shape the UI actually sends) ---
+  //
+  // The PATCH tests above target "/roles", the whole array, which applies cleanly to an empty
+  // base. The GraphQL patchEntity path instead sends "/roles/<urn>" together with
+  // arrayPrimaryKeys, and the write path only makes that applicable by first running
+  // GenericPatchTemplate's arrayFieldToMap transform. This validator resolves the proposed
+  // aspect by applying the raw JsonPatch directly, so it never performs that transform and the
+  // patch is unappliable here -- visible in GMS as:
+  //
+  //   Unable to apply RoleMembership PATCH ... failing closed:
+  //   jakarta.json.JsonException: The JSON Object '{}' contains no mapping for the name 'roles'
+  //
+  // That is safe, and these two cases pin down why: failing closed escalates to the strictest
+  // floor rather than denying outright, so a privileged actor still gets through and an
+  // unprivileged one still does not. Without this pair, a future change that turned the
+  // fail-closed path into a hard deny would break first-time role grants for admins in
+  // production while every existing test stayed green.
+
+  @Test
+  public void testArrayKeyedPatchEscalatesToStrictestFloorAndAllowsPrivilegedActor() {
+    grantPrivileges(MANAGE_POLICIES);
+    when(operationContext.getAuditStamp()).thenReturn(new AuditStamp().setActor(ACTOR).setTime(0L));
+    final BatchItem item =
+        TestPatchMCP.of(
+            GROUP,
+            ROLE_MEMBERSHIP_ASPECT_NAME,
+            "[{\"op\":\"add\",\"path\":\"/roles/"
+                + ADMIN_ROLE
+                + "\",\"value\":\""
+                + ADMIN_ROLE
+                + "\"}]");
+    assertTrue(
+        validate(item).isEmpty(),
+        "privileged actor must not be blocked by an unappliable array-keyed patch");
+  }
+
+  @Test
+  public void testArrayKeyedPatchDeniedWithoutStrictestFloor() {
+    grantPrivileges("EDIT_ENTITY");
+    when(operationContext.getAuditStamp()).thenReturn(new AuditStamp().setActor(ACTOR).setTime(0L));
+    final BatchItem item =
+        TestPatchMCP.of(
+            GROUP,
+            ROLE_MEMBERSHIP_ASPECT_NAME,
+            "[{\"op\":\"add\",\"path\":\"/roles/"
+                + ADMIN_ROLE
+                + "\",\"value\":\""
+                + ADMIN_ROLE
+                + "\"}]");
+    assertAuthFailure(validate(item));
+  }
+
   private BatchItem unresolvablePatch() {
     when(operationContext.getAuditStamp()).thenReturn(new AuditStamp().setActor(ACTOR).setTime(0L));
     return TestPatchMCP.of(

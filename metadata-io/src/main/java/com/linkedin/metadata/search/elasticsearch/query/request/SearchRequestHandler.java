@@ -18,6 +18,7 @@ import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.FieldConfiguration;
@@ -132,6 +133,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   private final QueryFilterRewriteChain queryFilterRewriteChain;
   @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
+  private final SearchConfiguration searchConfiguration;
 
   private SearchRequestHandler(
       @Nonnull OperationContext opContext,
@@ -193,6 +195,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchableFieldPaths = opContext.getSearchContext().getSearchableFieldPaths();
     this.queryFilterRewriteChain = queryFilterRewriteChain;
     this.entityIndexConfiguration = configs.getEntityIndex();
+    this.searchConfiguration = configs.getSearch();
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(configs.getSearch().getCustom(), customSearchConfiguration)
             .build();
@@ -284,8 +287,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
             opContext,
             queryFilterRewriteChain,
             v3SearchFieldResolver);
-    return applyDefaultSearchFilters(
-        opContext, entityNames, filter, filterQuery, entityIndexConfiguration);
+    return ESUtils.filterNonPrimarySiblings(
+        filter,
+        applyDefaultSearchFilters(
+            opContext, entityNames, filter, filterQuery, entityIndexConfiguration),
+        searchConfiguration);
   }
 
   public static BoolQueryBuilder getFilterQuery(
@@ -524,7 +530,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
       boolean scroll) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new SearchRequest();
-    applySearchType(searchRequest, opContext);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
@@ -537,6 +542,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
             Boolean.TRUE.equals(searchFlags.isFulltext()),
             renderUrn,
             scroll);
+    applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
     templateRequests.apply(
@@ -571,7 +577,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
       boolean scroll) {
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     SearchRequest searchRequest = new PITAwareSearchRequest();
-    applySearchType(searchRequest, opContext);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
     ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
@@ -585,6 +590,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
             Boolean.TRUE.equals(searchFlags.isFulltext()),
             renderUrn,
             scroll);
+    applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
     templateRequests.apply(
@@ -618,15 +624,27 @@ public class SearchRequestHandler extends BaseRequestHandler {
     return true;
   }
 
-  /**
-   * Applies search type from SearchFlags to the SearchRequest.
-   *
-   * @param searchRequest the search request to configure
-   * @param opContext operation context holding the search flags
-   */
+  /** The Java query builder uses {@code SearchFlags.searchType}. */
   private void applySearchType(SearchRequest searchRequest, OperationContext opContext) {
-    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-    String searchType = searchFlags.getSearchType();
+    applyResolvedSearchType(
+        searchRequest, opContext.getSearchContext().getSearchFlags().getSearchType());
+  }
+
+  /**
+   * A template request uses the resolved template search type. Unset is query-then-fetch, so DFS
+   * stays off unless the template sets it. The request flag is not consulted.
+   */
+  private void applyTemplateSearchType(
+      SearchRequest searchRequest, @Nullable RenderedSearchTemplate template) {
+    String searchType =
+        template != null && template.searchType() != null
+            ? template.searchType().name()
+            : SearchType.QUERY_THEN_FETCH.name();
+    applyResolvedSearchType(searchRequest, searchType);
+  }
+
+  private static void applyResolvedSearchType(
+      SearchRequest searchRequest, @Nullable String searchType) {
     if (SearchType.DFS_QUERY_THEN_FETCH.name().equalsIgnoreCase(searchType)) {
       searchRequest.searchType(SearchType.DFS_QUERY_THEN_FETCH);
     } else {
@@ -692,14 +710,32 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // Value counts are a zero-hit Java aggregation. A template may replace the lexical query
     // later; it does not supply this aggregation, highlighting, rescore, or suggestions.
     searchSourceBuilder.size(0);
-    String aggregationField =
-        v3SearchFieldResolver != null && v3SearchFieldResolver.contains(field)
-            ? v3SearchFieldResolver.exactPath(field, SearchFieldResolver.Intent.FACET)
-            : ESUtils.toKeywordField(opContext, field, false, opContext.getAspectRetriever());
-    searchSourceBuilder.aggregation(
-        AggregationBuilders.terms(field)
-            .field(aggregationField)
-            .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
+    Optional<String> unlabeledSource =
+        v3SearchFieldResolver == null
+            ? Optional.empty()
+            : v3SearchFieldResolver.unlabeledHasValuesSource(field);
+    if (unlabeledSource.isPresent()) {
+      // The boolean is not mapped. Count existence on the source field, including a URN's _urn.
+      searchSourceBuilder.aggregation(
+          AggregationQueryBuilder.unlabeledHasValuesAggregation(
+              field,
+              v3SearchFieldResolver.exactPath(
+                  unlabeledSource.get(), SearchFieldResolver.Intent.FILTER)));
+    } else {
+      String aggregationField =
+          v3SearchFieldResolver != null && v3SearchFieldResolver.contains(field)
+              ? v3SearchFieldResolver.exactPath(field, SearchFieldResolver.Intent.FACET)
+              : ESUtils.toKeywordField(
+                  opContext,
+                  field,
+                  false,
+                  opContext.getAspectRetriever(),
+                  v3SearchFieldResolver != null);
+      searchSourceBuilder.aggregation(
+          AggregationBuilders.terms(field)
+              .field(aggregationField)
+              .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
+    }
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
@@ -948,7 +984,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // Build per-hit results and attach a per-element scrollId
     final SearchHit[] searchHits = searchResponse.getHits().getHits();
     long expirationTimeMs = 0L;
-    if (keepAlive != null && supportsPointInTime) {
+    // Sliced scrolls open a PIT even when PIT creation is disabled, so key off the response's PIT
+    // too. Without an expiration the next page cannot reuse the PIT and opens a new one.
+    if (keepAlive != null && (supportsPointInTime || searchResponse.pointInTimeId() != null)) {
       expirationTimeMs =
           TimeValue.parseTimeValue(keepAlive, "expirationTime").getMillis()
               + System.currentTimeMillis();

@@ -78,7 +78,7 @@ public class SearchHighlightSelectionTest {
             searched,
             List.of("name", "tags_1"),
             List.of()),
-        List.of("name"));
+        List.of("name", "_aspects.editableDatasetProperties.editedName"));
   }
 
   /** A structured property is its own source path, whether queried directly or through copyTo. */

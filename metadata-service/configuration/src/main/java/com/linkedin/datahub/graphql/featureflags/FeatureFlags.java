@@ -100,6 +100,9 @@ public class FeatureFlags {
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
   private boolean entityHealthBatchLoadEnabled = true;
   private boolean siblingsSearchBatchLoadEnabled = true;
+  // When a GraphQL lineage request selects only totals (search cards, sidebars), answer it with
+  // a count aggregation over the sibling group instead of walking every sibling's edges.
+  private boolean lineageCountOnlyEnabled = false;
   private boolean entityExistsBatchLoadEnabled = true;
   private boolean parentContainersBatchLoadEnabled = true;
   private boolean parentNodesBatchLoadEnabled = true;

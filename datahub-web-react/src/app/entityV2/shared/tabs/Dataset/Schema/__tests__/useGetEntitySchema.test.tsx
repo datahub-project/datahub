@@ -15,7 +15,11 @@ import React from 'react';
 import { vi } from 'vitest';
 
 import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
-import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import {
+    MAX_SIBLINGS_TO_COMBINE,
+    shouldCombineSiblings,
+    useGetEntityWithSchema,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 
 import { GetDatasetSchemaDocument, GetDatasetSchemaStructuralDocument } from '@graphql/dataset.generated';
 
@@ -370,5 +374,20 @@ describe('useGetColumnTabCount', () => {
         });
         expect(result.current).toBeUndefined();
         await waitFor(() => expect(result.current).toEqual(2));
+    });
+});
+
+describe('shouldCombineSiblings', () => {
+    it('never combines when siblings are shown separately', () => {
+        expect(shouldCombineSiblings({ siblingsSearch: { total: 1 } }, true)).toBe(false);
+    });
+
+    it('combines a group that was fetched completely', () => {
+        expect(shouldCombineSiblings({ siblingsSearch: null }, false)).toBe(true);
+        expect(shouldCombineSiblings({ siblingsSearch: { total: MAX_SIBLINGS_TO_COMBINE } }, false)).toBe(true);
+    });
+
+    it('skips a group larger than the siblings fetched', () => {
+        expect(shouldCombineSiblings({ siblingsSearch: { total: MAX_SIBLINGS_TO_COMBINE + 1 } }, false)).toBe(false);
     });
 });

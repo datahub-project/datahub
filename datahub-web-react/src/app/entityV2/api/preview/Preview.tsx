@@ -57,7 +57,6 @@ export const Preview = ({
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}
-            parentEntities={domain ? [domain] : []}
             glossaryTerms={glossaryTerms || undefined}
             externalUrl={externalUrl}
             degree={degree}

@@ -5,6 +5,8 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
+import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { getGlossaryEntityIcon } from '@app/glossaryV2/utils';
@@ -102,11 +104,28 @@ interface Props {
     nodeCount?: Maybe<number>;
     termCount?: Maybe<number>;
     maxDepth?: number;
+    versionProperties?: { version?: { versionTag?: string | null } | null; isLatest?: boolean | null } | null;
+    termStatus?: {
+        lifecycleStage?: { urn: string; name: string; description?: string | null } | null;
+    } | null;
 }
 
 const GlossaryListCard = (props: Props) => {
     const { t } = useTranslation('governance.glossary');
-    const { name, description, type, entityData, urn, displayProperties, nodeCount, termCount, maxDepth } = props;
+    const {
+        name,
+        description,
+        type,
+        entityData,
+        urn,
+        displayProperties,
+        nodeCount,
+        termCount,
+        maxDepth,
+        versionProperties,
+        termStatus,
+    } = props;
+    const versionTag = versionProperties?.version?.versionTag;
     const isDescriptionTruncated = description && description.length > MAX_DESCRIPTION_LENGTH;
     const truncatedDescription = description?.slice(0, MAX_DESCRIPTION_LENGTH);
     const isExceedingMaxDepth = (maxDepth || 0) > MAX_DEPTH_QUERIED;
@@ -133,6 +152,10 @@ const GlossaryListCard = (props: Props) => {
                 <StyledIcon color={glossaryColor} icon={Icon} size={40} iconSize={16} weight="regular" />
                 <NameAndDescription>
                     <EntityName>{name}</EntityName>
+                    {!!versionTag && (
+                        <VersionPill size="xs" label={versionTag} isLatest={versionProperties?.isLatest ?? false} />
+                    )}
+                    <LifecycleStageBadge lifecycleStage={termStatus?.lifecycleStage} />
                     {description && (
                         <SmallDescription>
                             {truncatedDescription}

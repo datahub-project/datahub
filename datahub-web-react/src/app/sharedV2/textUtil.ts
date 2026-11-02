@@ -20,12 +20,7 @@ export function capitalizeFirstLetterOnly(str?: string | null) {
 }
 
 export function validateCustomUrnId(str: string) {
-    if (str.indexOf(' ') > 0) return false;
-    if (str.indexOf(',') > 0) return false;
-    if (str.indexOf('(') > 0) return false;
-    if (str.indexOf(')') > 0) return false;
-    if (str.indexOf(':') > 0) return false;
-    return true;
+    return !/[ ,():]/.test(str);
 }
 
 /**
