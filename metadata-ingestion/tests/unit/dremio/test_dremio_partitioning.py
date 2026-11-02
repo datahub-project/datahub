@@ -94,8 +94,8 @@ class TestDremioPartitioning:
         # Outer condition (bounds the system-table side + sort) scopes per container.
         outer = [call.args[1] for call in calls]
         assert "REGEXP_LIKE" in outer[0]
-        assert "SRC_A" in outer[0]
-        assert "SRC_B" in outer[1] and "SRC_B" not in outer[0]
+        assert "src_a" in outer[0]
+        assert "src_b" in outer[1] and "src_b" not in outer[0]
 
         # Pushable COLUMNS-scan filter is passed per container and scoped correctly.
         pushable = [call.kwargs["columns_schema_filter"] for call in calls]
@@ -128,7 +128,7 @@ class TestDremioPartitioning:
         )
         # Dot in the name is regex-escaped; nested paths are matched via (\..*)?.
         assert "REGEXP_LIKE(UPPER(TABLE_SCHEMA)" in condition
-        assert "MY\\.SOURCE" in condition
+        assert "my\\.source" in condition
         assert "(\\..*)?" in condition
 
     def test_columns_filter_is_pushdown_shaped(self):

@@ -1,34 +1,61 @@
 import re
+from typing import List
 
 import pytest
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 
-_FIELD = "UPPER(TABLE_SCHEMA)"
+_FIELD = DremioSQLQueries.SCHEMA_FILTER_FIELD
 
 
-def _pushed_regex(pattern: str) -> str:
-    condition = DremioSQLQueries.pattern_condition([pattern], _FIELD)
-    match = re.fullmatch(rf"AND REGEXP_LIKE\({re.escape(_FIELD)}, '(.*)'\)", condition)
+def _dremio_matches(patterns: List[str], schema: str, allow: bool = True) -> bool:
+    """What Dremio does with the pushed condition: REGEXP_LIKE is Java's
+    Matcher.find() against the UPPER()-ed schema path."""
+    condition = DremioSQLQueries.pattern_condition(patterns, _FIELD, allow=allow)
+    operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
+    match = re.fullmatch(
+        rf"AND {operator}\({re.escape(_FIELD)}, '(.*)'\)", condition, re.DOTALL
+    )
     assert match
-    return match.group(1)
+    literal = match.group(1)
+    # A lone quote would end the SQL literal early; '' is one quote.
+    assert "'" not in literal.replace("''", "")
+    regex = literal.replace("''", "'")
+    found = re.search(regex, schema.upper()) is not None
+    return found if allow else not found
 
 
 @pytest.mark.parametrize(
-    "pattern, schema, expected",
+    "pattern, schema",
     [
-        (r"^raw_\d+$", "raw_2024", True),
-        (r"^raw_\d+$", "raw_abc", False),
-        (r"^\w+\.staging$", "my_space.staging", True),
-        (r"^my_space\s?$", "my_space ", True),
-        (r"^my_space\s?$", "my_spaceX", False),
-        (r"^My_Space(\..*)?$", "my_space.folder", True),
-        (r"^my_space\.folder$", "my_space_folder", False),
+        # Escapes keep their meaning (uppercasing them inverted \d, \w, \s).
+        (r"^raw_\d+$", "raw_2024"),
+        (r"^raw_\d+$", "raw_abc"),
+        (r"^\w+\.staging$", "my_space.staging"),
+        (r"^my_space\s?$", "my_space "),
+        (r"^my_space\s?$", "my_spaceX"),
+        # Case-insensitive, like AllowDenyPattern's default.
+        (r"^My_Space(\..*)?$", "my_space.folder"),
+        (r"^my_space\.folder$", "my_space_folder"),
+        # Anchored at the start like re.match, not anywhere like find().
+        ("temp", "prod.temp_x"),
+        ("temp", "temp_x"),
+        # A quote doesn't break the SQL literal.
+        ("o'brien", "o'brien.sales"),
     ],
 )
-def test_schema_pattern_pushed_to_dremio_keeps_its_meaning(
-    pattern: str, schema: str, expected: bool
+def test_pushed_schema_pattern_matches_like_allow_deny_pattern(
+    pattern: str, schema: str
 ) -> None:
-    # Dremio matches against the UPPER()-ed schema path. Uppercasing the
-    # pattern must not change escapes: \d would become \D (any non-digit).
-    assert bool(re.search(_pushed_regex(pattern), schema.upper())) is expected
+    expected = AllowDenyPattern(allow=[pattern])
+    assert _dremio_matches([pattern], schema) is expected.allowed(schema)
+    # A deny pattern drops exactly what AllowDenyPattern denies.
+    denied = not AllowDenyPattern(deny=[pattern]).allowed(schema)
+    assert _dremio_matches([pattern], schema, allow=False) is not denied
+
+
+def test_multiple_patterns_each_anchored() -> None:
+    patterns = ["raw", "staging"]
+    assert _dremio_matches(patterns, "staging.orders")
+    assert not _dremio_matches(patterns, "prod.staging")

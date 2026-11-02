@@ -2,18 +2,6 @@ import re
 from datetime import datetime, timedelta
 from typing import List, Optional, Union
 
-# One escape sequence (backslash + next char) or any single character.
-_REGEX_TOKEN = re.compile(r"\\.|.", re.DOTALL)
-
-
-def _upper_regex(pattern: str) -> str:
-    """Uppercase a regex so it matches the UPPER()-ed schema field, leaving
-    escapes such as \\d or \\w as written: uppercasing them inverts them."""
-    return "".join(
-        token if token.startswith("\\") else token.upper()
-        for token in _REGEX_TOKEN.findall(pattern)
-    )
-
 
 class DremioSQLQueries:
     # VIEW_DEFINITION is fetched separately (QUERY_VIEW_DEFINITIONS_*) rather than
@@ -333,8 +321,8 @@ class DremioSQLQueries:
         {limit_clause}
         """
 
-    # Normalized schema field: Dremio's "[a, b]" path format flattened to dotted,
-    # UPPER-cased text so the REGEXP_LIKE pattern filters can match it.
+    # Normalized schema field: Dremio's "[a, b]" path format flattened to dotted
+    # text. pattern_condition matches it case-insensitively.
     SCHEMA_FILTER_FIELD = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
 
     @staticmethod
@@ -351,12 +339,17 @@ class DremioSQLQueries:
         if ".*" in patterns and allow:
             return ""
 
-        patterns = [_upper_regex(p) for p in patterns if p != ".*"]
+        patterns = [p for p in patterns if p != ".*"]
         if not patterns:
             return ""
 
         operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
-        pattern_str = "|".join(f"({p})" for p in patterns)
+        # Dremio's REGEXP_LIKE is Java's Matcher.find(); AllowDenyPattern is
+        # re.match with IGNORECASE. Anchor at the start and match
+        # case-insensitively to agree with it. Uppercasing the pattern instead
+        # would also uppercase escapes (\d -> \D) and inline flags.
+        alternatives = "|".join(f"({p})" for p in patterns)
+        pattern_str = f"(?iu)^(?:{alternatives})".replace("'", "''")
         return f"AND {operator}({field}, '{pattern_str}')"
 
     @staticmethod
