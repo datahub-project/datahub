@@ -74,6 +74,8 @@ STAGE_DEPLOYMENTS = "Deployments"
 STAGE_PROCESSES = "Processes"
 
 _EPOCH = datetime.min.replace(tzinfo=timezone.utc)
+# AllowDenyPattern's default allow entry.
+ALLOW_ALL_REGEX = ".*"
 
 
 class BoomiFolderKey(ContainerKey):
@@ -265,7 +267,8 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         return names
 
     def _load_deployments(self) -> Optional[Dict[str, List[str]]]:
-        # componentId -> sorted `environment=packageVersion` labels. None means
+        # componentId -> sorted `environment=packageVersion` labels, or just the
+        # environment when the package has no version. None means
         # deployments are unknown, so undeployed processes cannot be told apart.
         environment_names = self._load_environment_names()
         if environment_names is None:
@@ -292,6 +295,8 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
                     DEPLOYMENT_FORMAT.format(
                         environment=environment, version=package.package_version
                     )
+                    if package.package_version
+                    else environment
                 )
         except (BoomiApiError, requests.RequestException, ValidationError) as e:
             self.report.deployments_unavailable = True
@@ -313,10 +318,12 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
         return {key: sorted(values) for key, values in deployments.items()}
 
     def _folder_path_allowed(self, folder_path: Optional[str]) -> bool:
-        # The folder is hidden from this token or listing failed, so match the
-        # path from the component XML and fail closed when it is missing.
+        # The folder is hidden from this token, listing failed, or the process
+        # sits at the account root, so match the path from the component XML.
+        # Without a path, deny patterns have nothing to match and let it
+        # through; only a restrictive allow list fails closed.
         if folder_path is None:
-            return self.config.folder_pattern.is_allow_all()
+            return ALLOW_ALL_REGEX in self.config.folder_pattern.allow
         return self.config.folder_pattern.allowed(folder_path)
 
     def _emit_processes(

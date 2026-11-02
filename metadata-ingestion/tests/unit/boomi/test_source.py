@@ -301,6 +301,41 @@ def test_unknown_folder_without_path_fails_closed() -> None:
     assert list(source.get_report().processes_filtered) == ["Orders Sync"]
 
 
+@pytest.mark.parametrize(
+    "folder_pattern, emitted",
+    [
+        ({"deny": [".*/Sandbox$"]}, True),
+        ({"allow": ["^Test Account/Orders$"]}, False),
+    ],
+)
+def test_root_level_process_without_folder_path(
+    folder_pattern: Dict[str, List[str]], emitted: bool
+) -> None:
+    source = _source(include_undeployed_processes=True, folder_pattern=folder_pattern)
+    record = _process_record("p1", "Orders Sync")
+    del record["folderId"], record["folderName"]
+    root_xml = XML.replace('folderFullPath="Test Account/Orders" ', "")
+    assert root_xml != XML
+    with requests_mock.Mocker() as mock:
+        _register(mock, [record])
+        mock.get(f"{BASE_URL}/Component/p1", text=root_xml)
+        flows = _flows(source)
+
+    assert [f.display_name for f in flows] == (["Orders Sync"] if emitted else [])
+
+
+def test_deployment_without_package_version_lists_environment_only() -> None:
+    deployment = _deployment("p1")
+    del deployment["packageVersion"]
+    source = _source()
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")], deployed=[deployment])
+        mock.get(f"{BASE_URL}/Component/p1", text=XML)
+        flows = _flows(source)
+
+    assert flows[0].custom_properties["deployments"] == "Production"
+
+
 def test_xml_failure_still_emits_process() -> None:
     source = _source(include_undeployed_processes=True, extract_owners=False)
     with requests_mock.Mocker() as mock:

@@ -11,7 +11,7 @@ Active deployments come from `DeployedPackage`, joined to environment names. `en
 
 #### Folders
 
-Every folder that matches `folder_pattern` is emitted as a container, together with its parent folders so the browse path stays complete. `folder_pattern` is matched against the full folder path, for example `Acme/Production/Orders`. Processes in folders that do not match are skipped. If a process's folder is not in the folder listing, the path is read from the process component instead, and the process is skipped when no path is available and `folder_pattern` is set.
+Every folder that matches `folder_pattern` is emitted as a container, together with its parent folders so the browse path stays complete. `folder_pattern` is matched against the full folder path, for example `Acme/Production/Orders`. Processes in folders that do not match are skipped. If a process's folder is not in the folder listing, the path is read from the process component instead, When no path is available, the process is kept if `folder_pattern` only has deny entries and skipped if it has an allow list.
 
 #### Branches
 

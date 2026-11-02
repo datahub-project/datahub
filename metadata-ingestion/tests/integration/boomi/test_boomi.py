@@ -48,6 +48,11 @@ START_STOP_SHAPES = (
     '<configuration><stop continue="true"/></configuration><dragpoints/></shape>'
 )
 
+_COMPONENT_ID_RE = re.compile(f'componentId="{ORDERS_EXTRACT}"')
+_NAME_RE = re.compile(re.escape(' name="DH Test - Orders Extract"'))
+_DESCRIPTION_RE = re.compile("<bns:description>.*?</bns:description>", re.S)
+_SHAPES_RE = re.compile("<shapes>.*</shapes>", re.S)
+
 
 def _fixture(name: str) -> str:
     return (FIXTURES_DIR / name).read_text()
@@ -63,18 +68,24 @@ def _copy(record: Dict[str, object], **overrides: object) -> Dict[str, object]:
     return copied
 
 
+def _splice(xml: str, pattern: "re.Pattern[str]", replacement: str) -> str:
+    # Fail loudly if a fixture refresh moves a target, rather than letting the
+    # golden file silently pick up the base process's values.
+    spliced, count = pattern.subn(lambda _: replacement, xml)
+    assert count == 1, f"{pattern.pattern!r} matched {count} times in the fixture"
+    return spliced
+
+
 def _process_xml(
     component_id: str, name: str, description: str, shapes: str = START_STOP_SHAPES
 ) -> str:
     xml = _fixture(f"components/{ORDERS_EXTRACT}.xml")
-    xml = xml.replace(ORDERS_EXTRACT, component_id)
-    xml = xml.replace('name="DH Test - Orders Extract"', f'name="{name}"')
-    xml = re.sub(
-        "<bns:description>.*?</bns:description>",
-        f"<bns:description>{description}</bns:description>",
-        xml,
+    xml = _splice(xml, _COMPONENT_ID_RE, f'componentId="{component_id}"')
+    xml = _splice(xml, _NAME_RE, f' name="{name}"')
+    xml = _splice(
+        xml, _DESCRIPTION_RE, f"<bns:description>{description}</bns:description>"
     )
-    return re.sub("<shapes>.*</shapes>", f"<shapes>{shapes}</shapes>", xml, flags=re.S)
+    return _splice(xml, _SHAPES_RE, f"<shapes>{shapes}</shapes>")
 
 
 FOLDERS = _records("folder_query.json")
