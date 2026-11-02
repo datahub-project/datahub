@@ -60,24 +60,30 @@ class DomainPatchBuilder(
         return self
 
     def set_parent_domain(self, parent_domain_urn: str) -> "DomainPatchBuilder":
-        """Move this Domain under ``parent_domain_urn``.
+        """Move this Domain under ``parent_domain_urn``."""
+        if not parent_domain_urn:
+            raise ValueError(
+                "parent_domain_urn is required; use remove_parent_domain() to "
+                "make the Domain top-level."
+            )
+        self._add_patch(
+            DomainProperties.ASPECT_NAME,
+            "add",
+            path=("parentDomain",),
+            value=parent_domain_urn,
+        )
+        return self
 
-        Pass an empty string to promote this Domain to top-level. That emits
-        a JSON Patch ``remove``, which fails if the Domain has no parent, so
-        only clear a parent that is set.
+    def remove_parent_domain(self) -> "DomainPatchBuilder":
+        """Make this Domain top-level.
+
+        The JSON Patch ``remove`` fails when the Domain has no parent, so only
+        call this for a Domain that has one.
         """
-        if parent_domain_urn:
-            self._add_patch(
-                DomainProperties.ASPECT_NAME,
-                "add",
-                path=("parentDomain",),
-                value=parent_domain_urn,
-            )
-        else:
-            self._add_patch(
-                DomainProperties.ASPECT_NAME,
-                "remove",
-                path=("parentDomain",),
-                value={},
-            )
+        self._add_patch(
+            DomainProperties.ASPECT_NAME,
+            "remove",
+            path=("parentDomain",),
+            value={},
+        )
         return self

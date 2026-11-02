@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Any, Dict, cast
+from typing import Any, Dict, List
 
 import pytest
 
@@ -8,10 +8,8 @@ from datahub.api.entities.dataproduct.dataproduct import Ownership
 from datahub.api.entities.domain.domain import Domain
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
+    ChangeTypeClass,
     DomainPropertiesClass,
-    InstitutionalMemoryClass,
-    InstitutionalMemoryMetadataClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -21,22 +19,38 @@ from tests.test_helpers.graph_helpers import MockDataHubGraph
 
 
 @pytest.fixture
-def base_entity_metadata() -> Dict[str, Dict[str, Any]]:
-    """Pre-populated parent ``Marketing`` Domain for name-based lookup."""
-    return {
-        "urn:li:domain:12345": {
-            "domainProperties": DomainPropertiesClass(
-                name="Marketing", description="Marketing Domain"
-            )
+def base_mock_graph() -> MockDataHubGraph:
+    return MockDataHubGraph(
+        entity_graph={
+            "urn:li:domain:12345": {
+                "domainProperties": DomainPropertiesClass(
+                    name="Marketing", description="Marketing Domain"
+                )
+            }
         }
-    }
+    )
 
 
 @pytest.fixture
-def base_mock_graph(
-    base_entity_metadata: Dict[str, Dict[str, Any]],
-) -> MockDataHubGraph:
-    return MockDataHubGraph(entity_graph=base_entity_metadata)
+def hierarchy_graph() -> MockDataHubGraph:
+    # root <- child <- grandchild
+    return MockDataHubGraph(
+        entity_graph={
+            "urn:li:domain:root": {
+                "domainProperties": DomainPropertiesClass(name="Root")
+            },
+            "urn:li:domain:child": {
+                "domainProperties": DomainPropertiesClass(
+                    name="Child", parentDomain="urn:li:domain:root"
+                )
+            },
+            "urn:li:domain:grandchild": {
+                "domainProperties": DomainPropertiesClass(
+                    name="Grandchild", parentDomain="urn:li:domain:child"
+                )
+            },
+        }
+    )
 
 
 @pytest.fixture
@@ -44,82 +58,114 @@ def test_resources_dir(pytestconfig: pytest.Config) -> Path:
     return pytestconfig.rootpath / "tests/unit/api/entities/domain"
 
 
-def _aspects_by_name(mock_graph: MockDataHubGraph, urn: str) -> Dict[str, Any]:
-    """Collect emitted ``aspectName → aspect`` pairs for a single URN.
-
-    The return type is ``Any``-valued so test bodies can use duck-typed
-    attribute access (``aspects["domainProperties"].name``) without
-    casting each lookup to a concrete aspect class.
-    """
-    out: Dict[str, Any] = {}
-    for mcp in mock_graph.emitted:
-        if not isinstance(mcp, MetadataChangeProposalWrapper):
-            continue
-        if mcp.entityUrn == urn and mcp.aspectName:
-            out[mcp.aspectName] = mcp.aspect
-    return out
+def _write_yaml(tmp_path: Path, text: str) -> Path:
+    yaml_file = tmp_path / "domain.yaml"
+    yaml_file.write_text(text)
+    return yaml_file
 
 
-# ---------------------------------------------------------------------------
-# generate_mcp — non-upsert (snapshot) path
-# ---------------------------------------------------------------------------
+def _aspects(mcps: List[Any]) -> Dict[str, Any]:
+    return {
+        mcp.aspectName: mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp, MetadataChangeProposalWrapper) and mcp.aspectName
+    }
 
 
-def test_domain_from_yaml_emits_full_snapshot(
-    test_resources_dir: Path, base_mock_graph: MockDataHubGraph
-) -> None:
+def _patch_ops(mcps: List[Any], aspect_name: str = "domainProperties") -> List[dict]:
+    ops: List[dict] = []
+    for mcp in mcps:
+        if mcp.aspectName == aspect_name and mcp.changeType == ChangeTypeClass.PATCH:
+            ops.extend(json.loads(mcp.aspect.value))
+    return ops
+
+
+def test_snapshot_emits_properties_owners_and_links(test_resources_dir: Path) -> None:
     domain = Domain.from_yaml(test_resources_dir / "domain.yaml")
 
-    for mcp in domain.generate_mcp(upsert=False):
-        base_mock_graph.emit(mcp)
+    emitted = _aspects(list(domain.generate_mcp(upsert=False)))
 
-    emitted = _aspects_by_name(base_mock_graph, "urn:li:domain:marketing")
-
-    assert "domainProperties" in emitted
+    # GMS rejects aspects the domain entity doesn't declare in entity-registry.yml.
+    assert set(emitted) == {"domainProperties", "ownership", "institutionalMemory"}
     properties = emitted["domainProperties"]
     assert properties.name == "Marketing"
     assert properties.description and "brand" in properties.description
     assert properties.parentDomain is None
-
-    assert "ownership" in emitted
-    assert {o.owner for o in emitted["ownership"].owners} == {
-        "urn:li:corpuser:jdoe",
-        "urn:li:corpuser:asmith",
+    assert {o.owner: o.type for o in emitted["ownership"].owners} == {
+        "urn:li:corpuser:jdoe": OwnershipTypeClass.BUSINESS_OWNER,
+        "urn:li:corpuser:asmith": OwnershipTypeClass.TECHNICAL_OWNER,
     }
-    owner_types = {o.owner: o.type for o in emitted["ownership"].owners}
-    assert owner_types["urn:li:corpuser:jdoe"] == OwnershipTypeClass.BUSINESS_OWNER
-    assert owner_types["urn:li:corpuser:asmith"] == OwnershipTypeClass.TECHNICAL_OWNER
-
-    # GMS rejects aspects the domain entity doesn't declare in entity-registry.yml.
-    assert set(emitted) <= {"domainProperties", "ownership", "institutionalMemory"}
+    assert [
+        (e.url, e.description) for e in emitted["institutionalMemory"].elements
+    ] == [("https://wiki.example.com/marketing", "Marketing runbook")]
 
 
-# ---------------------------------------------------------------------------
-# Parent-domain resolution
-# ---------------------------------------------------------------------------
+def test_snapshot_name_falls_back_to_id() -> None:
+    # name is required in the PDL, so a domain created without display_name
+    # still needs one.
+    emitted = _aspects(list(Domain(id="marketing").generate_mcp(upsert=False)))
+    assert emitted["domainProperties"].name == "marketing"
 
 
-def test_domain_resolves_parent_by_name(
+def test_upsert_patches_name_description_and_parent() -> None:
+    domain = Domain(
+        id="campaigns",
+        display_name="Campaigns",
+        description="Campaign assets",
+        parent_domain="urn:li:domain:12345",
+    )
+
+    ops = _patch_ops(list(domain.generate_mcp(upsert=True)))
+
+    assert {"op": "add", "path": "/name", "value": "Campaigns"} in ops
+    assert {"op": "add", "path": "/description", "value": "Campaign assets"} in ops
+    assert {
+        "op": "add",
+        "path": "/parentDomain",
+        "value": "urn:li:domain:12345",
+    } in ops
+
+
+def test_upsert_without_display_name_keeps_existing_name() -> None:
+    domain = Domain(id="urn:li:domain:marketing", description="New description")
+
+    ops = _patch_ops(list(domain.generate_mcp(upsert=True)))
+
+    assert {"op": "add", "path": "/description", "value": "New description"} in ops
+    assert not any(op["path"] == "/name" for op in ops)
+
+
+def test_resolves_parent_by_name(
     test_resources_dir: Path, base_mock_graph: MockDataHubGraph
 ) -> None:
     domain = Domain.from_yaml(test_resources_dir / "domain_child.yaml", base_mock_graph)
-    assert domain.resolved_parent_domain_urn == "urn:li:domain:12345"
 
-    for mcp in domain.generate_mcp(upsert=False):
-        base_mock_graph.emit(mcp)
+    emitted = _aspects(list(domain.generate_mcp(upsert=False)))
+    assert emitted["domainProperties"].parentDomain == "urn:li:domain:12345"
 
-    properties = cast(
-        DomainPropertiesClass,
-        _aspects_by_name(base_mock_graph, "urn:li:domain:marketing.campaigns")[
-            "domainProperties"
-        ],
+
+def test_parent_id_wins_over_another_domains_display_name(tmp_path: Path) -> None:
+    graph = MockDataHubGraph(
+        entity_graph={
+            "urn:li:domain:sales": {
+                "domainProperties": DomainPropertiesClass(name="Sales")
+            },
+            "urn:li:domain:other": {
+                "domainProperties": DomainPropertiesClass(name="sales")
+            },
+        }
     )
-    assert properties.parentDomain == "urn:li:domain:12345"
+    yaml_file = _write_yaml(tmp_path, "id: child\nparent_domain: sales\n")
+
+    assert (
+        Domain.from_yaml(yaml_file, graph).resolved_parent_domain_urn
+        == "urn:li:domain:sales"
+    )
 
 
-def test_domain_resolves_parent_name_with_four_hyphens(tmp_path: Path) -> None:
-    """``DomainRegistry`` passes names with four hyphens through unresolved,
-    which would write a bare name into the URN-typed ``parentDomain``."""
+def test_resolves_parent_name_with_four_hyphens(tmp_path: Path) -> None:
+    # DomainRegistry passes these through unresolved, which would write a bare
+    # name into the URN-typed parentDomain.
     graph = MockDataHubGraph(
         entity_graph={
             "urn:li:domain:abc": {
@@ -127,74 +173,129 @@ def test_domain_resolves_parent_name_with_four_hyphens(tmp_path: Path) -> None:
             }
         }
     )
-    yaml_file = tmp_path / "child.yaml"
-    yaml_file.write_text("id: child\nparent_domain: eu-west-1-sales-ops\n")
-    assert Domain.from_yaml(yaml_file, graph).resolved_parent_domain_urn == (
-        "urn:li:domain:abc"
+    yaml_file = _write_yaml(tmp_path, "id: child\nparent_domain: eu-west-1-sales-ops\n")
+
+    assert (
+        Domain.from_yaml(yaml_file, graph).resolved_parent_domain_urn
+        == "urn:li:domain:abc"
     )
 
-    yaml_file.write_text("id: child\nparent_domain: missing-a-b-c-d\n")
-    with pytest.raises(ValueError, match="not found"):
+
+@pytest.mark.parametrize(
+    "parent_domain, error",
+    [
+        ("Missing", "not found"),
+        ("Analytics", "several domains"),
+        ("urn:li:domain:missing", "does not exist"),
+    ],
+)
+def test_from_yaml_rejects_unusable_parent(
+    tmp_path: Path, parent_domain: str, error: str
+) -> None:
+    # Names only need to be unique among siblings.
+    graph = MockDataHubGraph(
+        entity_graph={
+            "urn:li:domain:a1": {
+                "domainProperties": DomainPropertiesClass(name="Analytics")
+            },
+            "urn:li:domain:a2": {
+                "domainProperties": DomainPropertiesClass(name="Analytics")
+            },
+        }
+    )
+    yaml_file = _write_yaml(tmp_path, f"id: child\nparent_domain: {parent_domain}\n")
+
+    with pytest.raises(ValueError, match=error):
         Domain.from_yaml(yaml_file, graph)
 
 
-def test_domain_parent_by_name_requires_graph(test_resources_dir: Path) -> None:
-    with pytest.raises(ValueError, match="parent domain"):
-        Domain.from_yaml(test_resources_dir / "domain_child.yaml")
+@pytest.mark.parametrize(
+    "parent_domain", ["urn:li:domain:grandchild", "Grandchild", "urn:li:domain:root"]
+)
+def test_from_yaml_rejects_nesting_under_a_descendant(
+    tmp_path: Path, hierarchy_graph: MockDataHubGraph, parent_domain: str
+) -> None:
+    yaml_file = _write_yaml(tmp_path, f"id: root\nparent_domain: {parent_domain}\n")
+
+    with pytest.raises(ValueError, match="descendants"):
+        Domain.from_yaml(yaml_file, hierarchy_graph)
 
 
-def test_domain_with_urn_parent_does_not_require_graph() -> None:
-    domain = Domain(
-        id="marketing.brand",
-        display_name="Brand",
-        parent_domain="urn:li:domain:12345",
+def test_cycle_check_stops_on_a_cycle_already_in_the_hierarchy(tmp_path: Path) -> None:
+    # a <-> b is already stored; nesting c under a must not loop forever.
+    graph = MockDataHubGraph(
+        entity_graph={
+            "urn:li:domain:a": {
+                "domainProperties": DomainPropertiesClass(
+                    name="A", parentDomain="urn:li:domain:b"
+                )
+            },
+            "urn:li:domain:b": {
+                "domainProperties": DomainPropertiesClass(
+                    name="B", parentDomain="urn:li:domain:a"
+                )
+            },
+        }
     )
-    assert domain.resolved_parent_domain_urn == "urn:li:domain:12345"
-    properties_aspect = next(
-        m
-        for m in domain.generate_mcp(upsert=False)
-        if isinstance(m, MetadataChangeProposalWrapper)
-        and m.aspectName == "domainProperties"
-    ).aspect
-    properties = cast(DomainPropertiesClass, properties_aspect)
-    assert properties.parentDomain == "urn:li:domain:12345"
+    yaml_file = _write_yaml(tmp_path, "id: c\nparent_domain: urn:li:domain:a\n")
+
+    assert Domain.from_yaml(yaml_file, graph).resolved_parent_domain_urn == (
+        "urn:li:domain:a"
+    )
 
 
-def test_generate_mcp_raises_when_parent_unresolved() -> None:
-    """A name-based parent without a graph must fail loudly at MCP-time
-    rather than silently emit ``parentDomain=None``."""
-    domain = Domain(id="x", display_name="X", parent_domain="Marketing")
-    with pytest.raises(Exception, match="parent domain"):
+def test_emit_to_a_graph_checks_the_parent(hierarchy_graph: MockDataHubGraph) -> None:
+    domain = Domain(id="root", parent_domain="urn:li:domain:grandchild")
+
+    with pytest.raises(ValueError, match="descendants"):
+        domain.emit(hierarchy_graph, upsert=True)
+    assert hierarchy_graph.emitted == []
+
+
+def test_generate_mcp_rejects_self_parent_without_graph() -> None:
+    domain = Domain(id="marketing", parent_domain="urn:li:domain:marketing")
+    with pytest.raises(ValueError, match="own parent"):
         list(domain.generate_mcp(upsert=False))
 
 
-# ---------------------------------------------------------------------------
-# Round-trip via from_datahub
-# ---------------------------------------------------------------------------
+def test_parent_by_name_requires_graph(test_resources_dir: Path) -> None:
+    with pytest.raises(ValueError, match="no DataHubGraph"):
+        Domain.from_yaml(test_resources_dir / "domain_child.yaml")
 
 
-def test_domain_round_trip_from_datahub(
-    test_resources_dir: Path, base_mock_graph: MockDataHubGraph
+def test_generate_mcp_rejects_unresolved_parent_name() -> None:
+    # Emitting parentDomain=None instead would silently make it top-level.
+    domain = Domain(id="x", display_name="X", parent_domain="Marketing")
+    with pytest.raises(ValueError, match="not resolved"):
+        list(domain.generate_mcp(upsert=False))
+
+
+def test_round_trip_through_datahub_and_yaml(
+    test_resources_dir: Path, tmp_path: Path
 ) -> None:
-    original = Domain.from_yaml(test_resources_dir / "domain.yaml")
-    for mcp in original.generate_mcp(upsert=False):
-        base_mock_graph.emit(mcp)
-        # Replay into entity_graph since from_datahub reads from there.
-        if mcp.entityUrn and mcp.aspectName and mcp.aspect:
-            base_mock_graph.entity_graph.setdefault(mcp.entityUrn, {})[
-                mcp.aspectName
-            ] = mcp.aspect
+    graph = MockDataHubGraph()
+    for mcp in Domain.from_yaml(test_resources_dir / "domain.yaml").generate_mcp(
+        upsert=False
+    ):
+        assert mcp.entityUrn and mcp.aspectName
+        graph.entity_graph.setdefault(mcp.entityUrn, {})[mcp.aspectName] = mcp.aspect
 
-    reloaded = Domain.from_datahub(base_mock_graph, id="urn:li:domain:marketing")
-
-    assert reloaded.id == "urn:li:domain:marketing"
+    reloaded = Domain.from_datahub(graph, id="urn:li:domain:marketing")
     assert reloaded.display_name == "Marketing"
-    assert reloaded.description and "brand" in reloaded.description
-    assert reloaded.parent_domain is None
+    assert reloaded.owners == [
+        Ownership(id="urn:li:corpuser:jdoe", type=OwnershipTypeClass.BUSINESS_OWNER),
+        "urn:li:corpuser:asmith",
+    ]
+    assert reloaded.institutional_memory is not None
+
+    # `domain get --to-file` followed by `domain upsert -f` targets the same URN.
+    reloaded.to_yaml(tmp_path / "out.yaml")
+    mcps = list(Domain.from_yaml(tmp_path / "out.yaml").generate_mcp(upsert=False))
+    assert {mcp.entityUrn for mcp in mcps} == {"urn:li:domain:marketing"}
+    assert _aspects(mcps)["domainProperties"].name == "Marketing"
 
 
-def test_domain_from_datahub_translates_custom_ownership_type() -> None:
-    """CUSTOM ownership type round-trips via ``Ownership(type=typeUrn)``."""
+def test_from_datahub_translates_custom_ownership_type() -> None:
     graph = MockDataHubGraph(
         entity_graph={
             "urn:li:domain:abc": {
@@ -213,168 +314,49 @@ def test_domain_from_datahub_translates_custom_ownership_type() -> None:
     )
     domain = Domain.from_datahub(graph, id="urn:li:domain:abc")
     assert domain.owners == [
-        Ownership(
-            id="urn:li:corpuser:steward",
-            type="urn:li:ownershipType:dataSteward",
-        )
+        Ownership(id="urn:li:corpuser:steward", type="urn:li:ownershipType:dataSteward")
     ]
 
 
-def test_domain_from_datahub_reads_institutional_memory() -> None:
-    graph = MockDataHubGraph(
-        entity_graph={
-            "urn:li:domain:abc": {
-                "domainProperties": DomainPropertiesClass(name="ABC"),
-                "institutionalMemory": InstitutionalMemoryClass(
-                    elements=[
-                        InstitutionalMemoryMetadataClass(
-                            url="https://wiki.example.com/abc",
-                            description="Runbook",
-                            createStamp=AuditStampClass(
-                                time=0, actor="urn:li:corpuser:datahub"
-                            ),
-                        )
-                    ]
-                ),
-            }
-        }
-    )
-    domain = Domain.from_datahub(graph, id="urn:li:domain:abc")
-    assert domain.institutional_memory is not None
-    assert [
-        (e.url, e.description) for e in domain.institutional_memory.elements or []
-    ] == [("https://wiki.example.com/abc", "Runbook")]
-
-
-def test_domain_from_datahub_raises_when_no_properties() -> None:
+def test_from_datahub_raises_when_no_properties() -> None:
     graph = MockDataHubGraph(entity_graph={"urn:li:domain:ghost": {}})
-    with pytest.raises(Exception, match="domainProperties"):
+    with pytest.raises(ValueError, match="domainProperties"):
         Domain.from_datahub(graph, id="urn:li:domain:ghost")
 
 
-# ---------------------------------------------------------------------------
-# Upsert path uses the patch builder
-# ---------------------------------------------------------------------------
-
-
-def test_generate_mcp_upsert_uses_patch_builder(test_resources_dir: Path) -> None:
-    """Upsert mode emits PATCH MCPs, not a full DomainProperties snapshot."""
-    domain = Domain.from_yaml(test_resources_dir / "domain.yaml")
-    mcps = list(domain.generate_mcp(upsert=True))
-    property_mcps = [m for m in mcps if m.aspectName == "domainProperties"]
-    assert property_mcps, "Expected at least one domainProperties patch MCP"
-    assert all(getattr(m, "changeType", None) == "PATCH" for m in property_mcps), [
-        getattr(m, "changeType", None) for m in property_mcps
+def test_patch_builder_parent_domain_ops() -> None:
+    set_ops = _patch_ops(
+        DomainPatchBuilder("urn:li:domain:x")
+        .set_parent_domain("urn:li:domain:parent")
+        .build()
+    )
+    assert set_ops == [
+        {"op": "add", "path": "/parentDomain", "value": "urn:li:domain:parent"}
     ]
 
-
-def test_generate_mcp_upsert_without_display_name_keeps_existing_name() -> None:
-    domain = Domain(id="urn:li:domain:marketing", description="New description")
-    ops = [
-        op
-        for mcp in domain.generate_mcp(upsert=True)
-        if mcp.aspectName == "domainProperties"
-        for op in _patch_ops(mcp)
+    remove_ops = _patch_ops(
+        DomainPatchBuilder("urn:li:domain:x").remove_parent_domain().build()
+    )
+    assert [(op["op"], op["path"]) for op in remove_ops] == [
+        ("remove", "/parentDomain")
     ]
-    assert {"op": "add", "path": "/description", "value": "New description"} in ops
-    assert not any(op["path"] == "/name" for op in ops)
 
-
-# ---------------------------------------------------------------------------
-# DomainPatchBuilder
-# ---------------------------------------------------------------------------
-
-
-def _patch_ops(mcp: Any) -> list:
-    """PATCH MCPs carry the raw JSON-Patch array in ``aspect.value``."""
-    raw_bytes = mcp.aspect.value
-    text = raw_bytes.decode("utf-8") if isinstance(raw_bytes, bytes) else raw_bytes
-    return json.loads(text)
-
-
-def _patch_ops_for_aspect(builder: DomainPatchBuilder, aspect_name: str) -> list:
-    """Return all JSON-Patch ops targeting ``aspect_name``."""
-    ops: list = []
-    for mcp in builder.build():
-        if mcp.aspectName == aspect_name and mcp.aspect is not None:
-            ops.extend(_patch_ops(mcp))
-    return ops
-
-
-def test_patch_builder_set_name_emits_replace_op() -> None:
-    ops = _patch_ops_for_aspect(
-        DomainPatchBuilder("urn:li:domain:x").set_name("New Name"),
-        "domainProperties",
-    )
-    assert {"op": "add", "path": "/name", "value": "New Name"} in ops
-
-
-def test_patch_builder_set_parent_domain_add_and_clear() -> None:
-    set_ops = _patch_ops_for_aspect(
-        DomainPatchBuilder("urn:li:domain:x").set_parent_domain("urn:li:domain:parent"),
-        "domainProperties",
-    )
-    assert {
-        "op": "add",
-        "path": "/parentDomain",
-        "value": "urn:li:domain:parent",
-    } in set_ops
-
-    clear_ops = _patch_ops_for_aspect(
-        DomainPatchBuilder("urn:li:domain:x").set_parent_domain(""),
-        "domainProperties",
-    )
-    assert any(
-        op["op"] == "remove" and op["path"] == "/parentDomain" for op in clear_ops
-    )
-
-
-def test_patch_builder_supports_ownership_mixin() -> None:
-    """Pin that ``HasOwnershipPatch`` stays wired on the Domain builder."""
-    builder = DomainPatchBuilder("urn:li:domain:x")
-    builder.add_owner(
-        OwnerClass(
-            owner="urn:li:corpuser:jdoe", type=OwnershipTypeClass.TECHNICAL_OWNER
-        )
-    )
-    ownership_mcps = [m for m in builder.build() if m.aspectName == "ownership"]
-    assert ownership_mcps, "Expected ownership patch MCP from add_owner"
-
-
-# ---------------------------------------------------------------------------
-# Pydantic validation
-# ---------------------------------------------------------------------------
-
-
-def test_domain_rejects_empty_id() -> None:
-    with pytest.raises(ValueError, match="id cannot be empty"):
-        Domain(id="", display_name="X")
-
-
-def test_domain_rejects_malformed_urn_id() -> None:
-    with pytest.raises(ValueError):
-        Domain(id="urn:li:not-a-real-thing", display_name="X")
+    with pytest.raises(ValueError, match="remove_parent_domain"):
+        DomainPatchBuilder("urn:li:domain:x").set_parent_domain("")
 
 
 @pytest.mark.parametrize(
     "kwargs",
     [
+        {"id": ""},
+        {"id": "urn:li:not-a-real-thing"},
         {"id": "urn:li:corpuser:jdoe"},
         {"id": "x", "parent_domain": "urn:li:glossaryTerm:Revenue"},
         {"id": "x", "parent_domain": "urn:li:domain"},
         {"id": "x", "owners": [{"id": "jdoe", "type": "urn:li:"}]},
+        {"id": "x", "owners": [{"id": "jdoe", "type": "not-a-real-type"}]},
     ],
 )
-def test_domain_rejects_non_domain_or_malformed_urns(kwargs: Dict[str, Any]) -> None:
+def test_rejects_invalid_ids_parents_and_owner_types(kwargs: Dict[str, Any]) -> None:
     with pytest.raises(ValueError):
         Domain.model_validate(kwargs)
-
-
-def test_domain_invalid_owner_type_rejected() -> None:
-    """``Ownership.type`` rejects values neither in the enum nor URN-shaped."""
-    with pytest.raises(ValueError):
-        Domain(
-            id="x",
-            display_name="X",
-            owners=[Ownership(id="jdoe", type="not-a-real-type")],
-        )

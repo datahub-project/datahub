@@ -1,19 +1,23 @@
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Set
 
 import click
 from click_default_group import DefaultGroup
+from ruamel.yaml import YAML
 
-from datahub.api.entities.domain.domain import Domain
+from datahub.api.entities.domain.domain import (
+    Domain,
+    find_domain_urns,
+    validate_parent_domain,
+)
 from datahub.cli.specific.dataproduct_cli import (
     _abort_if_non_existent_urn,
     _get_owner_urn,
 )
-from datahub.emitter.mce_builder import validate_ownership_type
+from datahub.emitter.mce_builder import make_domain_urn, validate_ownership_type
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import (
     DomainPropertiesClass,
@@ -26,31 +30,6 @@ from datahub.upgrade import upgrade
 logger = logging.getLogger(__name__)
 
 
-def _abort_if_parent_cycle(graph: DataHubGraph, urn: str, parent_urn: str) -> None:
-    """Refuse to nest a Domain under itself or one of its descendants.
-
-    GMS only rejects a self-parent; GraphQL ``moveDomain`` does this walk, so
-    the CLI has to as well or it can persist a cycle in the hierarchy.
-    """
-    seen: Set[str] = set()
-    current: Optional[str] = parent_urn
-    while current and current not in seen:
-        if current == urn:
-            raise click.ClickException(
-                f"Cannot move {urn} under {parent_urn}: it is the domain itself "
-                "or one of its descendants."
-            )
-        seen.add(current)
-        properties = graph.get_aspect(current, DomainPropertiesClass)
-        current = properties.parentDomain if properties else None
-
-
-def _normalize_domain_urn(urn: str) -> str:
-    if urn.startswith("urn:li:domain:"):
-        return urn
-    return f"urn:li:domain:{urn}"
-
-
 @click.group(cls=DefaultGroup, default="upsert")
 def domain() -> None:
     """A group of commands to interact with the Domain entity in DataHub."""
@@ -58,9 +37,10 @@ def domain() -> None:
 
 def _mutate(file: Path, upsert: bool) -> None:
     with get_default_graph(ClientMode.CLI) as graph:
-        loaded = Domain.from_yaml(Path(file), graph)
-        if loaded.resolved_parent_domain_urn:
-            _abort_if_parent_cycle(graph, loaded.urn, loaded.resolved_parent_domain_urn)
+        try:
+            loaded = Domain.from_yaml(Path(file), graph)
+        except ValueError as e:
+            raise click.ClickException(str(e)) from e
         if upsert and not graph.exists(loaded.urn):
             logger.info(f"Domain {loaded.urn} does not exist, will create.")
             upsert = False
@@ -69,14 +49,18 @@ def _mutate(file: Path, upsert: bool) -> None:
         )
         try:
             for mcp in loaded.generate_mcp(upsert=upsert):
-                # The YAML can't express these, so a full replace keeps them.
                 if (
                     existing
                     and isinstance(mcp, MetadataChangeProposalWrapper)
                     and isinstance(mcp.aspect, DomainPropertiesClass)
                 ):
+                    # The YAML can't express these, so a full replace keeps them.
                     mcp.aspect.created = existing.created
                     mcp.aspect.customProperties = existing.customProperties
+                    # Without a display_name the snapshot would fall back to
+                    # the id, renaming the domain.
+                    if loaded.display_name is None:
+                        mcp.aspect.name = existing.name
                 graph.emit(mcp)
             click.secho(f"Update succeeded for urn {loaded.urn}.", fg="green")
         except Exception as e:
@@ -90,7 +74,8 @@ def _mutate(file: Path, upsert: bool) -> None:
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @upgrade.check_upgrade
 def upsert(file: Path) -> None:
-    """Upsert a Domain into DataHub (creates if missing, patches otherwise)."""
+    """Create a Domain, or patch the name, description and parent the YAML sets
+    on an existing one. Owners and links in the YAML replace the existing ones."""
     _mutate(file, upsert=True)
 
 
@@ -98,9 +83,10 @@ def upsert(file: Path) -> None:
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @upgrade.check_upgrade
 def update(file: Path) -> None:
-    """Create a Domain, or overwrite the aspects the YAML sets. Aspects the YAML
-    omits (owners, links) and custom properties are left as they are; use upsert
-    for partial updates."""
+    """Create a Domain, or replace its properties with the YAML's: an omitted
+    description or parent is cleared, while the name, created stamp and custom
+    properties are kept. Owners and links are replaced if the YAML sets them and
+    left as they are otherwise; use upsert for partial updates."""
     _mutate(file, upsert=False)
 
 
@@ -110,11 +96,10 @@ def update(file: Path) -> None:
 @upgrade.check_upgrade
 def get(urn: str, to_file: str) -> None:
     """Print a Domain from DataHub as JSON; optionally write a YAML copy."""
-    urn = _normalize_domain_urn(urn)
+    urn = make_domain_urn(urn)
     with get_default_graph(ClientMode.CLI) as graph:
         if not graph.exists(urn):
-            click.secho(f"Domain {urn} does not exist")
-            return
+            raise click.ClickException(f"Domain {urn} does not exist")
         loaded: Domain = Domain.from_datahub(graph=graph, id=urn)
         click.secho(
             json.dumps(
@@ -142,21 +127,38 @@ def delete(urn: str, file: Path) -> None:
     """Delete a Domain and remove references to it.
 
     Always a hard delete: the domain entity has no ``status`` aspect, so it
-    cannot be soft-deleted.
+    cannot be soft-deleted. Like the UI, refuses a domain with child domains.
     """
     if not urn and not file:
         click.secho("Must provide either an urn or a file to delete a domain", fg="red")
         raise click.Abort()
 
-    with get_default_graph(ClientMode.CLI) as graph:
-        domain_urn = _normalize_domain_urn(urn) if urn else ""
-        if not urn:
-            loaded: Domain = Domain.from_yaml(Path(file), graph)
-            domain_urn = loaded.urn
+    if urn:
+        domain_urn = make_domain_urn(urn)
+    else:
+        # Only the id is needed, so don't resolve or validate the parent.
+        try:
+            with open(file) as fp:
+                domain_urn = Domain.parse_obj_allow_extras(
+                    YAML(typ="safe").load(fp)
+                ).urn
+        except ValueError as e:
+            raise click.ClickException(str(e)) from e
 
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, domain_urn, "delete")
-        graph.delete_references_to_urn(domain_urn)
+        # Deleting the references would otherwise strip parentDomain from the
+        # children and silently make them top-level.
+        children = find_domain_urns(graph, parent_domain_urn=domain_urn)
+        if children:
+            raise click.ClickException(
+                f"Cannot delete {domain_urn}: it has child domains "
+                f"({', '.join(sorted(children))}). Move or delete them first."
+            )
+        # Entity first, then references (as GraphQL deleteDomain does), so a
+        # failed delete doesn't leave the domain with its references stripped.
         graph.delete_entity(domain_urn, hard=True)
+        graph.delete_references_to_urn(domain_urn)
         click.secho(f"Domain {domain_urn} deleted")
 
 
@@ -172,7 +174,7 @@ def delete(urn: str, file: Path) -> None:
 @upgrade.check_upgrade
 def set_description(urn: str, description: str, md_file: Path) -> None:
     """Set the description of a Domain."""
-    urn = _normalize_domain_urn(urn)
+    urn = make_domain_urn(urn)
     if description is None and not md_file:
         click.secho(
             "Need one of --description or --md-file to populate description",
@@ -210,21 +212,24 @@ def set_description(urn: str, description: str, md_file: Path) -> None:
 @upgrade.check_upgrade
 def set_parent(urn: str, parent: str) -> None:
     """Re-parent a Domain (or promote it to a top-level Domain)."""
-    urn = _normalize_domain_urn(urn)
-    parent_urn = _normalize_domain_urn(parent) if parent else ""
+    urn = make_domain_urn(urn)
     patch: DomainPatchBuilder = Domain.get_patch_builder(urn)
-    patch.set_parent_domain(parent_urn)
     with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "set parent")
-        if parent_urn:
-            _abort_if_non_existent_urn(graph, parent_urn, "set parent")
-            _abort_if_parent_cycle(graph, urn, parent_urn)
+        if parent:
+            parent_urn = make_domain_urn(parent)
+            try:
+                validate_parent_domain(graph, urn, parent_urn)
+            except ValueError as e:
+                raise click.ClickException(str(e)) from e
+            patch.set_parent_domain(parent_urn)
         else:
             current = graph.get_aspect(urn, DomainPropertiesClass)
             # JSON Patch rejects removing a field that isn't there.
             if not current or not current.parentDomain:
                 click.secho(f"Domain {urn} is already a top-level domain.")
                 return
+            patch.remove_parent_domain()
         for mcp in patch.build():
             graph.emit(mcp)
 
@@ -247,7 +252,7 @@ def set_parent(urn: str, parent: str) -> None:
 )
 @upgrade.check_upgrade
 def add_owner(urn: str, owner: str, owner_type: str) -> None:
-    urn = _normalize_domain_urn(urn)
+    urn = make_domain_urn(urn)
     patch: DomainPatchBuilder = Domain.get_patch_builder(urn)
     type_str, type_urn = validate_ownership_type(owner_type)
     patch.add_owner(
@@ -264,7 +269,7 @@ def add_owner(urn: str, owner: str, owner_type: str) -> None:
 @click.argument("owner_urn", required=True, type=str)
 @upgrade.check_upgrade
 def remove_owner(urn: str, owner_urn: str) -> None:
-    urn = _normalize_domain_urn(urn)
+    urn = make_domain_urn(urn)
     patch: DomainPatchBuilder = Domain.get_patch_builder(urn)
     patch.remove_owner(owner=_get_owner_urn(owner_urn))
     with get_default_graph(ClientMode.CLI) as graph:
