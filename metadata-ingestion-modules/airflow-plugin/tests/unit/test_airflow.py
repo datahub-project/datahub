@@ -18,14 +18,6 @@ from datahub_airflow_plugin.entities import Dataset, Urn
 from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
 
-try:
-    # Airflow 3.2+ split Task SDK timetables (no `summary`) out of core.
-    from airflow.sdk.definitions.timetables.trigger import DeltaTriggerTimetable
-except ImportError:
-    from airflow.timetables.trigger import (  # type: ignore[assignment]
-        DeltaTriggerTimetable,
-    )
-
 lineage_mce = builder.make_lineage_mce(
     [
         builder.make_dataset_urn("bigquery", "upstream1"),
@@ -290,15 +282,13 @@ def test_get_base_url_prefers_api_over_webserver():
         pytest.param("0 6 * * *", "0 6 * * *", id="cron"),
         pytest.param("@daily", "0 0 * * *", id="cron-preset"),
         pytest.param(timedelta(hours=2), "2:00:00", id="timedelta"),
-        pytest.param(
-            DeltaTriggerTimetable(timedelta(hours=1)), "1:00:00", id="timetable"
-        ),
+        pytest.param("@once", "@once", id="once"),
         pytest.param(None, "None", id="none"),
         pytest.param([Asset("s3://bucket/key")], "Asset", id="assets"),
     ],
 )
 def test_generate_dataflow_captures_schedule(
-    schedule: Optional[Union[str, timedelta, List[Asset], DeltaTriggerTimetable]],
+    schedule: Optional[Union[str, timedelta, List[Asset]]],
     expected: str,
 ) -> None:
     """The DAG-run hooks emit the DataFlow from a SerializedDAG, which has no
