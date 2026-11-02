@@ -423,3 +423,40 @@ def test_test_connection_reports_auth_failure() -> None:
 
     assert report.basic_connectivity is not None
     assert not report.basic_connectivity.capable
+
+
+def test_process_listing_failure_is_reported() -> None:
+    source = _source()
+    with requests_mock.Mocker() as mock:
+        _register(mock, [])
+        mock.post(f"{BASE_URL}/ComponentMetadata/query", status_code=500)
+        assert _flows(source) == []
+
+    assert [f.title for f in source.get_report().failures] == [
+        "Failed to list Boomi processes"
+    ]
+
+
+def test_filtered_environment_deployments_do_not_count() -> None:
+    source = _source(environment_pattern={"deny": ["^Production$"]})
+    with requests_mock.Mocker() as mock:
+        _register(
+            mock, [_process_record("p1", "Orders Sync")], deployed=[_deployment("p1")]
+        )
+        assert _flows(source) == []
+
+    report = source.get_report()
+    assert list(report.environments_filtered) == ["Production"]
+    assert list(report.processes_undeployed_skipped) == ["Orders Sync"]
+
+
+def test_process_in_denied_folder_is_filtered() -> None:
+    source = _source(
+        include_undeployed_processes=True,
+        folder_pattern={"deny": ["^Test Account/Orders$"]},
+    )
+    with requests_mock.Mocker() as mock:
+        _register(mock, [_process_record("p1", "Orders Sync")])
+        assert _flows(source) == []
+
+    assert list(source.get_report().processes_filtered) == ["Orders Sync"]

@@ -56,10 +56,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.schema_classes import (
-    DataJobInputOutputClass,
-    OwnershipTypeClass,
-)
+from datahub.metadata.schema_classes import OwnershipTypeClass
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
@@ -448,11 +445,6 @@ class BoomiSource(StatefulIngestionSourceBase, TestableSource):
             description=info.description,
             subtype=DataJobSubTypes.BOOMI_PROCESS_JOB,
             owners=owners,
-            # Lineage is not resolved yet; emit an empty aspect so later runs
-            # that add edges overwrite a known baseline.
-            extra_aspects=[
-                DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
-            ],
         )
 
     def _process_url(self, component_id: str) -> Optional[str]:
