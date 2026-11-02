@@ -107,7 +107,9 @@ public class ListDataProductAssetsResolver
           outputPorts =
               dataProductProperties.getAssets().stream()
                   .filter(DataProductAssociation::isOutputPort)
-                  .map(dpa -> dpa.getDestinationUrn().toString())
+                  .map(DataProductAssociation::getDestinationUrn)
+                  .filter(assetUrn -> KnownEntities.isKnown(context, assetUrn))
+                  .map(Urn::toString)
                   .collect(Collectors.toSet());
         }
       }
