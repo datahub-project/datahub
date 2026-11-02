@@ -286,24 +286,39 @@ class TestEnrichTables:
         }
 
 
-def _register_downstream_schema(aggregator: SqlParsingAggregator) -> None:
-    aggregator.register_schema(
-        SF_TABLE_URN,
-        SchemaMetadataClass(
-            schemaName="events",
-            platform="urn:li:dataPlatform:snowflake",
-            version=0,
-            hash="",
-            platformSchema=OtherSchemaClass(rawSchema=""),
-            fields=[
-                SchemaFieldClass(
-                    fieldPath="occur_date",
-                    type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                    nativeDataType="DATE",
-                )
-            ],
-        ),
+def _schema(platform: str, *field_paths: str) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="events",
+        platform=f"urn:li:dataPlatform:{platform}",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="STRING",
+            )
+            for field_path in field_paths
+        ],
     )
+
+
+def _register_downstream_schema(
+    aggregator: SqlParsingAggregator, *field_paths: str
+) -> None:
+    aggregator.register_schema(
+        SF_TABLE_URN, _schema("snowflake", *(field_paths or ("occur_date",)))
+    )
+
+
+def _column_lineage(aggregator: SqlParsingAggregator) -> Dict[str, List[str]]:
+    return {
+        fgl.downstreams[0]: fgl.upstreams or []
+        for lineage in _lineage(aggregator)
+        for fgl in lineage.fineGrainedLineages or []
+        if fgl.downstreams
+    }
 
 
 def _lineage(aggregator: SqlParsingAggregator) -> List[UpstreamLineageClass]:
@@ -321,9 +336,13 @@ def _upstreams(aggregator: SqlParsingAggregator) -> List[str]:
 
 class TestRegisterLineage:
     def _handler(
-        self, graph_hits: Optional[Any], aggregator: SqlParsingAggregator
+        self,
+        graph_hits: Optional[Any],
+        aggregator: SqlParsingAggregator,
+        writer_schema: Optional[Any] = None,
     ) -> SnowflakeIcebergHandler:
-        """graph_hits: search results, or an Exception, or None for no graph."""
+        """graph_hits: search results, or an Exception, or None for no graph.
+        writer_schema: the writer's schemaMetadata, or an Exception reading it."""
         config = _config()
         report = SnowflakeV2Report()
         graph = None
@@ -333,6 +352,10 @@ class TestRegisterLineage:
                 graph.get_urns_by_filter.side_effect = graph_hits
             else:
                 graph.get_urns_by_filter.return_value = iter(graph_hits)
+            if isinstance(writer_schema, Exception):
+                graph.get_aspect.side_effect = writer_schema
+            else:
+                graph.get_aspect.return_value = writer_schema
         return SnowflakeIcebergHandler(
             config=config,
             report=report,
@@ -376,6 +399,44 @@ class TestRegisterLineage:
             f"storage_location={STORAGE_LOCATION}",
             f"storage_location={STORAGE_LOCATION}/",
         ]
+
+    def test_writer_column_casing_follows_writer_schema(self) -> None:
+        aggregator = SqlParsingAggregator(platform="snowflake", generate_queries=False)
+        _register_downstream_schema(aggregator, "OCCUR_DATE", "SF_ONLY")
+        handler = self._handler(
+            [WRITER_URN], aggregator, writer_schema=_schema("databricks", "occur_date")
+        )
+
+        self._register(handler, _unmanaged_info(STORAGE_LOCATION))
+
+        assert _column_lineage(aggregator) == {
+            f"urn:li:schemaField:({SF_TABLE_URN},OCCUR_DATE)": [
+                f"urn:li:schemaField:({WRITER_URN},occur_date)"
+            ],
+            f"urn:li:schemaField:({SF_TABLE_URN},SF_ONLY)": [
+                f"urn:li:schemaField:({WRITER_URN},SF_ONLY)"
+            ],
+        }
+        handler.graph.get_aspect.assert_called_once_with(  # type: ignore[union-attr]
+            WRITER_URN, SchemaMetadataClass
+        )
+
+    def test_writer_schema_read_failure_keeps_edge_and_warns(self) -> None:
+        aggregator = SqlParsingAggregator(platform="snowflake", generate_queries=False)
+        _register_downstream_schema(aggregator, "OCCUR_DATE")
+        handler = self._handler(
+            [WRITER_URN], aggregator, writer_schema=Exception("aspect read failed")
+        )
+
+        self._register(handler, _unmanaged_info(STORAGE_LOCATION))
+
+        assert _upstreams(aggregator) == [WRITER_URN]
+        assert _column_lineage(aggregator) == {
+            f"urn:li:schemaField:({SF_TABLE_URN},OCCUR_DATE)": [
+                f"urn:li:schemaField:({WRITER_URN},OCCUR_DATE)"
+            ],
+        }
+        assert len(handler.report.warnings) == 1
 
     def test_no_writer_falls_back_to_storage_urn(self) -> None:
         aggregator = SqlParsingAggregator(platform="snowflake", generate_queries=False)

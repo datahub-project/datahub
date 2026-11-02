@@ -26,7 +26,10 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
 )
-from datahub.metadata.schema_classes import DatasetLineageTypeClass
+from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
+    SchemaMetadataClass,
+)
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 logger = logging.getLogger(__name__)
@@ -183,7 +186,9 @@ class SnowflakeIcebergHandler:
             self.identifiers.get_dataset_identifier(table.name, schema_name, db_name)
         )
         upstream_urn = self._resolve_writer(info.storage_location, downstream_urn)
-        if upstream_urn is None:
+        if upstream_urn is not None:
+            self._register_writer_schema(upstream_urn)
+        else:
             # Same resolver as external stages: folds the path per
             # datalake_lineage_config.path_specs and maps s3:// gcs:// azure:// to a
             # dataset URN.
@@ -207,6 +212,26 @@ class SnowflakeIcebergHandler:
             downstream_urn=downstream_urn,
             lineage_type=DatasetLineageTypeClass.COPY,
         )
+
+    def _register_writer_schema(self, writer_urn: str) -> None:
+        """Give the aggregator the writer's schema, so column lineage names the
+        writer's columns as the writer spells them (Snowflake reports `EVENT_ID` where
+        Databricks records `event_id`). Without it the edge keeps Snowflake's spelling."""
+        if self.graph is None or self.aggregator is None:
+            return
+        try:
+            schema = self.graph.get_aspect(writer_urn, SchemaMetadataClass)
+        except Exception as e:
+            self.report.warning(
+                title="Iceberg writer schema unavailable",
+                message="Column lineage to the writer keeps Snowflake's column "
+                "spelling, which may not match the writer's columns.",
+                context=writer_urn,
+                exc=e,
+            )
+            return
+        if schema is not None:
+            self.aggregator.register_schema(writer_urn, schema)
 
     def _resolve_writer(
         self, storage_location: str, downstream_urn: str
