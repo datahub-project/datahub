@@ -129,6 +129,11 @@ DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[set] = {
     "io.debezium.connector.sqlserver.SqlServerConnector",
 }
 
+# Debezium change events nest the row's columns under the envelope's "after" field.
+DEBEZIUM_ENVELOPE_AFTER_PREFIX: Final[str] = "after."
+
+KAFKA_KEY_FIELD_PATH_MARKER: Final[str] = "[key=True]"
+
 
 # Confluent Cloud connector class names
 # References:
@@ -1281,8 +1286,13 @@ class BaseConnector:
 
             column_mapping = self._apply_field_transforms(list(source_schema.keys()))
 
+            # When DataHub has the topic's schema, link to its stored field paths;
+            # otherwise fall back to the column name as the field path.
+            topic_field_paths = self._get_topic_field_paths(str(target_urn))
+
             # Create fine-grained lineage for each source column
             fine_grained_lineages: List[FineGrainedLineageClass] = []
+            unmatched_columns: List[str] = []
 
             for source_col in source_schema:
                 target_col = column_mapping.get(source_col)
@@ -1294,13 +1304,38 @@ class BaseConnector:
                     )
                     continue
 
+                target_field_path = target_col
+                if topic_field_paths is not None:
+                    stored_path = topic_field_paths.get(
+                        f"{DEBEZIUM_ENVELOPE_AFTER_PREFIX}{target_col}".lower()
+                    ) or topic_field_paths.get(target_col.lower())
+                    if stored_path is None:
+                        unmatched_columns.append(source_col)
+                        continue
+                    target_field_path = stored_path
+
                 fine_grained_lineage = FineGrainedLineageClass(
                     upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                     downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                     upstreams=[make_schema_field_urn(source_urn_str, source_col)],
-                    downstreams=[make_schema_field_urn(str(target_urn), target_col)],
+                    downstreams=[
+                        make_schema_field_urn(str(target_urn), target_field_path)
+                    ],
                 )
                 fine_grained_lineages.append(fine_grained_lineage)
+
+            # A topic missing most source columns most likely has the wrong schema
+            # registered (e.g. a subject-name mismatch); emitting partial links
+            # would be misleading.
+            if len(unmatched_columns) > len(fine_grained_lineages):
+                self.report.warning(
+                    title="Source columns not found in Kafka topic schema",
+                    message="Most source columns are missing from the topic's schema in DataHub, "
+                    "so column-level lineage was skipped. Check the topic's registered schema.",
+                    context=f"connector={self.connector_manifest.name}, source={source_dataset}, "
+                    f"target={target_dataset}, unmatched={len(unmatched_columns)}",
+                )
+                return None
 
             if fine_grained_lineages:
                 logger.debug(
@@ -1318,6 +1353,28 @@ class BaseConnector:
             )
 
         return None
+
+    def _get_topic_field_paths(self, topic_urn: str) -> Optional[Dict[str, str]]:
+        """Map each lowercased simple field path of a topic's value schema to its
+        stored field path, or return None if DataHub has no schema for the topic."""
+        if not (self.schema_resolver and self.schema_resolver.graph):
+            return None
+
+        schema = self.schema_resolver.graph.get_aspect(topic_urn, SchemaMetadataClass)
+        if not isinstance(schema, SchemaMetadataClass):
+            return None
+
+        field_paths: Dict[str, str] = {}
+        for schema_field in schema.fields:
+            if KAFKA_KEY_FIELD_PATH_MARKER in schema_field.fieldPath:
+                continue
+            simple_path = get_simple_field_path_from_v2_field_path(
+                schema_field.fieldPath
+            ).lower()
+            # A nullable Avro field is stored once per union branch; the first
+            # entry is the union itself, which is the one lineage should target.
+            field_paths.setdefault(simple_path, schema_field.fieldPath)
+        return field_paths
 
     def _extract_sink_fine_grained_lineage(
         self,
