@@ -16,7 +16,7 @@
     "sources.athena.description": "Importera Schemas, Tables, Views och Lineage till S3 från Athena.",
     "sources.azureAd.description": "Importera användare och grupper från Azure Active Directory.",
     "sources.bigquery.description": "Importera Projects, Datasets, Tables, Views, Lineage, Queries och statistik från BigQuery.",
-    "sources.boomi.description": "Importera mappar, processer, Lineage, driftsättningar, Ownership och körhistorik från Boomi Integration.",
+    "sources.boomi.description": "Importera mappar, processer, Lineage på tabell- och kolumnnivå, driftsättningar, Ownership och körhistorik från Boomi Integration.",
     "sources.cassandra.description": "Importera Tables, Keyspaces och kolumnscheman från Cassandra.",
     "sources.clickhouse.description": "Importera Tables, Views, Materialized Views, Dictionaries, statistik, Queries och Lineage från ClickHouse.",
     "sources.cockroachdb.description": "Importera Databases, Schemas, Tables, Views, statistik och Lineage från CockroachDB.",

@@ -136,6 +136,13 @@ XML_ATTR_ACTION_TYPE = "actionType"
 XML_ATTR_CONNECTION_ID = "connectionId"
 XML_ATTR_OPERATION_ID = "operationId"
 XML_ATTR_PROCESS_ID = "processId"
+XML_ATTR_NAME = "name"
+XML_ATTR_KEY = "key"
+XML_ATTR_TO_SHAPE = "toShape"
+XML_ELEMENT_DRAGPOINT = "dragpoint"
+SHAPE_TYPE_MAP = "map"
+XML_ELEMENT_MAP_SHAPE = "map"
+XML_ATTR_MAP_ID = "mapId"
 
 XML_ELEMENT_DB_CONNECTION_SETTINGS = "DatabaseConnectionSettings"
 XML_ATTR_DRIVER_ID = "driverId"
@@ -179,6 +186,13 @@ DB_ACTION_PROFILE_ATTRIBUTES: Tuple[str, ...] = (
     "responseProfile",
 )
 
+# Profile ids that GUI-built generic connector operations, such as Database
+# V2, carry on GenericOperationConfig.
+GENERIC_OPERATION_PROFILE_ATTRIBUTES: Tuple[str, ...] = (
+    "requestProfile",
+    "responseProfile",
+)
+
 XML_ELEMENT_DB_STATEMENT = "DBStatement"
 XML_ATTR_TABLE_NAME = "tableName"
 XML_ATTR_STATEMENT_TYPE = "statementType"
@@ -187,6 +201,41 @@ XML_ELEMENT_SQL = "sql"
 COMPONENT_TYPE_CONNECTION = "connector-settings"
 COMPONENT_TYPE_OPERATION = "connector-action"
 COMPONENT_TYPE_DB_PROFILE = "profile.db"
+STATEMENT_TYPE_DYNAMIC_PREFIX = "dynamic"
+
+XML_ELEMENT_DATA_ELEMENTS = "DataElements"
+XML_ELEMENT_MAP = "Map"
+XML_ELEMENT_MAPPING = "Mapping"
+XML_ELEMENT_FUNCTION_STEP = "FunctionStep"
+XML_ATTR_FROM_PROFILE = "fromProfile"
+XML_ATTR_TO_PROFILE = "toProfile"
+XML_ATTR_FROM_KEY = "fromKey"
+XML_ATTR_FROM_TYPE = "fromType"
+XML_ATTR_FROM_FUNCTION = "fromFunction"
+XML_ATTR_TO_KEY = "toKey"
+XML_ATTR_TO_TYPE = "toType"
+XML_ATTR_TO_FUNCTION = "toFunction"
+XML_ATTR_IS_MAPPABLE = "isMappable"
+MAPPING_TYPE_PROFILE = "profile"
+MAPPING_TYPE_FUNCTION = "function"
+# Profile elements that hold a value a map can read or write. JSON objects and
+# arrays are containers without a value of their own.
+PROFILE_FIELD_ELEMENTS: FrozenSet[str] = frozenset(
+    {
+        "DatabaseElement",
+        "XMLElement",
+        "JSONRootValue",
+        "JSONObjectEntry",
+        "JSONArrayElement",
+        "FlatFileElement",
+    }
+)
+PROFILE_PATH_SEPARATOR = "/"
+TRANSFORM_IDENTITY = "IDENTITY"
+# A column computed by an expression in SQL rather than copied.
+TRANSFORM_SQL = "SQL"
+# A map function whose FunctionStep has no type.
+TRANSFORM_FUNCTION = "FUNCTION"
 
 SUBTYPE_DATABASE = "database"
 SUBTYPE_DATABASE_V2 = "officialboomi-X3979C-dbv2da-prod"
@@ -260,3 +309,24 @@ class UnresolvedReason(StrEnum):
     MISSING_OPERATION = "missing_operation"
     AMBIGUOUS_JDBC_URL = "ambiguous_jdbc_url"
     AMBIGUOUS_SQL = "ambiguous_sql"
+
+
+class ColumnSkipReason(StrEnum):
+    # The SQL reads more than one table, so a field cannot be tied to one.
+    MULTI_TABLE_SQL = "multi_table_sql"
+    NOT_IN_SELECT = "not_in_select"
+    NO_SOURCE_COLUMN = "no_source_column"
+    NOT_IN_INSERT_COLUMNS = "not_in_insert_columns"
+    NESTED_FIELD = "nested_field"
+    UNKNOWN_FIELD_KEY = "unknown_field_key"
+    NOT_IN_SCHEMA = "not_in_schema"
+    UNMAPPED_SQL_COLUMN = "unmapped_sql_column"
+    INSERT_WITHOUT_COLUMN_LIST = "insert_without_column_list"
+
+
+class MapSkipReason(StrEnum):
+    COMPONENT_UNREADABLE = "component_unreadable"
+    NO_MATCHING_READ = "no_matching_read"
+    NO_MATCHING_WRITE = "no_matching_write"
+    UNSUPPORTED_SOURCE = "unsupported_source"
+    UNSUPPORTED_TARGET = "unsupported_target"

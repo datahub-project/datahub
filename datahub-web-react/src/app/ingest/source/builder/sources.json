@@ -12,7 +12,7 @@
         "urn": "urn:li:dataPlatform:boomi",
         "name": "boomi",
         "displayName": "Boomi",
-        "description": "Import folders, processes, lineage, deployments, ownership, and run history from Boomi Integration.",
+        "description": "Import folders, processes, table and column-level lineage, deployments, ownership, and run history from Boomi Integration.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/boomi",
         "recipe": "source:\n  type: boomi\n  config:\n    account_id: \"${BOOMI_ACCOUNT_ID}\"\n    username: \"${BOOMI_USERNAME}\"\n    api_token: \"${BOOMI_API_TOKEN}\"\n    # api_url: https://api.platform.gb.boomi.com\n    include_undeployed_processes: false\n    extract_owners: true\n    stateful_ingestion:\n      enabled: true\n",
         "category": "ETL / ELT"

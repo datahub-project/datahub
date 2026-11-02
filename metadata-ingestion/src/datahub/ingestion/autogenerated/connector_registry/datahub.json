@@ -424,6 +424,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "From Map shapes and INSERT ... SELECT SQL. Enabled by default via include_column_lineage",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Via stateful ingestion",
           "subtype_modifier": null,

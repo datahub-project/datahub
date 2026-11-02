@@ -9,9 +9,9 @@ from datahub.ingestion.source.boomi.client import BoomiApiError
 from datahub.ingestion.source.boomi.component_parser import (
     operation_direction,
     parse_connection_component,
-    parse_database_profile_component,
     parse_operation_component,
     parse_process_component,
+    parse_profile_component,
 )
 from datahub.ingestion.source.boomi.config import BoomiSourceConfig
 from datahub.ingestion.source.boomi.constants import OperationDirection
@@ -274,9 +274,13 @@ def test_parse_process_shapes() -> None:
     assert info.description == "Orders"
     assert info.connector_actions == [
         ConnectorActionShape(
-            connector_type="http", action_type="Listen", connection_id="conn-http"
+            shape_name="shape2",
+            connector_type="http",
+            action_type="Listen",
+            connection_id="conn-http",
         ),
         ConnectorActionShape(
+            shape_name="shape3",
             connector_type="database",
             action_type="CREATE",
             connection_id="conn-1",
@@ -356,13 +360,13 @@ def test_parse_operations() -> None:
 
 
 def test_parse_database_profile() -> None:
-    profile = parse_database_profile_component(
+    profile = parse_profile_component(
         _db_profile("dbo.orders", "SELECT id FROM dbo.orders WHERE id &gt; ?")
     )
     assert profile.table_name == "dbo.orders"
     assert profile.statement_type == "select"
     assert profile.sql == "SELECT id FROM dbo.orders WHERE id > ?"
-    assert parse_database_profile_component(_db_profile("orders")).sql is None
+    assert parse_profile_component(_db_profile("orders")).sql is None
 
 
 @pytest.mark.parametrize(
@@ -572,6 +576,7 @@ def test_legacy_database_sql_path() -> None:
 
 
 def test_legacy_database_write_uses_sql_target_only() -> None:
+    # Without column lineage, a write's table lineage is its target only.
     resolver, _, _ = _resolver(
         {
             "conn-1": _legacy_connection(),
@@ -580,7 +585,8 @@ def test_legacy_database_write_uses_sql_target_only() -> None:
                 "dbo.orders",
                 "INSERT INTO dbo.orders (id) SELECT id FROM dbo.staging_orders",
             ),
-        }
+        },
+        include_column_lineage=False,
     )
 
     lineage = resolver.resolve_process(_info(_shape("conn-1", "op-1", "Send")))

@@ -9,13 +9,18 @@ from datahub.ingestion.source.boomi.constants import (
     FIELD_ID_QUERY,
     FIELD_ID_SCHEMA_NAME,
     FIELD_ID_URL,
+    GENERIC_OPERATION_PROFILE_ATTRIBUTES,
     GET_ACTION_SUFFIX,
     JDBC_VALUE_PREFIX,
+    PROFILE_FIELD_ELEMENTS,
+    PROFILE_PATH_SEPARATOR,
     READ_OPERATION_TYPES,
     SEND_ACTION_SUFFIX,
     SHAPE_TYPE_CONNECTOR_ACTION,
+    SHAPE_TYPE_MAP,
     SHAPE_TYPE_PROCESS_CALL,
     SQL_FIELD_ID_MARKERS,
+    VALUE_FALSE,
     WRITE_OPERATION_TYPES,
     XML_ATTR_ACTION_TYPE,
     XML_ATTR_ADDITIONAL,
@@ -25,8 +30,16 @@ from datahub.ingestion.source.boomi.constants import (
     XML_ATTR_DB_NAME,
     XML_ATTR_DRIVER_ID,
     XML_ATTR_FOLDER_FULL_PATH,
+    XML_ATTR_FROM_FUNCTION,
+    XML_ATTR_FROM_KEY,
+    XML_ATTR_FROM_PROFILE,
+    XML_ATTR_FROM_TYPE,
     XML_ATTR_HOST,
     XML_ATTR_ID,
+    XML_ATTR_IS_MAPPABLE,
+    XML_ATTR_KEY,
+    XML_ATTR_MAP_ID,
+    XML_ATTR_NAME,
     XML_ATTR_OBJECT_NAME,
     XML_ATTR_OBJECT_TYPE_ID,
     XML_ATTR_OBJECT_TYPE_NAME,
@@ -39,16 +52,28 @@ from datahub.ingestion.source.boomi.constants import (
     XML_ATTR_STATEMENT_TYPE,
     XML_ATTR_SUB_TYPE,
     XML_ATTR_TABLE_NAME,
+    XML_ATTR_TO_FUNCTION,
+    XML_ATTR_TO_KEY,
+    XML_ATTR_TO_PROFILE,
+    XML_ATTR_TO_SHAPE,
+    XML_ATTR_TO_TYPE,
+    XML_ATTR_TYPE,
     XML_ATTR_URL_FORMAT,
     XML_ATTR_VALUE,
     XML_DB_PROFILE_ELEMENTS,
     XML_ELEMENT_CONNECTOR_ACTION,
+    XML_ELEMENT_DATA_ELEMENTS,
     XML_ELEMENT_DB_CONNECTION_SETTINGS,
     XML_ELEMENT_DB_STATEMENT,
     XML_ELEMENT_DESCRIPTION,
+    XML_ELEMENT_DRAGPOINT,
     XML_ELEMENT_FIELD,
+    XML_ELEMENT_FUNCTION_STEP,
     XML_ELEMENT_GENERIC_CONNECTION_CONFIG,
     XML_ELEMENT_GENERIC_OPERATION_CONFIG,
+    XML_ELEMENT_MAP,
+    XML_ELEMENT_MAP_SHAPE,
+    XML_ELEMENT_MAPPING,
     XML_ELEMENT_PROCESS_CALL,
     XML_ELEMENT_SHAPE,
     XML_ELEMENT_SQL,
@@ -58,9 +83,14 @@ from datahub.ingestion.source.boomi.constants import (
 from datahub.ingestion.source.boomi.models import (
     ConnectionComponent,
     ConnectorActionShape,
-    DatabaseProfileComponent,
+    MapComponent,
+    MapFunction,
+    MapMapping,
+    MapShape,
     OperationComponent,
     ProcessComponentInfo,
+    ProfileComponent,
+    ProfileField,
 )
 
 # Field ids alone are not enough: settings such as `queryTimeout` also match
@@ -141,13 +171,23 @@ def parse_process_component(xml_text: str) -> ProcessComponentInfo:
             break
     connector_actions: List[ConnectorActionShape] = []
     process_call_ids: List[str] = []
+    map_shapes: List[MapShape] = []
+    next_shapes: Dict[str, List[str]] = {}
     for shape in _iter_local(root, XML_ELEMENT_SHAPE):
         shape_type = _attr(shape, XML_ATTR_SHAPE_TYPE)
+        shape_name = _attr(shape, XML_ATTR_NAME)
+        if shape_name:
+            targets = [
+                _attr(dragpoint, XML_ATTR_TO_SHAPE)
+                for dragpoint in _iter_local(shape, XML_ELEMENT_DRAGPOINT)
+            ]
+            next_shapes[shape_name] = [target for target in targets if target]
         if shape_type == SHAPE_TYPE_CONNECTOR_ACTION:
             action = _find_local(shape, XML_ELEMENT_CONNECTOR_ACTION)
             if action is not None:
                 connector_actions.append(
                     ConnectorActionShape(
+                        shape_name=shape_name,
                         connector_type=_attr(action, XML_ATTR_CONNECTOR_TYPE),
                         action_type=_attr(action, XML_ATTR_ACTION_TYPE),
                         connection_id=_attr(action, XML_ATTR_CONNECTION_ID),
@@ -160,11 +200,17 @@ def parse_process_component(xml_text: str) -> ProcessComponentInfo:
             )
             if process_id:
                 process_call_ids.append(process_id)
+        elif shape_type == SHAPE_TYPE_MAP:
+            map_id = _attr(_find_local(shape, XML_ELEMENT_MAP_SHAPE), XML_ATTR_MAP_ID)
+            if shape_name and map_id:
+                map_shapes.append(MapShape(shape_name=shape_name, map_id=map_id))
     return ProcessComponentInfo(
         description=description,
         folder_full_path=root.attrib.get(XML_ATTR_FOLDER_FULL_PATH),
         connector_actions=connector_actions,
         process_call_ids=process_call_ids,
+        map_shapes=map_shapes,
+        next_shapes=next_shapes,
     )
 
 
@@ -233,6 +279,9 @@ def parse_operation_component(xml_text: str) -> OperationComponent:
     candidates.extend(
         _attr(action, attribute) for attribute in DB_ACTION_PROFILE_ATTRIBUTES
     )
+    candidates.extend(
+        _attr(generic, attribute) for attribute in GENERIC_OPERATION_PROFILE_ATTRIBUTES
+    )
     for profile_id in candidates:
         if profile_id and profile_id not in profile_ids:
             profile_ids.append(profile_id)
@@ -253,13 +302,81 @@ def parse_operation_component(xml_text: str) -> OperationComponent:
     )
 
 
-def parse_database_profile_component(xml_text: str) -> DatabaseProfileComponent:
+def _profile_fields(
+    element: Element,
+    path: List[str],
+    depth: int,
+    fields: Dict[str, ProfileField],
+) -> None:
+    for child in element:
+        name = _attr(child, XML_ATTR_NAME)
+        key = _attr(child, XML_ATTR_KEY)
+        child_path = path + [name] if name else path
+        child_depth = depth
+        if local_name(child.tag) in PROFILE_FIELD_ELEMENTS and name and key:
+            child_depth += 1
+            # Elements without isMappable, such as database fields, are values.
+            if (_attr(child, XML_ATTR_IS_MAPPABLE) or "").lower() != VALUE_FALSE:
+                fields[key] = ProfileField(
+                    name=name,
+                    path=PROFILE_PATH_SEPARATOR.join(child_path),
+                    depth=depth,
+                )
+        _profile_fields(child, child_path, child_depth, fields)
+
+
+def parse_profile_component(xml_text: str) -> ProfileComponent:
     root = defusedxml.ElementTree.fromstring(xml_text)
     statement = _find_local(root, XML_ELEMENT_DB_STATEMENT)
     sql_element = _find_local(statement, XML_ELEMENT_SQL)
     sql = (sql_element.text or "").strip() if sql_element is not None else ""
-    return DatabaseProfileComponent(
+    fields: Dict[str, ProfileField] = {}
+    data_elements = _find_local(root, XML_ELEMENT_DATA_ELEMENTS)
+    if data_elements is not None:
+        _profile_fields(data_elements, [], 0, fields)
+    return ProfileComponent(
+        component_type=_attr(root, XML_ATTR_TYPE),
         table_name=_attr(statement, XML_ATTR_TABLE_NAME),
         statement_type=_attr(statement, XML_ATTR_STATEMENT_TYPE),
         sql=sql or None,
+        fields=fields,
+    )
+
+
+def parse_map_component(xml_text: str) -> MapComponent:
+    root = defusedxml.ElementTree.fromstring(xml_text)
+    map_element = _find_local(root, XML_ELEMENT_MAP)
+    mappings: List[MapMapping] = []
+    functions: Dict[str, MapFunction] = {}
+    if map_element is not None:
+        for mapping in _iter_local(map_element, XML_ELEMENT_MAPPING):
+            from_key = _attr(mapping, XML_ATTR_FROM_KEY)
+            from_type = _attr(mapping, XML_ATTR_FROM_TYPE)
+            to_key = _attr(mapping, XML_ATTR_TO_KEY)
+            to_type = _attr(mapping, XML_ATTR_TO_TYPE)
+            if not (from_key and from_type and to_key and to_type):
+                continue
+            mappings.append(
+                MapMapping(
+                    from_key=from_key,
+                    from_type=from_type,
+                    from_function=_attr(mapping, XML_ATTR_FROM_FUNCTION),
+                    to_key=to_key,
+                    to_type=to_type,
+                    to_function=_attr(mapping, XML_ATTR_TO_FUNCTION),
+                )
+            )
+        for step in _iter_local(map_element, XML_ELEMENT_FUNCTION_STEP):
+            key = _attr(step, XML_ATTR_KEY)
+            if key:
+                functions[key] = MapFunction(
+                    key=key,
+                    type=_attr(step, XML_ATTR_TYPE),
+                    name=_attr(step, XML_ATTR_NAME),
+                )
+    return MapComponent(
+        from_profile=_attr(map_element, XML_ATTR_FROM_PROFILE),
+        to_profile=_attr(map_element, XML_ATTR_TO_PROFILE),
+        mappings=mappings,
+        functions=functions,
     )

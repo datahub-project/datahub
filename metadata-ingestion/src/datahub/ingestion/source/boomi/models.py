@@ -107,10 +107,16 @@ class GroupingExpression(BoomiModel):
 
 
 class ConnectorActionShape(BaseModel):
+    shape_name: Optional[str] = None
     connector_type: Optional[str] = None
     action_type: Optional[str] = None
     connection_id: Optional[str] = None
     operation_id: Optional[str] = None
+
+
+class MapShape(BaseModel):
+    shape_name: str
+    map_id: str
 
 
 class ProcessComponentInfo(BaseModel):
@@ -118,6 +124,9 @@ class ProcessComponentInfo(BaseModel):
     folder_full_path: Optional[str] = None
     connector_actions: List[ConnectorActionShape] = Field(default_factory=list)
     process_call_ids: List[str] = Field(default_factory=list)
+    map_shapes: List[MapShape] = Field(default_factory=list)
+    # Shape name -> names of the shapes its dragpoints lead to.
+    next_shapes: Dict[str, List[str]] = Field(default_factory=dict)
 
 
 class ConnectionComponent(BaseModel):
@@ -152,10 +161,45 @@ class OperationComponent(BaseModel):
     profile_ids: List[str] = Field(default_factory=list)
 
 
-class DatabaseProfileComponent(BaseModel):
+class ProfileField(BaseModel):
+    name: str
+    path: str
+    # Number of enclosing field elements. An XML or JSON record's own fields
+    # sit at depth 1, under the root element; deeper ones belong to related
+    # records or sub-objects.
+    depth: int
+
+
+class ProfileComponent(BaseModel):
+    component_type: Optional[str] = None
+    # Database profiles only.
     table_name: Optional[str] = None
     statement_type: Optional[str] = None
     sql: Optional[str] = None
+    # Field key -> field. Keys are unique within a profile.
+    fields: Dict[str, ProfileField] = Field(default_factory=dict)
+
+
+class MapMapping(BaseModel):
+    from_key: str
+    from_type: str
+    from_function: Optional[str] = None
+    to_key: str
+    to_type: str
+    to_function: Optional[str] = None
+
+
+class MapFunction(BaseModel):
+    key: str
+    type: Optional[str] = None
+    name: Optional[str] = None
+
+
+class MapComponent(BaseModel):
+    from_profile: Optional[str] = None
+    to_profile: Optional[str] = None
+    mappings: List[MapMapping] = Field(default_factory=list)
+    functions: Dict[str, MapFunction] = Field(default_factory=dict)
 
 
 class JdbcLocation(BaseModel):
@@ -173,10 +217,17 @@ class ConnectionTarget(BaseModel):
     convert_urns_to_lowercase: bool = True
 
 
+class ColumnLineageEdge(BaseModel):
+    upstreams: List[str]
+    downstream: str
+    transform: str
+
+
 class ProcessLineage(BaseModel):
     input_datasets: List[str] = Field(default_factory=list)
     output_datasets: List[str] = Field(default_factory=list)
     child_process_ids: List[str] = Field(default_factory=list)
+    column_lineage: List[ColumnLineageEdge] = Field(default_factory=list)
     # A connection, operation or profile could not be read, so the edges are
     # partial and must not replace lineage stored by an earlier run.
     incomplete: bool = False

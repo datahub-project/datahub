@@ -1,6 +1,6 @@
 ### Overview
 
-The `boomi` module ingests Boomi Integration processes and their folders through the Boomi Platform API. Each process becomes a DataFlow with a single `process` DataJob. The DataJob carries lineage to the tables and objects its connector operations read and write, and to the processes it calls. Recent executions become run history on that DataJob. By default only processes with an active deployment are ingested.
+The `boomi` module ingests Boomi Integration processes and their folders through the Boomi Platform API. Each process becomes a DataFlow with a single `process` DataJob. The DataJob carries lineage to the tables and objects its connector operations read and write, column lineage through its Map shapes, and lineage to the processes it calls. Recent executions become run history on that DataJob. By default only processes with an active deployment are ingested.
 
 ### Prerequisites
 
@@ -21,7 +21,7 @@ Boomi has no built-in read-only API role. Create a custom role with the privileg
 | Privilege                      | Needed for                                                                                                                           |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
 | API Access                     | All Platform API calls.                                                                                                              |
-| Build Read Access              | Listing processes (`ComponentMetadata`), reading process, connection, operation and profile components, and listing folders.         |
+| Build Read Access              | Listing processes (`ComponentMetadata`), reading process, connection, operation, profile and map components, and listing folders.    |
 | Runtime Management Read Access | Environment names.                                                                                                                   |
 | Packaged Component Deployment  | Reading active deployments (`DeployedPackage`). Without it, the source plugin ingests every process and skips deployment properties. |
 | View Results                   | Reading execution history (`ExecutionRecord`). Without it, the source plugin skips run history and logs a warning.                   |

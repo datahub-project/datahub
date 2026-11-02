@@ -148,6 +148,16 @@ class BoomiSourceConfig(
             "one API call per distinct connection, operation and database profile."
         ),
     )
+    include_column_lineage: bool = Field(
+        default=True,
+        description=(
+            "Emit column lineage from Map shapes between a database or "
+            "Salesforce read and write, and from SQL that inserts from a "
+            "SELECT. Only applies when `include_lineage` is enabled. When the "
+            "source runs with a DataHub graph, column names are matched to the "
+            "dataset schemas stored there."
+        ),
+    )
     connection_type_platform_map: Dict[str, str] = Field(
         default_factory=dict,
         description=(
