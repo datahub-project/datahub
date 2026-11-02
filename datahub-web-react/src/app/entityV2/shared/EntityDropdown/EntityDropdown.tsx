@@ -318,11 +318,16 @@ const EntityDropdown = (props: Props) => {
     }
 
     if (menuItems.has(EntityMenuItems.EDIT) && onEdit) {
+        const editDisabled = entityType === EntityType.DataProduct && !entityData?.privileges?.canManageEntity;
         menuItemsList.push({
             type: 'item' as const,
             key: '9',
             title: tc('edit'),
             icon: Pencil,
+            disabled: editDisabled,
+            tooltip: editDisabled
+                ? t('edit.noPermission', { entityName: entityRegistry.getEntityName(entityType) })
+                : undefined,
             onClick: onEdit,
         });
     }
@@ -509,11 +514,14 @@ const EntityDropdown = (props: Props) => {
     // Delete should always be last (destructive action)
     if (menuItems.has(EntityMenuItems.DELETE)) {
         let deleteTooltip: string | undefined;
+        const deleteDisabled = isDeleteDisabled(entityType, entityData, me.platformPrivileges);
+        const entityName = entityRegistry.getEntityName(entityType);
         if (shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)) {
-            const entityName = entityRegistry.getEntityName(entityType);
             deleteTooltip = isDomainEntity
                 ? t('delete.cantDeleteSubDomain', { entityName })
                 : t('delete.cantDeleteChild', { entityName });
+        } else if (deleteDisabled) {
+            deleteTooltip = t('delete.noPermission', { entityName });
         }
         menuItemsList.push({
             type: 'item' as const,
@@ -521,7 +529,7 @@ const EntityDropdown = (props: Props) => {
             title: isGlossaryTermVersion(entityType, entityData) ? t('delete.versionTitle') : tc('delete'),
             icon: Trash,
             danger: true,
-            disabled: isDeleteDisabled(entityType, entityData, me.platformPrivileges),
+            disabled: deleteDisabled,
             tooltip: deleteTooltip,
             onClick: onDeleteEntity,
             'data-testid': 'entity-menu-delete-button',

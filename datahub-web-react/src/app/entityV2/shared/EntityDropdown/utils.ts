@@ -58,7 +58,7 @@ export function isDeleteDisabled(
         return !canDeleteGlossaryEntity;
     }
     if (entityType === EntityType.DataProduct) {
-        return false; // TODO: update with permissions
+        return !entityData?.privileges?.canDeleteEntity;
     }
     if (entityType === EntityType.Domain) {
         const entityHasChildren = !!entityData?.children?.total;

@@ -6,6 +6,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -26,6 +27,8 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.domain.Domains;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
@@ -35,6 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -71,6 +75,10 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
               return getDataJobPrivileges(urn, context);
             case Constants.DOCUMENT_ENTITY_NAME:
               return getDocumentPrivileges(urn, context);
+            case Constants.DOMAIN_ENTITY_NAME:
+              return getDomainPrivileges(urn, context);
+            case Constants.DATA_PRODUCT_ENTITY_NAME:
+              return getDataProductPrivileges(urn, context);
             case Constants.QUERY_ENTITY_NAME:
               return getQueryPrivileges(urn, context);
             default:
@@ -218,6 +226,50 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
             List.of(urn),
             EntityAspectAuthorizationUtils.requireAllQuerySubjects(opContext))
         .contains(urn);
+  }
+
+  private EntityPrivileges getDomainPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    result.setCanManageDataProducts(
+        DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, urn));
+    return result;
+  }
+
+  /**
+   * Mirrors the checks in UpdateDataProductResolver, DeleteDataProductResolver and the product-side
+   * membership check in BatchSetDataProductResolver.
+   */
+  private EntityPrivileges getDataProductPrivileges(Urn urn, QueryContext context) {
+    final EntityPrivileges result = new EntityPrivileges();
+    addCommonPrivileges(result, urn, context);
+    final boolean canManage =
+        DataProductAuthorizationUtils.isAuthorizedToManageDataProduct(
+            context, urn, getDataProductDomains(urn, context));
+    result.setCanManageEntity(canManage);
+    // Deleting also falls back to the DELETE privilege on the product itself.
+    result.setCanDeleteEntity(canManage || AuthorizationUtils.canDeleteEntity(urn, context));
+    return result;
+  }
+
+  @Nullable
+  private Domains getDataProductDomains(Urn urn, QueryContext context) {
+    try {
+      final EntityResponse response =
+          _entityClient.getV2(
+              context.getOperationContext(),
+              Constants.DATA_PRODUCT_ENTITY_NAME,
+              urn,
+              ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME));
+      if (response != null && response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
+        return new Domains(
+            response.getAspects().get(Constants.DOMAINS_ASPECT_NAME).getValue().data());
+      }
+    } catch (Exception e) {
+      // Without domains the check falls back to product EDIT_ENTITY or MANAGE_DOMAINS.
+      log.warn("Failed to fetch domains for data product {}", urn, e);
+    }
+    return null;
   }
 
   private EntityPrivileges getDocumentPrivileges(Urn urn, QueryContext context) {

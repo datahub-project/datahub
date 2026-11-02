@@ -11,8 +11,10 @@ import com.linkedin.datahub.graphql.generated.BusinessAttribute;
 import com.linkedin.datahub.graphql.generated.Chart;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DataJob;
+import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Document;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
@@ -36,6 +38,8 @@ public class EntityPrivilegesResolverTest {
       "urn:li:dataJob:(urn:li:dataFlow:(spark,test_machine.sparkTestApp,local),QueryExecId_31)";
   final String businessAttributeUrn = "urn:li:businessAttribute:testBusinessAttribute";
   final String documentUrn = "urn:li:document:test-document";
+  final String domainUrn = "urn:li:domain:test-domain";
+  final String dataProductUrn = "urn:li:dataProduct:test-product";
 
   private DataFetchingEnvironment setUpTestWithPermissions(Entity entity) {
     QueryContext mockContext = getMockAllowContext();
@@ -481,6 +485,70 @@ public class EntityPrivilegesResolverTest {
     EntityPrivileges result = resolver.get(mockEnv).get();
 
     assertTrue(result.getCanViewQueries());
+  }
+
+  @Test
+  public void testGetDomainCanManageDataProductsWithManageDataProductsPrivilege() throws Exception {
+    Domain domain = new Domain();
+    domain.setUrn(domainUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv =
+        setUpTestWithContext(domain, contextGrantingOnly("MANAGE_DATA_PRODUCTS"));
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertTrue(result.getCanManageDataProducts());
+  }
+
+  @Test
+  public void testGetDomainCannotManageDataProductsWithoutPrivilege() throws Exception {
+    Domain domain = new Domain();
+    domain.setUrn(domainUrn);
+
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithContext(domain, contextGrantingOnly());
+
+    EntityPrivilegesResolver resolver = new EntityPrivilegesResolver(mockClient);
+    EntityPrivileges result = resolver.get(mockEnv).get();
+
+    assertFalse(result.getCanManageDataProducts());
+  }
+
+  @Test
+  public void testGetDataProductPrivilegesWithoutDomainFallsBackToEditEntity() throws Exception {
+    EntityPrivileges result = getDataProductPrivileges(contextGrantingOnly("EDIT_ENTITY"));
+
+    assertTrue(result.getCanManageEntity());
+    assertTrue(result.getCanDeleteEntity());
+  }
+
+  @Test
+  public void testGetDataProductPrivilegesWithOnlyDeletePrivilege() throws Exception {
+    EntityPrivileges result = getDataProductPrivileges(contextGrantingOnly("DELETE_ENTITY"));
+
+    assertFalse(result.getCanManageEntity());
+    assertTrue(result.getCanDeleteEntity());
+  }
+
+  @Test
+  public void testGetDataProductPrivilegesUnauthorized() throws Exception {
+    EntityPrivileges result = getDataProductPrivileges(contextGrantingOnly());
+
+    assertFalse(result.getCanManageEntity());
+    assertFalse(result.getCanDeleteEntity());
+  }
+
+  private EntityPrivileges getDataProductPrivileges(QueryContext context) throws Exception {
+    DataProduct dataProduct = new DataProduct();
+    dataProduct.setUrn(dataProductUrn);
+
+    // No domains aspect: the product has no Domain.
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv = setUpTestWithContext(dataProduct, context);
+
+    return new EntityPrivilegesResolver(mockClient).get(mockEnv).get();
   }
 
   private QueryContext contextWithViewAuthConfig(

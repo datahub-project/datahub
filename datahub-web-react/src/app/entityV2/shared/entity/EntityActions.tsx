@@ -249,6 +249,7 @@ function EntityActions(props: Props) {
 
     const { entityData } = useEntityData();
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+    const canManageDataProduct = !!entityData?.privileges?.canManageEntity;
 
     return (
         <>
@@ -279,20 +280,23 @@ function EntityActions(props: Props) {
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DATA_PRODUCT) && (
                     <Tooltip
-                        title={t('addDataProductTooltip')}
+                        title={canManageDataProduct ? t('addDataProductTooltip') : t('addDataProductUnauthorized')}
                         showArrow={false}
                         placement="bottom"
                         data-testid="data-product-batch-add"
                     >
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsBatchSetDataProductModalVisible(true)}
-                            size="sm"
-                            data-testid="data-product-batch-add"
-                        >
-                            <LinkSimple size={14} />
-                            {t('addAssets')}
-                        </Button>
+                        <span>
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsBatchSetDataProductModalVisible(true)}
+                                size="sm"
+                                disabled={!canManageDataProduct}
+                                data-testid="data-product-batch-add"
+                            >
+                                <LinkSimple size={14} />
+                                {t('addAssets')}
+                            </Button>
+                        </span>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_NODE) && (

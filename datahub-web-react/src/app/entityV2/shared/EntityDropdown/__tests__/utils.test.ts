@@ -4,6 +4,7 @@ import {
     canShowEditDeprecation,
     getDeprecationMenuActions,
     getSelectableStages,
+    isDeleteDisabled,
     isGlossaryTermVersion,
     suggestNextVersionLabel,
 } from '@app/entityV2/shared/EntityDropdown/utils';
@@ -126,5 +127,19 @@ describe('isGlossaryTermVersion', () => {
         expect(isGlossaryTermVersion(EntityType.GlossaryTerm, versioned)).toBe(true);
         expect(isGlossaryTermVersion(EntityType.GlossaryTerm, {} as GenericEntityProperties)).toBe(false);
         expect(isGlossaryTermVersion(EntityType.Dataset, versioned)).toBe(false);
+    });
+});
+
+describe('isDeleteDisabled', () => {
+    describe('DataProduct deletion', () => {
+        it('disables delete when user lacks canDeleteEntity', () => {
+            const entityData = { privileges: { canDeleteEntity: false } as EntityPrivileges };
+            expect(isDeleteDisabled(EntityType.DataProduct, entityData as GenericEntityProperties, null)).toBe(true);
+        });
+
+        it('enables delete when user has canDeleteEntity', () => {
+            const entityData = { privileges: { canDeleteEntity: true } as EntityPrivileges };
+            expect(isDeleteDisabled(EntityType.DataProduct, entityData as GenericEntityProperties, null)).toBe(false);
+        });
     });
 });

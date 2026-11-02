@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { Button, type ButtonProps } from '@components/components/Button';
 import { Icon } from '@components/components/Icon';
 import { Text } from '@components/components/Text';
+import { Tooltip } from '@components/components/Tooltip';
 import { typography } from '@components/theme';
 
 import { ModalContext } from '@app/sharedV2/modals/ModalContext';
@@ -87,6 +88,7 @@ export interface ModalButton extends ButtonProps {
     key?: string;
     onClick: () => void;
     buttonDataTestId?: string;
+    tooltip?: string;
 }
 
 export interface ModalProps {
@@ -119,19 +121,33 @@ export function Modal({
             ? footer
             : !!buttons?.length && (
                   <ButtonsContainer>
-                      {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
-                          <Button
-                              key={key || text}
-                              data-testid={buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)}
-                              variant={variant}
-                              onClick={onClick}
-                              {...buttonProps}
-                          >
-                              <Text type="span" weight="bold" lineHeight="none">
-                                  {text}
-                              </Text>
-                          </Button>
-                      ))}
+                      {buttons.map(
+                          ({ text, variant, onClick, key, buttonDataTestId, tooltip, ...buttonProps }, index) => {
+                              const button = (
+                                  <Button
+                                      key={key || text}
+                                      data-testid={
+                                          buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)
+                                      }
+                                      variant={variant}
+                                      onClick={onClick}
+                                      {...buttonProps}
+                                  >
+                                      <Text type="span" weight="bold" lineHeight="none">
+                                          {text}
+                                      </Text>
+                                  </Button>
+                              );
+                              if (!tooltip) {
+                                  return button;
+                              }
+                              return (
+                                  <Tooltip key={key || text} title={tooltip} showArrow={false}>
+                                      <span>{button}</span>
+                                  </Tooltip>
+                              );
+                          },
+                      )}
                   </ButtonsContainer>
               );
 

@@ -1,4 +1,4 @@
-import { Button, EmptyState, Loader, Pagination } from '@components';
+import { Button, EmptyState, Loader, Pagination, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import * as QueryString from 'query-string';
 import React, { useState } from 'react';
@@ -54,6 +54,7 @@ export default function DataProductsTab() {
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<string | undefined>(paramsQuery);
     const [page, setPage] = useState(1);
+    const canCreate = !!entityData?.privileges?.canManageDataProducts;
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(params.createModal === 'true');
     const [createdDataProducts, setCreatedDataProducts] = useState<DataProduct[]>([]);
     const [editedDataProducts, setEditedDataProducts] = useState<DataProduct[]>([]);
@@ -104,14 +105,19 @@ export default function DataProductsTab() {
     return (
         <>
             <TabToolbar>
-                <Button
-                    variant="text"
-                    icon={{ icon: Plus }}
-                    onClick={() => setIsCreateModalVisible(true)}
-                    data-testid="create-data-product-button"
-                >
-                    {t('dataProduct.newDataProduct')}
-                </Button>
+                <Tooltip title={canCreate ? null : t('dataProduct.createUnauthorized')}>
+                    <span>
+                        <Button
+                            variant="text"
+                            icon={{ icon: Plus }}
+                            onClick={() => setIsCreateModalVisible(true)}
+                            disabled={!canCreate}
+                            data-testid="create-data-product-button"
+                        >
+                            {t('dataProduct.newDataProduct')}
+                        </Button>
+                    </span>
+                </Tooltip>
                 <SearchBar
                     initialQuery={query || ''}
                     placeholderText={t('dataProduct.searchPlaceholder')}
@@ -159,7 +165,7 @@ export default function DataProductsTab() {
                     showSizeChanger={false}
                 />
             </DataProductsPaginationWrapper>
-            {isCreateModalVisible && (
+            {isCreateModalVisible && canCreate && (
                 <CreateDataProductModal
                     domain={entityData as Domain}
                     onCreateDataProduct={onCreateDataProduct}
