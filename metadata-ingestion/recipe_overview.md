@@ -254,7 +254,7 @@ urn:li:dataJob:(urn:li:dataFlow:(datahub,<pipeline_name>,PROD),<job_id>)
 
 Whether those deletions happen quietly depends on how much the two scopes overlap. `stateful_ingestion.fail_safe_threshold` (default `75.0`) measures the change against the previous state as `(1 - overlap / previous entity count) × 100` and blocks deletion above that:
 
-- **Nested scopes** — a broad recipe plus a narrower one inside it — keep enough overlap to stay under the threshold, so everything outside the narrow scope is soft-deleted silently. This is the dangerous case.
+- **Nested scopes** — a broad recipe plus a narrower one inside it — keep enough overlap to stay under the threshold when the narrow scope is at least a quarter of the broad one. Everything outside the narrow scope is then soft-deleted silently. This is the dangerous case. A much smaller narrow scope trips the guard instead.
 - **Disjoint scopes** — two separate schemas, say — share no entities, so every run scores 100% and trips the guard: nothing is deleted, but the run reports a failure each time.
 
 **Two recipes running different connectors under one name** do not collide in state, because the job id differs. They do still interleave run telemetry, leave `systemMetadata.pipelineName` ambiguous about which recipe wrote an entity, and point `datahub ingest deploy` at the wrong ingestion source.
