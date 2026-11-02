@@ -54,6 +54,30 @@ describe('judgeMetric', () => {
         assert.equal(judged.label, 'no change');
     });
 
+    it('does not call no change when only the percent bound holds', () => {
+        const judged = judgeMetric({
+            aRaw: [2000, 2000, 2000],
+            bRaw: [2080, 2080, 2080],
+            aP50: 2000,
+            bP50: 2080,
+            deltaPct: 4,
+            targetN: 3,
+        });
+        assert.equal(judged.label, 'regression');
+    });
+
+    it('does not call no change when only the absolute bound holds', () => {
+        const judged = judgeMetric({
+            aRaw: [1000, 1000, 1000],
+            bRaw: [1060, 1060, 1060],
+            aP50: 1000,
+            bP50: 1060,
+            deltaPct: 6,
+            targetN: 3,
+        });
+        assert.equal(judged.label, 'regression');
+    });
+
     it('calls a separated slower first paint a regression', () => {
         const judged = judgeMetric({
             aRaw: [1000, 1000, 1000],
@@ -124,6 +148,24 @@ describe('judgeRoute', () => {
             3,
         );
         assert.equal(judged.label, 'improvement');
+        assert.equal(judged.expand, true);
+    });
+
+    it('stays one line when both metrics are no change', () => {
+        const judged = judgeRoute(
+            routeData([1000, 1000, 1000], [1040, 1040, 1040], [1000, 1000, 1000], [1040, 1040, 1040]),
+            3,
+        );
+        assert.equal(judged.label, 'no change');
+        assert.equal(judged.expand, false);
+    });
+
+    it('expands when both metrics regress', () => {
+        const judged = judgeRoute(
+            routeData([1000, 1000, 1000], [1200, 1200, 1200], [2000, 2000, 2000], [2500, 2500, 2500]),
+            3,
+        );
+        assert.equal(judged.label, 'regression');
         assert.equal(judged.expand, true);
     });
 

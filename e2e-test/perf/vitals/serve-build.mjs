@@ -145,11 +145,6 @@ function proxyRequest(req, res, targetBase) {
     req.pipe(upstream);
 }
 
-/**
- * Start a static+proxy server for a single build.
- * @param {{distDir: string, port: number, targetBase: string, label?: string}} opts
- * @returns {Promise<{server: http.Server, port: number, close: () => Promise<void>}>}
- */
 function isGraphqlPath(pathname) {
     return pathname === '/api/v2/graphql' || pathname === '/api/graphql';
 }
@@ -189,6 +184,12 @@ async function graphqlOperations(req) {
     return { batched: false, names: [fromQuery || (parsed && parsed.operationName) || null] };
 }
 
+/**
+ * Start a static+proxy server for a single build.
+ * `graphqlFixtures` answers GraphQL with the recorded signed-in shell payloads.
+ * @param {{distDir: string, port: number, targetBase: string, label?: string, stubApi?: boolean, graphqlFixtures?: boolean}} opts
+ * @returns {Promise<{server: http.Server, port: number, close: () => Promise<void>, unknownGraphqlOperations: () => string[]}>}
+ */
 export function startServer({ distDir, port, targetBase, label, stubApi, graphqlFixtures }) {
     const resolvedDist = path.resolve(distDir);
     if (!fs.existsSync(path.join(resolvedDist, 'index.html'))) {

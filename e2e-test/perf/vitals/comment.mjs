@@ -21,7 +21,7 @@ export function throttlingNote(throttlingConfig) {
     const latency = method === 'devtools' ? settings.requestLatencyMs : settings.rttMs;
     const kbps = method === 'devtools' ? settings.downloadThroughputKbps : settings.throughputKbps;
     const name = method === 'devtools' ? 'devtools' : 'Lantern';
-    const mbps = typeof kbps === 'number' ? `${Math.round(kbps / 1024)} Mbps` : '—';
+    const mbps = typeof kbps === 'number' ? `${Number((kbps / 1024).toFixed(1))} Mbps` : '—';
     return `${name}, CPU ${cpu ?? '—'}×, ${latency ?? '—'} ms, ${mbps}`;
 }
 
@@ -287,10 +287,9 @@ export const BOOT_COMMENT_INTRO =
     'Mixed means those two metrics moved in opposite directions. Lab deltas do not forecast a fleet p75.';
 
 export function renderBootComment({ login, home, loginError, homeError }) {
-    const blocks = [];
-    if (login) blocks.push(...renderRouteBlocks(login));
-    if (home) blocks.push(...renderRouteBlocks(home));
-    const anyExpanded = blocks.some((block) => block.expand);
+    const loginBlocks = login ? renderRouteBlocks(login) : [];
+    const homeBlocks = home ? renderRouteBlocks(home) : [];
+    const anyExpanded = [...loginBlocks, ...homeBlocks].some((block) => block.expand);
     const lines = ['## Boot web vitals (no backend)', ''];
     if (anyExpanded) {
         lines.push(BOOT_COMMENT_INTRO);
@@ -302,7 +301,7 @@ export function renderBootComment({ login, home, loginError, homeError }) {
     }
     if (login) {
         if ((login.raw_runs || []).some((run) => run.error)) lines.push(...failedRunLines(login));
-        for (const block of renderRouteBlocks(login)) lines.push(...block.lines);
+        for (const block of loginBlocks) lines.push(...block.lines);
     }
     if (homeError) {
         lines.push(`\`/\` — home run failed: ${homeError}`);
@@ -310,7 +309,7 @@ export function renderBootComment({ login, home, loginError, homeError }) {
     }
     if (home) {
         if ((home.raw_runs || []).some((run) => run.error)) lines.push(...failedRunLines(home));
-        for (const block of renderRouteBlocks(home)) lines.push(...block.lines);
+        for (const block of homeBlocks) lines.push(...block.lines);
         const unknown = home.stubUnknownOperations || [];
         if (unknown.length > 0) {
             lines.push('');

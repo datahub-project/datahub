@@ -51,10 +51,29 @@ export function pushLoginConfig(env = process.env) {
     };
 }
 
+// A wedged Lighthouse child must not block the other pass. The login comment
+// is written after both attempts, so a timed-out home run still leaves /login.
+export const LH_PASS_TIMEOUT_MS = 20 * 60 * 1000;
+
+export function bootOutcome({ loginRc, homeRc, loginReport, homeReport }) {
+    const loginError = loginReport ? null : `exit ${loginRc}`;
+    const homeError = homeReport ? null : `exit ${homeRc}`;
+    const warning = (homeError || homeRc !== 0) ? `home (/) run failed (exit ${homeRc})` : null;
+    const exitCode = !loginReport || loginRc !== 0 ? loginRc || 1 : 0;
+    return { loginError, homeError, warning, exitCode };
+}
+
 function runLh(configPath, { noAuth, out, mdOut }) {
     const args = [path.join(__dirname, 'lh-ab.mjs'), '--config', configPath, '--out', out, '--md-out', mdOut];
     if (noAuth) args.push('--no-auth');
-    const result = spawnSync(process.execPath, args, { cwd: __dirname, stdio: 'inherit' });
+    const result = spawnSync(process.execPath, args, {
+        cwd: __dirname,
+        stdio: 'inherit',
+        timeout: LH_PASS_TIMEOUT_MS,
+    });
+    if (result.error && result.error.code === 'ETIMEDOUT') {
+        process.stdout.write(`lighthouse pass timed out after ${LH_PASS_TIMEOUT_MS}ms: ${configPath}\n`);
+    }
     return result.status == null ? 1 : result.status;
 }
 
@@ -95,8 +114,12 @@ function main() {
 
     const login = loadReport(loginOut);
     const home = loadReport(homeOut);
-    const loginError = login ? null : `exit ${loginRc}`;
-    const homeError = home ? null : `exit ${homeRc}`;
+    const { loginError, homeError, warning, exitCode } = bootOutcome({
+        loginRc,
+        homeRc,
+        loginReport: login,
+        homeReport: home,
+    });
     const sha = process.env.HEAD_SHA || process.env.GITHUB_SHA || '';
     const combined = {
         suite: 'web-vitals-boot',
@@ -115,11 +138,11 @@ function main() {
 
     // Home does not gate the job, so surface its failure as a workflow annotation
     // rather than only a line in the PR comment.
-    if (homeError || homeRc !== 0) {
-        process.stdout.write(`::warning title=Boot web vitals::home (/) run failed (exit ${homeRc})\n`);
+    if (warning) {
+        process.stdout.write(`::warning title=Boot web vitals::${warning}\n`);
     }
 
-    if (!login || loginRc !== 0) process.exit(loginRc || 1);
+    if (exitCode !== 0) process.exit(exitCode);
 }
 
 const isDirectRun = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

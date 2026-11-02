@@ -180,10 +180,10 @@ const FIXTURES = {
 };
 
 export function hasGraphqlFixture(operationName) {
-    return Object.hasOwn(FIXTURES, operationName);
+    return typeof operationName === 'string' && Object.hasOwn(FIXTURES, operationName);
 }
 
 export function graphqlStubData(operationName) {
-    const build = FIXTURES[operationName];
-    return build ? build() : {};
+    if (!hasGraphqlFixture(operationName)) return {};
+    return FIXTURES[operationName]();
 }
