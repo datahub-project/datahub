@@ -1,4 +1,5 @@
 import datetime
+import functools
 import logging
 import os
 import re
@@ -110,6 +111,14 @@ class FolderTraversalMethod(Enum):
     ALL = "ALL"
     MIN_MAX = "MIN_MAX"
     MAX = "MAX"
+
+
+# glob.compile(...) uses the same wcmatch internals as PurePath.globmatch, so results
+# match as long as the subject path is normalized the same way (see
+# PathSpec._globmatch).
+@functools.lru_cache(maxsize=1024)
+def _compile_globs(patterns: Tuple[str, ...]) -> "glob.WcMatcher":
+    return glob.compile(list(patterns), flags=glob.GLOBSTAR)
 
 
 class PathSpec(ConfigModel):
@@ -744,19 +753,20 @@ class PathSpec(ConfigModel):
         logger.debug(f"Setting _glob_include: {glob_include}")
         return glob_include
 
-    # glob.compile(...) uses the same wcmatch internals as PurePath.globmatch, so results
-    # match as long as the subject path is normalized the same way (see _globmatch).
-    @cached_property
-    def _include_matcher(self):
-        return glob.compile([self.glob_include], flags=glob.GLOBSTAR)
+    @functools.cached_property
+    def _include_matcher(self) -> "glob.WcMatcher":
+        return _compile_globs((self.glob_include,))
 
-    @cached_property
-    def _exclude_matcher(self):
-        return (
-            glob.compile(list(self.exclude), flags=glob.GLOBSTAR)
-            if self.exclude
-            else None
-        )
+    @functools.cached_property
+    def _exclude_matcher(self) -> Optional["glob.WcMatcher"]:
+        return _compile_globs(tuple(self.exclude)) if self.exclude else None
+
+    @staticmethod
+    def glob_matches(path: str, pattern: str) -> bool:
+        """The glob test `allowed` applies to the include and exclude patterns.
+        Callers that match other globs the same way (e.g. the path_spec probe)
+        use this so the two can't drift apart."""
+        return PathSpec._globmatch(_compile_globs((pattern,)), path)
 
     @staticmethod
     def _globmatch(matcher: "glob.WcMatcher", path: str) -> bool:
