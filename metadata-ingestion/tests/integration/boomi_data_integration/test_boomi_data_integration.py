@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,7 +25,6 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 
 ENV_PROD = "env-prod"
 ENV_DEV = "env-dev"
-ENV_LOCKED = "env-locked"
 
 
 def _environment(
@@ -465,7 +464,6 @@ def _register_mocks(
     mock.get(
         f"{BASE_URL}/environments/{ENV_DEV}", json=_environment(ENV_DEV, "Development")
     )
-    mock.get(f"{BASE_URL}/environments/{ENV_LOCKED}", status_code=403, text="denied")
     mock.get(
         f"{BASE_URL}/environments/{ENV_PROD}/rivers?page=1",
         json=_page(PROD_PAGE_1, ENV_PROD, next_page="page-2"),
@@ -503,11 +501,10 @@ def _recipe(output_path: Path) -> Dict[str, object]:
             "config": {
                 "account_id": ACCOUNT_ID,
                 "region": "eu",
-                "environment_tokens": {
-                    ENV_PROD: "token-prod",
-                    ENV_DEV: "token-dev",
-                    ENV_LOCKED: "token-locked",
-                },
+                "environment_tokens": [
+                    {"environment_id": ENV_PROD, "api_token": "token-prod"},
+                    {"environment_id": ENV_DEV, "api_token": "token-dev"},
+                ],
                 "river_pattern": {"deny": ["^tmp_.*"]},
                 "connection_to_platform": {
                     "conn-bq": {"platform": "bigquery", "database": "my-gcp-project"},
@@ -545,7 +542,7 @@ def test_boomi_data_integration_ingestion(
     report = pipeline.source.get_report()
     assert isinstance(report, BoomiDataIntegrationSourceReport)
     assert report.environments_emitted == 2
-    assert list(report.environments_inaccessible) == [ENV_LOCKED]
+    assert list(report.environments_inaccessible) == []
     assert report.rivers_emitted == 9
     assert list(report.rivers_filtered) == ["tmp_scratch"]
     assert report.rivers_without_definition == 1
@@ -553,10 +550,7 @@ def test_boomi_data_integration_ingestion(
     assert report.logic_steps_disabled == 1
     assert report.targets_object_storage_skipped == 1
     assert len(report.targets_prefix_skipped) == 1
-    assert [w.title for w in report.warnings] == [
-        "Environment not accessible",
-        "River definitions unavailable",
-    ]
+    assert [w.title for w in report.warnings] == ["River definitions unavailable"]
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -565,12 +559,8 @@ def test_boomi_data_integration_ingestion(
     )
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
-@pytest.mark.integration
-def test_boomi_data_integration_stateful_removes_deleted_river(
-    tmp_path: Path, mock_datahub_graph: MagicMock
-) -> None:
-    recipe = _recipe(tmp_path / "run1.json")
+def _stateful_recipe(output_path: Path) -> Dict[str, object]:
+    recipe = _recipe(output_path)
     source_config = recipe["source"]["config"]  # type: ignore[index]
     source_config["stateful_ingestion"] = {
         "enabled": True,
@@ -582,6 +572,23 @@ def test_boomi_data_integration_stateful_removes_deleted_river(
         },
     }
     recipe["pipeline_name"] = "boomi_di_stateful_test"
+    return recipe
+
+
+def _soft_deleted(output_path: Path) -> Set[str]:
+    return {
+        mcp["entityUrn"]
+        for mcp in json.loads(output_path.read_text())
+        if mcp.get("aspectName") == "status" and mcp["aspect"]["json"]["removed"]
+    }
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_boomi_data_integration_stateful_removes_deleted_river(
+    tmp_path: Path, mock_datahub_graph: MagicMock
+) -> None:
+    recipe = _stateful_recipe(tmp_path / "run1.json")
 
     with (
         patch(
@@ -624,9 +631,36 @@ def test_boomi_data_integration_stateful_removes_deleted_river(
         "urn:li:dataFlow:(boomi-data-integration,r-actions,PROD)",
         "urn:li:dataJob:(urn:li:dataFlow:(boomi-data-integration,r-actions,PROD),run)",
     }
-    soft_deleted = {
-        mcp["entityUrn"]
-        for mcp in json.loads((tmp_path / "run2.json").read_text())
-        if mcp.get("aspectName") == "status" and mcp["aspect"]["json"]["removed"]
-    }
-    assert soft_deleted == removed
+    assert _soft_deleted(tmp_path / "run2.json") == removed
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_boomi_data_integration_unreadable_environment_keeps_its_entities(
+    tmp_path: Path, mock_datahub_graph: MagicMock
+) -> None:
+    recipe = _stateful_recipe(tmp_path / "run1.json")
+    with (
+        patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        requests_mock.Mocker() as mock,
+    ):
+        mock_checkpoint.return_value = mock_datahub_graph
+        _register_mocks(mock)
+        run_and_get_pipeline(recipe)
+
+        # The development token stops working between runs.
+        mock.get(f"{BASE_URL}/environments/{ENV_DEV}", status_code=403)
+        recipe["sink"] = {
+            "type": "file",
+            "config": {"filename": str(tmp_path / "run2.json")},
+        }
+        pipeline_run2 = Pipeline.create(recipe)
+        pipeline_run2.run()
+
+    assert [f.title for f in pipeline_run2.source.get_report().failures] == [
+        "Configured environment not accessible"
+    ]
+    assert _soft_deleted(tmp_path / "run2.json") == set()

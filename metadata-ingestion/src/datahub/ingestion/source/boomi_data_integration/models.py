@@ -9,7 +9,8 @@ class DIModel(BaseModel):
 
 
 class PageResponse(DIModel):
-    items: List[Dict[str, object]] = Field(default_factory=list)
+    # Items stay raw so that one malformed record only drops that record.
+    items: List[object] = Field(default_factory=list)
     next_page: Optional[str] = None
 
 
@@ -105,7 +106,7 @@ class SourceToTargetProperties(DIModel):
 
 
 class LogicProperties(DIModel):
-    logic_steps: List[Dict[str, object]] = Field(default_factory=list)
+    logic_steps: List[object] = Field(default_factory=list)
 
 
 class StepTargetSettings(DIModel):
@@ -125,7 +126,7 @@ class LogicNode(DIModel):
     container_id: Optional[str] = None
     is_parallel: bool = False
     # Children stay raw so that a malformed child only drops that child.
-    steps: List[Dict[str, object]] = Field(default_factory=list)
+    steps: List[object] = Field(default_factory=list)
     river_id: Optional[str] = None
     connection_id: Optional[str] = None
     target_settings: Optional[StepTargetSettings] = None
@@ -134,4 +135,4 @@ class LogicNode(DIModel):
 class ConditionBranch(DIModel):
     condition_name: Optional[str] = None
     is_else: bool = False
-    step: Optional[Dict[str, object]] = None
+    step: Optional[object] = None

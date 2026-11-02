@@ -19,6 +19,10 @@ REGION_API_URLS: Dict[DIRegion, str] = {
     DIRegion.AU: "https://api.ap-southeast-2.rivery.io",
 }
 
+HTTPS_SCHEME = "https"
+HTTP_SCHEME = "http"
+LOOPBACK_HOSTS: FrozenSet[str] = frozenset({"localhost", "127.0.0.1", "::1"})
+
 API_PATH_TEMPLATE = "{api_url}/v1/accounts/{account_id}"
 ENVIRONMENTS_PATH = "environments"
 ENVIRONMENT_PATH_TEMPLATE = "environments/{environment_id}"
@@ -30,6 +34,9 @@ PARAM_ITEMS_PER_PAGE = "items_per_page"
 # The API caps items_per_page at 500 on every list endpoint.
 ENVIRONMENTS_PAGE_SIZE = 100
 RIVERS_PAGE_SIZE = 500
+# Guards against an API that keeps returning a next_page link; 500 pages of
+# 500 rivers is far beyond any real environment.
+MAX_PAGES = 500
 
 HEADER_ACCEPT = "Accept"
 HEADER_AUTHORIZATION = "Authorization"
@@ -146,3 +153,8 @@ PROP_ENVIRONMENT_ID = "environment_id"
 PROP_IS_DEFAULT = "is_default"
 PROP_GROUP_ID = "group_id"
 SCHEDULE_SEPARATOR = ", "
+
+UNREACHABLE_ENVIRONMENTS_TEMPLATE = (
+    "Environments that could not be read: {environments}"
+)
+UNREACHABLE_SEPARATOR = "; "

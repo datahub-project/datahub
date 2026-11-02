@@ -16,7 +16,7 @@
     "sources.athena.description": "Sémák, táblák, nézetek és az S3 felé mutató Lineage importálása az Athenából.",
     "sources.azureAd.description": "Felhasználók és csoportok importálása az Azure Active Directoryból.",
     "sources.bigquery.description": "Projects, adathalmazok, táblák, nézetek, Lineage, lekérdezések és statisztikák importálása a BigQuery-ből.",
-    "sources.boomiDataIntegration.description": "Környezetek, csoportok, riverek, logikai lépések és cél Lineage importálása a Boomi Data Integrationből.",
+    "sources.boomiDataIntegration.description": "Környezetek, csoportok, riverek, logikai lépések és cél Lineage importálása a Boomi Data Integration-ből.",
     "sources.cassandra.description": "Táblák, Keyspaces és oszlopsémák importálása a Cassandra-ból.",
     "sources.clickhouse.description": "Táblák, nézetek, Materialized Views, Dictionaries, statisztikák, lekérdezések és Lineage importálása a ClickHouse-ból.",
     "sources.cockroachdb.description": "Adatbázisok, sémák, táblák, nézetek, statisztikák és Lineage importálása a CockroachDB-ből.",

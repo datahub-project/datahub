@@ -157,6 +157,20 @@ def test_multi_table_with_prefix_is_skipped() -> None:
     assert list(resolver.report.targets_prefix_skipped) == ["r"]
 
 
+def test_multi_table_with_nothing_selected_ignores_table_name() -> None:
+    resolver = _resolver()
+    props = _props(
+        {
+            "name": "snowflake",
+            "database_name": "db",
+            "schema_name": "raw",
+            "table_name": "leftover",
+        },
+        tables=[_table("orders", selected=False)],
+    )
+    assert resolver.river_targets(props, "r") == []
+
+
 def test_object_storage_and_unknown_targets_are_skipped() -> None:
     resolver = _resolver()
     s3 = _props({"name": "s3", "bucket_name": "b", "path": "p"})
@@ -231,4 +245,12 @@ def test_logic_step_targets() -> None:
         )
         is None
     )
-    assert resolver.step_target(_node("snowflake_sql_script", table), "s") is None
+    assert resolver.step_target(_node("snowflake_sql_script", table), "s1") is None
+    assert (
+        resolver.step_target(
+            _node("snowflake_sql_query", {"target_type": "table"}), "s2"
+        )
+        is None
+    )
+    assert list(resolver.report.targets_unsupported) == ["s1: snowflake_sql_script"]
+    assert list(resolver.report.targets_missing_location) == ["s2"]

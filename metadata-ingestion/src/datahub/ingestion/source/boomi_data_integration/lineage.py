@@ -141,17 +141,17 @@ class TargetLineageResolver:
             dataset_id=target.dataset_id,
             catalog_name=target.catalog_name,
         )
-        tables = [
-            entry.details
-            for schema in props.schemas
-            for entry in schema.tables
-            if entry.details.is_selected
-        ]
-        if not tables:
+        entries = [entry for schema in props.schemas for entry in schema.tables]
+        if not entries:
             if not target.table_name:
                 return []
             urn = self.resolve(location, target.table_name, context)
             return [urn] if urn else []
+        # A multi-table river never falls back to target.table_name, even when
+        # no table is selected.
+        tables = [entry.details for entry in entries if entry.details.is_selected]
+        if not tables:
+            return []
         if target.target_prefix:
             # How the prefix combines with each table name is unconfirmed, so
             # emit nothing rather than guess a name that may not exist.
@@ -173,7 +173,11 @@ class TargetLineageResolver:
         if settings is None or settings.target_type != STEP_TARGET_TYPE_TABLE:
             return None
         target_name = step_target_name(node.type)
-        if target_name is None or not settings.table_name:
+        if target_name is None:
+            self.report.targets_unsupported.append(f"{context}: {node.type}")
+            return None
+        if not settings.table_name:
+            self.report.targets_missing_location.append(context)
             return None
         location = TargetLocation(
             target_name=target_name,

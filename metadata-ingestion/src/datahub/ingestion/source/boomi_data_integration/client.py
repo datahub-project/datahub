@@ -19,6 +19,7 @@ from datahub.ingestion.source.boomi_data_integration.constants import (
     HEADER_ACCEPT,
     HEADER_AUTHORIZATION,
     HTTP_GET,
+    MAX_PAGES,
     PARAM_ITEMS_PER_PAGE,
     PARAM_PAGE,
     RETRY_BACKOFF_FACTOR,
@@ -117,8 +118,7 @@ class BoomiDataIntegrationClient:
     def _paginate(
         self, path: str, token: SecretStr, page_size: int, model: Type[M]
     ) -> Iterator[M]:
-        page_number = 1
-        while True:
+        for page_number in range(1, MAX_PAGES + 1):
             page = PageResponse.model_validate(
                 self._get(
                     path,
@@ -138,10 +138,20 @@ class BoomiDataIntegrationClient:
                         exc=e,
                     )
             # next_page is a link, but page numbers are enough to walk it and
-            # avoid depending on whether the link is absolute.
-            if not page.next_page or not page.items:
+            # avoid depending on whether the link is absolute. An empty page
+            # with a link is followed, since the link is what marks the end.
+            if not page.next_page:
                 return
-            page_number += 1
+        # A failure rather than a warning, so that stale entity removal does
+        # not delete what lies beyond the cap.
+        self.report.failure(
+            title="Too many pages",
+            message=(
+                "The API kept returning a next page, so listing stopped at the "
+                "page limit. Later records were not ingested."
+            ),
+            context=f"path={path}, max_pages={MAX_PAGES}",
+        )
 
     def list_environments(self, token: SecretStr) -> Iterator[Environment]:
         return self._paginate(

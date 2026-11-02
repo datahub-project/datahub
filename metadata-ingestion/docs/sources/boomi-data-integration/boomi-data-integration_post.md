@@ -2,11 +2,11 @@
 
 #### Rivers and jobs
 
-For every environment, the source plugin lists the rivers and then reads each river's definition. Each river becomes a DataFlow with the custom properties `river_type`, `river_status`, `run_type`, `schedule`, `datasource_id`, `source` and `target`, and the river description.
+For every environment, the source plugin lists the rivers and then reads each river's definition. Each river becomes a DataFlow with the custom properties `river_type`, `river_status`, `schedule` and `datasource_id` where the API returns them, and the river description when present. Source-to-target rivers whose definition can be read also get `run_type`, `source` and `target`.
 
 - A source-to-target river gets one `load` DataJob whose outputs are the target tables.
-- An action or connector executor river gets one `run` DataJob.
-- A logic river gets one DataJob per step, named by the step ID. Containers (`run_once`, `loop`, `condition`) are flattened. Inside a sequential container each step depends on the previous one; steps in a parallel container and the branches of a condition all depend on whatever ran before the container. A `river` step records the river it runs in the `river_id` property. Disabled steps are skipped.
+- An action or connector executor river gets one `run` DataJob with subtype `Run`.
+- A logic river gets one DataJob per step, named by the step ID. Containers (`run_once`, `loop`, `condition`) are flattened. Inside a sequential container each step depends on the previous one; steps in a parallel container and the branches of a condition all depend on whatever ran before the container. A condition branch that runs no step passes its predecessors through. A `river` step records the river it runs in the `river_id` property. Disabled steps are skipped.
 
 #### Target lineage
 
@@ -24,9 +24,9 @@ The target platform comes from the river's target type. `connection_type_platfor
 
 - For Redshift, Postgres and SQL Server targets, set `database` on the connection in `connection_to_platform` to get `database.schema.table`, which is how those source plugins name tables.
 - For Databricks, `database` is used when the river has no catalog.
-- Single-table rivers use the target table name. Multi-table rivers emit one table per selected source table, using its target table name or, if unset, the source table name.
+- Single-table rivers use the target table name. Multi-table rivers emit one table per selected source table, using its target table name or, if unset, the source table name. A multi-table river with no selected tables gets no lineage.
 - Table names are lowercased unless `convert_lineage_urns_to_lowercase` is `false`, or `convert_urns_to_lowercase` is `false` on the connection in `connection_to_platform`.
-- Logic SQL query steps that write to a table get the same treatment, with the platform taken from the step type, for example `snowflake_sql_query`.
+- Logic SQL query steps that write to a table get the same treatment, with the platform taken from the step type, for example `snowflake_sql_query`. Table-target steps of other types, or without a table name, are listed in `targets_unsupported` or `targets_missing_location`.
 
 ### Limitations
 
@@ -41,7 +41,11 @@ The target platform comes from the river's target type. `connection_type_platfor
 
 #### Warning "Environment not accessible"
 
-The token returned HTTP 401 or 403 for that environment. Tokens are scoped to one environment, so add a token for it to `environment_tokens`, or deny the environment with `environment_pattern`.
+With `api_token`, the token returned HTTP 401 or 403 for an environment it can list but not read. Tokens are scoped to one environment, so add an entry for that environment to `environment_tokens` to ingest it.
+
+#### Failure "Configured environment not accessible"
+
+An environment in `environment_tokens` could not be read, so it was skipped and stale entity removal did not run. Replace its token, or remove the entry from `environment_tokens` if you no longer want to ingest it. `environment_pattern` does not help here, because the source plugin reads each configured environment before applying the pattern.
 
 #### Warning "River definitions unavailable"
 

@@ -5,10 +5,12 @@ source:
     # us, eu, il or au
     region: us
 
-    # One token per environment, keyed by environment ID.
+    # One token per environment.
     environment_tokens:
-      "<production environment id>": "${BOOMI_DI_TOKEN_PROD}"
-      "<development environment id>": "${BOOMI_DI_TOKEN_DEV}"
+      - environment_id: "<production environment id>"
+        api_token: "${BOOMI_DI_TOKEN_PROD}"
+      - environment_id: "<development environment id>"
+        api_token: "${BOOMI_DI_TOKEN_DEV}"
     # Or, for a single environment:
     # api_token: "${BOOMI_DI_TOKEN}"
 

@@ -259,6 +259,7 @@ class DataJobSubTypes(StrEnum):
     KINESIS_FIREHOSE_DELIVERY = "Delivery"
     # Boomi Data Integration: one job per river, or one per logic river step.
     BOOMI_DI_LOAD = "Load"
+    BOOMI_DI_RUN = "Run"
     BOOMI_DI_LOGIC_STEP = "Logic Step"
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"

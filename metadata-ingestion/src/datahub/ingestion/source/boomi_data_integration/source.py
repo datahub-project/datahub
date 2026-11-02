@@ -29,6 +29,7 @@ from datahub.ingestion.source.boomi_data_integration.client import (
 )
 from datahub.ingestion.source.boomi_data_integration.config import (
     BoomiDataIntegrationSourceConfig,
+    EnvironmentToken,
 )
 from datahub.ingestion.source.boomi_data_integration.constants import (
     ACCESS_DENIED_STATUS_CODES,
@@ -49,6 +50,8 @@ from datahub.ingestion.source.boomi_data_integration.constants import (
     PROP_TARGET_NAME,
     RUN_JOB_ID,
     SCHEDULE_SEPARATOR,
+    UNREACHABLE_ENVIRONMENTS_TEMPLATE,
+    UNREACHABLE_SEPARATOR,
     LogicNodeType,
     RiverType,
 )
@@ -122,6 +125,40 @@ def _is_access_denied(error: Exception) -> bool:
     )
 
 
+def _test_environment_tokens(
+    client: BoomiDataIntegrationClient, entries: List[EnvironmentToken]
+) -> TestConnectionReport:
+    # Ingestion skips an environment it cannot read and carries on, so the
+    # connection only fails when no configured environment can be read.
+    unreachable: List[str] = []
+    for entry in entries:
+        try:
+            client.get_environment(entry.environment_id, entry.api_token)
+        except _API_ERRORS as e:
+            unreachable.append(f"{entry.environment_id} ({e})")
+    if len(unreachable) == len(entries):
+        return TestConnectionReport(
+            basic_connectivity=CapabilityReport(
+                capable=False,
+                failure_reason=UNREACHABLE_ENVIRONMENTS_TEMPLATE.format(
+                    environments=UNREACHABLE_SEPARATOR.join(unreachable)
+                ),
+            )
+        )
+    return TestConnectionReport(
+        basic_connectivity=CapabilityReport(
+            capable=True,
+            mitigation_message=(
+                UNREACHABLE_ENVIRONMENTS_TEMPLATE.format(
+                    environments=UNREACHABLE_SEPARATOR.join(unreachable)
+                )
+                if unreachable
+                else None
+            ),
+        )
+    )
+
+
 def _schedule(summary: RiverSummary, river: Optional[River]) -> Optional[str]:
     if river is not None and river.schedulers is not None:
         crons = [
@@ -176,9 +213,8 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
         client = BoomiDataIntegrationClient(config, BoomiDataIntegrationSourceReport())
         try:
             if config.environment_tokens:
-                for environment_id, token in config.environment_tokens.items():
-                    client.get_environment(environment_id, token)
-            elif config.api_token is not None:
+                return _test_environment_tokens(client, config.environment_tokens)
+            if config.api_token is not None:
                 next(iter(client.list_environments(config.api_token)), None)
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(capable=True)
@@ -219,13 +255,17 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
     def _discover_environments(self) -> List[EnvironmentAccess]:
         found: List[EnvironmentAccess] = []
         if self.config.environment_tokens:
-            for environment_id, token in sorted(self.config.environment_tokens.items()):
+            for entry in sorted(
+                self.config.environment_tokens, key=lambda e: e.environment_id
+            ):
                 try:
-                    environment = self.client.get_environment(environment_id, token)
+                    environment = self.client.get_environment(
+                        entry.environment_id, entry.api_token
+                    )
                 except _API_ERRORS as e:
-                    self._report_inaccessible_environment(environment_id, e)
+                    self._report_inaccessible_environment(entry.environment_id, e)
                     continue
-                found.append(EnvironmentAccess(environment, token))
+                found.append(EnvironmentAccess(environment, entry.api_token))
         elif self.config.api_token is not None:
             token = self.config.api_token
             try:
@@ -256,7 +296,22 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
         self, environment_id: str, error: Exception
     ) -> None:
         self.report.environments_inaccessible.append(environment_id)
-        if _is_access_denied(error):
+        context = f"environment_id={environment_id}"
+        # Anything short of a listed-but-out-of-scope environment is reported
+        # as a failure: a skipped environment would otherwise look deleted to
+        # stale entity removal, which only stands down after a failure.
+        if self.config.environment_tokens is not None:
+            self.report.failure(
+                title="Configured environment not accessible",
+                message=(
+                    "An environment in environment_tokens could not be read, so it "
+                    "was skipped and stale entity removal is skipped for this run. "
+                    "Fix its token, or remove it from environment_tokens."
+                ),
+                context=context,
+                exc=error,
+            )
+        elif _is_access_denied(error):
             self.report.warning(
                 title="Environment not accessible",
                 message=(
@@ -264,14 +319,17 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
                     "was skipped. Tokens are scoped to one environment; use "
                     "environment_tokens to ingest several."
                 ),
-                context=f"environment_id={environment_id}",
+                context=context,
                 exc=error,
             )
         else:
-            self.report.warning(
+            self.report.failure(
                 title="Failed to read environment",
-                message="The environment was skipped.",
-                context=f"environment_id={environment_id}",
+                message=(
+                    "The environment was skipped and stale entity removal is "
+                    "skipped for this run."
+                ),
+                context=context,
                 exc=error,
             )
 
@@ -487,12 +545,16 @@ class BoomiDataIntegrationSource(StatefulIngestionSourceBase, TestableSource):
             ]
         if river is not None and river_type == RiverType.LOGIC:
             return self._logic_job_specs(river, context)
-        job_id = LOAD_JOB_ID if river_type == RiverType.SOURCE_TO_TARGET else RUN_JOB_ID
+        is_load = river_type == RiverType.SOURCE_TO_TARGET
         return [
             RiverJobSpec(
-                name=job_id,
+                name=LOAD_JOB_ID if is_load else RUN_JOB_ID,
                 display_name=display_name,
-                subtype=DataJobSubTypes.BOOMI_DI_LOAD,
+                subtype=(
+                    DataJobSubTypes.BOOMI_DI_LOAD
+                    if is_load
+                    else DataJobSubTypes.BOOMI_DI_RUN
+                ),
                 outputs=[],
                 upstream_jobs=[],
                 custom_properties={},

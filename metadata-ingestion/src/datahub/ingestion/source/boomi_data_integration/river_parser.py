@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import ValidationError
 
@@ -12,7 +12,7 @@ from datahub.ingestion.source.boomi_data_integration.models import (
     SourceToTargetProperties,
 )
 
-RawNode = Dict[str, object]
+RawNode = object
 
 _SEQUENTIAL_CONTAINERS = (LogicNodeType.RUN_ONCE, LogicNodeType.LOOP)
 
@@ -107,14 +107,18 @@ class _LogicFlattener:
         # and whatever follows the condition depends on every branch.
         exits: List[str] = []
         for raw_branch in node.steps:
+            child: Optional[LogicNode] = None
             try:
                 branch = ConditionBranch.model_validate(raw_branch)
             except ValidationError:
                 self.result.invalid += 1
-                continue
-            if branch.step is None:
-                continue
-            child = self._parse(branch.step)
-            if child is not None:
+            else:
+                if branch.step is not None:
+                    child = self._parse(branch.step)
+            if child is None:
+                # A branch that runs nothing lets the condition fall through,
+                # so the next step still depends on what ran before it.
+                exits.extend(upstream)
+            else:
                 exits.extend(self._visit(child, upstream))
         return _dedupe(exits) or upstream

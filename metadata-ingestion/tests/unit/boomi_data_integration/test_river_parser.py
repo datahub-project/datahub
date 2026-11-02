@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Sequence
 
 from datahub.ingestion.source.boomi_data_integration.models import River
 from datahub.ingestion.source.boomi_data_integration.river_parser import (
@@ -11,7 +11,7 @@ def _step(step_id: str, step_type: str = "action", **extra: object) -> Dict:
     return {"type": step_type, "name": step_id, "step_id": step_id, **extra}
 
 
-def _run_once(steps: List[Dict], is_parallel: bool = False) -> Dict:
+def _run_once(steps: Sequence[object], is_parallel: bool = False) -> Dict:
     return {
         "type": "run_once",
         "name": "container",
@@ -86,7 +86,8 @@ def test_nested_loop_and_condition_branches() -> None:
         "yes": ["l1"],
         "no1": ["l1"],
         "no2": ["no1"],
-        "last": ["yes", "no2"],
+        # The empty branch passes l1 through.
+        "last": ["yes", "no2", "l1"],
     }
 
 
@@ -114,3 +115,22 @@ def test_empty_parallel_container_passes_predecessor_through() -> None:
         [_step("a"), _run_once([], is_parallel=True), _step("b")],
     )
     assert _edges(result) == {"a": [], "b": ["a"]}
+
+
+def test_condition_branch_that_runs_nothing_passes_predecessor_through() -> None:
+    condition = {
+        "type": "condition",
+        "name": "branch",
+        "steps": [
+            {"condition_name": "yes", "step": _step("yes")},
+            {"condition_name": "off", "step": _step("off", is_enabled=False)},
+        ],
+    }
+    result = _flatten([_step("a"), condition, _step("b")])
+    assert _edges(result) == {"a": [], "yes": ["a"], "b": ["yes", "a"]}
+
+
+def test_malformed_child_only_drops_that_child() -> None:
+    result = _flatten([_run_once([_step("a"), "not an object", _step("b")])])
+    assert _edges(result) == {"a": [], "b": ["a"]}
+    assert result.invalid == 1
