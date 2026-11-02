@@ -144,3 +144,13 @@ def test_container_complex() -> None:
     assert c.domain == DomainUrn("Marketing")
 
     assert_entity_golden(c, _GOLDEN_DIR / "test_container_complex_golden.json")
+
+
+def test_container_emits_data_platform_instance_first() -> None:
+    c = Container(
+        DatabaseKey(platform="snowflake", instance="inst", database="db"),
+        display_name="db",
+        subtype="Database",
+    )
+
+    assert c.as_mcps()[0].aspectName == "dataPlatformInstance"

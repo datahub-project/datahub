@@ -93,13 +93,18 @@ class Container(
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
 
-        # This needs to come first to ensure that the display name is registered.
+        # Set before any other standard aspect so as_mcps() emits it first: the
+        # container is then created with its instance stored, and policies scoped
+        # by platform instance apply to its later writes.
+        if isinstance(container_key, ContainerKey):
+            self._set_platform_instance(container_key.platform, container_key.instance)
+
+        # This needs to come before the other containerProperties setters to ensure
+        # that the display name is registered.
         self._ensure_container_props(name=display_name)
 
         # TODO: Normal usages should require container key. Only the graph init method can accept an urn.
         if isinstance(container_key, ContainerKey):
-            self._set_platform_instance(container_key.platform, container_key.instance)
-
             self.set_custom_properties(
                 {
                     **container_key.property_dict(),
