@@ -1,8 +1,11 @@
+import { fireEvent } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
 import { render, screen } from '@utils/test-utils/customRender';
+
+const SELECTED_ROLE_URN = 'urn:li:dataHubRole:Admin';
 
 const mockUserContext = {
     platformPrivileges: {
@@ -17,7 +20,14 @@ vi.mock('@app/context/useUserContext', () => ({
 }));
 
 vi.mock('@app/identity/user/SimpleSelectRole', () => ({
-    default: () => <div data-testid="role-picker" />,
+    default: ({ onRoleSelect }: { onRoleSelect: (role: { urn: string; name: string }) => void }) => (
+        <button
+            type="button"
+            aria-label="role"
+            data-testid="role-picker"
+            onClick={() => onRoleSelect({ urn: 'urn:li:dataHubRole:Admin', name: 'Admin' })}
+        />
+    ),
 }));
 
 vi.mock('@graphql/role.generated', () => ({
@@ -53,5 +63,11 @@ describe('ViewInviteTokenModal', () => {
 
         expect(screen.getByTestId('role-picker')).toBeInTheDocument();
         expect(screen.getByText(/automatically assigned to the selected role/)).toBeInTheDocument();
+
+        fireEvent.click(screen.getByTestId('role-picker'));
+
+        expect(getInviteToken).toHaveBeenLastCalledWith(
+            expect.objectContaining({ variables: { input: { roleUrn: SELECTED_ROLE_URN } } }),
+        );
     });
 });

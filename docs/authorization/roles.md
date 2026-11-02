@@ -27,7 +27,7 @@ The out-of-the-box Roles represent the most common types of DataHub users. Curre
 | Reader    | Can read all metadata. Cannot edit anything by default, or take administrative actions. |
 
 :::note
-To manage roles, including viewing roles, or editing a user's role, you must either be an **Admin**, or have the **Manage Policies** privilege. An invite link that assigns a role requires the same privilege. Inviting a user with no role requires **Manage User Credentials** only.
+To manage roles, including viewing roles, or editing a user's role, you must either be an **Admin**, or have the **Manage Policies** privilege. An invite link that assigns a role requires both **Manage User Credentials** and **Manage Policies**. Inviting a user with no role requires **Manage User Credentials** only.
 :::
 
 ## Using Roles

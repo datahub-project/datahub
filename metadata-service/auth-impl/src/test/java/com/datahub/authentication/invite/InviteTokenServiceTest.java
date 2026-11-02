@@ -137,15 +137,7 @@ public class InviteTokenServiceTest {
   @Test
   public void getInviteTokenForRoleAllowedWithManagePolicies() throws Exception {
     allowManagePolicies();
-    final SearchResult searchResult = new SearchResult();
-    searchResult.setEntities(new SearchEntityArray());
-    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
-    when(_entityClient.filter(
-            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
-        .thenReturn(searchResult);
-    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
-    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
-    when(_secretService.encrypt(any(), anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+    mockEmptySearchTokenCreation();
 
     assertEquals(
         _inviteTokenService.getInviteToken(opContext, ROLE_URN_STRING, true), INVITE_TOKEN_STRING);
@@ -153,16 +145,28 @@ public class InviteTokenServiceTest {
   }
 
   @Test
-  public void getInviteTokenWithoutRoleDoesNotRequireManagePolicies() throws Exception {
-    final SearchResult searchResult = new SearchResult();
-    searchResult.setEntities(new SearchEntityArray());
-    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
+  public void getInviteTokenExistingRoleDeniedBeforeDecrypt() throws Exception {
+    denyManagePolicies();
+    final SearchEntityArray entities = new SearchEntityArray();
+    entities.add(new SearchEntity().setEntity(inviteTokenUrn));
     when(_entityClient.filter(
             eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
-        .thenReturn(searchResult);
-    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
-    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
-    when(_secretService.encrypt(any(), anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+        .thenReturn(new SearchResult().setEntities(entities));
+    mockInviteTokenEntity(
+        new InviteToken().setToken(ENCRYPTED_INVITE_TOKEN_STRING).setRole(roleUrn));
+    when(_secretService.decrypt(any(), eq(ENCRYPTED_INVITE_TOKEN_STRING)))
+        .thenReturn(INVITE_TOKEN_STRING);
+
+    assertThrows(
+        InviteTokenAuthorizationException.class,
+        () -> _inviteTokenService.getInviteToken(opContext, ROLE_URN_STRING, false));
+    verify(_entityClient, never()).filter(any(), any(), any(), any(), anyInt(), anyInt());
+    verify(_secretService, never()).decrypt(any(), anyString());
+  }
+
+  @Test
+  public void getInviteTokenWithoutRoleDoesNotRequireManagePolicies() throws Exception {
+    mockEmptySearchTokenCreation();
 
     assertEquals(_inviteTokenService.getInviteToken(opContext, null, true), INVITE_TOKEN_STRING);
     assertEquals(_inviteTokenService.getInviteToken(opContext, "  ", false), INVITE_TOKEN_STRING);
@@ -181,15 +185,7 @@ public class InviteTokenServiceTest {
 
   @Test
   public void getInviteTokenRegenerate() throws Exception {
-    final SearchResult searchResult = new SearchResult();
-    searchResult.setEntities(new SearchEntityArray());
-    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
-    when(_entityClient.filter(
-            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
-        .thenReturn(searchResult);
-    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
-    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
-    when(_secretService.encrypt(any(), anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+    mockEmptySearchTokenCreation();
 
     _inviteTokenService.getInviteToken(opContext, null, true);
     verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
@@ -197,15 +193,7 @@ public class InviteTokenServiceTest {
 
   @Test
   public void getInviteTokenEmptySearchResult() throws Exception {
-    final SearchResult searchResult = new SearchResult();
-    searchResult.setEntities(new SearchEntityArray());
-    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
-    when(_entityClient.filter(
-            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
-        .thenReturn(searchResult);
-    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
-    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
-    when(_secretService.encrypt(any(), anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
+    mockEmptySearchTokenCreation();
 
     _inviteTokenService.getInviteToken(opContext, null, false);
     verify(_entityClient, times(1)).ingestProposal(any(OperationContext.class), any());
@@ -278,6 +266,18 @@ public class InviteTokenServiceTest {
         .thenReturn(INVITE_TOKEN_STRING);
 
     assertEquals(_inviteTokenService.getInviteToken(opContext, null, false), INVITE_TOKEN_STRING);
+  }
+
+  private void mockEmptySearchTokenCreation() throws Exception {
+    final SearchResult searchResult = new SearchResult();
+    searchResult.setEntities(new SearchEntityArray());
+    when(opContext.getAuthentication()).thenReturn(SYSTEM_AUTHENTICATION);
+    when(_entityClient.filter(
+            eq(opContext), eq(INVITE_TOKEN_ENTITY_NAME), any(), any(), anyInt(), anyInt()))
+        .thenReturn(searchResult);
+    when(_secretService.generateUrlSafeToken(anyInt())).thenReturn(INVITE_TOKEN_STRING);
+    when(_secretService.hashString(anyString())).thenReturn(HASHED_INVITE_TOKEN_STRING);
+    when(_secretService.encrypt(any(), anyString())).thenReturn(ENCRYPTED_INVITE_TOKEN_STRING);
   }
 
   private void mockInviteTokenEntity(final InviteToken inviteTokenAspect) throws Exception {
