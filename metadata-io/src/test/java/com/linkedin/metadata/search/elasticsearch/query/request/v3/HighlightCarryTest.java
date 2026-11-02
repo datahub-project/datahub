@@ -6,6 +6,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchHitMatches;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.testng.annotations.Test;
 
@@ -31,6 +32,34 @@ public class HighlightCarryTest {
       HighlightCarry.apply(
           List.of(new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:corpuser:kept"))), false);
       assertEquals(scans.get(), 1);
+    } finally {
+      HighlightCarry.clear();
+    }
+  }
+
+  @Test
+  public void testStageFillDoesNotScanTheHighlightReporter() {
+    AtomicInteger scans = new AtomicInteger();
+    HighlightCarry.begin();
+    try {
+      HighlightCarry.stash(
+          "urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)",
+          explain -> {
+            scans.incrementAndGet();
+            return SearchHitMatches.EMPTY;
+          });
+      StageMatchedFields.stash(
+          "urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)",
+          Map.of("name", "orders"),
+          new MatchedFields("orders", 3),
+          Map.of());
+      StageMatchedFields.fill(
+          List.of(
+              new SearchEntity()
+                  .setEntity(
+                      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)"))),
+          List.of("name"));
+      assertEquals(scans.get(), 0);
     } finally {
       HighlightCarry.clear();
     }
