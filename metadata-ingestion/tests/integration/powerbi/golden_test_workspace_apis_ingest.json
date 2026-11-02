@@ -3514,16 +3514,7 @@
             "chartUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163/a1b2c3d4e5f6a7b8c9d0",
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
-                },
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
-                },
-                {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
-                },
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
                 }
             ]
         }
@@ -3676,16 +3667,13 @@
             "chartUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163/a1b2c3d4e5f6a7b8c9d0",
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
-                },
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
                 },
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
                 },
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
                 }
             ],
             "type": "BAR"
@@ -3868,15 +3856,6 @@
             "chartUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163/a1b2c3d4e5f6a7b8c9d0",
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
-                },
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
-                },
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
-                },
-                {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
                 }
             ],
@@ -4030,16 +4009,10 @@
             "chartUrl": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/reports/584cf13a-1485-41c2-a514-b1bb66fff163/a1b2c3d4e5f6a7b8c9d0",
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims_By_State,DEV)"
-                },
-                {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Claims,DEV)"
                 },
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Insurance_KPIs,DEV)"
-                },
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:powerbi,Insurance_Model.Policies,DEV)"
                 }
             ],
             "type": "LINE"
