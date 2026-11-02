@@ -2,7 +2,6 @@
 names for its target-platform URNs, or siblings and lineage point at entities
 that never exist."""
 
-import logging
 from typing import List, Optional
 
 import pytest
@@ -22,6 +21,7 @@ def _node(
     upstream_nodes: Optional[List[str]] = None,
     compiled_code: Optional[str] = None,
     columns: Optional[List[DBTColumn]] = None,
+    dbt_adapter: Optional[str] = "dremio",
 ) -> DBTNode:
     return DBTNode(
         database=database,
@@ -32,7 +32,7 @@ def _node(
         description="",
         language="sql",
         raw_code=None,
-        dbt_adapter="dremio",
+        dbt_adapter=dbt_adapter,
         dbt_name=dbt_name,
         dbt_file_path=None,
         dbt_package_name="my_project",
@@ -57,8 +57,8 @@ def _urn(name: str, platform: str = "dremio") -> str:
     [
         ("my_source_s3", "dremio.my_source_s3.materialize.orders"),
         ("My_Source_S3", "dremio.my_source_s3.materialize.orders"),
-        ("dremio", "dremio.materialize.orders"),
-        ("DREMIO", "dremio.materialize.orders"),
+        # A space or source named "dremio" is part of the path, as in the Dremio source.
+        ("dremio", "dremio.dremio.materialize.orders"),
         (None, "dremio.materialize.orders"),
     ],
 )
@@ -66,21 +66,33 @@ def test_dremio_target_urn_matches_dremio_source(
     database: Optional[str], expected_name: str
 ) -> None:
     node = _node("model.my_project.orders", database, "materialize", "orders")
-    node.convert_urns_to_lowercase = True
     assert node.get_urn("dremio", "DEV", None) == _urn(expected_name)
 
 
-def test_dremio_target_urn_drops_dbt_dremio_no_schema() -> None:
+@pytest.mark.parametrize(
+    "name, expected_name",
+    [
+        ("orders", "dremio.my_space.orders"),
+        # Only the schema position is the placeholder; a model may be called no_schema.
+        ("no_schema", "dremio.my_space.no_schema"),
+    ],
+)
+def test_dremio_target_urn_drops_dbt_dremio_no_schema(
+    name: str, expected_name: str
+) -> None:
     # dbt-dremio stores a model with no folder under schema "no_schema" and
     # leaves it out of the SQL it runs; the dataset is directly in the space.
-    node = _node("model.my_project.orders", "my_space", "no_schema", "orders")
-    assert node.get_urn("dremio", "DEV", None) == _urn("dremio.my_space.orders")
+    node = _node(f"model.my_project.{name}", "my_space", "no_schema", name)
+    assert node.get_urn("dremio", "DEV", None) == _urn(expected_name)
 
 
-def test_dremio_target_urn_keeps_case_without_lowercasing() -> None:
+def test_dremio_target_urn_is_lowercase_like_the_dremio_source() -> None:
+    # The Dremio source always lowercases, so dbt does too, whatever
+    # convert_urns_to_lowercase says.
     node = _node("model.my_project.orders", "My_Space", "materialize", "Orders")
+    node.convert_urns_to_lowercase = False
     assert node.get_urn("dremio", "DEV", None) == _urn(
-        "dremio.My_Space.materialize.Orders"
+        "dremio.my_space.materialize.orders"
     )
 
 
@@ -92,13 +104,16 @@ def test_non_dremio_urns_unchanged() -> None:
     )
 
 
-def _make_dremio_source() -> DBTCoreSource:
+def _make_dremio_source(
+    target_platform: str = "dremio", include_database_name: bool = True
+) -> DBTCoreSource:
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-dremio")
     return DBTCoreSource(
         DBTCoreConfig(
             manifest_path="temp/",
             catalog_path="temp/",
-            target_platform="dremio",
+            target_platform=target_platform,
+            include_database_name=include_database_name,
             env="DEV",
             enable_meta_mapping=False,
         ),
@@ -143,8 +158,25 @@ def test_dremio_cll_upstream_urns_carry_dremio_prefix() -> None:
     ] == [(upstream.dbt_name, "order_id", "order_id")]
 
 
-@pytest.mark.parametrize("ephemeral_schema", ["staging", "no_schema"])
-def test_dremio_cll_through_ephemeral_model(ephemeral_schema: str) -> None:
+@pytest.mark.parametrize(
+    "ephemeral_schema, target_platform, dbt_adapter",
+    [
+        ("staging", "dremio", "dremio"),
+        ("no_schema", "dremio", "dremio"),
+        # dbt Cloud passes target_platform through as dbt_adapter, as typed.
+        ("no_schema", "Dremio", "Dremio"),
+        ("no_schema", "dremio", None),
+        # A nested folder is a dotted schema.
+        ("staging.sub", "dremio", "dremio"),
+    ],
+)
+@pytest.mark.parametrize("ephemeral_database", ["my_space", "dremio"])
+def test_dremio_cll_through_ephemeral_model(
+    ephemeral_schema: str,
+    target_platform: str,
+    dbt_adapter: Optional[str],
+    ephemeral_database: str,
+) -> None:
     upstream = _node(
         "source.my_project.my_source_s3.orders",
         "my_source_s3",
@@ -156,12 +188,13 @@ def test_dremio_cll_through_ephemeral_model(ephemeral_schema: str) -> None:
     )
     ephemeral = _node(
         "model.my_project.stg_orders",
-        "my_space",
+        ephemeral_database,
         ephemeral_schema,
         "stg_orders",
         materialization="ephemeral",
         upstream_nodes=[upstream.dbt_name],
         compiled_code='SELECT order_id FROM "my_source_s3"."materialize"."orders"',
+        dbt_adapter=dbt_adapter,
     )
     model = _node(
         "model.my_project.order_ids",
@@ -176,7 +209,7 @@ def test_dremio_cll_through_ephemeral_model(ephemeral_schema: str) -> None:
         ),
     )
 
-    _make_dremio_source()._infer_schemas_and_update_cll(
+    _make_dremio_source(target_platform)._infer_schemas_and_update_cll(
         {n.dbt_name: n for n in (upstream, ephemeral, model)}
     )
 
@@ -186,14 +219,26 @@ def test_dremio_cll_through_ephemeral_model(ephemeral_schema: str) -> None:
     ] == [(ephemeral.dbt_name, "order_id", "order_id")]
 
 
-def test_dremio_without_database_name_warns(caplog: pytest.LogCaptureFixture) -> None:
+def test_dremio_duplicate_source_matched_by_dremio_name() -> None:
+    # Different dbt casing, same Dremio dataset: the source is a duplicate.
+    model = _node("model.my_project.orders", "My_Space", "marts", "orders")
+    source = _node(
+        "source.my_project.my_space.orders",
+        "my_space",
+        "marts",
+        "orders",
+        node_type="source",
+        materialization=None,
+    )
+    nodes = _make_dremio_source()._drop_duplicate_sources([model, source])
+    assert [n.dbt_name for n in nodes] == [model.dbt_name]
+
+
+def test_dremio_without_database_name_warns() -> None:
     # The Dremio source names datasets by their full path, so dbt URNs without
     # the database can't match them.
-    with caplog.at_level(logging.WARNING):
-        DBTCoreConfig(
-            manifest_path="temp/",
-            catalog_path="temp/",
-            target_platform="dremio",
-            include_database_name=False,
-        )
-    assert any("include_database_name" in r.message for r in caplog.records)
+    source = _make_dremio_source(include_database_name=False)
+    source._warn_unmatchable_target_urns()
+    assert any(
+        "include_database_name" in (w.message or "") for w in source.report.warnings
+    )

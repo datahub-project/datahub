@@ -97,6 +97,7 @@ from datahub.ingestion.source.dremio.dremio_naming import (
     DREMIO_PLATFORM,
     DremioSchemaResolver,
     dremio_dataset_name,
+    dremio_dataset_name_from_sql,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -1078,19 +1079,6 @@ class DBTCommonConfig(
                 "used verbatim in the semanticModel and metric urns"
             )
         return stripped
-
-    @model_validator(mode="after")
-    def warn_dremio_without_database_name(self) -> "DBTCommonConfig":
-        if (
-            self.target_platform.lower() == DREMIO_PLATFORM
-            and not self.include_database_name
-        ):
-            logger.warning(
-                "`include_database_name: false` with `target_platform: dremio` names "
-                "dbt nodes without their Dremio space or source, so they won't match "
-                "the datasets the Dremio source ingests. Remove the setting."
-            )
-        return self
 
     @model_validator(mode="after")
     def validate_skip_sources_in_lineage(self) -> "DBTCommonConfig":
@@ -2192,20 +2180,32 @@ class DBTNode:
         fqn = self._join_parts([self.database, self.schema, self.name])
         return fqn.replace('"', "")
 
-    def get_target_platform_name(self, name: str, target_platform: str) -> str:
-        """Adjust a warehouse name built from this node to the one the target
-        platform's own source uses.
+    def _is_dremio_target(self, target_platform: str) -> bool:
+        return target_platform.lower() == DREMIO_PLATFORM
 
-        The Dremio source names every dataset ``dremio.<path>``: name it with the
-        same rule as DremioSchemaResolver, without dbt-dremio's ``no_schema``
-        placeholder.
+    def _target_platform_schema(self, target_platform: str) -> Optional[str]:
+        if (
+            self._is_dremio_target(target_platform)
+            and self.schema == _DBT_DREMIO_NO_SCHEMA
+        ):
+            return None
+        return self.schema
+
+    def get_target_platform_fqn(self, target_platform: str) -> str:
+        """The name the target platform's own source gives this node's dataset.
+
+        The Dremio source names every dataset ``dremio.<path>``, lowercased, and
+        dbt-dremio's ``no_schema`` placeholder is not part of that path.
         """
-        if target_platform.lower() != DREMIO_PLATFORM:
-            return name
-        parts = name.split(".")
-        if self.schema == _DBT_DREMIO_NO_SCHEMA:
-            parts = [part for part in parts if part != _DBT_DREMIO_NO_SCHEMA]
-        return dremio_dataset_name(parts)
+        if self.is_semantic_model() or not self._is_dremio_target(target_platform):
+            return self.get_db_fqn()
+        return dremio_dataset_name(
+            [
+                self.database,
+                self._target_platform_schema(target_platform),
+                self.name,
+            ]
+        ).replace('"', "")
 
     def get_urn(
         self,
@@ -2215,7 +2215,7 @@ class DBTNode:
         # Otherwise, it's the target platform instance.
         data_platform_instance: Optional[str],
     ) -> str:
-        db_fqn = self.get_target_platform_name(self.get_db_fqn(), target_platform)
+        db_fqn = self.get_target_platform_fqn(target_platform)
         if self.convert_urns_to_lowercase:
             db_fqn = db_fqn.lower()
         return mce_builder.make_dataset_urn_with_platform_instance(
@@ -2231,23 +2231,32 @@ class DBTNode:
     def is_semantic_model(self) -> bool:
         return self.node_type == DBT_NODE_TYPE_SEMANTIC_MODEL
 
-    def get_fake_ephemeral_table_name(self) -> str:
+    def get_fake_ephemeral_table_name(self, target_platform: str) -> str:
+        """The table name an ephemeral model's CTE is swapped for in compiled SQL."""
         assert self.is_ephemeral_model()
 
-        # Similar to get_db_fqn. dbt-dremio's no_schema placeholder is left out
-        # here too, so the name in the rewritten SQL keeps to 3 parts (the only
-        # ones sqlglot reports after the swap) and matches the placeholder URN.
-        schema = (
-            None
-            if self.dbt_adapter == DREMIO_PLATFORM
-            and self.schema == _DBT_DREMIO_NO_SCHEMA
-            else self.schema
-        )
+        schema = self._target_platform_schema(target_platform)
+        if schema and self._is_dremio_target(target_platform):
+            # A nested Dremio folder is a dotted schema, but detach_ctes keeps only
+            # 3 parts of the swapped-in name. Fold the folders into one part: the
+            # name is a placeholder that only has to match its own URN.
+            schema = schema.replace(".", "_")
         db_fqn = self._join_parts(
             [self.database, schema, f"__datahub__dbt__ephemeral__{self.name}"]
         )
         db_fqn = db_fqn.lower()
         return db_fqn.replace('"', "")
+
+    def get_fake_ephemeral_dataset_name(self, target_platform: str) -> str:
+        """The placeholder dataset name the schema resolver gives
+        get_fake_ephemeral_table_name, by the same rule."""
+        name = self.get_fake_ephemeral_table_name(target_platform)
+        if self._is_dremio_target(target_platform):
+            parts: List[Optional[str]] = list(name.split("."))
+            # Padded to sqlglot's database/schema/table positions, as the resolver
+            # sees them: a 2-part name has no database.
+            return dremio_dataset_name_from_sql([None] * (3 - len(parts)) + parts)
+        return name
 
     def get_urn_for_upstream_lineage(
         self,
@@ -3453,9 +3462,24 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ),
         )
 
+    def _warn_unmatchable_target_urns(self) -> None:
+        if (
+            self.config.target_platform.lower() == DREMIO_PLATFORM
+            and not self.config.include_database_name
+        ):
+            self.report.warning(
+                title="Dremio datasets can't be matched without the database name",
+                message="With `include_database_name: false`, dbt names Dremio datasets "
+                "without their space or source, so they don't match the datasets the "
+                "Dremio source ingests and their lineage is incomplete. Remove the "
+                "setting.",
+                context=f"target_platform={self.config.target_platform}",
+            )
+
     def get_workunits_internal(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
+        self._warn_unmatchable_target_urns()
         if self.config.write_semantics == "PATCH":
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
         if self.config.skip_missing_upstreams_in_lineage:
@@ -3806,7 +3830,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         warehouse_model_names: Dict[str, str] = {}  # warehouse name -> model unique id
         for node in original_nodes:
             if node.node_type == "model" and node.exists_in_target_platform:
-                warehouse_model_names[node.get_db_fqn()] = node.dbt_name
+                warehouse_model_names[
+                    node.get_target_platform_fqn(self.config.target_platform)
+                ] = node.dbt_name
 
         # Pass 2 - identify + drop duplicate sources.
         source_references_to_update: Dict[
@@ -3817,7 +3843,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if (
                 node.node_type == "source"
                 and node.exists_in_target_platform
-                and (model_name := warehouse_model_names.get(node.get_db_fqn()))
+                and (
+                    model_name := warehouse_model_names.get(
+                        node.get_target_platform_fqn(self.config.target_platform)
+                    )
+                )
             ):
                 self.report.warning(
                     title="Duplicate model and source names detected",
@@ -3968,9 +3998,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_node_urn = (
                         mce_builder.make_dataset_urn_with_platform_instance(
                             platform=self.config.target_platform,
-                            name=node.get_target_platform_name(
-                                node.get_fake_ephemeral_table_name(),
-                                self.config.target_platform,
+                            name=node.get_fake_ephemeral_dataset_name(
+                                self.config.target_platform
                             ),
                             platform_instance=self.config.target_platform_instance,
                             env=self.config.env,
@@ -4077,7 +4106,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 elif node.compiled_code:
                     # Add CTE stops based on the upstreams list.
                     cte_mapping = {
-                        cte_name: upstream_node.get_fake_ephemeral_table_name()
+                        cte_name: upstream_node.get_fake_ephemeral_table_name(
+                            self.config.target_platform
+                        )
                         for upstream_node in [
                             all_nodes_map[upstream_node_name]
                             for upstream_node_name in node.upstream_nodes

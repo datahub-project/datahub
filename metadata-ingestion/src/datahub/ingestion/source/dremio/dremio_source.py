@@ -47,6 +47,7 @@ from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
 from datahub.ingestion.source.dremio.dremio_naming import (
     DREMIO_DATABASE_NAME,
     DremioSchemaResolver,
+    dremio_dataset_name,
 )
 from datahub.ingestion.source.dremio.dremio_profiling import (
     DremioProfiler,
@@ -440,7 +441,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(self.get_platform()),
-            name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
+            name=dremio_dataset_name([dataset_name]),
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
@@ -520,7 +521,7 @@ class DremioSource(StatefulIngestionSourceBase):
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
         return make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(self.get_platform()),
-            name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
+            name=dremio_dataset_name([dataset_name]),
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
@@ -547,7 +548,7 @@ class DremioSource(StatefulIngestionSourceBase):
             upstream_urns.append(
                 make_dataset_urn_with_platform_instance(
                     platform=make_data_platform_urn(self.get_platform()),
-                    name=f"{DREMIO_DATABASE_NAME}.{upstream_name}",
+                    name=dremio_dataset_name([upstream_name]),
                     env=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )
