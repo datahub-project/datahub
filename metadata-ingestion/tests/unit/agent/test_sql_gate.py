@@ -250,6 +250,75 @@ def test_rejects_a_vendor_function_with_no_table_reference():
         check_query_scope("SELECT pg_read_file('/etc/passwd')", platform="postgres")
 
 
+@pytest.mark.parametrize(
+    "platform, expression",
+    [
+        # Session and account state.
+        ("snowflake", "CURRENT_ACCOUNT()"),
+        ("snowflake", "CURRENT_ROLE()"),
+        ("snowflake", "CURRENT_IP_ADDRESS()"),
+        ("snowflake", "CURRENT_SESSION()"),
+        ("snowflake", "CURRENT_WAREHOUSE()"),
+        ("databricks", "current_catalog()"),
+        ("postgres", "current_database()"),
+        # Model invocations, which also cost money.
+        ("snowflake", "AI_CLASSIFY(table_name, ['a', 'b'])"),
+        # Decryption and sequence increments, which write.
+        ("snowflake", "DECRYPT(table_name, 'passphrase')"),
+        ("snowflake", "my_seq.NEXTVAL"),
+        ("oracle", "my_seq.CURRVAL"),
+        ("tsql", "NEXT VALUE FOR dbo.my_seq"),
+        # A host file.
+        ("duckdb", "read_csv('/etc/passwd')"),
+    ],
+)
+def test_rejects_modeled_functions_beyond_catalog_metadata(platform, expression):
+    # sqlglot models these, so the vendor-function rule, which only sees
+    # exp.Anonymous, never refused them.
+    with pytest.raises(SqlScopeError):
+        check_query_scope(
+            f"SELECT {expression} AS x FROM information_schema.tables",
+            platform=platform,
+        )
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "AI.GENERATE_BOOL(table_name)",
+        "AI.GENERATE_INT(table_name)",
+        "AI.GENERATE_DOUBLE(table_name)",
+        "AI.GENERATE(table_name)",
+    ],
+)
+def test_rejects_bigquery_model_calls(expression):
+    # Refused by the function rule itself, not only because a model reference
+    # falls outside the catalog scope.
+    with pytest.raises(SqlScopeError, match="model"):
+        check_query_scope(
+            f"SELECT {expression} AS x FROM my_dataset.INFORMATION_SCHEMA.TABLES",
+            platform="bigquery",
+            scope=BigQueryMetadataProbe.catalog_scope,
+        )
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "CURRENT_DATE",
+        "CURRENT_TIMESTAMP",
+        "LOWER(table_name)",
+        # Same Generate prefix as the model calls, but plain functions.
+        "GENERATE_SERIES(1, 3)",
+    ],
+)
+def test_permits_clocks_and_plain_functions(expression):
+    check_query_scope(
+        f"SELECT {expression} AS x FROM information_schema.tables",
+        platform="snowflake",
+    )
+
+
 def test_permits_standard_functions_over_catalog_tables():
     # Only vendor-specific functions sqlglot does not model are refused;
     # ordinary SQL must still work or the gate is unusable.

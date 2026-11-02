@@ -294,7 +294,61 @@ def _check_withheld_columns(statement: exp.Expr) -> None:
             )
 
 
+# Functions sqlglot models, so the Anonymous rule below never sees them, that reach
+# past their arguments: model invocations, decryption, file and secret reads, and
+# sequence increments, which write. Matched by class name, with the AI/ML/Decrypt
+# families by prefix, so the same names are refused on every sqlglot version and
+# a new member of a family is refused as soon as sqlglot models it.
+_REFUSED_FUNCTION_PREFIXES: Tuple[str, ...] = ("AI", "ML", "Decrypt")
+_REFUSED_FUNCTION_CLASSES: FrozenSet[str] = frozenset(
+    {
+        # BigQuery's AI.GENERATE_* / ML.GENERATE_* model calls. Not a Generate
+        # prefix: GENERATE_SERIES and GENERATE_DATE_ARRAY are plain functions.
+        "GenerateBool",
+        "GenerateDouble",
+        "GenerateEmbedding",
+        "GenerateInt",
+        "GenerateTable",
+        "GenerateText",
+        "FeaturesAtTime",
+        "Predict",
+        "VectorSearch",
+        "ReadCSV",
+        "ReadParquet",
+        "ToFile",
+        "Secret",
+        "NextValueFor",
+    }
+)
+# `seq.NEXTVAL` / `seq.CURRVAL` (Snowflake, Oracle) parse as a column of the sequence.
+_SEQUENCE_PSEUDOCOLUMNS: FrozenSet[str] = frozenset({"nextval", "currval"})
+
+
+def _is_refused_function(func: exp.Func) -> bool:
+    name = type(func).__name__
+    # The prefix must end the name or start a new word: AIClassify, Decrypt,
+    # DecryptRaw, but not a class that merely begins with those letters.
+    return name in _REFUSED_FUNCTION_CLASSES or any(
+        name == prefix or (name.startswith(prefix) and name[len(prefix)].isupper())
+        for prefix in _REFUSED_FUNCTION_PREFIXES
+    )
+
+
 def _check_functions(statement: exp.Expr) -> None:
+    for func in statement.find_all(exp.Func):
+        if _is_refused_function(func):
+            raise SqlScopeError(
+                f"'{func.sql_name()}' reaches beyond catalog metadata (a model, a "
+                f"secret, a file or a sequence); only standard SQL over catalog "
+                f"tables is permitted"
+            )
+    for column in statement.find_all(exp.Column):
+        if column.table and column.name.lower() in _SEQUENCE_PSEUDOCOLUMNS:
+            raise SqlScopeError(
+                f"'{column.table}.{column.name}' advances or reads a sequence, which "
+                f"is not catalog metadata; only SELECTs over catalog tables are "
+                f"permitted"
+            )
     for func in statement.find_all(exp.Anonymous):
         if func.name.lower() in _ALLOWED_VENDOR_FUNCTIONS:
             continue
@@ -307,7 +361,8 @@ def _check_functions(statement: exp.Expr) -> None:
 
 # Server and session state sqlglot models as first-class nodes, so neither
 # _check_functions nor, beside a real table, the must-read-a-relation rule sees
-# them. Clock builtins are absent: they disclose nothing.
+# them. Clock builtins are absent: they disclose nothing. Every other CURRENT_*
+# builtin is refused by _check_server_state below, by class name.
 _SERVER_STATE_NODES: Dict[type, str] = {
     node: label
     for node, label in (
@@ -321,6 +376,17 @@ _SERVER_STATE_NODES: Dict[type, str] = {
     )
     if node is not None
 }
+
+
+_CLOCK_FUNCTIONS: FrozenSet[str] = frozenset(
+    {
+        "CurrentDate",
+        "CurrentDatetime",
+        "CurrentTime",
+        "CurrentTimestamp",
+        "CurrentTimestampLTZ",
+    }
+)
 
 
 def _check_server_state(statement: exp.Expr) -> None:
@@ -339,6 +405,15 @@ def _check_server_state(statement: exp.Expr) -> None:
             f"'{label}' reads server or session state rather than catalog "
             f"metadata; only SELECTs over catalog tables are permitted"
         )
+    # CURRENT_ROLE, CURRENT_ACCOUNT, CURRENT_IP_ADDRESS, CURRENT_WAREHOUSE, ...: by
+    # class name, so one a sqlglot upgrade adds is refused too.
+    for func in statement.find_all(exp.Func):
+        name = type(func).__name__
+        if name.startswith("Current") and name not in _CLOCK_FUNCTIONS:
+            raise SqlScopeError(
+                f"'{func.sql_name()}' reads server or session state rather than "
+                f"catalog metadata; only SELECTs over catalog tables are permitted"
+            )
 
 
 def _resolve_dialect(platform: str) -> sqlglot.Dialect:
